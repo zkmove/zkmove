@@ -1,3 +1,3 @@
 pub mod error;
-pub mod value;
 pub mod stack;
+pub mod value;

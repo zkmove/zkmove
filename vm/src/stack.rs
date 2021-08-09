@@ -1,4 +1,4 @@
-use crate::error::{StatusCode, RuntimeError, VmResult};
+use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::value::Value;
 use bellman::pairing::Engine;
 
