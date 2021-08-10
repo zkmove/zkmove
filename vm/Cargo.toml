@@ -5,4 +5,8 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bellman = { package = "bellman_ce", version = "0.3.5" }
+crypto = { path = "../crypto"}
+bellman = { package = "bellman_ce", version = "0.3.0" }
+ff = { package = "ff_ce", version = "0.6.0", features = ["derive"] }
+num-bigint = "0.2.3"
+num-traits = "0.2.8"

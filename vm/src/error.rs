@@ -6,6 +6,7 @@ pub type VmResult<T> = Result<T, RuntimeError>;
 pub enum StatusCode {
     StackUnderflow,
     StackOverflow,
+    ValueConversionError,
 }
 
 #[derive(Debug)]
