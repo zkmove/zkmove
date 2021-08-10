@@ -7,6 +7,7 @@ pub enum StatusCode {
     StackUnderflow,
     StackOverflow,
     ValueConversionError,
+    SynthesisError,
 }
 
 #[derive(Debug)]
