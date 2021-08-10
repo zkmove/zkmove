@@ -27,6 +27,11 @@ impl<E: Engine> Value<E> {
             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
         Ok(Self::Constant(FFConstant { value }))
     }
+    pub fn u64(x: u64) -> VmResult<Self> {
+        let value = biguint_to_fr::<E>(x.into())
+            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+        Ok(Self::Constant(FFConstant { value }))
+    }
     pub fn value(&self) -> Option<E::Fr> {
         match self {
             Self::Constant(c) => Some(c.value),
