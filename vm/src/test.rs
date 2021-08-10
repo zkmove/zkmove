@@ -23,3 +23,25 @@ fn test_ldu8() {
     let expected = Fr::from_hex("0x01").unwrap();
     assert_eq!(result, expected, "result is not expected");
 }
+
+#[test]
+fn test_pop() {
+    let mut cs = DummyCS::new();
+    let mut interp = Interpreter::<Bn256>::new();
+
+    let mut bytecode: Vec<Box<dyn Bytecode<Bn256, DummyCS<Bn256>>>> = Vec::new();
+    bytecode.push(Box::new(LdU8(1u8)));
+    bytecode.push(Box::new(LdU8(2u8)));
+    bytecode.push(Box::new(Pop));
+
+    match interp.run(&mut cs, &bytecode) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("runtime error: {:?}", e)
+        }
+    }
+
+    let result = interp.stack().top().unwrap().value().unwrap();
+    let expected = Fr::from_hex("0x01").unwrap();
+    assert_eq!(result, expected, "result is not expected");
+}
