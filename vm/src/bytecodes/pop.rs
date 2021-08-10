@@ -12,9 +12,7 @@ where
     CS: ConstraintSystem<E>,
 {
     fn execute(&self, _cs: &mut CS, stack: &mut Stack<E>) -> VmResult<()> {
-        match stack.pop() {
-            Some(_) => Ok(()),
-            None => Err(RuntimeError::new(StatusCode::StackUnderflow)),
-        }
+        stack.pop();
+        Ok(())
     }
 }

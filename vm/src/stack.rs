@@ -20,8 +20,12 @@ impl<E: Engine> Stack<E> {
         }
     }
 
-    pub fn pop(&mut self) -> Option<Value<E>> {
-        self.0.pop()
+    pub fn pop(&mut self) -> VmResult<Value<E>> {
+        if self.0.len() == 0 {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            Ok(self.0.pop().unwrap())
+        }
     }
 
     pub fn top(&self) -> Option<&Value<E>> {

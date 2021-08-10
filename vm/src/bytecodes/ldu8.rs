@@ -11,7 +11,6 @@ where
     CS: ConstraintSystem<E>,
 {
     fn execute(&self, _cs: &mut CS, stack: &mut Stack<E>) -> VmResult<()> {
-        stack.push(Value::u8(self.0)?)?;
-        Ok(())
+        stack.push(Value::u8(self.0)?)
     }
 }
