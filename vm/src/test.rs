@@ -89,3 +89,25 @@ fn test_add_u64() {
     let expected = Fr::from_hex("0x03").unwrap();
     assert_eq!(result, expected, "result is not expected");
 }
+
+#[test]
+fn test_add_u128() {
+    let mut cs = DummyCS::new();
+    let mut interp = Interpreter::<Bn256>::new();
+
+    let mut bytecode: Vec<Box<dyn Bytecode<Bn256, DummyCS<Bn256>>>> = Vec::new();
+    bytecode.push(Box::new(LdU128(1u128)));
+    bytecode.push(Box::new(LdU128(2u128)));
+    bytecode.push(Box::new(Add));
+
+    match interp.run(&mut cs, &bytecode) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("runtime error: {:?}", e)
+        }
+    }
+
+    let result = interp.stack().top().unwrap().value().unwrap();
+    let expected = Fr::from_hex("0x03").unwrap();
+    assert_eq!(result, expected, "result is not expected");
+}
