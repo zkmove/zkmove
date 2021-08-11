@@ -6,9 +6,9 @@ use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
 use ff::Field;
 
-pub struct Add;
+pub struct Mul;
 
-impl<E, CS> Bytecode<E, CS> for Add
+impl<E, CS> Bytecode<E, CS> for Mul
 where
     E: Engine,
     CS: ConstraintSystem<E>,
@@ -19,9 +19,9 @@ where
 
         let value = match (left.value(), right.value()) {
             (Some(a), Some(b)) => {
-                let mut add_result = a;
-                add_result.add_assign(&b);
-                Some(add_result)
+                let mut mul_result = a;
+                mul_result.mul_assign(&b);
+                Some(mul_result)
             }
             _ => None,
         };
@@ -35,8 +35,8 @@ where
 
         cs.enforce(
             || "constraint",
-            |lc| lc + &left.lc::<CS>() + &right.lc::<CS>(),
-            |lc| lc + CS::one(),
+            |lc| lc + &left.lc::<CS>(),
+            |lc| lc + &right.lc::<CS>(),
             |lc| lc + variable,
         );
 

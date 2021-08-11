@@ -19,9 +19,9 @@ where
 
         let value = match (left.value(), right.value()) {
             (Some(a), Some(b)) => {
-                let mut sum = a;
-                sum.sub_assign(&b);
-                Some(sum)
+                let mut sub_result = a;
+                sub_result.sub_assign(&b);
+                Some(sub_result)
             }
             _ => None,
         };
