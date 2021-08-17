@@ -1,18 +1,20 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::value::Value;
+use crate::frame::Frame;
 use bellman::pairing::Engine;
 
-const OPERAND_STACK_SIZE: usize = 256;
+const EVAL_STACK_SIZE: usize = 256;
+const CALL_STACK_SIZE: usize = 256;
 
-pub struct Stack<E: Engine>(Vec<Value<E>>);
+pub struct EvalStack<E: Engine>(Vec<Value<E>>);
 
-impl<E: Engine> Stack<E> {
+impl<E: Engine> EvalStack<E> {
     pub fn new() -> Self {
-        Stack(vec![])
+        EvalStack(vec![])
     }
 
     pub fn push(&mut self, value: Value<E>) -> VmResult<()> {
-        if self.0.len() < OPERAND_STACK_SIZE {
+        if self.0.len() < EVAL_STACK_SIZE {
             self.0.push(value);
             Ok(())
         } else {
@@ -31,4 +33,30 @@ impl<E: Engine> Stack<E> {
     pub fn top(&self) -> Option<&Value<E>> {
         self.0.last()
     }
+}
+
+pub struct CallStack<E: Engine>(Vec<Frame<E>>);
+
+impl<E: Engine> CallStack<E> {
+    pub fn new() -> Self {
+        CallStack(vec![])
+    }
+
+    pub fn push(&mut self, frame: Frame<E>) -> VmResult<()> {
+        if self.0.len() < CALL_STACK_SIZE {
+            self.0.push(frame);
+            Ok(())
+        } else {
+            Err(RuntimeError::new(StatusCode::StackOverflow))
+        }
+    }
+
+    pub fn pop(&mut self) -> VmResult<Frame<E>> {
+        if self.0.len() == 0 {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            Ok(self.0.pop().unwrap())
+        }
+    }
+
 }

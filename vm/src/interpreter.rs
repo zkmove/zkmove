@@ -1,10 +1,9 @@
-use crate::error::VmResult;
-use crate::{bytecode::Bytecode, stack::Stack};
+use crate::stack::{EvalStack, CallStack};
 use bellman::pairing::Engine;
-use bellman::ConstraintSystem;
 
 pub struct Interpreter<E: Engine> {
-    stack: Stack<E>,
+    pub stack: EvalStack<E>,
+    pub frames: CallStack<E>,
 }
 
 impl<E> Interpreter<E>
@@ -13,23 +12,12 @@ where
 {
     pub fn new() -> Self {
         Self {
-            stack: Stack::new(),
+            stack: EvalStack::new(),
+            frames: CallStack::new(),
         }
     }
 
-    pub fn run<CS>(&mut self, cs: &mut CS, code: &[Box<dyn Bytecode<E, CS>>]) -> VmResult<()>
-    where
-        CS: ConstraintSystem<E>,
-    {
-        for (i, instruction) in code.iter().enumerate() {
-            cs.push_namespace(|| format!("#{}", i));
-            instruction.execute(cs, &mut self.stack)?;
-            cs.pop_namespace();
-        }
-        Ok(())
-    }
-
-    pub fn stack(&self) -> &Stack<E> {
+    pub fn stack(&self) -> &EvalStack<E> {
         &self.stack
     }
 }

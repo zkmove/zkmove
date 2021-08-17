@@ -1,6 +1,6 @@
 use crate::value::Value;
 use crate::{
-    bytecode::Bytecode, error::RuntimeError, error::StatusCode, error::VmResult, stack::Stack,
+    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult, stack::EvalStack,
 };
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
@@ -8,12 +8,12 @@ use ff::Field;
 
 pub struct Sub;
 
-impl<E, CS> Bytecode<E, CS> for Sub
+impl<E, CS> Instruction<E, CS> for Sub
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    fn execute(&self, cs: &mut CS, stack: &mut Stack<E>) -> VmResult<()> {
+    fn execute(&self, cs: &mut CS, stack: &mut EvalStack<E>) -> VmResult<()> {
         let left = stack.pop()?;
         let right = stack.pop()?;
 

@@ -1,4 +1,4 @@
-use crate::{error::RuntimeError, stack::Stack};
+use crate::{error::RuntimeError, stack::EvalStack};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 
@@ -8,10 +8,10 @@ use bellman::ConstraintSystem;
 //     Add,
 // }
 
-pub trait Bytecode<E, CS>
+pub trait Instruction<E, CS>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    fn execute(&self, cs: &mut CS, stack: &mut Stack<E>) -> Result<(), RuntimeError>;
+    fn execute(&self, cs: &mut CS, stack: &mut EvalStack<E>) -> Result<(), RuntimeError>;
 }

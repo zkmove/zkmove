@@ -8,6 +8,7 @@ pub enum StatusCode {
     StackOverflow,
     ValueConversionError,
     SynthesisError,
+    ScriptLoadingError,
 }
 
 #[derive(Debug)]
