@@ -1,6 +1,6 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
-use crate::value::Value;
 use crate::frame::Frame;
+use crate::value::Value;
 use bellman::pairing::Engine;
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -58,5 +58,4 @@ impl<E: Engine> CallStack<E> {
             Ok(self.0.pop().unwrap())
         }
     }
-
 }

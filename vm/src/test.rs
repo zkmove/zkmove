@@ -12,7 +12,7 @@ fn test_ldu8() {
     let mut bytecode: Vec<Box<dyn Instruction<Bn256, DummyCS<Bn256>>>> = Vec::new();
     bytecode.push(Box::new(LdU8(1u8)));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -34,7 +34,7 @@ fn test_pop() {
     bytecode.push(Box::new(LdU8(2u8)));
     bytecode.push(Box::new(Pop));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -56,7 +56,7 @@ fn test_add_u8() {
     bytecode.push(Box::new(LdU8(2u8)));
     bytecode.push(Box::new(Add));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -78,7 +78,7 @@ fn test_add_u64() {
     bytecode.push(Box::new(LdU64(2u64)));
     bytecode.push(Box::new(Add));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -100,7 +100,7 @@ fn test_add_u128() {
     bytecode.push(Box::new(LdU128(2u128)));
     bytecode.push(Box::new(Add));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -122,7 +122,7 @@ fn test_sub_u8() {
     bytecode.push(Box::new(LdU8(2u8)));
     bytecode.push(Box::new(Sub));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)
@@ -144,7 +144,7 @@ fn test_mul_u8() {
     bytecode.push(Box::new(LdU8(2u8)));
     bytecode.push(Box::new(Mul));
 
-    match interp.run(&mut cs, &bytecode) {
+    match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
             println!("runtime error: {:?}", e)

@@ -1,6 +1,7 @@
 use crate::value::Value;
 use crate::{
-    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult, stack::EvalStack,
+    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult,
+    stack::EvalStack,
 };
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};

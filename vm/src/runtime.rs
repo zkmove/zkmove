@@ -1,9 +1,9 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::frame::{Frame, Locals};
 use crate::interpreter::Interpreter;
-use movelang::loader::MoveLoader;
 use bellman::pairing::bn256::Bn256;
 use crypto::constraint_system::DummyCS;
+use movelang::loader::MoveLoader;
 
 pub struct Runtime {
     loader: MoveLoader,

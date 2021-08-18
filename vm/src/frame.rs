@@ -1,16 +1,16 @@
+use crate::bytecode::Instruction;
 use crate::bytecodes::*;
 use crate::error::VmResult;
 use crate::interpreter::Interpreter;
-use move_vm_runtime::loader::Function;
 use crate::stack::EvalStack;
 use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 use move_binary_format::file_format::Bytecode;
+use move_vm_runtime::loader::Function;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::bytecode::Instruction;
 
 pub struct Locals<E: Engine>(Rc<RefCell<Vec<Value<E>>>>);
 
@@ -35,11 +35,7 @@ impl<E: Engine> Frame<E> {
         }
     }
 
-    pub fn execute<CS>(
-        &mut self,
-        cs: &mut CS,
-        interp: &mut Interpreter<E>,
-    ) -> VmResult<()>
+    pub fn execute<CS>(&mut self, cs: &mut CS, interp: &mut Interpreter<E>) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
@@ -64,7 +60,11 @@ impl<E: Engine> Frame<E> {
         Ok(())
     }
 
-    fn execute_bytecode<CS>(bytecode: Bytecode, cs: &mut CS, stack: &mut EvalStack<E>) -> VmResult<()>
+    fn execute_bytecode<CS>(
+        bytecode: Bytecode,
+        cs: &mut CS,
+        stack: &mut EvalStack<E>,
+    ) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
