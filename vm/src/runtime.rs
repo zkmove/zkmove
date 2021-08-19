@@ -1,5 +1,4 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
-use crate::frame::{Frame, Locals};
 use crate::interpreter::Interpreter;
 use bellman::pairing::bn256::Bn256;
 use crypto::constraint_system::DummyCS;
@@ -26,9 +25,6 @@ impl Runtime {
             .map_err(|_| RuntimeError::new(StatusCode::ScriptLoadingError))?;
         println!("script entry {:?}", entry.name());
 
-        let locals = Locals::new();
-        let mut frame = Frame::new(entry, locals);
-        frame.execute(&mut cs, &mut interp)?;
-        Ok(())
+        interp.run_script(&mut cs, entry)
     }
 }

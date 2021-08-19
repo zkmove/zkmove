@@ -58,4 +58,8 @@ impl<E: Engine> CallStack<E> {
             Ok(self.0.pop().unwrap())
         }
     }
+
+    pub fn top(&mut self) -> Option<&mut Frame<E>> {
+        self.0.last_mut()
+    }
 }

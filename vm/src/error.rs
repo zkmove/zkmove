@@ -9,6 +9,10 @@ pub enum StatusCode {
     ValueConversionError,
     SynthesisError,
     ScriptLoadingError,
+    CopyLocalError,
+    StoreLocalError,
+    OutOfBounds,
+    UnsupportedBytecode,
 }
 
 #[derive(Debug)]

@@ -1,7 +1,8 @@
+use crate::frame::Locals;
 use crate::value::Value;
 use crate::{
     bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult,
-    stack::EvalStack,
+    interpreter::Interpreter,
 };
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
@@ -14,7 +15,13 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    fn execute(&self, cs: &mut CS, stack: &mut EvalStack<E>) -> VmResult<()> {
+    fn execute(
+        &self,
+        cs: &mut CS,
+        _locals: &mut Locals<E>,
+        interp: &mut Interpreter<E>,
+    ) -> VmResult<()> {
+        let stack = &mut interp.stack;
         let left = stack.pop()?;
         let right = stack.pop()?;
 

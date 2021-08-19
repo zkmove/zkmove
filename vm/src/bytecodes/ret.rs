@@ -1,4 +1,5 @@
-use crate::{bytecode::Instruction, error::VmResult, stack::EvalStack};
+use crate::frame::Locals;
+use crate::{bytecode::Instruction, error::VmResult, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 
@@ -9,7 +10,12 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    fn execute(&self, _cs: &mut CS, _stack: &mut EvalStack<E>) -> VmResult<()> {
+    fn execute(
+        &self,
+        _cs: &mut CS,
+        _locals: &mut Locals<E>,
+        _interp: &mut Interpreter<E>,
+    ) -> VmResult<()> {
         Ok(())
     }
 }

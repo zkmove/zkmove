@@ -1,8 +1,10 @@
-use crate::bytecode::Instruction;
 use crate::error::VmResult;
+use crate::frame::{Frame, Locals};
 use crate::stack::{CallStack, EvalStack};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use move_vm_runtime::loader::Function;
+use std::sync::Arc;
 
 pub struct Interpreter<E: Engine> {
     pub stack: EvalStack<E>,
@@ -24,19 +26,21 @@ where
         &self.stack
     }
 
-    pub fn run_test<CS>(
-        &mut self,
-        cs: &mut CS,
-        code: &[Box<dyn Instruction<E, CS>>],
-    ) -> VmResult<()>
+    pub fn frames(&mut self) -> &mut CallStack<E> {
+        &mut self.frames
+    }
+
+    pub fn current_frame(&mut self) -> Option<&mut Frame<E>> {
+        self.frames.top()
+    }
+
+    pub fn run_script<CS>(&mut self, cs: &mut CS, entry: Arc<Function>) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
-        for (i, instruction) in code.iter().enumerate() {
-            cs.push_namespace(|| format!("#{}", i));
-            instruction.execute(cs, &mut self.stack)?;
-            cs.pop_namespace();
-        }
+        let locals = Locals::new(entry.local_count());
+        let mut frame = Frame::new(entry, locals);
+        frame.execute(cs, self)?;
         Ok(())
     }
 }

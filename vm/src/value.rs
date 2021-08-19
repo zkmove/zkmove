@@ -4,16 +4,20 @@ use bellman::{ConstraintSystem, LinearCombination, Variable};
 use ff::PrimeField;
 use num_bigint::BigUint;
 
+#[derive(Clone)]
 pub struct FFConstant<E: Engine> {
     pub value: E::Fr,
 }
 
+#[derive(Clone)]
 pub struct FFVariable<E: Engine> {
     pub value: Option<E::Fr>,
     pub variable: Variable,
 }
 
+#[derive(Clone)]
 pub enum Value<E: Engine> {
+    Invalid,
     Constant(FFConstant<E>),
     Variable(FFVariable<E>),
 }
@@ -39,13 +43,17 @@ impl<E: Engine> Value<E> {
     }
     pub fn value(&self) -> Option<E::Fr> {
         match self {
+            Self::Invalid => None,
             Self::Constant(c) => Some(c.value),
             Self::Variable(v) => v.value,
         }
     }
     pub fn lc<CS: ConstraintSystem<E>>(&self) -> LinearCombination<E> {
         match self {
-            Self::Constant(c) => LinearCombination::zero() + (c.value.clone(), CS::one()),
+            Self::Invalid => {
+                unreachable!()
+            }
+            Self::Constant(c) => LinearCombination::zero() + (c.value, CS::one()),
             Self::Variable(v) => LinearCombination::zero() + v.variable,
         }
     }
