@@ -1,7 +1,7 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
-use ff::PrimeField;
+use ff::{Field, PrimeField};
 use num_bigint::BigUint;
 
 #[derive(Clone)]
@@ -25,6 +25,10 @@ pub enum Value<E: Engine> {
 impl<E: Engine> Value<E> {
     pub fn new_variable(value: Option<E::Fr>, variable: Variable) -> VmResult<Self> {
         Ok(Self::Variable(FFVariable { value, variable }))
+    }
+    pub fn bool(x: bool) -> VmResult<Self> {
+        let value = if x { E::Fr::one() } else { E::Fr::zero() };
+        Ok(Self::Constant(FFConstant { value }))
     }
     pub fn u8(x: u8) -> VmResult<Self> {
         let value = biguint_to_fr::<E>(x.into())

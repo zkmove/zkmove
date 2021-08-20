@@ -103,6 +103,8 @@ impl<E: Engine> Frame<E> {
             Bytecode::Ret => Ret.execute(cs, locals, interp),
             Bytecode::CopyLoc(v) => CopyLoc(v).execute(cs, locals, interp),
             Bytecode::StLoc(v) => StLoc(v).execute(cs, locals, interp),
+            Bytecode::LdTrue => LdTrue.execute(cs, locals, interp),
+            Bytecode::LdFalse => LdFalse.execute(cs, locals, interp),
 
             _ => unreachable!(),
         }
