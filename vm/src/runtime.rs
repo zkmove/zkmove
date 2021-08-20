@@ -2,6 +2,7 @@ use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::interpreter::Interpreter;
 use bellman::pairing::bn256::Bn256;
 use crypto::constraint_system::DummyCS;
+use logger::prelude::*;
 use movelang::loader::MoveLoader;
 
 pub struct Runtime {
@@ -23,7 +24,7 @@ impl Runtime {
             .loader
             .load_script(&script)
             .map_err(|_| RuntimeError::new(StatusCode::ScriptLoadingError))?;
-        println!("script entry {:?}", entry.name());
+        debug!("script entry {:?}", entry.name());
 
         interp.run_script(&mut cs, entry)
     }

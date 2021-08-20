@@ -5,6 +5,7 @@ use crate::interpreter::Interpreter;
 use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::Function;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -64,7 +65,7 @@ impl<E: Engine> Frame<E> {
         let code = self.function.code();
         let mut i = 0u32;
         for instruction in &code[self.pc as usize..] {
-            println!("step #{}, instruction {:?}", i, instruction);
+            debug!("step #{}, instruction {:?}", i, instruction);
 
             match instruction {
                 Bytecode::Ret => {

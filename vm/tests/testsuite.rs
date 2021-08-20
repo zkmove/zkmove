@@ -1,9 +1,10 @@
-use log::debug;
+use logger::prelude::*;
 use movelang::compiler::compile_script;
 use std::path::Path;
 use vm::runtime::Runtime;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
+    logger::init_for_test();
     let script_file = path.to_str().expect("path is None.");
     let compiled_script = compile_script(script_file)?;
     let runtime = Runtime::new();

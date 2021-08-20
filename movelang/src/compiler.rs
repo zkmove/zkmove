@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use log::debug;
+use logger::prelude::*;
 use move_binary_format::file_format::CompiledScript;
 use move_lang::{self, compiled_unit::CompiledUnit, shared::Flags};
 

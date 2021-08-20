@@ -5,7 +5,7 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-log = "0.4.14"
+logger = { path = "../common/logger" }
 anyhow = "1.0.38"
 crypto = { path = "../crypto"}
 movelang = { path = "../movelang"}

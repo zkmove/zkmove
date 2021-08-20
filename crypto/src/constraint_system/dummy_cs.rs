@@ -1,6 +1,6 @@
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
-use log::debug;
+use logger::prelude::*;
 
 pub struct DummyCS<E: Engine> {
     inputs: Vec<E::Fr>,

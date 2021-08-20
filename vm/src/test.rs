@@ -15,7 +15,7 @@ fn test_ldu8() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -37,7 +37,7 @@ fn test_pop() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -59,7 +59,7 @@ fn test_add_u8() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -81,7 +81,7 @@ fn test_add_u64() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -103,7 +103,7 @@ fn test_add_u128() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -125,7 +125,7 @@ fn test_sub_u8() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
@@ -147,7 +147,7 @@ fn test_mul_u8() {
     match interp.run_test(&mut cs, &bytecode) {
         Ok(_) => {}
         Err(e) => {
-            println!("runtime error: {:?}", e)
+            debug!("runtime error: {:?}", e)
         }
     }
 
