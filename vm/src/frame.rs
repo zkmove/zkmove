@@ -5,6 +5,7 @@ use crate::interpreter::Interpreter;
 use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use ff::Field;
 use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::Function;
@@ -40,7 +41,7 @@ impl<E: Engine> Locals<E> {
 }
 
 pub struct Frame<E: Engine> {
-    pc: u32,
+    pc: u16,
     locals: Locals<E>,
     function: Arc<Function>,
 }
@@ -66,47 +67,51 @@ impl<E: Engine> Frame<E> {
         let mut i = 0u32;
         for instruction in &code[self.pc as usize..] {
             debug!("step #{}, instruction {:?}", i, instruction);
+            cs.push_namespace(|| format!("#{}", i));
 
             match instruction {
-                Bytecode::Ret => {
-                    return Ok(());
+                Bytecode::LdU8(v) => LdU8(*v).execute(cs, &mut self.locals, interp),
+                Bytecode::LdU64(v) => LdU64(*v).execute(cs, &mut self.locals, interp),
+                Bytecode::LdU128(v) => LdU128(*v).execute(cs, &mut self.locals, interp),
+                Bytecode::Pop => Pop.execute(cs, &mut self.locals, interp),
+                Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
+                Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
+                Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
+                Bytecode::Ret => Ret.execute(cs, &mut self.locals, interp),
+                Bytecode::CopyLoc(v) => CopyLoc(*v).execute(cs, &mut self.locals, interp),
+                Bytecode::StLoc(v) => StLoc(*v).execute(cs, &mut self.locals, interp),
+                Bytecode::LdTrue => LdTrue.execute(cs, &mut self.locals, interp),
+                Bytecode::LdFalse => LdFalse.execute(cs, &mut self.locals, interp),
+                Bytecode::BrTrue(offset) => {
+                    let stack = &mut interp.stack;
+                    let c = stack
+                        .pop()?
+                        .value()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                    if !c.is_zero() {
+                        debug!("BrTrue is called");
+                        self.pc = *offset;
+                    }
+                    break;
                 }
-                bytecode => {
-                    cs.push_namespace(|| format!("#{}", i));
-                    Self::execute_bytecode(bytecode.clone(), cs, &mut self.locals, interp)?;
-                    cs.pop_namespace();
+                Bytecode::BrFalse(offset) => {
+                    let stack = &mut interp.stack;
+                    let c = stack
+                        .pop()?
+                        .value()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                    if c.is_zero() {
+                        debug!("BrFalse is called");
+                        self.pc = *offset;
+                    }
+                    Ok(())
                 }
-            }
+                _ => unreachable!(),
+            }?;
 
+            cs.pop_namespace();
             i = i + 1;
         }
         Ok(())
-    }
-
-    fn execute_bytecode<CS>(
-        bytecode: Bytecode,
-        cs: &mut CS,
-        locals: &mut Locals<E>,
-        interp: &mut Interpreter<E>,
-    ) -> VmResult<()>
-    where
-        CS: ConstraintSystem<E>,
-    {
-        match bytecode {
-            Bytecode::LdU8(v) => LdU8(v).execute(cs, locals, interp),
-            Bytecode::LdU64(v) => LdU64(v).execute(cs, locals, interp),
-            Bytecode::LdU128(v) => LdU128(v).execute(cs, locals, interp),
-            Bytecode::Pop => Pop.execute(cs, locals, interp),
-            Bytecode::Add => Add.execute(cs, locals, interp),
-            Bytecode::Sub => Sub.execute(cs, locals, interp),
-            Bytecode::Mul => Mul.execute(cs, locals, interp),
-            Bytecode::Ret => Ret.execute(cs, locals, interp),
-            Bytecode::CopyLoc(v) => CopyLoc(v).execute(cs, locals, interp),
-            Bytecode::StLoc(v) => StLoc(v).execute(cs, locals, interp),
-            Bytecode::LdTrue => LdTrue.execute(cs, locals, interp),
-            Bytecode::LdFalse => LdFalse.execute(cs, locals, interp),
-
-            _ => unreachable!(),
-        }
     }
 }
