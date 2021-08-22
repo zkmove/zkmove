@@ -1,7 +1,7 @@
 use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
-use ff::{Field, PrimeField};
+use ff::{Field, PrimeField, PrimeFieldRepr};
 use num_bigint::BigUint;
 
 #[derive(Clone)]
@@ -65,4 +65,12 @@ impl<E: Engine> Value<E> {
 
 pub fn biguint_to_fr<E: Engine>(biguint: BigUint) -> Option<E::Fr> {
     E::Fr::from_str(&biguint.to_str_radix(10))
+}
+
+pub fn fr_to_biguint<Fr: PrimeField>(fr: &Fr) -> BigUint {
+    let mut bytes = Vec::<u8>::new();
+    fr.into_repr()
+        .write_be(&mut bytes)
+        .expect("failed to get Fr bytes");
+    BigUint::from_bytes_be(&bytes)
 }

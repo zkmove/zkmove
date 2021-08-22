@@ -13,6 +13,7 @@ pub enum StatusCode {
     StoreLocalError,
     OutOfBounds,
     UnsupportedBytecode,
+    MoveAbort,
 }
 
 #[derive(Debug)]
@@ -26,6 +27,12 @@ impl RuntimeError {
         Self {
             status,
             message: None,
+        }
+    }
+    pub fn with_message(self, message: String) -> Self {
+        Self {
+            status: self.status,
+            message: Some(message),
         }
     }
 }

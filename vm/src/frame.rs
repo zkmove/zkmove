@@ -2,13 +2,14 @@ use crate::bytecode::Instruction;
 use crate::bytecodes::*;
 use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::interpreter::Interpreter;
-use crate::value::Value;
+use crate::value::{fr_to_biguint, Value};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 use ff::Field;
 use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::Function;
+use num_traits::ToPrimitive;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 pub struct Locals<E: Engine>(Rc<RefCell<Vec<Value<E>>>>);
@@ -65,53 +66,74 @@ impl<E: Engine> Frame<E> {
     {
         let code = self.function.code();
         let mut i = 0u32;
-        for instruction in &code[self.pc as usize..] {
-            debug!("step #{}, instruction {:?}", i, instruction);
-            cs.push_namespace(|| format!("#{}", i));
+        loop {
+            for instruction in &code[self.pc as usize..] {
+                debug!("step #{}, instruction {:?}", i, instruction);
+                cs.push_namespace(|| format!("#{}", i));
 
-            match instruction {
-                Bytecode::LdU8(v) => LdU8(*v).execute(cs, &mut self.locals, interp),
-                Bytecode::LdU64(v) => LdU64(*v).execute(cs, &mut self.locals, interp),
-                Bytecode::LdU128(v) => LdU128(*v).execute(cs, &mut self.locals, interp),
-                Bytecode::Pop => Pop.execute(cs, &mut self.locals, interp),
-                Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
-                Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
-                Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
-                Bytecode::Ret => Ret.execute(cs, &mut self.locals, interp),
-                Bytecode::CopyLoc(v) => CopyLoc(*v).execute(cs, &mut self.locals, interp),
-                Bytecode::StLoc(v) => StLoc(*v).execute(cs, &mut self.locals, interp),
-                Bytecode::LdTrue => LdTrue.execute(cs, &mut self.locals, interp),
-                Bytecode::LdFalse => LdFalse.execute(cs, &mut self.locals, interp),
-                Bytecode::BrTrue(offset) => {
-                    let stack = &mut interp.stack;
-                    let c = stack
-                        .pop()?
-                        .value()
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                    if !c.is_zero() {
-                        debug!("BrTrue is called");
-                        self.pc = *offset;
+                match instruction {
+                    Bytecode::LdU8(v) => LdU8(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::LdU64(v) => LdU64(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::LdU128(v) => LdU128(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::Pop => Pop.execute(cs, &mut self.locals, interp),
+                    Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
+                    Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
+                    Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
+                    Bytecode::Ret => {
+                        return Ok(());
                     }
-                    break;
-                }
-                Bytecode::BrFalse(offset) => {
-                    let stack = &mut interp.stack;
-                    let c = stack
-                        .pop()?
-                        .value()
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                    if c.is_zero() {
-                        debug!("BrFalse is called");
-                        self.pc = *offset;
+                    Bytecode::CopyLoc(v) => CopyLoc(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::StLoc(v) => StLoc(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::LdTrue => LdTrue.execute(cs, &mut self.locals, interp),
+                    Bytecode::LdFalse => LdFalse.execute(cs, &mut self.locals, interp),
+                    Bytecode::BrTrue(offset) => {
+                        let stack = &mut interp.stack;
+                        let c = stack
+                            .pop()?
+                            .value()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        if !c.is_zero() {
+                            self.pc = *offset;
+                        }
+                        i = i + 1;
+                        break;
                     }
-                    Ok(())
-                }
-                _ => unreachable!(),
-            }?;
+                    Bytecode::BrFalse(offset) => {
+                        let stack = &mut interp.stack;
+                        let c = stack
+                            .pop()?
+                            .value()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        if c.is_zero() {
+                            self.pc = *offset;
+                        }
+                        i = i + 1;
+                        break;
+                    }
+                    Bytecode::Abort => {
+                        let stack = &mut interp.stack;
+                        let fr = stack
+                            .pop()?
+                            .value()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        let error_code = fr_to_biguint(&fr)
+                            .to_u64()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
+                            format!(
+                                "{} aborted with error code {}",
+                                self.function.pretty_string(),
+                                error_code
+                            ),
+                        ));
+                    }
 
-            cs.pop_namespace();
-            i = i + 1;
+                    _ => unreachable!(),
+                }?;
+
+                cs.pop_namespace();
+                i = i + 1;
+            }
         }
-        Ok(())
     }
 }
