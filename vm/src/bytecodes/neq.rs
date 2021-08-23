@@ -1,4 +1,7 @@
-use crate::{frame::Locals, value::Value, bytecode::Instruction, error::VmResult, error::RuntimeError, error::StatusCode, interpreter::Interpreter};
+use crate::{
+    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult, frame::Locals,
+    interpreter::Interpreter, value::Value,
+};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 

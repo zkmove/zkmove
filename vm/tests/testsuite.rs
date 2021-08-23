@@ -1,6 +1,7 @@
 use logger::prelude::*;
 use movelang::compiler::compile_script;
 use std::path::Path;
+use vm::error::StatusCode;
 use vm::runtime::Runtime;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
@@ -15,7 +16,18 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             script.serialize(&mut script_bytes)?;
             runtime
                 .execute_script(script_bytes)
-                .unwrap_or_else(|_| panic!("vm test failed"));
+                .unwrap_or_else(|e| match e.status_code() {
+                    StatusCode::MoveAbort => {
+                        info!(
+                            "{}",
+                            e.message()
+                                .unwrap_or("move abort with no message".to_string())
+                        )
+                    }
+                    _ => {
+                        panic!("test failed with unexpected error");
+                    }
+                });
         }
         None => debug!("Unable to find script in file {:?}", script_file),
     };

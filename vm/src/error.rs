@@ -36,4 +36,10 @@ impl RuntimeError {
             message: Some(message),
         }
     }
+    pub fn status_code(&self) -> &StatusCode {
+        &self.status
+    }
+    pub fn message(&self) -> Option<String> {
+        self.message.clone()
+    }
 }
