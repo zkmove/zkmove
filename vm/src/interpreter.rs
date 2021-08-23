@@ -40,6 +40,7 @@ where
     {
         let locals = Locals::new(entry.local_count());
         let mut frame = Frame::new(entry, locals);
+        frame.print_frame();
         frame.execute(cs, self)?;
         Ok(())
     }

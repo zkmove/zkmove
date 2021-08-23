@@ -136,4 +136,12 @@ impl<E: Engine> Frame<E> {
             }
         }
     }
+
+    pub fn print_frame(&self) {
+        // currently only print bytecode of entry function
+        println!("Bytecode of function {:?}:", self.function.name());
+        for (i, instruction) in self.function.code().into_iter().enumerate() {
+            println!("#{}, {:?}", i, instruction);
+        }
+    }
 }
