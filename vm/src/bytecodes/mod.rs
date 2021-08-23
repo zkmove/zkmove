@@ -10,6 +10,8 @@ mod mul;
 mod pop;
 mod stloc;
 mod sub;
+mod eq;
+mod neq;
 
 pub use add::Add;
 pub use copyloc::CopyLoc;
@@ -23,3 +25,5 @@ pub use mul::Mul;
 pub use pop::Pop;
 pub use stloc::StLoc;
 pub use sub::Sub;
+pub use eq::Eq;
+pub use neq::Neq;

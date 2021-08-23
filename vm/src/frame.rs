@@ -144,18 +144,8 @@ impl<E: Engine> Frame<E> {
                             ),
                         ));
                     }
-                    Bytecode::Eq => {
-                        let stack = &mut interp.stack;
-                        let left = stack
-                            .pop()?
-                            .value()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                        let right = stack
-                            .pop()?
-                            .value()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                        stack.push(Value::bool(left == right)?)
-                    }
+                    Bytecode::Eq => Eq.execute(cs, &mut self.locals, interp),
+                    Bytecode::Neq => Neq.execute(cs, &mut self.locals, interp),
 
                     _ => unreachable!(),
                 }?;
