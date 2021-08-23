@@ -11,6 +11,7 @@ pub enum StatusCode {
     ScriptLoadingError,
     CopyLocalError,
     StoreLocalError,
+    MoveLocalError,
     OutOfBounds,
     UnsupportedBytecode,
     MoveAbort,

@@ -2,9 +2,9 @@ use crate::{bytecode::Instruction, error::VmResult, frame::Locals, interpreter::
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 
-pub struct CopyLoc(pub u8);
+pub struct MoveLoc(pub u8);
 
-impl<E, CS> Instruction<E, CS> for CopyLoc
+impl<E, CS> Instruction<E, CS> for MoveLoc
 where
     E: Engine,
     CS: ConstraintSystem<E>,
@@ -15,7 +15,7 @@ where
         locals: &mut Locals<E>,
         interp: &mut Interpreter<E>,
     ) -> VmResult<()> {
-        let value = locals.copy(self.0 as usize)?;
+        let value = locals.move_local(self.0 as usize)?;
         interp.stack.push(value)
     }
 }

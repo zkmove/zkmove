@@ -39,6 +39,15 @@ impl<E: Engine> Locals<E> {
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
+
+    pub fn move_local(&self, index: usize) -> VmResult<Value<E>> {
+        let mut values = self.0.borrow_mut();
+        match values.get_mut(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
+            Some(v) => Ok(std::mem::replace(v, Value::Invalid)),
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
 }
 
 pub struct Frame<E: Engine> {
@@ -84,6 +93,7 @@ impl<E: Engine> Frame<E> {
                     }
                     Bytecode::CopyLoc(v) => CopyLoc(*v).execute(cs, &mut self.locals, interp),
                     Bytecode::StLoc(v) => StLoc(*v).execute(cs, &mut self.locals, interp),
+                    Bytecode::MoveLoc(v) => MoveLoc(*v).execute(cs, &mut self.locals, interp),
                     Bytecode::LdTrue => LdTrue.execute(cs, &mut self.locals, interp),
                     Bytecode::LdFalse => LdFalse.execute(cs, &mut self.locals, interp),
                     Bytecode::BrTrue(offset) => {
@@ -94,9 +104,10 @@ impl<E: Engine> Frame<E> {
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
                         if !c.is_zero() {
                             self.pc = *offset;
+                            i = i + 1;
+                            break;
                         }
-                        i = i + 1;
-                        break;
+                        Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
                         let stack = &mut interp.stack;
@@ -106,7 +117,13 @@ impl<E: Engine> Frame<E> {
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
                         if c.is_zero() {
                             self.pc = *offset;
+                            i = i + 1;
+                            break;
                         }
+                        Ok(())
+                    }
+                    Bytecode::Branch(offset) => {
+                        self.pc = *offset;
                         i = i + 1;
                         break;
                     }
@@ -126,6 +143,18 @@ impl<E: Engine> Frame<E> {
                                 error_code
                             ),
                         ));
+                    }
+                    Bytecode::Eq => {
+                        let stack = &mut interp.stack;
+                        let left = stack
+                            .pop()?
+                            .value()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        let right = stack
+                            .pop()?
+                            .value()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        stack.push(Value::bool(left == right)?)
                     }
 
                     _ => unreachable!(),

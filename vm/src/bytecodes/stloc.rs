@@ -15,7 +15,6 @@ where
         locals: &mut Locals<E>,
         interp: &mut Interpreter<E>,
     ) -> VmResult<()> {
-        // let locals = current_frame.locals();
         let value = interp.stack.pop()?;
         locals.store(self.0 as usize, value)
     }
