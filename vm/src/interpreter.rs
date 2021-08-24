@@ -4,6 +4,8 @@ use crate::stack::{CallStack, EvalStack};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
 use move_vm_runtime::loader::Function;
+use movelang::argument::ScriptArguments;
+use std::convert::TryInto;
 use std::sync::Arc;
 
 pub struct Interpreter<E: Engine> {
@@ -34,11 +36,20 @@ where
         self.frames.top()
     }
 
-    pub fn run_script<CS>(&mut self, cs: &mut CS, entry: Arc<Function>) -> VmResult<()>
+    pub fn run_script<CS>(
+        &mut self,
+        cs: &mut CS,
+        entry: Arc<Function>,
+        args: ScriptArguments,
+    ) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
-        let locals = Locals::new(entry.local_count());
+        let mut locals = Locals::new(entry.local_count());
+        for (i, arg) in args.as_inner().into_iter().enumerate() {
+            locals.store(i, arg.try_into()?)?;
+        }
+
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         frame.execute(cs, self)?;

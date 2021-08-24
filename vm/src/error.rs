@@ -15,6 +15,7 @@ pub enum StatusCode {
     OutOfBounds,
     UnsupportedBytecode,
     MoveAbort,
+    UnsupportedMoveType,
 }
 
 #[derive(Debug)]

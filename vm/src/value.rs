@@ -2,7 +2,9 @@ use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
 use ff::{Field, PrimeField, PrimeFieldRepr};
+use movelang::argument::ScriptArgument;
 use num_bigint::BigUint;
+use std::convert::TryFrom;
 
 #[derive(Clone)]
 pub struct FFConstant<E: Engine> {
@@ -73,4 +75,18 @@ pub fn fr_to_biguint<Fr: PrimeField>(fr: &Fr) -> BigUint {
         .write_be(&mut bytes)
         .expect("failed to get Fr bytes");
     BigUint::from_bytes_be(&bytes)
+}
+
+impl<E: Engine> TryFrom<&ScriptArgument> for Value<E> {
+    type Error = RuntimeError;
+
+    fn try_from(arg: &ScriptArgument) -> VmResult<Value<E>> {
+        match arg {
+            ScriptArgument::U8(i) => Value::u8(*i),
+            ScriptArgument::U64(i) => Value::u64(*i),
+            ScriptArgument::U128(i) => Value::u128(*i),
+            ScriptArgument::Bool(b) => Value::bool(*b),
+            _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
+        }
+    }
 }

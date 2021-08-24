@@ -3,6 +3,7 @@ use crate::interpreter::Interpreter;
 use bellman::pairing::bn256::Bn256;
 use crypto::constraint_system::DummyCS;
 use logger::prelude::*;
+use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
 
 pub struct Runtime {
@@ -16,7 +17,7 @@ impl Runtime {
         }
     }
 
-    pub fn execute_script(&self, script: Vec<u8>) -> VmResult<()> {
+    pub fn execute_script(&self, script: Vec<u8>, args: ScriptArguments) -> VmResult<()> {
         let mut cs = DummyCS::<Bn256>::new();
         let mut interp = Interpreter::new();
 
@@ -26,6 +27,6 @@ impl Runtime {
             .map_err(|_| RuntimeError::new(StatusCode::ScriptLoadingError))?;
         debug!("script entry {:?}", entry.name());
 
-        interp.run_script(&mut cs, entry)
+        interp.run_script(&mut cs, entry, args)
     }
 }
