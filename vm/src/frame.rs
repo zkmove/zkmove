@@ -138,7 +138,7 @@ impl<E: Engine> Frame<E> {
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
                         return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
                             format!(
-                                "{} aborted with error code {}",
+                                "Move bytecode {} aborted with error code {}",
                                 self.function.pretty_string(),
                                 error_code
                             ),

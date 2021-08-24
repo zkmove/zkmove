@@ -18,7 +18,6 @@ pub enum StatusCode {
     UnsupportedMoveType,
 }
 
-#[derive(Debug)]
 pub struct RuntimeError {
     status: StatusCode,
     message: Option<String>,
@@ -42,5 +41,33 @@ impl RuntimeError {
     }
     pub fn message(&self) -> Option<String> {
         self.message.clone()
+    }
+}
+
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.message()
+                .unwrap_or("error with no message".to_string())
+        )
+    }
+}
+
+impl std::fmt::Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.message()
+                .unwrap_or("error with no message".to_string())
+        )
+    }
+}
+
+impl std::error::Error for RuntimeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
     }
 }
