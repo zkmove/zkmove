@@ -4,7 +4,9 @@ use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use vm::runtime::Runtime;
+use vm::runtime::{Runtime, MoveCircuit};
+use bellman::pairing::bn256::Bn256;
+
 
 fn parse_arguments(script_file: &Path) -> Result<ScriptArguments> {
     let file_str = script_file.to_str().expect("path is None.");
@@ -35,7 +37,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
         let runtime = Runtime::new();
-        runtime.execute_script(script_bytes, args)?
+        runtime.execute_script(script_bytes.clone(), args)?;
+        //let circuit = MoveCircuit::new(script_bytes, args);
+        runtime.setup_script::<Bn256>(script_bytes)?;
     }
 
     Ok(())

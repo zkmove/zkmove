@@ -12,9 +12,18 @@ use movelang::loader::MoveLoader;
 use move_core_types::value::MoveValue;
 use rand::ThreadRng;
 
-struct MoveCircuit {
+pub struct MoveCircuit {
     script: Vec<u8>,
     args: ScriptArguments,
+}
+
+impl MoveCircuit {
+    pub fn new(script: Vec<u8>, args: ScriptArguments) -> Self {
+        MoveCircuit {
+            script,
+            args,
+        }
+    }
 }
 
 impl<E: Engine> Circuit<E> for MoveCircuit {
