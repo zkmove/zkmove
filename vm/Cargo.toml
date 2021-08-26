@@ -16,6 +16,7 @@ num-traits = "0.2.8"
 move-binary-format = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
 move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
 move-core-types = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
+rand = "0.4.6"
 
 [dev-dependencies]
 datatest-stable = "0.1.1"

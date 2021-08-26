@@ -7,5 +7,3 @@ pub mod runtime;
 pub mod stack;
 pub mod value;
 
-// #[cfg(test)]
-// mod test;
