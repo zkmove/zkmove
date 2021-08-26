@@ -84,4 +84,21 @@ impl Runtime {
             |e| RuntimeError::new(StatusCode::SynthesisError)
         )
     }
+
+    pub fn prove_script<E: Engine>(
+        &self, script: Vec<u8>,
+        args: ScriptArguments,
+        params: &Parameters<E>,
+    ) -> VmResult<Proof<E>> {
+        let rng = &mut rand::thread_rng();
+
+        let circuit = MoveCircuit {
+            script,
+            args
+        };
+
+        groth16::create_random_proof(circuit, params, rng)
+            .map_err(|e| RuntimeError::new(StatusCode::SynthesisError))
+
+    }
 }

@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScriptArguments(Vec<ScriptArgument>);
 
 impl ScriptArguments {

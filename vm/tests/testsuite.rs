@@ -37,9 +37,10 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
         let runtime = Runtime::new();
-        runtime.execute_script(script_bytes.clone(), args)?;
+        runtime.execute_script(script_bytes.clone(), args.clone())?;
         //let circuit = MoveCircuit::new(script_bytes, args);
-        runtime.setup_script::<Bn256>(script_bytes)?;
+        let params = runtime.setup_script::<Bn256>(script_bytes.clone())?;
+        runtime.prove_script::<Bn256>(script_bytes, args, &params)?;
     }
 
     Ok(())
