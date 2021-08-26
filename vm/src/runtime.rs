@@ -98,7 +98,23 @@ impl Runtime {
         };
 
         groth16::create_random_proof(circuit, params, rng)
-            .map_err(|e| RuntimeError::new(StatusCode::SynthesisError))
+            .map_err(|e| {
+                debug!("{:?}", e);
+                RuntimeError::new(StatusCode::SynthesisError)
+            })
 
+    }
+
+    pub fn verify_script<E: Engine>(&self,
+                                    key: &VerifyingKey<E>,
+        proof: &Proof<E>,
+    ) -> VmResult<bool> {
+        let pvk = groth16::prepare_verifying_key(&key);
+        let public_input = Vec::new();
+        groth16::verify_proof(&pvk, proof, &public_input)
+            .map_err(|e| {
+                debug!("{:?}", e);
+                RuntimeError::new(StatusCode::SynthesisError)
+            })
     }
 }

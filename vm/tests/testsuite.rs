@@ -40,7 +40,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         runtime.execute_script(script_bytes.clone(), args.clone())?;
         //let circuit = MoveCircuit::new(script_bytes, args);
         let params = runtime.setup_script::<Bn256>(script_bytes.clone())?;
-        runtime.prove_script::<Bn256>(script_bytes, args, &params)?;
+        let proof = runtime.prove_script::<Bn256>(script_bytes, args, &params)?;
+        let success = runtime.verify_script::<Bn256>(&params.vk, &proof)?;
+        assert_eq!(success, true, "verify failed.");
     }
 
     Ok(())
