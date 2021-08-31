@@ -3,6 +3,7 @@ use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
 
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
+pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
 
 #[derive(Debug, Clone)]
 pub struct ScriptArguments(Vec<ScriptArgument>);

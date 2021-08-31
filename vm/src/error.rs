@@ -1,3 +1,4 @@
+use bellman::SynthesisError;
 use std::result::Result;
 
 pub type VmResult<T> = Result<T, RuntimeError>;
@@ -7,7 +8,7 @@ pub enum StatusCode {
     StackUnderflow,
     StackOverflow,
     ValueConversionError,
-    SynthesisError,
+    SynthesisError(SynthesisError),
     ScriptLoadingError,
     CopyLocalError,
     StoreLocalError,
@@ -48,9 +49,9 @@ impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            self.message()
-                .unwrap_or("error with no message".to_string())
+            "{:?}, {}",
+            self.status,
+            self.message().unwrap_or("with no message".to_string())
         )
     }
 }
@@ -59,9 +60,9 @@ impl std::fmt::Debug for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            self.message()
-                .unwrap_or("error with no message".to_string())
+            "{:?}, {}",
+            self.status,
+            self.message().unwrap_or("with no message".to_string())
         )
     }
 }

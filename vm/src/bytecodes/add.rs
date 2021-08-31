@@ -39,7 +39,7 @@ where
                 || "variable",
                 || value.ok_or(SynthesisError::AssignmentMissing),
             )
-            .map_err(|_| RuntimeError::new(StatusCode::SynthesisError))?;
+            .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))?;
 
         cs.enforce(
             || "constraint",

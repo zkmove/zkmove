@@ -61,12 +61,12 @@ impl MoveLoader {
         }
     }
 
-    pub fn load_script(&self, script_blob: &[u8]) -> VMResult<Arc<Function>> {
+    pub fn load_script(&self, script_blob: &[u8]) -> VMResult<(Arc<Function>, Vec<Type>)> {
         let log_context = NoContextLog::new();
         let mut data_store = DummyDataStore::new();
-        let (main, _ty_args, _params) =
+        let (main, _ty_args, arg_types) =
             self.loader
                 .load_script(script_blob, &vec![], &mut data_store, &log_context)?;
-        Ok(main)
+        Ok((main, arg_types))
     }
 }

@@ -18,6 +18,7 @@ mod tests {
     use super::prelude::*;
 
     #[test]
+    #[allow(clippy::eq_op)]
     fn test_log() {
         super::init_for_test();
         info!("This record will be captured by `cargo test`");

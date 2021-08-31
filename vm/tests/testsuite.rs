@@ -1,14 +1,13 @@
 use anyhow::Result;
+use bellman::pairing::bn256::Bn256;
 use logger::prelude::*;
 use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use vm::runtime::{Runtime, MoveCircuit};
-use bellman::pairing::bn256::Bn256;
+use vm::runtime::Runtime;
 
-
-fn parse_arguments(script_file: &Path) -> Result<ScriptArguments> {
+fn parse_arguments(script_file: &Path) -> Result<Option<ScriptArguments>> {
     let file_str = script_file.to_str().expect("path is None.");
 
     let mut f = File::open(script_file)
@@ -19,15 +18,16 @@ fn parse_arguments(script_file: &Path) -> Result<ScriptArguments> {
     for line in buffer.lines().into_iter() {
         let s = line.split_whitespace().collect::<String>();
         if let Some(s) = s.strip_prefix("//!args:") {
-            return s.parse::<ScriptArguments>();
+            return Ok(Some(s.parse::<ScriptArguments>()?));
         }
     }
-    Ok(ScriptArguments::new(vec![]))
+    Ok(None)
 }
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     logger::init_for_test();
     let script_file = path.to_str().expect("path is None.");
+    debug!("Run test {:?}", script_file);
     let compiled_script = compile_script(script_file)?;
 
     let args = parse_arguments(path)?;
@@ -38,9 +38,14 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         script.serialize(&mut script_bytes)?;
         let runtime = Runtime::new();
         runtime.execute_script(script_bytes.clone(), args.clone())?;
-        //let circuit = MoveCircuit::new(script_bytes, args);
+
+        debug!("Generate parameters for script {:?}", script_file);
         let params = runtime.setup_script::<Bn256>(script_bytes.clone())?;
+
+        debug!("Generate zk proof for script {:?}", script_file);
         let proof = runtime.prove_script::<Bn256>(script_bytes, args, &params)?;
+
+        debug!("Verify script {:?}", script_file);
         let success = runtime.verify_script::<Bn256>(&params.vk, &proof)?;
         assert_eq!(success, true, "verify failed.");
     }

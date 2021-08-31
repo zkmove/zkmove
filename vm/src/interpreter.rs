@@ -1,10 +1,11 @@
-use crate::error::VmResult;
+use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::frame::{Frame, Locals};
 use crate::stack::{CallStack, EvalStack};
+use crate::value::Value;
 use bellman::pairing::Engine;
-use bellman::ConstraintSystem;
+use bellman::{ConstraintSystem, SynthesisError};
 use move_vm_runtime::loader::Function;
-use movelang::argument::ScriptArguments;
+use movelang::argument::{MoveValueType, ScriptArguments};
 use std::convert::TryInto;
 use std::sync::Arc;
 
@@ -40,14 +41,48 @@ where
         &mut self,
         cs: &mut CS,
         entry: Arc<Function>,
-        args: ScriptArguments,
+        args: Option<ScriptArguments>,
+        arg_types: Vec<MoveValueType>,
     ) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
         let mut locals = Locals::new(entry.local_count());
-        for (i, arg) in args.as_inner().into_iter().enumerate() {
-            locals.store(i, arg.try_into()?)?;
+        cs.enforce(
+            || "constraint",
+            |zero| zero + CS::one(),
+            |zero| zero + CS::one(),
+            |zero| zero + CS::one(),
+        );
+
+        let arg_type_pairs: Vec<_> = match args {
+            Some(values) => values
+                .as_inner()
+                .iter()
+                .map(|v| Some(v.clone()))
+                .zip(arg_types)
+                .collect(),
+            None => std::iter::repeat(None).zip(arg_types).collect(),
+        };
+
+        for (i, (arg, _ty)) in arg_type_pairs.into_iter().enumerate() {
+            let mut cs = cs.namespace(|| format!("argument #{}", i));
+
+            let fr = match arg {
+                Some(value) => {
+                    let value: Value<E> = value.try_into()?;
+                    value.value()
+                }
+                None => None,
+            };
+            let variable = cs
+                .alloc(
+                    || "variable",
+                    || fr.ok_or(SynthesisError::AssignmentMissing),
+                )
+                .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))?;
+
+            locals.store(i, Value::new_variable(fr, variable)?)?;
         }
 
         let mut frame = Frame::new(entry, locals);

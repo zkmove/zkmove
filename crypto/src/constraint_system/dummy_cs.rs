@@ -72,14 +72,17 @@ impl<E: Engine> ConstraintSystem<E> for DummyCS<E> {
         debug!("DummyCS enforce: {}", annotation().into());
     }
 
-    fn push_namespace<NR, N>(&mut self, _name_fn: N)
+    fn push_namespace<NR, N>(&mut self, name_fn: N)
     where
         NR: Into<String>,
         N: FnOnce() -> NR,
     {
+        debug!("push namespace: {}", name_fn().into());
     }
 
-    fn pop_namespace(&mut self) {}
+    fn pop_namespace(&mut self) {
+        debug!("pop namespace");
+    }
 
     fn get_root(&mut self) -> &mut Self::Root {
         self
