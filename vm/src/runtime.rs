@@ -30,15 +30,20 @@ impl<E: Engine> Circuit<E> for MoveCircuit {
         let runtime = Runtime::new();
         let mut interp = Interpreter::new();
 
-        let (entry, arg_types) = runtime
-            .loader()
-            .load_script(&self.script)
-            .map_err(|_| SynthesisError::AssignmentMissing)?; //fixme
+        let (entry, arg_types) = runtime.loader().load_script(&self.script).map_err(|e| {
+            error!("load script failed: {:?}", e);
+            // Fixme: there is no matching error
+            SynthesisError::AssignmentMissing
+        })?;
         debug!("script entry {:?}", entry.name());
 
         interp
             .run_script(cs, entry, self.args, arg_types)
-            .map_err(|_| SynthesisError::AssignmentMissing)?;  //fixme
+            .map_err(|e| {
+                error!("run script failed: {:?}", e);
+                // Fixme: there is no matching error
+                SynthesisError::AssignmentMissing
+            })?;
 
         Ok(())
     }
