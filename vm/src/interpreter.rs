@@ -65,7 +65,7 @@ where
             None => std::iter::repeat(None).zip(arg_types).collect(),
         };
 
-        for (i, (arg, _ty)) in arg_type_pairs.into_iter().enumerate() {
+        for (i, (arg, ty)) in arg_type_pairs.into_iter().enumerate() {
             let mut cs = cs.namespace(|| format!("argument #{}", i));
 
             let fr = match arg {
@@ -82,7 +82,7 @@ where
                 )
                 .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))?;
 
-            locals.store(i, Value::new_variable(fr, variable)?)?;
+            locals.store(i, Value::new_variable(fr, variable, ty)?)?;
         }
 
         let mut frame = Frame::new(entry, locals);

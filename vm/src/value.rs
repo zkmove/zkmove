@@ -2,19 +2,21 @@ use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
 use ff::{Field, PrimeField, PrimeFieldRepr};
-use movelang::argument::ScriptArgument;
+use movelang::argument::{MoveValueType, ScriptArgument};
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 
 #[derive(Clone)]
 pub struct FFConstant<E: Engine> {
     pub value: E::Fr,
+    pub ty: MoveValueType,
 }
 
 #[derive(Clone)]
 pub struct FFVariable<E: Engine> {
     pub value: Option<E::Fr>,
     pub variable: Variable,
+    pub ty: MoveValueType,
 }
 
 #[derive(Clone)]
@@ -25,27 +27,47 @@ pub enum Value<E: Engine> {
 }
 
 impl<E: Engine> Value<E> {
-    pub fn new_variable(value: Option<E::Fr>, variable: Variable) -> VmResult<Self> {
-        Ok(Self::Variable(FFVariable { value, variable }))
+    pub fn new_variable(
+        value: Option<E::Fr>,
+        variable: Variable,
+        ty: MoveValueType,
+    ) -> VmResult<Self> {
+        Ok(Self::Variable(FFVariable {
+            value,
+            variable,
+            ty,
+        }))
     }
     pub fn bool(x: bool) -> VmResult<Self> {
         let value = if x { E::Fr::one() } else { E::Fr::zero() };
-        Ok(Self::Constant(FFConstant { value }))
+        Ok(Self::Constant(FFConstant {
+            value,
+            ty: MoveValueType::Bool,
+        }))
     }
     pub fn u8(x: u8) -> VmResult<Self> {
         let value = biguint_to_fr::<E>(x.into())
             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant { value }))
+        Ok(Self::Constant(FFConstant {
+            value,
+            ty: MoveValueType::U8,
+        }))
     }
     pub fn u64(x: u64) -> VmResult<Self> {
         let value = biguint_to_fr::<E>(x.into())
             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant { value }))
+        Ok(Self::Constant(FFConstant {
+            value,
+            ty: MoveValueType::U64,
+        }))
     }
     pub fn u128(x: u128) -> VmResult<Self> {
         let value = biguint_to_fr::<E>(x.into())
             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant { value }))
+        Ok(Self::Constant(FFConstant {
+            value,
+            ty: MoveValueType::U128,
+        }))
     }
     pub fn value(&self) -> Option<E::Fr> {
         match self {
@@ -61,6 +83,15 @@ impl<E: Engine> Value<E> {
             }
             Self::Constant(c) => LinearCombination::zero() + (c.value, CS::one()),
             Self::Variable(v) => LinearCombination::zero() + v.variable,
+        }
+    }
+    pub fn ty(&self) -> MoveValueType {
+        match self {
+            Self::Invalid => {
+                unreachable!()
+            }
+            Self::Constant(c) => c.ty.clone(),
+            Self::Variable(v) => v.ty.clone(),
         }
     }
 }

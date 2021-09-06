@@ -22,6 +22,7 @@ where
         let stack = &mut interp.stack;
         let left = stack.pop()?;
         let right = stack.pop()?;
+        let ty = left.ty();
 
         let value = match (left.value(), right.value()) {
             (Some(a), Some(b)) => {
@@ -46,6 +47,6 @@ where
             |lc| lc,
         );
 
-        stack.push(Value::new_variable(value, variable)?)
+        stack.push(Value::new_variable(value, variable, ty)?)
     }
 }
