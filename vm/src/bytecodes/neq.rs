@@ -20,8 +20,8 @@ where
         interp: &mut Interpreter<E>,
     ) -> VmResult<()> {
         let stack = &mut interp.stack;
-        let left = stack.pop()?;
         let right = stack.pop()?;
+        let left = stack.pop()?;
         let ty = left.ty();
 
         let value = match (left.value(), right.value()) {
