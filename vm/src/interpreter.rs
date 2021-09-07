@@ -5,7 +5,8 @@ use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
 use move_vm_runtime::loader::Function;
-use movelang::argument::{MoveValueType, ScriptArguments};
+use movelang::argument::ScriptArguments;
+use movelang::value::MoveValueType;
 use std::convert::TryInto;
 use std::sync::Arc;
 

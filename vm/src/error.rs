@@ -17,6 +17,8 @@ pub enum StatusCode {
     UnsupportedBytecode,
     MoveAbort,
     UnsupportedMoveType,
+    TypeMissMatch,
+    ArithmeticError,
 }
 
 pub struct RuntimeError {

@@ -2,9 +2,12 @@ use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
 use ff::{Field, PrimeField, PrimeFieldRepr};
-use movelang::argument::{MoveValueType, ScriptArgument};
+use movelang::argument::ScriptArgument;
+use movelang::value::MoveValue::{Bool, U128, U64, U8};
+use movelang::value::{MoveValue, MoveValueType};
 use num_bigint::BigUint;
-use std::convert::TryFrom;
+use num_traits::ToPrimitive;
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Clone)]
 pub struct FFConstant<E: Engine> {
@@ -134,4 +137,72 @@ impl<E: Engine> TryFrom<Option<ScriptArgument>> for Value<E> {
             _ => Err(RuntimeError::new(StatusCode::ValueConversionError)),
         }
     }
+}
+
+impl<E: Engine> TryInto<Option<MoveValue>> for Value<E> {
+    type Error = RuntimeError;
+
+    fn try_into(self) -> VmResult<Option<MoveValue>> {
+        match self.value() {
+            Some(fr) => {
+                let big = fr_to_biguint(&fr);
+                let value = match self.ty() {
+                    MoveValueType::U8 => U8(big
+                        .to_u8()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
+                    MoveValueType::U64 => U64(big
+                        .to_u64()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
+                    MoveValueType::U128 => U128(
+                        big.to_u128()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?,
+                    ),
+                    MoveValueType::Bool => Bool(!fr.is_zero()),
+                    _ => unimplemented!(),
+                };
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+impl<E: Engine> TryFrom<MoveValue> for Value<E> {
+    type Error = RuntimeError;
+
+    fn try_from(value: MoveValue) -> VmResult<Value<E>> {
+        match value {
+            U8(u) => Value::u8(u),
+            U64(u) => Value::u64(u),
+            U128(u) => Value::u128(u),
+            Bool(b) => Value::bool(b),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+pub fn div(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
+    let result = match (left, right) {
+        (U8(l), U8(r)) => u8::checked_div(l, r).map(U8),
+        (U64(l), U64(r)) => u64::checked_div(l, r).map(U64),
+        (U128(l), U128(r)) => u128::checked_div(l, r).map(U128),
+        (l, r) => {
+            let msg = format!("can not div {:?} by {:?}", l, r);
+            return Err(RuntimeError::new(StatusCode::TypeMissMatch).with_message(msg));
+        }
+    };
+    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
+}
+
+pub fn rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
+    let result = match (left, right) {
+        (U8(l), U8(r)) => u8::checked_rem(l, r).map(U8),
+        (U64(l), U64(r)) => u64::checked_rem(l, r).map(U64),
+        (U128(l), U128(r)) => u128::checked_rem(l, r).map(U128),
+        (l, r) => {
+            let msg = format!("can not div {:?} by {:?}", l, r);
+            return Err(RuntimeError::new(StatusCode::TypeMissMatch).with_message(msg));
+        }
+    };
+    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
 }

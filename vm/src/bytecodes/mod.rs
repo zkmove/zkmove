@@ -1,5 +1,6 @@
 mod add;
 mod copyloc;
+mod div;
 mod eq;
 mod ldfalse;
 mod ldtrue;
@@ -15,6 +16,7 @@ mod sub;
 
 pub use add::Add;
 pub use copyloc::CopyLoc;
+pub use div::Div;
 pub use eq::Eq;
 pub use ldfalse::LdFalse;
 pub use ldtrue::LdTrue;

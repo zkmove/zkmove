@@ -88,6 +88,7 @@ impl<E: Engine> Frame<E> {
                     Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
                     Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
                     Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
+                    Bytecode::Div => Div.execute(cs, &mut self.locals, interp),
                     Bytecode::Ret => {
                         return Ok(());
                     }
