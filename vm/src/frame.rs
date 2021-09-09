@@ -1,10 +1,10 @@
 use crate::bytecode::Instruction;
 use crate::bytecodes::*;
-use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::interpreter::Interpreter;
 use crate::value::{fr_to_biguint, Value};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use error::{RuntimeError, StatusCode, VmResult};
 use ff::Field;
 use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
@@ -106,7 +106,7 @@ impl<E: Engine> Frame<E> {
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
                         if !c.is_zero() {
                             self.pc = *offset;
-                            i = i + 1;
+                            i += 1;
                             break;
                         }
                         Ok(())
@@ -119,14 +119,14 @@ impl<E: Engine> Frame<E> {
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
                         if c.is_zero() {
                             self.pc = *offset;
-                            i = i + 1;
+                            i += 1;
                             break;
                         }
                         Ok(())
                     }
                     Bytecode::Branch(offset) => {
                         self.pc = *offset;
-                        i = i + 1;
+                        i += 1;
                         break;
                     }
                     Bytecode::Abort => {
@@ -153,7 +153,7 @@ impl<E: Engine> Frame<E> {
                 }?;
 
                 cs.pop_namespace();
-                i = i + 1;
+                i += 1;
             }
         }
     }
@@ -161,7 +161,7 @@ impl<E: Engine> Frame<E> {
     pub fn print_frame(&self) {
         // currently only print bytecode of entry function
         println!("Bytecode of function {:?}:", self.function.name());
-        for (i, instruction) in self.function.code().into_iter().enumerate() {
+        for (i, instruction) in self.function.code().iter().enumerate() {
             println!("#{}, {:?}", i, instruction);
         }
     }

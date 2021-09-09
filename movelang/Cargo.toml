@@ -11,5 +11,6 @@ move-core-types = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246
 move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
 move-vm-types = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
 logger = { path = "../common/logger" }
+error = { path = "../common/error" }
 
 anyhow = "1.0.38"

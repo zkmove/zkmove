@@ -1,9 +1,9 @@
-use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::frame::{Frame, Locals};
 use crate::stack::{CallStack, EvalStack};
 use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
+use error::{RuntimeError, StatusCode, VmResult};
 use move_vm_runtime::loader::Function;
 use movelang::argument::ScriptArguments;
 use movelang::value::MoveValueType;
@@ -90,5 +90,11 @@ where
         frame.print_frame();
         frame.execute(cs, self)?;
         Ok(())
+    }
+}
+
+impl<E: Engine> Default for Interpreter<E> {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -1,8 +1,9 @@
 use crate::frame::Locals;
 use crate::value::Value;
-use crate::{bytecode::Instruction, error::VmResult, interpreter::Interpreter};
+use crate::{bytecode::Instruction, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use error::VmResult;
 
 pub struct LdU8(pub u8);
 

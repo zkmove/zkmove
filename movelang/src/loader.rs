@@ -18,6 +18,12 @@ impl DummyDataStore {
     }
 }
 
+impl Default for DummyDataStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DataStore for DummyDataStore {
     fn load_resource(
         &mut self,
@@ -66,7 +72,13 @@ impl MoveLoader {
         let mut data_store = DummyDataStore::new();
         let (main, _ty_args, arg_types) =
             self.loader
-                .load_script(script_blob, &vec![], &mut data_store, &log_context)?;
+                .load_script(script_blob, &[], &mut data_store, &log_context)?;
         Ok((main, arg_types))
+    }
+}
+
+impl Default for MoveLoader {
+    fn default() -> Self {
+        Self::new()
     }
 }

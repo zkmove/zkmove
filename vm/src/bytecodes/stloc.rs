@@ -1,6 +1,7 @@
-use crate::{bytecode::Instruction, error::VmResult, frame::Locals, interpreter::Interpreter};
+use crate::{bytecode::Instruction, frame::Locals, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use error::VmResult;
 
 pub struct StLoc(pub u8);
 

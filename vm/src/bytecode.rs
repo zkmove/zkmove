@@ -1,6 +1,7 @@
-use crate::{error::RuntimeError, frame::Locals, interpreter::Interpreter};
+use crate::{frame::Locals, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use error::RuntimeError;
 
 pub trait Instruction<E, CS>
 where

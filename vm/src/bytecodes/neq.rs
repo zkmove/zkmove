@@ -1,9 +1,7 @@
-use crate::{
-    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult, frame::Locals,
-    interpreter::Interpreter, value::Value,
-};
+use crate::{bytecode::Instruction, frame::Locals, interpreter::Interpreter, value::Value};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
+use error::{RuntimeError, StatusCode, VmResult};
 use ff::Field;
 
 pub struct Neq;

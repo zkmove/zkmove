@@ -1,4 +1,3 @@
-use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::interpreter::Interpreter;
 use bellman::groth16;
 use bellman::groth16::{Parameters, Proof, VerifyingKey};
@@ -6,6 +5,7 @@ use bellman::pairing::bn256::Bn256;
 use bellman::pairing::Engine;
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
 use crypto::constraint_system::DummyCS;
+use error::{RuntimeError, StatusCode, VmResult};
 use logger::prelude::*;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
@@ -108,5 +108,11 @@ impl Runtime {
         let public_input = Vec::new();
         groth16::verify_proof(&pvk, proof, &public_input)
             .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))
+    }
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
     }
 }

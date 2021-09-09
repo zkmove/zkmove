@@ -1,7 +1,7 @@
-use crate::error::{RuntimeError, StatusCode, VmResult};
 use crate::frame::Frame;
 use crate::value::Value;
 use bellman::pairing::Engine;
+use error::{RuntimeError, StatusCode, VmResult};
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
@@ -23,7 +23,7 @@ impl<E: Engine> EvalStack<E> {
     }
 
     pub fn pop(&mut self) -> VmResult<Value<E>> {
-        if self.0.len() == 0 {
+        if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             Ok(self.0.pop().unwrap())
@@ -32,6 +32,12 @@ impl<E: Engine> EvalStack<E> {
 
     pub fn top(&self) -> Option<&Value<E>> {
         self.0.last()
+    }
+}
+
+impl<E: Engine> Default for EvalStack<E> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -52,7 +58,7 @@ impl<E: Engine> CallStack<E> {
     }
 
     pub fn pop(&mut self) -> VmResult<Frame<E>> {
-        if self.0.len() == 0 {
+        if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             Ok(self.0.pop().unwrap())
@@ -61,5 +67,11 @@ impl<E: Engine> CallStack<E> {
 
     pub fn top(&mut self) -> Option<&mut Frame<E>> {
         self.0.last_mut()
+    }
+}
+
+impl<E: Engine> Default for CallStack<E> {
+    fn default() -> Self {
+        Self::new()
     }
 }

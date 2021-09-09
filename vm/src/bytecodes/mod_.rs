@@ -1,12 +1,10 @@
 use crate::frame::Locals;
-use crate::value::{div, rem, Value};
-use crate::{
-    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult,
-    interpreter::Interpreter,
-};
+use crate::value::Value;
+use crate::{bytecode::Instruction, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
-use movelang::value::MoveValue;
+use error::{RuntimeError, StatusCode, VmResult};
+use movelang::value::{div, rem, MoveValue};
 use std::convert::TryInto;
 
 pub struct Mod;

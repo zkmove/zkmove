@@ -4,4 +4,5 @@ members = [
     "movelang",
     "vm",
     "common/logger",
+    "common/error",
 ]

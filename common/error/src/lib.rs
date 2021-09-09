@@ -53,7 +53,8 @@ impl std::fmt::Display for RuntimeError {
             f,
             "{:?}, {}",
             self.status,
-            self.message().unwrap_or("with no message".to_string())
+            self.message()
+                .unwrap_or_else(|| "with no message".to_string())
         )
     }
 }
@@ -64,7 +65,8 @@ impl std::fmt::Debug for RuntimeError {
             f,
             "{:?}, {}",
             self.status,
-            self.message().unwrap_or("with no message".to_string())
+            self.message()
+                .unwrap_or_else(|| "with no message".to_string())
         )
     }
 }

@@ -1,6 +1,6 @@
-use crate::error::{RuntimeError, StatusCode, VmResult};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
+use error::{RuntimeError, StatusCode, VmResult};
 use ff::{Field, PrimeField, PrimeFieldRepr};
 use movelang::argument::ScriptArgument;
 use movelang::value::MoveValue::{Bool, U128, U64, U8};
@@ -179,30 +179,4 @@ impl<E: Engine> TryFrom<MoveValue> for Value<E> {
             _ => unimplemented!(),
         }
     }
-}
-
-pub fn div(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_div(l, r).map(U8),
-        (U64(l), U64(r)) => u64::checked_div(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_div(l, r).map(U128),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMissMatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
-}
-
-pub fn rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_rem(l, r).map(U8),
-        (U64(l), U64(r)) => u64::checked_rem(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_rem(l, r).map(U128),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMissMatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
 }

@@ -1,7 +1,8 @@
 use crate::frame::Locals;
-use crate::{bytecode::Instruction, error::VmResult, interpreter::Interpreter};
+use crate::{bytecode::Instruction, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
+use error::VmResult;
 
 pub struct Pop;
 

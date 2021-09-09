@@ -1,11 +1,9 @@
 use crate::frame::Locals;
 use crate::value::Value;
-use crate::{
-    bytecode::Instruction, error::RuntimeError, error::StatusCode, error::VmResult,
-    interpreter::Interpreter,
-};
+use crate::{bytecode::Instruction, interpreter::Interpreter};
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
+use error::{RuntimeError, StatusCode, VmResult};
 use ff::Field;
 
 pub struct Mul;

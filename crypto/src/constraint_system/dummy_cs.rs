@@ -19,6 +19,12 @@ where
     }
 }
 
+impl<E: Engine> Default for DummyCS<E> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<E: Engine> ConstraintSystem<E> for DummyCS<E> {
     type Root = Self;
 
