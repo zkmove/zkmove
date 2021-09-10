@@ -40,7 +40,7 @@ impl<E: Engine> Locals<E> {
         }
     }
 
-    pub fn move_local(&self, index: usize) -> VmResult<Value<E>> {
+    pub fn move_(&self, index: usize) -> VmResult<Value<E>> {
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
@@ -81,30 +81,30 @@ impl<E: Engine> Frame<E> {
                 cs.push_namespace(|| format!("#{}", i));
 
                 match instruction {
-                    Bytecode::LdU8(v) => LdU8(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::LdU64(v) => LdU64(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::LdU128(v) => LdU128(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::Pop => Pop.execute(cs, &mut self.locals, interp),
+                    Bytecode::LdU8(v) => interp.stack.push(Value::u8(*v)?),
+                    Bytecode::LdU64(v) => interp.stack.push(Value::u64(*v)?),
+                    Bytecode::LdU128(v) => interp.stack.push(Value::u128(*v)?),
+                    Bytecode::Pop => {
+                        interp.stack.pop()?;
+                        Ok(())
+                    }
                     Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
                     Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
                     Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
                     Bytecode::Div => Div.execute(cs, &mut self.locals, interp),
                     Bytecode::Mod => Mod.execute(cs, &mut self.locals, interp),
-                    Bytecode::Ret => {
-                        return Ok(());
-                    }
-                    Bytecode::CopyLoc(v) => CopyLoc(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::StLoc(v) => StLoc(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::MoveLoc(v) => MoveLoc(*v).execute(cs, &mut self.locals, interp),
-                    Bytecode::LdTrue => LdTrue.execute(cs, &mut self.locals, interp),
-                    Bytecode::LdFalse => LdFalse.execute(cs, &mut self.locals, interp),
+                    Bytecode::Ret => return Ok(()),
+                    Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
+                    Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
+                    Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
+                    Bytecode::LdTrue => interp.stack.push(Value::bool(true)?),
+                    Bytecode::LdFalse => interp.stack.push(Value::bool(false)?),
                     Bytecode::BrTrue(offset) => {
-                        let stack = &mut interp.stack;
-                        let c = stack
-                            .pop()?
-                            .value()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                        if !c.is_zero() {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if !cond.is_zero() {
                             self.pc = *offset;
                             i += 1;
                             break;
@@ -112,12 +112,11 @@ impl<E: Engine> Frame<E> {
                         Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
-                        let stack = &mut interp.stack;
-                        let c = stack
-                            .pop()?
-                            .value()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                        if c.is_zero() {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if cond.is_zero() {
                             self.pc = *offset;
                             i += 1;
                             break;
@@ -130,11 +129,10 @@ impl<E: Engine> Frame<E> {
                         break;
                     }
                     Bytecode::Abort => {
-                        let stack = &mut interp.stack;
-                        let fr = stack
-                            .pop()?
-                            .value()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+                        let fr =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
                         let error_code = fr_to_biguint(&fr)
                             .to_u64()
                             .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
