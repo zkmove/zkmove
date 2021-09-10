@@ -1,5 +1,4 @@
-use crate::bytecode::Instruction;
-use crate::bytecodes::*;
+use crate::gadgets;
 use crate::interpreter::Interpreter;
 use crate::value::{fr_to_biguint, Value};
 use bellman::pairing::Engine;
@@ -88,11 +87,11 @@ impl<E: Engine> Frame<E> {
                         interp.stack.pop()?;
                         Ok(())
                     }
-                    Bytecode::Add => Add.execute(cs, &mut self.locals, interp),
-                    Bytecode::Sub => Sub.execute(cs, &mut self.locals, interp),
-                    Bytecode::Mul => Mul.execute(cs, &mut self.locals, interp),
-                    Bytecode::Div => Div.execute(cs, &mut self.locals, interp),
-                    Bytecode::Mod => Mod.execute(cs, &mut self.locals, interp),
+                    Bytecode::Add => interp.binary_op(cs, gadgets::add),
+                    Bytecode::Sub => interp.binary_op(cs, gadgets::sub),
+                    Bytecode::Mul => interp.binary_op(cs, gadgets::mul),
+                    Bytecode::Div => interp.binary_op(cs, gadgets::div),
+                    Bytecode::Mod => interp.binary_op(cs, gadgets::mod_),
                     Bytecode::Ret => return Ok(()),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
@@ -144,8 +143,8 @@ impl<E: Engine> Frame<E> {
                             ),
                         ));
                     }
-                    Bytecode::Eq => Eq.execute(cs, &mut self.locals, interp),
-                    Bytecode::Neq => Neq.execute(cs, &mut self.locals, interp),
+                    Bytecode::Eq => interp.binary_op(cs, gadgets::eq),
+                    Bytecode::Neq => interp.binary_op(cs, gadgets::neq),
 
                     _ => unreachable!(),
                 }?;

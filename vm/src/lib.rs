@@ -1,6 +1,5 @@
-pub mod bytecode;
-pub mod bytecodes;
 pub mod frame;
+pub mod gadgets;
 pub mod interpreter;
 pub mod runtime;
 pub mod stack;

@@ -125,20 +125,6 @@ impl<E: Engine> TryFrom<ScriptArgument> for Value<E> {
     }
 }
 
-impl<E: Engine> TryFrom<Option<ScriptArgument>> for Value<E> {
-    type Error = RuntimeError;
-
-    fn try_from(arg: Option<ScriptArgument>) -> VmResult<Value<E>> {
-        match arg {
-            Some(ScriptArgument::U8(i)) => Value::u8(i),
-            Some(ScriptArgument::U64(i)) => Value::u64(i),
-            Some(ScriptArgument::U128(i)) => Value::u128(i),
-            Some(ScriptArgument::Bool(b)) => Value::bool(b),
-            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)),
-        }
-    }
-}
-
 impl<E: Engine> TryInto<Option<MoveValue>> for Value<E> {
     type Error = RuntimeError;
 

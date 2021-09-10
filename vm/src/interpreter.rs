@@ -38,24 +38,16 @@ where
         self.frames.top()
     }
 
-    pub fn run_script<CS>(
+    fn process_arguments<CS>(
         &mut self,
         cs: &mut CS,
-        entry: Arc<Function>,
+        locals: &mut Locals<E>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
     ) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
     {
-        let mut locals = Locals::new(entry.local_count());
-        cs.enforce(
-            || "constraint",
-            |zero| zero + CS::one(),
-            |zero| zero + CS::one(),
-            |zero| zero + CS::one(),
-        );
-
         let arg_type_pairs: Vec<_> = match args {
             Some(values) => values
                 .as_inner()
@@ -86,10 +78,45 @@ where
             locals.store(i, Value::new_variable(fr, variable, ty)?)?;
         }
 
+        Ok(())
+    }
+
+    pub fn run_script<CS>(
+        &mut self,
+        cs: &mut CS,
+        entry: Arc<Function>,
+        args: Option<ScriptArguments>,
+        arg_types: Vec<MoveValueType>,
+    ) -> VmResult<()>
+    where
+        CS: ConstraintSystem<E>,
+    {
+        let mut locals = Locals::new(entry.local_count());
+        cs.enforce(
+            || "constraint",
+            |zero| zero + CS::one(),
+            |zero| zero + CS::one(),
+            |zero| zero + CS::one(),
+        );
+
+        self.process_arguments(cs, &mut locals, args, arg_types)?;
+
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         frame.execute(cs, self)?;
         Ok(())
+    }
+
+    pub fn binary_op<CS, F>(&mut self, cs: &mut CS, op: F) -> VmResult<()>
+    where
+        CS: ConstraintSystem<E>,
+        F: FnOnce(&mut CS, Value<E>, Value<E>) -> VmResult<Value<E>>,
+    {
+        let right = self.stack.pop()?;
+        let left = self.stack.pop()?;
+
+        let result = op(cs, left, right)?;
+        self.stack.push(result)
     }
 }
 
