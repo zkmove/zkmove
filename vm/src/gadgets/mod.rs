@@ -5,6 +5,7 @@ mod eq;
 mod mod_;
 mod mul;
 mod neq;
+mod not;
 mod or;
 mod sub;
 
@@ -15,5 +16,6 @@ pub use eq::eq;
 pub use mod_::mod_;
 pub use mul::mul;
 pub use neq::neq;
+pub use not::not;
 pub use or::or;
 pub use sub::sub;

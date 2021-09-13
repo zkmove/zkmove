@@ -118,6 +118,17 @@ where
         let result = op(cs, left, right)?;
         self.stack.push(result)
     }
+
+    pub fn unary_op<CS, F>(&mut self, cs: &mut CS, op: F) -> VmResult<()>
+    where
+        CS: ConstraintSystem<E>,
+        F: FnOnce(&mut CS, Value<E>) -> VmResult<Value<E>>,
+    {
+        let operand = self.stack.pop()?;
+
+        let result = op(cs, operand)?;
+        self.stack.push(result)
+    }
 }
 
 impl<E: Engine> Default for Interpreter<E> {

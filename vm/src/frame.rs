@@ -147,6 +147,7 @@ impl<E: Engine> Frame<E> {
                     Bytecode::Neq => interp.binary_op(cs, gadgets::neq),
                     Bytecode::And => interp.binary_op(cs, gadgets::and),
                     Bytecode::Or => interp.binary_op(cs, gadgets::or),
+                    Bytecode::Not => interp.unary_op(cs, gadgets::not),
 
                     _ => unreachable!(),
                 }?;
