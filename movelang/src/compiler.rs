@@ -1,17 +1,18 @@
 use anyhow::{bail, Result};
-use logger::prelude::*;
 use move_binary_format::file_format::CompiledScript;
+use move_binary_format::CompiledModule;
 use move_lang::{self, compiled_unit::CompiledUnit, shared::Flags};
 
-pub fn compile_script(script_file: &str) -> Result<Option<CompiledScript>> {
+pub fn compile_script(targets: &[String]) -> Result<(Option<CompiledScript>, Vec<CompiledModule>)> {
     let (_, compiled_units) = move_lang::move_compile(
-        &[script_file.to_string()],
+        targets,
         &[],
         None,
         Flags::empty().set_sources_shadow_deps(false),
     )?;
 
     let mut compiled_script = None;
+    let mut modules = vec![];
     for c in compiled_units.expect("Unwrap CompiledUnit failed.") {
         match c {
             CompiledUnit::Script { script, .. } => {
@@ -20,11 +21,9 @@ pub fn compile_script(script_file: &str) -> Result<Option<CompiledScript>> {
                 }
                 compiled_script = Some(script)
             }
-            CompiledUnit::Module { .. } => {
-                debug!("module is compiled.")
-            }
+            CompiledUnit::Module { module, .. } => modules.push(module),
         }
     }
 
-    Ok(compiled_script)
+    Ok((compiled_script, modules))
 }

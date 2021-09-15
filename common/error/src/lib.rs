@@ -19,6 +19,7 @@ pub enum StatusCode {
     UnsupportedMoveType,
     TypeMissMatch,
     ArithmeticError,
+    ModuleNotFound,
 }
 
 pub struct RuntimeError {

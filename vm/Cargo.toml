@@ -22,6 +22,10 @@ rand = "0.4.6"
 [dev-dependencies]
 datatest-stable = "0.1.1"
 
+#[[test]]
+#name = "scripts"
+#harness = false
+
 [[test]]
 name = "testsuite"
 harness = false
