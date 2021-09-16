@@ -63,7 +63,7 @@ impl<E: Engine> Circuit<E> for MoveCircuit {
         debug!("script entry {:?}", entry.name());
 
         interp
-            .run_script(cs, entry, self.args, arg_types)
+            .run_script(cs, entry, self.args, arg_types, runtime.loader())
             .map_err(|e| {
                 error!("run script failed: {:?}", e);
                 // Fixme: there is no matching error
@@ -93,7 +93,7 @@ pub fn execute_script(
         .map_err(|_| RuntimeError::new(StatusCode::ScriptLoadingError))?;
     debug!("script entry {:?}", entry.name());
 
-    interp.run_script(&mut cs, entry, args, arg_types)
+    interp.run_script(&mut cs, entry, args, arg_types, runtime.loader())
 }
 
 pub fn setup_script<E: Engine>(

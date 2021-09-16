@@ -5,11 +5,11 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-move-lang = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
-move-binary-format = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
-move-core-types = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
-move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
-move-vm-types = { git = "https://github.com/zkmove/diem", rev ="85588fbcff7246d0d47daea7bae861a3b36bdb6b" }
+move-lang = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-binary-format = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-core-types = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-vm-types = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 logger = { path = "../common/logger" }
 error = { path = "../common/error" }
 

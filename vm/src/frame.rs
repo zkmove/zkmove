@@ -6,7 +6,7 @@ use bellman::ConstraintSystem;
 use error::{RuntimeError, StatusCode, VmResult};
 use ff::Field;
 use logger::prelude::*;
-use move_binary_format::file_format::Bytecode;
+use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
 use num_traits::ToPrimitive;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -68,16 +68,24 @@ impl<E: Engine> Frame<E> {
         &mut self.locals
     }
 
-    pub fn execute<CS>(&mut self, cs: &mut CS, interp: &mut Interpreter<E>) -> VmResult<()>
+    pub fn func(&self) -> &Arc<Function> {
+        &self.function
+    }
+
+    pub fn add_pc(&mut self) {
+        self.pc += 1;
+    }
+
+    pub fn execute<CS>(&mut self, cs: &mut CS, interp: &mut Interpreter<E>) -> VmResult<ExitStatus>
     where
         CS: ConstraintSystem<E>,
     {
         let code = self.function.code();
-        let mut i = 0u32;
         loop {
             for instruction in &code[self.pc as usize..] {
-                debug!("step #{}, instruction {:?}", i, instruction);
-                cs.push_namespace(|| format!("#{}", i));
+                debug!("step #{}, instruction {:?}", interp.counter, instruction);
+                cs.push_namespace(|| format!("#{}", interp.counter));
+                interp.counter += 1;
 
                 match instruction {
                     Bytecode::LdU8(v) => interp.stack.push(Value::u8(*v)?),
@@ -92,7 +100,8 @@ impl<E: Engine> Frame<E> {
                     Bytecode::Mul => interp.binary_op(cs, gadgets::mul),
                     Bytecode::Div => interp.binary_op(cs, gadgets::div),
                     Bytecode::Mod => interp.binary_op(cs, gadgets::mod_),
-                    Bytecode::Ret => return Ok(()),
+                    Bytecode::Ret => return Ok(ExitStatus::Return),
+                    Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
                     Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
@@ -105,7 +114,6 @@ impl<E: Engine> Frame<E> {
                             })?;
                         if !cond.is_zero() {
                             self.pc = *offset;
-                            i += 1;
                             break;
                         }
                         Ok(())
@@ -117,14 +125,12 @@ impl<E: Engine> Frame<E> {
                             })?;
                         if cond.is_zero() {
                             self.pc = *offset;
-                            i += 1;
                             break;
                         }
                         Ok(())
                     }
                     Bytecode::Branch(offset) => {
                         self.pc = *offset;
-                        i += 1;
                         break;
                     }
                     Bytecode::Abort => {
@@ -153,7 +159,7 @@ impl<E: Engine> Frame<E> {
                 }?;
 
                 cs.pop_namespace();
-                i += 1;
+                self.pc += 1;
             }
         }
     }
@@ -165,4 +171,9 @@ impl<E: Engine> Frame<E> {
             println!("#{}, {:?}", i, instruction);
         }
     }
+}
+
+pub enum ExitStatus {
+    Return,
+    Call(FunctionHandleIndex),
 }

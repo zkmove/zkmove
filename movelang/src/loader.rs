@@ -1,4 +1,5 @@
 use move_binary_format::errors::VMResult;
+use move_binary_format::file_format::FunctionHandleIndex;
 use move_vm_runtime::loader::{Function, Loader};
 use move_vm_runtime::logging::NoContextLog;
 use move_vm_types::data_store::DataStore;
@@ -26,6 +27,15 @@ impl MoveLoader {
             self.loader
                 .load_script(script_blob, &[], data_store, &log_context)?;
         Ok((main, arg_types))
+    }
+
+    pub fn function_from_handle(
+        &self,
+        caller: &Arc<Function>,
+        callee_idx: FunctionHandleIndex,
+    ) -> Arc<Function> {
+        let resolver = caller.get_resolver(&self.loader);
+        resolver.function_from_handle(callee_idx)
     }
 }
 

@@ -57,11 +57,11 @@ impl<E: Engine> CallStack<E> {
         }
     }
 
-    pub fn pop(&mut self) -> VmResult<Frame<E>> {
+    pub fn pop(&mut self) -> Option<Frame<E>> {
         if self.0.is_empty() {
-            Err(RuntimeError::new(StatusCode::StackUnderflow))
+            None
         } else {
-            Ok(self.0.pop().unwrap())
+            Some(self.0.pop().unwrap())
         }
     }
 

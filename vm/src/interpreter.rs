@@ -1,11 +1,13 @@
-use crate::frame::{Frame, Locals};
+use crate::frame::{ExitStatus, Frame, Locals};
 use crate::stack::{CallStack, EvalStack};
 use crate::value::Value;
 use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, SynthesisError};
 use error::{RuntimeError, StatusCode, VmResult};
+use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::ScriptArguments;
+use movelang::loader::MoveLoader;
 use movelang::value::MoveValueType;
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -13,6 +15,7 @@ use std::sync::Arc;
 pub struct Interpreter<E: Engine> {
     pub stack: EvalStack<E>,
     pub frames: CallStack<E>,
+    pub counter: u64,
 }
 
 impl<E> Interpreter<E>
@@ -23,6 +26,7 @@ where
         Self {
             stack: EvalStack::new(),
             frames: CallStack::new(),
+            counter: 0,
         }
     }
 
@@ -81,12 +85,22 @@ where
         Ok(())
     }
 
+    fn make_frame(&mut self, func: Arc<Function>) -> VmResult<Frame<E>> {
+        let mut locals = Locals::new(func.local_count());
+        let arg_count = func.arg_count();
+        for i in 0..arg_count {
+            locals.store(arg_count - i - 1, self.stack.pop()?)?;
+        }
+        Ok(Frame::new(func, locals))
+    }
+
     pub fn run_script<CS>(
         &mut self,
         cs: &mut CS,
         entry: Arc<Function>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
+        loader: &MoveLoader,
     ) -> VmResult<()>
     where
         CS: ConstraintSystem<E>,
@@ -103,8 +117,27 @@ where
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
-        frame.execute(cs, self)?;
-        Ok(())
+        loop {
+            let status = frame.execute(cs, self)?;
+            match status {
+                ExitStatus::Return => {
+                    if let Some(caller_frame) = self.frames.pop() {
+                        frame = caller_frame;
+                        frame.add_pc();
+                    } else {
+                        return Ok(());
+                    }
+                }
+                ExitStatus::Call(index) => {
+                    let func = loader.function_from_handle(frame.func(), index);
+                    debug!("Call into function: {:?}", func.name());
+                    let callee_frame = self.make_frame(func)?;
+                    callee_frame.print_frame();
+                    self.frames.push(frame)?;
+                    frame = callee_frame;
+                }
+            }
+        }
     }
 
     pub fn binary_op<CS, F>(&mut self, cs: &mut CS, op: F) -> VmResult<()>
