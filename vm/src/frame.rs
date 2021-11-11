@@ -1,4 +1,4 @@
-use crate::gadgets;
+use crate::r1cs;
 use crate::interpreter::Interpreter;
 use crate::value::{fr_to_biguint, Value};
 use bellman::pairing::Engine;
@@ -95,11 +95,11 @@ impl<E: Engine> Frame<E> {
                         interp.stack.pop()?;
                         Ok(())
                     }
-                    Bytecode::Add => interp.binary_op(cs, gadgets::add),
-                    Bytecode::Sub => interp.binary_op(cs, gadgets::sub),
-                    Bytecode::Mul => interp.binary_op(cs, gadgets::mul),
-                    Bytecode::Div => interp.binary_op(cs, gadgets::div),
-                    Bytecode::Mod => interp.binary_op(cs, gadgets::mod_),
+                    Bytecode::Add => interp.binary_op(cs, r1cs::add),
+                    Bytecode::Sub => interp.binary_op(cs, r1cs::sub),
+                    Bytecode::Mul => interp.binary_op(cs, r1cs::mul),
+                    Bytecode::Div => interp.binary_op(cs, r1cs::div),
+                    Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
                     Bytecode::Ret => return Ok(ExitStatus::Return),
                     Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
@@ -149,11 +149,11 @@ impl<E: Engine> Frame<E> {
                             ),
                         ));
                     }
-                    Bytecode::Eq => interp.binary_op(cs, gadgets::eq),
-                    Bytecode::Neq => interp.binary_op(cs, gadgets::neq),
-                    Bytecode::And => interp.binary_op(cs, gadgets::and),
-                    Bytecode::Or => interp.binary_op(cs, gadgets::or),
-                    Bytecode::Not => interp.unary_op(cs, gadgets::not),
+                    Bytecode::Eq => interp.binary_op(cs, r1cs::eq),
+                    Bytecode::Neq => interp.binary_op(cs, r1cs::neq),
+                    Bytecode::And => interp.binary_op(cs, r1cs::and),
+                    Bytecode::Or => interp.binary_op(cs, r1cs::or),
+                    Bytecode::Not => interp.unary_op(cs, r1cs::not),
 
                     _ => unreachable!(),
                 }?;

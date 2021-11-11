@@ -1,5 +1,5 @@
 pub mod frame;
-pub mod gadgets;
+pub mod r1cs;
 pub mod interpreter;
 pub mod runtime;
 pub mod stack;
