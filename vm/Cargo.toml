@@ -14,10 +14,11 @@ bellman = { package = "bellman_ce", version = "0.3.0" }
 ff = { package = "ff_ce", version = "0.6.0", features = ["derive"] }
 num-bigint = "0.2.3"
 num-traits = "0.2.8"
+rand = "0.4.6"
 move-binary-format = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 move-core-types = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
-rand = "0.4.6"
+halo2 = { git = "https://github.com/zcash/halo2", rev = "a635b7c25a51e9272dc22688471036fee820864a" }
 
 [dev-dependencies]
 datatest-stable = "0.1.1"

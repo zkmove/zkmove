@@ -2,12 +2,18 @@ use bellman::pairing::Engine;
 use bellman::{ConstraintSystem, LinearCombination, Variable};
 use error::{RuntimeError, StatusCode, VmResult};
 use ff::{Field, PrimeField, PrimeFieldRepr};
+use halo2::{arithmetic::FieldExt, circuit::Cell};
 use movelang::argument::ScriptArgument;
 use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{MoveValue, MoveValueType};
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use std::convert::{TryFrom, TryInto};
+#[derive(Clone)]
+pub struct Alloc<F: FieldExt> {
+    pub cell: Cell,
+    pub value: Option<F>,
+}
 
 #[derive(Clone)]
 pub struct FFConstant<E: Engine> {

@@ -1,6 +1,9 @@
+pub mod circuit;
 pub mod frame;
-pub mod r1cs;
+pub mod instructions;
 pub mod interpreter;
+pub mod plonk;
+pub mod r1cs;
 pub mod runtime;
 pub mod stack;
 pub mod value;

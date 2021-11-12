@@ -1,5 +1,5 @@
-use crate::r1cs;
 use crate::interpreter::Interpreter;
+use crate::r1cs;
 use crate::value::{fr_to_biguint, Value};
 use bellman::pairing::Engine;
 use bellman::ConstraintSystem;
