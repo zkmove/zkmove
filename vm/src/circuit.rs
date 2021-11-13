@@ -9,7 +9,7 @@ use halo2::{
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-struct FieldConfig {
+struct InstructionsConfig {
     advice: [Column<Advice>; 2],
 
     // Public inputs
@@ -19,7 +19,7 @@ struct FieldConfig {
 }
 
 struct InstructionsChip<F: FieldExt> {
-    config: FieldConfig,
+    config: InstructionsConfig,
     _marker: PhantomData<F>,
 }
 
@@ -39,7 +39,7 @@ impl<F: FieldExt> AddInstruction<F> for InstructionsChip<F> {
 }
 
 impl<F: FieldExt> Chip<F> for InstructionsChip<F> {
-    type Config = FieldConfig;
+    type Config = InstructionsConfig;
     type Loaded = ();
 
     fn config(&self) -> &Self::Config {
@@ -68,7 +68,7 @@ impl<F: FieldExt> InstructionsChip<F> {
 
         meta.enable_equality(instance.into());
 
-        FieldConfig {
+        InstructionsConfig {
             advice,
             instance,
             add_config,
@@ -123,7 +123,7 @@ struct TestCircuit<F: FieldExt> {
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
-    type Config = FieldConfig;
+    type Config = InstructionsConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -149,5 +149,39 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let c = instructions_chip.add(layouter.namespace(|| "a + b"), a, b)?;
 
         instructions_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::circuit::TestCircuit;
+    use halo2::{dev::MockProver, pasta::Fp};
+
+    #[test]
+    fn test_add() {
+        // Circuit is very small, we pick a small value here
+        let k = 4;
+
+        // Prepare the private and public inputs to the circuit
+        let a = Fp::from(2);
+        let b = Fp::from(3);
+        let c = a + b;
+
+        // Instantiate the circuit with the private inputs
+        let circuit = TestCircuit {
+            a: Some(a),
+            b: Some(b),
+        };
+
+        let mut public_inputs = vec![c];
+
+        // Given the correct public input, circuit will verify
+        let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
+        assert_eq!(prover.verify(), Ok(()));
+
+        // If use some other public input, the proof will fail
+        public_inputs[0] += Fp::one();
+        let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
+        assert!(prover.verify().is_err());
     }
 }

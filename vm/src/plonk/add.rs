@@ -47,6 +47,9 @@ impl<F: FieldExt> AddChip<F> {
         meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; 2],
     ) -> <Self as Chip<F>>::Config {
+        for column in &advice {
+            meta.enable_equality((*column).into());
+        }
         let s_add = meta.selector();
 
         meta.create_gate("add", |meta| {
