@@ -2,18 +2,19 @@ use crate::frame::Frame;
 use crate::value::Value;
 use bellman::pairing::Engine;
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2::{arithmetic::FieldExt, circuit::Cell};
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
 
-pub struct EvalStack<E: Engine>(Vec<Value<E>>);
+pub struct EvalStack<F: FieldExt>(Vec<Value<F>>);
 
-impl<E: Engine> EvalStack<E> {
+impl<F: FieldExt> EvalStack<F> {
     pub fn new() -> Self {
         EvalStack(vec![])
     }
 
-    pub fn push(&mut self, value: Value<E>) -> VmResult<()> {
+    pub fn push(&mut self, value: Value<F>) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
             self.0.push(value);
             Ok(())
@@ -22,7 +23,7 @@ impl<E: Engine> EvalStack<E> {
         }
     }
 
-    pub fn pop(&mut self) -> VmResult<Value<E>> {
+    pub fn pop(&mut self) -> VmResult<Value<F>> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -30,25 +31,25 @@ impl<E: Engine> EvalStack<E> {
         }
     }
 
-    pub fn top(&self) -> Option<&Value<E>> {
+    pub fn top(&self) -> Option<&Value<F>> {
         self.0.last()
     }
 }
 
-impl<E: Engine> Default for EvalStack<E> {
+impl<F: FieldExt> Default for EvalStack<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct CallStack<E: Engine>(Vec<Frame<E>>);
+pub struct CallStack<F: FieldExt>(Vec<Frame<F>>);
 
-impl<E: Engine> CallStack<E> {
+impl<F: FieldExt> CallStack<F> {
     pub fn new() -> Self {
         CallStack(vec![])
     }
 
-    pub fn push(&mut self, frame: Frame<E>) -> VmResult<()> {
+    pub fn push(&mut self, frame: Frame<F>) -> VmResult<()> {
         if self.0.len() < CALL_STACK_SIZE {
             self.0.push(frame);
             Ok(())
@@ -57,7 +58,7 @@ impl<E: Engine> CallStack<E> {
         }
     }
 
-    pub fn pop(&mut self) -> Option<Frame<E>> {
+    pub fn pop(&mut self) -> Option<Frame<F>> {
         if self.0.is_empty() {
             None
         } else {
@@ -65,12 +66,12 @@ impl<E: Engine> CallStack<E> {
         }
     }
 
-    pub fn top(&mut self) -> Option<&mut Frame<E>> {
+    pub fn top(&mut self) -> Option<&mut Frame<F>> {
         self.0.last_mut()
     }
 }
 
-impl<E: Engine> Default for CallStack<E> {
+impl<F: FieldExt> Default for CallStack<F> {
     fn default() -> Self {
         Self::new()
     }

@@ -8,7 +8,7 @@ pub enum StatusCode {
     StackUnderflow,
     StackOverflow,
     ValueConversionError,
-    SynthesisError(SynthesisError),
+    SynthesisError,
     ScriptLoadingError,
     CopyLocalError,
     StoreLocalError,

@@ -16,84 +16,85 @@ pub struct Alloc<F: FieldExt> {
 }
 
 #[derive(Clone)]
-pub struct FFConstant<E: Engine> {
-    pub value: E::Fr,
+pub struct FConstant<F: FieldExt> {
+    pub value: F,
+    pub cell: Cell,
     pub ty: MoveValueType,
 }
 
 #[derive(Clone)]
-pub struct FFVariable<E: Engine> {
-    pub value: Option<E::Fr>,
-    pub variable: Variable,
+pub struct FVariable<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Cell,
     pub ty: MoveValueType,
 }
 
 #[derive(Clone)]
-pub enum Value<E: Engine> {
+pub enum Value<F: FieldExt> {
     Invalid,
-    Constant(FFConstant<E>),
-    Variable(FFVariable<E>),
+    Constant(FConstant<F>),
+    Variable(FVariable<F>),
 }
 
-impl<E: Engine> Value<E> {
-    pub fn new_variable(
-        value: Option<E::Fr>,
-        variable: Variable,
-        ty: MoveValueType,
-    ) -> VmResult<Self> {
-        Ok(Self::Variable(FFVariable {
+impl<F: FieldExt> Value<F> {
+    // pub fn new_variable(
+    //     value: Option<E::Fr>,
+    //     variable: Variable,
+    //     ty: MoveValueType,
+    // ) -> VmResult<Self> {
+    //     Ok(Self::Variable(FVariable {
+    //         value,
+    //         variable,
+    //         ty,
+    //     }))
+    // }
+    // pub fn bool(x: bool) -> VmResult<Self> {
+    //     let value = if x { E::Fr::one() } else { E::Fr::zero() };
+    //     Ok(Self::Constant(FConstant {
+    //         value,
+    //         ty: MoveValueType::Bool,
+    //     }))
+    // }
+    pub fn u8(x: u8, cell: Cell) -> VmResult<Self> {
+        let value = F::from_u64(x as u64);
+        Ok(Self::Constant(FConstant {
             value,
-            variable,
-            ty,
-        }))
-    }
-    pub fn bool(x: bool) -> VmResult<Self> {
-        let value = if x { E::Fr::one() } else { E::Fr::zero() };
-        Ok(Self::Constant(FFConstant {
-            value,
-            ty: MoveValueType::Bool,
-        }))
-    }
-    pub fn u8(x: u8) -> VmResult<Self> {
-        let value = biguint_to_fr::<E>(x.into())
-            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant {
-            value,
+            cell,
             ty: MoveValueType::U8,
         }))
     }
-    pub fn u64(x: u64) -> VmResult<Self> {
-        let value = biguint_to_fr::<E>(x.into())
-            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant {
-            value,
-            ty: MoveValueType::U64,
-        }))
-    }
-    pub fn u128(x: u128) -> VmResult<Self> {
-        let value = biguint_to_fr::<E>(x.into())
-            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-        Ok(Self::Constant(FFConstant {
-            value,
-            ty: MoveValueType::U128,
-        }))
-    }
-    pub fn value(&self) -> Option<E::Fr> {
+    // pub fn u64(x: u64) -> VmResult<Self> {
+    //     let value = biguint_to_fr::<E>(x.into())
+    //         .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+    //     Ok(Self::Constant(FConstant {
+    //         value,
+    //         ty: MoveValueType::U64,
+    //     }))
+    // }
+    // pub fn u128(x: u128) -> VmResult<Self> {
+    //     let value = biguint_to_fr::<E>(x.into())
+    //         .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
+    //     Ok(Self::Constant(FConstant {
+    //         value,
+    //         ty: MoveValueType::U128,
+    //     }))
+    // }
+    pub fn value(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
             Self::Constant(c) => Some(c.value),
             Self::Variable(v) => v.value,
         }
     }
-    pub fn lc<CS: ConstraintSystem<E>>(&self) -> LinearCombination<E> {
-        match self {
-            Self::Invalid => {
-                unreachable!()
-            }
-            Self::Constant(c) => LinearCombination::zero() + (c.value, CS::one()),
-            Self::Variable(v) => LinearCombination::zero() + v.variable,
-        }
-    }
+    // pub fn lc<CS: ConstraintSystem<E>>(&self) -> LinearCombination<E> {
+    //     match self {
+    //         Self::Invalid => {
+    //             unreachable!()
+    //         }
+    //         Self::Constant(c) => LinearCombination::zero() + (c.value, CS::one()),
+    //         Self::Variable(v) => LinearCombination::zero() + v.variable,
+    //     }
+    // }
     pub fn ty(&self) -> MoveValueType {
         match self {
             Self::Invalid => {
@@ -117,57 +118,58 @@ pub fn fr_to_biguint<Fr: PrimeField>(fr: &Fr) -> BigUint {
     BigUint::from_bytes_be(&bytes)
 }
 
-impl<E: Engine> TryFrom<ScriptArgument> for Value<E> {
+impl<F: FieldExt> TryFrom<ScriptArgument> for Value<F> {
     type Error = RuntimeError;
 
-    fn try_from(arg: ScriptArgument) -> VmResult<Value<E>> {
+    fn try_from(arg: ScriptArgument) -> VmResult<Value<F>> {
         match arg {
-            ScriptArgument::U8(i) => Value::u8(i),
-            ScriptArgument::U64(i) => Value::u64(i),
-            ScriptArgument::U128(i) => Value::u128(i),
-            ScriptArgument::Bool(b) => Value::bool(b),
+            // ScriptArgument::U8(i) => Value::u8(i),
+            // ScriptArgument::U64(i) => Value::u64(i),
+            // ScriptArgument::U128(i) => Value::u128(i),
+            // ScriptArgument::Bool(b) => Value::bool(b),
             _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
         }
     }
 }
 
-impl<E: Engine> TryInto<Option<MoveValue>> for Value<E> {
+impl<F: FieldExt> TryInto<Option<MoveValue>> for Value<F> {
     type Error = RuntimeError;
 
     fn try_into(self) -> VmResult<Option<MoveValue>> {
-        match self.value() {
-            Some(fr) => {
-                let big = fr_to_biguint(&fr);
-                let value = match self.ty() {
-                    MoveValueType::U8 => U8(big
-                        .to_u8()
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
-                    MoveValueType::U64 => U64(big
-                        .to_u64()
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
-                    MoveValueType::U128 => U128(
-                        big.to_u128()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?,
-                    ),
-                    MoveValueType::Bool => Bool(!fr.is_zero()),
-                    _ => unimplemented!(),
-                };
-                Ok(Some(value))
-            }
-            None => Ok(None),
-        }
+        // match self.value() {
+        //     Some(fr) => {
+        //         let big = fr_to_biguint(&fr);
+        //         let value = match self.ty() {
+        //             MoveValueType::U8 => U8(big
+        //                 .to_u8()
+        //                 .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
+        //             MoveValueType::U64 => U64(big
+        //                 .to_u64()
+        //                 .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?),
+        //             MoveValueType::U128 => U128(
+        //                 big.to_u128()
+        //                     .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?,
+        //             ),
+        //             MoveValueType::Bool => Bool(!fr.is_zero()),
+        //             _ => unimplemented!(),
+        //         };
+        //         Ok(Some(value))
+        //     }
+        //     None => Ok(None),
+        // }
+        Ok(None)  //workaround
     }
 }
 
-impl<E: Engine> TryFrom<MoveValue> for Value<E> {
+impl<F: FieldExt> TryFrom<MoveValue> for Value<F> {
     type Error = RuntimeError;
 
-    fn try_from(value: MoveValue) -> VmResult<Value<E>> {
+    fn try_from(value: MoveValue) -> VmResult<Value<F>> {
         match value {
-            U8(u) => Value::u8(u),
-            U64(u) => Value::u64(u),
-            U128(u) => Value::u128(u),
-            Bool(b) => Value::bool(b),
+            // U8(u) => Value::u8(u),
+            // U64(u) => Value::u64(u),
+            // U128(u) => Value::u128(u),
+            // Bool(b) => Value::bool(b),
             _ => unimplemented!(),
         }
     }

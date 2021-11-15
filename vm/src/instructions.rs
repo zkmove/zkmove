@@ -25,6 +25,8 @@ pub trait Instructions<F: FieldExt>: AddInstruction<F> {
         a: Option<F>,
     ) -> Result<<Self as Instructions<F>>::Value, Error>;
 
+    fn load_constant(&self, layouter: impl Layouter<F>, constant: F) -> Result<<Self as Instructions<F>>::Value, Error>;
+
     fn expose_public(
         &self,
         layouter: impl Layouter<F>,
