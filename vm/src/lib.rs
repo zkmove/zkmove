@@ -23,6 +23,9 @@ use halo2::{
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance},
 };
 use std::marker::PhantomData;
+use halo2::{dev::MockProver, pasta::Fp};
+use crate::instructions::Instructions;
+
 
 pub struct FastMoveCircuit {
     script: Vec<u8>,
@@ -71,6 +74,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
     ) -> Result<(), Error> {
         let instructions_chip = InstructionsChip::<F>::construct(config, ());
         let mut state = StateStore::new();
+        // let state_root = instructions_chip.load_private(layouter.namespace(|| "load state root"), Some(F::zero()))?;
         let runtime = Runtime::new();
         for module in self.modules.clone().into_iter() {
             state.add_module(module);
@@ -92,6 +96,8 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
                 error!("run script failed: {:?}", e);
                 Error::SynthesisError
             })?;
+
+        // instructions_chip.expose_public(layouter.namespace(|| "expose state root"), state_root, 0)?;
 
         Ok(())
     }
@@ -134,23 +140,29 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
 //         .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))
 // }
 
-// pub fn prove_script<E: Engine>(
-//     script: Vec<u8>,
-//     modules: Vec<CompiledModule>,
-//     args: Option<ScriptArguments>,
-//     params: &Parameters<E>,
-// ) -> VmResult<Proof<E>> {
-//     let rng = &mut rand::thread_rng();
-//
-//     let circuit = MoveCircuit {
-//         script,
-//         modules,
-//         args,
-//     };
-//
-//     groth16::create_random_proof(circuit, params, rng)
-//         .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))
-// }
+pub fn prove_script(
+    script: Vec<u8>,
+    modules: Vec<CompiledModule>,
+    args: Option<ScriptArguments>,
+    k: u32,
+) -> VmResult<()> {
+
+    let circuit = FastMoveCircuit {
+        script,
+        modules,
+        args,
+    };
+
+    let mut public_inputs = vec![Fp::zero()];
+    let prover = MockProver::<Fp>::run(k, &circuit, vec![public_inputs])
+    .map_err(|e| {
+        debug!("Prover Error: {:?}", e);
+        RuntimeError::new(StatusCode::SynthesisError)
+    })?;
+    assert_eq!(prover.verify(), Ok(()));
+    Ok(())
+
+}
 
 // pub fn verify_script<E: Engine>(key: &VerifyingKey<E>, proof: &Proof<E>) -> VmResult<bool> {
 //     let pvk = groth16::prepare_verifying_key(&key);

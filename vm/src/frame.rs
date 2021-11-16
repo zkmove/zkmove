@@ -110,7 +110,7 @@ impl<F: FieldExt> Frame<F> {
                     // Bytecode::Mul => interp.binary_op(cs, r1cs::mul),
                     // Bytecode::Div => interp.binary_op(cs, r1cs::div),
                     // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
-                    // Bytecode::Ret => return Ok(ExitStatus::Return),
+                    Bytecode::Ret => return Ok(ExitStatus::Return),
                     // Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     // Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     // Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
