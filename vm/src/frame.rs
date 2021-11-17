@@ -1,20 +1,14 @@
+use crate::circuit::InstructionsChip;
+use crate::instructions::{AddInstruction, Instructions};
 use crate::interpreter::Interpreter;
-use crate::value::{fr_to_biguint, Value};
-use bellman::pairing::Engine;
-use bellman::ConstraintSystem;
+use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use ff::Field;
+use halo2::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
-use num_traits::ToPrimitive;
+use movelang::value::MoveValueType;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
-use halo2::{
-    arithmetic::FieldExt,
-    circuit::Layouter,
-};
-use crate::circuit::InstructionsChip;
-use crate::instructions::Instructions;
 
 pub struct Locals<F: FieldExt>(Rc<RefCell<Vec<Value<F>>>>);
 
@@ -81,8 +75,12 @@ impl<F: FieldExt> Frame<F> {
         self.pc += 1;
     }
 
-    pub fn execute(&mut self, instructions_chip: &InstructionsChip<F>, mut layouter: impl Layouter<F>, interp: &mut Interpreter<F>) -> VmResult<ExitStatus>
-    {
+    pub fn execute(
+        &mut self,
+        instructions_chip: &InstructionsChip<F>,
+        mut layouter: impl Layouter<F>,
+        interp: &mut Interpreter<F>,
+    ) -> VmResult<ExitStatus> {
         let code = self.function.code();
         loop {
             for instruction in &code[self.pc as usize..] {
@@ -92,27 +90,48 @@ impl<F: FieldExt> Frame<F> {
 
                 match instruction {
                     Bytecode::LdU8(v) => {
-                        let field = F::from_u64(*v as u64);
-                        let value = instructions_chip.load_constant(layouter.namespace(|| format!("load constant in step#{}", interp.step)), field).map_err(|e| {
-                            error!("load constant failed: {:?}", e);
-                            RuntimeError::new(StatusCode::SynthesisError)
-                        })?;
-                        interp.stack.push(Value::u8(*v, value.cell)?)
-                    },
+                        let constant = F::from_u64(*v as u64);
+                        let value = instructions_chip
+                            .load_constant(
+                                layouter
+                                    .namespace(|| format!("load constant in step#{}", interp.step)),
+                                constant,
+                                MoveValueType::U8,
+                            )
+                            .map_err(|e| {
+                                error!("load constant failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(value)
+                    }
                     // Bytecode::LdU64(v) => interp.stack.push(Value::u64(*v)?),
                     // Bytecode::LdU128(v) => interp.stack.push(Value::u128(*v)?),
                     Bytecode::Pop => {
                         interp.stack.pop()?;
                         Ok(())
                     }
-                    // Bytecode::Add => interp.binary_op(cs, r1cs::add),
+                    Bytecode::Add => {
+                        let a = interp.stack.pop()?;
+                        let b = interp.stack.pop()?;
+                        let c = instructions_chip
+                            .add(
+                                layouter.namespace(|| format!("a + b in step#{}", interp.step)),
+                                a,
+                                b,
+                            )
+                            .map_err(|e| {
+                                error!("add failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     // Bytecode::Sub => interp.binary_op(cs, r1cs::sub),
                     // Bytecode::Mul => interp.binary_op(cs, r1cs::mul),
                     // Bytecode::Div => interp.binary_op(cs, r1cs::div),
                     // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
                     Bytecode::Ret => return Ok(ExitStatus::Return),
                     // Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
-                    // Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
+                    Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     // Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
                     // Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
                     // Bytecode::LdTrue => interp.stack.push(Value::bool(true)?),
@@ -164,7 +183,6 @@ impl<F: FieldExt> Frame<F> {
                     // Bytecode::And => interp.binary_op(cs, r1cs::and),
                     // Bytecode::Or => interp.binary_op(cs, r1cs::or),
                     // Bytecode::Not => interp.unary_op(cs, r1cs::not),
-
                     _ => unreachable!(),
                 }?;
 

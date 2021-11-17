@@ -1,5 +1,5 @@
 use crate::instructions::AddInstruction;
-use crate::value::Alloc;
+use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter, Region},
@@ -66,7 +66,7 @@ impl<F: FieldExt> AddChip<F> {
 }
 
 impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
-    type Value = Alloc<F>;
+    type Value = Value<F>;
 
     fn add(
         &self,
@@ -76,7 +76,7 @@ impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
     ) -> Result<Self::Value, Error> {
         let config = self.config();
 
-        let mut out = None;
+        let mut c = None;
         layouter.assign_region(
             || "add",
             |mut region: Region<'_, F>| {
@@ -86,18 +86,18 @@ impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
                     || "lhs",
                     config.advice[0],
                     0,
-                    || a.value.ok_or(Error::SynthesisError),
+                    || a.value().ok_or(Error::SynthesisError),
                 )?;
                 let rhs = region.assign_advice(
                     || "rhs",
                     config.advice[1],
                     0,
-                    || b.value.ok_or(Error::SynthesisError),
+                    || b.value().ok_or(Error::SynthesisError),
                 )?;
-                region.constrain_equal(a.cell, lhs)?;
-                region.constrain_equal(b.cell, rhs)?;
+                region.constrain_equal(a.cell().unwrap(), lhs)?;
+                region.constrain_equal(b.cell().unwrap(), rhs)?;
 
-                let value = a.value.and_then(|a| b.value.map(|b| a + b));
+                let value = a.value().and_then(|a| b.value().map(|b| a + b));
                 let cell = region.assign_advice(
                     || "lhs + rhs",
                     config.advice[0],
@@ -105,11 +105,14 @@ impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
                     || value.ok_or(Error::SynthesisError),
                 )?;
 
-                out = Some(Self::Value { cell, value });
+                c = Some(
+                    Value::new_variable(value, Some(cell), a.ty())
+                        .map_err(|_| Error::SynthesisError)?,
+                );
                 Ok(())
             },
         )?;
 
-        Ok(out.unwrap())
+        Ok(c.unwrap())
     }
 }

@@ -3,6 +3,7 @@ use halo2::{
     circuit::{Chip, Layouter},
     plonk::Error,
 };
+use movelang::value::MoveValueType;
 
 pub trait AddInstruction<F: FieldExt>: Chip<F> {
     type Value;
@@ -23,9 +24,15 @@ pub trait Instructions<F: FieldExt>: AddInstruction<F> {
         &self,
         layouter: impl Layouter<F>,
         a: Option<F>,
+        ty: MoveValueType,
     ) -> Result<<Self as Instructions<F>>::Value, Error>;
 
-    fn load_constant(&self, layouter: impl Layouter<F>, constant: F) -> Result<<Self as Instructions<F>>::Value, Error>;
+    fn load_constant(
+        &self,
+        layouter: impl Layouter<F>,
+        constant: F,
+        ty: MoveValueType,
+    ) -> Result<<Self as Instructions<F>>::Value, Error>;
 
     fn expose_public(
         &self,

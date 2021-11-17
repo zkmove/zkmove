@@ -1,4 +1,3 @@
-use bellman::SynthesisError;
 use std::result::Result;
 
 pub type VmResult<T> = Result<T, RuntimeError>;

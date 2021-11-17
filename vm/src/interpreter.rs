@@ -1,22 +1,16 @@
+use crate::circuit::InstructionsChip;
 use crate::frame::{ExitStatus, Frame, Locals};
+use crate::instructions::Instructions;
 use crate::stack::{CallStack, EvalStack};
 use crate::value::Value;
-use bellman::pairing::Engine;
-use bellman::{ConstraintSystem, SynthesisError};
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::{convert_from, ScriptArguments};
 use movelang::loader::MoveLoader;
 use movelang::value::MoveValueType;
-use std::convert::TryInto;
 use std::sync::Arc;
-use crate::circuit::InstructionsChip;
-use halo2::{
-    arithmetic::FieldExt,
-    circuit::Layouter,
-};
-use crate::instructions::Instructions;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -24,8 +18,7 @@ pub struct Interpreter<F: FieldExt> {
     pub step: u64,
 }
 
-impl<F: FieldExt> Interpreter<F>
-{
+impl<F: FieldExt> Interpreter<F> {
     pub fn new() -> Self {
         Self {
             stack: EvalStack::new(),
@@ -53,8 +46,7 @@ impl<F: FieldExt> Interpreter<F>
         arg_types: Vec<MoveValueType>,
         instructions_chip: &InstructionsChip<F>,
         mut layouter: impl Layouter<F>,
-    ) -> VmResult<()>
-    {
+    ) -> VmResult<()> {
         let arg_type_pairs: Vec<_> = match args {
             Some(values) => values
                 .as_inner()
@@ -73,13 +65,18 @@ impl<F: FieldExt> Interpreter<F>
                 }
                 None => None,
             };
-            let cell = instructions_chip.load_private(layouter.namespace(|| format!("load argument #{}", i)), val)
-            .map_err(|e| {
-                debug!("Process arguments error: {:?}", e);
-                RuntimeError::new(StatusCode::SynthesisError)
-            })?;
+            let cell = instructions_chip
+                .load_private(
+                    layouter.namespace(|| format!("load argument #{}", i)),
+                    val,
+                    ty.clone(),
+                )
+                .map_err(|e| {
+                    debug!("Process arguments error: {:?}", e);
+                    RuntimeError::new(StatusCode::SynthesisError)
+                })?;
 
-            locals.store(i, Value::new_variable(cell.value, cell.cell, ty)?)?;
+            locals.store(i, Value::new_variable(cell.value(), cell.cell(), ty)?)?;
         }
 
         Ok(())
@@ -102,8 +99,7 @@ impl<F: FieldExt> Interpreter<F>
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-    ) -> VmResult<()>
-    {
+    ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
         // cs.enforce(
         //     || "constraint",
@@ -112,12 +108,22 @@ impl<F: FieldExt> Interpreter<F>
         //     |zero| zero + CS::one(),
         // );
 
-        self.process_arguments(&mut locals, args, arg_types, instructions_chip, layouter.namespace(|| format!("process arguments in step#{}", self.step)))?;
+        self.process_arguments(
+            &mut locals,
+            args,
+            arg_types,
+            instructions_chip,
+            layouter.namespace(|| format!("process arguments in step#{}", self.step)),
+        )?;
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(instructions_chip, layouter.namespace(|| format!("into frame in step#{}", self.step)), self)?;
+            let status = frame.execute(
+                instructions_chip,
+                layouter.namespace(|| format!("into frame in step#{}", self.step)),
+                self,
+            )?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {

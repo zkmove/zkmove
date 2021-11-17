@@ -1,9 +1,8 @@
 use anyhow::{Error, Result};
+use error::{RuntimeError, StatusCode, VmResult};
+use halo2::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
-use std::convert::{TryFrom, TryInto};
-use halo2::{arithmetic::FieldExt, circuit::Cell};
-use error::{RuntimeError, StatusCode, VmResult};
 
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
 

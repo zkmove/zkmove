@@ -7,25 +7,20 @@ pub mod runtime;
 pub mod stack;
 pub mod value;
 
+use crate::circuit::{InstructionsChip, InstructionsConfig};
 use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
-use crate::circuit::{InstructionsConfig, InstructionsChip};
-use crypto::constraint_system::DummyCS;
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2::{
+    arithmetic::FieldExt,
+    circuit::{Layouter, SimpleFloorPlanner},
+    plonk::{Circuit, ConstraintSystem, Error},
+};
+use halo2::{dev::MockProver, pasta::Fp};
 use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::state::StateStore;
-use rand::ThreadRng;
-use halo2::{
-    arithmetic::FieldExt,
-    circuit::{Chip, Layouter, SimpleFloorPlanner},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance},
-};
-use std::marker::PhantomData;
-use halo2::{dev::MockProver, pasta::Fp};
-use crate::instructions::Instructions;
-
 
 pub struct FastMoveCircuit {
     script: Vec<u8>,
@@ -91,7 +86,14 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
         debug!("script entry {:?}", entry.name());
 
         interp
-            .run_script(&instructions_chip, layouter.namespace(|| "run script"), entry, self.args.clone(), arg_types, runtime.loader())
+            .run_script(
+                &instructions_chip,
+                layouter.namespace(|| "run script"),
+                entry,
+                self.args.clone(),
+                arg_types,
+                runtime.loader(),
+            )
             .map_err(|e| {
                 error!("run script failed: {:?}", e);
                 Error::SynthesisError
@@ -146,22 +148,19 @@ pub fn prove_script(
     args: Option<ScriptArguments>,
     k: u32,
 ) -> VmResult<()> {
-
     let circuit = FastMoveCircuit {
         script,
         modules,
         args,
     };
 
-    let mut public_inputs = vec![Fp::zero()];
-    let prover = MockProver::<Fp>::run(k, &circuit, vec![public_inputs])
-    .map_err(|e| {
+    let public_inputs = vec![Fp::zero()];
+    let prover = MockProver::<Fp>::run(k, &circuit, vec![public_inputs]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)
     })?;
     assert_eq!(prover.verify(), Ok(()));
     Ok(())
-
 }
 
 // pub fn verify_script<E: Engine>(key: &VerifyingKey<E>, proof: &Proof<E>) -> VmResult<bool> {

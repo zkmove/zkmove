@@ -1,8 +1,7 @@
 use crate::frame::Frame;
 use crate::value::Value;
-use bellman::pairing::Engine;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::{arithmetic::FieldExt, circuit::Cell};
+use halo2::arithmetic::FieldExt;
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;

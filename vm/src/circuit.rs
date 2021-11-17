@@ -1,18 +1,13 @@
 use crate::instructions::{AddInstruction, Instructions};
 use crate::plonk::add::{AddChip, AddConfig};
-use crate::value::Alloc;
-use crate::interpreter::Interpreter;
-use crate::runtime::Runtime;
+use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter, SimpleFloorPlanner},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance, Fixed},
+    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
 };
+use movelang::value::MoveValueType;
 use std::marker::PhantomData;
-
-use move_binary_format::CompiledModule;
-use movelang::argument::ScriptArguments;
-use movelang::state::StateStore;
 
 #[derive(Clone, Debug)]
 pub struct InstructionsConfig {
@@ -33,7 +28,7 @@ pub struct InstructionsChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> AddInstruction<F> for InstructionsChip<F> {
-    type Value = Alloc<F>;
+    type Value = Value<F>;
     fn add(
         &self,
         layouter: impl Layouter<F>,
@@ -61,7 +56,10 @@ impl<F: FieldExt> Chip<F> for InstructionsChip<F> {
 }
 
 impl<F: FieldExt> InstructionsChip<F> {
-    pub fn construct(config: <Self as Chip<F>>::Config, _loaded: <Self as Chip<F>>::Loaded) -> Self {
+    pub fn construct(
+        config: <Self as Chip<F>>::Config,
+        _loaded: <Self as Chip<F>>::Loaded,
+    ) -> Self {
         Self {
             config,
             _marker: PhantomData,
@@ -90,12 +88,13 @@ impl<F: FieldExt> InstructionsChip<F> {
 }
 
 impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
-    type Value = Alloc<F>;
+    type Value = Value<F>;
 
     fn load_private(
         &self,
         mut layouter: impl Layouter<F>,
         value: Option<F>,
+        ty: MoveValueType,
     ) -> Result<<Self as Instructions<F>>::Value, Error> {
         let config = self.config();
 
@@ -109,7 +108,10 @@ impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
                     0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
-                alloc = Some(Alloc { cell, value });
+                alloc = Some(
+                    Value::new_variable(value, Some(cell), ty.clone())
+                        .map_err(|_| Error::SynthesisError)?,
+                );
                 Ok(())
             },
         )?;
@@ -120,6 +122,7 @@ impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
         &self,
         mut layouter: impl Layouter<F>,
         constant: F,
+        ty: MoveValueType,
     ) -> Result<<Self as Instructions<F>>::Value, Error> {
         let config = self.config();
 
@@ -133,10 +136,11 @@ impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
                     0,
                     || Ok(constant),
                 )?;
-                alloc = Some(Alloc {
-                    cell,
-                    value: Some(constant),
-                });
+                alloc = Some(
+                    Value::new_constant(constant, Some(cell), ty.clone())
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+
                 Ok(())
             },
         )?;
@@ -151,14 +155,15 @@ impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
     ) -> Result<(), Error> {
         let config = self.config();
 
-        layouter.constrain_instance(value.cell, config.instance, row)
+        layouter.constrain_instance(value.cell().unwrap(), config.instance, row)
     }
 }
 
-#[derive(Default)]
 struct TestCircuit<F: FieldExt> {
     a: Option<F>,
+    a_type: MoveValueType,
     b: Option<F>,
+    b_type: MoveValueType,
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -166,7 +171,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        Self::default()
+        Self {
+            a: None,
+            a_type: MoveValueType::U8,
+            b: None,
+            b_type: MoveValueType::U8,
+        }
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -184,8 +194,16 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     ) -> Result<(), Error> {
         let instructions_chip = InstructionsChip::<F>::construct(config, ());
 
-        let a = instructions_chip.load_private(layouter.namespace(|| "load a"), self.a)?;
-        let b = instructions_chip.load_private(layouter.namespace(|| "load b"), self.b)?;
+        let a = instructions_chip.load_private(
+            layouter.namespace(|| "load a"),
+            self.a,
+            self.a_type.clone(),
+        )?;
+        let b = instructions_chip.load_private(
+            layouter.namespace(|| "load b"),
+            self.b,
+            self.b_type.clone(),
+        )?;
         let c = instructions_chip.add(layouter.namespace(|| "a + b"), a, b)?;
 
         instructions_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
@@ -196,6 +214,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 mod tests {
     use crate::circuit::TestCircuit;
     use halo2::{dev::MockProver, pasta::Fp};
+    use movelang::value::MoveValueType;
 
     #[test]
     fn test_add() {
@@ -210,7 +229,9 @@ mod tests {
         // Instantiate the circuit with the private inputs
         let circuit = TestCircuit {
             a: Some(a),
+            a_type: MoveValueType::U8,
             b: Some(b),
+            b_type: MoveValueType::U8,
         };
 
         let mut public_inputs = vec![c];
