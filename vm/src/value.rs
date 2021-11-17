@@ -37,48 +37,49 @@ pub enum Value<F: FieldExt> {
 }
 
 impl<F: FieldExt> Value<F> {
-    // pub fn new_variable(
-    //     value: Option<E::Fr>,
-    //     variable: Variable,
-    //     ty: MoveValueType,
-    // ) -> VmResult<Self> {
-    //     Ok(Self::Variable(FVariable {
-    //         value,
-    //         variable,
-    //         ty,
-    //     }))
-    // }
-    // pub fn bool(x: bool) -> VmResult<Self> {
-    //     let value = if x { E::Fr::one() } else { E::Fr::zero() };
-    //     Ok(Self::Constant(FConstant {
-    //         value,
-    //         ty: MoveValueType::Bool,
-    //     }))
-    // }
+    pub fn new_variable(
+        value: Option<F>,
+        cell: Cell,
+        ty: MoveValueType,
+    ) -> VmResult<Self> {
+        Ok(Self::Variable(FVariable {
+            value,
+            cell,
+            ty,
+        }))
+    }
+    pub fn bool(x: bool, cell: Cell) -> VmResult<Self> {
+        let value = if x { F::one() } else { F::zero() };
+        Ok(Self::Constant(FConstant {
+            value,
+            cell,
+            ty: MoveValueType::Bool,
+        }))
+    }
     pub fn u8(x: u8, cell: Cell) -> VmResult<Self> {
-        let value = F::from_u64(x as u64);
+        let value = F::from_u64(x as u64);  //todo: range check
         Ok(Self::Constant(FConstant {
             value,
             cell,
             ty: MoveValueType::U8,
         }))
     }
-    // pub fn u64(x: u64) -> VmResult<Self> {
-    //     let value = biguint_to_fr::<E>(x.into())
-    //         .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-    //     Ok(Self::Constant(FConstant {
-    //         value,
-    //         ty: MoveValueType::U64,
-    //     }))
-    // }
-    // pub fn u128(x: u128) -> VmResult<Self> {
-    //     let value = biguint_to_fr::<E>(x.into())
-    //         .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-    //     Ok(Self::Constant(FConstant {
-    //         value,
-    //         ty: MoveValueType::U128,
-    //     }))
-    // }
+    pub fn u64(x: u64, cell: Cell) -> VmResult<Self> {
+        let value = F::from_u64(x);
+        Ok(Self::Constant(FConstant {
+            value,
+            cell,
+            ty: MoveValueType::U64,
+        }))
+    }
+    pub fn u128(x: u128, cell: Cell) -> VmResult<Self> {
+        let value = F::from_u128(x);
+        Ok(Self::Constant(FConstant {
+            value,
+            cell,
+            ty: MoveValueType::U128,
+        }))
+    }
     pub fn value(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
@@ -86,15 +87,6 @@ impl<F: FieldExt> Value<F> {
             Self::Variable(v) => v.value,
         }
     }
-    // pub fn lc<CS: ConstraintSystem<E>>(&self) -> LinearCombination<E> {
-    //     match self {
-    //         Self::Invalid => {
-    //             unreachable!()
-    //         }
-    //         Self::Constant(c) => LinearCombination::zero() + (c.value, CS::one()),
-    //         Self::Variable(v) => LinearCombination::zero() + v.variable,
-    //     }
-    // }
     pub fn ty(&self) -> MoveValueType {
         match self {
             Self::Invalid => {
@@ -104,10 +96,6 @@ impl<F: FieldExt> Value<F> {
             Self::Variable(v) => v.ty.clone(),
         }
     }
-}
-
-pub fn biguint_to_fr<E: Engine>(biguint: BigUint) -> Option<E::Fr> {
-    E::Fr::from_str(&biguint.to_str_radix(10))
 }
 
 pub fn fr_to_biguint<Fr: PrimeField>(fr: &Fr) -> BigUint {

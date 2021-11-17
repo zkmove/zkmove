@@ -96,7 +96,7 @@ impl<F: FieldExt> Frame<F> {
                         let value = instructions_chip.load_constant(layouter.namespace(|| format!("load constant in step#{}", interp.step)), field).map_err(|e| {
                             error!("load constant failed: {:?}", e);
                             RuntimeError::new(StatusCode::SynthesisError)
-                        })?;;
+                        })?;
                         interp.stack.push(Value::u8(*v, value.cell)?)
                     },
                     // Bytecode::LdU64(v) => interp.stack.push(Value::u64(*v)?),

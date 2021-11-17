@@ -6,7 +6,7 @@ use bellman::{ConstraintSystem, SynthesisError};
 use error::{RuntimeError, StatusCode, VmResult};
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
-use movelang::argument::ScriptArguments;
+use movelang::argument::{convert_from, ScriptArguments};
 use movelang::loader::MoveLoader;
 use movelang::value::MoveValueType;
 use std::convert::TryInto;
@@ -16,6 +16,7 @@ use halo2::{
     arithmetic::FieldExt,
     circuit::Layouter,
 };
+use crate::instructions::Instructions;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -47,41 +48,39 @@ impl<F: FieldExt> Interpreter<F>
 
     fn process_arguments(
         &mut self,
-        // cs: &mut CS,
         locals: &mut Locals<F>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
+        instructions_chip: &InstructionsChip<F>,
+        mut layouter: impl Layouter<F>,
     ) -> VmResult<()>
     {
-        // let arg_type_pairs: Vec<_> = match args {
-        //     Some(values) => values
-        //         .as_inner()
-        //         .iter()
-        //         .map(|v| Some(v.clone()))
-        //         .zip(arg_types)
-        //         .collect(),
-        //     None => std::iter::repeat(None).zip(arg_types).collect(),
-        // };
-        //
-        // for (i, (arg, ty)) in arg_type_pairs.into_iter().enumerate() {
-        //     let mut cs = cs.namespace(|| format!("argument #{}", i));
-        //
-        //     let fr = match arg {
-        //         Some(value) => {
-        //             let value: Value<F> = value.try_into()?;
-        //             value.value()
-        //         }
-        //         None => None,
-        //     };
-        //     let variable = cs
-        //         .alloc(
-        //             || "variable",
-        //             || fr.ok_or(SynthesisError::AssignmentMissing),
-        //         )
-        //         .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))?;
-        //
-        //     locals.store(i, Value::new_variable(fr, variable, ty)?)?;
-        // }
+        let arg_type_pairs: Vec<_> = match args {
+            Some(values) => values
+                .as_inner()
+                .iter()
+                .map(|v| Some(v.clone()))
+                .zip(arg_types)
+                .collect(),
+            None => std::iter::repeat(None).zip(arg_types).collect(),
+        };
+
+        for (i, (arg, ty)) in arg_type_pairs.into_iter().enumerate() {
+            let val = match arg {
+                Some(a) => {
+                    let value: F = convert_from(a)?;
+                    Some(value)
+                }
+                None => None,
+            };
+            let cell = instructions_chip.load_private(layouter.namespace(|| format!("load argument #{}", i)), val)
+            .map_err(|e| {
+                debug!("Process arguments error: {:?}", e);
+                RuntimeError::new(StatusCode::SynthesisError)
+            })?;
+
+            locals.store(i, Value::new_variable(cell.value, cell.cell, ty)?)?;
+        }
 
         Ok(())
     }
@@ -113,7 +112,7 @@ impl<F: FieldExt> Interpreter<F>
         //     |zero| zero + CS::one(),
         // );
 
-        // self.process_arguments(cs, &mut locals, args, arg_types)?;
+        self.process_arguments(&mut locals, args, arg_types, instructions_chip, layouter.namespace(|| format!("process arguments in step#{}", self.step)))?;
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
