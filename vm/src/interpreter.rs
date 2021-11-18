@@ -1,4 +1,4 @@
-use crate::circuit::InstructionsChip;
+use crate::circuit::EvaluationChip;
 use crate::frame::{ExitStatus, Frame, Locals};
 use crate::instructions::Instructions;
 use crate::stack::{CallStack, EvalStack};
@@ -44,7 +44,7 @@ impl<F: FieldExt> Interpreter<F> {
         locals: &mut Locals<F>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
-        instructions_chip: &InstructionsChip<F>,
+        evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
     ) -> VmResult<()> {
         let arg_type_pairs: Vec<_> = match args {
@@ -65,7 +65,7 @@ impl<F: FieldExt> Interpreter<F> {
                 }
                 None => None,
             };
-            let cell = instructions_chip
+            let cell = evaluation_chip
                 .load_private(
                     layouter.namespace(|| format!("load argument #{}", i)),
                     val,
@@ -93,7 +93,7 @@ impl<F: FieldExt> Interpreter<F> {
 
     pub fn run_script(
         &mut self,
-        instructions_chip: &InstructionsChip<F>,
+        evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         entry: Arc<Function>,
         args: Option<ScriptArguments>,
@@ -101,18 +101,12 @@ impl<F: FieldExt> Interpreter<F> {
         loader: &MoveLoader,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
-        // cs.enforce(
-        //     || "constraint",
-        //     |zero| zero + CS::one(),
-        //     |zero| zero + CS::one(),
-        //     |zero| zero + CS::one(),
-        // );
 
         self.process_arguments(
             &mut locals,
             args,
             arg_types,
-            instructions_chip,
+            evaluation_chip,
             layouter.namespace(|| format!("process arguments in step#{}", self.step)),
         )?;
 
@@ -120,7 +114,7 @@ impl<F: FieldExt> Interpreter<F> {
         frame.print_frame();
         loop {
             let status = frame.execute(
-                instructions_chip,
+                evaluation_chip,
                 layouter.namespace(|| format!("into frame in step#{}", self.step)),
                 self,
             )?;

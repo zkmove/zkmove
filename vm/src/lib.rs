@@ -7,7 +7,7 @@ pub mod runtime;
 pub mod stack;
 pub mod value;
 
-use crate::circuit::{InstructionsChip, InstructionsConfig};
+use crate::circuit::{EvaluationChip, EvaluationConfig};
 use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -43,7 +43,7 @@ impl FastMoveCircuit {
 }
 
 impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
-    type Config = InstructionsConfig;
+    type Config = EvaluationConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -59,7 +59,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
         let instance = meta.instance_column();
         let constant = meta.fixed_column();
 
-        InstructionsChip::configure(meta, advice, instance, constant)
+        EvaluationChip::configure(meta, advice, instance, constant)
     }
 
     fn synthesize(
@@ -67,9 +67,9 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let instructions_chip = InstructionsChip::<F>::construct(config, ());
+        let evaluation_chip = EvaluationChip::<F>::construct(config, ());
         let mut state = StateStore::new();
-        // let state_root = instructions_chip.load_private(layouter.namespace(|| "load state root"), Some(F::zero()))?;
+        // let state_root = evaluation_chip.load_private(layouter.namespace(|| "load state root"), Some(F::zero()))?;
         let runtime = Runtime::new();
         for module in self.modules.clone().into_iter() {
             state.add_module(module);
@@ -87,7 +87,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
 
         interp
             .run_script(
-                &instructions_chip,
+                &evaluation_chip,
                 layouter.namespace(|| "run script"),
                 entry,
                 self.args.clone(),
@@ -99,7 +99,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
                 Error::SynthesisError
             })?;
 
-        // instructions_chip.expose_public(layouter.namespace(|| "expose state root"), state_root, 0)?;
+        // evaluation_chip.expose_public(layouter.namespace(|| "expose state root"), state_root, 0)?;
 
         Ok(())
     }

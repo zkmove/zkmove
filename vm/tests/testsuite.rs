@@ -1,5 +1,4 @@
 use anyhow::Result;
-use bellman::pairing::bn256::Bn256;
 use logger::prelude::*;
 use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
@@ -67,12 +66,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
         debug!("Generate zk proof for script {:?}", script_file);
         let k = 4;
-        vm::prove_script(
-            script_bytes,
-            compiled_modules.clone(),
-            config.args,
-            k,
-        )?;
+        vm::prove_script(script_bytes, compiled_modules.clone(), config.args, k)?;
     }
 
     Ok(())

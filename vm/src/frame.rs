@@ -1,4 +1,4 @@
-use crate::circuit::InstructionsChip;
+use crate::circuit::EvaluationChip;
 use crate::instructions::{AddInstruction, Instructions};
 use crate::interpreter::Interpreter;
 use crate::value::Value;
@@ -77,7 +77,7 @@ impl<F: FieldExt> Frame<F> {
 
     pub fn execute(
         &mut self,
-        instructions_chip: &InstructionsChip<F>,
+        evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
     ) -> VmResult<ExitStatus> {
@@ -91,7 +91,7 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u64(*v as u64);
-                        let value = instructions_chip
+                        let value = evaluation_chip
                             .load_constant(
                                 layouter
                                     .namespace(|| format!("load constant in step#{}", interp.step)),
@@ -113,7 +113,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Add => {
                         let a = interp.stack.pop()?;
                         let b = interp.stack.pop()?;
-                        let c = instructions_chip
+                        let c = evaluation_chip
                             .add(
                                 layouter.namespace(|| format!("a + b in step#{}", interp.step)),
                                 a,

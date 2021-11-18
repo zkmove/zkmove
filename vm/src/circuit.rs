@@ -10,7 +10,7 @@ use movelang::value::MoveValueType;
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-pub struct InstructionsConfig {
+pub struct EvaluationConfig {
     advice: [Column<Advice>; 2],
 
     // Public inputs
@@ -22,12 +22,12 @@ pub struct InstructionsConfig {
     add_config: AddConfig,
 }
 
-pub struct InstructionsChip<F: FieldExt> {
-    config: InstructionsConfig,
+pub struct EvaluationChip<F: FieldExt> {
+    config: EvaluationConfig,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> AddInstruction<F> for InstructionsChip<F> {
+impl<F: FieldExt> AddInstruction<F> for EvaluationChip<F> {
     type Value = Value<F>;
     fn add(
         &self,
@@ -42,8 +42,8 @@ impl<F: FieldExt> AddInstruction<F> for InstructionsChip<F> {
     }
 }
 
-impl<F: FieldExt> Chip<F> for InstructionsChip<F> {
-    type Config = InstructionsConfig;
+impl<F: FieldExt> Chip<F> for EvaluationChip<F> {
+    type Config = EvaluationConfig;
     type Loaded = ();
 
     fn config(&self) -> &Self::Config {
@@ -55,7 +55,7 @@ impl<F: FieldExt> Chip<F> for InstructionsChip<F> {
     }
 }
 
-impl<F: FieldExt> InstructionsChip<F> {
+impl<F: FieldExt> EvaluationChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -77,7 +77,7 @@ impl<F: FieldExt> InstructionsChip<F> {
         meta.enable_equality(instance.into());
         meta.enable_constant(constant);
 
-        InstructionsConfig {
+        EvaluationConfig {
             advice,
             instance,
             constant,
@@ -87,7 +87,7 @@ impl<F: FieldExt> InstructionsChip<F> {
     }
 }
 
-impl<F: FieldExt> Instructions<F> for InstructionsChip<F> {
+impl<F: FieldExt> Instructions<F> for EvaluationChip<F> {
     type Value = Value<F>;
 
     fn load_private(
@@ -167,7 +167,7 @@ struct TestCircuit<F: FieldExt> {
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
-    type Config = InstructionsConfig;
+    type Config = EvaluationConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -184,7 +184,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let instance = meta.instance_column();
         let constant = meta.fixed_column();
 
-        InstructionsChip::configure(meta, advice, instance, constant)
+        EvaluationChip::configure(meta, advice, instance, constant)
     }
 
     fn synthesize(
@@ -192,21 +192,21 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let instructions_chip = InstructionsChip::<F>::construct(config, ());
+        let evaluation_chip = EvaluationChip::<F>::construct(config, ());
 
-        let a = instructions_chip.load_private(
+        let a = evaluation_chip.load_private(
             layouter.namespace(|| "load a"),
             self.a,
             self.a_type.clone(),
         )?;
-        let b = instructions_chip.load_private(
+        let b = evaluation_chip.load_private(
             layouter.namespace(|| "load b"),
             self.b,
             self.b_type.clone(),
         )?;
-        let c = instructions_chip.add(layouter.namespace(|| "a + b"), a, b)?;
+        let c = evaluation_chip.add(layouter.namespace(|| "a + b"), a, b)?;
 
-        instructions_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
+        evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
     }
 }
 
