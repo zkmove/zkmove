@@ -132,8 +132,8 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Ret => return Ok(ExitStatus::Return),
                     // Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
-                    // Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
-                    // Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
+                    Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
+                    Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
                     // Bytecode::LdTrue => interp.stack.push(Value::bool(true)?),
                     // Bytecode::LdFalse => interp.stack.push(Value::bool(false)?),
                     // Bytecode::BrTrue(offset) => {
