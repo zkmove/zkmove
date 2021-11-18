@@ -81,6 +81,22 @@ impl<F: FieldExt> Frame<F> {
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
     ) -> VmResult<ExitStatus> {
+        macro_rules! load_constant {
+            ($constant:expr, $ty:expr) => {{
+                let value = evaluation_chip
+                    .load_constant(
+                        layouter.namespace(|| format!("load constant in step#{}", interp.step)),
+                        $constant,
+                        $ty,
+                    )
+                    .map_err(|e| {
+                        error!("load constant failed: {:?}", e);
+                        RuntimeError::new(StatusCode::SynthesisError)
+                    })?;
+                interp.stack.push(value)
+            }};
+        }
+
         let code = self.function.code();
         loop {
             for instruction in &code[self.pc as usize..] {
@@ -91,21 +107,16 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u64(*v as u64);
-                        let value = evaluation_chip
-                            .load_constant(
-                                layouter
-                                    .namespace(|| format!("load constant in step#{}", interp.step)),
-                                constant,
-                                MoveValueType::U8,
-                            )
-                            .map_err(|e| {
-                                error!("load constant failed: {:?}", e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(value)
+                        load_constant!(constant, MoveValueType::U8)
                     }
-                    // Bytecode::LdU64(v) => interp.stack.push(Value::u64(*v)?),
-                    // Bytecode::LdU128(v) => interp.stack.push(Value::u128(*v)?),
+                    Bytecode::LdU64(v) => {
+                        let constant = F::from_u64(*v);
+                        load_constant!(constant, MoveValueType::U64)
+                    }
+                    Bytecode::LdU128(v) => {
+                        let constant = F::from_u128(*v);
+                        load_constant!(constant, MoveValueType::U128)
+                    }
                     Bytecode::Pop => {
                         interp.stack.pop()?;
                         Ok(())
@@ -134,8 +145,14 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
                     Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
-                    // Bytecode::LdTrue => interp.stack.push(Value::bool(true)?),
-                    // Bytecode::LdFalse => interp.stack.push(Value::bool(false)?),
+                    Bytecode::LdTrue => {
+                        let constant = F::one();
+                        load_constant!(constant, MoveValueType::Bool)
+                    }
+                    Bytecode::LdFalse => {
+                        let constant = F::zero();
+                        load_constant!(constant, MoveValueType::Bool)
+                    }
                     // Bytecode::BrTrue(offset) => {
                     //     let cond =
                     //         interp.stack.pop()?.value().ok_or_else(|| {
