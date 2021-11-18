@@ -1,5 +1,5 @@
 use crate::circuit::EvaluationChip;
-use crate::instructions::{AddInstruction, Instructions};
+use crate::instructions::{AddInstruction, EqInstruction, Instructions};
 use crate::interpreter::Interpreter;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -195,7 +195,21 @@ impl<F: FieldExt> Frame<F> {
                     //         ),
                     //     ));
                     // }
-                    // Bytecode::Eq => interp.binary_op(cs, r1cs::eq),
+                    Bytecode::Eq => {
+                        let a = interp.stack.pop()?;
+                        let b = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .eq(
+                                layouter.namespace(|| format!("eq op in step#{}", interp.step)),
+                                a,
+                                b,
+                            )
+                            .map_err(|e| {
+                                error!("eq op failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     // Bytecode::Neq => interp.binary_op(cs, r1cs::neq),
                     // Bytecode::And => interp.binary_op(cs, r1cs::and),
                     // Bytecode::Or => interp.binary_op(cs, r1cs::or),

@@ -1,5 +1,6 @@
-use crate::instructions::{AddInstruction, Instructions};
+use crate::instructions::{AddInstruction, EqInstruction, Instructions};
 use crate::plonk::add::{AddChip, AddConfig};
+use crate::plonk::eq::{EqChip, EqConfig};
 use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
@@ -20,6 +21,7 @@ pub struct EvaluationConfig {
     constant: Column<Fixed>,
 
     add_config: AddConfig,
+    eq_config: EqConfig,
 }
 
 pub struct EvaluationChip<F: FieldExt> {
@@ -39,6 +41,21 @@ impl<F: FieldExt> AddInstruction<F> for EvaluationChip<F> {
 
         let add_chip = AddChip::<F>::construct(config, ());
         add_chip.add(layouter, a, b)
+    }
+}
+
+impl<F: FieldExt> EqInstruction<F> for EvaluationChip<F> {
+    type Value = Value<F>;
+    fn eq(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().eq_config.clone();
+
+        let eq_chip = EqChip::<F>::construct(config, ());
+        eq_chip.eq(layouter, a, b)
     }
 }
 
@@ -73,6 +90,7 @@ impl<F: FieldExt> EvaluationChip<F> {
         constant: Column<Fixed>,
     ) -> <Self as Chip<F>>::Config {
         let add_config = AddChip::configure(meta, advice);
+        let eq_config = EqChip::configure(meta, advice);
 
         meta.enable_equality(instance.into());
         meta.enable_constant(constant);
@@ -82,6 +100,7 @@ impl<F: FieldExt> EvaluationChip<F> {
             instance,
             constant,
             add_config,
+            eq_config,
             //other config
         }
     }
@@ -204,9 +223,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             self.b,
             self.b_type.clone(),
         )?;
-        let c = evaluation_chip.add(layouter.namespace(|| "a + b"), a, b)?;
+        let c = evaluation_chip.add(layouter.namespace(|| "a + b"), a.clone(), b.clone())?;
+        let d = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b)?;
 
-        evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)
+        evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)?;
+        evaluation_chip.expose_public(layouter.namespace(|| "expose d"), d, 1)
     }
 }
 
@@ -217,7 +238,7 @@ mod tests {
     use movelang::value::MoveValueType;
 
     #[test]
-    fn test_add() {
+    fn test_evaluation() {
         // Circuit is very small, we pick a small value here
         let k = 4;
 
@@ -225,6 +246,7 @@ mod tests {
         let a = Fp::from(2);
         let b = Fp::from(3);
         let c = a + b;
+        let d = Fp::zero();
 
         // Instantiate the circuit with the private inputs
         let circuit = TestCircuit {
@@ -234,14 +256,14 @@ mod tests {
             b_type: MoveValueType::U8,
         };
 
-        let mut public_inputs = vec![c];
+        let mut public_inputs = vec![c, d];
 
         // Given the correct public input, circuit will verify
         let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
         assert_eq!(prover.verify(), Ok(()));
 
         // If use some other public input, the proof will fail
-        public_inputs[0] += Fp::one();
+        public_inputs[1] = Fp::one();
         let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
         assert!(prover.verify().is_err());
     }

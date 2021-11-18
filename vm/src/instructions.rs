@@ -8,8 +8,18 @@ use movelang::value::MoveValueType;
 pub trait AddInstruction<F: FieldExt>: Chip<F> {
     type Value;
 
-    // `c = a + b`.
     fn add(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error>;
+}
+
+pub trait EqInstruction<F: FieldExt>: Chip<F> {
+    type Value;
+
+    fn eq(
         &self,
         layouter: impl Layouter<F>,
         a: Self::Value,
