@@ -169,32 +169,32 @@ impl<F: FieldExt> Frame<F> {
                         let constant = F::zero();
                         load_constant!(constant, MoveValueType::Bool)
                     }
-                    // Bytecode::BrTrue(offset) => {
-                    //     let cond =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     if !cond.is_zero() {
-                    //         self.pc = *offset;
-                    //         break;
-                    //     }
-                    //     Ok(())
-                    // }
-                    // Bytecode::BrFalse(offset) => {
-                    //     let cond =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     if cond.is_zero() {
-                    //         self.pc = *offset;
-                    //         break;
-                    //     }
-                    //     Ok(())
-                    // }
-                    // Bytecode::Branch(offset) => {
-                    //     self.pc = *offset;
-                    //     break;
-                    // }
+                    Bytecode::BrTrue(offset) => {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if cond == F::one() {
+                            self.pc = *offset;
+                            break;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::BrFalse(offset) => {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if cond == F::zero() {
+                            self.pc = *offset;
+                            break;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::Branch(offset) => {
+                        self.pc = *offset;
+                        break;
+                    }
                     // Bytecode::Abort => {
                     //     let fr =
                     //         interp.stack.pop()?.value().ok_or_else(|| {
