@@ -101,7 +101,6 @@ impl<F: FieldExt> Frame<F> {
         loop {
             for instruction in &code[self.pc as usize..] {
                 debug!("step #{}, instruction {:?}", interp.step, instruction);
-                // cs.push_namespace(|| format!("#{}", interp.step));
                 interp.step += 1;
 
                 match instruction {
@@ -157,7 +156,7 @@ impl<F: FieldExt> Frame<F> {
                     // Bytecode::Div => interp.binary_op(cs, r1cs::div),
                     // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
                     Bytecode::Ret => return Ok(ExitStatus::Return),
-                    // Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
+                    Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
                     Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
@@ -195,22 +194,20 @@ impl<F: FieldExt> Frame<F> {
                         self.pc = *offset;
                         break;
                     }
-                    // Bytecode::Abort => {
-                    //     let fr =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     let error_code = fr_to_biguint(&fr)
-                    //         .to_u64()
-                    //         .ok_or_else(|| RuntimeError::new(StatusCode::ValueConversionError))?;
-                    //     return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
-                    //         format!(
-                    //             "Move bytecode {} aborted with error code {}",
-                    //             self.function.pretty_string(),
-                    //             error_code
-                    //         ),
-                    //     ));
-                    // }
+                    Bytecode::Abort => {
+                        let value =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        let error_code = value.get_lower_128(); // fixme should cast to u64?
+                        return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
+                            format!(
+                                "Move bytecode {} aborted with error code {}",
+                                self.function.pretty_string(),
+                                error_code
+                            ),
+                        ));
+                    }
                     Bytecode::Eq => {
                         let a = interp.stack.pop()?;
                         let b = interp.stack.pop()?;
@@ -233,7 +230,6 @@ impl<F: FieldExt> Frame<F> {
                     _ => unreachable!(),
                 }?;
 
-                // cs.pop_namespace();
                 self.pc += 1;
             }
         }

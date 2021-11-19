@@ -138,29 +138,6 @@ impl<F: FieldExt> Interpreter<F> {
             }
         }
     }
-
-    // pub fn binary_op<CS, Fn>(&mut self, cs: &mut CS, op: Fn) -> VmResult<()>
-    // where
-    //     CS: ConstraintSystem<F>,
-    //     Fn: FnOnce(&mut CS, Value<F>, Value<F>) -> VmResult<Value<F>>,
-    // {
-    //     let right = self.stack.pop()?;
-    //     let left = self.stack.pop()?;
-    //
-    //     let result = op(cs, left, right)?;
-    //     self.stack.push(result)
-    // }
-    //
-    // pub fn unary_op<CS, Fn>(&mut self, cs: &mut CS, op: Fn) -> VmResult<()>
-    // where
-    //     CS: ConstraintSystem<F>,
-    //     Fn: FnOnce(&mut CS, Value<F>) -> VmResult<Value<F>>,
-    // {
-    //     let operand = self.stack.pop()?;
-    //
-    //     let result = op(cs, operand)?;
-    //     self.stack.push(result)
-    // }
 }
 
 impl<F: FieldExt> Default for Interpreter<F> {
