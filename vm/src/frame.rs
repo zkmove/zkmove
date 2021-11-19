@@ -122,22 +122,38 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Add => {
-                        let a = interp.stack.pop()?;
                         let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
                         let c = evaluation_chip
-                            .add(
-                                layouter.namespace(|| format!("a + b in step#{}", interp.step)),
-                                a,
-                                b,
-                            )
+                            .add(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
                             .map_err(|e| {
-                                error!("add failed: {:?}", e);
+                                error!("step#{} failed: {:?}", interp.step, e);
                                 RuntimeError::new(StatusCode::SynthesisError)
                             })?;
                         interp.stack.push(c)
                     }
-                    // Bytecode::Sub => interp.binary_op(cs, r1cs::sub),
-                    // Bytecode::Mul => interp.binary_op(cs, r1cs::mul),
+                    Bytecode::Sub => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .sub(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
+                            .map_err(|e| {
+                                error!("step#{} failed: {:?}", interp.step, e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
+                    Bytecode::Mul => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .mul(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
+                            .map_err(|e| {
+                                error!("step#{} failed: {:?}", interp.step, e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     // Bytecode::Div => interp.binary_op(cs, r1cs::div),
                     // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
                     Bytecode::Ret => return Ok(ExitStatus::Return),

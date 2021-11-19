@@ -14,6 +14,20 @@ pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
         a: Self::Value,
         b: Self::Value,
     ) -> Result<Self::Value, Error>;
+
+    fn sub(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error>;
+
+    fn mul(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error>;
 }
 
 pub trait LogicalInstructions<F: FieldExt>: Chip<F> {

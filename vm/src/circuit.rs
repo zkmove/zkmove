@@ -42,6 +42,30 @@ impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
         let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
         arithmetic_chip.add(layouter, a, b)
     }
+
+    fn sub(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().arithmetic_config.clone();
+
+        let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
+        arithmetic_chip.sub(layouter, a, b)
+    }
+
+    fn mul(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().arithmetic_config.clone();
+
+        let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
+        arithmetic_chip.mul(layouter, a, b)
+    }
 }
 
 impl<F: FieldExt> LogicalInstructions<F> for EvaluationChip<F> {
@@ -228,10 +252,16 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             self.b_type.clone(),
         )?;
         let c = evaluation_chip.add(layouter.namespace(|| "a + b"), a.clone(), b.clone())?;
-        let d = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b)?;
+        let d = evaluation_chip.sub(layouter.namespace(|| "a - b"), a.clone(), b.clone())?;
+        let e = evaluation_chip.mul(layouter.namespace(|| "a * b"), a.clone(), b.clone())?;
+
+        let f = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b)?;
 
         evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)?;
-        evaluation_chip.expose_public(layouter.namespace(|| "expose d"), d, 1)
+        evaluation_chip.expose_public(layouter.namespace(|| "expose d"), d, 1)?;
+        evaluation_chip.expose_public(layouter.namespace(|| "expose e"), e, 2)?;
+        evaluation_chip.expose_public(layouter.namespace(|| "expose f"), f, 3)?;
+        Ok(())
     }
 }
 
@@ -250,7 +280,9 @@ mod tests {
         let a = Fp::from(2);
         let b = Fp::from(3);
         let c = a + b;
-        let d = Fp::zero();
+        let d = a - b;
+        let e = a * b;
+        let f = Fp::zero();
 
         // Instantiate the circuit with the private inputs
         let circuit = TestCircuit {
@@ -260,7 +292,7 @@ mod tests {
             b_type: MoveValueType::U8,
         };
 
-        let mut public_inputs = vec![c, d];
+        let mut public_inputs = vec![c, d, e, f];
 
         // Given the correct public input, circuit will verify
         let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
