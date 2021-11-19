@@ -1,4 +1,4 @@
-use crate::instructions::AddInstruction;
+use crate::instructions::ArithmeticInstructions;
 use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
@@ -9,18 +9,18 @@ use halo2::{
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-pub struct AddConfig {
-    advice: [Column<Advice>; 2],
+pub struct ArithmeticConfig {
+    advice: [Column<Advice>; 3],
     s_add: Selector,
 }
 
-pub struct AddChip<F: FieldExt> {
-    config: AddConfig,
+pub struct ArithmeticChip<F: FieldExt> {
+    config: ArithmeticConfig,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for AddChip<F> {
-    type Config = AddConfig;
+impl<F: FieldExt> Chip<F> for ArithmeticChip<F> {
+    type Config = ArithmeticConfig;
     type Loaded = ();
 
     fn config(&self) -> &Self::Config {
@@ -32,7 +32,7 @@ impl<F: FieldExt> Chip<F> for AddChip<F> {
     }
 }
 
-impl<F: FieldExt> AddChip<F> {
+impl<F: FieldExt> ArithmeticChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -45,27 +45,27 @@ impl<F: FieldExt> AddChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 2],
+        advice: [Column<Advice>; 3],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
             meta.enable_equality((*column).into());
         }
-        let s_add = meta.selector();
 
+        let s_add = meta.selector();
         meta.create_gate("add", |meta| {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
-            let out = meta.query_advice(advice[0], Rotation::next());
+            let out = meta.query_advice(advice[2], Rotation::cur());
             let s_add = meta.query_selector(s_add);
 
             vec![s_add * (lhs + rhs - out)]
         });
 
-        AddConfig { advice, s_add }
+        ArithmeticConfig { advice, s_add }
     }
 }
 
-impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
+impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
     type Value = Value<F>;
 
     fn add(
@@ -100,8 +100,8 @@ impl<F: FieldExt> AddInstruction<F> for AddChip<F> {
                 let value = a.value().and_then(|a| b.value().map(|b| a + b));
                 let cell = region.assign_advice(
                     || "lhs + rhs",
-                    config.advice[0],
-                    1,
+                    config.advice[2],
+                    0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
 

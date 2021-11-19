@@ -5,7 +5,7 @@ use halo2::{
 };
 use movelang::value::MoveValueType;
 
-pub trait AddInstruction<F: FieldExt>: Chip<F> {
+pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
     type Value;
 
     fn add(
@@ -16,7 +16,7 @@ pub trait AddInstruction<F: FieldExt>: Chip<F> {
     ) -> Result<Self::Value, Error>;
 }
 
-pub trait EqInstruction<F: FieldExt>: Chip<F> {
+pub trait LogicalInstructions<F: FieldExt>: Chip<F> {
     type Value;
 
     fn eq(
@@ -27,7 +27,7 @@ pub trait EqInstruction<F: FieldExt>: Chip<F> {
     ) -> Result<Self::Value, Error>;
 }
 
-pub trait Instructions<F: FieldExt>: AddInstruction<F> {
+pub trait Instructions<F: FieldExt>: ArithmeticInstructions<F> {
     type Value;
 
     fn load_private(

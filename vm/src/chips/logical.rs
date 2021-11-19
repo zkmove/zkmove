@@ -1,4 +1,4 @@
-use crate::instructions::EqInstruction;
+use crate::instructions::LogicalInstructions;
 use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
@@ -6,22 +6,22 @@ use halo2::{
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
-use std::marker::PhantomData;
 use movelang::value::MoveValueType;
+use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-pub struct EqConfig {
-    advice: [Column<Advice>; 2],
+pub struct LogicalConfig {
+    advice: [Column<Advice>; 3],
     s_eq: Selector,
 }
 
-pub struct EqChip<F: FieldExt> {
-    config: EqConfig,
+pub struct LogicalChip<F: FieldExt> {
+    config: LogicalConfig,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for EqChip<F> {
-    type Config = EqConfig;
+impl<F: FieldExt> Chip<F> for LogicalChip<F> {
+    type Config = LogicalConfig;
     type Loaded = ();
 
     fn config(&self) -> &Self::Config {
@@ -33,7 +33,7 @@ impl<F: FieldExt> Chip<F> for EqChip<F> {
     }
 }
 
-impl<F: FieldExt> EqChip<F> {
+impl<F: FieldExt> LogicalChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -46,7 +46,7 @@ impl<F: FieldExt> EqChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 2],
+        advice: [Column<Advice>; 3],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
             meta.enable_equality((*column).into());
@@ -56,24 +56,23 @@ impl<F: FieldExt> EqChip<F> {
         meta.create_gate("eq", |meta| {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
-            let out = meta.query_advice(advice[0], Rotation::next());
-            let delta_invert = meta.query_advice(advice[1], Rotation::next());
+            let out = meta.query_advice(advice[2], Rotation::cur());
+            let delta_invert = meta.query_advice(advice[0], Rotation::next());
             let s_eq = meta.query_selector(s_eq);
             let one = Expression::Constant(F::one());
 
             vec![
                 // if a != b then (a - b) * inverse(a - b) == 1 - out
                 // if a == b then (a - b) * 1 == 1 - out
-                s_eq * ((lhs - rhs) * delta_invert + (out - one))
+                s_eq * ((lhs - rhs) * delta_invert + (out - one)),
             ]
-
         });
 
-        EqConfig { advice, s_eq }
+        LogicalConfig { advice, s_eq }
     }
 }
 
-impl<F: FieldExt> EqInstruction<F> for EqChip<F> {
+impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
     type Value = Value<F>;
 
     fn eq(
@@ -115,14 +114,14 @@ impl<F: FieldExt> EqInstruction<F> for EqChip<F> {
 
                 let cell = region.assign_advice(
                     || "lhs == rhs",
-                    config.advice[0],
-                    1,
+                    config.advice[2],
+                    0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
 
                 region.assign_advice(
                     || "delta invert",
-                    config.advice[1],
+                    config.advice[0],
                     1,
                     || {
                         let delta_invert = if a.value() == b.value() {

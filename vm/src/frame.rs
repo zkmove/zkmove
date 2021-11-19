@@ -1,5 +1,5 @@
 use crate::circuit::EvaluationChip;
-use crate::instructions::{AddInstruction, EqInstruction, Instructions};
+use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::interpreter::Interpreter;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};

@@ -1,8 +1,8 @@
+pub mod chips;
 pub mod circuit;
 pub mod frame;
 pub mod instructions;
 pub mod interpreter;
-pub mod plonk;
 pub mod runtime;
 pub mod stack;
 pub mod value;
@@ -55,7 +55,11 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let advice = [meta.advice_column(), meta.advice_column()];
+        let advice = [
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+        ];
         let instance = meta.instance_column();
         let constant = meta.fixed_column();
 

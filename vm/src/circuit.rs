@@ -1,6 +1,6 @@
-use crate::instructions::{AddInstruction, EqInstruction, Instructions};
-use crate::plonk::add::{AddChip, AddConfig};
-use crate::plonk::eq::{EqChip, EqConfig};
+use crate::chips::arithmetic::{ArithmeticChip, ArithmeticConfig};
+use crate::chips::logical::{LogicalChip, LogicalConfig};
+use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,
@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct EvaluationConfig {
-    advice: [Column<Advice>; 2],
+    advice: [Column<Advice>; 3],
 
     // Public inputs
     instance: Column<Instance>,
@@ -20,8 +20,8 @@ pub struct EvaluationConfig {
     // Fixed column to load constants
     constant: Column<Fixed>,
 
-    add_config: AddConfig,
-    eq_config: EqConfig,
+    arithmetic_config: ArithmeticConfig,
+    logical_config: LogicalConfig,
 }
 
 pub struct EvaluationChip<F: FieldExt> {
@@ -29,7 +29,7 @@ pub struct EvaluationChip<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> AddInstruction<F> for EvaluationChip<F> {
+impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
     type Value = Value<F>;
     fn add(
         &self,
@@ -37,14 +37,14 @@ impl<F: FieldExt> AddInstruction<F> for EvaluationChip<F> {
         a: Self::Value,
         b: Self::Value,
     ) -> Result<Self::Value, Error> {
-        let config = self.config().add_config.clone();
+        let config = self.config().arithmetic_config.clone();
 
-        let add_chip = AddChip::<F>::construct(config, ());
-        add_chip.add(layouter, a, b)
+        let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
+        arithmetic_chip.add(layouter, a, b)
     }
 }
 
-impl<F: FieldExt> EqInstruction<F> for EvaluationChip<F> {
+impl<F: FieldExt> LogicalInstructions<F> for EvaluationChip<F> {
     type Value = Value<F>;
     fn eq(
         &self,
@@ -52,10 +52,10 @@ impl<F: FieldExt> EqInstruction<F> for EvaluationChip<F> {
         a: Self::Value,
         b: Self::Value,
     ) -> Result<Self::Value, Error> {
-        let config = self.config().eq_config.clone();
+        let config = self.config().logical_config.clone();
 
-        let eq_chip = EqChip::<F>::construct(config, ());
-        eq_chip.eq(layouter, a, b)
+        let logical_chip = LogicalChip::<F>::construct(config, ());
+        logical_chip.eq(layouter, a, b)
     }
 }
 
@@ -85,12 +85,12 @@ impl<F: FieldExt> EvaluationChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 2],
+        advice: [Column<Advice>; 3],
         instance: Column<Instance>,
         constant: Column<Fixed>,
     ) -> <Self as Chip<F>>::Config {
-        let add_config = AddChip::configure(meta, advice);
-        let eq_config = EqChip::configure(meta, advice);
+        let arithmetic_config = ArithmeticChip::configure(meta, advice);
+        let logical_config = LogicalChip::configure(meta, advice);
 
         meta.enable_equality(instance.into());
         meta.enable_constant(constant);
@@ -99,8 +99,8 @@ impl<F: FieldExt> EvaluationChip<F> {
             advice,
             instance,
             constant,
-            add_config,
-            eq_config,
+            arithmetic_config,
+            logical_config,
             //other config
         }
     }
@@ -199,7 +199,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let advice = [meta.advice_column(), meta.advice_column()];
+        let advice = [
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+        ];
         let instance = meta.instance_column();
         let constant = meta.fixed_column();
 
