@@ -59,6 +59,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
             meta.advice_column(),
             meta.advice_column(),
             meta.advice_column(),
+            meta.advice_column(),
         ];
         let instance = meta.instance_column();
         let constant = meta.fixed_column();
@@ -88,6 +89,12 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
                 Error::SynthesisError
             })?;
         debug!("script entry {:?}", entry.name());
+
+        // condition is true by default
+        interp.conditions().push(F::one()).map_err(|e| {
+            error!("set condition failed: {:?}", e);
+            Error::SynthesisError
+        })?;
 
         interp
             .run_script(

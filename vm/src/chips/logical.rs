@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct LogicalConfig {
-    advice: [Column<Advice>; 3],
+    advice: [Column<Advice>; 4],
     s_eq: Selector,
 }
 
@@ -46,7 +46,7 @@ impl<F: FieldExt> LogicalChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 3],
+        advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
             meta.enable_equality((*column).into());
@@ -57,8 +57,9 @@ impl<F: FieldExt> LogicalChip<F> {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[2], Rotation::cur());
+            let cond = meta.query_advice(advice[3], Rotation::cur());
             let delta_invert = meta.query_advice(advice[0], Rotation::next());
-            let s_eq = meta.query_selector(s_eq);
+            let s_eq = meta.query_selector(s_eq) * cond;
             let one = Expression::Constant(F::one());
 
             vec![
@@ -80,6 +81,7 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
         mut layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config();
 
@@ -117,6 +119,13 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     config.advice[2],
                     0,
                     || value.ok_or(Error::SynthesisError),
+                )?;
+
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
                 )?;
 
                 region.assign_advice(

@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct ArithmeticConfig {
-    advice: [Column<Advice>; 3],
+    advice: [Column<Advice>; 4],
     s_add: Selector,
     s_sub: Selector,
     s_mul: Selector,
@@ -47,7 +47,7 @@ impl<F: FieldExt> ArithmeticChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 3],
+        advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
             meta.enable_equality((*column).into());
@@ -58,7 +58,8 @@ impl<F: FieldExt> ArithmeticChip<F> {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[2], Rotation::cur());
-            let s_add = meta.query_selector(s_add);
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_add = meta.query_selector(s_add) * cond;
 
             vec![s_add * (lhs + rhs - out)]
         });
@@ -68,7 +69,8 @@ impl<F: FieldExt> ArithmeticChip<F> {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[2], Rotation::cur());
-            let s_sub = meta.query_selector(s_sub);
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_sub = meta.query_selector(s_sub) * cond;
 
             vec![s_sub * (lhs - rhs - out)]
         });
@@ -78,7 +80,8 @@ impl<F: FieldExt> ArithmeticChip<F> {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[2], Rotation::cur());
-            let s_mul = meta.query_selector(s_mul);
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_mul = meta.query_selector(s_mul) * cond;
 
             vec![s_mul * (lhs * rhs - out)]
         });
@@ -100,6 +103,7 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
         mut layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config();
 
@@ -132,6 +136,13 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || value.ok_or(Error::SynthesisError),
                 )?;
 
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
+                )?;
+
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -148,6 +159,7 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
         mut layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config();
 
@@ -180,6 +192,13 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || value.ok_or(Error::SynthesisError),
                 )?;
 
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
+                )?;
+
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -196,6 +215,7 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
         mut layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config();
 
@@ -226,6 +246,13 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     config.advice[2],
                     0,
                     || value.ok_or(Error::SynthesisError),
+                )?;
+
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
                 )?;
 
                 c = Some(

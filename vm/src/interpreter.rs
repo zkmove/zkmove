@@ -1,7 +1,7 @@
 use crate::circuit::EvaluationChip;
 use crate::frame::{ExitStatus, Frame, Locals};
 use crate::instructions::Instructions;
-use crate::stack::{CallStack, EvalStack};
+use crate::stack::{CallStack, CondStack, EvalStack};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2::{arithmetic::FieldExt, circuit::Layouter};
@@ -15,6 +15,7 @@ use std::sync::Arc;
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
     pub frames: CallStack<F>,
+    pub conditions: CondStack<F>,
     pub step: u64,
 }
 
@@ -23,6 +24,7 @@ impl<F: FieldExt> Interpreter<F> {
         Self {
             stack: EvalStack::new(),
             frames: CallStack::new(),
+            conditions: CondStack::new(),
             step: 0,
         }
     }
@@ -37,6 +39,10 @@ impl<F: FieldExt> Interpreter<F> {
 
     pub fn current_frame(&mut self) -> Option<&mut Frame<F>> {
         self.frames.top()
+    }
+
+    pub fn conditions(&mut self) -> &mut CondStack<F> {
+        &mut self.conditions
     }
 
     fn process_arguments(

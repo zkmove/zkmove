@@ -5,6 +5,7 @@ use halo2::arithmetic::FieldExt;
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
+const COND_STACK_SIZE: usize = 256;
 
 pub struct EvalStack<F: FieldExt>(Vec<Value<F>>);
 
@@ -71,6 +72,44 @@ impl<F: FieldExt> CallStack<F> {
 }
 
 impl<F: FieldExt> Default for CallStack<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct CondStack<F: FieldExt>(Vec<F>);
+
+impl<F: FieldExt> CondStack<F> {
+    pub fn new() -> Self {
+        CondStack(vec![])
+    }
+
+    pub fn push(&mut self, value: F) -> VmResult<()> {
+        if self.0.len() < COND_STACK_SIZE {
+            self.0.push(value);
+            Ok(())
+        } else {
+            Err(RuntimeError::new(StatusCode::StackOverflow))
+        }
+    }
+
+    pub fn pop(&mut self) -> VmResult<F> {
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            Ok(self.0.pop().unwrap())
+        }
+    }
+
+    pub fn top(&self) -> Option<F> {
+        match self.0.last() {
+            Some(v) => Some(v.clone()),
+            None => None,
+        }
+    }
+}
+
+impl<F: FieldExt> Default for CondStack<F> {
     fn default() -> Self {
         Self::new()
     }

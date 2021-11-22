@@ -124,7 +124,12 @@ impl<F: FieldExt> Frame<F> {
                         let b = interp.stack.pop()?;
                         let a = interp.stack.pop()?;
                         let c = evaluation_chip
-                            .add(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
+                            .add(
+                                layouter.namespace(|| format!("step#{}", interp.step)),
+                                a,
+                                b,
+                                interp.conditions().top(),
+                            )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
                                 RuntimeError::new(StatusCode::SynthesisError)
@@ -135,7 +140,12 @@ impl<F: FieldExt> Frame<F> {
                         let b = interp.stack.pop()?;
                         let a = interp.stack.pop()?;
                         let c = evaluation_chip
-                            .sub(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
+                            .sub(
+                                layouter.namespace(|| format!("step#{}", interp.step)),
+                                a,
+                                b,
+                                interp.conditions().top(),
+                            )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
                                 RuntimeError::new(StatusCode::SynthesisError)
@@ -146,7 +156,12 @@ impl<F: FieldExt> Frame<F> {
                         let b = interp.stack.pop()?;
                         let a = interp.stack.pop()?;
                         let c = evaluation_chip
-                            .mul(layouter.namespace(|| format!("step#{}", interp.step)), a, b)
+                            .mul(
+                                layouter.namespace(|| format!("step#{}", interp.step)),
+                                a,
+                                b,
+                                interp.conditions().top(),
+                            )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
                                 RuntimeError::new(StatusCode::SynthesisError)
@@ -216,6 +231,7 @@ impl<F: FieldExt> Frame<F> {
                                 layouter.namespace(|| format!("eq op in step#{}", interp.step)),
                                 a,
                                 b,
+                                interp.conditions().top(),
                             )
                             .map_err(|e| {
                                 error!("eq op failed: {:?}", e);

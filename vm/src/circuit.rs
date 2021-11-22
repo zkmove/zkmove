@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct EvaluationConfig {
-    advice: [Column<Advice>; 3],
+    advice: [Column<Advice>; 4],
 
     // Public inputs
     instance: Column<Instance>,
@@ -36,11 +36,12 @@ impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config().arithmetic_config.clone();
 
         let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
-        arithmetic_chip.add(layouter, a, b)
+        arithmetic_chip.add(layouter, a, b, cond)
     }
 
     fn sub(
@@ -48,11 +49,12 @@ impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config().arithmetic_config.clone();
 
         let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
-        arithmetic_chip.sub(layouter, a, b)
+        arithmetic_chip.sub(layouter, a, b, cond)
     }
 
     fn mul(
@@ -60,11 +62,12 @@ impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config().arithmetic_config.clone();
 
         let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
-        arithmetic_chip.mul(layouter, a, b)
+        arithmetic_chip.mul(layouter, a, b, cond)
     }
 }
 
@@ -75,11 +78,12 @@ impl<F: FieldExt> LogicalInstructions<F> for EvaluationChip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error> {
         let config = self.config().logical_config.clone();
 
         let logical_chip = LogicalChip::<F>::construct(config, ());
-        logical_chip.eq(layouter, a, b)
+        logical_chip.eq(layouter, a, b, cond)
     }
 }
 
@@ -109,7 +113,7 @@ impl<F: FieldExt> EvaluationChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; 3],
+        advice: [Column<Advice>; 4],
         instance: Column<Instance>,
         constant: Column<Fixed>,
     ) -> <Self as Chip<F>>::Config {
@@ -207,6 +211,7 @@ struct TestCircuit<F: FieldExt> {
     a_type: MoveValueType,
     b: Option<F>,
     b_type: MoveValueType,
+    cond: Option<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -219,11 +224,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             a_type: MoveValueType::U8,
             b: None,
             b_type: MoveValueType::U8,
+            cond: None,
         }
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let advice = [
+            meta.advice_column(),
             meta.advice_column(),
             meta.advice_column(),
             meta.advice_column(),
@@ -251,11 +258,26 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             self.b,
             self.b_type.clone(),
         )?;
-        let c = evaluation_chip.add(layouter.namespace(|| "a + b"), a.clone(), b.clone())?;
-        let d = evaluation_chip.sub(layouter.namespace(|| "a - b"), a.clone(), b.clone())?;
-        let e = evaluation_chip.mul(layouter.namespace(|| "a * b"), a.clone(), b.clone())?;
+        let c = evaluation_chip.add(
+            layouter.namespace(|| "a + b"),
+            a.clone(),
+            b.clone(),
+            self.cond.clone(),
+        )?;
+        let d = evaluation_chip.sub(
+            layouter.namespace(|| "a - b"),
+            a.clone(),
+            b.clone(),
+            self.cond.clone(),
+        )?;
+        let e = evaluation_chip.mul(
+            layouter.namespace(|| "a * b"),
+            a.clone(),
+            b.clone(),
+            self.cond.clone(),
+        )?;
 
-        let f = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b)?;
+        let f = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b, self.cond.clone())?;
 
         evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)?;
         evaluation_chip.expose_public(layouter.namespace(|| "expose d"), d, 1)?;
@@ -265,8 +287,81 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 }
 
+struct TestBranchCircuit<F: FieldExt> {
+    a: Option<F>,
+    a_type: MoveValueType,
+    b: Option<F>,
+    b_type: MoveValueType,
+    cond: Option<F>,
+}
+
+impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
+    type Config = EvaluationConfig;
+    type FloorPlanner = SimpleFloorPlanner;
+
+    fn without_witnesses(&self) -> Self {
+        Self {
+            a: None,
+            a_type: MoveValueType::U8,
+            b: None,
+            b_type: MoveValueType::U8,
+            cond: None,
+        }
+    }
+
+    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let advice = [
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+        ];
+        let instance = meta.instance_column();
+        let constant = meta.fixed_column();
+
+        EvaluationChip::configure(meta, advice, instance, constant)
+    }
+
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        let evaluation_chip = EvaluationChip::<F>::construct(config, ());
+
+        let a = evaluation_chip.load_private(
+            layouter.namespace(|| "load a"),
+            self.a,
+            self.a_type.clone(),
+        )?;
+        let b = evaluation_chip.load_private(
+            layouter.namespace(|| "load b"),
+            self.b,
+            self.b_type.clone(),
+        )?;
+        let not_cond = F::one() - self.cond.unwrap();
+        let c = evaluation_chip.add(
+            layouter.namespace(|| "a + b"),
+            a.clone(),
+            b.clone(),
+            self.cond,
+        )?;
+        let d = evaluation_chip.mul(
+            layouter.namespace(|| "a * b"),
+            a.clone(),
+            b.clone(),
+            Some(not_cond),
+        )?;
+
+        let out = if self.cond.unwrap() == F::one() { c } else { d };
+        evaluation_chip.expose_public(layouter.namespace(|| "expose out"), out, 0)?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod branch_tests {
+    use crate::circuit::TestBranchCircuit;
     use crate::circuit::TestCircuit;
     use halo2::{dev::MockProver, pasta::Fp};
     use movelang::value::MoveValueType;
@@ -283,6 +378,7 @@ mod tests {
         let d = a - b;
         let e = a * b;
         let f = Fp::zero();
+        let cond = Fp::one();
 
         // Instantiate the circuit with the private inputs
         let circuit = TestCircuit {
@@ -290,6 +386,7 @@ mod tests {
             a_type: MoveValueType::U8,
             b: Some(b),
             b_type: MoveValueType::U8,
+            cond: Some(cond),
         };
 
         let mut public_inputs = vec![c, d, e, f];
@@ -300,6 +397,39 @@ mod tests {
 
         // If use some other public input, the proof will fail
         public_inputs[1] = Fp::one();
+        let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
+        assert!(prover.verify().is_err());
+    }
+
+    #[test]
+    fn test_branch() {
+        // Circuit is very small, we pick a small value here
+        let k = 4;
+
+        // Prepare the private and public inputs to the circuit
+        let a = Fp::from(2);
+        let b = Fp::from(3);
+        let c = a + b;
+        let d = a * b;
+        let cond = Fp::one();
+
+        // Instantiate the circuit with the private inputs
+        let circuit = TestBranchCircuit {
+            a: Some(a),
+            a_type: MoveValueType::U8,
+            b: Some(b),
+            b_type: MoveValueType::U8,
+            cond: Some(cond),
+        };
+
+        let public_inputs = vec![c];
+
+        // Given the correct public input, circuit will verify
+        let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
+        assert_eq!(prover.verify(), Ok(()));
+
+        // If use some other public input, the proof will fail
+        let public_inputs = vec![d];
         let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
         assert!(prover.verify().is_err());
     }

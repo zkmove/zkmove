@@ -13,6 +13,7 @@ pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error>;
 
     fn sub(
@@ -20,6 +21,7 @@ pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error>;
 
     fn mul(
@@ -27,6 +29,7 @@ pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error>;
 }
 
@@ -38,6 +41,7 @@ pub trait LogicalInstructions<F: FieldExt>: Chip<F> {
         layouter: impl Layouter<F>,
         a: Self::Value,
         b: Self::Value,
+        cond: Option<F>,
     ) -> Result<Self::Value, Error>;
 }
 
