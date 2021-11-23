@@ -287,6 +287,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 }
 
+#[derive(Clone)]
 struct TestBranchCircuit<F: FieldExt> {
     a: Option<F>,
     a_type: MoveValueType,
@@ -339,31 +340,38 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
             self.b,
             self.b_type.clone(),
         )?;
-        let not_cond = F::one() - self.cond.unwrap();
+        let not_cond = match self.cond {
+            Some(v) => Some(F::one() - v),
+            None => None,
+        };
         let c = evaluation_chip.add(
             layouter.namespace(|| "a + b"),
             a.clone(),
             b.clone(),
             self.cond,
         )?;
-        let d = evaluation_chip.mul(
+        let _d = evaluation_chip.mul(
             layouter.namespace(|| "a * b"),
             a.clone(),
             b.clone(),
-            Some(not_cond),
+            not_cond,
         )?;
 
-        let out = if self.cond.unwrap() == F::one() { c } else { d };
+        let out = c;
         evaluation_chip.expose_public(layouter.namespace(|| "expose out"), out, 0)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod branch_tests {
+mod tests {
     use crate::circuit::TestBranchCircuit;
     use crate::circuit::TestCircuit;
-    use halo2::{dev::MockProver, pasta::Fp};
+    use halo2::dev::MockProver;
+    use halo2::pasta::{EqAffine, Fp};
+    use halo2::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
+    use halo2::poly::commitment::Params;
+    use halo2::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
     use movelang::value::MoveValueType;
 
     #[test]
@@ -405,6 +413,18 @@ mod branch_tests {
     fn test_branch() {
         // Circuit is very small, we pick a small value here
         let k = 4;
+        let params: Params<EqAffine> = Params::new(k);
+
+        let empty_circuit = TestBranchCircuit {
+            a: None,
+            a_type: MoveValueType::U8,
+            b: None,
+            b_type: MoveValueType::U8,
+            cond: None,
+        };
+
+        let vk = keygen_vk(&params, &empty_circuit).expect("keygen_vk should not fail");
+        let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
 
         // Prepare the private and public inputs to the circuit
         let a = Fp::from(2);
@@ -421,7 +441,6 @@ mod branch_tests {
             b_type: MoveValueType::U8,
             cond: Some(cond),
         };
-
         let public_inputs = vec![c];
 
         // Given the correct public input, circuit will verify
@@ -429,8 +448,33 @@ mod branch_tests {
         assert_eq!(prover.verify(), Ok(()));
 
         // If use some other public input, the proof will fail
-        let public_inputs = vec![d];
-        let prover = MockProver::run(k, &circuit, vec![public_inputs]).unwrap();
+        let wrong_public_inputs = vec![d];
+        let prover = MockProver::run(k, &circuit, vec![wrong_public_inputs]).unwrap();
         assert!(prover.verify().is_err());
+
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        // Create a proof
+        create_proof(
+            &params,
+            &pk,
+            &[circuit.clone()],
+            &[&[public_inputs.as_slice()]],
+            &mut transcript,
+        )
+        .expect("proof generation should not fail");
+        let proof: Vec<u8> = transcript.finalize();
+
+        let msm = params.empty_msm();
+        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let guard = verify_proof(
+            &params,
+            pk.get_vk(),
+            msm,
+            &[&[public_inputs.as_slice()]],
+            &mut transcript,
+        )
+        .unwrap();
+        let msm = guard.clone().use_challenges();
+        assert!(msm.eval());
     }
 }
