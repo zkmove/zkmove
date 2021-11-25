@@ -1,4 +1,4 @@
-use crate::frame::Frame;
+use crate::frame::{Frame, ProgramBlock};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2::arithmetic::FieldExt;
@@ -6,6 +6,7 @@ use halo2::arithmetic::FieldExt;
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
 const COND_STACK_SIZE: usize = 256;
+const BLOCK_STACK_SIZE: usize = 256; // fixme: should align with Move
 
 pub struct EvalStack<F: FieldExt>(Vec<Value<F>>);
 
@@ -110,6 +111,41 @@ impl<F: FieldExt> CondStack<F> {
 }
 
 impl<F: FieldExt> Default for CondStack<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct BlockStack<F: FieldExt>(Vec<ProgramBlock<F>>);
+
+impl<F: FieldExt> BlockStack<F> {
+    pub fn new() -> Self {
+        BlockStack(vec![])
+    }
+
+    pub fn push(&mut self, value: ProgramBlock<F>) -> VmResult<()> {
+        if self.0.len() < BLOCK_STACK_SIZE {
+            self.0.push(value);
+            Ok(())
+        } else {
+            Err(RuntimeError::new(StatusCode::StackOverflow))
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<ProgramBlock<F>> {
+        if self.0.is_empty() {
+            None
+        } else {
+            Some(self.0.pop().unwrap())
+        }
+    }
+
+    pub fn top(&mut self) -> Option<&mut ProgramBlock<F>> {
+        self.0.last_mut()
+    }
+}
+
+impl<F: FieldExt> Default for BlockStack<F> {
     fn default() -> Self {
         Self::new()
     }

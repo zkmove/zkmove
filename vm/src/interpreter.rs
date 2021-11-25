@@ -128,13 +128,13 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
                         frame = caller_frame;
-                        frame.add_pc();
+                        frame.current_block().add_pc();
                     } else {
                         return Ok(());
                     }
                 }
                 ExitStatus::Call(index) => {
-                    let func = loader.function_from_handle(frame.func(), index);
+                    let func = loader.function_from_handle(frame.current_block().func(), index);
                     debug!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func)?;
                     callee_frame.print_frame();

@@ -1,6 +1,7 @@
 use crate::circuit::EvaluationChip;
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::interpreter::Interpreter;
+use crate::stack::BlockStack;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2::{arithmetic::FieldExt, circuit::Layouter};
@@ -10,6 +11,7 @@ use move_vm_runtime::loader::Function;
 use movelang::value::MoveValueType;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+#[derive(Clone)]
 pub struct Locals<F: FieldExt>(Rc<RefCell<Vec<Value<F>>>>);
 
 impl<F: FieldExt> Locals<F> {
@@ -48,31 +50,38 @@ impl<F: FieldExt> Locals<F> {
     }
 }
 
-pub struct Frame<F: FieldExt> {
+// Block can be a function body, or an arm of conditional branch
+pub struct Block<F: FieldExt> {
     pc: u16,
+    end: Option<u16>,
     locals: Locals<F>,
     function: Arc<Function>,
 }
 
-impl<F: FieldExt> Frame<F> {
+impl<F: FieldExt> Block<F> {
     pub fn new(function: Arc<Function>, locals: Locals<F>) -> Self {
-        Frame {
+        Block {
             pc: 0,
+            end: None,
             locals,
             function,
         }
     }
 
-    pub fn locals(&mut self) -> &mut Locals<F> {
-        &mut self.locals
-    }
-
-    pub fn func(&self) -> &Arc<Function> {
-        &self.function
+    pub fn pc(&self) -> u16 {
+        self.pc
     }
 
     pub fn add_pc(&mut self) {
         self.pc += 1;
+    }
+
+    pub fn set_pc(&mut self, next: u16) {
+        self.pc = next;
+    }
+
+    pub fn locals(&mut self) -> &mut Locals<F> {
+        &mut self.locals
     }
 
     pub fn execute(
@@ -250,11 +259,132 @@ impl<F: FieldExt> Frame<F> {
             }
         }
     }
+}
+
+pub struct ConditionalBlock<F: FieldExt> {
+    true_branch: Option<Block<F>>,
+    false_branch: Option<Block<F>>,
+}
+
+impl<F: FieldExt> ConditionalBlock<F> {
+    pub fn new(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
+        ConditionalBlock {
+            true_branch,
+            false_branch,
+        }
+    }
+}
+
+pub enum ProgramBlock<F: FieldExt> {
+    Block(Block<F>),
+    ConditionalBlock(ConditionalBlock<F>),
+}
+
+impl<F: FieldExt> ProgramBlock<F> {
+    pub fn new_block(function: Arc<Function>, locals: Locals<F>) -> Self {
+        Self::Block(Block::new(function, locals))
+    }
+
+    pub fn new_conditional(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
+        Self::ConditionalBlock(ConditionalBlock::new(true_branch, false_branch))
+    }
+
+    pub fn pc(&self) -> u16 {
+        match self {
+            Self::Block(block) => block.pc,
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn add_pc(&mut self) {
+        match self {
+            Self::Block(block) => block.pc += 1,
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn set_pc(&mut self, next: u16) {
+        match self {
+            Self::Block(block) => block.pc = next,
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn locals(&mut self) -> &mut Locals<F> {
+        match self {
+            Self::Block(block) => &mut block.locals,
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn func(&self) -> &Arc<Function> {
+        match self {
+            Self::Block(block) => &block.function,
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn execute(
+        &mut self,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
+        interp: &mut Interpreter<F>,
+    ) -> VmResult<ExitStatus> {
+        match self {
+            Self::Block(block) => block.execute(
+                evaluation_chip,
+                layouter.namespace(|| format!("into block in step#{}", interp.step)),
+                interp,
+            ),
+            Self::ConditionalBlock(conditional) => unimplemented!(),
+        }
+    }
+}
+
+pub struct Frame<F: FieldExt> {
+    current_block: ProgramBlock<F>,
+    blocks: BlockStack<F>,
+}
+
+impl<F: FieldExt> Frame<F> {
+    pub fn new(function: Arc<Function>, locals: Locals<F>) -> Self {
+        let func_body = ProgramBlock::new_block(function, locals.clone());
+        Frame {
+            current_block: func_body,
+            blocks: BlockStack::default(),
+        }
+    }
+
+    pub fn current_block(&mut self) -> &mut ProgramBlock<F> {
+        &mut self.current_block
+    }
+
+    pub fn execute(
+        &mut self,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
+        interp: &mut Interpreter<F>,
+    ) -> VmResult<ExitStatus> {
+        loop {
+            let status = self.current_block.execute(
+                evaluation_chip,
+                layouter.namespace(|| format!("into block in step#{}", interp.step)),
+                interp,
+            )?;
+            match status {
+                ExitStatus::Return => return Ok(ExitStatus::Return),
+                ExitStatus::Call(index) => return Ok(ExitStatus::Call(index)),
+            }
+        }
+    }
 
     pub fn print_frame(&self) {
-        // currently only print bytecode of entry function
-        println!("Bytecode of function {:?}:", self.function.name());
-        for (i, instruction) in self.function.code().iter().enumerate() {
+        // print bytecode of the current block
+        println!(
+            "Bytecode of function {:?}:",
+            self.current_block.func().name()
+        );
+        for (i, instruction) in self.current_block.func().code().iter().enumerate() {
             println!("#{}, {:?}", i, instruction);
         }
     }
