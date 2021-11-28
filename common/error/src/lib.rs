@@ -19,6 +19,8 @@ pub enum StatusCode {
     TypeMissMatch,
     ArithmeticError,
     ModuleNotFound,
+    ProgramBlockError,
+    ShouldNotReach,
 }
 
 pub struct RuntimeError {

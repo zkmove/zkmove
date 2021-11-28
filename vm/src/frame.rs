@@ -51,20 +51,29 @@ impl<F: FieldExt> Locals<F> {
 }
 
 // Block can be a function body, or an arm of conditional branch
+#[derive(Clone)]
 pub struct Block<F: FieldExt> {
     pc: u16,
+    start: u16,
     end: Option<u16>,
     locals: Locals<F>,
-    function: Arc<Function>,
+    code: Vec<Bytecode>,
 }
 
 impl<F: FieldExt> Block<F> {
-    pub fn new(function: Arc<Function>, locals: Locals<F>) -> Self {
+    pub fn new(
+        pc: u16,
+        start: u16,
+        end: Option<u16>,
+        locals: Locals<F>,
+        code: Vec<Bytecode>,
+    ) -> Self {
         Block {
-            pc: 0,
-            end: None,
+            pc,
+            start,
+            end,
             locals,
-            function,
+            code,
         }
     }
 
@@ -106,7 +115,7 @@ impl<F: FieldExt> Block<F> {
             }};
         }
 
-        let code = self.function.code();
+        let code = self.code.as_slice();
         loop {
             for instruction in &code[self.pc as usize..] {
                 debug!("step #{}, instruction {:?}", interp.step, instruction);
@@ -193,24 +202,26 @@ impl<F: FieldExt> Block<F> {
                         load_constant!(constant, MoveValueType::Bool)
                     }
                     Bytecode::BrTrue(offset) => {
-                        let cond =
-                            interp.stack.pop()?.value().ok_or_else(|| {
-                                RuntimeError::new(StatusCode::ValueConversionError)
-                            })?;
-                        if cond == F::one() {
+                        let cond = interp.stack.pop()?.value();
+                        if cond == Some(F::one()) {
+                            // proof generation
                             self.pc = *offset;
                             break;
+                        } else if cond == None {
+                            // key generation
+                            //todo: should we add an interpreter flag to distinguish
+                            // between key generation and proof generation
+                            return Ok(ExitStatus::ConditionalBranch(self.pc));
                         }
                         Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
-                        let cond =
-                            interp.stack.pop()?.value().ok_or_else(|| {
-                                RuntimeError::new(StatusCode::ValueConversionError)
-                            })?;
-                        if cond == F::zero() {
+                        let cond = interp.stack.pop()?.value();
+                        if cond == Some(F::zero()) {
                             self.pc = *offset;
                             break;
+                        } else if cond == None {
+                            return Ok(ExitStatus::ConditionalBranch(self.pc));
                         }
                         Ok(())
                     }
@@ -226,8 +237,8 @@ impl<F: FieldExt> Block<F> {
                         let error_code = value.get_lower_128(); // fixme should cast to u64?
                         return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
                             format!(
-                                "Move bytecode {} aborted with error code {}",
-                                self.function.pretty_string(),
+                                "Move bytecode aborted with error code {}",
+                                //fixme: function.pretty_string(),
                                 error_code
                             ),
                         ));
@@ -261,6 +272,7 @@ impl<F: FieldExt> Block<F> {
     }
 }
 
+#[derive(Clone)]
 pub struct ConditionalBlock<F: FieldExt> {
     true_branch: Option<Block<F>>,
     false_branch: Option<Block<F>>,
@@ -275,14 +287,21 @@ impl<F: FieldExt> ConditionalBlock<F> {
     }
 }
 
+#[derive(Clone)]
 pub enum ProgramBlock<F: FieldExt> {
     Block(Block<F>),
     ConditionalBlock(ConditionalBlock<F>),
 }
 
 impl<F: FieldExt> ProgramBlock<F> {
-    pub fn new_block(function: Arc<Function>, locals: Locals<F>) -> Self {
-        Self::Block(Block::new(function, locals))
+    pub fn new_block(
+        pc: u16,
+        start: u16,
+        end: Option<u16>,
+        locals: Locals<F>,
+        code: Vec<Bytecode>,
+    ) -> Self {
+        Self::Block(Block::new(pc, start, end, locals, code))
     }
 
     pub fn new_conditional(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
@@ -317,13 +336,6 @@ impl<F: FieldExt> ProgramBlock<F> {
         }
     }
 
-    pub fn func(&self) -> &Arc<Function> {
-        match self {
-            Self::Block(block) => &block.function,
-            Self::ConditionalBlock(conditional) => unimplemented!(),
-        }
-    }
-
     pub fn execute(
         &mut self,
         evaluation_chip: &EvaluationChip<F>,
@@ -344,19 +356,75 @@ impl<F: FieldExt> ProgramBlock<F> {
 pub struct Frame<F: FieldExt> {
     current_block: ProgramBlock<F>,
     blocks: BlockStack<F>,
+    function: Arc<Function>,
 }
 
 impl<F: FieldExt> Frame<F> {
-    pub fn new(function: Arc<Function>, locals: Locals<F>) -> Self {
-        let func_body = ProgramBlock::new_block(function, locals.clone());
+    pub fn new(
+        pc: u16,
+        start: u16,
+        end: Option<u16>,
+        function: Arc<Function>,
+        locals: Locals<F>,
+    ) -> Self {
+        let code = function.code();
+        let func_body = ProgramBlock::new_block(pc, start, end, locals.clone(), code.to_vec());
         Frame {
             current_block: func_body,
             blocks: BlockStack::default(),
+            function,
         }
     }
 
     pub fn current_block(&mut self) -> &mut ProgramBlock<F> {
         &mut self.current_block
+    }
+
+    pub fn func(&self) -> &Arc<Function> {
+        &self.function
+    }
+
+    pub fn prepare_conditional_block(&mut self, pc: u16) -> VmResult<ProgramBlock<F>> {
+        let code = self.function.code();
+        let (_br_type, true_branch_start) = match &code[pc as usize] {
+            Bytecode::BrTrue(offset) => (true, *offset),
+            _ => {
+                return Err(RuntimeError::new(StatusCode::ProgramBlockError)
+                    .with_message("expect BrTrue or BrFalse".to_string()))
+            }
+        };
+        let true_branch_end = match &code[(pc + 1) as usize] {
+            Bytecode::Branch(offset) => *offset - 1,
+            _ => {
+                return Err(RuntimeError::new(StatusCode::ProgramBlockError)
+                    .with_message("BrTrue (or BrFalse) should followed by Branch".to_string()))
+            }
+        };
+        let true_branch = Block::new(
+            true_branch_start,
+            true_branch_start,
+            Some(true_branch_end),
+            self.current_block.locals().clone(),
+            self.function.code().to_vec(),
+        );
+        match &code[(true_branch_end) as usize] {
+            Bytecode::Branch(offset) => {
+                let false_branch_start = true_branch_end + 1;
+                let false_branch_end = *offset - 1;
+                let false_branch = Block::new(
+                    false_branch_start,
+                    false_branch_start,
+                    Some(false_branch_end),
+                    self.current_block().locals().clone(),
+                    self.function.code().to_vec(),
+                );
+                Ok(ProgramBlock::new_conditional(
+                    Some(true_branch),
+                    Some(false_branch),
+                ))
+            }
+            _ => Ok(ProgramBlock::new_conditional(Some(true_branch), None)),
+        }
     }
 
     pub fn execute(
@@ -374,17 +442,19 @@ impl<F: FieldExt> Frame<F> {
             match status {
                 ExitStatus::Return => return Ok(ExitStatus::Return),
                 ExitStatus::Call(index) => return Ok(ExitStatus::Call(index)),
+                ExitStatus::ConditionalBranch(pc) => {
+                    let block = self.prepare_conditional_block(pc)?;
+                    self.blocks.push(self.current_block.clone())?;
+                    self.current_block = block;
+                }
             }
         }
     }
 
     pub fn print_frame(&self) {
-        // print bytecode of the current block
-        println!(
-            "Bytecode of function {:?}:",
-            self.current_block.func().name()
-        );
-        for (i, instruction) in self.current_block.func().code().iter().enumerate() {
+        // print bytecode of the current function
+        println!("Bytecode of function {:?}:", self.function.name());
+        for (i, instruction) in self.function.code().iter().enumerate() {
             println!("#{}, {:?}", i, instruction);
         }
     }
@@ -393,4 +463,5 @@ impl<F: FieldExt> Frame<F> {
 pub enum ExitStatus {
     Return,
     Call(FunctionHandleIndex),
+    ConditionalBranch(u16),
 }

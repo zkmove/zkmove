@@ -94,7 +94,7 @@ impl<F: FieldExt> Interpreter<F> {
         for i in 0..arg_count {
             locals.store(arg_count - i - 1, self.stack.pop()?)?;
         }
-        Ok(Frame::new(func, locals))
+        Ok(Frame::new(0, 0, None, func, locals))
     }
 
     pub fn run_script(
@@ -116,7 +116,7 @@ impl<F: FieldExt> Interpreter<F> {
             layouter.namespace(|| format!("process arguments in step#{}", self.step)),
         )?;
 
-        let mut frame = Frame::new(entry, locals);
+        let mut frame = Frame::new(0, 0, None, entry, locals);
         frame.print_frame();
         loop {
             let status = frame.execute(
@@ -134,13 +134,14 @@ impl<F: FieldExt> Interpreter<F> {
                     }
                 }
                 ExitStatus::Call(index) => {
-                    let func = loader.function_from_handle(frame.current_block().func(), index);
+                    let func = loader.function_from_handle(frame.func(), index);
                     debug!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func)?;
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;
                 }
+                _ => return Err(RuntimeError::new(StatusCode::ShouldNotReach)),
             }
         }
     }
