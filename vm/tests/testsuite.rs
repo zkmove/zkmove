@@ -1,4 +1,6 @@
 use anyhow::Result;
+use halo2::pasta::EqAffine;
+use halo2::poly::commitment::Params;
 use logger::prelude::*;
 use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
@@ -64,9 +66,34 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        debug!("Generate zk proof for script {:?}", script_file);
         let k = 4;
-        vm::prove_script(script_bytes, compiled_modules.clone(), config.args, k)?;
+
+        debug!(
+            "Generate zk proof for script {:?} with mock prover",
+            script_file
+        );
+        vm::mock_prove_script(
+            script_bytes.clone(),
+            compiled_modules.clone(),
+            config.args.clone(),
+            k,
+        )?;
+
+        debug!("Generate parameters for script {:?}", script_file);
+        let params: Params<EqAffine> = Params::new(k);
+        let pk = vm::setup_script(script_bytes.clone(), compiled_modules.clone(), &params)?;
+
+        debug!(
+            "Generate zk proof for script {:?} with real prover",
+            script_file
+        );
+        vm::prove_script(
+            script_bytes.clone(),
+            compiled_modules.clone(),
+            config.args,
+            &params,
+            pk,
+        )?;
     }
 
     Ok(())

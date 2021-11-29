@@ -11,17 +11,21 @@ use crate::circuit::{EvaluationChip, EvaluationConfig};
 use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, ProvingKey};
+use halo2::poly::commitment::Params;
+use halo2::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use halo2::{dev::MockProver, pasta::Fp};
+use halo2::{dev::MockProver, pasta::EqAffine, pasta::Fp};
 use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::state::StateStore;
 
+#[derive(Clone)]
 pub struct FastMoveCircuit {
     script: Vec<u8>,
     modules: Vec<CompiledModule>,
@@ -116,44 +120,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit {
     }
 }
 
-// pub fn execute_script(
-//     script: Vec<u8>,
-//     modules: Vec<CompiledModule>,
-//     args: Option<ScriptArguments>,
-// ) -> VmResult<()> {
-//     let mut state = StateStore::new();
-//     let runtime = Runtime::new();
-//     for module in modules.into_iter() {
-//         state.add_module(module);
-//     }
-//     let mut cs = DummyCS::<Bn256>::new();
-//     let mut interp = Interpreter::new();
-//
-//     let (entry, arg_types) = runtime
-//         .loader()
-//         .load_script(&script, &mut state)
-//         .map_err(|_| RuntimeError::new(StatusCode::ScriptLoadingError))?;
-//     debug!("script entry {:?}", entry.name());
-//
-//     interp.run_script(&mut cs, entry, args, arg_types, runtime.loader())
-// }
-
-// pub fn setup_script<E: Engine>(
-//     script: Vec<u8>,
-//     modules: Vec<CompiledModule>,
-// ) -> VmResult<Parameters<E>> {
-//     let rng = &mut rand::thread_rng();
-//     let circuit = MoveCircuit {
-//         script,
-//         modules,
-//         args: None,
-//     };
-//
-//     groth16::generate_random_parameters::<E, MoveCircuit, ThreadRng>(circuit, rng)
-//         .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))
-// }
-
-pub fn prove_script(
+pub fn mock_prove_script(
     script: Vec<u8>,
     modules: Vec<CompiledModule>,
     args: Option<ScriptArguments>,
@@ -174,9 +141,66 @@ pub fn prove_script(
     Ok(())
 }
 
-// pub fn verify_script<E: Engine>(key: &VerifyingKey<E>, proof: &Proof<E>) -> VmResult<bool> {
-//     let pvk = groth16::prepare_verifying_key(&key);
-//     let public_input = Vec::new();
-//     groth16::verify_proof(&pvk, proof, &public_input)
-//         .map_err(|e| RuntimeError::new(StatusCode::SynthesisError(e)))
-// }
+pub fn setup_script(
+    script: Vec<u8>,
+    modules: Vec<CompiledModule>,
+    params: &Params<EqAffine>,
+) -> VmResult<ProvingKey<EqAffine>> {
+    let circuit = FastMoveCircuit {
+        script,
+        modules,
+        args: None,
+    };
+    debug!("Generate vk");
+    let vk = keygen_vk(params, &circuit).map_err(|_| {
+        RuntimeError::new(StatusCode::SynthesisError)
+            .with_message("keygen_vk should not fail".to_string())
+    })?;
+    debug!("Generate pk");
+    let pk = keygen_pk(params, vk, &circuit).map_err(|_| {
+        RuntimeError::new(StatusCode::SynthesisError)
+            .with_message("keygen_pk should not fail".to_string())
+    })?;
+    Ok(pk)
+}
+
+pub fn prove_script(
+    script: Vec<u8>,
+    modules: Vec<CompiledModule>,
+    args: Option<ScriptArguments>,
+    params: &Params<EqAffine>,
+    pk: ProvingKey<EqAffine>,
+) -> VmResult<()> {
+    let circuit = FastMoveCircuit {
+        script,
+        modules,
+        args,
+    };
+
+    let public_inputs = vec![Fp::zero()];
+    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    // Create a proof
+    create_proof(
+        params,
+        &pk,
+        &[circuit.clone()],
+        &[&[public_inputs.as_slice()]],
+        &mut transcript,
+    )
+    .expect("proof generation should not fail");
+    let proof: Vec<u8> = transcript.finalize();
+
+    let msm = params.empty_msm();
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let guard = verify_proof(
+        params,
+        pk.get_vk(),
+        msm,
+        &[&[public_inputs.as_slice()]],
+        &mut transcript,
+    )
+    .unwrap();
+    let msm = guard.clone().use_challenges();
+    assert!(msm.eval());
+    Ok(())
+}
