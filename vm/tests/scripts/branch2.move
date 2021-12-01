@@ -1,15 +1,12 @@
 //! args: 1u8, 2u8
 script {
     fun main(x: u8, y: u8) {
-        let a;
-        let b;
+        let z;
         if (x == y) {
-            a = x + y;
-            b = x + y + 1;
+            z = x + y;
         } else {
-            a = x * y;
-            b = x * y + 1;
+            z = x * y;
         };
-        a + b;
+        z;
     }
 }

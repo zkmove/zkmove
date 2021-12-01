@@ -89,6 +89,10 @@ impl<F: FieldExt> Block<F> {
         self.pc = next;
     }
 
+    pub fn end(&self) -> Option<u16> {
+        self.end
+    }
+
     pub fn locals(&mut self) -> &mut Locals<F> {
         &mut self.locals
     }
@@ -118,7 +122,10 @@ impl<F: FieldExt> Block<F> {
         let code = self.code.as_slice();
         loop {
             for instruction in &code[self.pc as usize..] {
-                debug!("step #{}, instruction {:?}", interp.step, instruction);
+                debug!(
+                    "step #{}, pc #{}, instruction {:?}",
+                    interp.step, self.pc, instruction
+                );
                 interp.step += 1;
 
                 match instruction {
@@ -266,28 +273,91 @@ impl<F: FieldExt> Block<F> {
                     _ => unreachable!(),
                 }?;
 
+                if Some(self.pc) == self.end {
+                    debug!("reach BranchEnd at pc {}", self.pc);
+                    return Ok(ExitStatus::BranchEnd(self.pc));
+                }
                 self.pc += 1;
             }
         }
     }
 }
 
-#[derive(Clone)]
+impl<F: FieldExt> std::fmt::Debug for Block<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Block {{ pc {}, start {}, end {:?} }}",
+            self.pc, self.start, self.end
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Branch<F: FieldExt> {
+    block: Block<F>,
+    is_running: bool, //which arm of conditional branch is running
+}
+
+#[derive(Clone, Debug)]
 pub struct ConditionalBlock<F: FieldExt> {
-    true_branch: Option<Block<F>>,
-    false_branch: Option<Block<F>>,
+    true_branch: Option<Branch<F>>,
+    false_branch: Option<Branch<F>>,
 }
 
 impl<F: FieldExt> ConditionalBlock<F> {
     pub fn new(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
+        let true_branch = match true_branch {
+            Some(true_bl) => Some(Branch {
+                block: true_bl,
+                is_running: true,
+            }),
+            None => None,
+        };
+        let false_branch = match false_branch {
+            Some(false_bl) => Some(Branch {
+                block: false_bl,
+                is_running: false,
+            }),
+            None => None,
+        };
         ConditionalBlock {
             true_branch,
             false_branch,
         }
     }
+
+    pub fn current_running(&mut self) -> Option<&mut Block<F>> {
+        let mut current = None;
+        if let Some(true_br) = &mut self.true_branch {
+            if true_br.is_running {
+                current = Some(&mut true_br.block);
+            }
+        }
+        if let Some(false_br) = &mut self.false_branch {
+            if false_br.is_running {
+                current = Some(&mut false_br.block);
+            }
+        }
+        current
+    }
+
+    pub fn execute(
+        &mut self,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
+        interp: &mut Interpreter<F>,
+    ) -> VmResult<ExitStatus> {
+        let current = self.current_running().unwrap(); //fixme
+        current.execute(
+            evaluation_chip,
+            layouter.namespace(|| format!("into block in step#{}", interp.step)),
+            interp,
+        )
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ProgramBlock<F: FieldExt> {
     Block(Block<F>),
     ConditionalBlock(ConditionalBlock<F>),
@@ -304,35 +374,38 @@ impl<F: FieldExt> ProgramBlock<F> {
         Self::Block(Block::new(pc, start, end, locals, code))
     }
 
-    pub fn new_conditional(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
+    pub fn new_conditional_block(
+        true_branch: Option<Block<F>>,
+        false_branch: Option<Block<F>>,
+    ) -> Self {
         Self::ConditionalBlock(ConditionalBlock::new(true_branch, false_branch))
     }
 
     pub fn pc(&self) -> u16 {
         match self {
             Self::Block(block) => block.pc,
-            Self::ConditionalBlock(conditional) => unimplemented!(),
+            Self::ConditionalBlock(_conditional) => unimplemented!(),
         }
     }
 
     pub fn add_pc(&mut self) {
         match self {
             Self::Block(block) => block.pc += 1,
-            Self::ConditionalBlock(conditional) => unimplemented!(),
+            Self::ConditionalBlock(_conditional) => unimplemented!(),
         }
     }
 
     pub fn set_pc(&mut self, next: u16) {
         match self {
             Self::Block(block) => block.pc = next,
-            Self::ConditionalBlock(conditional) => unimplemented!(),
+            Self::ConditionalBlock(_conditional) => unimplemented!(),
         }
     }
 
     pub fn locals(&mut self) -> &mut Locals<F> {
         match self {
             Self::Block(block) => &mut block.locals,
-            Self::ConditionalBlock(conditional) => unimplemented!(),
+            Self::ConditionalBlock(_conditional) => unimplemented!(),
         }
     }
 
@@ -348,7 +421,11 @@ impl<F: FieldExt> ProgramBlock<F> {
                 layouter.namespace(|| format!("into block in step#{}", interp.step)),
                 interp,
             ),
-            Self::ConditionalBlock(conditional) => unimplemented!(),
+            Self::ConditionalBlock(conditional) => conditional.execute(
+                evaluation_chip,
+                layouter.namespace(|| format!("into conditional block in step#{}", interp.step)),
+                interp,
+            ),
         }
     }
 }
@@ -384,6 +461,7 @@ impl<F: FieldExt> Frame<F> {
         &self.function
     }
 
+    // todo: identify blocks through static analysis
     pub fn prepare_conditional_block(&mut self, pc: u16) -> VmResult<ProgramBlock<F>> {
         let code = self.function.code();
         let (_br_type, true_branch_start) = match &code[pc as usize] {
@@ -400,15 +478,15 @@ impl<F: FieldExt> Frame<F> {
                     .with_message("BrTrue (or BrFalse) should followed by Branch".to_string()))
             }
         };
-        let true_branch = Block::new(
-            true_branch_start,
-            true_branch_start,
-            Some(true_branch_end),
-            self.current_block.locals().clone(),
-            self.function.code().to_vec(),
-        );
         match &code[(true_branch_end) as usize] {
             Bytecode::Branch(offset) => {
+                let true_branch = Block::new(
+                    true_branch_start,
+                    true_branch_start,
+                    Some(true_branch_end - 1), //delete the branch instruction at the end
+                    self.current_block.locals().clone(),
+                    self.function.code().to_vec(),
+                );
                 let false_branch_start = true_branch_end + 1;
                 let false_branch_end = *offset - 1;
                 let false_branch = Block::new(
@@ -418,12 +496,21 @@ impl<F: FieldExt> Frame<F> {
                     self.current_block().locals().clone(),
                     self.function.code().to_vec(),
                 );
-                Ok(ProgramBlock::new_conditional(
+                Ok(ProgramBlock::new_conditional_block(
                     Some(true_branch),
                     Some(false_branch),
                 ))
             }
-            _ => Ok(ProgramBlock::new_conditional(Some(true_branch), None)),
+            _ => {
+                let true_branch = Block::new(
+                    true_branch_start,
+                    true_branch_start,
+                    Some(true_branch_end),
+                    self.current_block.locals().clone(),
+                    self.function.code().to_vec(),
+                );
+                Ok(ProgramBlock::new_conditional_block(Some(true_branch), None))
+            }
         }
     }
 
@@ -443,10 +530,52 @@ impl<F: FieldExt> Frame<F> {
                 ExitStatus::Return => return Ok(ExitStatus::Return),
                 ExitStatus::Call(index) => return Ok(ExitStatus::Call(index)),
                 ExitStatus::ConditionalBranch(pc) => {
+                    debug!("handle conditional branch");
                     let block = self.prepare_conditional_block(pc)?;
+                    debug!("{:?}", block);
                     self.blocks.push(self.current_block.clone())?;
                     self.current_block = block;
                 }
+                ExitStatus::BranchEnd(pc) => match &mut self.current_block {
+                    ProgramBlock::ConditionalBlock(cb) => {
+                        match (&mut cb.true_branch, &mut cb.false_branch) {
+                            (Some(t_branch), Some(f_branch)) => {
+                                if t_branch.is_running {
+                                    debug_assert!(t_branch.block.end == Some(pc));
+                                    debug!("switch conditional branch");
+                                    t_branch.is_running = false;
+                                    f_branch.is_running = true;
+                                } else {
+                                    debug_assert!(f_branch.is_running);
+                                    debug_assert!(f_branch.block.end == Some(pc));
+                                    debug!("merge the branches");
+                                    self.current_block = self.blocks.pop().ok_or_else(|| {
+                                        RuntimeError::new(StatusCode::ShouldNotReachHere)
+                                    })?;
+                                    self.current_block.set_pc(pc + 1);
+                                }
+                            }
+                            (Some(t_branch), None) => {
+                                debug_assert!(t_branch.block.end == Some(pc));
+                                debug!("merge the branch");
+                                self.current_block = self.blocks.pop().ok_or_else(|| {
+                                    RuntimeError::new(StatusCode::ShouldNotReachHere)
+                                })?;
+                                self.current_block.set_pc(pc + 1);
+                            }
+                            (None, Some(f_branch)) => {
+                                debug_assert!(f_branch.block.end == Some(pc));
+                                debug!("merge the branch");
+                                self.current_block = self.blocks.pop().ok_or_else(|| {
+                                    RuntimeError::new(StatusCode::ShouldNotReachHere)
+                                })?;
+                                self.current_block.set_pc(pc + 1);
+                            }
+                            _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
+                        }
+                    }
+                    _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
+                },
             }
         }
     }
@@ -464,4 +593,5 @@ pub enum ExitStatus {
     Return,
     Call(FunctionHandleIndex),
     ConditionalBranch(u16),
+    BranchEnd(u16),
 }

@@ -20,7 +20,7 @@ pub enum StatusCode {
     ArithmeticError,
     ModuleNotFound,
     ProgramBlockError,
-    ShouldNotReach,
+    ShouldNotReachHere,
 }
 
 pub struct RuntimeError {

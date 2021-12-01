@@ -141,7 +141,7 @@ impl<F: FieldExt> Interpreter<F> {
                     self.frames.push(frame)?;
                     frame = callee_frame;
                 }
-                _ => return Err(RuntimeError::new(StatusCode::ShouldNotReach)),
+                _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
             }
         }
     }
