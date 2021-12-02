@@ -1,4 +1,5 @@
 use crate::chips::arithmetic::{ArithmeticChip, ArithmeticConfig};
+use crate::chips::conditional_select::{ConditionalSelectChip, ConditionalSelectConfig};
 use crate::chips::logical::{LogicalChip, LogicalConfig};
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::value::Value;
@@ -22,6 +23,7 @@ pub struct EvaluationConfig {
 
     arithmetic_config: ArithmeticConfig,
     logical_config: LogicalConfig,
+    conditional_select_config: ConditionalSelectConfig,
 }
 
 pub struct EvaluationChip<F: FieldExt> {
@@ -119,6 +121,7 @@ impl<F: FieldExt> EvaluationChip<F> {
     ) -> <Self as Chip<F>>::Config {
         let arithmetic_config = ArithmeticChip::configure(meta, advice);
         let logical_config = LogicalChip::configure(meta, advice);
+        let conditional_select_config = ConditionalSelectChip::configure(meta, advice);
 
         meta.enable_equality(instance.into());
         meta.enable_constant(constant);
@@ -129,8 +132,22 @@ impl<F: FieldExt> EvaluationChip<F> {
             constant,
             arithmetic_config,
             logical_config,
+            conditional_select_config,
             //other config
         }
+    }
+
+    pub fn conditional_select(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Value<F>,
+        b: Value<F>,
+        cond: Option<F>,
+    ) -> Result<Value<F>, Error> {
+        let config = self.config().conditional_select_config.clone();
+
+        let conditional_select_chip = ConditionalSelectChip::<F>::construct(config, ());
+        conditional_select_chip.conditional_select(layouter, a, b, cond)
     }
 }
 
@@ -350,14 +367,19 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
             b.clone(),
             self.cond,
         )?;
-        let _d = evaluation_chip.mul(
+        let d = evaluation_chip.mul(
             layouter.namespace(|| "a * b"),
             a.clone(),
             b.clone(),
             not_cond,
         )?;
 
-        let out = c;
+        let out = evaluation_chip.conditional_select(
+            layouter.namespace(|| "conditional select"),
+            c,
+            d,
+            self.cond,
+        )?;
         evaluation_chip.expose_public(layouter.namespace(|| "expose out"), out, 0)?;
         Ok(())
     }
