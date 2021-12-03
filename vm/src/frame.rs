@@ -48,6 +48,10 @@ impl<F: FieldExt> Locals<F> {
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.0.borrow().len()
+    }
 }
 
 // Block can be a function body, or an arm of conditional branch
@@ -58,6 +62,7 @@ pub struct Block<F: FieldExt> {
     end: Option<u16>,
     locals: Locals<F>,
     code: Vec<Bytecode>,
+    condition: Option<F>,
 }
 
 impl<F: FieldExt> Block<F> {
@@ -67,6 +72,7 @@ impl<F: FieldExt> Block<F> {
         end: Option<u16>,
         locals: Locals<F>,
         code: Vec<Bytecode>,
+        condition: Option<F>,
     ) -> Self {
         Block {
             pc,
@@ -74,6 +80,7 @@ impl<F: FieldExt> Block<F> {
             end,
             locals,
             code,
+            condition,
         }
     }
 
@@ -97,12 +104,16 @@ impl<F: FieldExt> Block<F> {
         &mut self.locals
     }
 
+    pub fn condition(&self) -> Option<F> {
+        self.condition
+    }
+
     pub fn execute(
         &mut self,
         evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
-    ) -> VmResult<ExitStatus> {
+    ) -> VmResult<ExitStatus<F>> {
         macro_rules! load_constant {
             ($constant:expr, $ty:expr) => {{
                 let value = evaluation_chip
@@ -153,7 +164,7 @@ impl<F: FieldExt> Block<F> {
                                 layouter.namespace(|| format!("step#{}", interp.step)),
                                 a,
                                 b,
-                                interp.conditions().top(),
+                                self.condition(),
                             )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
@@ -169,7 +180,7 @@ impl<F: FieldExt> Block<F> {
                                 layouter.namespace(|| format!("step#{}", interp.step)),
                                 a,
                                 b,
-                                interp.conditions().top(),
+                                self.condition(),
                             )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
@@ -185,7 +196,7 @@ impl<F: FieldExt> Block<F> {
                                 layouter.namespace(|| format!("step#{}", interp.step)),
                                 a,
                                 b,
-                                interp.conditions().top(),
+                                self.condition(),
                             )
                             .map_err(|e| {
                                 error!("step#{} failed: {:?}", interp.step, e);
@@ -208,29 +219,19 @@ impl<F: FieldExt> Block<F> {
                         let constant = F::zero();
                         load_constant!(constant, MoveValueType::Bool)
                     }
-                    Bytecode::BrTrue(offset) => {
+                    Bytecode::BrTrue(_offset) => {
                         let cond = interp.stack.pop()?.value();
-                        if cond == Some(F::one()) {
-                            // proof generation
-                            self.pc = *offset;
-                            break;
-                        } else if cond == None {
-                            // key generation
-                            //todo: should we add an interpreter flag to distinguish
-                            // between key generation and proof generation
-                            return Ok(ExitStatus::ConditionalBranch(self.pc));
-                        }
-                        Ok(())
+                        return Ok(ExitStatus::ConditionalBranch(ConditionalBranch {
+                            pc: self.pc,
+                            condition: cond,
+                        }));
                     }
-                    Bytecode::BrFalse(offset) => {
+                    Bytecode::BrFalse(_offset) => {
                         let cond = interp.stack.pop()?.value();
-                        if cond == Some(F::zero()) {
-                            self.pc = *offset;
-                            break;
-                        } else if cond == None {
-                            return Ok(ExitStatus::ConditionalBranch(self.pc));
-                        }
-                        Ok(())
+                        return Ok(ExitStatus::ConditionalBranch(ConditionalBranch {
+                            pc: self.pc,
+                            condition: cond,
+                        }));
                     }
                     Bytecode::Branch(offset) => {
                         self.pc = *offset;
@@ -258,7 +259,7 @@ impl<F: FieldExt> Block<F> {
                                 layouter.namespace(|| format!("eq op in step#{}", interp.step)),
                                 a,
                                 b,
-                                interp.conditions().top(),
+                                self.condition(),
                             )
                             .map_err(|e| {
                                 error!("eq op failed: {:?}", e);
@@ -287,8 +288,8 @@ impl<F: FieldExt> std::fmt::Debug for Block<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Block {{ pc {}, start {}, end {:?} }}",
-            self.pc, self.start, self.end
+            "Block {{ pc {}, start {}, end {:?}, condition {:?} }}",
+            self.pc, self.start, self.end, self.condition
         )
     }
 }
@@ -317,7 +318,7 @@ impl<F: FieldExt> ConditionalBlock<F> {
         let false_branch = match false_branch {
             Some(false_bl) => Some(Branch {
                 block: false_bl,
-                is_running: false,
+                is_running: false, //fixme
             }),
             None => None,
         };
@@ -347,7 +348,7 @@ impl<F: FieldExt> ConditionalBlock<F> {
         evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
-    ) -> VmResult<ExitStatus> {
+    ) -> VmResult<ExitStatus<F>> {
         let current = self.current_running().unwrap(); //fixme
         current.execute(
             evaluation_chip,
@@ -370,8 +371,9 @@ impl<F: FieldExt> ProgramBlock<F> {
         end: Option<u16>,
         locals: Locals<F>,
         code: Vec<Bytecode>,
+        condition: Option<F>,
     ) -> Self {
-        Self::Block(Block::new(pc, start, end, locals, code))
+        Self::Block(Block::new(pc, start, end, locals, code, condition))
     }
 
     pub fn new_conditional_block(
@@ -409,12 +411,52 @@ impl<F: FieldExt> ProgramBlock<F> {
         }
     }
 
+    pub fn set_locals(&mut self, locals: Locals<F>) {
+        match self {
+            Self::Block(block) => block.locals = locals,
+            Self::ConditionalBlock(_conditional) => unimplemented!(),
+        }
+    }
+
+    pub fn merge_locals(
+        &mut self,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
+        t_locals: &Locals<F>,
+        f_locals: &Locals<F>,
+        condition: Option<F>,
+    ) -> VmResult<()> {
+        debug_assert!(t_locals.len() == f_locals.len());
+        for i in 0..t_locals.len() {
+            match (t_locals.0.borrow().get(i), f_locals.0.borrow().get(i)) {
+                (Some(t), Some(f)) => {
+                    if !t.equals(f) {
+                        let local = evaluation_chip
+                            .conditional_select(
+                                layouter.namespace(|| format!("merge_locals {}", i)),
+                                t.clone(),
+                                f.clone(),
+                                condition,
+                            )
+                            .map_err(|e| {
+                                error!("merge locals failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        self.locals().store(i, local)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     pub fn execute(
         &mut self,
         evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
-    ) -> VmResult<ExitStatus> {
+    ) -> VmResult<ExitStatus<F>> {
         match self {
             Self::Block(block) => block.execute(
                 evaluation_chip,
@@ -445,7 +487,14 @@ impl<F: FieldExt> Frame<F> {
         locals: Locals<F>,
     ) -> Self {
         let code = function.code();
-        let func_body = ProgramBlock::new_block(pc, start, end, locals.clone(), code.to_vec());
+        let func_body = ProgramBlock::new_block(
+            pc,
+            start,
+            end,
+            locals.clone(),
+            code.to_vec(),
+            Some(F::one()),
+        );
         Frame {
             current_block: func_body,
             blocks: BlockStack::default(),
@@ -462,7 +511,11 @@ impl<F: FieldExt> Frame<F> {
     }
 
     // todo: identify blocks through static analysis
-    pub fn prepare_conditional_block(&mut self, pc: u16) -> VmResult<ProgramBlock<F>> {
+    pub fn prepare_conditional_block(
+        &mut self,
+        pc: u16,
+        condition: Option<F>,
+    ) -> VmResult<ProgramBlock<F>> {
         let code = self.function.code();
         let (_br_type, true_branch_start) = match &code[pc as usize] {
             Bytecode::BrTrue(offset) => (true, *offset),
@@ -486,15 +539,21 @@ impl<F: FieldExt> Frame<F> {
                     Some(true_branch_end - 1), //delete the branch instruction at the end
                     self.current_block.locals().clone(),
                     self.function.code().to_vec(),
+                    condition,
                 );
                 let false_branch_start = true_branch_end + 1;
                 let false_branch_end = *offset - 1;
+                let not_condition = match condition {
+                    Some(v) => Some(F::one() - v),
+                    None => None,
+                };
                 let false_branch = Block::new(
                     false_branch_start,
                     false_branch_start,
                     Some(false_branch_end),
                     self.current_block().locals().clone(),
                     self.function.code().to_vec(),
+                    not_condition,
                 );
                 Ok(ProgramBlock::new_conditional_block(
                     Some(true_branch),
@@ -508,6 +567,7 @@ impl<F: FieldExt> Frame<F> {
                     Some(true_branch_end),
                     self.current_block.locals().clone(),
                     self.function.code().to_vec(),
+                    condition,
                 );
                 Ok(ProgramBlock::new_conditional_block(Some(true_branch), None))
             }
@@ -519,7 +579,7 @@ impl<F: FieldExt> Frame<F> {
         evaluation_chip: &EvaluationChip<F>,
         mut layouter: impl Layouter<F>,
         interp: &mut Interpreter<F>,
-    ) -> VmResult<ExitStatus> {
+    ) -> VmResult<ExitStatus<F>> {
         loop {
             let status = self.current_block.execute(
                 evaluation_chip,
@@ -529,9 +589,9 @@ impl<F: FieldExt> Frame<F> {
             match status {
                 ExitStatus::Return => return Ok(ExitStatus::Return),
                 ExitStatus::Call(index) => return Ok(ExitStatus::Call(index)),
-                ExitStatus::ConditionalBranch(pc) => {
+                ExitStatus::ConditionalBranch(cb) => {
                     debug!("handle conditional branch");
-                    let block = self.prepare_conditional_block(pc)?;
+                    let block = self.prepare_conditional_block(cb.pc, cb.condition)?;
                     debug!("{:?}", block);
                     self.blocks.push(self.current_block.clone())?;
                     self.current_block = block;
@@ -548,27 +608,41 @@ impl<F: FieldExt> Frame<F> {
                                 } else {
                                     debug_assert!(f_branch.is_running);
                                     debug_assert!(f_branch.block.end == Some(pc));
-                                    debug!("merge the branches");
-                                    self.current_block = self.blocks.pop().ok_or_else(|| {
+                                    debug!("merge the branch");
+                                    let mut next_running = self.blocks.pop().ok_or_else(|| {
                                         RuntimeError::new(StatusCode::ShouldNotReachHere)
                                     })?;
+                                    next_running.merge_locals(
+                                        evaluation_chip,
+                                        layouter.namespace(|| {
+                                            format!("merge locals in step#{}", interp.step)
+                                        }),
+                                        &t_branch.block.locals,
+                                        &f_branch.block.locals,
+                                        t_branch.block.condition,
+                                    )?;
+                                    self.current_block = next_running;
                                     self.current_block.set_pc(pc + 1);
                                 }
                             }
                             (Some(t_branch), None) => {
                                 debug_assert!(t_branch.block.end == Some(pc));
                                 debug!("merge the branch");
-                                self.current_block = self.blocks.pop().ok_or_else(|| {
+                                let mut next_running = self.blocks.pop().ok_or_else(|| {
                                     RuntimeError::new(StatusCode::ShouldNotReachHere)
                                 })?;
+                                next_running.set_locals(t_branch.block.locals.clone());
+                                self.current_block = next_running;
                                 self.current_block.set_pc(pc + 1);
                             }
                             (None, Some(f_branch)) => {
                                 debug_assert!(f_branch.block.end == Some(pc));
                                 debug!("merge the branch");
-                                self.current_block = self.blocks.pop().ok_or_else(|| {
+                                let mut next_running = self.blocks.pop().ok_or_else(|| {
                                     RuntimeError::new(StatusCode::ShouldNotReachHere)
                                 })?;
+                                next_running.set_locals(f_branch.block.locals.clone());
+                                self.current_block = next_running;
                                 self.current_block.set_pc(pc + 1);
                             }
                             _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
@@ -589,9 +663,14 @@ impl<F: FieldExt> Frame<F> {
     }
 }
 
-pub enum ExitStatus {
+pub struct ConditionalBranch<F: FieldExt> {
+    pc: u16,
+    condition: Option<F>,
+}
+
+pub enum ExitStatus<F: FieldExt> {
     Return,
     Call(FunctionHandleIndex),
-    ConditionalBranch(u16),
+    ConditionalBranch(ConditionalBranch<F>),
     BranchEnd(u16),
 }

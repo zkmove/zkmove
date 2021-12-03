@@ -9,11 +9,47 @@ pub struct FConstant<F: FieldExt> {
     pub ty: MoveValueType,
 }
 
+impl<F: FieldExt> FConstant<F> {
+    fn equals(&self, other: &Self) -> bool {
+        if self.ty != other.ty {
+            return false;
+        }
+        if self.value == other.value {
+            match (self.cell, other.cell) {
+                (Some(c1), Some(c2)) => c1 == c2,
+                (None, None) => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct FVariable<F: FieldExt> {
     pub value: Option<F>,
     pub cell: Option<Cell>,
     pub ty: MoveValueType,
+}
+
+impl<F: FieldExt> FVariable<F> {
+    fn equals(&self, other: &Self) -> bool {
+        if self.ty != other.ty {
+            return false;
+        }
+        let eq_value = match (self.value, other.value) {
+            (Some(v1), Some(v2)) => v1 == v2,
+            (None, None) => true,
+            _ => false,
+        };
+        let eq_cell = match (self.cell, other.cell) {
+            (Some(c1), Some(c2)) => c1 == c2,
+            (None, None) => true,
+            _ => false,
+        };
+        eq_value && eq_cell
+    }
 }
 
 #[derive(Clone)]
@@ -83,6 +119,15 @@ impl<F: FieldExt> Value<F> {
             }
             Self::Constant(c) => c.ty.clone(),
             Self::Variable(v) => v.ty.clone(),
+        }
+    }
+
+    pub fn equals(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Invalid, Self::Invalid) => true,
+            (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
+            (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
+            _ => false,
         }
     }
 }
