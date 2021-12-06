@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use move_binary_format::errors::VMResult;
 use move_binary_format::file_format::FunctionHandleIndex;
 use move_vm_runtime::loader::{Function, Loader};

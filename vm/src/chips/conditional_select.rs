@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::value::Value;
 use halo2::{
     arithmetic::FieldExt,

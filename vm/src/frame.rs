@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::circuit::EvaluationChip;
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::interpreter::Interpreter;

@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::circuit::EvaluationChip;
 use crate::frame::{ExitStatus, Frame, Locals};
 use crate::instructions::Instructions;

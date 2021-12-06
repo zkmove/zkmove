@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use movelang::loader::MoveLoader;
 
 pub struct Runtime {

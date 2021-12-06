@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use anyhow::Result;
 use halo2::pasta::EqAffine;
 use halo2::poly::commitment::Params;

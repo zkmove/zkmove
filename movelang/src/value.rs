@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use error::{RuntimeError, StatusCode, VmResult};
 pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::{U128, U64, U8};

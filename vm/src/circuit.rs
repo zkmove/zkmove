@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::chips::arithmetic::{ArithmeticChip, ArithmeticConfig};
 use crate::chips::conditional_select::{ConditionalSelectChip, ConditionalSelectConfig};
 use crate::chips::logical::{LogicalChip, LogicalConfig};

@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter},

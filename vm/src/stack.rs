@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::frame::{Frame, ProgramBlock};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};

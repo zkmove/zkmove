@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2::arithmetic::FieldExt;

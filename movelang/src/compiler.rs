@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use anyhow::{bail, Result};
 use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;

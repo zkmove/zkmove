@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use move_binary_format::errors::{Location, PartialVMError};
 use move_binary_format::errors::{PartialVMResult, VMResult};
 use move_binary_format::CompiledModule;

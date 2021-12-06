@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use error::VmResult;
 use halo2::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::MoveValueType;

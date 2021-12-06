@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::instructions::ArithmeticInstructions;
 use crate::value::Value;
 use halo2::{

@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use env_logger::{Builder, Env};
 pub use log::{debug, error, info, log_enabled, warn, Level};
 
