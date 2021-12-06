@@ -12,6 +12,6 @@ move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5
 move-vm-types = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 logger = { path = "../common/logger" }
 error = { path = "../common/error" }
-halo2 = { git = "https://github.com/zcash/halo2", rev = "a635b7c25a51e9272dc22688471036fee820864a" }
+halo2 = { git = "https://github.com/guangyuz/halo2", rev = "0dd737a7bd331011c42df8ef4f953b55426768a0" }
 
 anyhow = "1.0.38"
