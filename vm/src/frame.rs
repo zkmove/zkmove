@@ -245,13 +245,7 @@ impl<F: FieldExt> Block<F> {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         let error_code = value.get_lower_128(); // fixme should cast to u64?
-                        return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
-                            format!(
-                                "Move bytecode aborted with error code {}",
-                                //fixme: function.pretty_string(),
-                                error_code
-                            ),
-                        ));
+                        return Ok(ExitStatus::Abort(self.pc, error_code));
                     }
                     Bytecode::Eq => {
                         let a = interp.stack.pop()?;
@@ -310,19 +304,32 @@ pub struct ConditionalBlock<F: FieldExt> {
 
 impl<F: FieldExt> ConditionalBlock<F> {
     pub fn new(true_branch: Option<Block<F>>, false_branch: Option<Block<F>>) -> Self {
-        let true_branch = match true_branch {
-            Some(true_bl) => Some(Branch {
-                block: true_bl,
-                is_running: true,
-            }),
-            None => None,
-        };
-        let false_branch = match false_branch {
-            Some(false_bl) => Some(Branch {
-                block: false_bl,
-                is_running: false, //fixme
-            }),
-            None => None,
+        let (true_branch, false_branch) = match (true_branch, false_branch) {
+            (Some(true_bl), Some(false_bl)) => (
+                Some(Branch {
+                    block: true_bl,
+                    is_running: true,
+                }),
+                Some(Branch {
+                    block: false_bl,
+                    is_running: false,
+                }),
+            ),
+            (Some(true_bl), None) => (
+                Some(Branch {
+                    block: true_bl,
+                    is_running: true,
+                }),
+                None,
+            ),
+            (None, Some(false_bl)) => (
+                None,
+                Some(Branch {
+                    block: false_bl,
+                    is_running: true,
+                }),
+            ),
+            _ => (None, None),
         };
         ConditionalBlock {
             true_branch,
@@ -519,6 +526,10 @@ impl<F: FieldExt> Frame<F> {
         condition: Option<F>,
     ) -> VmResult<ProgramBlock<F>> {
         let code = self.function.code();
+        let not_condition = match condition {
+            Some(v) => Some(F::one() - v),
+            None => None,
+        };
         let (_br_type, true_branch_start) = match &code[pc as usize] {
             Bytecode::BrTrue(offset) => (true, *offset),
             _ => {
@@ -526,52 +537,66 @@ impl<F: FieldExt> Frame<F> {
                     .with_message("expect BrTrue or BrFalse".to_string()))
             }
         };
-        let true_branch_end = match &code[(pc + 1) as usize] {
-            Bytecode::Branch(offset) => *offset - 1,
-            _ => {
-                return Err(RuntimeError::new(StatusCode::ProgramBlockError)
-                    .with_message("BrTrue (or BrFalse) should followed by Branch".to_string()))
-            }
-        };
-        match &code[(true_branch_end) as usize] {
+        match &code[(true_branch_start - 1) as usize] {
             Bytecode::Branch(offset) => {
-                let true_branch = Block::new(
-                    true_branch_start,
-                    true_branch_start,
-                    Some(true_branch_end - 1), //delete the branch instruction at the end
-                    self.current_block.locals().clone(),
-                    self.function.code().to_vec(),
-                    condition,
-                );
-                let false_branch_start = true_branch_end + 1;
-                let false_branch_end = *offset - 1;
-                let not_condition = match condition {
-                    Some(v) => Some(F::one() - v),
-                    None => None,
-                };
+                let true_branch_end = *offset - 1;
+                match &code[(true_branch_end) as usize] {
+                    Bytecode::Branch(offset) => {
+                        let true_branch = Block::new(
+                            true_branch_start,
+                            true_branch_start,
+                            Some(true_branch_end - 1), //ignore the branch instruction at the end
+                            self.current_block.locals().clone(),
+                            self.function.code().to_vec(),
+                            condition,
+                        );
+                        let false_branch_start = true_branch_end + 1;
+                        let false_branch_end = *offset - 1;
+                        let false_branch = Block::new(
+                            false_branch_start,
+                            false_branch_start,
+                            Some(false_branch_end),
+                            self.current_block().locals().clone(),
+                            self.function.code().to_vec(),
+                            not_condition,
+                        );
+                        Ok(ProgramBlock::new_conditional_block(
+                            Some(true_branch),
+                            Some(false_branch),
+                        ))
+                    }
+                    _ => {
+                        let true_branch = Block::new(
+                            true_branch_start,
+                            true_branch_start,
+                            Some(true_branch_end),
+                            self.current_block.locals().clone(),
+                            self.function.code().to_vec(),
+                            condition,
+                        );
+                        Ok(ProgramBlock::new_conditional_block(Some(true_branch), None))
+                    }
+                }
+            }
+            Bytecode::Abort => {
+                let false_branch_start = pc + 1;
+                let false_branch_end = true_branch_start - 1;
                 let false_branch = Block::new(
                     false_branch_start,
                     false_branch_start,
                     Some(false_branch_end),
                     self.current_block().locals().clone(),
                     self.function.code().to_vec(),
-                    not_condition,
+                    not_condition.clone(),
                 );
                 Ok(ProgramBlock::new_conditional_block(
-                    Some(true_branch),
+                    None,
                     Some(false_branch),
                 ))
             }
             _ => {
-                let true_branch = Block::new(
-                    true_branch_start,
-                    true_branch_start,
-                    Some(true_branch_end),
-                    self.current_block.locals().clone(),
-                    self.function.code().to_vec(),
-                    condition,
-                );
-                Ok(ProgramBlock::new_conditional_block(Some(true_branch), None))
+                return Err(RuntimeError::new(StatusCode::ProgramBlockError)
+                    .with_message("Should not reach here".to_string()))
             }
         }
     }
@@ -652,6 +677,33 @@ impl<F: FieldExt> Frame<F> {
                     }
                     _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
                 },
+                ExitStatus::Abort(pc, error_code) => match &mut self.current_block {
+                    ProgramBlock::ConditionalBlock(cb) => {
+                        match (&mut cb.true_branch, &mut cb.false_branch) {
+                            (None, Some(f_branch)) => {
+                                debug_assert!(f_branch.block.end == Some(pc));
+                                debug!("handle Abort");
+                                let cond = f_branch.block.condition;
+                                self.current_block = self.blocks.pop().ok_or_else(|| {
+                                    RuntimeError::new(StatusCode::ShouldNotReachHere)
+                                })?;
+                                self.current_block.set_pc(pc + 1);
+
+                                // todo: error handle
+                                if cond == Some(F::one()) {
+                                    return Err(RuntimeError::new(StatusCode::MoveAbort)
+                                        .with_message(format!(
+                                            "Move bytecode {} aborted with error code {}",
+                                            self.function.pretty_string(),
+                                            error_code
+                                        )));
+                                }
+                            }
+                            _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
+                        }
+                    }
+                    _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
+                },
             }
         }
     }
@@ -674,5 +726,6 @@ pub enum ExitStatus<F: FieldExt> {
     Return,
     Call(FunctionHandleIndex),
     ConditionalBranch(ConditionalBranch<F>),
-    BranchEnd(u16),
+    BranchEnd(u16 /* pc */),
+    Abort(u16 /* pc */, u128 /* error code */),
 }
