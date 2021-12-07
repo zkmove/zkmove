@@ -1,8 +1,10 @@
 // Copyright (c) zkMove Authors
 
 use crate::circuit::EvaluationChip;
-use crate::frame::{ExitStatus, Frame, Locals};
+use crate::frame::Frame;
 use crate::instructions::Instructions;
+use crate::locals::Locals;
+use crate::program_block::ExitStatus;
 use crate::stack::{CallStack, CondStack, EvalStack};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
