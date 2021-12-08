@@ -115,6 +115,19 @@ impl<F: FieldExt> LogicalInstructions<F> for EvaluationChip<F> {
         let logical_chip = LogicalChip::<F>::construct(config, ());
         logical_chip.eq(layouter, a, b, cond)
     }
+
+    fn neq(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().logical_config.clone();
+
+        let logical_chip = LogicalChip::<F>::construct(config, ());
+        logical_chip.neq(layouter, a, b, cond)
+    }
 }
 
 impl<F: FieldExt> Chip<F> for EvaluationChip<F> {

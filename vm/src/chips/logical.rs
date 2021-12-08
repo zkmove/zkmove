@@ -15,6 +15,7 @@ use std::marker::PhantomData;
 pub struct LogicalConfig {
     advice: [Column<Advice>; 4],
     s_eq: Selector,
+    s_neq: Selector,
 }
 
 pub struct LogicalChip<F: FieldExt> {
@@ -53,8 +54,8 @@ impl<F: FieldExt> LogicalChip<F> {
         for column in &advice {
             meta.enable_equality((*column).into());
         }
-        let s_eq = meta.selector();
 
+        let s_eq = meta.selector();
         meta.create_gate("eq", |meta| {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
@@ -71,8 +72,77 @@ impl<F: FieldExt> LogicalChip<F> {
             ]
         });
 
-        LogicalConfig { advice, s_eq }
+        let s_neq = meta.selector();
+        meta.create_gate("neq", |meta| {
+            let lhs = meta.query_advice(advice[0], Rotation::cur());
+            let rhs = meta.query_advice(advice[1], Rotation::cur());
+            let out = meta.query_advice(advice[2], Rotation::cur());
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let delta_invert = meta.query_advice(advice[0], Rotation::next());
+            let s_neq = meta.query_selector(s_neq) * cond;
+
+            vec![
+                // if a != b then (a - b) * inverse(a - b) == out
+                // if a == b then (a - b) * 1 == out
+                s_neq * ((lhs - rhs) * delta_invert - out),
+            ]
+        });
+
+        LogicalConfig {
+            advice,
+            s_eq,
+            s_neq,
+        }
     }
+}
+
+macro_rules! assign_operands {
+    ($a:expr, $b:expr, $region:expr, $config:expr) => {{
+        let lhs = $region.assign_advice(
+            || "lhs",
+            $config.advice[0],
+            0,
+            || $a.value().ok_or(Error::SynthesisError),
+        )?;
+        let rhs = $region.assign_advice(
+            || "rhs",
+            $config.advice[1],
+            0,
+            || $b.value().ok_or(Error::SynthesisError),
+        )?;
+        $region.constrain_equal($a.cell().unwrap(), lhs)?;
+        $region.constrain_equal($b.cell().unwrap(), rhs)?;
+    }};
+}
+
+macro_rules! assign_cond {
+    ($cond:expr, $region:expr, $config:expr) => {{
+        $region.assign_advice(
+            || "cond",
+            $config.advice[3],
+            0,
+            || $cond.ok_or(Error::SynthesisError),
+        )?;
+    }};
+}
+
+macro_rules! assign_delta_invert {
+    ($a:expr, $b:expr, $region:expr, $config:expr) => {{
+        $region.assign_advice(
+            || "delta invert",
+            $config.advice[0],
+            1,
+            || {
+                let delta_invert = if $a.value() == $b.value() {
+                    F::one()
+                } else {
+                    let delta = $a.value().unwrap() - $b.value().unwrap();
+                    delta.invert().unwrap()
+                };
+                Ok(delta_invert)
+            },
+        )?;
+    }};
 }
 
 impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
@@ -93,20 +163,9 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_eq.enable(&mut region, 0)?;
 
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
+                assign_delta_invert!(a, b, region, config);
 
                 let value = match (a.value(), b.value()) {
                     (Some(a), Some(b)) => {
@@ -123,26 +182,49 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || value.ok_or(Error::SynthesisError),
                 )?;
 
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
+                c = Some(
+                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
 
-                region.assign_advice(
-                    || "delta invert",
-                    config.advice[0],
-                    1,
-                    || {
-                        let delta_invert = if a.value() == b.value() {
-                            F::one()
-                        } else {
-                            let delta = a.value().unwrap() - b.value().unwrap();
-                            delta.invert().unwrap()
-                        };
-                        Ok(delta_invert)
-                    },
+        Ok(c.unwrap())
+    }
+
+    fn neq(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut c = None;
+        layouter.assign_region(
+            || "neq",
+            |mut region: Region<'_, F>| {
+                config.s_neq.enable(&mut region, 0)?;
+
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
+                assign_delta_invert!(a, b, region, config);
+
+                let value = match (a.value(), b.value()) {
+                    (Some(a), Some(b)) => {
+                        let v = if a != b { F::one() } else { F::zero() };
+                        Some(v)
+                    }
+                    _ => None,
+                };
+
+                let cell = region.assign_advice(
+                    || "lhs != rhs",
+                    config.advice[2],
+                    0,
+                    || value.ok_or(Error::SynthesisError),
                 )?;
 
                 c = Some(

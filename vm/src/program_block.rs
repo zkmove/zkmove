@@ -264,7 +264,22 @@ impl<F: FieldExt> Block<F> {
                             })?;
                         interp.stack.push(c)
                     }
-                    // Bytecode::Neq => interp.binary_op(cs, r1cs::neq),
+                    Bytecode::Neq => {
+                        let a = interp.stack.pop()?;
+                        let b = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .neq(
+                                layouter.namespace(|| format!("neq op in step#{}", interp.step)),
+                                a,
+                                b,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("neq op failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     // Bytecode::And => interp.binary_op(cs, r1cs::and),
                     // Bytecode::Or => interp.binary_op(cs, r1cs::or),
                     // Bytecode::Not => interp.unary_op(cs, r1cs::not),
