@@ -307,22 +307,22 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             layouter.namespace(|| "a + b"),
             a.clone(),
             b.clone(),
-            self.cond.clone(),
+            self.cond,
         )?;
         let d = evaluation_chip.sub(
             layouter.namespace(|| "a - b"),
             a.clone(),
             b.clone(),
-            self.cond.clone(),
+            self.cond,
         )?;
         let e = evaluation_chip.mul(
             layouter.namespace(|| "a * b"),
             a.clone(),
             b.clone(),
-            self.cond.clone(),
+            self.cond,
         )?;
 
-        let f = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b, self.cond.clone())?;
+        let f = evaluation_chip.eq(layouter.namespace(|| "a == b"), a, b, self.cond)?;
 
         evaluation_chip.expose_public(layouter.namespace(|| "expose c"), c, 0)?;
         evaluation_chip.expose_public(layouter.namespace(|| "expose d"), d, 1)?;
@@ -395,12 +395,7 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
             b.clone(),
             self.cond,
         )?;
-        let d = evaluation_chip.mul(
-            layouter.namespace(|| "a * b"),
-            a.clone(),
-            b.clone(),
-            not_cond,
-        )?;
+        let d = evaluation_chip.mul(layouter.namespace(|| "a * b"), a, b, not_cond)?;
 
         let out = evaluation_chip.conditional_select(
             layouter.namespace(|| "conditional select"),
@@ -507,7 +502,7 @@ mod tests {
         create_proof(
             &params,
             &pk,
-            &[circuit.clone()],
+            &[circuit],
             &[&[public_inputs.as_slice()]],
             &mut transcript,
         )

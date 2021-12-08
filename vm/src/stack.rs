@@ -107,7 +107,7 @@ impl<F: FieldExt> CondStack<F> {
 
     pub fn top(&self) -> Option<F> {
         match self.0.last() {
-            Some(v) => Some(v.clone()),
+            Some(v) => Some(*v),
             None => None,
         }
     }

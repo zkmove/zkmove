@@ -187,7 +187,7 @@ pub fn prove_script(
     create_proof(
         params,
         &pk,
-        &[circuit.clone()],
+        &[circuit],
         &[&[public_inputs.as_slice()]],
         &mut transcript,
     )

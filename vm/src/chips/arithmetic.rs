@@ -113,6 +113,60 @@ impl<F: FieldExt> ArithmeticChip<F> {
     }
 }
 
+macro_rules! assign_operands {
+    ($a:expr, $b:expr, $region:expr, $config:expr) => {{
+        let lhs = $region.assign_advice(
+            || "lhs",
+            $config.advice[0],
+            0,
+            || $a.value().ok_or(Error::SynthesisError),
+        )?;
+        let rhs = $region.assign_advice(
+            || "rhs",
+            $config.advice[1],
+            0,
+            || $b.value().ok_or(Error::SynthesisError),
+        )?;
+        $region.constrain_equal($a.cell().unwrap(), lhs)?;
+        $region.constrain_equal($b.cell().unwrap(), rhs)?;
+    }};
+}
+
+macro_rules! assign_cond {
+    ($cond:expr, $region:expr, $config:expr) => {{
+        $region.assign_advice(
+            || "cond",
+            $config.advice[3],
+            0,
+            || $cond.ok_or(Error::SynthesisError),
+        )?;
+    }};
+}
+
+macro_rules! div_rem {
+    ($a:expr, $b:expr) => {{
+        let l_move: Option<MoveValue> = $a.clone().into();
+        let r_move: Option<MoveValue> = $b.clone().into();
+        match (l_move, r_move) {
+            (Some(l), Some(r)) => {
+                let quo = move_div(l.clone(), r.clone()).map_err(|e| {
+                    error!("move div failed: {:?}", e);
+                    Error::SynthesisError
+                })?;
+                let rem = move_rem(l, r).map_err(|e| {
+                    error!("move rem failed: {:?}", e);
+                    Error::SynthesisError
+                })?;
+                (
+                    Some(convert_to_field::<F>(quo)),
+                    Some(convert_to_field::<F>(rem)),
+                )
+            }
+            _ => (None, None),
+        }
+    }};
+}
+
 impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
     type Value = Value<F>;
 
@@ -131,20 +185,8 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_add.enable(&mut region, 0)?;
 
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
 
                 let value = a.value().and_then(|a| b.value().map(|b| a + b));
                 let cell = region.assign_advice(
@@ -153,14 +195,6 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
-
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
-
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -187,20 +221,8 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_sub.enable(&mut region, 0)?;
 
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
 
                 let value = a.value().and_then(|a| b.value().map(|b| a - b));
                 let cell = region.assign_advice(
@@ -209,14 +231,6 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
-
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
-
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -243,20 +257,8 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_mul.enable(&mut region, 0)?;
 
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
 
                 let value = a.value().and_then(|a| b.value().map(|b| a * b));
                 let cell = region.assign_advice(
@@ -265,14 +267,6 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     0,
                     || value.ok_or(Error::SynthesisError),
                 )?;
-
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
-
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -299,41 +293,9 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_div_rem.enable(&mut region, 0)?;
 
-                let l_move: Option<MoveValue> = a.clone().into();
-                let r_move: Option<MoveValue> = b.clone().into();
-
-                let (quotient, remainder) = match (l_move, r_move) {
-                    (Some(l), Some(r)) => {
-                        let quo = move_div(l.clone(), r.clone()).map_err(|e| {
-                            error!("move div failed: {:?}", e);
-                            Error::SynthesisError
-                        })?;
-                        let rem = move_rem(l, r).map_err(|e| {
-                            error!("move rem failed: {:?}", e);
-                            Error::SynthesisError
-                        })?;
-                        (
-                            Some(convert_to_field::<F>(quo)),
-                            Some(convert_to_field::<F>(rem)),
-                        )
-                    }
-                    _ => (None, None),
-                };
-
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                let (quotient, remainder) = div_rem!(a, b);
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
 
                 let quotient_cell = region.assign_advice(
                     || "quotient",
@@ -348,14 +310,6 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     1,
                     || remainder.ok_or(Error::SynthesisError),
                 )?;
-
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
-
                 c = Some(
                     Value::new_variable(quotient, Some(quotient_cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
@@ -382,41 +336,9 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
             |mut region: Region<'_, F>| {
                 config.s_div_rem.enable(&mut region, 0)?;
 
-                let l_move: Option<MoveValue> = a.clone().into();
-                let r_move: Option<MoveValue> = b.clone().into();
-
-                let (quotient, remainder) = match (l_move, r_move) {
-                    (Some(l), Some(r)) => {
-                        let quo = move_div(l.clone(), r.clone()).map_err(|e| {
-                            error!("move div failed: {:?}", e);
-                            Error::SynthesisError
-                        })?;
-                        let rem = move_rem(l, r).map_err(|e| {
-                            error!("move rem failed: {:?}", e);
-                            Error::SynthesisError
-                        })?;
-                        (
-                            Some(convert_to_field::<F>(quo)),
-                            Some(convert_to_field::<F>(rem)),
-                        )
-                    }
-                    _ => (None, None),
-                };
-
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    config.advice[0],
-                    0,
-                    || a.value().ok_or(Error::SynthesisError),
-                )?;
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    config.advice[1],
-                    0,
-                    || b.value().ok_or(Error::SynthesisError),
-                )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                let (quotient, remainder) = div_rem!(a, b);
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
 
                 let _quotient_cell = region.assign_advice(
                     || "quotient",
@@ -431,14 +353,6 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     1,
                     || remainder.ok_or(Error::SynthesisError),
                 )?;
-
-                region.assign_advice(
-                    || "cond",
-                    config.advice[3],
-                    0,
-                    || cond.ok_or(Error::SynthesisError),
-                )?;
-
                 c = Some(
                     Value::new_variable(remainder, Some(remainder_cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,

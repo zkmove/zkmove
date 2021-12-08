@@ -89,13 +89,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             "Generate zk proof for script {:?} with real prover",
             script_file
         );
-        vm::prove_script(
-            script_bytes.clone(),
-            compiled_modules.clone(),
-            config.args,
-            &params,
-            pk,
-        )?;
+        vm::prove_script(script_bytes, compiled_modules, config.args, &params, pk)?;
     }
 
     Ok(())
