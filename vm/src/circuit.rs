@@ -73,6 +73,32 @@ impl<F: FieldExt> ArithmeticInstructions<F> for EvaluationChip<F> {
         let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
         arithmetic_chip.mul(layouter, a, b, cond)
     }
+
+    fn div(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().arithmetic_config.clone();
+
+        let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
+        arithmetic_chip.div(layouter, a, b, cond)
+    }
+
+    fn rem(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config().arithmetic_config.clone();
+
+        let arithmetic_chip = ArithmeticChip::<F>::construct(config, ());
+        arithmetic_chip.rem(layouter, a, b, cond)
+    }
 }
 
 impl<F: FieldExt> LogicalInstructions<F> for EvaluationChip<F> {

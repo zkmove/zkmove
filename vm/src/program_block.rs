@@ -177,8 +177,38 @@ impl<F: FieldExt> Block<F> {
                             })?;
                         interp.stack.push(c)
                     }
-                    // Bytecode::Div => interp.binary_op(cs, r1cs::div),
-                    // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
+                    Bytecode::Div => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .div(
+                                layouter.namespace(|| format!("step#{}", interp.step)),
+                                a,
+                                b,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("step#{} failed: {:?}", interp.step, e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
+                    Bytecode::Mod => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .rem(
+                                layouter.namespace(|| format!("step#{}", interp.step)),
+                                a,
+                                b,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("step#{} failed: {:?}", interp.step, e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     Bytecode::Ret => return Ok(ExitStatus::Return),
                     Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),

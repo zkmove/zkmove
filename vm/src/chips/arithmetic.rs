@@ -8,6 +8,8 @@ use halo2::{
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
     poly::Rotation,
 };
+use logger::prelude::*;
+use movelang::value::{convert_to_field, move_div, move_rem, MoveValue};
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
@@ -16,6 +18,7 @@ pub struct ArithmeticConfig {
     s_add: Selector,
     s_sub: Selector,
     s_mul: Selector,
+    s_div_rem: Selector,
 }
 
 pub struct ArithmeticChip<F: FieldExt> {
@@ -78,7 +81,7 @@ impl<F: FieldExt> ArithmeticChip<F> {
         });
 
         let s_mul = meta.selector();
-        meta.create_gate("sub", |meta| {
+        meta.create_gate("mul", |meta| {
             let lhs = meta.query_advice(advice[0], Rotation::cur());
             let rhs = meta.query_advice(advice[1], Rotation::cur());
             let out = meta.query_advice(advice[2], Rotation::cur());
@@ -88,11 +91,24 @@ impl<F: FieldExt> ArithmeticChip<F> {
             vec![s_mul * (lhs * rhs - out)]
         });
 
+        let s_div_rem = meta.selector();
+        meta.create_gate("div_rem", |meta| {
+            let lhs = meta.query_advice(advice[0], Rotation::cur());
+            let rhs = meta.query_advice(advice[1], Rotation::cur());
+            let quotient = meta.query_advice(advice[2], Rotation::cur());
+            let remainder = meta.query_advice(advice[0], Rotation::next());
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_div_rem = meta.query_selector(s_div_rem) * cond;
+
+            vec![s_div_rem * (lhs - rhs * quotient - remainder)]
+        });
+
         ArithmeticConfig {
             advice,
             s_add,
             s_sub,
             s_mul,
+            s_div_rem,
         }
     }
 }
@@ -259,6 +275,172 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
 
                 c = Some(
                     Value::new_variable(value, Some(cell), a.ty())
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(c.unwrap())
+    }
+
+    fn div(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut c = None;
+        layouter.assign_region(
+            || "div",
+            |mut region: Region<'_, F>| {
+                config.s_div_rem.enable(&mut region, 0)?;
+
+                let l_move: Option<MoveValue> = a.clone().into();
+                let r_move: Option<MoveValue> = b.clone().into();
+
+                let (quotient, remainder) = match (l_move, r_move) {
+                    (Some(l), Some(r)) => {
+                        let quo = move_div(l.clone(), r.clone()).map_err(|e| {
+                            error!("move div failed: {:?}", e);
+                            Error::SynthesisError
+                        })?;
+                        let rem = move_rem(l, r).map_err(|e| {
+                            error!("move rem failed: {:?}", e);
+                            Error::SynthesisError
+                        })?;
+                        (
+                            Some(convert_to_field::<F>(quo)),
+                            Some(convert_to_field::<F>(rem)),
+                        )
+                    }
+                    _ => (None, None),
+                };
+
+                let lhs = region.assign_advice(
+                    || "lhs",
+                    config.advice[0],
+                    0,
+                    || a.value().ok_or(Error::SynthesisError),
+                )?;
+                let rhs = region.assign_advice(
+                    || "rhs",
+                    config.advice[1],
+                    0,
+                    || b.value().ok_or(Error::SynthesisError),
+                )?;
+                region.constrain_equal(a.cell().unwrap(), lhs)?;
+                region.constrain_equal(b.cell().unwrap(), rhs)?;
+
+                let quotient_cell = region.assign_advice(
+                    || "quotient",
+                    config.advice[2],
+                    0,
+                    || quotient.ok_or(Error::SynthesisError),
+                )?;
+
+                let _remainder_cell = region.assign_advice(
+                    || "remainder",
+                    config.advice[0],
+                    1,
+                    || remainder.ok_or(Error::SynthesisError),
+                )?;
+
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
+                )?;
+
+                c = Some(
+                    Value::new_variable(quotient, Some(quotient_cell), a.ty())
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(c.unwrap())
+    }
+
+    fn rem(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut c = None;
+        layouter.assign_region(
+            || "rem",
+            |mut region: Region<'_, F>| {
+                config.s_div_rem.enable(&mut region, 0)?;
+
+                let l_move: Option<MoveValue> = a.clone().into();
+                let r_move: Option<MoveValue> = b.clone().into();
+
+                let (quotient, remainder) = match (l_move, r_move) {
+                    (Some(l), Some(r)) => {
+                        let quo = move_div(l.clone(), r.clone()).map_err(|e| {
+                            error!("move div failed: {:?}", e);
+                            Error::SynthesisError
+                        })?;
+                        let rem = move_rem(l, r).map_err(|e| {
+                            error!("move rem failed: {:?}", e);
+                            Error::SynthesisError
+                        })?;
+                        (
+                            Some(convert_to_field::<F>(quo)),
+                            Some(convert_to_field::<F>(rem)),
+                        )
+                    }
+                    _ => (None, None),
+                };
+
+                let lhs = region.assign_advice(
+                    || "lhs",
+                    config.advice[0],
+                    0,
+                    || a.value().ok_or(Error::SynthesisError),
+                )?;
+                let rhs = region.assign_advice(
+                    || "rhs",
+                    config.advice[1],
+                    0,
+                    || b.value().ok_or(Error::SynthesisError),
+                )?;
+                region.constrain_equal(a.cell().unwrap(), lhs)?;
+                region.constrain_equal(b.cell().unwrap(), rhs)?;
+
+                let _quotient_cell = region.assign_advice(
+                    || "quotient",
+                    config.advice[2],
+                    0,
+                    || quotient.ok_or(Error::SynthesisError),
+                )?;
+
+                let remainder_cell = region.assign_advice(
+                    || "remainder",
+                    config.advice[0],
+                    1,
+                    || remainder.ok_or(Error::SynthesisError),
+                )?;
+
+                region.assign_advice(
+                    || "cond",
+                    config.advice[3],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
+                )?;
+
+                c = Some(
+                    Value::new_variable(remainder, Some(remainder_cell), a.ty())
                         .map_err(|_| Error::SynthesisError)?,
                 );
                 Ok(())

@@ -33,6 +33,22 @@ pub trait ArithmeticInstructions<F: FieldExt>: Chip<F> {
         b: Self::Value,
         cond: Option<F>,
     ) -> Result<Self::Value, Error>;
+
+    fn div(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error>;
+
+    fn rem(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error>;
 }
 
 pub trait LogicalInstructions<F: FieldExt>: Chip<F> {
