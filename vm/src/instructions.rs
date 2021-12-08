@@ -69,6 +69,22 @@ pub trait LogicalInstructions<F: FieldExt>: Chip<F> {
         b: Self::Value,
         cond: Option<F>,
     ) -> Result<Self::Value, Error>;
+
+    fn and(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error>;
+
+    fn or(
+        &self,
+        layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error>;
 }
 
 pub trait Instructions<F: FieldExt>: ArithmeticInstructions<F> {

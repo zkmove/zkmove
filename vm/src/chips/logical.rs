@@ -16,6 +16,8 @@ pub struct LogicalConfig {
     advice: [Column<Advice>; 4],
     s_eq: Selector,
     s_neq: Selector,
+    s_and: Selector,
+    s_or: Selector,
 }
 
 pub struct LogicalChip<F: FieldExt> {
@@ -88,10 +90,35 @@ impl<F: FieldExt> LogicalChip<F> {
             ]
         });
 
+        let s_and = meta.selector();
+        meta.create_gate("and", |meta| {
+            let lhs = meta.query_advice(advice[0], Rotation::cur());
+            let rhs = meta.query_advice(advice[1], Rotation::cur());
+            let out = meta.query_advice(advice[2], Rotation::cur());
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_and = meta.query_selector(s_and) * cond;
+
+            vec![s_and * (lhs * rhs - out)]
+        });
+
+        let s_or = meta.selector();
+        meta.create_gate("or", |meta| {
+            let lhs = meta.query_advice(advice[0], Rotation::cur());
+            let rhs = meta.query_advice(advice[1], Rotation::cur());
+            let out = meta.query_advice(advice[2], Rotation::cur());
+            let cond = meta.query_advice(advice[3], Rotation::cur());
+            let s_or = meta.query_selector(s_or) * cond;
+            let one = Expression::Constant(F::one());
+
+            vec![s_or * ((one.clone() - lhs) * (one.clone() - rhs) - (one - out))]
+        });
+
         LogicalConfig {
             advice,
             s_eq,
             s_neq,
+            s_and,
+            s_or,
         }
     }
 }
@@ -222,6 +249,102 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
 
                 let cell = region.assign_advice(
                     || "lhs != rhs",
+                    config.advice[2],
+                    0,
+                    || value.ok_or(Error::SynthesisError),
+                )?;
+
+                c = Some(
+                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(c.unwrap())
+    }
+
+    fn and(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut c = None;
+        layouter.assign_region(
+            || "and",
+            |mut region: Region<'_, F>| {
+                config.s_and.enable(&mut region, 0)?;
+
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
+
+                let value = match (a.value(), b.value()) {
+                    (Some(a), Some(b)) => {
+                        let v = if a == F::zero() || b == F::zero() {
+                            F::zero()
+                        } else {
+                            F::one()
+                        };
+                        Some(v)
+                    }
+                    _ => None,
+                };
+
+                let cell = region.assign_advice(
+                    || "lhs && rhs",
+                    config.advice[2],
+                    0,
+                    || value.ok_or(Error::SynthesisError),
+                )?;
+
+                c = Some(
+                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(c.unwrap())
+    }
+
+    fn or(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        b: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut c = None;
+        layouter.assign_region(
+            || "or",
+            |mut region: Region<'_, F>| {
+                config.s_or.enable(&mut region, 0)?;
+
+                assign_operands!(a, b, region, config);
+                assign_cond!(cond, region, config);
+
+                let value = match (a.value(), b.value()) {
+                    (Some(a), Some(b)) => {
+                        let v = if a == F::zero() && b == F::zero() {
+                            F::zero()
+                        } else {
+                            F::one()
+                        };
+                        Some(v)
+                    }
+                    _ => None,
+                };
+
+                let cell = region.assign_advice(
+                    || "lhs || rhs",
                     config.advice[2],
                     0,
                     || value.ok_or(Error::SynthesisError),

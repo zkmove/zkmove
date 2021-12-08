@@ -249,8 +249,8 @@ impl<F: FieldExt> Block<F> {
                         return Ok(ExitStatus::Abort(self.pc, error_code));
                     }
                     Bytecode::Eq => {
-                        let a = interp.stack.pop()?;
                         let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
                         let c = evaluation_chip
                             .eq(
                                 layouter.namespace(|| format!("eq op in step#{}", interp.step)),
@@ -265,8 +265,8 @@ impl<F: FieldExt> Block<F> {
                         interp.stack.push(c)
                     }
                     Bytecode::Neq => {
-                        let a = interp.stack.pop()?;
                         let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
                         let c = evaluation_chip
                             .neq(
                                 layouter.namespace(|| format!("neq op in step#{}", interp.step)),
@@ -280,8 +280,38 @@ impl<F: FieldExt> Block<F> {
                             })?;
                         interp.stack.push(c)
                     }
-                    // Bytecode::And => interp.binary_op(cs, r1cs::and),
-                    // Bytecode::Or => interp.binary_op(cs, r1cs::or),
+                    Bytecode::And => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .and(
+                                layouter.namespace(|| format!("and op in step#{}", interp.step)),
+                                a,
+                                b,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("and op failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
+                    Bytecode::Or => {
+                        let b = interp.stack.pop()?;
+                        let a = interp.stack.pop()?;
+                        let c = evaluation_chip
+                            .or(
+                                layouter.namespace(|| format!("or op in step#{}", interp.step)),
+                                a,
+                                b,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("or op failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(c)
+                    }
                     // Bytecode::Not => interp.unary_op(cs, r1cs::not),
                     _ => unreachable!(),
                 }?;
