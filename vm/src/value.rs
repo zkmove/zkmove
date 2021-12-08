@@ -2,7 +2,8 @@
 
 use error::VmResult;
 use halo2::{arithmetic::FieldExt, circuit::Cell};
-use movelang::value::MoveValueType;
+use movelang::value::MoveValue::{Bool, U128, U64, U8};
+use movelang::value::{MoveValue, MoveValueType};
 
 #[derive(Clone)]
 pub struct FConstant<F: FieldExt> {
@@ -130,6 +131,24 @@ impl<F: FieldExt> Value<F> {
             (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
             (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
             _ => false,
+        }
+    }
+}
+
+impl<F: FieldExt> Into<Option<MoveValue>> for Value<F> {
+    fn into(self) -> Option<MoveValue> {
+        match self.value() {
+            Some(field) => {
+                let value = match self.ty() {
+                    MoveValueType::U8 => U8(field.get_lower_128() as u8),
+                    MoveValueType::U64 => U64(field.get_lower_128() as u64),
+                    MoveValueType::U128 => U128(field.get_lower_128()),
+                    MoveValueType::Bool => Bool(field == F::one()),
+                    _ => unimplemented!(),
+                };
+                Some(value)
+            }
+            None => None,
         }
     }
 }
