@@ -1,8 +1,6 @@
 # zkMove
 
-In order to improve the scalability of public blockchains, we have proposed zkMove - a general purpose blockchain scalability engine, which perfectly combines Move, the next 
-generation smart contract programming language, with the most mature zero-knowledge proofs technology PLONK, and “moves” computation from on-chain to off-chain. 
-We expect It can greatly improve the scalability of the blockchain without sacrificing security. Detailed description can be found [here](./docs/zkMove_project_description_ch.pdf).
+In order to improve the scalability of the blockchain, we propose zkMove - a zero-knowledge proof-based smart contract runtime environment that combines Move, the most secure smart contract programming language, with PLONK, a maturing zero-knowledge proof technology, to "Move" computation from on-chain to off-chain, significantly improving the scalability of blockchain while ensuring security. Detailed description can be found [here](./docs/zkMove_project_description_en.pdf) [(中文)](./docs/zkMove_project_description_ch.pdf)
 
 ## Authors
 
