@@ -18,6 +18,7 @@ pub struct LogicalConfig {
     s_neq: Selector,
     s_and: Selector,
     s_or: Selector,
+    s_not: Selector,
 }
 
 pub struct LogicalChip<F: FieldExt> {
@@ -113,12 +114,27 @@ impl<F: FieldExt> LogicalChip<F> {
             vec![s_or * ((one.clone() - lhs) * (one.clone() - rhs) - (one - out))]
         });
 
+        let s_not = meta.selector();
+        meta.create_gate("not", |meta| {
+            let x = meta.query_advice(advice[0], Rotation::cur());
+            let out = meta.query_advice(advice[1], Rotation::cur());
+            let cond = meta.query_advice(advice[2], Rotation::cur());
+            let s_not = meta.query_selector(s_not) * cond;
+            let one = Expression::Constant(F::one());
+
+            vec![
+                // 1 - x = out
+                s_not * (one - x - out)
+            ]
+        });
+
         LogicalConfig {
             advice,
             s_eq,
             s_neq,
             s_and,
             s_or,
+            s_not,
         }
     }
 }
@@ -359,5 +375,66 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
         )?;
 
         Ok(c.unwrap())
+    }
+
+    fn not(
+        &self,
+        mut layouter: impl Layouter<F>,
+        a: Self::Value,
+        cond: Option<F>,
+    ) -> Result<Self::Value, Error> {
+        let config = self.config();
+
+        let mut b = None;
+        layouter.assign_region(
+            || "not",
+            |mut region: Region<'_, F>| {
+                config.s_not.enable(&mut region, 0)?;
+
+                // assign operand
+                let x = region.assign_advice(
+                    || "x",
+                config.advice[0],
+                0,
+                || a.value().ok_or(Error::SynthesisError),
+                )?;
+                region.constrain_equal(a.cell().unwrap(), x)?;
+
+                // assign cond
+                region.assign_advice(
+                    || "cond",
+                config.advice[2],
+                0,
+                || cond.ok_or(Error::SynthesisError),
+                )?;
+
+                let value = match a.value() {
+                    Some(a) => {
+                        let v = if a == F::zero() {
+                            F::one()
+                        } else {
+                            F::zero()
+                        };
+                        Some(v)
+                    }
+                    _ => None,
+                };
+
+                let cell = region.assign_advice(
+                    || "not a",
+                    config.advice[1],
+                    0,
+                    || value.ok_or(Error::SynthesisError),
+                )?;
+
+                b = Some(
+                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
+                        .map_err(|_| Error::SynthesisError)?,
+                );
+                Ok(())
+            },
+        )?;
+
+        Ok(b.unwrap())
     }
 }

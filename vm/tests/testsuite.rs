@@ -68,7 +68,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        let k = 4;
+        let k = 6;
 
         debug!(
             "Generate zk proof for script {:?} with mock prover",

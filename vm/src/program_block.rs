@@ -312,7 +312,20 @@ impl<F: FieldExt> Block<F> {
                             })?;
                         interp.stack.push(c)
                     }
-                    // Bytecode::Not => interp.unary_op(cs, r1cs::not),
+                    Bytecode::Not => {
+                        let a = interp.stack.pop()?;
+                        let b = evaluation_chip
+                            .not(
+                                layouter.namespace(|| format!("not op in step#{}", interp.step)),
+                                a,
+                                self.condition(),
+                            )
+                            .map_err(|e| {
+                                error!("not op failed: {:?}", e);
+                                RuntimeError::new(StatusCode::SynthesisError)
+                            })?;
+                        interp.stack.push(b)
+                    }
                     _ => unreachable!(),
                 }?;
 
