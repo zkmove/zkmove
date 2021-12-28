@@ -8,6 +8,7 @@ use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use vm::runtime::Runtime;
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -69,12 +70,13 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         script.serialize(&mut script_bytes)?;
 
         let k = 6;
+        let runtime = Runtime::new();
 
         debug!(
             "Generate zk proof for script {:?} with mock prover",
             script_file
         );
-        vm::mock_prove_script(
+        runtime.mock_prove_script(
             script_bytes.clone(),
             compiled_modules.clone(),
             config.args.clone(),
@@ -83,13 +85,13 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
         debug!("Generate parameters for script {:?}", script_file);
         let params: Params<EqAffine> = Params::new(k);
-        let pk = vm::setup_script(script_bytes.clone(), compiled_modules.clone(), &params)?;
+        let pk = runtime.setup_script(script_bytes.clone(), compiled_modules.clone(), &params)?;
 
         debug!(
             "Generate zk proof for script {:?} with real prover",
             script_file
         );
-        vm::prove_script(script_bytes, compiled_modules, config.args, &params, pk)?;
+        runtime.prove_script(script_bytes, compiled_modules, config.args, &params, pk)?;
     }
 
     Ok(())

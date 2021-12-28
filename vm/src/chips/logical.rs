@@ -124,7 +124,7 @@ impl<F: FieldExt> LogicalChip<F> {
 
             vec![
                 // 1 - x = out
-                s_not * (one - x - out)
+                s_not * (one - x - out),
             ]
         });
 
@@ -394,27 +394,23 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                 // assign operand
                 let x = region.assign_advice(
                     || "x",
-                config.advice[0],
-                0,
-                || a.value().ok_or(Error::SynthesisError),
+                    config.advice[0],
+                    0,
+                    || a.value().ok_or(Error::SynthesisError),
                 )?;
                 region.constrain_equal(a.cell().unwrap(), x)?;
 
                 // assign cond
                 region.assign_advice(
                     || "cond",
-                config.advice[2],
-                0,
-                || cond.ok_or(Error::SynthesisError),
+                    config.advice[2],
+                    0,
+                    || cond.ok_or(Error::SynthesisError),
                 )?;
 
                 let value = match a.value() {
                     Some(a) => {
-                        let v = if a == F::zero() {
-                            F::one()
-                        } else {
-                            F::zero()
-                        };
+                        let v = if a == F::zero() { F::one() } else { F::zero() };
                         Some(v)
                     }
                     _ => None,
