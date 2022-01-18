@@ -4,6 +4,7 @@ use anyhow::Result;
 use halo2::pasta::EqAffine;
 use halo2::poly::commitment::Params;
 use logger::prelude::*;
+use movelang::state::StateStore;
 use movelang::{argument::ScriptArguments, compiler::compile_script};
 use std::fs::File;
 use std::io::Read;
@@ -71,6 +72,10 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
         let k = 6;
         let runtime = Runtime::new();
+        let mut state = StateStore::new();
+        for module in compiled_modules.clone().into_iter() {
+            state.add_module(module);
+        }
 
         debug!(
             "Generate zk proof for script {:?} with mock prover",
@@ -80,18 +85,31 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             script_bytes.clone(),
             compiled_modules.clone(),
             config.args.clone(),
+            &mut state,
             k,
         )?;
 
         debug!("Generate parameters for script {:?}", script_file);
         let params: Params<EqAffine> = Params::new(k);
-        let pk = runtime.setup_script(script_bytes.clone(), compiled_modules.clone(), &params)?;
+        let pk = runtime.setup_script(
+            script_bytes.clone(),
+            compiled_modules.clone(),
+            &mut state,
+            &params,
+        )?;
 
         debug!(
             "Generate zk proof for script {:?} with real prover",
             script_file
         );
-        runtime.prove_script(script_bytes, compiled_modules, config.args, &params, pk)?;
+        runtime.prove_script(
+            script_bytes,
+            compiled_modules,
+            config.args,
+            &mut state,
+            &params,
+            pk,
+        )?;
     }
 
     Ok(())

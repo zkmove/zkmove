@@ -11,37 +11,44 @@ use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
-use movelang::state::StateStore;
+use movelang::state::{State, StateStore};
 
 #[derive(Clone)]
-pub struct FastMoveCircuit<'a> {
+pub struct FastMoveCircuit<'l, 's> {
     script: Vec<u8>,
     modules: Vec<CompiledModule>,
     args: Option<ScriptArguments>,
-    loader: &'a MoveLoader,
+    state: State<'s>,
+    loader: &'l MoveLoader,
 }
 
-impl<'a> FastMoveCircuit<'a> {
+impl<'l, 's> FastMoveCircuit<'l, 's> {
     pub fn new(
         script: Vec<u8>,
         modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
-        loader: &'a MoveLoader,
+        state_store: &'s mut StateStore,
+        loader: &'l MoveLoader,
     ) -> Self {
         FastMoveCircuit {
             script,
             modules,
             args,
+            state: State::new(state_store),
             loader,
         }
     }
 
-    pub fn loader(&self) -> &'a MoveLoader {
+    pub fn loader(&self) -> &'l MoveLoader {
         &self.loader
+    }
+
+    pub fn state(&self) -> &'s State {
+        &self.state
     }
 }
 
-impl<F: FieldExt> Circuit<F> for FastMoveCircuit<'_> {
+impl<'l, 's, F: FieldExt> Circuit<F> for FastMoveCircuit<'l, 's> {
     type Config = EvaluationConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -50,6 +57,7 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit<'_> {
             script: self.script.clone(),
             modules: self.modules.clone(),
             args: None,
+            state: State::new(self.state.state_store),
             loader: self.loader(),
         }
     }
@@ -73,16 +81,12 @@ impl<F: FieldExt> Circuit<F> for FastMoveCircuit<'_> {
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
         let evaluation_chip = EvaluationChip::<F>::construct(config, ());
-        let mut state = StateStore::new();
         // let state_root = evaluation_chip.load_private(layouter.namespace(|| "load state root"), Some(F::zero()))?;
-        for module in self.modules.clone().into_iter() {
-            state.add_module(module);
-        }
         let mut interp = Interpreter::new();
 
         let (entry, arg_types) = self
             .loader()
-            .load_script(&self.script, &mut state)
+            .load_script(&self.script, &mut self.state.clone())
             .map_err(|e| {
                 error!("load script failed: {:?}", e);
                 Error::SynthesisError

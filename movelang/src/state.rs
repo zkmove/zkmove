@@ -13,15 +13,17 @@ use move_vm_types::{
 use std::collections::HashMap;
 
 pub use move_vm_types::data_store::DataStore;
+use std::cell::RefCell;
 
+#[derive(Clone)]
 pub struct StateStore {
-    modules: HashMap<ModuleId, Vec<u8>>,
+    modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
 }
 
 impl StateStore {
     pub fn new() -> Self {
         Self {
-            modules: HashMap::new(),
+            modules: RefCell::new(HashMap::new()),
         }
     }
 
@@ -29,7 +31,7 @@ impl StateStore {
         let module_id = compiled_module.self_id();
         let mut bytes = vec![];
         compiled_module.serialize(&mut bytes).unwrap();
-        self.modules.insert(module_id, bytes);
+        self.modules.borrow_mut().insert(module_id, bytes);
     }
 }
 
@@ -39,7 +41,22 @@ impl Default for StateStore {
     }
 }
 
-impl DataStore for StateStore {
+#[derive(Clone)]
+pub struct State<'s> {
+    pub state_store: &'s StateStore,
+}
+
+impl<'s> State<'s> {
+    pub fn new(state_store: &'s StateStore) -> Self {
+        State { state_store }
+    }
+
+    pub fn state_store(&'s self) -> &'s StateStore {
+        self.state_store
+    }
+}
+
+impl<'s> DataStore for State<'s> {
     fn load_resource(
         &mut self,
         _addr: AccountAddress,
@@ -49,7 +66,8 @@ impl DataStore for StateStore {
     }
 
     fn load_module(&self, module_id: &ModuleId) -> VMResult<Vec<u8>> {
-        let module = self.modules.get(module_id).ok_or_else(|| {
+        let modules_ref = self.state_store.modules.borrow();
+        let module = modules_ref.get(module_id).ok_or_else(|| {
             PartialVMError::new(StatusCode::MISSING_DEPENDENCY)
                 .with_message(format!(
                     "failed to find module {:?} in data store",
@@ -61,7 +79,9 @@ impl DataStore for StateStore {
     }
 
     fn publish_module(&mut self, module_id: &ModuleId, blob: Vec<u8>) -> VMResult<()> {
-        self.modules
+        self.state_store
+            .modules
+            .borrow_mut()
             .insert(module_id.clone(), blob)
             .ok_or_else(|| {
                 PartialVMError::new(StatusCode::MISSING_DEPENDENCY)
@@ -75,7 +95,7 @@ impl DataStore for StateStore {
     }
 
     fn exists_module(&self, module_id: &ModuleId) -> VMResult<bool> {
-        Ok(self.modules.contains_key(module_id))
+        Ok(self.state_store.modules.borrow().contains_key(module_id))
     }
 
     fn emit_event(

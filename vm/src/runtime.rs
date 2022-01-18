@@ -10,6 +10,7 @@ use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
+use movelang::state::StateStore;
 
 pub struct Runtime {
     loader: MoveLoader,
@@ -31,9 +32,10 @@ impl Runtime {
         script: Vec<u8>,
         modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
+        data_store: &mut StateStore,
         k: u32,
     ) -> VmResult<()> {
-        let circuit = FastMoveCircuit::new(script, modules, args, self.loader());
+        let circuit = FastMoveCircuit::new(script, modules, args, data_store, self.loader());
 
         let public_inputs = vec![Fp::zero()];
         let prover = MockProver::<Fp>::run(k, &circuit, vec![public_inputs]).map_err(|e| {
@@ -48,9 +50,10 @@ impl Runtime {
         &self,
         script: Vec<u8>,
         modules: Vec<CompiledModule>,
+        data_store: &mut StateStore,
         params: &Params<EqAffine>,
     ) -> VmResult<ProvingKey<EqAffine>> {
-        let circuit = FastMoveCircuit::new(script, modules, None, self.loader());
+        let circuit = FastMoveCircuit::new(script, modules, None, data_store, self.loader());
         debug!("Generate vk");
         let vk = keygen_vk(params, &circuit).map_err(|_| {
             RuntimeError::new(StatusCode::SynthesisError)
@@ -69,10 +72,11 @@ impl Runtime {
         script: Vec<u8>,
         modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
+        data_store: &mut StateStore,
         params: &Params<EqAffine>,
         pk: ProvingKey<EqAffine>,
     ) -> VmResult<()> {
-        let circuit = FastMoveCircuit::new(script, modules, args, self.loader());
+        let circuit = FastMoveCircuit::new(script, modules, args, data_store, self.loader());
 
         let public_inputs = vec![Fp::zero()];
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
