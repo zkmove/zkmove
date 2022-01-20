@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::circuit::{EvaluationChip, EvaluationConfig};
+use crate::evaluation_chip::{EvaluationChip, EvaluationConfig};
 use crate::interpreter::Interpreter;
 use halo2::{
     arithmetic::FieldExt,

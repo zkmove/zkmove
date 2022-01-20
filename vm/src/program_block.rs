@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::circuit::EvaluationChip;
+use crate::evaluation_chip::EvaluationChip;
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::interpreter::Interpreter;
 use crate::locals::Locals;
@@ -103,6 +103,25 @@ impl<F: FieldExt> Block<F> {
             }};
         }
 
+        macro_rules! binary_op {
+            ($op:ident) => {{
+                let b = interp.stack.pop()?;
+                let a = interp.stack.pop()?;
+                let c = evaluation_chip
+                    .$op(
+                        layouter.namespace(|| format!("step#{}", interp.step)),
+                        a,
+                        b,
+                        self.condition(),
+                    )
+                    .map_err(|e| {
+                        error!("step#{} failed: {:?}", interp.step, e);
+                        RuntimeError::new(StatusCode::SynthesisError)
+                    })?;
+                interp.stack.push(c)
+            }};
+        }
+
         let code = self.code.as_slice();
         loop {
             for instruction in &code[self.pc as usize..] {
@@ -125,95 +144,6 @@ impl<F: FieldExt> Block<F> {
                         let constant = F::from_u128(*v);
                         load_constant!(constant, MoveValueType::U128)
                     }
-                    Bytecode::Pop => {
-                        interp.stack.pop()?;
-                        Ok(())
-                    }
-                    Bytecode::Add => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .add(
-                                layouter.namespace(|| format!("step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("step#{} failed: {:?}", interp.step, e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
-                    }
-                    Bytecode::Sub => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .sub(
-                                layouter.namespace(|| format!("step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("step#{} failed: {:?}", interp.step, e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
-                    }
-                    Bytecode::Mul => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .mul(
-                                layouter.namespace(|| format!("step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("step#{} failed: {:?}", interp.step, e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
-                    }
-                    Bytecode::Div => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .div(
-                                layouter.namespace(|| format!("step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("step#{} failed: {:?}", interp.step, e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
-                    }
-                    Bytecode::Mod => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .rem(
-                                layouter.namespace(|| format!("step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("step#{} failed: {:?}", interp.step, e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
-                    }
-                    Bytecode::Ret => return Ok(ExitStatus::Return),
-                    Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
-                    Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
-                    Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
-                    Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
                     Bytecode::LdTrue => {
                         let constant = F::one();
                         load_constant!(constant, MoveValueType::Bool)
@@ -222,6 +152,30 @@ impl<F: FieldExt> Block<F> {
                         let constant = F::zero();
                         load_constant!(constant, MoveValueType::Bool)
                     }
+                    Bytecode::Pop => {
+                        interp.stack.pop()?;
+                        Ok(())
+                    }
+                    Bytecode::Add => {
+                        binary_op!(add)
+                    }
+                    Bytecode::Sub => {
+                        binary_op!(sub)
+                    }
+                    Bytecode::Mul => {
+                        binary_op!(mul)
+                    }
+                    Bytecode::Div => {
+                        binary_op!(div)
+                    }
+                    Bytecode::Mod => {
+                        binary_op!(rem)
+                    }
+                    Bytecode::Ret => return Ok(ExitStatus::Return),
+                    Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
+                    Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
+                    Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
+                    Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
                     Bytecode::BrTrue(_offset) => {
                         let cond = interp.stack.pop()?.value();
                         return Ok(ExitStatus::ConditionalBranch(ConditionalBranch {
@@ -249,68 +203,16 @@ impl<F: FieldExt> Block<F> {
                         return Ok(ExitStatus::Abort(self.pc, error_code));
                     }
                     Bytecode::Eq => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .eq(
-                                layouter.namespace(|| format!("eq op in step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("eq op failed: {:?}", e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
+                        binary_op!(eq)
                     }
                     Bytecode::Neq => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .neq(
-                                layouter.namespace(|| format!("neq op in step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("neq op failed: {:?}", e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
+                        binary_op!(neq)
                     }
                     Bytecode::And => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .and(
-                                layouter.namespace(|| format!("and op in step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("and op failed: {:?}", e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
+                        binary_op!(and)
                     }
                     Bytecode::Or => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let c = evaluation_chip
-                            .or(
-                                layouter.namespace(|| format!("or op in step#{}", interp.step)),
-                                a,
-                                b,
-                                self.condition(),
-                            )
-                            .map_err(|e| {
-                                error!("or op failed: {:?}", e);
-                                RuntimeError::new(StatusCode::SynthesisError)
-                            })?;
-                        interp.stack.push(c)
+                        binary_op!(or)
                     }
                     Bytecode::Not => {
                         let a = interp.stack.pop()?;

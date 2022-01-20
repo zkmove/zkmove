@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::circuit::EvaluationChip;
+use crate::evaluation_chip::EvaluationChip;
 use crate::interpreter::Interpreter;
 use crate::locals::Locals;
 use crate::program_block::{Block, ExitStatus, ProgramBlock};

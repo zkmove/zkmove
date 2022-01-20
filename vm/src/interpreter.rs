@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::circuit::EvaluationChip;
+use crate::evaluation_chip::EvaluationChip;
 use crate::frame::Frame;
 use crate::instructions::Instructions;
 use crate::locals::Locals;

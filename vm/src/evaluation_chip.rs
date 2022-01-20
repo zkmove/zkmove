@@ -461,8 +461,8 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::circuit::TestBranchCircuit;
-    use crate::circuit::TestCircuit;
+    use crate::evaluation_chip::TestBranchCircuit;
+    use crate::evaluation_chip::TestCircuit;
     use halo2::dev::MockProver;
     use halo2::pasta::{EqAffine, Fp};
     use halo2::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
