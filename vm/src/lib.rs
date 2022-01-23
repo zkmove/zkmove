@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+pub mod chip_tests;
 pub mod chips;
 pub mod evaluation_chip;
 pub mod frame;
