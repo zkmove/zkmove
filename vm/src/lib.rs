@@ -11,4 +11,5 @@ pub mod move_circuit;
 pub mod program_block;
 pub mod runtime;
 pub mod stack;
+pub mod turing_complete;
 pub mod value;

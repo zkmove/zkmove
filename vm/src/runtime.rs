@@ -1,7 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use crate::move_circuit::FastMoveCircuit;
+use crate::turing_complete::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2::arithmetic::FieldExt;
 use halo2::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, ProvingKey};
 use halo2::poly::commitment::Params;
 use halo2::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
@@ -10,7 +12,7 @@ use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
-use movelang::state::StateStore;
+use movelang::state::{State, StateStore};
 
 pub struct Runtime {
     loader: MoveLoader,
@@ -25,6 +27,29 @@ impl Runtime {
 
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
+    }
+
+    pub fn generate_trace<F: FieldExt>(
+        &self,
+        script: Vec<u8>,
+        modules: Vec<CompiledModule>,
+        args: Option<ScriptArguments>,
+        data_store: &mut StateStore,
+    ) -> VmResult<()> {
+        let mut interp = Interpreter::<F>::new();
+        let mut state = State::new(data_store);
+
+        let (entry, arg_types) = self
+            .loader()
+            .load_script(&script, &mut state)
+            .map_err(|e| {
+                error!("load script failed: {:?}", e);
+                RuntimeError::new(StatusCode::ScriptLoadingError)
+            })?;
+        debug!("script entry {:?}", entry.name());
+
+        interp.run_script(entry, args, arg_types, self.loader())?;
+        Ok(())
     }
 
     pub fn mock_prove_script(
