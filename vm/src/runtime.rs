@@ -32,7 +32,7 @@ impl Runtime {
     pub fn generate_trace<F: FieldExt>(
         &self,
         script: Vec<u8>,
-        modules: Vec<CompiledModule>,
+        _modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore,
     ) -> VmResult<()> {

@@ -1,7 +1,7 @@
 use crate::locals::Locals;
 use crate::turing_complete::interpreter::Interpreter;
 use crate::value::Value;
-use error::VmResult;
+use error::{RuntimeError, StatusCode, VmResult};
 use halo2::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
@@ -63,93 +63,71 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.pop()?;
                         Ok(())
                     }
-                    Bytecode::Add => {
-                        let b = interp.stack.pop()?;
-                        let a = interp.stack.pop()?;
-                        let value = a.value().and_then(|a| b.value().map(|b| a + b));
-
-                        let c = Value::new_variable(value, None, a.ty())?;
-
-                        interp.stack.push(c)
-                    }
-                    // Bytecode::Sub => {
-                    // }
-                    // Bytecode::Mul => {
-                    // }
-                    // Bytecode::Div => interp.binary_op(cs, r1cs::div),
-                    // Bytecode::Mod => interp.binary_op(cs, r1cs::mod_),
+                    Bytecode::Add => interp.binary_op(Value::add),
+                    Bytecode::Sub => interp.binary_op(Value::sub),
+                    Bytecode::Mul => interp.binary_op(Value::mul),
+                    Bytecode::Div => interp.binary_op(Value::div),
+                    Bytecode::Mod => interp.binary_op(Value::rem),
                     Bytecode::Ret => return Ok(ExitStatus::Return),
                     Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
                     Bytecode::CopyLoc(v) => interp.stack.push(self.locals.copy(*v as usize)?),
                     Bytecode::StLoc(v) => self.locals.store(*v as usize, interp.stack.pop()?),
                     Bytecode::MoveLoc(v) => interp.stack.push(self.locals.move_(*v as usize)?),
-                    // Bytecode::LdTrue => {
-                    //     let constant = F::one();
-                    //     load_constant!(constant, MoveValueType::Bool)
-                    // }
-                    // Bytecode::LdFalse => {
-                    //     let constant = F::zero();
-                    //     load_constant!(constant, MoveValueType::Bool)
-                    // }
-                    // Bytecode::BrTrue(offset) => {
-                    //     let cond =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     if cond == F::one() {
-                    //         self.pc = *offset;
-                    //         break;
-                    //     }
-                    //     Ok(())
-                    // }
-                    // Bytecode::BrFalse(offset) => {
-                    //     let cond =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     if cond == F::zero() {
-                    //         self.pc = *offset;
-                    //         break;
-                    //     }
-                    //     Ok(())
-                    // }
-                    // Bytecode::Branch(offset) => {
-                    //     self.pc = *offset;
-                    //     break;
-                    // }
-                    // Bytecode::Abort => {
-                    //     let value =
-                    //         interp.stack.pop()?.value().ok_or_else(|| {
-                    //             RuntimeError::new(StatusCode::ValueConversionError)
-                    //         })?;
-                    //     let error_code = value.get_lower_128(); // fixme should cast to u64?
-                    //     return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
-                    //         format!(
-                    //             "Move bytecode {} aborted with error code {}",
-                    //             self.function.pretty_string(),
-                    //             error_code
-                    //         ),
-                    //     ));
-                    // }
-                    // Bytecode::Eq => {
-                    //     let a = interp.stack.pop()?;
-                    //     let b = interp.stack.pop()?;
-                    //     let c = evaluation_chip
-                    //         .eq(
-                    //             layouter.namespace(|| format!("eq op in step#{}", interp.step)),
-                    //             a,
-                    //             b,
-                    //         )
-                    //         .map_err(|e| {
-                    //             error!("eq op failed: {:?}", e);
-                    //             RuntimeError::new(StatusCode::SynthesisError)
-                    //         })?;
-                    //     interp.stack.push(c)
-                    // }
-                    // Bytecode::Neq => interp.binary_op(cs, r1cs::neq),
-                    // Bytecode::And => interp.binary_op(cs, r1cs::and),
-                    // Bytecode::Or => interp.binary_op(cs, r1cs::or),
-                    // Bytecode::Not => interp.unary_op(cs, r1cs::not),
+                    Bytecode::LdTrue => {
+                        let constant = F::one();
+                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        interp.stack.push(value)
+                    }
+                    Bytecode::LdFalse => {
+                        let constant = F::zero();
+                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        interp.stack.push(value)
+                    }
+                    Bytecode::BrTrue(offset) => {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if cond == F::one() {
+                            self.pc = *offset;
+                            break;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::BrFalse(offset) => {
+                        let cond =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        if cond == F::zero() {
+                            self.pc = *offset;
+                            break;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::Branch(offset) => {
+                        self.pc = *offset;
+                        break;
+                    }
+                    Bytecode::Abort => {
+                        let value =
+                            interp.stack.pop()?.value().ok_or_else(|| {
+                                RuntimeError::new(StatusCode::ValueConversionError)
+                            })?;
+                        let error_code = value.get_lower_128(); // fixme should cast to u64?
+                        return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
+                            format!(
+                                "Move bytecode {} aborted with error code {}",
+                                self.function.pretty_string(),
+                                error_code
+                            ),
+                        ));
+                    }
+                    Bytecode::Eq => interp.binary_op(Value::eq),
+                    Bytecode::Neq => interp.binary_op(Value::neq),
+                    Bytecode::And => interp.binary_op(Value::and),
+                    Bytecode::Or => interp.binary_op(Value::or),
+                    Bytecode::Not => interp.unary_op(Value::not),
                     _ => unreachable!(),
                 }?;
 

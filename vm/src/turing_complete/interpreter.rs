@@ -114,6 +114,27 @@ impl<F: FieldExt> Interpreter<F> {
             }
         }
     }
+
+    pub fn binary_op<Fn>(&mut self, op: Fn) -> VmResult<()>
+    where
+        Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
+    {
+        let right = self.stack.pop()?;
+        let left = self.stack.pop()?;
+
+        let result = op(left, right)?;
+        self.stack.push(result)
+    }
+
+    pub fn unary_op<Fn>(&mut self, op: Fn) -> VmResult<()>
+    where
+        Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
+    {
+        let operand = self.stack.pop()?;
+
+        let result = op(operand)?;
+        self.stack.push(result)
+    }
 }
 
 impl<F: FieldExt> Default for Interpreter<F> {
