@@ -6,7 +6,7 @@ use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FConstant<F: FieldExt> {
     pub value: F,
     pub cell: Option<Cell>,
@@ -30,7 +30,7 @@ impl<F: FieldExt> FConstant<F> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FVariable<F: FieldExt> {
     pub value: Option<F>,
     pub cell: Option<Cell>,
@@ -56,7 +56,7 @@ impl<F: FieldExt> FVariable<F> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
     Constant(FConstant<F>),

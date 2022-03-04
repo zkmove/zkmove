@@ -1,5 +1,7 @@
 // Copyright (c) zkMove Authors
 
+use crate::turing_complete::circuit_inputs::StackOp;
+use crate::turing_complete::circuit_inputs::{RWOperation, RW};
 use crate::turing_complete::frame::Frame;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -15,25 +17,49 @@ impl<F: FieldExt> EvalStack<F> {
         EvalStack(vec![])
     }
 
-    pub fn push(&mut self, value: Value<F>) -> VmResult<()> {
+    pub fn push(
+        &mut self,
+        value: Value<F>,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            self.0.push(value);
+            self.0.push(value.clone());
+
+            let stack_op = StackOp {
+                address: self.0.len() - 1,
+                value,
+                rw: RW::WRITE,
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
             Ok(())
         } else {
             Err(RuntimeError::new(StatusCode::StackOverflow))
         }
     }
 
-    pub fn pop(&mut self) -> VmResult<Value<F>> {
+    pub fn pop(&mut self, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<Value<F>> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
-            Ok(self.0.pop().unwrap())
+            let value = self.0.pop().unwrap();
+
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            Ok(value)
         }
     }
 
     pub fn top(&self) -> Option<&Value<F>> {
         self.0.last()
+    }
+
+    pub fn size(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -69,5 +95,9 @@ impl<F: FieldExt> CallStack<F> {
 
     pub fn top(&mut self) -> Option<&mut Frame<F>> {
         self.0.last_mut()
+    }
+
+    pub fn size(&self) -> usize {
+        self.0.len()
     }
 }

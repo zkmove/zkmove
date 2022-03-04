@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::locals::Locals;
+use crate::turing_complete::circuit_inputs::RWOperation;
 use crate::turing_complete::frame::{ExitStatus, Frame};
+use crate::turing_complete::locals::Locals;
 use crate::turing_complete::stack::{CallStack, EvalStack};
 use crate::value::Value;
 use error::VmResult;
@@ -45,6 +46,8 @@ impl<F: FieldExt> Interpreter<F> {
         locals: &mut Locals<F>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let arg_type_pairs: Vec<_> = match args {
             Some(values) => values
@@ -64,17 +67,32 @@ impl<F: FieldExt> Interpreter<F> {
                 }
                 None => None,
             };
-            locals.store(i, Value::new_variable(val, None, ty)?)?;
+            locals.store(
+                i,
+                Value::new_variable(val, None, ty)?,
+                call_index,
+                rw_operations,
+            )?;
         }
 
         Ok(())
     }
 
-    fn make_frame(&mut self, func: Arc<Function>) -> VmResult<Frame<F>> {
+    fn make_frame(
+        &mut self,
+        func: Arc<Function>,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Frame<F>> {
         let mut locals = Locals::new(func.local_count());
         let arg_count = func.arg_count();
         for i in 0..arg_count {
-            locals.store(arg_count - i - 1, self.stack.pop()?)?;
+            locals.store(
+                arg_count - i - 1,
+                self.stack.pop(rw_operations)?,
+                call_index,
+                rw_operations,
+            )?;
         }
         Ok(Frame::new(func, locals))
     }
@@ -85,15 +103,16 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
+        rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
-        self.process_arguments(&mut locals, args, arg_types)?;
+        self.process_arguments(&mut locals, args, arg_types, 0, rw_operations)?;
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self)?;
+            let status = frame.execute(self, rw_operations)?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
@@ -104,9 +123,10 @@ impl<F: FieldExt> Interpreter<F> {
                     }
                 }
                 ExitStatus::Call(index) => {
+                    let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     debug!("Call into function: {:?}", func.name());
-                    let callee_frame = self.make_frame(func)?;
+                    let callee_frame = self.make_frame(func, call_index, rw_operations)?;
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;
@@ -115,25 +135,25 @@ impl<F: FieldExt> Interpreter<F> {
         }
     }
 
-    pub fn binary_op<Fn>(&mut self, op: Fn) -> VmResult<()>
+    pub fn binary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
     where
         Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
-        let right = self.stack.pop()?;
-        let left = self.stack.pop()?;
+        let right = self.stack.pop(rw_operations)?;
+        let left = self.stack.pop(rw_operations)?;
 
         let result = op(left, right)?;
-        self.stack.push(result)
+        self.stack.push(result, rw_operations)
     }
 
-    pub fn unary_op<Fn>(&mut self, op: Fn) -> VmResult<()>
+    pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
     where
         Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
     {
-        let operand = self.stack.pop()?;
+        let operand = self.stack.pop(rw_operations)?;
 
         let result = op(operand)?;
-        self.stack.push(result)
+        self.stack.push(result, rw_operations)
     }
 }
 

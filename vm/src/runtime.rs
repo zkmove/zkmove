@@ -48,7 +48,10 @@ impl Runtime {
             })?;
         debug!("script entry {:?}", entry.name());
 
-        interp.run_script(entry, args, arg_types, self.loader())?;
+        let mut rw_operations = Vec::new();
+        interp.run_script(entry, args, arg_types, self.loader(), &mut rw_operations)?;
+
+        rw_operations.iter().for_each(|op| debug!("{:?}", op));
         Ok(())
     }
 
