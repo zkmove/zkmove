@@ -29,6 +29,7 @@ impl<F: FieldExt> EvalStack<F> {
                 address: self.0.len() - 1,
                 value,
                 rw: RW::WRITE,
+                gc: rw_operations.len(),
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
             Ok(())
@@ -47,6 +48,7 @@ impl<F: FieldExt> EvalStack<F> {
                 address: self.0.len(),
                 value: value.clone(),
                 rw: RW::READ,
+                gc: rw_operations.len(),
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
 

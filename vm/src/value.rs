@@ -143,6 +143,14 @@ impl<F: FieldExt> Value<F> {
     }
 }
 
+impl<F: FieldExt> PartialEq for Value<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl<F: FieldExt> Eq for Value<F> {}
+
 impl<F: FieldExt> Value<F> {
     pub fn add(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = a.value().and_then(|a| b.value().map(|b| a + b));

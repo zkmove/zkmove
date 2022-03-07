@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::move_circuit::FastMoveCircuit;
+use crate::turing_complete::circuit_inputs::{CircuitInputs, RWLookUpTable};
 use crate::turing_complete::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2::arithmetic::FieldExt;
@@ -48,10 +49,19 @@ impl Runtime {
             })?;
         debug!("script entry {:?}", entry.name());
 
+        let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
-        interp.run_script(entry, args, arg_types, self.loader(), &mut rw_operations)?;
+        interp.run_script(
+            entry,
+            args,
+            arg_types,
+            self.loader(),
+            &mut exec_steps,
+            &mut rw_operations,
+        )?;
 
-        rw_operations.iter().for_each(|op| debug!("{:?}", op));
+        let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+        debug!("{:?}", circuit_inputs);
         Ok(())
     }
 

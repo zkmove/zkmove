@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::circuit_inputs::RWOperation;
+use crate::turing_complete::circuit_inputs::{ExecutionStep, RWOperation};
 use crate::turing_complete::frame::{ExitStatus, Frame};
 use crate::turing_complete::locals::Locals;
 use crate::turing_complete::stack::{CallStack, EvalStack};
@@ -103,6 +103,7 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
+        exec_steps: &mut Vec<ExecutionStep>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
@@ -112,7 +113,7 @@ impl<F: FieldExt> Interpreter<F> {
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, rw_operations)?;
+            let status = frame.execute(self, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {

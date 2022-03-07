@@ -29,6 +29,7 @@ impl<F: FieldExt> Locals<F> {
                     index,
                     value: v.clone(),
                     rw: RW::READ,
+                    gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op));
                 Ok(v.clone())
@@ -53,6 +54,7 @@ impl<F: FieldExt> Locals<F> {
                     index,
                     value: value.clone(),
                     rw: RW::WRITE,
+                    gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op));
                 values[index] = value;
@@ -77,6 +79,7 @@ impl<F: FieldExt> Locals<F> {
                     index,
                     value: v.clone(),
                     rw: RW::READ,
+                    gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op_1));
                 let locals_op_2 = LocalsOp {
@@ -84,6 +87,7 @@ impl<F: FieldExt> Locals<F> {
                     index,
                     value: Value::Invalid,
                     rw: RW::WRITE,
+                    gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op_2));
                 Ok(std::mem::replace(v, Value::Invalid))

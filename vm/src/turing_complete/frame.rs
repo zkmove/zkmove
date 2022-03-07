@@ -42,6 +42,7 @@ impl<F: FieldExt> Frame<F> {
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
+        exec_steps: &mut Vec<ExecutionStep>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus> {
         let code = self.function.code();
@@ -56,6 +57,8 @@ impl<F: FieldExt> Frame<F> {
                     gc: rw_operations.len(),
                 };
                 debug!("step #{}, {:?}", interp.step, execution_step);
+                exec_steps.push(execution_step);
+
                 interp.step += 1;
 
                 match instruction {
