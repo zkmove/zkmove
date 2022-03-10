@@ -8,6 +8,7 @@ pub const STEP_CHIP_WIDTH: usize = 10;
 pub const NUM_OF_STEP_STATE: usize = 4; //pc, stack_size, call_index, gc
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 
+#[derive(Clone)]
 pub struct Cell<F: FieldExt> {
     pub expression: Expression<F>,
     pub column: Column<Advice>,
@@ -45,6 +46,7 @@ impl Bytecode {
     }
 }
 
+#[derive(Clone)]
 pub struct StepChipCells<F: FieldExt> {
     pub pc: Cell<F>,
     pub stack_size: Cell<F>,
