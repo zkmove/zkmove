@@ -30,6 +30,13 @@ impl<F: FieldExt> StepChip<F> {
                 let rotation = i / STEP_CHIP_WIDTH;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
+
+            // remember cells of the states of the next step
+            for i in 0..NUM_OF_STEP_STATE {
+                let column_index = i % STEP_CHIP_WIDTH;
+                let rotation = i / STEP_CHIP_WIDTH + STEP_HEIGHT;
+                cells.push_back(Cell::new(meta, advices[column_index], rotation))
+            }
             vec![Expression::Constant(F::zero())]
         });
 
@@ -44,9 +51,14 @@ impl<F: FieldExt> StepChip<F> {
             value_c: cells.pop_front().unwrap(),
 
             conditions: cells.drain(0..Bytecode::amount()).collect(),
+
+            next_pc: cells.pop_front().unwrap(),
+            next_stack_size: cells.pop_front().unwrap(),
+            next_call_index: cells.pop_front().unwrap(),
+            next_gc: cells.pop_front().unwrap(),
         };
 
-        // next to config each execution path of the step
+        // config each execution path of the step
         let mut constraints = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
         let _arithmetic_config = ArithmeticChip::configure(meta, advices, &cells, &mut constraints);

@@ -29,20 +29,24 @@ impl<F: FieldExt> ArithmeticChip<F> {
         // }
 
         //Add
+        let cond = cells.conditions[Bytecode::Add.index()].expression.clone();
+
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
-        let cond = cells.conditions[Bytecode::Add.index()].expression.clone();
-        let constraint = cond * (lhs + rhs - out);
+        let constraint = cond.clone() * (lhs + rhs - out);
         constraints.push(constraint);
+        StepStateTransition::constrain_binary_op(cells, constraints, cond);
 
         //Mul
+        let cond = cells.conditions[Bytecode::Mul.index()].expression.clone();
+
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
-        let cond = cells.conditions[Bytecode::Mul.index()].expression.clone();
-        let constraint = cond * (lhs * rhs - out);
+        let constraint = cond.clone() * (lhs * rhs - out);
         constraints.push(constraint);
+        StepStateTransition::constrain_binary_op(cells, constraints, cond);
 
         ArithmeticConfig { advice }
     }
