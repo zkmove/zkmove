@@ -40,6 +40,11 @@ impl<F: FieldExt> Expr<F> for u64 {
 // supported bytecode
 #[derive(Copy, Clone)]
 pub enum Bytecode {
+    LdU8,
+    LdU64,
+    LdU128,
+    Pop,
+    Ret,
     Add,
     Mul,
     // ...

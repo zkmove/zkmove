@@ -2,6 +2,8 @@
 
 use crate::turing_complete::chips::arithmetic::ArithmeticChip;
 use crate::turing_complete::chips::commons::*;
+use crate::turing_complete::chips::ld::LdChip;
+use crate::turing_complete::chips::pop::PopChip;
 use halo2::arithmetic::FieldExt;
 use halo2::plonk::{Advice, Column, ConstraintSystem, Expression, Selector};
 use std::collections::VecDeque;
@@ -62,7 +64,8 @@ impl<F: FieldExt> StepChip<F> {
         let mut constraints = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
         let _arithmetic_config = ArithmeticChip::configure(meta, advices, &cells, &mut constraints);
-
+        let _ld_config = LdChip::configure(meta, advices, &cells, &mut constraints);
+        let _pop_config = PopChip::configure(meta, advices, &cells, &mut constraints);
         let s_step = meta.selector();
         meta.create_gate("step", |meta| {
             let s_step = meta.query_selector(s_step);
