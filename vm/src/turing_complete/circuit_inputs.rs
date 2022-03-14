@@ -6,7 +6,7 @@ use move_binary_format::file_format::Bytecode;
 use std::cmp::Ordering;
 use std::fmt;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionStep {
     pub bytecode: Bytecode,
     pub pc: u16,
@@ -62,7 +62,7 @@ impl<F: FieldExt> Ord for StackOp<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RWOperation<F: FieldExt> {
     LocalsOp(LocalsOp<F>),
     StackOp(StackOp<F>),

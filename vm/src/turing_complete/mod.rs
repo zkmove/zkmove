@@ -6,3 +6,6 @@ pub mod frame;
 pub mod interpreter;
 pub mod locals;
 pub mod stack;
+
+#[cfg(test)]
+mod tests;
