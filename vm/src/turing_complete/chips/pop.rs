@@ -18,11 +18,18 @@ pub struct PopChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> PopChip<F> {
-    pub fn constrain_pop_op(
+    pub fn configure(
+        meta: &mut ConstraintSystem<F>,
+        advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<Expression<F>>,
-        cond: Expression<F>,
-    ) {
+    ) -> PopConfig {
+        // for column in &advice {
+        //     meta.enable_equality((*column).into());
+        // }
+
+        let cond = cells.conditions[Bytecode::Pop.index()].expression.clone();
+
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
@@ -36,21 +43,6 @@ impl<F: FieldExt> PopChip<F> {
             cond.clone() * call_index_expr,
             cond * gc_expr,
         ]);
-    }
-
-    pub fn configure(
-        meta: &mut ConstraintSystem<F>,
-        advice: [Column<Advice>; STEP_CHIP_WIDTH],
-        cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
-    ) -> PopConfig {
-        // for column in &advice {
-        //     meta.enable_equality((*column).into());
-        // }
-
-        //LdU8
-        let cond = cells.conditions[Bytecode::Pop.index()].expression.clone();
-        PopChip::constrain_pop_op(cells, constraints, cond);
 
         PopConfig { advice }
     }

@@ -4,10 +4,14 @@ use crate::turing_complete::chips::arithmetic::ArithmeticChip;
 use crate::turing_complete::chips::commons::*;
 use crate::turing_complete::chips::ld::LdChip;
 use crate::turing_complete::chips::pop::PopChip;
+use crate::turing_complete::circuit_inputs::ExecutionStep;
 use halo2::arithmetic::FieldExt;
+use halo2::circuit::{Chip, Region};
 use halo2::plonk::{Advice, Column, ConstraintSystem, Expression, Selector};
 use std::collections::VecDeque;
+use std::marker::PhantomData;
 
+#[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
     pub advices: [Column<Advice>; STEP_CHIP_WIDTH],
     pub cells: StepChipCells<F>,
@@ -16,13 +20,37 @@ pub struct StepConfig<F: FieldExt> {
 
 pub struct StepChip<F: FieldExt> {
     pub config: StepConfig<F>,
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> Chip<F> for StepChip<F> {
+    type Config = StepConfig<F>;
+    type Loaded = ();
+
+    fn config(&self) -> &Self::Config {
+        &self.config
+    }
+
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
 }
 
 impl<F: FieldExt> StepChip<F> {
+    pub fn construct(
+        config: <Self as Chip<F>>::Config,
+        _loaded: <Self as Chip<F>>::Loaded,
+    ) -> Self {
+        Self {
+            config,
+            _marker: PhantomData,
+        }
+    }
+
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
-    ) -> Self {
+    ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + Bytecode::amount();
         let mut cells = VecDeque::with_capacity(cell_amount);
@@ -74,12 +102,10 @@ impl<F: FieldExt> StepChip<F> {
                 .map(move |constraint| s_step.clone() * constraint)
         });
 
-        StepChip {
-            config: StepConfig {
-                advices,
-                cells,
-                s_step,
-            },
+        StepConfig {
+            advices,
+            cells,
+            s_step,
         }
     }
 
@@ -99,5 +125,9 @@ impl<F: FieldExt> StepChip<F> {
             .iter()
             .fold(one, |acc, cell| acc - cell.expression.clone());
         constraints.push(sum_to_one);
+    }
+
+    pub fn assign(&self, region: &mut Region<'_, F>, step: &ExecutionStep) {
+        // assign each cell of the step
     }
 }

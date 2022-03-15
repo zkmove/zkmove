@@ -1,11 +1,15 @@
 use crate::runtime::Runtime;
+use crate::turing_complete::chips::vm_circuit::VmCircuit;
 use crate::turing_complete::circuit_inputs::RW::{READ, WRITE};
-use crate::turing_complete::circuit_inputs::{ExecutionStep, RWOperation, StackOp};
+use crate::turing_complete::circuit_inputs::{
+    CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation, StackOp,
+};
 use crate::turing_complete::interpreter::Interpreter;
 use crate::value::Value::Variable;
 use crate::value::{FVariable, Value};
-use error::{RuntimeError, StatusCode};
+use error::{RuntimeError, StatusCode, VmResult};
 use halo2::arithmetic::FieldExt;
+use halo2::dev::MockProver;
 use halo2::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::{empty_script, Bytecode};
@@ -13,7 +17,7 @@ use movelang::state::{State, StateStore};
 use movelang::value::MoveValueType;
 
 #[test]
-fn test_execution_step() {
+fn test_execution_step() -> VmResult<()> {
     logger::init_for_test();
     let mut script = empty_script();
     script.code.code = vec![
@@ -146,4 +150,13 @@ fn test_execution_step() {
     assert_eq!(rw_operations[3], expected_rw_op_3, "result is not expected");
     assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
+
+    let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+    let circuit = VmCircuit { circuit_inputs };
+    let k = 20; // todo: how to chose a proper degree
+    let prover = MockProver::<Fp>::run(k, &circuit, vec![]).map_err(|e| {
+        debug!("Prover Error: {:?}", e);
+        RuntimeError::new(StatusCode::SynthesisError)
+    })?;
+    Ok(())
 }

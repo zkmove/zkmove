@@ -84,7 +84,7 @@ impl<F: FieldExt> RWOperation<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RWLookUpTable<F: FieldExt>(pub Vec<RWOperation<F>>);
 
 impl<F: FieldExt> From<RWLookUpTable<F>> for (StackLookUpTable<F>, LocalsLookUpTable<F>) {
@@ -101,13 +101,13 @@ impl<F: FieldExt> From<RWLookUpTable<F>> for (StackLookUpTable<F>, LocalsLookUpT
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct StackLookUpTable<F: FieldExt>(pub Vec<StackOp<F>>);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LocalsLookUpTable<F: FieldExt>(pub Vec<LocalsOp<F>>);
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CircuitInputs<F: FieldExt> {
     pub exec_steps: Vec<ExecutionStep>,
     pub rw_lookup_table: RWLookUpTable<F>,
