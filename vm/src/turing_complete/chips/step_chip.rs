@@ -4,10 +4,11 @@ use crate::turing_complete::chips::arithmetic::ArithmeticChip;
 use crate::turing_complete::chips::commons::*;
 use crate::turing_complete::chips::ld::LdChip;
 use crate::turing_complete::chips::pop::PopChip;
-use crate::turing_complete::circuit_inputs::ExecutionStep;
+use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2::arithmetic::FieldExt;
 use halo2::circuit::{Chip, Region};
-use halo2::plonk::{Advice, Column, ConstraintSystem, Expression, Selector};
+use halo2::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -52,7 +53,7 @@ impl<F: FieldExt> StepChip<F> {
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
-        let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + Bytecode::amount();
+        let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + NUMBER_OF_BYTECODE_MEMBERS;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -75,18 +76,19 @@ impl<F: FieldExt> StepChip<F> {
             stack_size: cells.pop_front().unwrap(),
             call_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
+            conditions: cells.drain(0..NUMBER_OF_BYTECODE_MEMBERS).collect(),
 
             value_a: cells.pop_front().unwrap(),
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
-
-            conditions: cells.drain(0..Bytecode::amount()).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
             next_call_index: cells.pop_front().unwrap(),
             next_gc: cells.pop_front().unwrap(),
         };
+
+        debug!("{:?}", cells);
 
         // config each execution path of the step
         let mut constraints = Vec::new();
@@ -99,7 +101,7 @@ impl<F: FieldExt> StepChip<F> {
             let s_step = meta.query_selector(s_step);
             constraints
                 .into_iter()
-                .map(move |constraint| s_step.clone() * constraint)
+                .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
 
         StepConfig {
@@ -110,13 +112,21 @@ impl<F: FieldExt> StepChip<F> {
     }
 
     // step condition must be 1 or 0, and sum of all conditions must be 1
-    fn constrain_step_conditions(cells: &StepChipCells<F>, constraints: &mut Vec<Expression<F>>) {
+    fn constrain_step_conditions(
+        cells: &StepChipCells<F>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
+    ) {
         let one = Expression::Constant(F::one());
 
         let mut zero_or_one = cells
             .conditions
             .iter()
-            .map(|cell| (cell.expression.clone() - one.clone()) * cell.expression.clone())
+            .map(|cell| {
+                (
+                    "zero or one",
+                    (cell.expression.clone() - one.clone()) * cell.expression.clone(),
+                )
+            })
             .collect::<Vec<_>>();
         constraints.append(&mut zero_or_one);
 
@@ -124,10 +134,94 @@ impl<F: FieldExt> StepChip<F> {
             .conditions
             .iter()
             .fold(one, |acc, cell| acc - cell.expression.clone());
-        constraints.push(sum_to_one);
+        constraints.push(("sum to one", sum_to_one));
     }
 
-    pub fn assign(&self, region: &mut Region<'_, F>, step: &ExecutionStep) {
-        // assign each cell of the step
+    // assign each cell of the step
+    pub fn assign(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep,
+        rw_table: &RWLookUpTable<F>,
+    ) -> Result<(), Error> {
+        // assign step states
+        self.config
+            .cells
+            .pc
+            .assign(region, offset, Some(F::from(step.pc as u64)))?;
+        self.config.cells.stack_size.assign(
+            region,
+            offset,
+            Some(F::from(step.stack_size as u64)),
+        )?;
+        self.config.cells.call_index.assign(
+            region,
+            offset,
+            Some(F::from(step.call_index as u64)),
+        )?;
+        self.config
+            .cells
+            .gc
+            .assign(region, offset, Some(F::from(step.gc as u64)))?;
+
+        // assign conditions
+        self.config
+            .cells
+            .conditions
+            .iter()
+            .enumerate()
+            .for_each(|(index, cell)| {
+                let condition = if step.opcode.index() == index {
+                    F::one()
+                } else {
+                    F::zero()
+                };
+                let _assigned = cell.assign(region, offset, Some(condition));
+            });
+
+        // assign operands for each Opcode
+        match step.opcode {
+            Opcode::LdU8 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::LdU64 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::LdU128 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Pop => PopChip::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Ret => {}
+            Opcode::Add => self.assign_binary_op(region, offset, step, rw_table)?,
+            Opcode::Mul => self.assign_binary_op(region, offset, step, rw_table)?,
+        }
+
+        Ok(())
+    }
+
+    fn assign_binary_op(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep,
+        rw_table: &RWLookUpTable<F>,
+    ) -> Result<(), Error> {
+        let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
+        debug_assert!(op.rw() == RW::READ);
+        self.config
+            .cells
+            .value_a
+            .assign(region, offset, op.rw_value().value())?;
+
+        let op = rw_table.0.get(step.gc + 1).ok_or(Error::SynthesisError)?;
+        debug_assert!(op.rw() == RW::READ);
+        self.config
+            .cells
+            .value_b
+            .assign(region, offset, op.rw_value().value())?;
+
+        let op = rw_table.0.get(step.gc + 2).ok_or(Error::SynthesisError)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        self.config
+            .cells
+            .value_c
+            .assign(region, offset, op.rw_value().value())?;
+
+        Ok(())
     }
 }

@@ -1,7 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use crate::turing_complete::chips::commons::*;
-use halo2::plonk::Expression;
+use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use halo2::circuit::Region;
+use halo2::plonk::{Error, Expression};
 use halo2::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem},
@@ -20,7 +22,7 @@ pub struct LdChip<F: FieldExt> {
 impl<F: FieldExt> LdChip<F> {
     pub fn constrain_ld_op(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
         cond: Expression<F>,
     ) {
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
@@ -31,10 +33,10 @@ impl<F: FieldExt> LdChip<F> {
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
         constraints.append(&mut vec![
-            cond.clone() * pc_expr,
-            cond.clone() * stack_size_expr,
-            cond.clone() * call_index_expr,
-            cond * gc_expr,
+            ("pc", cond.clone() * pc_expr),
+            ("stack size", cond.clone() * stack_size_expr),
+            ("call index", cond.clone() * call_index_expr),
+            ("gc", cond * gc_expr),
         ]);
     }
 
@@ -42,26 +44,39 @@ impl<F: FieldExt> LdChip<F> {
         meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
     ) -> LdConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
         // }
 
         //LdU8
-        let cond = cells.conditions[Bytecode::LdU8.index()].expression.clone();
+        let cond = cells.conditions[Opcode::LdU8.index()].expression.clone();
         LdChip::constrain_ld_op(cells, constraints, cond);
 
         //LdU64
-        let cond = cells.conditions[Bytecode::LdU64.index()].expression.clone();
+        let cond = cells.conditions[Opcode::LdU64.index()].expression.clone();
         LdChip::constrain_ld_op(cells, constraints, cond);
 
         //LdU128
-        let cond = cells.conditions[Bytecode::LdU128.index()]
-            .expression
-            .clone();
+        let cond = cells.conditions[Opcode::LdU128.index()].expression.clone();
         LdChip::constrain_ld_op(cells, constraints, cond);
 
         LdConfig { advice }
+    }
+
+    pub fn assign(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep,
+        rw_table: &RWLookUpTable<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        cells
+            .value_a
+            .assign(region, offset, op.rw_value().value())?;
+        Ok(())
     }
 }

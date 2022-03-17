@@ -1,8 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::commons::STEP_CHIP_WIDTH;
+use crate::turing_complete::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::turing_complete::chips::step_chip::{StepChip, StepConfig};
 use crate::turing_complete::circuit_inputs::CircuitInputs;
+use halo2::circuit::Region;
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -44,13 +45,18 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
 
         layouter.assign_region(
             || "execution steps",
-            |mut region| {
+            |mut region: Region<'_, F>| {
                 let mut offset = 0;
                 for step in &self.circuit_inputs.exec_steps {
                     step_chip.config.s_step.enable(&mut region, offset)?;
-                    step_chip.assign(&mut region, step);
+                    step_chip.assign(
+                        &mut region,
+                        offset,
+                        step,
+                        &self.circuit_inputs.rw_lookup_table,
+                    )?;
 
-                    offset += STEP_CHIP_WIDTH;
+                    offset += STEP_HEIGHT;
                 }
                 Ok(())
             },

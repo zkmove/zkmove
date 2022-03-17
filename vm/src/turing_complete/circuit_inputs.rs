@@ -1,14 +1,14 @@
 // Copyright (c) zkMove Authors
 
+use crate::turing_complete::chips::commons::Opcode;
 use crate::value::Value;
 use halo2::arithmetic::FieldExt;
-use move_binary_format::file_format::Bytecode;
 use std::cmp::Ordering;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionStep {
-    pub bytecode: Bytecode,
+    pub opcode: Opcode,
     pub pc: u16,
     pub stack_size: usize,
     pub call_index: usize,
@@ -80,6 +80,20 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::LocalsOp(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn rw_value(&self) -> Value<F> {
+        match self {
+            Self::StackOp(op) => op.value.clone(),
+            Self::LocalsOp(op) => op.value.clone(),
+        }
+    }
+
+    pub fn rw(&self) -> RW {
+        match self {
+            Self::StackOp(op) => op.rw.clone(),
+            Self::LocalsOp(op) => op.rw.clone(),
         }
     }
 }

@@ -22,30 +22,30 @@ impl<F: FieldExt> ArithmeticChip<F> {
         meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
     ) -> ArithmeticConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
         // }
 
         //Add
-        let cond = cells.conditions[Bytecode::Add.index()].expression.clone();
+        let cond = cells.conditions[Opcode::Add.index()].expression.clone();
 
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
         let constraint = cond.clone() * (lhs + rhs - out);
-        constraints.push(constraint);
+        constraints.push(("add", constraint));
         StepStateTransition::constrain_binary_op(cells, constraints, cond);
 
         //Mul
-        let cond = cells.conditions[Bytecode::Mul.index()].expression.clone();
+        let cond = cells.conditions[Opcode::Mul.index()].expression.clone();
 
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
         let constraint = cond.clone() * (lhs * rhs - out);
-        constraints.push(constraint);
+        constraints.push(("mul", constraint));
         StepStateTransition::constrain_binary_op(cells, constraints, cond);
 
         ArithmeticConfig { advice }

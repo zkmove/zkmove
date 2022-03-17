@@ -1,4 +1,5 @@
 use crate::runtime::Runtime;
+use crate::turing_complete::chips::commons::Opcode;
 use crate::turing_complete::chips::vm_circuit::VmCircuit;
 use crate::turing_complete::circuit_inputs::RW::{READ, WRITE};
 use crate::turing_complete::circuit_inputs::{
@@ -12,7 +13,8 @@ use halo2::arithmetic::FieldExt;
 use halo2::dev::MockProver;
 use halo2::pasta::Fp;
 use logger::prelude::*;
-use move_binary_format::file_format::{empty_script, Bytecode};
+use move_binary_format::file_format::empty_script;
+use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::state::{State, StateStore};
 use movelang::value::MoveValueType;
 
@@ -21,11 +23,11 @@ fn test_execution_step() -> VmResult<()> {
     logger::init_for_test();
     let mut script = empty_script();
     script.code.code = vec![
-        Bytecode::LdU64(1u64),
-        Bytecode::LdU64(2u64),
-        Bytecode::Add,
-        Bytecode::Pop,
-        Bytecode::Ret,
+        MoveBytecode::LdU64(1u64),
+        MoveBytecode::LdU64(2u64),
+        MoveBytecode::Add,
+        MoveBytecode::Pop,
+        MoveBytecode::Ret,
     ];
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
@@ -58,35 +60,35 @@ fn test_execution_step() -> VmResult<()> {
         .unwrap();
 
     let expected_step_0 = ExecutionStep {
-        bytecode: Bytecode::LdU64(1),
+        opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
         call_index: 0,
         gc: 0,
     };
     let expected_step_1 = ExecutionStep {
-        bytecode: Bytecode::LdU64(2),
+        opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
         call_index: 0,
         gc: 1,
     };
     let expected_step_2 = ExecutionStep {
-        bytecode: Bytecode::Add,
+        opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
         call_index: 0,
         gc: 2,
     };
     let expected_step_3 = ExecutionStep {
-        bytecode: Bytecode::Pop,
+        opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
         call_index: 0,
         gc: 5,
     };
     let expected_step_4 = ExecutionStep {
-        bytecode: Bytecode::Ret,
+        opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
         call_index: 0,
@@ -158,5 +160,6 @@ fn test_execution_step() -> VmResult<()> {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)
     })?;
+    assert_eq!(prover.verify(), Ok(()));
     Ok(())
 }

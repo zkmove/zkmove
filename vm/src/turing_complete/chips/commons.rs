@@ -1,12 +1,14 @@
 // Copyright (c) zkMove Authors
 
 use halo2::arithmetic::FieldExt;
-use halo2::plonk::{Advice, Column, Expression, VirtualCells};
+use halo2::circuit::{self, Region};
+use halo2::plonk::{Advice, Column, Error, Expression, VirtualCells};
 use halo2::poly::Rotation;
+use move_binary_format::file_format::Bytecode;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 40;
+pub const STEP_HEIGHT: usize = 4;
 pub const NUM_OF_STEP_STATE: usize = 4; //pc, stack_size, call_index, gc
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 
@@ -25,6 +27,20 @@ impl<F: FieldExt> Cell<F> {
             rotation,
         }
     }
+
+    pub fn assign(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        value: Option<F>,
+    ) -> Result<circuit::Cell, Error> {
+        region.assign_advice(
+            || "assign cell",
+            self.column,
+            offset + self.rotation,
+            || value.ok_or(Error::SynthesisError),
+        )
+    }
 }
 
 pub(crate) trait Expr<F: FieldExt> {
@@ -37,29 +53,38 @@ impl<F: FieldExt> Expr<F> for u64 {
     }
 }
 
-// supported bytecode
-#[derive(Copy, Clone)]
-pub enum Bytecode {
-    LdU8,
+// supported opcode
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Opcode {
+    LdU8 = 0,
     LdU64,
     LdU128,
     Pop,
     Ret,
     Add,
     Mul,
-    // ...
 }
+// todo: we need a more secure way to get the number of Opcode members
+pub const NUMBER_OF_BYTECODE_MEMBERS: usize = Opcode::Mul as usize + 1;
 
-impl Bytecode {
-    pub fn iterator() -> impl Iterator<Item = Self> {
-        [Self::Add, Self::Mul].iter().copied()
-    }
-    pub fn amount() -> usize {
-        Self::iterator().count()
-    }
-
+impl Opcode {
     pub fn index(&self) -> usize {
         *self as usize
+    }
+}
+
+impl From<Bytecode> for Opcode {
+    fn from(bytecode: Bytecode) -> Opcode {
+        match bytecode {
+            Bytecode::LdU8(_) => Opcode::LdU8,
+            Bytecode::LdU64(_) => Opcode::LdU64,
+            Bytecode::LdU128(_) => Opcode::LdU128,
+            Bytecode::Pop => Opcode::Pop,
+            Bytecode::Ret => Opcode::Ret,
+            Bytecode::Add => Opcode::Add,
+            Bytecode::Mul => Opcode::Mul,
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -69,12 +94,11 @@ pub struct StepChipCells<F: FieldExt> {
     pub stack_size: Cell<F>,
     pub call_index: Cell<F>,
     pub gc: Cell<F>,
+    pub conditions: Vec<Cell<F>>,
 
     pub value_a: Cell<F>,
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
-
-    pub conditions: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -89,7 +113,7 @@ pub struct StepStateTransition<F: FieldExt> {
 impl<F: FieldExt> StepStateTransition<F> {
     pub fn constrain_binary_op(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
         cond: Expression<F>,
     ) {
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
@@ -100,10 +124,10 @@ impl<F: FieldExt> StepStateTransition<F> {
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
         constraints.append(&mut vec![
-            cond.clone() * pc_expr,
-            cond.clone() * stack_size_expr,
-            cond.clone() * call_index_expr,
-            cond * gc_expr,
+            ("pc", cond.clone() * pc_expr),
+            ("stack size", cond.clone() * stack_size_expr),
+            ("call index", cond.clone() * call_index_expr),
+            ("gc", cond * gc_expr),
         ]);
     }
 }

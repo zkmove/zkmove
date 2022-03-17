@@ -50,7 +50,7 @@ impl<F: FieldExt> Frame<F> {
         loop {
             for instruction in &code[self.pc as usize..] {
                 let execution_step = ExecutionStep {
-                    bytecode: instruction.clone(),
+                    opcode: instruction.clone().into(),
                     pc: self.pc,
                     stack_size: interp.stack.size(),
                     call_index,

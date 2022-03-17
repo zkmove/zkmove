@@ -1,7 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use crate::turing_complete::chips::commons::*;
-use halo2::plonk::Expression;
+use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use halo2::circuit::Region;
+use halo2::plonk::{Error, Expression};
 use halo2::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem},
@@ -22,13 +24,13 @@ impl<F: FieldExt> PopChip<F> {
         meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<Expression<F>>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
     ) -> PopConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
         // }
 
-        let cond = cells.conditions[Bytecode::Pop.index()].expression.clone();
+        let cond = cells.conditions[Opcode::Pop.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -38,12 +40,27 @@ impl<F: FieldExt> PopChip<F> {
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
         constraints.append(&mut vec![
-            cond.clone() * pc_expr,
-            cond.clone() * stack_size_expr,
-            cond.clone() * call_index_expr,
-            cond * gc_expr,
+            ("pc", cond.clone() * pc_expr),
+            ("stack size", cond.clone() * stack_size_expr),
+            ("call index", cond.clone() * call_index_expr),
+            ("gc", cond * gc_expr),
         ]);
 
         PopConfig { advice }
+    }
+
+    pub fn assign(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep,
+        rw_table: &RWLookUpTable<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
+        debug_assert!(op.rw() == RW::READ);
+        cells
+            .value_a
+            .assign(region, offset, op.rw_value().value())?;
+        Ok(())
     }
 }
