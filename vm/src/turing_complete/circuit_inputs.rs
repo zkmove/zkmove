@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::turing_complete::chips::commons::Opcode;
+use crate::turing_complete::chips::lookup::RWTarget;
 use crate::value::Value;
 use halo2::arithmetic::FieldExt;
 use std::cmp::Ordering;
@@ -17,7 +18,7 @@ pub struct ExecutionStep {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RW {
-    READ,
+    READ = 0,
     WRITE,
 }
 
@@ -83,10 +84,17 @@ impl<F: FieldExt> RWOperation<F> {
         }
     }
 
-    pub fn rw_value(&self) -> Value<F> {
+    pub fn gc(&self) -> usize {
         match self {
-            Self::StackOp(op) => op.value.clone(),
-            Self::LocalsOp(op) => op.value.clone(),
+            Self::StackOp(op) => op.gc,
+            Self::LocalsOp(op) => op.gc,
+        }
+    }
+
+    pub fn rw_target(&self) -> RWTarget {
+        match self {
+            Self::StackOp(_) => RWTarget::Stack,
+            Self::LocalsOp(_) => RWTarget::Locals,
         }
     }
 
@@ -95,6 +103,40 @@ impl<F: FieldExt> RWOperation<F> {
             Self::StackOp(op) => op.rw.clone(),
             Self::LocalsOp(op) => op.rw.clone(),
         }
+    }
+
+    pub fn call_index(&self) -> usize {
+        match self {
+            Self::StackOp(_) => 0,
+            Self::LocalsOp(op) => op.call_index,
+        }
+    }
+
+    pub fn address(&self) -> usize {
+        match self {
+            Self::StackOp(op) => op.address,
+            Self::LocalsOp(op) => op.index,
+        }
+    }
+
+    pub fn value(&self) -> Value<F> {
+        match self {
+            Self::StackOp(op) => op.value.clone(),
+            Self::LocalsOp(op) => op.value.clone(),
+        }
+    }
+}
+
+impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
+    fn from(rw_op: &RWOperation<F>) -> Vec<Option<F>> {
+        let mut field_values = Vec::new();
+        field_values.push(Some(F::from_u64(rw_op.gc() as u64)));
+        field_values.push(Some(F::from_u64(rw_op.rw_target() as u64)));
+        field_values.push(Some(F::from_u64(rw_op.rw() as u64)));
+        field_values.push(Some(F::from_u64(rw_op.call_index() as u64)));
+        field_values.push(Some(F::from_u64(rw_op.address() as u64)));
+        field_values.push(rw_op.value().value());
+        field_values
     }
 }
 

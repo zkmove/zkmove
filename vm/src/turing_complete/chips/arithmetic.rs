@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
+use crate::turing_complete::chips::binary_op::BinaryOp;
 use crate::turing_complete::chips::commons::*;
+use crate::turing_complete::chips::lookup::RWLookup;
 use halo2::plonk::Expression;
 use halo2::{
     arithmetic::FieldExt,
@@ -23,6 +25,7 @@ impl<F: FieldExt> ArithmeticChip<F> {
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
+        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
     ) -> ArithmeticConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
@@ -36,7 +39,8 @@ impl<F: FieldExt> ArithmeticChip<F> {
         let out = cells.value_c.expression.clone();
         let constraint = cond.clone() * (lhs + rhs - out);
         constraints.push(("add", constraint));
-        StepStateTransition::constrain_binary_op(cells, constraints, cond);
+        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
+        BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
 
         //Mul
         let cond = cells.conditions[Opcode::Mul.index()].expression.clone();
@@ -46,7 +50,8 @@ impl<F: FieldExt> ArithmeticChip<F> {
         let out = cells.value_c.expression.clone();
         let constraint = cond.clone() * (lhs * rhs - out);
         constraints.push(("mul", constraint));
-        StepStateTransition::constrain_binary_op(cells, constraints, cond);
+        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
+        BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
 
         ArithmeticConfig { advice }
     }

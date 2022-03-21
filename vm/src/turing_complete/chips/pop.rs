@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::turing_complete::chips::commons::*;
+use crate::turing_complete::chips::lookup::RWLookup;
 use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2::circuit::Region;
 use halo2::plonk::{Error, Expression};
@@ -25,6 +26,7 @@ impl<F: FieldExt> PopChip<F> {
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
+        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
     ) -> PopConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
@@ -43,8 +45,17 @@ impl<F: FieldExt> PopChip<F> {
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
-            ("gc", cond * gc_expr),
+            ("gc", cond.clone() * gc_expr),
         ]);
+
+        rw_lookups.push((
+            RWLookup::stack_pop(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_a.expression.clone(),
+            ),
+            cond,
+        ));
 
         PopConfig { advice }
     }
@@ -58,9 +69,7 @@ impl<F: FieldExt> PopChip<F> {
     ) -> Result<(), Error> {
         let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
         debug_assert!(op.rw() == RW::READ);
-        cells
-            .value_a
-            .assign(region, offset, op.rw_value().value())?;
+        cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }

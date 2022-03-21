@@ -4,6 +4,7 @@ use crate::turing_complete::chips::arithmetic::ArithmeticChip;
 use crate::turing_complete::chips::commons::*;
 use crate::turing_complete::chips::ld::LdChip;
 use crate::turing_complete::chips::pop::PopChip;
+use crate::turing_complete::chips::vm_circuit::RWTable;
 use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2::arithmetic::FieldExt;
 use halo2::circuit::{Chip, Region};
@@ -51,6 +52,7 @@ impl<F: FieldExt> StepChip<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        rw_table: &RWTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + NUMBER_OF_BYTECODE_MEMBERS;
@@ -92,17 +94,34 @@ impl<F: FieldExt> StepChip<F> {
 
         // config each execution path of the step
         let mut constraints = Vec::new();
+        let mut rw_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        let _arithmetic_config = ArithmeticChip::configure(meta, advices, &cells, &mut constraints);
-        let _ld_config = LdChip::configure(meta, advices, &cells, &mut constraints);
-        let _pop_config = PopChip::configure(meta, advices, &cells, &mut constraints);
+        let _arithmetic_config =
+            ArithmeticChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
+        let _ld_config =
+            LdChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
+        let _pop_config =
+            PopChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
         let s_step = meta.selector();
-        meta.create_gate("step", |meta| {
+        meta.create_gate("constrain step", |meta| {
             let s_step = meta.query_selector(s_step);
             constraints
                 .into_iter()
                 .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
+
+        for (lookup, cond) in rw_lookups {
+            meta.lookup(|meta| {
+                vec![
+                    (lookup.gc * cond.clone(), rw_table.gc_column),
+                    (lookup.rw_target * cond.clone(), rw_table.rw_target_column),
+                    (lookup.rw * cond.clone(), rw_table.rw_column),
+                    (lookup.call_index * cond.clone(), rw_table.call_index_column),
+                    (lookup.address * cond.clone(), rw_table.address_column),
+                    (lookup.value * cond, rw_table.value_column),
+                ]
+            });
+        }
 
         StepConfig {
             advices,
@@ -206,21 +225,21 @@ impl<F: FieldExt> StepChip<F> {
         self.config
             .cells
             .value_a
-            .assign(region, offset, op.rw_value().value())?;
+            .assign(region, offset, op.value().value())?;
 
         let op = rw_table.0.get(step.gc + 1).ok_or(Error::SynthesisError)?;
         debug_assert!(op.rw() == RW::READ);
         self.config
             .cells
             .value_b
-            .assign(region, offset, op.rw_value().value())?;
+            .assign(region, offset, op.value().value())?;
 
         let op = rw_table.0.get(step.gc + 2).ok_or(Error::SynthesisError)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.config
             .cells
             .value_c
-            .assign(region, offset, op.rw_value().value())?;
+            .assign(region, offset, op.value().value())?;
 
         Ok(())
     }

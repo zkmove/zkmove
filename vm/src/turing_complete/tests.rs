@@ -155,7 +155,7 @@ fn test_execution_step() -> VmResult<()> {
 
     let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
     let circuit = VmCircuit { circuit_inputs };
-    let k = 20; // todo: how to chose a proper degree
+    let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)

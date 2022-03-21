@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::turing_complete::chips::commons::*;
+use crate::turing_complete::chips::lookup::RWLookup;
 use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2::circuit::Region;
 use halo2::plonk::{Error, Expression};
@@ -40,11 +41,27 @@ impl<F: FieldExt> LdChip<F> {
         ]);
     }
 
+    pub fn lookup_ld_op(
+        cells: &StepChipCells<F>,
+        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        cond: Expression<F>,
+    ) {
+        rw_lookups.push((
+            RWLookup::stack_push(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_a.expression.clone(),
+            ),
+            cond,
+        ));
+    }
+
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
+        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
     ) -> LdConfig {
         // for column in &advice {
         //     meta.enable_equality((*column).into());
@@ -52,15 +69,18 @@ impl<F: FieldExt> LdChip<F> {
 
         //LdU8
         let cond = cells.conditions[Opcode::LdU8.index()].expression.clone();
-        LdChip::constrain_ld_op(cells, constraints, cond);
+        LdChip::constrain_ld_op(cells, constraints, cond.clone());
+        LdChip::lookup_ld_op(cells, rw_lookups, cond);
 
         //LdU64
         let cond = cells.conditions[Opcode::LdU64.index()].expression.clone();
-        LdChip::constrain_ld_op(cells, constraints, cond);
+        LdChip::constrain_ld_op(cells, constraints, cond.clone());
+        LdChip::lookup_ld_op(cells, rw_lookups, cond);
 
         //LdU128
         let cond = cells.conditions[Opcode::LdU128.index()].expression.clone();
-        LdChip::constrain_ld_op(cells, constraints, cond);
+        LdChip::constrain_ld_op(cells, constraints, cond.clone());
+        LdChip::lookup_ld_op(cells, rw_lookups, cond);
 
         LdConfig { advice }
     }
@@ -74,9 +94,7 @@ impl<F: FieldExt> LdChip<F> {
     ) -> Result<(), Error> {
         let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells
-            .value_a
-            .assign(region, offset, op.rw_value().value())?;
+        cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }

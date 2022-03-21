@@ -4,6 +4,7 @@ use crate::turing_complete::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::turing_complete::chips::step_chip::{StepChip, StepConfig};
 use crate::turing_complete::circuit_inputs::CircuitInputs;
 use halo2::circuit::Region;
+use halo2::plonk::TableColumn;
 use halo2::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -11,8 +12,44 @@ use halo2::{
 };
 
 #[derive(Clone)]
+pub struct RWTable {
+    pub gc_column: TableColumn,
+    pub rw_target_column: TableColumn,
+    pub rw_column: TableColumn,
+    pub call_index_column: TableColumn,
+    pub address_column: TableColumn,
+    pub value_column: TableColumn,
+}
+pub const RW_LOOKUP_TABLE_WIDTH: usize = 6;
+
+impl RWTable {
+    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+        RWTable {
+            gc_column: meta.lookup_table_column(),
+            rw_target_column: meta.lookup_table_column(),
+            rw_column: meta.lookup_table_column(),
+            call_index_column: meta.lookup_table_column(),
+            address_column: meta.lookup_table_column(),
+            value_column: meta.lookup_table_column(),
+        }
+    }
+
+    pub fn columns(&self) -> Vec<TableColumn> {
+        let mut columns = Vec::new();
+        columns.push(self.gc_column);
+        columns.push(self.rw_target_column);
+        columns.push(self.rw_column);
+        columns.push(self.call_index_column);
+        columns.push(self.address_column);
+        columns.push(self.value_column);
+        columns
+    }
+}
+
+#[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
     step_config: StepConfig<F>,
+    rw_table: RWTable,
 }
 
 #[derive(Clone, Default)]
@@ -29,11 +66,15 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let rw_table = RWTable::construct(meta);
         let s_vm = meta.complex_selector();
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        let step_config = StepChip::configure(meta, advices);
+        let step_config = StepChip::configure(meta, advices, &rw_table);
 
-        Self::Config { step_config }
+        Self::Config {
+            step_config,
+            rw_table,
+        }
     }
 
     fn synthesize(
@@ -61,6 +102,38 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
                 Ok(())
             },
         )?;
+
+        let rw_operations = &self.circuit_inputs.rw_lookup_table.0;
+        for (column_idx, column) in config.rw_table.columns().into_iter().enumerate() {
+            layouter.assign_table(
+                || format!("rw_table[{}]", column_idx),
+                |mut table_column| {
+                    table_column.assign_cell(
+                        || format!("rw_table[{}][0]", column_idx),
+                        column,
+                        0,
+                        || Ok(F::zero()),
+                    )?;
+                    (0..rw_operations.len())
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("rw_table[{}][{}]", column_idx, i),
+                                column,
+                                i + 1,
+                                || {
+                                    let op = rw_operations.get(i).ok_or(Error::SynthesisError)?;
+                                    let op_fields: Vec<Option<F>> = op.into();
+                                    let field =
+                                        op_fields.get(column_idx).ok_or(Error::SynthesisError)?;
+                                    field.ok_or(Error::SynthesisError)
+                                },
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )?;
+        }
+
         Ok(())
     }
 }
