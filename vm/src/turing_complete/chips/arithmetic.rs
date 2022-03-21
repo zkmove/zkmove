@@ -3,8 +3,8 @@
 use crate::turing_complete::chips::binary_op::BinaryOp;
 use crate::turing_complete::chips::commons::*;
 use crate::turing_complete::chips::lookup::RWLookup;
-use halo2::plonk::Expression;
-use halo2::{
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem},
 };

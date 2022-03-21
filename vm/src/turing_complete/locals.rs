@@ -3,7 +3,7 @@
 use crate::turing_complete::circuit_inputs::{LocalsOp, RWOperation, RW};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone)]

@@ -3,9 +3,9 @@
 use crate::turing_complete::chips::commons::*;
 use crate::turing_complete::chips::lookup::RWLookup;
 use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
-use halo2::circuit::Region;
-use halo2::plonk::{Error, Expression};
-use halo2::{
+use halo2_proofs::circuit::Region;
+use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem},
 };
@@ -92,7 +92,7 @@ impl<F: FieldExt> LdChip<F> {
         rw_table: &RWLookUpTable<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
+        let op = rw_table.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())

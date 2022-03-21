@@ -3,9 +3,9 @@
 use crate::turing_complete::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::turing_complete::chips::step_chip::{StepChip, StepConfig};
 use crate::turing_complete::circuit_inputs::CircuitInputs;
-use halo2::circuit::Region;
-use halo2::plonk::TableColumn;
-use halo2::{
+use halo2_proofs::circuit::Region;
+use halo2_proofs::plonk::TableColumn;
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
@@ -121,11 +121,11 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
                                 column,
                                 i + 1,
                                 || {
-                                    let op = rw_operations.get(i).ok_or(Error::SynthesisError)?;
+                                    let op = rw_operations.get(i).ok_or(Error::Synthesis)?;
                                     let op_fields: Vec<Option<F>> = op.into();
                                     let field =
-                                        op_fields.get(column_idx).ok_or(Error::SynthesisError)?;
-                                    field.ok_or(Error::SynthesisError)
+                                        op_fields.get(column_idx).ok_or(Error::Synthesis)?;
+                                    field.ok_or(Error::Synthesis)
                                 },
                             )
                         })

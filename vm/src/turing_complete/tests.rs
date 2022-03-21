@@ -9,9 +9,9 @@ use crate::turing_complete::interpreter::Interpreter;
 use crate::value::Value::Variable;
 use crate::value::{FVariable, Value};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
-use halo2::dev::MockProver;
-use halo2::pasta::Fp;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::dev::MockProver;
+use halo2_proofs::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
@@ -128,7 +128,7 @@ fn test_execution_step() -> VmResult<()> {
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u64(3)),
+            value: Some(Fp::from_u128(3)),
             cell: None,
             ty: MoveValueType::U64,
         }),
@@ -138,7 +138,7 @@ fn test_execution_step() -> VmResult<()> {
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u64(3)),
+            value: Some(Fp::from_u128(3)),
             cell: None,
             ty: MoveValueType::U64,
         }),

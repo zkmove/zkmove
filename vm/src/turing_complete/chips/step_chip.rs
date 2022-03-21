@@ -6,9 +6,9 @@ use crate::turing_complete::chips::ld::LdChip;
 use crate::turing_complete::chips::pop::PopChip;
 use crate::turing_complete::chips::vm_circuit::RWTable;
 use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
-use halo2::arithmetic::FieldExt;
-use halo2::circuit::{Chip, Region};
-use halo2::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::{Chip, Region};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
@@ -220,21 +220,21 @@ impl<F: FieldExt> StepChip<F> {
         step: &ExecutionStep,
         rw_table: &RWLookUpTable<F>,
     ) -> Result<(), Error> {
-        let op = rw_table.0.get(step.gc).ok_or(Error::SynthesisError)?;
+        let op = rw_table.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         self.config
             .cells
             .value_a
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_table.0.get(step.gc + 1).ok_or(Error::SynthesisError)?;
+        let op = rw_table.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         self.config
             .cells
             .value_b
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_table.0.get(step.gc + 2).ok_or(Error::SynthesisError)?;
+        let op = rw_table.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.config
             .cells

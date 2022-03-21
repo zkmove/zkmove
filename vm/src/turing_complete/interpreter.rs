@@ -6,7 +6,7 @@ use crate::turing_complete::locals::Locals;
 use crate::turing_complete::stack::{CallStack, EvalStack};
 use crate::value::Value;
 use error::VmResult;
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::{convert_from, ScriptArguments};

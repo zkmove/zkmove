@@ -1,7 +1,7 @@
 use crate::turing_complete::chips::commons::{Expr, StepChipCells};
 use crate::turing_complete::chips::lookup::RWLookup;
-use halo2::arithmetic::FieldExt;
-use halo2::plonk::Expression;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Expression;
 use std::marker::PhantomData;
 
 pub struct BinaryOp<F: FieldExt> {

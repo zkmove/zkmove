@@ -5,7 +5,7 @@ use crate::turing_complete::circuit_inputs::{RWOperation, RW};
 use crate::turing_complete::frame::Frame;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;

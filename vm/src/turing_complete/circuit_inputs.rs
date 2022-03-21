@@ -3,7 +3,7 @@
 use crate::turing_complete::chips::commons::Opcode;
 use crate::turing_complete::chips::lookup::RWTarget;
 use crate::value::Value;
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -130,11 +130,11 @@ impl<F: FieldExt> RWOperation<F> {
 impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
     fn from(rw_op: &RWOperation<F>) -> Vec<Option<F>> {
         let mut field_values = Vec::new();
-        field_values.push(Some(F::from_u64(rw_op.gc() as u64)));
-        field_values.push(Some(F::from_u64(rw_op.rw_target() as u64)));
-        field_values.push(Some(F::from_u64(rw_op.rw() as u64)));
-        field_values.push(Some(F::from_u64(rw_op.call_index() as u64)));
-        field_values.push(Some(F::from_u64(rw_op.address() as u64)));
+        field_values.push(Some(F::from_u128(rw_op.gc() as u128)));
+        field_values.push(Some(F::from_u128(rw_op.rw_target() as u128)));
+        field_values.push(Some(F::from_u128(rw_op.rw() as u128)));
+        field_values.push(Some(F::from_u128(rw_op.call_index() as u128)));
+        field_values.push(Some(F::from_u128(rw_op.address() as u128)));
         field_values.push(rw_op.value().value());
         field_values
     }

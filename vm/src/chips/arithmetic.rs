@@ -2,7 +2,7 @@
 
 use crate::instructions::ArithmeticInstructions;
 use crate::value::Value;
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter, Region},
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
@@ -55,7 +55,7 @@ impl<F: FieldExt> ArithmeticChip<F> {
         advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
-            meta.enable_equality((*column).into());
+            meta.enable_equality((*column));
         }
 
         let s_add = meta.selector();
@@ -119,16 +119,16 @@ macro_rules! assign_operands {
             || "lhs",
             $config.advice[0],
             0,
-            || $a.value().ok_or(Error::SynthesisError),
+            || $a.value().ok_or(Error::Synthesis),
         )?;
         let rhs = $region.assign_advice(
             || "rhs",
             $config.advice[1],
             0,
-            || $b.value().ok_or(Error::SynthesisError),
+            || $b.value().ok_or(Error::Synthesis),
         )?;
-        $region.constrain_equal($a.cell().unwrap(), lhs)?;
-        $region.constrain_equal($b.cell().unwrap(), rhs)?;
+        $region.constrain_equal($a.cell().unwrap(), lhs.cell())?;
+        $region.constrain_equal($b.cell().unwrap(), rhs.cell())?;
     }};
 }
 
@@ -138,7 +138,7 @@ macro_rules! assign_cond {
             || "cond",
             $config.advice[3],
             0,
-            || $cond.ok_or(Error::SynthesisError),
+            || $cond.ok_or(Error::Synthesis),
         )?;
     }};
 }
@@ -151,11 +151,11 @@ macro_rules! div_rem {
             (Some(l), Some(r)) => {
                 let quo = move_div(l.clone(), r.clone()).map_err(|e| {
                     error!("move div failed: {:?}", e);
-                    Error::SynthesisError
+                    Error::Synthesis
                 })?;
                 let rem = move_rem(l, r).map_err(|e| {
                     error!("move rem failed: {:?}", e);
-                    Error::SynthesisError
+                    Error::Synthesis
                 })?;
                 (
                     Some(convert_to_field::<F>(quo)),
@@ -193,11 +193,11 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || "lhs + rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
                 c = Some(
-                    Value::new_variable(value, Some(cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -229,11 +229,11 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || "lhs - rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
                 c = Some(
-                    Value::new_variable(value, Some(cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -265,11 +265,11 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || "lhs * rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
                 c = Some(
-                    Value::new_variable(value, Some(cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -301,18 +301,18 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || "quotient",
                     config.advice[2],
                     0,
-                    || quotient.ok_or(Error::SynthesisError),
+                    || quotient.ok_or(Error::Synthesis),
                 )?;
 
                 let _remainder_cell = region.assign_advice(
                     || "remainder",
                     config.advice[0],
                     1,
-                    || remainder.ok_or(Error::SynthesisError),
+                    || remainder.ok_or(Error::Synthesis),
                 )?;
                 c = Some(
-                    Value::new_variable(quotient, Some(quotient_cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(quotient, Some(quotient_cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -344,18 +344,18 @@ impl<F: FieldExt> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || "quotient",
                     config.advice[2],
                     0,
-                    || quotient.ok_or(Error::SynthesisError),
+                    || quotient.ok_or(Error::Synthesis),
                 )?;
 
                 let remainder_cell = region.assign_advice(
                     || "remainder",
                     config.advice[0],
                     1,
-                    || remainder.ok_or(Error::SynthesisError),
+                    || remainder.ok_or(Error::Synthesis),
                 )?;
                 c = Some(
-                    Value::new_variable(remainder, Some(remainder_cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(remainder, Some(remainder_cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },

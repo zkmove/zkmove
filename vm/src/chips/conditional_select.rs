@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter, Region},
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
@@ -49,7 +49,7 @@ impl<F: FieldExt> ConditionalSelectChip<F> {
         advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
-            meta.enable_equality((*column).into());
+            meta.enable_equality(*column);
         }
         let s_eq = meta.selector();
 
@@ -88,16 +88,16 @@ impl<F: FieldExt> ConditionalSelectChip<F> {
                     || "lhs",
                     config.advice[0],
                     0,
-                    || a.value().ok_or(Error::SynthesisError),
+                    || a.value().ok_or(Error::Synthesis),
                 )?;
                 let rhs = region.assign_advice(
                     || "rhs",
                     config.advice[1],
                     0,
-                    || b.value().ok_or(Error::SynthesisError),
+                    || b.value().ok_or(Error::Synthesis),
                 )?;
-                region.constrain_equal(a.cell().unwrap(), lhs)?;
-                region.constrain_equal(b.cell().unwrap(), rhs)?;
+                region.constrain_equal(a.cell().unwrap(), lhs.cell())?;
+                region.constrain_equal(b.cell().unwrap(), rhs.cell())?;
 
                 let value = match (a.value(), b.value(), cond) {
                     (Some(a), Some(b), Some(cond)) => {
@@ -111,19 +111,19 @@ impl<F: FieldExt> ConditionalSelectChip<F> {
                     || "select result",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 region.assign_advice(
                     || "cond",
                     config.advice[3],
                     0,
-                    || cond.ok_or(Error::SynthesisError),
+                    || cond.ok_or(Error::Synthesis),
                 )?;
 
                 c = Some(
-                    Value::new_variable(value, Some(cell), a.ty())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), a.ty())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },

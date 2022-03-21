@@ -8,7 +8,7 @@ use crate::program_block::ExitStatus;
 use crate::stack::{CallStack, CondStack, EvalStack};
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::{arithmetic::FieldExt, circuit::Layouter};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::{convert_from, ScriptArguments};

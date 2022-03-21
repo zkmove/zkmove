@@ -5,7 +5,7 @@ use crate::turing_complete::interpreter::Interpreter;
 use crate::turing_complete::locals::Locals;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
@@ -63,12 +63,12 @@ impl<F: FieldExt> Frame<F> {
 
                 match instruction {
                     Bytecode::LdU8(v) => {
-                        let constant = F::from_u64(*v as u64);
+                        let constant = F::from_u128(*v as u128);
                         let value = Value::new_constant(constant, None, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU64(v) => {
-                        let constant = F::from_u64(*v);
+                        let constant = F::from_u128(*v as u128);
                         let value = Value::new_constant(constant, None, MoveValueType::U64)?;
                         interp.stack.push(value, rw_operations)
                     }

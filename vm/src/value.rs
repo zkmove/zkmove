@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::{arithmetic::FieldExt, circuit::Cell};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
@@ -79,7 +79,7 @@ impl<F: FieldExt> Value<F> {
         }))
     }
     pub fn u8(x: u8, cell: Option<Cell>) -> VmResult<Self> {
-        let value = F::from_u64(x as u64); //todo: range check
+        let value = F::from_u128(x as u128); //todo: range check
         Ok(Self::Constant(FConstant {
             value,
             cell,
@@ -87,7 +87,7 @@ impl<F: FieldExt> Value<F> {
         }))
     }
     pub fn u64(x: u64, cell: Option<Cell>) -> VmResult<Self> {
-        let value = F::from_u64(x);
+        let value = F::from_u128(x as u128);
         Ok(Self::Constant(FConstant {
             value,
             cell,

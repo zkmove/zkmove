@@ -1,15 +1,15 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
 
 pub fn convert_to_field<F: FieldExt>(value: MoveValue) -> F {
     match value {
-        U8(u) => F::from_u64(u as u64),
-        U64(u) => F::from_u64(u),
+        U8(u) => F::from_u128(u as u128),
+        U64(u) => F::from_u128(u as u128),
         U128(u) => F::from_u128(u),
         Bool(b) => {
             if b {
@@ -51,8 +51,8 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
 #[cfg(test)]
 mod tests {
     use crate::value::convert_to_field;
-    use halo2::arithmetic::FieldExt;
-    use halo2::pasta::Fp;
+    use halo2_proofs::arithmetic::FieldExt;
+    use halo2_proofs::pasta::Fp;
     use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 
     #[test]
@@ -67,10 +67,10 @@ mod tests {
         assert_eq!(convert_to_field::<Fp>(U128(1u128)), Fp::one());
         assert_eq!(convert_to_field::<Fp>(Bool(true)), Fp::one());
 
-        assert_eq!(convert_to_field::<Fp>(U8(0x11u8)), Fp::from_u64(0x11u64));
+        assert_eq!(convert_to_field::<Fp>(U8(0x11u8)), Fp::from_u128(0x11u128));
         assert_eq!(
             convert_to_field::<Fp>(U64(0x1111u64)),
-            Fp::from_u64(0x1111u64)
+            Fp::from_u128(0x1111u128)
         );
         assert_eq!(
             convert_to_field::<Fp>(U128(0x1111111111u128)),

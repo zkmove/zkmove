@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use crate::program_block::ProgramBlock;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;

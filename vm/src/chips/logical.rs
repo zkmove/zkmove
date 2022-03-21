@@ -2,7 +2,7 @@
 
 use crate::instructions::LogicalInstructions;
 use crate::value::Value;
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter, Region},
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
@@ -55,7 +55,7 @@ impl<F: FieldExt> LogicalChip<F> {
         advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
-            meta.enable_equality((*column).into());
+            meta.enable_equality(*column);
         }
 
         let s_eq = meta.selector();
@@ -145,16 +145,16 @@ macro_rules! assign_operands {
             || "lhs",
             $config.advice[0],
             0,
-            || $a.value().ok_or(Error::SynthesisError),
+            || $a.value().ok_or(Error::Synthesis),
         )?;
         let rhs = $region.assign_advice(
             || "rhs",
             $config.advice[1],
             0,
-            || $b.value().ok_or(Error::SynthesisError),
+            || $b.value().ok_or(Error::Synthesis),
         )?;
-        $region.constrain_equal($a.cell().unwrap(), lhs)?;
-        $region.constrain_equal($b.cell().unwrap(), rhs)?;
+        $region.constrain_equal($a.cell().unwrap(), lhs.cell())?;
+        $region.constrain_equal($b.cell().unwrap(), rhs.cell())?;
     }};
 }
 
@@ -164,7 +164,7 @@ macro_rules! assign_cond {
             || "cond",
             $config.advice[3],
             0,
-            || $cond.ok_or(Error::SynthesisError),
+            || $cond.ok_or(Error::Synthesis),
         )?;
     }};
 }
@@ -222,12 +222,12 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "lhs == rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 c = Some(
-                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), MoveValueType::Bool)
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -267,12 +267,12 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "lhs != rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 c = Some(
-                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), MoveValueType::Bool)
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -315,12 +315,12 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "lhs && rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 c = Some(
-                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), MoveValueType::Bool)
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -363,12 +363,12 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "lhs || rhs",
                     config.advice[2],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 c = Some(
-                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), MoveValueType::Bool)
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -396,16 +396,16 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "x",
                     config.advice[0],
                     0,
-                    || a.value().ok_or(Error::SynthesisError),
+                    || a.value().ok_or(Error::Synthesis),
                 )?;
-                region.constrain_equal(a.cell().unwrap(), x)?;
+                region.constrain_equal(a.cell().unwrap(), x.cell())?;
 
                 // assign cond
                 region.assign_advice(
                     || "cond",
                     config.advice[2],
                     0,
-                    || cond.ok_or(Error::SynthesisError),
+                    || cond.ok_or(Error::Synthesis),
                 )?;
 
                 let value = match a.value() {
@@ -420,12 +420,12 @@ impl<F: FieldExt> LogicalInstructions<F> for LogicalChip<F> {
                     || "not a",
                     config.advice[1],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
 
                 b = Some(
-                    Value::new_variable(value, Some(cell), MoveValueType::Bool)
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), MoveValueType::Bool)
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },

@@ -5,7 +5,7 @@ use crate::chips::conditional_select::{ConditionalSelectChip, ConditionalSelectC
 use crate::chips::logical::{LogicalChip, LogicalConfig};
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
 use crate::value::Value;
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter},
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed, Instance},
@@ -202,7 +202,7 @@ impl<F: FieldExt> EvaluationChip<F> {
         let logical_config = LogicalChip::configure(meta, advice);
         let conditional_select_config = ConditionalSelectChip::configure(meta, advice);
 
-        meta.enable_equality(instance.into());
+        meta.enable_equality(instance);
         meta.enable_constant(constant);
 
         EvaluationConfig {
@@ -249,11 +249,11 @@ impl<F: FieldExt> Instructions<F> for EvaluationChip<F> {
                     || "private input",
                     config.advice[0],
                     0,
-                    || value.ok_or(Error::SynthesisError),
+                    || value.ok_or(Error::Synthesis),
                 )?;
                 alloc = Some(
-                    Value::new_variable(value, Some(cell), ty.clone())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_variable(value, Some(cell.cell()), ty.clone())
+                        .map_err(|_| Error::Synthesis)?,
                 );
                 Ok(())
             },
@@ -280,8 +280,8 @@ impl<F: FieldExt> Instructions<F> for EvaluationChip<F> {
                     || Ok(constant),
                 )?;
                 alloc = Some(
-                    Value::new_constant(constant, Some(cell), ty.clone())
-                        .map_err(|_| Error::SynthesisError)?,
+                    Value::new_constant(constant, Some(cell.cell()), ty.clone())
+                        .map_err(|_| Error::Synthesis)?,
                 );
 
                 Ok(())

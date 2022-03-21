@@ -5,7 +5,7 @@ use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructi
 use crate::interpreter::Interpreter;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::{arithmetic::FieldExt, circuit::Layouter};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use movelang::value::MoveValueType;
@@ -133,11 +133,11 @@ impl<F: FieldExt> Block<F> {
 
                 match instruction {
                     Bytecode::LdU8(v) => {
-                        let constant = F::from_u64(*v as u64);
+                        let constant = F::from_u128(*v as u128);
                         load_constant!(constant, MoveValueType::U8)
                     }
                     Bytecode::LdU64(v) => {
-                        let constant = F::from_u64(*v);
+                        let constant = F::from_u128(*v as u128);
                         load_constant!(constant, MoveValueType::U64)
                     }
                     Bytecode::LdU128(v) => {

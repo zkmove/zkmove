@@ -2,8 +2,8 @@
 
 use crate::turing_complete::chips::commons::Expr;
 use crate::turing_complete::circuit_inputs::RW;
-use halo2::arithmetic::FieldExt;
-use halo2::plonk::Expression;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Expression;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RWTarget {

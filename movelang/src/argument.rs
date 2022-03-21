@@ -2,7 +2,7 @@
 
 use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::arithmetic::FieldExt;
+use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
 
@@ -31,8 +31,8 @@ impl FromStr for ScriptArguments {
 
 pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
     match arg {
-        ScriptArgument::U8(v) => Ok(F::from_u64(v as u64)),
-        ScriptArgument::U64(v) => Ok(F::from_u64(v)),
+        ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
+        ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U128(v) => Ok(F::from_u128(v)),
         ScriptArgument::Bool(v) => Ok(if v { F::one() } else { F::zero() }),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),

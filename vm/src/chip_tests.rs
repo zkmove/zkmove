@@ -1,6 +1,6 @@
 use crate::evaluation_chip::{EvaluationChip, EvaluationConfig};
 use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
@@ -168,12 +168,13 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
 mod tests {
     use crate::chip_tests::TestBranchCircuit;
     use crate::chip_tests::TestCircuit;
-    use halo2::dev::MockProver;
-    use halo2::pasta::{EqAffine, Fp};
-    use halo2::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
-    use halo2::poly::commitment::Params;
-    use halo2::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
+    use halo2_proofs::dev::MockProver;
+    use halo2_proofs::pasta::{EqAffine, Fp};
+    use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, SingleVerifier};
+    use halo2_proofs::poly::commitment::Params;
+    use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
     use movelang::value::MoveValueType;
+    use rand_core::OsRng;
 
     #[test]
     fn test_evaluation() {
@@ -260,22 +261,22 @@ mod tests {
             &pk,
             &[circuit],
             &[&[public_inputs.as_slice()]],
+            OsRng,
             &mut transcript,
         )
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
 
-        let msm = params.empty_msm();
+        let strategy = SingleVerifier::new(&params);
+
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-        let guard = verify_proof(
+        let result = verify_proof(
             &params,
             pk.get_vk(),
-            msm,
+            strategy,
             &[&[public_inputs.as_slice()]],
             &mut transcript,
-        )
-        .unwrap();
-        let msm = guard.clone().use_challenges();
-        assert!(msm.eval());
+        );
+        assert!(result.is_ok());
     }
 }

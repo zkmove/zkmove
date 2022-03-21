@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use halo2::arithmetic::FieldExt;
-use halo2::circuit::{self, Region};
-use halo2::plonk::{Advice, Column, Error, Expression, VirtualCells};
-use halo2::poly::Rotation;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::{self, AssignedCell, Region};
+use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
+use halo2_proofs::poly::Rotation;
 use move_binary_format::file_format::Bytecode;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
@@ -32,12 +32,12 @@ impl<F: FieldExt> Cell<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         value: Option<F>,
-    ) -> Result<circuit::Cell, Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         region.assign_advice(
             || "assign cell",
             self.column,
             offset + self.rotation,
-            || value.ok_or(Error::SynthesisError),
+            || value.ok_or(Error::Synthesis),
         )
     }
 }

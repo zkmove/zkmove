@@ -6,7 +6,7 @@ use crate::locals::Locals;
 use crate::program_block::{Block, ExitStatus, ProgramBlock};
 use crate::stack::BlockStack;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2::{arithmetic::FieldExt, circuit::Layouter};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::Function;

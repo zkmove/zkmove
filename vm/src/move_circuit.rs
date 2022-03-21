@@ -2,7 +2,7 @@
 
 use crate::evaluation_chip::{EvaluationChip, EvaluationConfig};
 use crate::interpreter::Interpreter;
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
@@ -89,14 +89,14 @@ impl<'l, 's, F: FieldExt> Circuit<F> for FastMoveCircuit<'l, 's> {
             .load_script(&self.script, &mut self.state.clone())
             .map_err(|e| {
                 error!("load script failed: {:?}", e);
-                Error::SynthesisError
+                Error::Synthesis
             })?;
         debug!("script entry {:?}", entry.name());
 
         // condition is true by default
         interp.conditions().push(F::one()).map_err(|e| {
             error!("set condition failed: {:?}", e);
-            Error::SynthesisError
+            Error::Synthesis
         })?;
 
         interp
@@ -110,7 +110,7 @@ impl<'l, 's, F: FieldExt> Circuit<F> for FastMoveCircuit<'l, 's> {
             )
             .map_err(|e| {
                 error!("run script failed: {:?}", e);
-                Error::SynthesisError
+                Error::Synthesis
             })?;
 
         // evaluation_chip.expose_public(layouter.namespace(|| "expose state root"), state_root, 0)?;

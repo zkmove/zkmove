@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use halo2::{
+use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Chip, Layouter},
     plonk::Error,
