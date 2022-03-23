@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::evaluation_chip::EvaluationChip;
-use crate::interpreter::Interpreter;
-use crate::locals::Locals;
-use crate::program_block::{Block, ExitStatus, ProgramBlock};
-use crate::stack::BlockStack;
+use crate::fast_circuit::evaluation_chip::EvaluationChip;
+use crate::fast_circuit::interpreter::Interpreter;
+use crate::fast_circuit::locals::Locals;
+use crate::fast_circuit::program_block::{Block, ExitStatus, ProgramBlock};
+use crate::fast_circuit::stack::BlockStack;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;

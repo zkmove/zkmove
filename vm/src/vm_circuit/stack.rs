@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::circuit_inputs::StackOp;
-use crate::turing_complete::circuit_inputs::{RWOperation, RW};
-use crate::turing_complete::frame::Frame;
 use crate::value::Value;
+use crate::vm_circuit::circuit_inputs::StackOp;
+use crate::vm_circuit::circuit_inputs::{RWOperation, RW};
+use crate::vm_circuit::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 

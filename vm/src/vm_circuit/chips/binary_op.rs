@@ -1,5 +1,5 @@
-use crate::turing_complete::chips::commons::{Expr, StepChipCells};
-use crate::turing_complete::chips::lookup::RWLookup;
+use crate::vm_circuit::chips::commons::{Expr, StepChipCells};
+use crate::vm_circuit::chips::lookup::RWLookup;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use std::marker::PhantomData;

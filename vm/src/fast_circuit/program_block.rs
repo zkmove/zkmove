@@ -1,9 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use crate::evaluation_chip::EvaluationChip;
-use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
-use crate::interpreter::Interpreter;
-use crate::locals::Locals;
+use crate::fast_circuit::evaluation_chip::EvaluationChip;
+use crate::fast_circuit::instructions::{
+    ArithmeticInstructions, Instructions, LogicalInstructions,
+};
+use crate::fast_circuit::interpreter::Interpreter;
+use crate::fast_circuit::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::commons::Expr;
-use crate::turing_complete::circuit_inputs::RW;
+use crate::vm_circuit::chips::commons::Expr;
+use crate::vm_circuit::circuit_inputs::RW;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 

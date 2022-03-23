@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::commons::*;
-use crate::turing_complete::chips::lookup::RWLookup;
-use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use crate::vm_circuit::chips::commons::*;
+use crate::vm_circuit::chips::lookup::RWLookup;
+use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use halo2_proofs::{

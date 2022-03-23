@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::commons::Opcode;
-use crate::turing_complete::chips::lookup::RWTarget;
 use crate::value::Value;
+use crate::vm_circuit::chips::commons::Opcode;
+use crate::vm_circuit::chips::lookup::RWTarget;
 use halo2_proofs::arithmetic::FieldExt;
 use std::cmp::Ordering;
 use std::fmt;

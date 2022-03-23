@@ -8,7 +8,6 @@ edition = "2018"
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 anyhow = "1.0.38"
-crypto = { path = "../crypto"}
 movelang = { path = "../movelang"}
 bellman = { package = "bellman_ce", version = "0.3.0" }
 ff = { package = "ff_ce", version = "0.6.0", features = ["derive"] }

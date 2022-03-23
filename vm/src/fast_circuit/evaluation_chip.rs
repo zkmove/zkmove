@@ -1,9 +1,13 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::arithmetic::{ArithmeticChip, ArithmeticConfig};
-use crate::chips::conditional_select::{ConditionalSelectChip, ConditionalSelectConfig};
-use crate::chips::logical::{LogicalChip, LogicalConfig};
-use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
+use crate::fast_circuit::chips::arithmetic::{ArithmeticChip, ArithmeticConfig};
+use crate::fast_circuit::chips::conditional_select::{
+    ConditionalSelectChip, ConditionalSelectConfig,
+};
+use crate::fast_circuit::chips::logical::{LogicalChip, LogicalConfig};
+use crate::fast_circuit::instructions::{
+    ArithmeticInstructions, Instructions, LogicalInstructions,
+};
 use crate::value::Value;
 use halo2_proofs::{
     arithmetic::FieldExt,

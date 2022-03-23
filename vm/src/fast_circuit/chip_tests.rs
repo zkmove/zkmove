@@ -1,5 +1,7 @@
-use crate::evaluation_chip::{EvaluationChip, EvaluationConfig};
-use crate::instructions::{ArithmeticInstructions, Instructions, LogicalInstructions};
+use crate::fast_circuit::evaluation_chip::{EvaluationChip, EvaluationConfig};
+use crate::fast_circuit::instructions::{
+    ArithmeticInstructions, Instructions, LogicalInstructions,
+};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -166,8 +168,8 @@ impl<F: FieldExt> Circuit<F> for TestBranchCircuit<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::chip_tests::TestBranchCircuit;
-    use crate::chip_tests::TestCircuit;
+    use crate::fast_circuit::chip_tests::TestBranchCircuit;
+    use crate::fast_circuit::chip_tests::TestCircuit;
     use halo2_proofs::dev::MockProver;
     use halo2_proofs::pasta::{EqAffine, Fp};
     use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, SingleVerifier};

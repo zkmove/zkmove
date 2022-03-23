@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::move_circuit::FastMoveCircuit;
-use crate::turing_complete::circuit_inputs::{CircuitInputs, RWLookUpTable};
-use crate::turing_complete::interpreter::Interpreter;
+use crate::fast_circuit::move_circuit::FastMoveCircuit;
+use crate::vm_circuit::circuit_inputs::{CircuitInputs, RWLookUpTable};
+use crate::vm_circuit::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{

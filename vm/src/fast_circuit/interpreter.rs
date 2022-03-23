@@ -1,12 +1,14 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::circuit_inputs::{ExecutionStep, RWOperation};
-use crate::turing_complete::frame::{ExitStatus, Frame};
-use crate::turing_complete::locals::Locals;
-use crate::turing_complete::stack::{CallStack, EvalStack};
+use crate::fast_circuit::evaluation_chip::EvaluationChip;
+use crate::fast_circuit::frame::Frame;
+use crate::fast_circuit::instructions::Instructions;
+use crate::fast_circuit::locals::Locals;
+use crate::fast_circuit::program_block::ExitStatus;
+use crate::fast_circuit::stack::{CallStack, CondStack, EvalStack};
 use crate::value::Value;
-use error::VmResult;
-use halo2_proofs::arithmetic::FieldExt;
+use error::{RuntimeError, StatusCode, VmResult};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter};
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::{convert_from, ScriptArguments};
@@ -17,6 +19,7 @@ use std::sync::Arc;
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
     pub frames: CallStack<F>,
+    pub conditions: CondStack<F>,
     pub step: u64,
 }
 
@@ -25,6 +28,7 @@ impl<F: FieldExt> Interpreter<F> {
         Self {
             stack: EvalStack::new(),
             frames: CallStack::new(),
+            conditions: CondStack::new(),
             step: 0,
         }
     }
@@ -41,13 +45,17 @@ impl<F: FieldExt> Interpreter<F> {
         self.frames.top()
     }
 
+    pub fn conditions(&mut self) -> &mut CondStack<F> {
+        &mut self.conditions
+    }
+
     fn process_arguments(
         &mut self,
         locals: &mut Locals<F>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
-        call_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
     ) -> VmResult<()> {
         let arg_type_pairs: Vec<_> = match args {
             Some(values) => values
@@ -67,94 +75,79 @@ impl<F: FieldExt> Interpreter<F> {
                 }
                 None => None,
             };
-            locals.store(
-                i,
-                Value::new_variable(val, None, ty)?,
-                call_index,
-                rw_operations,
-            )?;
+            let cell = evaluation_chip
+                .load_private(
+                    layouter.namespace(|| format!("load argument #{}", i)),
+                    val,
+                    ty.clone(),
+                )
+                .map_err(|e| {
+                    debug!("Process arguments error: {:?}", e);
+                    RuntimeError::new(StatusCode::SynthesisError)
+                })?;
+
+            locals.store(i, Value::new_variable(cell.value(), cell.cell(), ty)?)?;
         }
 
         Ok(())
     }
 
-    fn make_frame(
-        &mut self,
-        func: Arc<Function>,
-        call_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Frame<F>> {
+    fn make_frame(&mut self, func: Arc<Function>) -> VmResult<Frame<F>> {
         let mut locals = Locals::new(func.local_count());
         let arg_count = func.arg_count();
         for i in 0..arg_count {
-            locals.store(
-                arg_count - i - 1,
-                self.stack.pop(rw_operations)?,
-                call_index,
-                rw_operations,
-            )?;
+            locals.store(arg_count - i - 1, self.stack.pop()?)?;
         }
-        Ok(Frame::new(func, locals))
+        Ok(Frame::new(0, 0, None, func, locals))
     }
 
     pub fn run_script(
         &mut self,
+        evaluation_chip: &EvaluationChip<F>,
+        mut layouter: impl Layouter<F>,
         entry: Arc<Function>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-        exec_steps: &mut Vec<ExecutionStep>,
-        rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
-        self.process_arguments(&mut locals, args, arg_types, 0, rw_operations)?;
+        self.process_arguments(
+            &mut locals,
+            args,
+            arg_types,
+            evaluation_chip,
+            layouter.namespace(|| format!("process arguments in step#{}", self.step)),
+        )?;
 
-        let mut frame = Frame::new(entry, locals);
+        let mut frame = Frame::new(0, 0, None, entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, exec_steps, rw_operations)?;
+            let status = frame.execute(
+                evaluation_chip,
+                layouter.namespace(|| format!("into frame in step#{}", self.step)),
+                self,
+            )?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
                         frame = caller_frame;
-                        frame.add_pc();
+                        frame.current_block().add_pc();
                     } else {
                         return Ok(());
                     }
                 }
                 ExitStatus::Call(index) => {
-                    let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     debug!("Call into function: {:?}", func.name());
-                    let callee_frame = self.make_frame(func, call_index, rw_operations)?;
+                    let callee_frame = self.make_frame(func)?;
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;
                 }
+                _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
             }
         }
-    }
-
-    pub fn binary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
-    where
-        Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
-    {
-        let right = self.stack.pop(rw_operations)?;
-        let left = self.stack.pop(rw_operations)?;
-
-        let result = op(left, right)?;
-        self.stack.push(result, rw_operations)
-    }
-
-    pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
-    where
-        Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
-    {
-        let operand = self.stack.pop(rw_operations)?;
-
-        let result = op(operand)?;
-        self.stack.push(result, rw_operations)
     }
 }
 

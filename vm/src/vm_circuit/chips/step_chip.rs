@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::arithmetic::ArithmeticChip;
-use crate::turing_complete::chips::commons::*;
-use crate::turing_complete::chips::ld::LdChip;
-use crate::turing_complete::chips::pop::PopChip;
-use crate::turing_complete::chips::vm_circuit::RWTable;
-use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use crate::vm_circuit::chips::arithmetic::ArithmeticChip;
+use crate::vm_circuit::chips::commons::*;
+use crate::vm_circuit::chips::ld::LdChip;
+use crate::vm_circuit::chips::pop::PopChip;
+use crate::vm_circuit::chips::vm_circuit::RWTable;
+use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};

@@ -1,13 +1,13 @@
 use crate::runtime::Runtime;
-use crate::turing_complete::chips::commons::Opcode;
-use crate::turing_complete::chips::vm_circuit::VmCircuit;
-use crate::turing_complete::circuit_inputs::RW::{READ, WRITE};
-use crate::turing_complete::circuit_inputs::{
-    CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation, StackOp,
-};
-use crate::turing_complete::interpreter::Interpreter;
 use crate::value::Value::Variable;
 use crate::value::{FVariable, Value};
+use crate::vm_circuit::chips::commons::Opcode;
+use crate::vm_circuit::chips::vm_circuit::VmCircuit;
+use crate::vm_circuit::circuit_inputs::RW::{READ, WRITE};
+use crate::vm_circuit::circuit_inputs::{
+    CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation, StackOp,
+};
+use crate::vm_circuit::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;

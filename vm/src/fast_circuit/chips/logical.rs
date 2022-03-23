@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::instructions::LogicalInstructions;
+use crate::fast_circuit::instructions::LogicalInstructions;
 use crate::value::Value;
 use halo2_proofs::{
     arithmetic::FieldExt,

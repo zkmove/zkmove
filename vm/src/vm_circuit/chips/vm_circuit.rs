@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
-use crate::turing_complete::chips::step_chip::{StepChip, StepConfig};
-use crate::turing_complete::circuit_inputs::CircuitInputs;
+use crate::vm_circuit::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
+use crate::vm_circuit::chips::step_chip::{StepChip, StepConfig};
+use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::{

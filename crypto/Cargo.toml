@@ -1,9 +1,0 @@
-[package]
-name = "crypto"
-version = "0.1.0"
-authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
-edition = "2018"
-
-[dependencies]
-logger = { path = "../common/logger" }
-bellman = { package = "bellman_ce", version = "=0.3.0" }

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::evaluation_chip::{EvaluationChip, EvaluationConfig};
-use crate::interpreter::Interpreter;
+use crate::fast_circuit::evaluation_chip::{EvaluationChip, EvaluationConfig};
+use crate::fast_circuit::interpreter::Interpreter;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},

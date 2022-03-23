@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "crypto",
     "movelang",
     "vm",
     "common/logger",

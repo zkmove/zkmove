@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::frame::Frame;
-use crate::program_block::ProgramBlock;
+use crate::fast_circuit::frame::Frame;
+use crate::fast_circuit::program_block::ProgramBlock;
 use crate::value::Value;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;

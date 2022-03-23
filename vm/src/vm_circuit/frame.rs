@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use crate::turing_complete::circuit_inputs::{ExecutionStep, RWOperation};
-use crate::turing_complete::interpreter::Interpreter;
-use crate::turing_complete::locals::Locals;
 use crate::value::Value;
+use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWOperation};
+use crate::vm_circuit::interpreter::Interpreter;
+use crate::vm_circuit::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
