@@ -7,7 +7,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem},
+    plonk::{Advice, Column},
 };
 use std::marker::PhantomData;
 
@@ -22,7 +22,6 @@ pub struct PopChip<F: FieldExt> {
 
 impl<F: FieldExt> PopChip<F> {
     pub fn configure(
-        meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,

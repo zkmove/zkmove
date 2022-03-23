@@ -53,7 +53,7 @@ impl<F: FieldExt> BinaryOp<F> {
         rw_lookups.push((
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
-                cells.stack_size.expression.clone() - 1.expr(),
+                cells.stack_size.expression.clone() - 2.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond,

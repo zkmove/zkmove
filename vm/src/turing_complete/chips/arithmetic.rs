@@ -6,7 +6,7 @@ use crate::turing_complete::chips::lookup::RWLookup;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem},
+    plonk::{Advice, Column},
 };
 use std::marker::PhantomData;
 
@@ -21,7 +21,6 @@ pub struct ArithmeticChip<F: FieldExt> {
 
 impl<F: FieldExt> ArithmeticChip<F> {
     pub fn configure(
-        meta: &mut ConstraintSystem<F>,
         advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,

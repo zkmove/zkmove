@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::Result;
-use halo2_proofs::pasta::{EqAffine, Fp};
+use halo2_proofs::pasta::EqAffine;
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
 use movelang::state::StateStore;

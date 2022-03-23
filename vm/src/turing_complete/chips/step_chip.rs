@@ -9,7 +9,6 @@ use crate::turing_complete::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
-use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -90,19 +89,15 @@ impl<F: FieldExt> StepChip<F> {
             next_gc: cells.pop_front().unwrap(),
         };
 
-        debug!("{:?}", cells);
-
         // config each execution path of the step
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
         let _arithmetic_config =
-            ArithmeticChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
-        let _ld_config =
-            LdChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
-        let _pop_config =
-            PopChip::configure(meta, advices, &cells, &mut constraints, &mut rw_lookups);
-        let s_step = meta.selector();
+            ArithmeticChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
+        let _ld_config = LdChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
+        let _pop_config = PopChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
+        let s_step = meta.complex_selector();
         meta.create_gate("constrain step", |meta| {
             let s_step = meta.query_selector(s_step);
             constraints
@@ -112,13 +107,29 @@ impl<F: FieldExt> StepChip<F> {
 
         for (lookup, cond) in rw_lookups {
             meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
                 vec![
-                    (lookup.gc * cond.clone(), rw_table.gc_column),
-                    (lookup.rw_target * cond.clone(), rw_table.rw_target_column),
-                    (lookup.rw * cond.clone(), rw_table.rw_column),
-                    (lookup.call_index * cond.clone(), rw_table.call_index_column),
-                    (lookup.address * cond.clone(), rw_table.address_column),
-                    (lookup.value * cond, rw_table.value_column),
+                    (
+                        s_step.clone() * lookup.gc * cond.clone(),
+                        rw_table.gc_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.rw_target * cond.clone(),
+                        rw_table.rw_target_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.rw * cond.clone(),
+                        rw_table.rw_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.call_index * cond.clone(),
+                        rw_table.call_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.address * cond.clone(),
+                        rw_table.address_column,
+                    ),
+                    (s_step * lookup.value * cond, rw_table.value_column),
                 ]
             });
         }
@@ -224,14 +235,14 @@ impl<F: FieldExt> StepChip<F> {
         debug_assert!(op.rw() == RW::READ);
         self.config
             .cells
-            .value_a
+            .value_b
             .assign(region, offset, op.value().value())?;
 
         let op = rw_table.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         self.config
             .cells
-            .value_b
+            .value_a
             .assign(region, offset, op.value().value())?;
 
         let op = rw_table.0.get(step.gc + 2).ok_or(Error::Synthesis)?;

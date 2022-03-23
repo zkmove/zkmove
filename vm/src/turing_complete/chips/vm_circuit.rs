@@ -67,7 +67,6 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let rw_table = RWTable::construct(meta);
-        let s_vm = meta.complex_selector();
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
         let step_config = StepChip::configure(meta, advices, &rw_table);
 

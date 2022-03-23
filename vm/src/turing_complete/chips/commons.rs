@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{self, AssignedCell, Region};
+use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
 use halo2_proofs::poly::Rotation;
 use move_binary_format::file_format::Bytecode;

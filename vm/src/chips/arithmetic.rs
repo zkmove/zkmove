@@ -55,7 +55,7 @@ impl<F: FieldExt> ArithmeticChip<F> {
         advice: [Column<Advice>; 4],
     ) -> <Self as Chip<F>>::Config {
         for column in &advice {
-            meta.enable_equality((*column));
+            meta.enable_equality(*column);
         }
 
         let s_add = meta.selector();
