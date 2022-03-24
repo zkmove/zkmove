@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::Result;
-use halo2_proofs::pasta::EqAffine;
+use halo2_proofs::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
 use movelang::state::StateStore;
@@ -112,7 +112,14 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         )?;
 
         debug!("Generate execution trace for script {:?}", script_file);
-        // runtime.generate_trace::<Fp>(script_bytes, compiled_modules, config.args, &mut state)?;
+        let (exec_steps, rw_operations) = runtime.generate_trace::<Fp>(
+            script_bytes,
+            compiled_modules,
+            config.args,
+            &mut state,
+        )?;
+        let k = 10; // todo: auto chose a proper degree
+        runtime.mock_prove_execution_trace(exec_steps, rw_operations, k)?;
     }
 
     Ok(())
