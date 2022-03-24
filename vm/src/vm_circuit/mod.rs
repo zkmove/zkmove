@@ -6,6 +6,8 @@ pub mod frame;
 pub mod interpreter;
 pub mod locals;
 pub mod stack;
+pub mod tables;
 
 #[cfg(test)]
 mod tests;
+pub mod vm_circuit;

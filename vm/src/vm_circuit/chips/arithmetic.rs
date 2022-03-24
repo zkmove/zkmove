@@ -3,33 +3,20 @@
 use crate::vm_circuit::chips::binary_op::BinaryOp;
 use crate::vm_circuit::chips::commons::*;
 use crate::vm_circuit::chips::lookup::RWLookup;
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column},
-};
 use std::marker::PhantomData;
 
-pub struct ArithmeticConfig {
-    pub advice: [Column<Advice>; STEP_CHIP_WIDTH],
-}
-
 pub struct ArithmeticChip<F: FieldExt> {
-    config: ArithmeticConfig,
     _marker: PhantomData<F>,
 }
 
 impl<F: FieldExt> ArithmeticChip<F> {
     pub fn configure(
-        advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-    ) -> ArithmeticConfig {
-        // for column in &advice {
-        //     meta.enable_equality((*column).into());
-        // }
-
+    ) {
         //Add
         let cond = cells.conditions[Opcode::Add.index()].expression.clone();
 
@@ -51,7 +38,5 @@ impl<F: FieldExt> ArithmeticChip<F> {
         constraints.push(("mul", constraint));
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
         BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
-
-        ArithmeticConfig { advice }
     }
 }

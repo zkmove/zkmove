@@ -5,12 +5,11 @@ use crate::vm_circuit::chips::commons::*;
 use crate::vm_circuit::chips::copy_loc::CopyLocChip;
 use crate::vm_circuit::chips::ld::LdChip;
 use crate::vm_circuit::chips::pop::PopChip;
-use crate::vm_circuit::chips::vm_circuit::RWTable;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use crate::vm_circuit::tables::RWTable;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
-use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -97,17 +96,15 @@ impl<F: FieldExt> StepChip<F> {
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        let _arithmetic_config =
-            ArithmeticChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
-        let _ld_config = LdChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
-        let _pop_config = PopChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
-        let _copy_config =
-            CopyLocChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
+        ArithmeticChip::configure(&cells, &mut constraints, &mut rw_lookups);
+        LdChip::configure(&cells, &mut constraints, &mut rw_lookups);
+        PopChip::configure(&cells, &mut constraints, &mut rw_lookups);
+        CopyLocChip::configure(&cells, &mut constraints, &mut rw_lookups);
         let s_step = meta.complex_selector();
 
-        for (i, constraint) in constraints.iter().enumerate() {
-            debug!("constraint {}, {:?}", i, constraint);
-        }
+        // for (i, constraint) in constraints.iter().enumerate() {
+        //     debug!("constraint {}, {:?}", i, constraint);
+        // }
         meta.create_gate("constrain step", |meta| {
             let s_step = meta.query_selector(s_step);
             constraints

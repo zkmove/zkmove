@@ -8,4 +8,3 @@ pub mod ld;
 pub mod lookup;
 pub mod pop;
 pub mod step_chip;
-pub mod vm_circuit;

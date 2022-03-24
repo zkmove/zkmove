@@ -3,30 +3,21 @@
 use crate::vm_circuit::chips::commons::*;
 use crate::vm_circuit::chips::lookup::RWLookup;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column},
-};
 use std::marker::PhantomData;
 
-pub struct CopyLocConfig {
-    pub advice: [Column<Advice>; STEP_CHIP_WIDTH],
-}
-
 pub struct CopyLocChip<F: FieldExt> {
-    config: CopyLocConfig,
     _marker: PhantomData<F>,
 }
 
 impl<F: FieldExt> CopyLocChip<F> {
     pub fn configure(
-        advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-    ) -> CopyLocConfig {
+    ) {
         let cond = cells.conditions[Opcode::CopyLoc.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
@@ -52,10 +43,7 @@ impl<F: FieldExt> CopyLocChip<F> {
         );
 
         rw_lookups.push((read, cond.clone()));
-
         rw_lookups.push((write, cond));
-
-        CopyLocConfig { advice }
     }
 
     pub fn assign(

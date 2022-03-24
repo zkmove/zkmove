@@ -2,12 +2,12 @@ use crate::runtime::Runtime;
 use crate::value::Value::Variable;
 use crate::value::{FVariable, Value};
 use crate::vm_circuit::chips::commons::Opcode;
-use crate::vm_circuit::chips::vm_circuit::VmCircuit;
 use crate::vm_circuit::circuit_inputs::RW::{READ, WRITE};
 use crate::vm_circuit::circuit_inputs::{
     CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation, StackOp,
 };
 use crate::vm_circuit::interpreter::Interpreter;
+use crate::vm_circuit::vm_circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;

@@ -3,34 +3,21 @@
 use crate::vm_circuit::chips::commons::*;
 use crate::vm_circuit::chips::lookup::RWLookup;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column},
-};
 use std::marker::PhantomData;
 
-pub struct PopConfig {
-    pub advice: [Column<Advice>; STEP_CHIP_WIDTH],
-}
-
 pub struct PopChip<F: FieldExt> {
-    config: PopConfig,
     _marker: PhantomData<F>,
 }
 
 impl<F: FieldExt> PopChip<F> {
     pub fn configure(
-        advice: [Column<Advice>; STEP_CHIP_WIDTH],
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-    ) -> PopConfig {
-        // for column in &advice {
-        //     meta.enable_equality((*column).into());
-        // }
-
+    ) {
         let cond = cells.conditions[Opcode::Pop.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
@@ -55,8 +42,6 @@ impl<F: FieldExt> PopChip<F> {
             ),
             cond,
         ));
-
-        PopConfig { advice }
     }
 
     pub fn assign(
