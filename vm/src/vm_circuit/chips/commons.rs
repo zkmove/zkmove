@@ -8,7 +8,7 @@ use move_binary_format::file_format::Bytecode;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 4;
-pub const NUM_OF_STEP_STATE: usize = 4; //pc, stack_size, call_index, gc
+pub const NUM_OF_STEP_STATE: usize = 5; //pc, stack_size, call_index, locals_index, gc
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 
 #[derive(Clone, Debug)]
@@ -62,9 +62,10 @@ pub enum Opcode {
     Ret,
     Add,
     Mul,
+    CopyLoc,
 }
 // todo: we need a more secure way to get the number of Opcode members
-pub const NUMBER_OF_BYTECODE_MEMBERS: usize = Opcode::Mul as usize + 1;
+pub const NUMBER_OF_BYTECODE_MEMBERS: usize = Opcode::CopyLoc as usize + 1;
 
 impl Opcode {
     pub fn index(&self) -> usize {
@@ -82,6 +83,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Ret => Opcode::Ret,
             Bytecode::Add => Opcode::Add,
             Bytecode::Mul => Opcode::Mul,
+            Bytecode::CopyLoc(_) => Opcode::CopyLoc,
             _ => unimplemented!(),
         }
     }
@@ -92,6 +94,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub pc: Cell<F>,
     pub stack_size: Cell<F>,
     pub call_index: Cell<F>,
+    pub locals_index: Cell<F>,
     pub gc: Cell<F>,
     pub conditions: Vec<Cell<F>>,
 
@@ -102,5 +105,6 @@ pub struct StepChipCells<F: FieldExt> {
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
     pub next_call_index: Cell<F>,
+    pub next_locals_index: Cell<F>,
     pub next_gc: Cell<F>,
 }

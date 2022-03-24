@@ -74,6 +74,7 @@ impl Runtime {
         k: u32,
     ) -> VmResult<()> {
         let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+        debug!("{:?}", circuit_inputs);
         let circuit = VmCircuit { circuit_inputs };
         let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
             debug!("Prover Error: {:?}", e);

@@ -64,6 +64,7 @@ fn test_execution_step() -> VmResult<()> {
         pc: 0,
         stack_size: 0,
         call_index: 0,
+        locals_index: 0,
         gc: 0,
     };
     let expected_step_1 = ExecutionStep {
@@ -71,6 +72,7 @@ fn test_execution_step() -> VmResult<()> {
         pc: 1,
         stack_size: 1,
         call_index: 0,
+        locals_index: 0,
         gc: 1,
     };
     let expected_step_2 = ExecutionStep {
@@ -78,6 +80,7 @@ fn test_execution_step() -> VmResult<()> {
         pc: 2,
         stack_size: 2,
         call_index: 0,
+        locals_index: 0,
         gc: 2,
     };
     let expected_step_3 = ExecutionStep {
@@ -85,6 +88,7 @@ fn test_execution_step() -> VmResult<()> {
         pc: 3,
         stack_size: 1,
         call_index: 0,
+        locals_index: 0,
         gc: 5,
     };
     let expected_step_4 = ExecutionStep {
@@ -92,6 +96,7 @@ fn test_execution_step() -> VmResult<()> {
         pc: 4,
         stack_size: 0,
         call_index: 0,
+        locals_index: 0,
         gc: 6,
     };
 

@@ -13,6 +13,7 @@ pub struct ExecutionStep {
     pub pc: u16,
     pub stack_size: usize,
     pub call_index: usize,
+    pub locals_index: usize,
     pub gc: usize, // global counter for stack, locals, state accesses
 }
 

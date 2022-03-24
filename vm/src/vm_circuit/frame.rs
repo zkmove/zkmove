@@ -49,17 +49,14 @@ impl<F: FieldExt> Frame<F> {
         let call_index = interp.frames.size();
         loop {
             for instruction in &code[self.pc as usize..] {
-                let execution_step = ExecutionStep {
+                let mut execution_step = ExecutionStep {
                     opcode: instruction.clone().into(),
                     pc: self.pc,
                     stack_size: interp.stack.size(),
                     call_index,
+                    locals_index: 0, // will be filled in CopyLoc, StLoc, MoveLoc
                     gc: rw_operations.len(),
                 };
-                debug!("step #{}, {:?}", interp.step, execution_step);
-                exec_steps.push(execution_step);
-
-                interp.step += 1;
 
                 match instruction {
                     Bytecode::LdU8(v) => {
@@ -86,22 +83,41 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
                     Bytecode::Div => interp.binary_op(Value::div, rw_operations),
                     Bytecode::Mod => interp.binary_op(Value::rem, rw_operations),
-                    Bytecode::Ret => return Ok(ExitStatus::Return),
-                    Bytecode::Call(index) => return Ok(ExitStatus::Call(*index)),
-                    Bytecode::CopyLoc(v) => interp.stack.push(
-                        self.locals.copy(*v as usize, call_index, rw_operations)?,
-                        rw_operations,
-                    ),
-                    Bytecode::StLoc(v) => self.locals.store(
-                        *v as usize,
-                        interp.stack.pop(rw_operations)?,
-                        call_index,
-                        rw_operations,
-                    ),
-                    Bytecode::MoveLoc(v) => interp.stack.push(
-                        self.locals.move_(*v as usize, call_index, rw_operations)?,
-                        rw_operations,
-                    ),
+                    Bytecode::Ret => {
+                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        exec_steps.push(execution_step);
+                        interp.step += 1;
+                        return Ok(ExitStatus::Return);
+                    }
+                    Bytecode::Call(index) => {
+                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        exec_steps.push(execution_step);
+                        interp.step += 1;
+                        return Ok(ExitStatus::Call(*index));
+                    }
+                    Bytecode::CopyLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals.copy(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::StLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        self.locals.store(
+                            *v as usize,
+                            interp.stack.pop(rw_operations)?,
+                            call_index,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::MoveLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals.move_(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
                     Bytecode::LdTrue => {
                         let constant = F::one();
                         let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
@@ -139,6 +155,9 @@ impl<F: FieldExt> Frame<F> {
                         break;
                     }
                     Bytecode::Abort => {
+                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        exec_steps.push(execution_step);
+
                         let value =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
@@ -160,6 +179,9 @@ impl<F: FieldExt> Frame<F> {
                     _ => unreachable!(),
                 }?;
 
+                debug!("step #{}, {:?}", interp.step, execution_step);
+                exec_steps.push(execution_step);
+                interp.step += 1;
                 self.pc += 1;
             }
         }

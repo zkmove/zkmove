@@ -2,6 +2,7 @@
 
 use crate::vm_circuit::chips::arithmetic::ArithmeticChip;
 use crate::vm_circuit::chips::commons::*;
+use crate::vm_circuit::chips::copy_loc::CopyLocChip;
 use crate::vm_circuit::chips::ld::LdChip;
 use crate::vm_circuit::chips::pop::PopChip;
 use crate::vm_circuit::chips::vm_circuit::RWTable;
@@ -9,6 +10,7 @@ use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -76,6 +78,7 @@ impl<F: FieldExt> StepChip<F> {
             pc: cells.pop_front().unwrap(),
             stack_size: cells.pop_front().unwrap(),
             call_index: cells.pop_front().unwrap(),
+            locals_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             conditions: cells.drain(0..NUMBER_OF_BYTECODE_MEMBERS).collect(),
 
@@ -86,6 +89,7 @@ impl<F: FieldExt> StepChip<F> {
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
             next_call_index: cells.pop_front().unwrap(),
+            next_locals_index: cells.pop_front().unwrap(),
             next_gc: cells.pop_front().unwrap(),
         };
 
@@ -97,7 +101,13 @@ impl<F: FieldExt> StepChip<F> {
             ArithmeticChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
         let _ld_config = LdChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
         let _pop_config = PopChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
+        let _copy_config =
+            CopyLocChip::configure(advices, &cells, &mut constraints, &mut rw_lookups);
         let s_step = meta.complex_selector();
+
+        for (i, constraint) in constraints.iter().enumerate() {
+            debug!("constraint {}, {:?}", i, constraint);
+        }
         meta.create_gate("constrain step", |meta| {
             let s_step = meta.query_selector(s_step);
             constraints
@@ -190,6 +200,11 @@ impl<F: FieldExt> StepChip<F> {
             offset,
             Some(F::from(step.call_index as u64)),
         )?;
+        self.config.cells.locals_index.assign(
+            region,
+            offset,
+            Some(F::from(step.locals_index as u64)),
+        )?;
         self.config
             .cells
             .gc
@@ -219,6 +234,9 @@ impl<F: FieldExt> StepChip<F> {
             Opcode::Ret => {}
             Opcode::Add => self.assign_binary_op(region, offset, step, rw_table)?,
             Opcode::Mul => self.assign_binary_op(region, offset, step, rw_table)?,
+            Opcode::CopyLoc => {
+                CopyLocChip::assign(region, offset, step, rw_table, &self.config.cells)?
+            }
         }
 
         Ok(())
