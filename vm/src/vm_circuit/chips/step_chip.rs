@@ -1,17 +1,47 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::arithmetic::ArithmeticChip;
-use crate::vm_circuit::chips::commons::*;
-use crate::vm_circuit::chips::copy_loc::CopyLocChip;
-use crate::vm_circuit::chips::ld::LdChip;
-use crate::vm_circuit::chips::pop::PopChip;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
-use crate::vm_circuit::tables::RWTable;
+use crate::vm_circuit::chips::bytecodes::add::Add;
+use crate::vm_circuit::chips::bytecodes::common::{Opcode, NUMBER_OF_BYTECODE_MEMBERS};
+use crate::vm_circuit::chips::bytecodes::copy_loc::CopyLoc;
+use crate::vm_circuit::chips::bytecodes::ldu128::LdU128;
+use crate::vm_circuit::chips::bytecodes::ldu64::LdU64;
+use crate::vm_circuit::chips::bytecodes::ldu8::LdU8;
+use crate::vm_circuit::chips::bytecodes::mul::Mul;
+use crate::vm_circuit::chips::bytecodes::pop::Pop;
+use crate::vm_circuit::chips::bytecodes::ret::Ret;
+use crate::vm_circuit::chips::lookup_tables::RWTable;
+use crate::vm_circuit::chips::utilities::*;
+use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+
+pub const STEP_CHIP_WIDTH: usize = 10;
+pub const STEP_HEIGHT: usize = 4;
+pub const NUM_OF_STEP_STATE: usize = 5; //pc, stack_size, call_index, locals_index, gc
+pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
+
+#[derive(Clone, Debug)]
+pub struct StepChipCells<F: FieldExt> {
+    pub pc: Cell<F>,
+    pub stack_size: Cell<F>,
+    pub call_index: Cell<F>,
+    pub locals_index: Cell<F>,
+    pub gc: Cell<F>,
+    pub conditions: Vec<Cell<F>>,
+
+    pub value_a: Cell<F>,
+    pub value_b: Cell<F>,
+    pub value_c: Cell<F>,
+
+    pub next_pc: Cell<F>,
+    pub next_stack_size: Cell<F>,
+    pub next_call_index: Cell<F>,
+    pub next_locals_index: Cell<F>,
+    pub next_gc: Cell<F>,
+}
 
 #[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
@@ -96,10 +126,14 @@ impl<F: FieldExt> StepChip<F> {
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        ArithmeticChip::configure(&cells, &mut constraints, &mut rw_lookups);
-        LdChip::configure(&cells, &mut constraints, &mut rw_lookups);
-        PopChip::configure(&cells, &mut constraints, &mut rw_lookups);
-        CopyLocChip::configure(&cells, &mut constraints, &mut rw_lookups);
+        Add::configure(&cells, &mut constraints, &mut rw_lookups);
+        Mul::configure(&cells, &mut constraints, &mut rw_lookups);
+        LdU8::configure(&cells, &mut constraints, &mut rw_lookups);
+        LdU64::configure(&cells, &mut constraints, &mut rw_lookups);
+        LdU128::configure(&cells, &mut constraints, &mut rw_lookups);
+        Pop::configure(&cells, &mut constraints, &mut rw_lookups);
+        CopyLoc::configure(&cells, &mut constraints, &mut rw_lookups);
+        Ret::configure(&cells, &mut constraints, &mut rw_lookups);
         let s_step = meta.complex_selector();
 
         // for (i, constraint) in constraints.iter().enumerate() {
@@ -224,48 +258,15 @@ impl<F: FieldExt> StepChip<F> {
 
         // assign operands for each Opcode
         match step.opcode {
-            Opcode::LdU8 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::LdU64 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::LdU128 => LdChip::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Pop => PopChip::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Ret => {}
-            Opcode::Add => self.assign_binary_op(region, offset, step, rw_table)?,
-            Opcode::Mul => self.assign_binary_op(region, offset, step, rw_table)?,
-            Opcode::CopyLoc => {
-                CopyLocChip::assign(region, offset, step, rw_table, &self.config.cells)?
-            }
+            Opcode::LdU8 => LdU8::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::LdU64 => LdU64::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::LdU128 => LdU128::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Pop => Pop::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Ret => Ret::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Add => Add::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Mul => Mul::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_table, &self.config.cells)?,
         }
-
-        Ok(())
-    }
-
-    fn assign_binary_op(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep,
-        rw_table: &RWLookUpTable<F>,
-    ) -> Result<(), Error> {
-        let op = rw_table.0.get(step.gc).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        self.config
-            .cells
-            .value_b
-            .assign(region, offset, op.value().value())?;
-
-        let op = rw_table.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        self.config
-            .cells
-            .value_a
-            .assign(region, offset, op.value().value())?;
-
-        let op = rw_table.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        self.config
-            .cells
-            .value_c
-            .assign(region, offset, op.value().value())?;
 
         Ok(())
     }

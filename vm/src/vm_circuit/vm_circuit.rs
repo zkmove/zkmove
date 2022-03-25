@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::commons::{STEP_CHIP_WIDTH, STEP_HEIGHT};
+use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::step_chip::{StepChip, StepConfig};
+use crate::vm_circuit::chips::step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
-use crate::vm_circuit::tables::RWTable;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::{
     arithmetic::FieldExt,

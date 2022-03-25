@@ -1,10 +1,4 @@
-// Copyright (c) zkMove Authors
-
-pub mod arithmetic;
-pub mod binary_op;
-pub mod commons;
-pub mod copy_loc;
-pub mod ld;
-pub mod lookup;
-pub mod pop;
+pub mod bytecodes;
+pub mod lookup_tables;
 pub mod step_chip;
+pub mod utilities;
