@@ -8,13 +8,14 @@ use std::cmp::Ordering;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExecutionStep {
+pub struct ExecutionStep<F: FieldExt> {
     pub opcode: Opcode,
     pub pc: u16,
     pub stack_size: usize,
     pub call_index: usize,
     pub locals_index: usize,
     pub gc: usize, // global counter for stack, locals, state accesses
+    pub auxiliary: Option<Value<F>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -166,14 +167,14 @@ pub struct LocalsLookUpTable<F: FieldExt>(pub Vec<LocalsOp<F>>);
 
 #[derive(Clone, Default)]
 pub struct CircuitInputs<F: FieldExt> {
-    pub exec_steps: Vec<ExecutionStep>,
+    pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_lookup_table: RWLookUpTable<F>,
     pub stack_lookup_table: StackLookUpTable<F>,
     pub locals_lookup_table: LocalsLookUpTable<F>,
 }
 
 impl<F: FieldExt> CircuitInputs<F> {
-    pub fn new(exec_steps: Vec<ExecutionStep>, rw_lookup_table: RWLookUpTable<F>) -> Self {
+    pub fn new(exec_steps: Vec<ExecutionStep<F>>, rw_lookup_table: RWLookUpTable<F>) -> Self {
         let (stack_lookup_table, locals_lookup_table) = rw_lookup_table.clone().into();
         CircuitInputs {
             exec_steps,

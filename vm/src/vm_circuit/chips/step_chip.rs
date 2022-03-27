@@ -1,14 +1,17 @@
 // Copyright (c) zkMove Authors
 
+use crate::vm_circuit::chips::bytecodes::_mod::Mod;
 use crate::vm_circuit::chips::bytecodes::add::Add;
 use crate::vm_circuit::chips::bytecodes::common::{Opcode, NUMBER_OF_BYTECODE_MEMBERS};
 use crate::vm_circuit::chips::bytecodes::copy_loc::CopyLoc;
+use crate::vm_circuit::chips::bytecodes::div::Div;
 use crate::vm_circuit::chips::bytecodes::ldu128::LdU128;
 use crate::vm_circuit::chips::bytecodes::ldu64::LdU64;
 use crate::vm_circuit::chips::bytecodes::ldu8::LdU8;
 use crate::vm_circuit::chips::bytecodes::mul::Mul;
 use crate::vm_circuit::chips::bytecodes::pop::Pop;
 use crate::vm_circuit::chips::bytecodes::ret::Ret;
+use crate::vm_circuit::chips::bytecodes::sub::Sub;
 use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
@@ -20,7 +23,7 @@ use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 4;
-pub const NUM_OF_STEP_STATE: usize = 5; //pc, stack_size, call_index, locals_index, gc
+pub const NUM_OF_STEP_STATE: usize = 6; //pc, stack_size, call_index, locals_index, gc, auxiliary
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 
 #[derive(Clone, Debug)]
@@ -30,6 +33,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub call_index: Cell<F>,
     pub locals_index: Cell<F>,
     pub gc: Cell<F>,
+    pub auxiliary: Cell<F>,
+
     pub conditions: Vec<Cell<F>>,
 
     pub value_a: Cell<F>,
@@ -109,6 +114,7 @@ impl<F: FieldExt> StepChip<F> {
             call_index: cells.pop_front().unwrap(),
             locals_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
+            auxiliary: cells.pop_front().unwrap(),
             conditions: cells.drain(0..NUMBER_OF_BYTECODE_MEMBERS).collect(),
 
             value_a: cells.pop_front().unwrap(),
@@ -134,6 +140,10 @@ impl<F: FieldExt> StepChip<F> {
         Pop::configure(&cells, &mut constraints, &mut rw_lookups);
         CopyLoc::configure(&cells, &mut constraints, &mut rw_lookups);
         Ret::configure(&cells, &mut constraints, &mut rw_lookups);
+        Sub::configure(&cells, &mut constraints, &mut rw_lookups);
+        Div::configure(&cells, &mut constraints, &mut rw_lookups);
+        Mod::configure(&cells, &mut constraints, &mut rw_lookups);
+
         let s_step = meta.complex_selector();
 
         // for (i, constraint) in constraints.iter().enumerate() {
@@ -213,7 +223,7 @@ impl<F: FieldExt> StepChip<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep,
+        step: &ExecutionStep<F>,
         rw_table: &RWLookUpTable<F>,
     ) -> Result<(), Error> {
         // assign step states
@@ -266,6 +276,9 @@ impl<F: FieldExt> StepChip<F> {
             Opcode::Add => Add::assign(region, offset, step, rw_table, &self.config.cells)?,
             Opcode::Mul => Mul::assign(region, offset, step, rw_table, &self.config.cells)?,
             Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Sub => Sub::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Div => Div::assign(region, offset, step, rw_table, &self.config.cells)?,
+            Opcode::Mod => Mod::assign(region, offset, step, rw_table, &self.config.cells)?,
         }
 
         Ok(())

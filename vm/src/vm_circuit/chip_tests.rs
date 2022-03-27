@@ -66,6 +66,7 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 0,
+        auxiliary: None,
     };
     let expected_step_1 = ExecutionStep {
         opcode: Opcode::LdU64,
@@ -74,6 +75,7 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 1,
+        auxiliary: None,
     };
     let expected_step_2 = ExecutionStep {
         opcode: Opcode::Add,
@@ -82,6 +84,7 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 2,
+        auxiliary: None,
     };
     let expected_step_3 = ExecutionStep {
         opcode: Opcode::Pop,
@@ -90,6 +93,7 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 5,
+        auxiliary: None,
     };
     let expected_step_4 = ExecutionStep {
         opcode: Opcode::Ret,
@@ -98,6 +102,7 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 6,
+        auxiliary: None,
     };
 
     assert_eq!(exec_steps[0], expected_step_0, "result is not expected");

@@ -42,7 +42,7 @@ impl<F: FieldExt> Frame<F> {
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
-        exec_steps: &mut Vec<ExecutionStep>,
+        exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus> {
         let code = self.function.code();
@@ -56,6 +56,7 @@ impl<F: FieldExt> Frame<F> {
                     call_index,
                     locals_index: 0, // will be filled in CopyLoc, StLoc, MoveLoc
                     gc: rw_operations.len(),
+                    auxiliary: None,
                 };
 
                 match instruction {
@@ -81,8 +82,24 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Add => interp.binary_op(Value::add, rw_operations),
                     Bytecode::Sub => interp.binary_op(Value::sub, rw_operations),
                     Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
-                    Bytecode::Div => interp.binary_op(Value::div, rw_operations),
-                    Bytecode::Mod => interp.binary_op(Value::rem, rw_operations),
+                    Bytecode::Div => {
+                        let right = interp.stack.pop(rw_operations)?;
+                        let left = interp.stack.pop(rw_operations)?;
+
+                        let (quo, rem) = left.div_rem(right)?;
+                        interp.stack.push(quo, rw_operations)?;
+                        execution_step.auxiliary = Some(rem);
+                        Ok(())
+                    }
+                    Bytecode::Mod => {
+                        let right = interp.stack.pop(rw_operations)?;
+                        let left = interp.stack.pop(rw_operations)?;
+
+                        let (quo, rem) = left.div_rem(right)?;
+                        interp.stack.push(rem, rw_operations)?;
+                        execution_step.auxiliary = Some(quo);
+                        Ok(())
+                    }
                     Bytecode::Ret => {
                         debug!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);

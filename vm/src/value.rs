@@ -141,6 +141,24 @@ impl<F: FieldExt> Value<F> {
             None => false,
         }
     }
+
+    pub fn div_rem(&self, other: Value<F>) -> VmResult<(Value<F>, Value<F>)> {
+        let l_move: Option<MoveValue> = self.clone().into();
+        let r_move: Option<MoveValue> = other.clone().into();
+        match (l_move, r_move) {
+            (Some(l), Some(r)) => {
+                let quo = move_div(l.clone(), r.clone())?;
+                let rem = move_rem(l, r)?;
+                let quo_field = Some(convert_to_field::<F>(quo));
+                let rem_field = Some(convert_to_field::<F>(rem));
+                let quo_value = Value::new_variable(quo_field, None, self.ty())?;
+                let rem_value = Value::new_variable(rem_field, None, self.ty())?;
+                Ok((quo_value, rem_value))
+            }
+            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("Move value should not be None".to_string())),
+        }
+    }
 }
 
 impl<F: FieldExt> PartialEq for Value<F> {

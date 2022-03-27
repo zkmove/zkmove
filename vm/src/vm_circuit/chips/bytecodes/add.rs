@@ -35,7 +35,7 @@ impl<F: FieldExt> Add<F> {
     pub fn assign(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep,
+        step: &ExecutionStep<F>,
         rw_table: &RWLookUpTable<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {

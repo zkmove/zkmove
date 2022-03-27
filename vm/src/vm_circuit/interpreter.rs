@@ -103,7 +103,7 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-        exec_steps: &mut Vec<ExecutionStep>,
+        exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());

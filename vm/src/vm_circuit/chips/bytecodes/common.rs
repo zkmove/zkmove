@@ -18,9 +18,12 @@ pub enum Opcode {
     Add,
     Mul,
     CopyLoc,
+    Sub,
+    Div,
+    Mod,
 }
 // todo: we need a more secure way to get the number of Opcode members
-pub const NUMBER_OF_BYTECODE_MEMBERS: usize = Opcode::CopyLoc as usize + 1;
+pub const NUMBER_OF_BYTECODE_MEMBERS: usize = Opcode::Mod as usize + 1;
 
 impl Opcode {
     pub fn index(&self) -> usize {
@@ -39,6 +42,9 @@ impl From<Bytecode> for Opcode {
             Bytecode::Add => Opcode::Add,
             Bytecode::Mul => Opcode::Mul,
             Bytecode::CopyLoc(_) => Opcode::CopyLoc,
+            Bytecode::Sub => Opcode::Sub,
+            Bytecode::Div => Opcode::Div,
+            Bytecode::Mod => Opcode::Mod,
             _ => unimplemented!(),
         }
     }
@@ -103,7 +109,7 @@ impl<F: FieldExt> BinaryOp<F> {
     pub fn assign_binary_op(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep,
+        step: &ExecutionStep<F>,
         rw_table: &RWLookUpTable<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
@@ -118,6 +124,21 @@ impl<F: FieldExt> BinaryOp<F> {
         let op = rw_table.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
+
+        Ok(())
+    }
+
+    pub fn assign_binary_op_with_auxiliary(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep<F>,
+        rw_table: &RWLookUpTable<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        Self::assign_binary_op(region, offset, step, rw_table, cells)?;
+
+        let aux_value = step.auxiliary.as_ref().ok_or(Error::Synthesis)?;
+        cells.auxiliary.assign(region, offset, aux_value.value())?;
 
         Ok(())
     }

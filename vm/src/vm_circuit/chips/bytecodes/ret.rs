@@ -23,7 +23,7 @@ impl<F: FieldExt> Ret<F> {
     pub fn assign(
         _region: &mut Region<'_, F>,
         _offset: usize,
-        _step: &ExecutionStep,
+        _step: &ExecutionStep<F>,
         _rw_table: &RWLookUpTable<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {

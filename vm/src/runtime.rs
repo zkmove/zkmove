@@ -40,7 +40,7 @@ impl Runtime {
         _modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore,
-    ) -> VmResult<(Vec<ExecutionStep>, Vec<RWOperation<F>>)> {
+    ) -> VmResult<(Vec<ExecutionStep<F>>, Vec<RWOperation<F>>)> {
         let mut interp = Interpreter::<F>::new();
         let mut state = State::new(data_store);
 
@@ -69,7 +69,7 @@ impl Runtime {
 
     pub fn mock_prove_execution_trace<F: FieldExt>(
         &self,
-        exec_steps: Vec<ExecutionStep>,
+        exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
         k: u32,
     ) -> VmResult<()> {
