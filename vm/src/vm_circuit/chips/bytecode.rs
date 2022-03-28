@@ -2,6 +2,7 @@ use crate::vm_circuit::chips::bytecode::_mod::Mod;
 use crate::vm_circuit::chips::bytecode::add::Add;
 use crate::vm_circuit::chips::bytecode::copy_loc::CopyLoc;
 use crate::vm_circuit::chips::bytecode::div::Div;
+use crate::vm_circuit::chips::bytecode::eq::Eq;
 use crate::vm_circuit::chips::bytecode::ld_false::LdFalse;
 use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
 use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
@@ -24,6 +25,7 @@ pub mod add;
 pub mod common;
 pub mod copy_loc;
 pub mod div;
+pub mod eq;
 pub mod ld_false;
 pub mod ld_true;
 pub mod ldu128;
@@ -66,6 +68,7 @@ pub enum Opcode {
     Mod,
     LdTrue,
     LdFalse,
+    Eq,
 }
 
 impl Opcode {
@@ -88,6 +91,7 @@ impl Opcode {
             Self::Mod,
             Self::LdTrue,
             Self::LdFalse,
+            Self::Eq,
         ]
         .iter()
         .copied()
@@ -117,6 +121,7 @@ impl Opcode {
             Opcode::Mod => Mod::configure(cells, constraints, rw_lookups),
             Opcode::LdTrue => LdTrue::configure(cells, constraints, rw_lookups),
             Opcode::LdFalse => LdFalse::configure(cells, constraints, rw_lookups),
+            Opcode::Eq => Eq::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -142,6 +147,7 @@ impl Opcode {
             Opcode::Mod => Mod::assign(region, offset, step, rw_table, cells)?,
             Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_table, cells)?,
             Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_table, cells)?,
+            Opcode::Eq => Eq::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -163,6 +169,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Mod => Opcode::Mod,
             Bytecode::LdTrue => Opcode::LdTrue,
             Bytecode::LdFalse => Opcode::LdFalse,
+            Bytecode::Eq => Opcode::Eq,
             _ => unimplemented!(),
         }
     }

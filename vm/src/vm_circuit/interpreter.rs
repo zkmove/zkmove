@@ -147,6 +147,28 @@ impl<F: FieldExt> Interpreter<F> {
         self.stack.push(result, rw_operations)
     }
 
+    pub fn binary_op_auxiliary<Fa, Fb>(
+        &mut self,
+        op: Fa,
+        fn_aux: Fb,
+        rw_operations: &mut Vec<RWOperation<F>>,
+        step: &mut ExecutionStep<F>,
+    ) -> VmResult<()>
+    where
+        Fa: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
+        Fb: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
+    {
+        let right = self.stack.pop(rw_operations)?;
+        let left = self.stack.pop(rw_operations)?;
+
+        let result = op(left.clone(), right.clone())?;
+        self.stack.push(result, rw_operations)?;
+
+        let aux = fn_aux(left, right)?;
+        step.auxiliary = Some(aux);
+        Ok(())
+    }
+
     pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
     where
         Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,

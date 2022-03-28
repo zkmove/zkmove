@@ -82,24 +82,18 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Add => interp.binary_op(Value::add, rw_operations),
                     Bytecode::Sub => interp.binary_op(Value::sub, rw_operations),
                     Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
-                    Bytecode::Div => {
-                        let right = interp.stack.pop(rw_operations)?;
-                        let left = interp.stack.pop(rw_operations)?;
-
-                        let (quo, rem) = left.div_rem(right)?;
-                        interp.stack.push(quo, rw_operations)?;
-                        execution_step.auxiliary = Some(rem);
-                        Ok(())
-                    }
-                    Bytecode::Mod => {
-                        let right = interp.stack.pop(rw_operations)?;
-                        let left = interp.stack.pop(rw_operations)?;
-
-                        let (quo, rem) = left.div_rem(right)?;
-                        interp.stack.push(rem, rw_operations)?;
-                        execution_step.auxiliary = Some(quo);
-                        Ok(())
-                    }
+                    Bytecode::Div => interp.binary_op_auxiliary(
+                        Value::div,
+                        Value::rem,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
+                    Bytecode::Mod => interp.binary_op_auxiliary(
+                        Value::rem,
+                        Value::div,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
                     Bytecode::Ret => {
                         debug!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
@@ -188,7 +182,12 @@ impl<F: FieldExt> Frame<F> {
                             ),
                         ));
                     }
-                    Bytecode::Eq => interp.binary_op(Value::eq, rw_operations),
+                    Bytecode::Eq => interp.binary_op_auxiliary(
+                        Value::eq,
+                        Value::delta_invert,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
                     Bytecode::Neq => interp.binary_op(Value::neq, rw_operations),
                     Bytecode::And => interp.binary_op(Value::and, rw_operations),
                     Bytecode::Or => interp.binary_op(Value::or, rw_operations),

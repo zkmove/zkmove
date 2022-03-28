@@ -262,6 +262,18 @@ impl<F: FieldExt> Value<F> {
         let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
         Ok(c)
     }
+
+    pub fn delta_invert(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        let delta_invert = if a.value() == b.value() {
+            F::one()
+        } else {
+            let delta = a.value().unwrap() - b.value().unwrap();
+            delta.invert().unwrap()
+        };
+
+        let value = Value::new_variable(Some(delta_invert), None, a.ty())?;
+        Ok(value)
+    }
 }
 
 impl<F: FieldExt> Into<Option<MoveValue>> for Value<F> {
