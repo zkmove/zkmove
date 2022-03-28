@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecodes::common::BinaryOp;
-use crate::vm_circuit::chips::bytecodes::common::Opcode;
-use crate::vm_circuit::chips::bytecodes::common::RWLookup;
+use crate::vm_circuit::chips::bytecode::common::BinaryOp;
+use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
+use crate::vm_circuit::chips::lookup_tables::RWLookup;
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
@@ -10,29 +10,29 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
-pub struct Mod<F: FieldExt> {
+pub struct Div<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Mod<F> {
-    pub fn configure(
+impl<F: FieldExt> BytecodeInterface<F> for Div<F> {
+    fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
     ) {
-        let cond = cells.conditions[Opcode::Mod.index()].expression.clone();
+        let cond = cells.conditions[Opcode::Div.index()].expression.clone();
 
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
-        let remainder = cells.value_c.expression.clone();
-        let quotient = cells.auxiliary.expression.clone();
+        let quotient = cells.value_c.expression.clone();
+        let remainder = cells.auxiliary.expression.clone();
         let constraint = cond.clone() * (lhs - rhs * quotient - remainder);
-        constraints.push(("Mod", constraint));
+        constraints.push(("Div", constraint));
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
         BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
     }
 
-    pub fn assign(
+    fn assign(
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecodes::common::Opcode;
-use crate::vm_circuit::chips::bytecodes::common::RWLookup;
+use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
+use crate::vm_circuit::chips::lookup_tables::RWLookup;
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
@@ -14,8 +14,8 @@ pub struct Pop<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Pop<F> {
-    pub fn configure(
+impl<F: FieldExt> BytecodeInterface<F> for Pop<F> {
+    fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
@@ -46,7 +46,7 @@ impl<F: FieldExt> Pop<F> {
         ));
     }
 
-    pub fn assign(
+    fn assign(
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,

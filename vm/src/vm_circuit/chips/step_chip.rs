@@ -1,17 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecodes::_mod::Mod;
-use crate::vm_circuit::chips::bytecodes::add::Add;
-use crate::vm_circuit::chips::bytecodes::common::{Opcode, NUMBER_OF_BYTECODE_MEMBERS};
-use crate::vm_circuit::chips::bytecodes::copy_loc::CopyLoc;
-use crate::vm_circuit::chips::bytecodes::div::Div;
-use crate::vm_circuit::chips::bytecodes::ldu128::LdU128;
-use crate::vm_circuit::chips::bytecodes::ldu64::LdU64;
-use crate::vm_circuit::chips::bytecodes::ldu8::LdU8;
-use crate::vm_circuit::chips::bytecodes::mul::Mul;
-use crate::vm_circuit::chips::bytecodes::pop::Pop;
-use crate::vm_circuit::chips::bytecodes::ret::Ret;
-use crate::vm_circuit::chips::bytecodes::sub::Sub;
+use crate::vm_circuit::chips::bytecode::Opcode;
 use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
@@ -90,7 +79,7 @@ impl<F: FieldExt> StepChip<F> {
         rw_table: &RWTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
-        let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + NUMBER_OF_BYTECODE_MEMBERS;
+        let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + Opcode::total_numbers();
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -115,7 +104,7 @@ impl<F: FieldExt> StepChip<F> {
             locals_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             auxiliary: cells.pop_front().unwrap(),
-            conditions: cells.drain(0..NUMBER_OF_BYTECODE_MEMBERS).collect(),
+            conditions: cells.drain(0..Opcode::total_numbers()).collect(),
 
             value_a: cells.pop_front().unwrap(),
             value_b: cells.pop_front().unwrap(),
@@ -132,17 +121,8 @@ impl<F: FieldExt> StepChip<F> {
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        Add::configure(&cells, &mut constraints, &mut rw_lookups);
-        Mul::configure(&cells, &mut constraints, &mut rw_lookups);
-        LdU8::configure(&cells, &mut constraints, &mut rw_lookups);
-        LdU64::configure(&cells, &mut constraints, &mut rw_lookups);
-        LdU128::configure(&cells, &mut constraints, &mut rw_lookups);
-        Pop::configure(&cells, &mut constraints, &mut rw_lookups);
-        CopyLoc::configure(&cells, &mut constraints, &mut rw_lookups);
-        Ret::configure(&cells, &mut constraints, &mut rw_lookups);
-        Sub::configure(&cells, &mut constraints, &mut rw_lookups);
-        Div::configure(&cells, &mut constraints, &mut rw_lookups);
-        Mod::configure(&cells, &mut constraints, &mut rw_lookups);
+        Opcode::iter()
+            .for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut rw_lookups));
 
         let s_step = meta.complex_selector();
 
@@ -266,20 +246,9 @@ impl<F: FieldExt> StepChip<F> {
                 let _assigned = cell.assign(region, offset, Some(condition));
             });
 
-        // assign operands for each Opcode
-        match step.opcode {
-            Opcode::LdU8 => LdU8::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::LdU64 => LdU64::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::LdU128 => LdU128::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Pop => Pop::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Ret => Ret::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Add => Add::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Mul => Mul::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Sub => Sub::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Div => Div::assign(region, offset, step, rw_table, &self.config.cells)?,
-            Opcode::Mod => Mod::assign(region, offset, step, rw_table, &self.config.cells)?,
-        }
+        // assign operands for the opcode
+        step.opcode
+            .assign(region, offset, step, rw_table, &self.config.cells)?;
 
         Ok(())
     }
