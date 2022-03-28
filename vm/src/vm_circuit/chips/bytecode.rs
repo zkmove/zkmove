@@ -2,6 +2,8 @@ use crate::vm_circuit::chips::bytecode::_mod::Mod;
 use crate::vm_circuit::chips::bytecode::add::Add;
 use crate::vm_circuit::chips::bytecode::copy_loc::CopyLoc;
 use crate::vm_circuit::chips::bytecode::div::Div;
+use crate::vm_circuit::chips::bytecode::ld_false::LdFalse;
+use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
 use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
 use crate::vm_circuit::chips::bytecode::ldu64::LdU64;
 use crate::vm_circuit::chips::bytecode::ldu8::LdU8;
@@ -22,6 +24,8 @@ pub mod add;
 pub mod common;
 pub mod copy_loc;
 pub mod div;
+pub mod ld_false;
+pub mod ld_true;
 pub mod ldu128;
 pub mod ldu64;
 pub mod ldu8;
@@ -60,6 +64,8 @@ pub enum Opcode {
     Sub,
     Div,
     Mod,
+    LdTrue,
+    LdFalse,
 }
 
 impl Opcode {
@@ -80,6 +86,8 @@ impl Opcode {
             Self::Sub,
             Self::Div,
             Self::Mod,
+            Self::LdTrue,
+            Self::LdFalse,
         ]
         .iter()
         .copied()
@@ -107,6 +115,8 @@ impl Opcode {
             Opcode::Sub => Sub::configure(cells, constraints, rw_lookups),
             Opcode::Div => Div::configure(cells, constraints, rw_lookups),
             Opcode::Mod => Mod::configure(cells, constraints, rw_lookups),
+            Opcode::LdTrue => LdTrue::configure(cells, constraints, rw_lookups),
+            Opcode::LdFalse => LdFalse::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -130,6 +140,8 @@ impl Opcode {
             Opcode::Sub => Sub::assign(region, offset, step, rw_table, cells)?,
             Opcode::Div => Div::assign(region, offset, step, rw_table, cells)?,
             Opcode::Mod => Mod::assign(region, offset, step, rw_table, cells)?,
+            Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_table, cells)?,
+            Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -149,6 +161,8 @@ impl From<Bytecode> for Opcode {
             Bytecode::Sub => Opcode::Sub,
             Bytecode::Div => Opcode::Div,
             Bytecode::Mod => Opcode::Mod,
+            Bytecode::LdTrue => Opcode::LdTrue,
+            Bytecode::LdFalse => Opcode::LdFalse,
             _ => unimplemented!(),
         }
     }
