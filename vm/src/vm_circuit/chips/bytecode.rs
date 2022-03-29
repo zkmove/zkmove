@@ -9,12 +9,14 @@ use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
 use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
 use crate::vm_circuit::chips::bytecode::ldu64::LdU64;
 use crate::vm_circuit::chips::bytecode::ldu8::LdU8;
+use crate::vm_circuit::chips::bytecode::move_loc::MoveLoc;
 use crate::vm_circuit::chips::bytecode::mul::Mul;
 use crate::vm_circuit::chips::bytecode::neq::Neq;
 use crate::vm_circuit::chips::bytecode::not::Not;
 use crate::vm_circuit::chips::bytecode::or::Or;
 use crate::vm_circuit::chips::bytecode::pop::Pop;
 use crate::vm_circuit::chips::bytecode::ret::Ret;
+use crate::vm_circuit::chips::bytecode::st_loc::StLoc;
 use crate::vm_circuit::chips::bytecode::sub::Sub;
 use crate::vm_circuit::chips::lookup_tables::RWLookup;
 use crate::vm_circuit::chips::step_chip::StepChipCells;
@@ -36,12 +38,14 @@ pub mod ld_true;
 pub mod ldu128;
 pub mod ldu64;
 pub mod ldu8;
+pub mod move_loc;
 pub mod mul;
 pub mod neq;
 pub mod not;
 pub mod or;
 pub mod pop;
 pub mod ret;
+pub mod st_loc;
 pub mod sub;
 
 pub trait BytecodeInterface<F: FieldExt> {
@@ -81,6 +85,8 @@ pub enum Opcode {
     And,
     Or,
     Not,
+    MoveLoc,
+    StLoc,
 }
 
 impl Opcode {
@@ -108,6 +114,8 @@ impl Opcode {
             Self::And,
             Self::Or,
             Self::Not,
+            Self::MoveLoc,
+            Self::StLoc,
         ]
         .iter()
         .copied()
@@ -142,6 +150,8 @@ impl Opcode {
             Opcode::And => And::configure(cells, constraints, rw_lookups),
             Opcode::Or => Or::configure(cells, constraints, rw_lookups),
             Opcode::Not => Not::configure(cells, constraints, rw_lookups),
+            Opcode::MoveLoc => MoveLoc::configure(cells, constraints, rw_lookups),
+            Opcode::StLoc => StLoc::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -172,6 +182,8 @@ impl Opcode {
             Opcode::And => And::assign(region, offset, step, rw_table, cells)?,
             Opcode::Or => Or::assign(region, offset, step, rw_table, cells)?,
             Opcode::Not => Not::assign(region, offset, step, rw_table, cells)?,
+            Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_table, cells)?,
+            Opcode::StLoc => StLoc::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -198,6 +210,8 @@ impl From<Bytecode> for Opcode {
             Bytecode::And => Opcode::And,
             Bytecode::Or => Opcode::Or,
             Bytecode::Not => Opcode::Not,
+            Bytecode::MoveLoc(_) => Opcode::MoveLoc,
+            Bytecode::StLoc(_) => Opcode::StLoc,
             _ => unimplemented!(),
         }
     }

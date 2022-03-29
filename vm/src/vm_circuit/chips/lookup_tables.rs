@@ -112,4 +112,66 @@ impl<F: FieldExt> RWLookup<F> {
             },
         )
     }
+
+    pub fn locals_move(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
+        (
+            RWLookup {
+                gc: gc.clone(),
+                rw_target: (RWTarget::Locals as u64).expr(),
+                rw: (RW::READ as u64).expr(),
+                call_index: call_index.clone(),
+                address: locals_index.clone(),
+                value: value.clone(),
+            },
+            RWLookup {
+                gc: gc.clone() + 1.expr(),
+                rw_target: (RWTarget::Locals as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                call_index,
+                address: locals_index,
+                value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
+            },
+            RWLookup {
+                gc: gc + 2.expr(),
+                rw_target: (RWTarget::Stack as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                call_index: 0.expr(),
+                address: stack_size,
+                value,
+            },
+        )
+    }
+
+    pub fn locals_store(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
+        (
+            RWLookup {
+                gc: gc.clone(),
+                rw_target: (RWTarget::Stack as u64).expr(),
+                rw: (RW::READ as u64).expr(),
+                call_index: 0.expr(),
+                address: stack_size - 1.expr(),
+                value: value.clone(),
+            },
+            RWLookup {
+                gc: gc.clone() + 1.expr(),
+                rw_target: (RWTarget::Locals as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                call_index,
+                address: locals_index,
+                value,
+            },
+        )
+    }
 }
