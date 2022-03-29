@@ -188,7 +188,12 @@ impl<F: FieldExt> Frame<F> {
                         rw_operations,
                         &mut execution_step,
                     ),
-                    Bytecode::Neq => interp.binary_op(Value::neq, rw_operations),
+                    Bytecode::Neq => interp.binary_op_auxiliary(
+                        Value::neq,
+                        Value::delta_invert,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
                     Bytecode::And => interp.binary_op(Value::and, rw_operations),
                     Bytecode::Or => interp.binary_op(Value::or, rw_operations),
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),

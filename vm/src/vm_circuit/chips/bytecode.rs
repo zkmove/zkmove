@@ -3,6 +3,9 @@ use crate::vm_circuit::chips::bytecode::add::Add;
 use crate::vm_circuit::chips::bytecode::copy_loc::CopyLoc;
 use crate::vm_circuit::chips::bytecode::div::Div;
 use crate::vm_circuit::chips::bytecode::eq::Eq;
+use crate::vm_circuit::chips::bytecode::neq::Neq;
+use crate::vm_circuit::chips::bytecode::and::And;
+use crate::vm_circuit::chips::bytecode::or::Or;
 use crate::vm_circuit::chips::bytecode::ld_false::LdFalse;
 use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
 use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
@@ -35,6 +38,9 @@ pub mod mul;
 pub mod pop;
 pub mod ret;
 pub mod sub;
+pub mod neq;
+pub mod and;
+pub mod or;
 
 pub trait BytecodeInterface<F: FieldExt> {
     fn configure(
@@ -69,6 +75,9 @@ pub enum Opcode {
     LdTrue,
     LdFalse,
     Eq,
+    Neq,
+    And,
+    Or,
 }
 
 impl Opcode {
@@ -92,6 +101,9 @@ impl Opcode {
             Self::LdTrue,
             Self::LdFalse,
             Self::Eq,
+            Self::Neq,
+            Self::And,
+            Self::Or,
         ]
         .iter()
         .copied()
@@ -122,6 +134,9 @@ impl Opcode {
             Opcode::LdTrue => LdTrue::configure(cells, constraints, rw_lookups),
             Opcode::LdFalse => LdFalse::configure(cells, constraints, rw_lookups),
             Opcode::Eq => Eq::configure(cells, constraints, rw_lookups),
+            Opcode::Neq => Neq::configure(cells, constraints, rw_lookups),
+            Opcode::And => And::configure(cells, constraints, rw_lookups),
+            Opcode::Or => Or::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -148,6 +163,9 @@ impl Opcode {
             Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_table, cells)?,
             Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_table, cells)?,
             Opcode::Eq => Eq::assign(region, offset, step, rw_table, cells)?,
+            Opcode::Neq => Neq::assign(region, offset, step, rw_table, cells)?,
+            Opcode::And => And::assign(region, offset, step, rw_table, cells)?,
+            Opcode::Or => Or::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -170,6 +188,9 @@ impl From<Bytecode> for Opcode {
             Bytecode::LdTrue => Opcode::LdTrue,
             Bytecode::LdFalse => Opcode::LdFalse,
             Bytecode::Eq => Opcode::Eq,
+            Bytecode::Neq => Opcode::Neq,
+            Bytecode::And => Opcode::And,
+            Bytecode::Or => Opcode::Or,
             _ => unimplemented!(),
         }
     }
