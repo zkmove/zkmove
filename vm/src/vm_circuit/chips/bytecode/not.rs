@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::common::BinaryOp;
+use crate::vm_circuit::chips::bytecode::common::UnaryOp;
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
 use crate::vm_circuit::chips::lookup_tables::RWLookup;
 use crate::vm_circuit::chips::step_chip::StepChipCells;
@@ -11,25 +11,25 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
-pub struct Or<F: FieldExt> {
+pub struct Not<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> BytecodeInterface<F> for Or<F> {
+impl<F: FieldExt> BytecodeInterface<F> for Not<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
     ) {
-        let cond = cells.conditions[Opcode::Or.index()].expression.clone();
+        let cond = cells.conditions[Opcode::Not.index()].expression.clone();
 
-        let lhs = cells.value_a.expression.clone();
-        let rhs = cells.value_b.expression.clone();
+        let x = cells.value_a.expression.clone();
         let out = cells.value_c.expression.clone();
-        let constraint = cond.clone() * ((1.expr() - lhs) * (1.expr() - rhs) - (1.expr() - out));
-        constraints.push(("Or", constraint));
-        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
+        // 1 - x = out
+        let constraint = cond.clone() * (1.expr() - x - out);
+        constraints.push(("Not", constraint));
+        UnaryOp::constrain_unary_op(cells, constraints, cond.clone());
+        UnaryOp::lookup_unary_op(cells, rw_lookups, cond);
     }
 
     fn assign(
@@ -39,6 +39,6 @@ impl<F: FieldExt> BytecodeInterface<F> for Or<F> {
         rw_table: &RWLookUpTable<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        BinaryOp::assign_binary_op(region, offset, step, rw_table, cells)
+        UnaryOp::assign_unary_op(region, offset, step, rw_table, cells)
     }
 }

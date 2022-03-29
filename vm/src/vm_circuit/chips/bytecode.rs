@@ -1,17 +1,18 @@
 use crate::vm_circuit::chips::bytecode::_mod::Mod;
 use crate::vm_circuit::chips::bytecode::add::Add;
+use crate::vm_circuit::chips::bytecode::and::And;
 use crate::vm_circuit::chips::bytecode::copy_loc::CopyLoc;
 use crate::vm_circuit::chips::bytecode::div::Div;
 use crate::vm_circuit::chips::bytecode::eq::Eq;
-use crate::vm_circuit::chips::bytecode::neq::Neq;
-use crate::vm_circuit::chips::bytecode::and::And;
-use crate::vm_circuit::chips::bytecode::or::Or;
 use crate::vm_circuit::chips::bytecode::ld_false::LdFalse;
 use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
 use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
 use crate::vm_circuit::chips::bytecode::ldu64::LdU64;
 use crate::vm_circuit::chips::bytecode::ldu8::LdU8;
 use crate::vm_circuit::chips::bytecode::mul::Mul;
+use crate::vm_circuit::chips::bytecode::neq::Neq;
+use crate::vm_circuit::chips::bytecode::not::Not;
+use crate::vm_circuit::chips::bytecode::or::Or;
 use crate::vm_circuit::chips::bytecode::pop::Pop;
 use crate::vm_circuit::chips::bytecode::ret::Ret;
 use crate::vm_circuit::chips::bytecode::sub::Sub;
@@ -25,6 +26,7 @@ use move_binary_format::file_format::Bytecode;
 
 pub mod _mod;
 pub mod add;
+pub mod and;
 pub mod common;
 pub mod copy_loc;
 pub mod div;
@@ -35,12 +37,12 @@ pub mod ldu128;
 pub mod ldu64;
 pub mod ldu8;
 pub mod mul;
+pub mod neq;
+pub mod not;
+pub mod or;
 pub mod pop;
 pub mod ret;
 pub mod sub;
-pub mod neq;
-pub mod and;
-pub mod or;
 
 pub trait BytecodeInterface<F: FieldExt> {
     fn configure(
@@ -78,6 +80,7 @@ pub enum Opcode {
     Neq,
     And,
     Or,
+    Not,
 }
 
 impl Opcode {
@@ -104,6 +107,7 @@ impl Opcode {
             Self::Neq,
             Self::And,
             Self::Or,
+            Self::Not,
         ]
         .iter()
         .copied()
@@ -137,6 +141,7 @@ impl Opcode {
             Opcode::Neq => Neq::configure(cells, constraints, rw_lookups),
             Opcode::And => And::configure(cells, constraints, rw_lookups),
             Opcode::Or => Or::configure(cells, constraints, rw_lookups),
+            Opcode::Not => Not::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -166,6 +171,7 @@ impl Opcode {
             Opcode::Neq => Neq::assign(region, offset, step, rw_table, cells)?,
             Opcode::And => And::assign(region, offset, step, rw_table, cells)?,
             Opcode::Or => Or::assign(region, offset, step, rw_table, cells)?,
+            Opcode::Not => Not::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -191,6 +197,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Neq => Opcode::Neq,
             Bytecode::And => Opcode::And,
             Bytecode::Or => Opcode::Or,
+            Bytecode::Not => Opcode::Not,
             _ => unimplemented!(),
         }
     }
