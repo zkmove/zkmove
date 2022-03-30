@@ -97,13 +97,13 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Ret => {
                         debug!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
-                        interp.step += 1;
+                        interp.step += 1; // todo: remove interp.step
                         return Ok(ExitStatus::Return);
                     }
                     Bytecode::Call(index) => {
                         debug!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
-                        interp.step += 1;
+                        interp.step += 1; // todo: remove interp.step
                         return Ok(ExitStatus::Call(*index));
                     }
                     Bytecode::CopyLoc(v) => {
@@ -140,28 +140,40 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
+                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::one() {
+                            debug!("step #{}, {:?}", interp.step, execution_step);
+                            exec_steps.push(execution_step);
+                            interp.step += 1;
                             self.pc = *offset;
                             break;
                         }
                         Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
+                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::zero() {
+                            debug!("step #{}, {:?}", interp.step, execution_step);
+                            exec_steps.push(execution_step);
+                            interp.step += 1;
                             self.pc = *offset;
                             break;
                         }
                         Ok(())
                     }
                     Bytecode::Branch(offset) => {
+                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
+                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        exec_steps.push(execution_step);
+                        interp.step += 1;
                         self.pc = *offset;
                         break;
                     }

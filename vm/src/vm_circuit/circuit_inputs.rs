@@ -188,6 +188,11 @@ impl<F: FieldExt> CircuitInputs<F> {
 impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\n")?;
+        write!(f, "Execution steps:\n")?;
+        self.exec_steps.iter().enumerate().for_each(|(i, step)| {
+            write!(f, "{}: {:?}\n", i, step).unwrap();
+        });
+        write!(f, "\n")?;
         write!(f, "Read/Write operation lookup table:\n")?;
         self.rw_lookup_table.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();

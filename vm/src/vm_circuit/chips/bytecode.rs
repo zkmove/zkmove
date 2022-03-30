@@ -1,23 +1,9 @@
-use crate::vm_circuit::chips::bytecode::_mod::Mod;
-use crate::vm_circuit::chips::bytecode::add::Add;
-use crate::vm_circuit::chips::bytecode::and::And;
-use crate::vm_circuit::chips::bytecode::copy_loc::CopyLoc;
-use crate::vm_circuit::chips::bytecode::div::Div;
-use crate::vm_circuit::chips::bytecode::eq::Eq;
-use crate::vm_circuit::chips::bytecode::ld_false::LdFalse;
-use crate::vm_circuit::chips::bytecode::ld_true::LdTrue;
-use crate::vm_circuit::chips::bytecode::ldu128::LdU128;
-use crate::vm_circuit::chips::bytecode::ldu64::LdU64;
-use crate::vm_circuit::chips::bytecode::ldu8::LdU8;
-use crate::vm_circuit::chips::bytecode::move_loc::MoveLoc;
-use crate::vm_circuit::chips::bytecode::mul::Mul;
-use crate::vm_circuit::chips::bytecode::neq::Neq;
-use crate::vm_circuit::chips::bytecode::not::Not;
-use crate::vm_circuit::chips::bytecode::or::Or;
-use crate::vm_circuit::chips::bytecode::pop::Pop;
-use crate::vm_circuit::chips::bytecode::ret::Ret;
-use crate::vm_circuit::chips::bytecode::st_loc::StLoc;
-use crate::vm_circuit::chips::bytecode::sub::Sub;
+use crate::vm_circuit::chips::bytecode::{
+    _mod::Mod, add::Add, and::And, br_false::BrFalse, br_true::BrTrue, branch::Branch,
+    copy_loc::CopyLoc, div::Div, eq::Eq, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128,
+    ldu64::LdU64, ldu8::LdU8, move_loc::MoveLoc, mul::Mul, neq::Neq, not::Not, or::Or, pop::Pop,
+    ret::Ret, st_loc::StLoc, sub::Sub,
+};
 use crate::vm_circuit::chips::lookup_tables::RWLookup;
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
@@ -29,6 +15,9 @@ use move_binary_format::file_format::Bytecode;
 pub mod _mod;
 pub mod add;
 pub mod and;
+pub mod br_false;
+pub mod br_true;
+pub mod branch;
 pub mod common;
 pub mod copy_loc;
 pub mod div;
@@ -87,6 +76,9 @@ pub enum Opcode {
     Not,
     MoveLoc,
     StLoc,
+    Branch,
+    BrTrue,
+    BrFalse,
 }
 
 impl Opcode {
@@ -116,6 +108,9 @@ impl Opcode {
             Self::Not,
             Self::MoveLoc,
             Self::StLoc,
+            Self::Branch,
+            Self::BrTrue,
+            Self::BrFalse,
         ]
         .iter()
         .copied()
@@ -152,6 +147,9 @@ impl Opcode {
             Opcode::Not => Not::configure(cells, constraints, rw_lookups),
             Opcode::MoveLoc => MoveLoc::configure(cells, constraints, rw_lookups),
             Opcode::StLoc => StLoc::configure(cells, constraints, rw_lookups),
+            Opcode::Branch => Branch::configure(cells, constraints, rw_lookups),
+            Opcode::BrTrue => BrTrue::configure(cells, constraints, rw_lookups),
+            Opcode::BrFalse => BrFalse::configure(cells, constraints, rw_lookups),
         }
     }
 
@@ -184,6 +182,9 @@ impl Opcode {
             Opcode::Not => Not::assign(region, offset, step, rw_table, cells)?,
             Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_table, cells)?,
             Opcode::StLoc => StLoc::assign(region, offset, step, rw_table, cells)?,
+            Opcode::Branch => Branch::assign(region, offset, step, rw_table, cells)?,
+            Opcode::BrTrue => BrTrue::assign(region, offset, step, rw_table, cells)?,
+            Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_table, cells)?,
         }
         Ok(())
     }
@@ -212,6 +213,9 @@ impl From<Bytecode> for Opcode {
             Bytecode::Not => Opcode::Not,
             Bytecode::MoveLoc(_) => Opcode::MoveLoc,
             Bytecode::StLoc(_) => Opcode::StLoc,
+            Bytecode::Branch(_) => Opcode::Branch,
+            Bytecode::BrTrue(_) => Opcode::BrTrue,
+            Bytecode::BrFalse(_) => Opcode::BrFalse,
             _ => unimplemented!(),
         }
     }
