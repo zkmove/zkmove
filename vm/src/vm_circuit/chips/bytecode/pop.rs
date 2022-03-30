@@ -8,6 +8,7 @@ use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct Pop<F: FieldExt> {
@@ -53,7 +54,10 @@ impl<F: FieldExt> BytecodeInterface<F> for Pop<F> {
         rw_table: &RWLookUpTable<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_table.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_table.0.get(step.gc).ok_or_else(|| {
+            error!("gc is None");
+            Error::Synthesis
+        })?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())

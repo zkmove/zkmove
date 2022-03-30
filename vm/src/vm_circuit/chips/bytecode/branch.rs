@@ -7,6 +7,7 @@ use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct Branch<F: FieldExt> {
@@ -43,7 +44,10 @@ impl<F: FieldExt> BytecodeInterface<F> for Branch<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign next_pc into the auxiliary
-        let aux_value = step.auxiliary.as_ref().ok_or(Error::Synthesis)?;
+        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
+            error!("auxiliary is None");
+            Error::Synthesis
+        })?;
         cells.auxiliary.assign(region, offset, aux_value.value())?;
         Ok(())
     }

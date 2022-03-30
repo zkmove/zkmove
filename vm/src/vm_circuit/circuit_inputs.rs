@@ -129,6 +129,7 @@ impl<F: FieldExt> RWOperation<F> {
     }
 }
 
+// convert RWOperation into a vector of field value
 impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
     fn from(rw_op: &RWOperation<F>) -> Vec<Option<F>> {
         let mut field_values = Vec::new();
@@ -137,7 +138,12 @@ impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
         field_values.push(Some(F::from_u128(rw_op.rw() as u128)));
         field_values.push(Some(F::from_u128(rw_op.call_index() as u128)));
         field_values.push(Some(F::from_u128(rw_op.address() as u128)));
-        field_values.push(rw_op.value().value());
+
+        let value = match rw_op.value() {
+            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            _ => rw_op.value().value(),
+        };
+        field_values.push(value);
         field_values
     }
 }

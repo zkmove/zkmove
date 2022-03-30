@@ -5,6 +5,7 @@ use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct BinaryOp<F: FieldExt> {
@@ -94,7 +95,10 @@ impl<F: FieldExt> BinaryOp<F> {
     ) -> Result<(), Error> {
         Self::assign_binary_op(region, offset, step, rw_table, cells)?;
 
-        let aux_value = step.auxiliary.as_ref().ok_or(Error::Synthesis)?;
+        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
+            error!("auxiliary is None");
+            Error::Synthesis
+        })?;
         cells.auxiliary.assign(region, offset, aux_value.value())?;
 
         Ok(())

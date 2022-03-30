@@ -10,6 +10,7 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use logger::prelude::*;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
@@ -85,11 +86,19 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
                                 column,
                                 i + 1,
                                 || {
-                                    let op = rw_operations.get(i).ok_or(Error::Synthesis)?;
+                                    let op = rw_operations.get(i).ok_or_else(|| {
+                                        error!("get rw operation error");
+                                        Error::Synthesis
+                                    })?;
                                     let op_fields: Vec<Option<F>> = op.into();
-                                    let field =
-                                        op_fields.get(column_idx).ok_or(Error::Synthesis)?;
-                                    field.ok_or(Error::Synthesis)
+                                    let field = op_fields.get(column_idx).ok_or_else(|| {
+                                        error!("get op_field error");
+                                        Error::Synthesis
+                                    })?;
+                                    field.ok_or_else(|| {
+                                        error!("rw operation field[{}] is None", column_idx);
+                                        Error::Synthesis
+                                    })
                                 },
                             )
                         })
