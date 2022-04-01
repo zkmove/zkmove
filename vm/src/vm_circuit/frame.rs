@@ -44,7 +44,7 @@ impl<F: FieldExt> Frame<F> {
         interp: &mut Interpreter<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<ExitStatus> {
+    ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
         let call_index = interp.frames.size();
         loop {
@@ -101,10 +101,7 @@ impl<F: FieldExt> Frame<F> {
                         return Ok(ExitStatus::Return);
                     }
                     Bytecode::Call(index) => {
-                        debug!("step #{}, {:?}", interp.step, execution_step);
-                        exec_steps.push(execution_step);
-                        interp.step += 1; // todo: remove interp.step
-                        return Ok(ExitStatus::Call(*index));
+                        return Ok(ExitStatus::Call(*index, execution_step));
                     }
                     Bytecode::CopyLoc(v) => {
                         execution_step.locals_index = *v as usize;
@@ -229,7 +226,7 @@ impl<F: FieldExt> Frame<F> {
     }
 }
 
-pub enum ExitStatus {
+pub enum ExitStatus<F: FieldExt> {
     Return,
-    Call(FunctionHandleIndex),
+    Call(FunctionHandleIndex, ExecutionStep<F>),
 }

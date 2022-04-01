@@ -11,9 +11,10 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 4;
+pub const STEP_HEIGHT: usize = 6;
 pub const NUM_OF_STEP_STATE: usize = 6; //pc, stack_size, call_index, locals_index, gc, auxiliary
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
+pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -29,6 +30,9 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_a: Cell<F>,
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
+
+    pub args: Vec<Cell<F>>,
+    pub arg_conditions: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -79,7 +83,10 @@ impl<F: FieldExt> StepChip<F> {
         rw_table: &RWTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
-        let cell_amount = NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + Opcode::total_numbers();
+        let cell_amount = NUM_OF_STEP_STATE
+            + MAX_OPERANDS_PER_STEP
+            + Opcode::total_numbers()
+            + MAX_NUM_OF_ARGUMENTS * 2;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -109,6 +116,9 @@ impl<F: FieldExt> StepChip<F> {
             value_a: cells.pop_front().unwrap(),
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
+
+            args: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
+            arg_conditions: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
