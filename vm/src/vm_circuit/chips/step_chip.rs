@@ -32,7 +32,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_c: Cell<F>,
 
     pub args: Vec<Cell<F>>,
-    pub arg_conditions: Vec<Cell<F>>,
+    pub args_mask: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -118,7 +118,7 @@ impl<F: FieldExt> StepChip<F> {
             value_c: cells.pop_front().unwrap(),
 
             args: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
-            arg_conditions: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
+            args_mask: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),

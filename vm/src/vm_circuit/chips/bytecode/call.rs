@@ -53,11 +53,11 @@ impl<F: FieldExt> BytecodeInterface<F> for Call<F> {
 
             rw_lookups.push((
                 read,
-                cond.clone() * cells.arg_conditions[i].expression.clone(),
+                cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
             ));
             rw_lookups.push((
                 write,
-                cond.clone() * cells.arg_conditions[i].expression.clone(),
+                cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
             ));
         }
     }
@@ -88,11 +88,11 @@ impl<F: FieldExt> BytecodeInterface<F> for Call<F> {
             let op = rw_table.0.get(step.gc + i * 2).ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
             cells.args[i].assign(region, offset, op.value().value())?;
-            cells.arg_conditions[i].assign(region, offset, Some(F::one()))?;
+            cells.args_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
         for i in arg_num..MAX_NUM_OF_ARGUMENTS {
-            cells.arg_conditions[i].assign(region, offset, Some(F::zero()))?;
+            cells.args_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         Ok(())
