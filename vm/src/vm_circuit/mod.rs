@@ -10,3 +10,4 @@ pub mod stack;
 #[cfg(test)]
 mod chip_tests;
 pub mod execution_circuit;
+pub mod memory_circuit;
