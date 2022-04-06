@@ -2,8 +2,8 @@
 
 use crate::fast_circuit::move_circuit::FastMoveCircuit;
 use crate::vm_circuit::circuit_inputs::{CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation};
+use crate::vm_circuit::execution_circuit::ExecutionCircuit;
 use crate::vm_circuit::interpreter::Interpreter;
-use crate::vm_circuit::vm_circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
@@ -75,7 +75,7 @@ impl Runtime {
     ) -> VmResult<()> {
         let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
         debug!("{:?}", circuit_inputs);
-        let circuit = VmCircuit { circuit_inputs };
+        let circuit = ExecutionCircuit { circuit_inputs };
         let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::SynthesisError)

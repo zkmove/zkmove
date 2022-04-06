@@ -151,8 +151,8 @@ impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
 #[derive(Clone, Debug, Default)]
 pub struct RWLookUpTable<F: FieldExt>(pub Vec<RWOperation<F>>);
 
-impl<F: FieldExt> From<RWLookUpTable<F>> for (StackLookUpTable<F>, LocalsLookUpTable<F>) {
-    fn from(rw_table: RWLookUpTable<F>) -> (StackLookUpTable<F>, LocalsLookUpTable<F>) {
+impl<F: FieldExt> From<RWLookUpTable<F>> for (SortedStackOps<F>, SortedLocalsOps<F>) {
+    fn from(rw_table: RWLookUpTable<F>) -> (SortedStackOps<F>, SortedLocalsOps<F>) {
         let mut stack_ops = Vec::new();
         let mut locals_ops = Vec::new();
         rw_table.0.into_iter().for_each(|op| match op {
@@ -161,32 +161,32 @@ impl<F: FieldExt> From<RWLookUpTable<F>> for (StackLookUpTable<F>, LocalsLookUpT
         });
         stack_ops.sort();
         locals_ops.sort();
-        (StackLookUpTable(stack_ops), LocalsLookUpTable(locals_ops))
+        (SortedStackOps(stack_ops), SortedLocalsOps(locals_ops))
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct StackLookUpTable<F: FieldExt>(pub Vec<StackOp<F>>);
+pub struct SortedStackOps<F: FieldExt>(pub Vec<StackOp<F>>);
 
 #[derive(Clone, Debug, Default)]
-pub struct LocalsLookUpTable<F: FieldExt>(pub Vec<LocalsOp<F>>);
+pub struct SortedLocalsOps<F: FieldExt>(pub Vec<LocalsOp<F>>);
 
 #[derive(Clone, Default)]
 pub struct CircuitInputs<F: FieldExt> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_lookup_table: RWLookUpTable<F>,
-    pub stack_lookup_table: StackLookUpTable<F>,
-    pub locals_lookup_table: LocalsLookUpTable<F>,
+    pub sorted_stack_ops: SortedStackOps<F>,
+    pub sorted_locals_ops: SortedLocalsOps<F>,
 }
 
 impl<F: FieldExt> CircuitInputs<F> {
     pub fn new(exec_steps: Vec<ExecutionStep<F>>, rw_lookup_table: RWLookUpTable<F>) -> Self {
-        let (stack_lookup_table, locals_lookup_table) = rw_lookup_table.clone().into();
+        let (sorted_stack_ops, sorted_locals_ops) = rw_lookup_table.clone().into();
         CircuitInputs {
             exec_steps,
             rw_lookup_table,
-            stack_lookup_table,
-            locals_lookup_table,
+            sorted_stack_ops,
+            sorted_locals_ops,
         }
     }
 }
@@ -205,12 +205,12 @@ impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
         });
         write!(f, "\n")?;
         write!(f, "Stack operation lookup table:\n")?;
-        self.stack_lookup_table.0.iter().for_each(|op| {
+        self.sorted_stack_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
         write!(f, "\n")?;
         write!(f, "Locals operation lookup table:\n")?;
-        self.locals_lookup_table.0.iter().for_each(|op| {
+        self.sorted_locals_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
         Ok(())

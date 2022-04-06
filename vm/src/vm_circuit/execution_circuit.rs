@@ -13,18 +13,18 @@ use halo2_proofs::{
 use logger::prelude::*;
 
 #[derive(Clone)]
-pub struct VmCircuitConfig<F: FieldExt> {
+pub struct ExecutionCircuitConfig<F: FieldExt> {
     step_config: StepConfig<F>,
     rw_table: RWTable,
 }
 
 #[derive(Clone, Default)]
-pub struct VmCircuit<F: FieldExt> {
+pub struct ExecutionCircuit<F: FieldExt> {
     pub circuit_inputs: CircuitInputs<F>,
 }
 
-impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
-    type Config = VmCircuitConfig<F>;
+impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
+    type Config = ExecutionCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {

@@ -6,8 +6,8 @@ use crate::vm_circuit::circuit_inputs::RW::{READ, WRITE};
 use crate::vm_circuit::circuit_inputs::{
     CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation, StackOp,
 };
+use crate::vm_circuit::execution_circuit::ExecutionCircuit;
 use crate::vm_circuit::interpreter::Interpreter;
-use crate::vm_circuit::vm_circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
@@ -164,7 +164,7 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
     let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
-    let circuit = VmCircuit { circuit_inputs };
+    let circuit = ExecutionCircuit { circuit_inputs };
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

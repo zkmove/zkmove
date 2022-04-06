@@ -9,4 +9,4 @@ pub mod stack;
 
 #[cfg(test)]
 mod chip_tests;
-pub mod vm_circuit;
+pub mod execution_circuit;
