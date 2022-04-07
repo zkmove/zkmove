@@ -26,11 +26,11 @@ pub enum RW {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalsOp<F: FieldExt> {
-    pub call_index: usize,
+    pub call_index: usize, // locals ops will sorted by (call_index, index, gc)
     pub index: usize,
-    pub value: Value<F>,
-    pub rw: RW,
     pub gc: usize,
+    pub rw: RW,
+    pub value: Value<F>,
 }
 
 impl<F: FieldExt> PartialOrd for LocalsOp<F> {
@@ -47,10 +47,10 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackOp<F: FieldExt> {
-    pub address: usize,
-    pub value: Value<F>,
-    pub rw: RW,
+    pub address: usize, // stack ops will be sorted by (address, gc)
     pub gc: usize,
+    pub rw: RW,
+    pub value: Value<F>,
 }
 
 impl<F: FieldExt> PartialOrd for StackOp<F> {

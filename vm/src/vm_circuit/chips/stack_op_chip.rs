@@ -1,9 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::Opcode;
 use crate::vm_circuit::chips::lookup_tables::{RWTable, RWTarget};
 use crate::vm_circuit::chips::utilities::*;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, StackOp};
+use crate::vm_circuit::circuit_inputs::{StackOp, RW};
 use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
@@ -20,17 +19,18 @@ pub struct StackOpCells<F: FieldExt> {
     pub address: Cell<F>,
     pub value: Cell<F>,
 
-    pub next_gc: Cell<F>,
-    pub next_rw: Cell<F>,
-    pub next_address: Cell<F>,
-    pub next_value: Cell<F>,
+    pub prev_gc: Cell<F>,
+    pub prev_rw: Cell<F>,
+    pub prev_address: Cell<F>,
+    pub prev_value: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StackOpChipConfig<F: FieldExt> {
     pub advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
     pub cells: StackOpCells<F>,
-    pub s_stack: Selector,
+    pub s_first_stack_op: Selector,
+    pub s_stack_op: Selector,
 }
 
 pub struct StackOpChip<F: FieldExt> {
@@ -69,9 +69,16 @@ impl<F: FieldExt> StackOpChip<F> {
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(STACK_OP_CHIP_WIDTH * 2);
         meta.create_gate("stack op chip", |meta| {
-            for i in 0..(STACK_OP_CHIP_WIDTH * 2) {
-                let column_index = i % STACK_OP_CHIP_WIDTH;
-                let rotation = i / STACK_OP_CHIP_WIDTH;
+            for i in 0..STACK_OP_CHIP_WIDTH {
+                let column_index = i;
+                let rotation = 0;
+                cells.push_back(Cell::new(meta, advices[column_index], rotation))
+            }
+
+            // previous op
+            for i in 0..STACK_OP_CHIP_WIDTH {
+                let column_index = i;
+                let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
@@ -83,61 +90,113 @@ impl<F: FieldExt> StackOpChip<F> {
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
-            next_gc: cells.pop_front().unwrap(),
-            next_rw: cells.pop_front().unwrap(),
-            next_address: cells.pop_front().unwrap(),
-            next_value: cells.pop_front().unwrap(),
+            prev_gc: cells.pop_front().unwrap(),
+            prev_rw: cells.pop_front().unwrap(),
+            prev_address: cells.pop_front().unwrap(),
+            prev_value: cells.pop_front().unwrap(),
         };
 
-        let mut constraints = Vec::new();
-        Self::constrain_stack_op(&cells, &mut constraints);
-        // for (i, constraint) in constraints.iter().enumerate() {
-        //     debug!("constraint {}, {:?}", i, constraint);
-        // }
+        let s_first_stack_op = meta.complex_selector();
+        Self::config_stack_op(meta, s_first_stack_op, &cells, rw_table, true);
 
-        let s_stack = meta.complex_selector();
-        meta.create_gate("constrain stack op", |meta| {
-            let s_stack = meta.query_selector(s_stack);
-            constraints
-                .into_iter()
-                .map(move |(name, constraint)| (name, s_stack.clone() * constraint))
-        });
-
-        meta.lookup(|meta| {
-            let s_stack = meta.query_selector(s_stack);
-            vec![
-                (
-                    s_stack.clone() * cells.gc.expression.clone(),
-                    rw_table.gc_column,
-                ),
-                (
-                    s_stack.clone() * (RWTarget::Stack as u64).expr(),
-                    rw_table.rw_target_column,
-                ),
-                (
-                    s_stack.clone() * cells.rw.expression.clone(),
-                    rw_table.rw_column,
-                ),
-                (
-                    s_stack.clone() * cells.address.expression.clone(),
-                    rw_table.address_column,
-                ),
-                (
-                    s_stack * cells.value.expression.clone(),
-                    rw_table.value_column,
-                ),
-            ]
-        });
+        let s_stack_op = meta.complex_selector();
+        Self::config_stack_op(meta, s_stack_op, &cells, rw_table, false);
 
         StackOpChipConfig {
             advices,
             cells,
-            s_stack,
+            s_first_stack_op,
+            s_stack_op,
         }
     }
 
-    fn constrain_stack_op(cells: &StackOpCells<F>, constraints: &mut Vec<(&str, Expression<F>)>) {
-        // add constraints here
+    fn config_stack_op(
+        meta: &mut ConstraintSystem<F>,
+        selector: Selector,
+        cells: &StackOpCells<F>,
+        rw_table: &RWTable,
+        is_first_op: bool,
+    ) {
+        let mut constraints = Vec::new();
+        Self::constrain_stack_op(&cells, &mut constraints, is_first_op);
+
+        meta.create_gate("constrain stack op", |meta| {
+            let selector = meta.query_selector(selector);
+            constraints
+                .into_iter()
+                .map(move |(name, constraint)| (name, selector.clone() * constraint))
+        });
+
+        meta.lookup(|meta| {
+            let selector = meta.query_selector(selector);
+            vec![
+                (
+                    selector.clone() * cells.gc.expression.clone(),
+                    rw_table.gc_column,
+                ),
+                (
+                    selector.clone() * (RWTarget::Stack as u64).expr(),
+                    rw_table.rw_target_column,
+                ),
+                (
+                    selector.clone() * cells.rw.expression.clone(),
+                    rw_table.rw_column,
+                ),
+                (
+                    selector.clone() * cells.address.expression.clone(),
+                    rw_table.address_column,
+                ),
+                (
+                    selector * cells.value.expression.clone(),
+                    rw_table.value_column,
+                ),
+            ]
+        });
+    }
+
+    fn constrain_stack_op(
+        cells: &StackOpCells<F>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
+        is_first: bool,
+    ) {
+        if is_first {
+            // for the first op: gc == 0, address == 0, rw == Write
+            constraints.push(("first stack op", cells.address.expression.clone()));
+            constraints.push((
+                "first stack op",
+                cells.rw.expression.clone() - (RW::WRITE as u64).expr(),
+            ));
+        } else {
+            // 'address == prev_address' or 'address == prev_address + 1'
+            let delt_addr =
+                cells.address.expression.clone() - cells.prev_address.expression.clone();
+            constraints.push((
+                "address",
+                delt_addr.clone() * (delt_addr.clone() - 1.expr()),
+            ));
+
+            // for read op: value == prev_value
+            let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
+            constraints.push((
+                "read op",
+                (cells.value.expression.clone() - cells.prev_value.expression.clone()) * is_read,
+            ));
+
+            // if address != prev_address then rw == Write
+            constraints.push((
+                "address ",
+                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_addr,
+            ));
+
+            // rw == 0 || rw == 1
+            constraints.push((
+                "rw",
+                cells.rw.expression.clone() * (cells.rw.expression.clone() - 1.expr()),
+            ));
+
+            // todo: address must be less than EVAL_STACK_SIZE
+            // todo: gc must be great than prev_gc
+        }
     }
 
     // assign each cell of the stack operation

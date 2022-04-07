@@ -4,6 +4,7 @@ use crate::fast_circuit::move_circuit::FastMoveCircuit;
 use crate::vm_circuit::circuit_inputs::{CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation};
 use crate::vm_circuit::execution_circuit::ExecutionCircuit;
 use crate::vm_circuit::interpreter::Interpreter;
+use crate::vm_circuit::memory_circuit::MemoryCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
@@ -75,12 +76,22 @@ impl Runtime {
     ) -> VmResult<()> {
         let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
         debug!("{:?}", circuit_inputs);
-        let circuit = ExecutionCircuit { circuit_inputs };
-        let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
+        let circuit_exe = ExecutionCircuit {
+            circuit_inputs: circuit_inputs.clone(),
+        };
+        let prover = MockProver::run(k, &circuit_exe, vec![]).map_err(|e| {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::SynthesisError)
         })?;
         assert_eq!(prover.verify(), Ok(()));
+
+        let circuit_mem = MemoryCircuit { circuit_inputs };
+        let prover = MockProver::run(k, &circuit_mem, vec![]).map_err(|e| {
+            debug!("Prover Error: {:?}", e);
+            RuntimeError::new(StatusCode::SynthesisError)
+        })?;
+        assert_eq!(prover.verify(), Ok(()));
+
         Ok(())
     }
 

@@ -9,15 +9,15 @@ use halo2_proofs::poly::Rotation;
 pub struct Cell<F: FieldExt> {
     pub expression: Expression<F>,
     pub column: Column<Advice>,
-    pub rotation: usize,
+    pub rotation: Rotation,
 }
 
 impl<F: FieldExt> Cell<F> {
-    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: usize) -> Self {
+    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: i32) -> Self {
         Cell {
-            expression: meta.query_advice(column, Rotation(rotation as i32)),
+            expression: meta.query_advice(column, Rotation(rotation)),
             column,
-            rotation,
+            rotation: Rotation(rotation),
         }
     }
 
@@ -30,7 +30,7 @@ impl<F: FieldExt> Cell<F> {
         region.assign_advice(
             || "assign cell",
             self.column,
-            offset + self.rotation,
+            (offset as i32 + self.rotation.0) as usize,
             || value.ok_or(Error::Synthesis),
         )
     }

@@ -2,8 +2,6 @@
 
 use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
-use crate::vm_circuit::chips::step_chip::{StepChip, StepConfig};
-use crate::vm_circuit::chips::step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::{
@@ -56,8 +54,19 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
             || "stack operations",
             |mut region: Region<'_, F>| {
                 for (offset, op) in self.circuit_inputs.sorted_stack_ops.0.iter().enumerate() {
-                    stack_op_chip.config.s_stack.enable(&mut region, offset)?;
-                    stack_op_chip.assign(&mut region, offset, op)?;
+                    if offset == 0 {
+                        stack_op_chip
+                            .config
+                            .s_first_stack_op
+                            .enable(&mut region, offset)?;
+                        stack_op_chip.assign(&mut region, offset, op)?;
+                    } else {
+                        stack_op_chip
+                            .config
+                            .s_stack_op
+                            .enable(&mut region, offset)?;
+                        stack_op_chip.assign(&mut region, offset, op)?;
+                    }
                 }
                 Ok(())
             },

@@ -92,14 +92,14 @@ impl<F: FieldExt> StepChip<F> {
             for i in 0..cell_amount {
                 let column_index = i % STEP_CHIP_WIDTH;
                 let rotation = i / STEP_CHIP_WIDTH;
-                cells.push_back(Cell::new(meta, advices[column_index], rotation))
+                cells.push_back(Cell::new(meta, advices[column_index], rotation as i32))
             }
 
             // remember cells of the states of the next step
             for i in 0..NUM_OF_STEP_STATE {
                 let column_index = i % STEP_CHIP_WIDTH;
                 let rotation = i / STEP_CHIP_WIDTH + STEP_HEIGHT;
-                cells.push_back(Cell::new(meta, advices[column_index], rotation))
+                cells.push_back(Cell::new(meta, advices[column_index], rotation as i32))
             }
             vec![Expression::Constant(F::zero())]
         });
