@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::vm_circuit::chips::locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
 use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
@@ -16,6 +17,7 @@ pub const MEM_CIRCUIT_WIDTH: usize = 5;
 #[derive(Clone)]
 pub struct MemoryCircuitConfig<F: FieldExt> {
     stack_op_config: StackOpChipConfig<F>,
+    locals_op_config: LocalsOpChipConfig<F>,
     rw_table: RWTable,
 }
 
@@ -36,9 +38,11 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         let rw_table = RWTable::construct(meta);
         let advices = [(); MEM_CIRCUIT_WIDTH].map(|_| meta.advice_column());
         let stack_op_config = StackOpChip::configure(meta, advices, &rw_table);
+        let locals_op_config = LocalsOpChip::configure(meta, advices, &rw_table);
 
         Self::Config {
             stack_op_config,
+            locals_op_config,
             rw_table,
         }
     }
@@ -49,6 +53,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
         let stack_op_chip = StackOpChip::<F>::construct(config.stack_op_config, ());
+        let locals_op_chip = LocalsOpChip::<F>::construct(config.locals_op_config, ());
 
         layouter.assign_region(
             || "stack operations",
@@ -66,6 +71,28 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                             .s_stack_op
                             .enable(&mut region, offset)?;
                         stack_op_chip.assign(&mut region, offset, op)?;
+                    }
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_region(
+            || "locals operations",
+            |mut region: Region<'_, F>| {
+                for (offset, op) in self.circuit_inputs.sorted_locals_ops.0.iter().enumerate() {
+                    if offset == 0 {
+                        locals_op_chip
+                            .config
+                            .s_first_locals_op
+                            .enable(&mut region, offset)?;
+                        locals_op_chip.assign(&mut region, offset, op)?;
+                    } else {
+                        locals_op_chip
+                            .config
+                            .s_locals_op
+                            .enable(&mut region, offset)?;
+                        locals_op_chip.assign(&mut region, offset, op)?;
                     }
                 }
                 Ok(())
