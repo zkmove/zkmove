@@ -1,10 +1,12 @@
 // Copyright (c) zkMove Authors
 
 use crate::vm_circuit::chips::locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
-use crate::vm_circuit::chips::lookup_tables::RWTable;
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use halo2_proofs::circuit::Region;
+use halo2_proofs::plonk::Selector;
+use halo2_proofs::plonk::{Advice, Column};
+use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -12,13 +14,26 @@ use halo2_proofs::{
 };
 use logger::prelude::*;
 
-pub const MEM_CIRCUIT_WIDTH: usize = 5;
+// Memory circuit is used to prove memory coherence - each load from memory(locals/stack)
+// retrieves the last value stored there. The circuit input is the rw operations sorted by
+// address(locals index/stack address). For each address, we constrain the value we read
+// is equal to the value we just write.
+//
+// We don't need to constrain the 'sort by address' process, but need to constrain rw ops
+// in the execution steps is equal to the sorted rw ops. To do this, we need to:
+// 1. in execution circuit, lookup rw ops of each execution step in the sorted rw operations,
+// 2. in execution circuit, constrain the strict monotonic increment of gc.
+// 3. make sure total number of sorted rw operations is equal to the gc of the last
+// execution step.
+
+pub const MEM_CIRCUIT_WIDTH: usize = 6; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
 
 #[derive(Clone)]
 pub struct MemoryCircuitConfig<F: FieldExt> {
+    advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
     stack_op_config: StackOpChipConfig<F>,
     locals_op_config: LocalsOpChipConfig<F>,
-    rw_table: RWTable,
+    s_add_counters: Selector,
 }
 
 #[derive(Clone, Default)]
@@ -35,15 +50,29 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let rw_table = RWTable::construct(meta);
         let advices = [(); MEM_CIRCUIT_WIDTH].map(|_| meta.advice_column());
-        let stack_op_config = StackOpChip::configure(meta, advices, &rw_table);
-        let locals_op_config = LocalsOpChip::configure(meta, advices, &rw_table);
+        let stack_op_config = StackOpChip::configure(meta, advices);
+        let locals_op_config = LocalsOpChip::configure(meta, advices);
+
+        // todo: evaluate the cost to enable equality
+        for column in &advices {
+            meta.enable_equality(*column);
+        }
+
+        let s_add_counters = meta.selector();
+        meta.create_gate("add counters", |meta| {
+            let s_add_counters = meta.query_selector(s_add_counters);
+            let last_stack_counter = meta.query_advice(advices[0], Rotation::cur());
+            let last_locals_counter = meta.query_advice(advices[1], Rotation::cur());
+            let last_step_gc = meta.query_advice(advices[2], Rotation::cur());
+            vec![s_add_counters * (last_stack_counter + last_locals_counter - last_step_gc)]
+        });
 
         Self::Config {
+            advices,
             stack_op_config,
             locals_op_config,
-            rw_table,
+            s_add_counters,
         }
     }
 
@@ -52,91 +81,121 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let stack_op_chip = StackOpChip::<F>::construct(config.stack_op_config, ());
-        let locals_op_chip = LocalsOpChip::<F>::construct(config.locals_op_config, ());
+        let stack_op_chip = StackOpChip::<F>::construct(config.stack_op_config.clone(), ());
+        let stack_ops = &self.circuit_inputs.sorted_stack_ops.0;
+        let mut last_stack_counter = None;
 
         layouter.assign_region(
             || "stack operations",
             |mut region: Region<'_, F>| {
-                for (offset, op) in self.circuit_inputs.sorted_stack_ops.0.iter().enumerate() {
-                    if offset == 0 {
+                for (index, op) in stack_ops.iter().enumerate() {
+                    let counter = index + 1;
+                    let assigned_counter = if index == 0 {
                         stack_op_chip
                             .config
                             .s_first_stack_op
-                            .enable(&mut region, offset)?;
-                        stack_op_chip.assign(&mut region, offset, op)?;
+                            .enable(&mut region, index)?;
+                        stack_op_chip.assign(&mut region, index, op, counter)?
                     } else {
-                        stack_op_chip
-                            .config
-                            .s_stack_op
-                            .enable(&mut region, offset)?;
-                        stack_op_chip.assign(&mut region, offset, op)?;
+                        stack_op_chip.config.s_stack_op.enable(&mut region, index)?;
+                        stack_op_chip.assign(&mut region, index, op, counter)?
+                    };
+                    if counter == stack_ops.len() {
+                        last_stack_counter = Some(assigned_counter);
                     }
                 }
                 Ok(())
             },
         )?;
+
+        let locals_op_chip = LocalsOpChip::<F>::construct(config.locals_op_config.clone(), ());
+        let locals_ops = &self.circuit_inputs.sorted_locals_ops.0;
+        let mut last_locals_counter = None;
 
         layouter.assign_region(
             || "locals operations",
             |mut region: Region<'_, F>| {
-                for (offset, op) in self.circuit_inputs.sorted_locals_ops.0.iter().enumerate() {
-                    if offset == 0 {
+                for (index, op) in locals_ops.iter().enumerate() {
+                    let counter = index + 1;
+                    let assigned_counter = if index == 0 {
                         locals_op_chip
                             .config
                             .s_first_locals_op
-                            .enable(&mut region, offset)?;
-                        locals_op_chip.assign(&mut region, offset, op)?;
+                            .enable(&mut region, index)?;
+                        locals_op_chip.assign(&mut region, index, op, counter)?
                     } else {
                         locals_op_chip
                             .config
                             .s_locals_op
-                            .enable(&mut region, offset)?;
-                        locals_op_chip.assign(&mut region, offset, op)?;
+                            .enable(&mut region, index)?;
+                        locals_op_chip.assign(&mut region, index, op, counter)?
+                    };
+                    if counter == locals_ops.len() {
+                        last_locals_counter = Some(assigned_counter);
                     }
                 }
                 Ok(())
             },
         )?;
 
-        let rw_operations = &self.circuit_inputs.rw_lookup_table.0;
-        for (column_idx, column) in config.rw_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
-                || format!("rw_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
-                        || format!("rw_table[{}][0]", column_idx),
-                        column,
+        let last_step_gc = self
+            .circuit_inputs
+            .exec_steps
+            .last()
+            .ok_or_else(|| {
+                error!("last step gc is None");
+                Error::Synthesis
+            })?
+            .gc;
+
+        layouter.assign_region(
+            || "add counter",
+            |mut region: Region<'_, F>| {
+                config.s_add_counters.enable(&mut region, 0)?;
+
+                if let Some(assigned_last_stack_counter) = &last_stack_counter {
+                    let lhs = region.assign_advice(
+                        || "lhs",
+                        config.advices[0],
                         0,
-                        || Ok(F::zero()),
+                        || {
+                            let value_ref = assigned_last_stack_counter
+                                .value()
+                                .ok_or(Error::Synthesis)?;
+                            Ok(*value_ref)
+                        },
                     )?;
-                    (0..rw_operations.len())
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("rw_table[{}][{}]", column_idx, i),
-                                column,
-                                i + 1,
-                                || {
-                                    let op = rw_operations.get(i).ok_or_else(|| {
-                                        error!("get rw operation error");
-                                        Error::Synthesis
-                                    })?;
-                                    let op_fields: Vec<Option<F>> = op.into();
-                                    let field = op_fields.get(column_idx).ok_or_else(|| {
-                                        error!("get op_field error");
-                                        Error::Synthesis
-                                    })?;
-                                    field.ok_or_else(|| {
-                                        error!("rw operation field[{}] is None", column_idx);
-                                        Error::Synthesis
-                                    })
-                                },
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )?;
-        }
+                    region.constrain_equal(assigned_last_stack_counter.cell(), lhs.cell())?;
+                } else {
+                    region.assign_advice(|| "lhs", config.advices[0], 0, || Ok(F::zero()))?;
+                }
+
+                if let Some(assigned_last_locals_counter) = &last_locals_counter {
+                    let rhs = region.assign_advice(
+                        || "rhs",
+                        config.advices[1],
+                        0,
+                        || {
+                            let value_ref = assigned_last_locals_counter
+                                .value()
+                                .ok_or(Error::Synthesis)?;
+                            Ok(*value_ref)
+                        },
+                    )?;
+                    region.constrain_equal(assigned_last_locals_counter.cell(), rhs.cell())?;
+                } else {
+                    region.assign_advice(|| "rhs", config.advices[1], 0, || Ok(F::zero()))?;
+                }
+
+                region.assign_advice(
+                    || "last step gc",
+                    config.advices[2],
+                    0,
+                    || Ok(F::from_u128(last_step_gc as u128)),
+                )?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }

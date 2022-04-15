@@ -1,26 +1,27 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::chips::lookup_tables::{RWTable, RWTarget};
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{LocalsOp, RW};
 use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 5;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 6;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
+    pub counter: Cell<F>, // the total number of locals operations
     pub call_index: Cell<F>,
     pub index: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
 
+    pub prev_counter: Cell<F>,
     pub prev_call_index: Cell<F>,
     pub prev_index: Cell<F>,
     pub prev_gc: Cell<F>,
@@ -68,7 +69,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
-        rw_table: &RWTable,
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
@@ -89,11 +89,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
         });
 
         let cells = LocalsOpCells {
+            counter: cells.pop_front().unwrap(),
             call_index: cells.pop_front().unwrap(),
             index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
+            prev_counter: cells.pop_front().unwrap(),
             prev_call_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
@@ -102,10 +104,10 @@ impl<F: FieldExt> LocalsOpChip<F> {
         };
 
         let s_first_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_first_locals_op, &cells, rw_table, true);
+        Self::config_locals_op(meta, s_first_locals_op, &cells, true);
 
         let s_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_locals_op, &cells, rw_table, false);
+        Self::config_locals_op(meta, s_locals_op, &cells, false);
 
         LocalsOpChipConfig {
             advices,
@@ -119,7 +121,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
         meta: &mut ConstraintSystem<F>,
         selector: Selector,
         cells: &LocalsOpCells<F>,
-        rw_table: &RWTable,
         is_first_op: bool,
     ) {
         let mut constraints = Vec::new();
@@ -131,36 +132,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .into_iter()
                 .map(move |(name, constraint)| (name, selector.clone() * constraint))
         });
-
-        meta.lookup(|meta| {
-            let selector = meta.query_selector(selector);
-            vec![
-                (
-                    selector.clone() * cells.gc.expression.clone(),
-                    rw_table.gc_column,
-                ),
-                (
-                    selector.clone() * (RWTarget::Locals as u64).expr(),
-                    rw_table.rw_target_column,
-                ),
-                (
-                    selector.clone() * cells.rw.expression.clone(),
-                    rw_table.rw_column,
-                ),
-                (
-                    selector.clone() * cells.call_index.expression.clone(),
-                    rw_table.call_index_column,
-                ),
-                (
-                    selector.clone() * cells.index.expression.clone(),
-                    rw_table.address_column,
-                ),
-                (
-                    selector * cells.value.expression.clone(),
-                    rw_table.value_column,
-                ),
-            ]
-        });
     }
 
     fn constrain_locals_op(
@@ -169,13 +140,22 @@ impl<F: FieldExt> LocalsOpChip<F> {
         is_first: bool,
     ) {
         if is_first {
-            // for the first op: rw == Write
+            // for the first op: counter == 1, rw == Write
             // note, ether call_index or index may NOT be 0
+            constraints.push((
+                "first locals op",
+                cells.counter.expression.clone() - 1.expr(),
+            ));
             constraints.push((
                 "first locals op",
                 cells.rw.expression.clone() - (RW::WRITE as u64).expr(),
             ));
         } else {
+            // counter == prev_counter + 1
+            constraints.push((
+                "counter",
+                cells.counter.expression.clone() - cells.prev_counter.expression.clone() - 1.expr(),
+            ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
@@ -202,13 +182,20 @@ impl<F: FieldExt> LocalsOpChip<F> {
         }
     }
 
-    // assign each cell of the locals operation
+    // assign each cell of the locals operation, return assigned cell for counter
     pub fn assign(
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
         op: &LocalsOp<F>,
-    ) -> Result<(), Error> {
+        counter: usize,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        let assigned =
+            self.config
+                .cells
+                .counter
+                .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
+
         self.config
             .cells
             .gc
@@ -236,6 +223,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
 
         self.config.cells.value.assign(region, offset, field)?;
 
-        Ok(())
+        Ok(assigned)
     }
 }

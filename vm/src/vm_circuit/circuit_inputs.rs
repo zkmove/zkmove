@@ -45,6 +45,25 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
     }
 }
 
+// convert LocalsOp into a vector of field value
+impl<F: FieldExt> From<&LocalsOp<F>> for Vec<Option<F>> {
+    fn from(rw_op: &LocalsOp<F>) -> Vec<Option<F>> {
+        let mut field_values = Vec::new();
+        field_values.push(Some(F::from_u128(rw_op.gc as u128)));
+        field_values.push(Some(F::from_u128(RWTarget::Locals as u128)));
+        field_values.push(Some(F::from_u128(rw_op.rw.clone() as u128)));
+        field_values.push(Some(F::from_u128(rw_op.call_index as u128)));
+        field_values.push(Some(F::from_u128(rw_op.index as u128)));
+
+        let value = match rw_op.value {
+            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            _ => rw_op.value.value(),
+        };
+        field_values.push(value);
+        field_values
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackOp<F: FieldExt> {
     pub address: usize, // stack ops will be sorted by (address, gc)
@@ -62,6 +81,25 @@ impl<F: FieldExt> PartialOrd for StackOp<F> {
 impl<F: FieldExt> Ord for StackOp<F> {
     fn cmp(&self, other: &Self) -> Ordering {
         (&self.address, &self.gc).cmp(&(&other.address, &other.gc))
+    }
+}
+
+// convert StackOp into a vector of field value
+impl<F: FieldExt> From<&StackOp<F>> for Vec<Option<F>> {
+    fn from(rw_op: &StackOp<F>) -> Vec<Option<F>> {
+        let mut field_values = Vec::new();
+        field_values.push(Some(F::from_u128(rw_op.gc as u128)));
+        field_values.push(Some(F::from_u128(RWTarget::Stack as u128)));
+        field_values.push(Some(F::from_u128(rw_op.rw.clone() as u128)));
+        field_values.push(Some(F::from_u128(0)));
+        field_values.push(Some(F::from_u128(rw_op.address as u128)));
+
+        let value = match rw_op.value {
+            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            _ => rw_op.value.value(),
+        };
+        field_values.push(value);
+        field_values
     }
 }
 
@@ -168,8 +206,22 @@ impl<F: FieldExt> From<RWLookUpTable<F>> for (SortedStackOps<F>, SortedLocalsOps
 #[derive(Clone, Debug, Default)]
 pub struct SortedStackOps<F: FieldExt>(pub Vec<StackOp<F>>);
 
+// convert SortedStackOps into field values
+impl<F: FieldExt> From<&SortedStackOps<F>> for Vec<Vec<Option<F>>> {
+    fn from(rw_ops: &SortedStackOps<F>) -> Vec<Vec<Option<F>>> {
+        rw_ops.0.iter().map(|op| op.into()).collect()
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct SortedLocalsOps<F: FieldExt>(pub Vec<LocalsOp<F>>);
+
+// convert SortedLocalsOps into field values
+impl<F: FieldExt> From<&SortedLocalsOps<F>> for Vec<Vec<Option<F>>> {
+    fn from(rw_ops: &SortedLocalsOps<F>) -> Vec<Vec<Option<F>>> {
+        rw_ops.0.iter().map(|op| op.into()).collect()
+    }
+}
 
 #[derive(Clone, Default)]
 pub struct CircuitInputs<F: FieldExt> {
@@ -199,17 +251,17 @@ impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
             write!(f, "{}: {:?}\n", i, step).unwrap();
         });
         write!(f, "\n")?;
-        write!(f, "Read/Write operation lookup table:\n")?;
+        write!(f, "Read/Write operations:\n")?;
         self.rw_lookup_table.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
         write!(f, "\n")?;
-        write!(f, "Stack operation lookup table:\n")?;
+        write!(f, "Sorted stack operations:\n")?;
         self.sorted_stack_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
         write!(f, "\n")?;
-        write!(f, "Locals operation lookup table:\n")?;
+        write!(f, "Sorted locals operations:\n")?;
         self.sorted_locals_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });

@@ -68,7 +68,14 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
             },
         )?;
 
-        let rw_operations = &self.circuit_inputs.rw_lookup_table.0;
+        let mut stack_operations: Vec<Vec<Option<F>>> =
+            (&self.circuit_inputs.sorted_stack_ops).into();
+        let mut locals_operations: Vec<Vec<Option<F>>> =
+            (&self.circuit_inputs.sorted_locals_ops).into();
+        let mut converted_rw_operations = Vec::new();
+        converted_rw_operations.append(&mut stack_operations);
+        converted_rw_operations.append(&mut locals_operations);
+
         for (column_idx, column) in config.rw_table.columns().into_iter().enumerate() {
             layouter.assign_table(
                 || format!("rw_table[{}]", column_idx),
@@ -79,19 +86,18 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
                         0,
                         || Ok(F::zero()),
                     )?;
-                    (0..rw_operations.len())
+                    (0..converted_rw_operations.len())
                         .map(|i| {
                             table_column.assign_cell(
                                 || format!("rw_table[{}][{}]", column_idx, i),
                                 column,
                                 i + 1,
                                 || {
-                                    let op = rw_operations.get(i).ok_or_else(|| {
+                                    let op = converted_rw_operations.get(i).ok_or_else(|| {
                                         error!("get rw operation error");
                                         Error::Synthesis
                                     })?;
-                                    let op_fields: Vec<Option<F>> = op.into();
-                                    let field = op_fields.get(column_idx).ok_or_else(|| {
+                                    let field = op.get(column_idx).ok_or_else(|| {
                                         error!("get op_field error");
                                         Error::Synthesis
                                     })?;
