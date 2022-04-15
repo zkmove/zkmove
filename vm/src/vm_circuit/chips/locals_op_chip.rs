@@ -6,7 +6,9 @@ use crate::vm_circuit::circuit_inputs::{LocalsOp, RW};
 use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use halo2_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
+};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -69,6 +71,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+        gc_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
@@ -104,10 +107,10 @@ impl<F: FieldExt> LocalsOpChip<F> {
         };
 
         let s_first_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_first_locals_op, &cells, true);
+        Self::config_locals_op(meta, s_first_locals_op, &cells, true, gc_table);
 
         let s_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_locals_op, &cells, false);
+        Self::config_locals_op(meta, s_locals_op, &cells, false, gc_table);
 
         LocalsOpChipConfig {
             advices,
@@ -122,9 +125,11 @@ impl<F: FieldExt> LocalsOpChip<F> {
         selector: Selector,
         cells: &LocalsOpCells<F>,
         is_first_op: bool,
+        gc_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
-        Self::constrain_locals_op(&cells, &mut constraints, is_first_op);
+        let mut gc_lookups = Vec::new();
+        Self::constrain_locals_op(&cells, &mut constraints, is_first_op, &mut gc_lookups);
 
         meta.create_gate("constrain locals op", |meta| {
             let selector = meta.query_selector(selector);
@@ -132,12 +137,20 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .into_iter()
                 .map(move |(name, constraint)| (name, selector.clone() * constraint))
         });
+
+        for lookup in gc_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *gc_table)]
+            });
+        }
     }
 
     fn constrain_locals_op(
         cells: &LocalsOpCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
+        lookups: &mut Vec<Expression<F>>,
     ) {
         if is_first {
             // for the first op: counter == 1, rw == Write
@@ -178,7 +191,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
 
             // todo: index must be great than or equal to prev_index
             // todo: index must be less than MAX_LOCALS_SIZE
-            // todo: gc must be great than prev_gc
+
+            // todo: for ops with same index, gc must be great than prev_gc
         }
     }
 

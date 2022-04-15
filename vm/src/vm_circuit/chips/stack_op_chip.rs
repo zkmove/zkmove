@@ -5,7 +5,9 @@ use crate::vm_circuit::circuit_inputs::{StackOp, RW};
 use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use halo2_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
+};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -66,6 +68,7 @@ impl<F: FieldExt> StackOpChip<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+        gc_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(STACK_OP_CHIP_WIDTH * 2);
         meta.create_gate("stack op chip", |meta| {
@@ -99,10 +102,10 @@ impl<F: FieldExt> StackOpChip<F> {
         };
 
         let s_first_stack_op = meta.complex_selector();
-        Self::config_stack_op(meta, s_first_stack_op, &cells, true);
+        Self::config_stack_op(meta, s_first_stack_op, &cells, true, gc_table);
 
         let s_stack_op = meta.complex_selector();
-        Self::config_stack_op(meta, s_stack_op, &cells, false);
+        Self::config_stack_op(meta, s_stack_op, &cells, false, gc_table);
 
         StackOpChipConfig {
             advices,
@@ -117,9 +120,11 @@ impl<F: FieldExt> StackOpChip<F> {
         selector: Selector,
         cells: &StackOpCells<F>,
         is_first_op: bool,
+        gc_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
-        Self::constrain_stack_op(&cells, &mut constraints, is_first_op);
+        let mut gc_lookups = Vec::new();
+        Self::constrain_stack_op(&cells, &mut constraints, is_first_op, &mut gc_lookups);
 
         meta.create_gate("constrain stack op", |meta| {
             let selector = meta.query_selector(selector);
@@ -127,12 +132,20 @@ impl<F: FieldExt> StackOpChip<F> {
                 .into_iter()
                 .map(move |(name, constraint)| (name, selector.clone() * constraint))
         });
+
+        for lookup in gc_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *gc_table)]
+            });
+        }
     }
 
     fn constrain_stack_op(
         cells: &StackOpCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
+        lookups: &mut Vec<Expression<F>>,
     ) {
         if is_first {
             // for the first op: counter == 1, address == 0, rw == Write
@@ -169,7 +182,7 @@ impl<F: FieldExt> StackOpChip<F> {
             // if address != prev_address then rw == Write
             constraints.push((
                 "address ",
-                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_addr,
+                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_addr.clone(),
             ));
 
             // rw == 0 || rw == 1
@@ -179,7 +192,12 @@ impl<F: FieldExt> StackOpChip<F> {
             ));
 
             // todo: address must be less than EVAL_STACK_SIZE
-            // todo: gc must be great than prev_gc
+
+            // for ops with same address, gc must be great than prev_gc
+            lookups.push(
+                (1.expr() - delt_addr)
+                    * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
+            );
         }
     }
 

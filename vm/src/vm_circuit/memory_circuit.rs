@@ -4,8 +4,8 @@ use crate::vm_circuit::chips::locals_op_chip::{LocalsOpChip, LocalsOpChipConfig}
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Selector;
 use halo2_proofs::plonk::{Advice, Column};
+use halo2_proofs::plonk::{Selector, TableColumn};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -34,6 +34,7 @@ pub struct MemoryCircuitConfig<F: FieldExt> {
     stack_op_config: StackOpChipConfig<F>,
     locals_op_config: LocalsOpChipConfig<F>,
     s_add_counters: Selector,
+    gc_table: TableColumn,
 }
 
 #[derive(Clone, Default)]
@@ -51,8 +52,9 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let advices = [(); MEM_CIRCUIT_WIDTH].map(|_| meta.advice_column());
-        let stack_op_config = StackOpChip::configure(meta, advices);
-        let locals_op_config = LocalsOpChip::configure(meta, advices);
+        let gc_table = meta.lookup_table_column();
+        let stack_op_config = StackOpChip::configure(meta, advices, &gc_table);
+        let locals_op_config = LocalsOpChip::configure(meta, advices, &gc_table);
 
         // todo: evaluate the cost to enable equality
         for column in &advices {
@@ -73,6 +75,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
             stack_op_config,
             locals_op_config,
             s_add_counters,
+            gc_table,
         }
     }
 
@@ -194,6 +197,22 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                     || Ok(F::from_u128(last_step_gc as u128)),
                 )?;
                 Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "gc_table",
+            |mut table_column| {
+                (0..last_step_gc)
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("gc_table[{}]", i),
+                            config.gc_table,
+                            i,
+                            || Ok(F::from_u128(i as u128)),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
             },
         )?;
 
