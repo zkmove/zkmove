@@ -71,7 +71,9 @@ impl<F: FieldExt> LogicalChip<F> {
             vec![
                 // if a != b then (a - b) * inverse(a - b) == 1 - out
                 // if a == b then (a - b) * 1 == 1 - out
-                s_eq * ((lhs - rhs) * delta_invert + (out - one)),
+                s_eq.clone() * ((lhs.clone() - rhs.clone()) * delta_invert.clone() + (out - one.clone())),
+                // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
+                s_eq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) *  delta_invert - one),
             ]
         });
 
@@ -83,11 +85,14 @@ impl<F: FieldExt> LogicalChip<F> {
             let cond = meta.query_advice(advice[3], Rotation::cur());
             let delta_invert = meta.query_advice(advice[0], Rotation::next());
             let s_neq = meta.query_selector(s_neq) * cond;
+            let one = Expression::Constant(F::one());
 
             vec![
                 // if a != b then (a - b) * inverse(a - b) == out
                 // if a == b then (a - b) * 1 == out
-                s_neq * ((lhs - rhs) * delta_invert - out),
+                s_neq.clone() * ((lhs.clone() - rhs.clone()) * delta_invert.clone() - out),
+                // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
+                s_neq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) *  delta_invert - one),
             ]
         });
 
