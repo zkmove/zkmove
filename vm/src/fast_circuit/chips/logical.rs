@@ -71,9 +71,10 @@ impl<F: FieldExt> LogicalChip<F> {
             vec![
                 // if a != b then (a - b) * inverse(a - b) == 1 - out
                 // if a == b then (a - b) * 1 == 1 - out
-                s_eq.clone() * ((lhs.clone() - rhs.clone()) * delta_invert.clone() + (out - one.clone())),
+                s_eq.clone()
+                    * ((lhs.clone() - rhs.clone()) * delta_invert.clone() + (out - one.clone())),
                 // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
-                s_eq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) *  delta_invert - one),
+                s_eq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) * delta_invert - one),
             ]
         });
 
@@ -92,7 +93,7 @@ impl<F: FieldExt> LogicalChip<F> {
                 // if a == b then (a - b) * 1 == out
                 s_neq.clone() * ((lhs.clone() - rhs.clone()) * delta_invert.clone() - out),
                 // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
-                s_neq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) *  delta_invert - one),
+                s_neq * (lhs.clone() - rhs.clone()) * ((lhs - rhs) * delta_invert - one),
             ]
         });
 

@@ -51,3 +51,18 @@ impl<F: FieldExt> Expr<F> for u64 {
         Expression::Constant(F::from(*self))
     }
 }
+
+pub(crate) trait SubInvert<F: FieldExt> {
+    fn sub_invert(&self, other: usize) -> Option<F>;
+}
+
+impl<F: FieldExt> SubInvert<F> for usize {
+    fn sub_invert(&self, other: usize) -> Option<F> {
+        if *self == other {
+            Some(F::one())
+        } else {
+            let delta = F::from_u128(*self as u128) - F::from_u128(other as u128);
+            delta.invert().into()
+        }
+    }
+}

@@ -26,7 +26,7 @@ use logger::prelude::*;
 // 3. make sure total number of sorted rw operations is equal to the gc of the last
 // execution step.
 
-pub const MEM_CIRCUIT_WIDTH: usize = 6; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
+pub const MEM_CIRCUIT_WIDTH: usize = 8; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
 
 #[derive(Clone)]
 pub struct MemoryCircuitConfig<F: FieldExt> {
@@ -112,12 +112,13 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         )?;
 
         let locals_op_chip = LocalsOpChip::<F>::construct(config.locals_op_config.clone(), ());
-        let locals_ops = &self.circuit_inputs.sorted_locals_ops.0;
         let mut last_locals_counter = None;
 
         layouter.assign_region(
             || "locals operations",
             |mut region: Region<'_, F>| {
+                let locals_ops = &self.circuit_inputs.sorted_locals_ops.0;
+                let mut prev_op = None;
                 for (index, op) in locals_ops.iter().enumerate() {
                     let counter = index + 1;
                     let assigned_counter = if index == 0 {
@@ -125,17 +126,18 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                             .config
                             .s_first_locals_op
                             .enable(&mut region, index)?;
-                        locals_op_chip.assign(&mut region, index, op, counter)?
+                        locals_op_chip.assign(&mut region, index, op, counter, None)?
                     } else {
                         locals_op_chip
                             .config
                             .s_locals_op
                             .enable(&mut region, index)?;
-                        locals_op_chip.assign(&mut region, index, op, counter)?
+                        locals_op_chip.assign(&mut region, index, op, counter, prev_op)?
                     };
                     if counter == locals_ops.len() {
                         last_locals_counter = Some(assigned_counter);
                     }
+                    prev_op = Some(op.clone());
                 }
                 Ok(())
             },

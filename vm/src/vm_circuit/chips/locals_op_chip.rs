@@ -12,7 +12,7 @@ use halo2_proofs::plonk::{
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 6;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 8;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
@@ -22,6 +22,10 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
+    // delta_invert_xxx is used to constrain the strict monotonic
+    // increment of gc for the same locals
+    pub delta_invert_call_index: Cell<F>,
+    pub delta_invert_index: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_call_index: Cell<F>,
@@ -81,8 +85,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            // previous op
-            for i in 0..LOCALS_OP_CHIP_WIDTH {
+            // previous op, without delta_invert cells
+            for i in 0..(LOCALS_OP_CHIP_WIDTH - 2) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -98,6 +102,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
+            delta_invert_call_index: cells.pop_front().unwrap(),
+            delta_invert_index: cells.pop_front().unwrap(),
             prev_counter: cells.pop_front().unwrap(),
             prev_call_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
@@ -180,7 +186,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
             constraints.push((
                 "index",
-                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_index,
+                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_index.clone(),
             ));
 
             // rw == 0 || rw == 1
@@ -192,7 +198,27 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // todo: index must be great than or equal to prev_index
             // todo: index must be less than MAX_LOCALS_SIZE
 
-            // todo: for ops with same index, gc must be great than prev_gc
+            // for ops with same call_index/index, gc must be great than prev_gc
+            // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
+            // 2.lookup gc_table when call_index/index is same with previous
+            let delt_call_index =
+                cells.call_index.expression.clone() - cells.prev_call_index.expression.clone();
+            constraints.push((
+                "delt_invert_call_index",
+                delt_call_index.clone()
+                    * (delt_call_index.clone() * cells.delta_invert_call_index.expression.clone()
+                        - 1.expr()),
+            ));
+            constraints.push((
+                "delt_invert_index",
+                delt_index.clone()
+                    * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
+            ));
+            lookups.push(
+                (1.expr() - delt_call_index * cells.delta_invert_call_index.expression.clone())
+                    * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
+                    * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
+            );
         }
     }
 
@@ -203,6 +229,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
         offset: usize,
         op: &LocalsOp<F>,
         counter: usize,
+        prev_op: Option<LocalsOp<F>>,
     ) -> Result<AssignedCell<F, F>, Error> {
         let assigned =
             self.config
@@ -236,6 +263,21 @@ impl<F: FieldExt> LocalsOpChip<F> {
         };
 
         self.config.cells.value.assign(region, offset, field)?;
+
+        let (prev_call_index, prev_index) = match prev_op {
+            None => (0, 0),
+            Some(v) => (v.call_index, v.index),
+        };
+        self.config.cells.delta_invert_call_index.assign(
+            region,
+            offset,
+            op.call_index.sub_invert(prev_call_index),
+        )?;
+        self.config.cells.delta_invert_index.assign(
+            region,
+            offset,
+            op.index.sub_invert(prev_index),
+        )?;
 
         Ok(assigned)
     }
