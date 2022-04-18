@@ -219,16 +219,25 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         layouter.assign_table(
             || "gc_table",
             |mut table_column| {
-                (0..last_step_gc)
-                    .map(|i| {
-                        table_column.assign_cell(
-                            || format!("gc_table[{}]", i),
-                            config.gc_table,
-                            i,
-                            || Ok(F::from_u128(i as u128)),
-                        )
-                    })
-                    .fold(Ok(()), |acc, res| acc.and(res))
+                if last_step_gc == 0 {
+                    table_column.assign_cell(
+                        || format!("gc_table[0]"),
+                        config.gc_table,
+                        0,
+                        || Ok(F::zero()),
+                    )
+                } else {
+                    (0..last_step_gc)
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("gc_table[{}]", i),
+                                config.gc_table,
+                                i,
+                                || Ok(F::from_u128(i as u128)),
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                }
             },
         )?;
 
