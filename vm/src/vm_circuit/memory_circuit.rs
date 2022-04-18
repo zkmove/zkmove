@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
+use crate::vm_circuit::chips::locals_op_chip::{
+    LocalsOpChip, LocalsOpChipConfig, MAX_CALL_INDEX, MAX_LOCALS_SIZE,
+};
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use halo2_proofs::circuit::Region;
@@ -35,6 +37,8 @@ pub struct MemoryCircuitConfig<F: FieldExt> {
     locals_op_config: LocalsOpChipConfig<F>,
     s_add_counters: Selector,
     gc_table: TableColumn,
+    call_index_table: TableColumn,
+    locals_index_table: TableColumn,
 }
 
 #[derive(Clone, Default)]
@@ -53,8 +57,16 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let advices = [(); MEM_CIRCUIT_WIDTH].map(|_| meta.advice_column());
         let gc_table = meta.lookup_table_column();
+        let call_index_table = meta.lookup_table_column();
+        let locals_index_table = meta.lookup_table_column();
         let stack_op_config = StackOpChip::configure(meta, advices, &gc_table);
-        let locals_op_config = LocalsOpChip::configure(meta, advices, &gc_table);
+        let locals_op_config = LocalsOpChip::configure(
+            meta,
+            advices,
+            &gc_table,
+            &call_index_table,
+            &locals_index_table,
+        );
 
         // todo: evaluate the cost to enable equality
         for column in &advices {
@@ -76,6 +88,8 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
             locals_op_config,
             s_add_counters,
             gc_table,
+            call_index_table,
+            locals_index_table,
         }
     }
 
@@ -210,6 +224,38 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                         table_column.assign_cell(
                             || format!("gc_table[{}]", i),
                             config.gc_table,
+                            i,
+                            || Ok(F::from_u128(i as u128)),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
+            },
+        )?;
+
+        layouter.assign_table(
+            || "call_index_table",
+            |mut table_column| {
+                (0..=MAX_CALL_INDEX)
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("call_index_table[{}]", i),
+                            config.call_index_table,
+                            i,
+                            || Ok(F::from_u128(i as u128)),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
+            },
+        )?;
+
+        layouter.assign_table(
+            || "locals_index_table",
+            |mut table_column| {
+                (0..=MAX_LOCALS_SIZE)
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("locals_index_table[{}]", i),
+                            config.locals_index_table,
                             i,
                             || Ok(F::from_u128(i as u128)),
                         )

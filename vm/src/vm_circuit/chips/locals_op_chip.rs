@@ -13,6 +13,8 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const LOCALS_OP_CHIP_WIDTH: usize = 8;
+pub const MAX_CALL_INDEX: usize = 256;
+pub const MAX_LOCALS_SIZE: usize = 16;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
@@ -76,6 +78,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
         gc_table: &TableColumn,
+        call_index_table: &TableColumn,
+        locals_index_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
@@ -113,10 +117,26 @@ impl<F: FieldExt> LocalsOpChip<F> {
         };
 
         let s_first_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_first_locals_op, &cells, true, gc_table);
+        Self::config_locals_op(
+            meta,
+            s_first_locals_op,
+            &cells,
+            true,
+            gc_table,
+            call_index_table,
+            locals_index_table,
+        );
 
         let s_locals_op = meta.complex_selector();
-        Self::config_locals_op(meta, s_locals_op, &cells, false, gc_table);
+        Self::config_locals_op(
+            meta,
+            s_locals_op,
+            &cells,
+            false,
+            gc_table,
+            call_index_table,
+            locals_index_table,
+        );
 
         LocalsOpChipConfig {
             advices,
@@ -132,10 +152,21 @@ impl<F: FieldExt> LocalsOpChip<F> {
         cells: &LocalsOpCells<F>,
         is_first_op: bool,
         gc_table: &TableColumn,
+        call_index_table: &TableColumn,
+        locals_index_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
-        Self::constrain_locals_op(&cells, &mut constraints, is_first_op, &mut gc_lookups);
+        let mut call_index_lookups = Vec::new();
+        let mut locals_index_lookups = Vec::new();
+        Self::constrain_locals_op(
+            &cells,
+            &mut constraints,
+            is_first_op,
+            &mut gc_lookups,
+            &mut call_index_lookups,
+            &mut locals_index_lookups,
+        );
 
         meta.create_gate("constrain locals op", |meta| {
             let selector = meta.query_selector(selector);
@@ -150,13 +181,29 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 vec![(selector * lookup, *gc_table)]
             });
         }
+
+        for lookup in call_index_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *call_index_table)]
+            });
+        }
+
+        for lookup in locals_index_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *locals_index_table)]
+            });
+        }
     }
 
     fn constrain_locals_op(
         cells: &LocalsOpCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
-        lookups: &mut Vec<Expression<F>>,
+        gc_lookups: &mut Vec<Expression<F>>,
+        call_index_lookups: &mut Vec<Expression<F>>,
+        locals_index_lookups: &mut Vec<Expression<F>>,
     ) {
         if is_first {
             // for the first op: counter == 1, rw == Write
@@ -195,9 +242,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cells.rw.expression.clone() * (cells.rw.expression.clone() - 1.expr()),
             ));
 
-            // todo: index must be great than or equal to prev_index
-            // todo: index must be less than MAX_LOCALS_SIZE
-
             // for ops with same call_index/index, gc must be great than prev_gc
             // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
             // 2.lookup gc_table when call_index/index is same with previous
@@ -214,10 +258,25 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 delt_index.clone()
                     * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
             ));
-            lookups.push(
-                (1.expr() - delt_call_index * cells.delta_invert_call_index.expression.clone())
+            gc_lookups.push(
+                (1.expr()
+                    - delt_call_index.clone() * cells.delta_invert_call_index.expression.clone())
                     * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
+            );
+
+            // call_index must be less than MAX_CALL_INDEX
+            call_index_lookups.push(cells.index.expression.clone());
+            // index must be less than MAX_LOCALS_SIZE
+            locals_index_lookups.push(cells.index.expression.clone());
+            // call_index must be great than or equal to prev_call_index
+            call_index_lookups.push(
+                cells.call_index.expression.clone() - cells.prev_call_index.expression.clone(),
+            );
+            // for same call_index, index must be great than or equal to prev_index
+            locals_index_lookups.push(
+                (1.expr() - delt_call_index * cells.delta_invert_call_index.expression.clone())
+                    * (cells.index.expression.clone() - cells.prev_index.expression.clone()),
             );
         }
     }
