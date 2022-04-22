@@ -30,6 +30,7 @@ fn test_execution_step() -> VmResult<()> {
         MoveBytecode::Pop,
         MoveBytecode::Ret,
     ];
+    let bytecodes = (script.clone(), vec![]).into();
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
 
@@ -164,7 +165,7 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+    let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
     let circuit_exe = ExecutionCircuit {
         circuit_inputs: circuit_inputs.clone(),
     };
@@ -189,6 +190,15 @@ fn test_execution_step() -> VmResult<()> {
 #[test]
 fn test_fake_rw_operation() -> VmResult<()> {
     logger::init_for_test();
+    let mut script = empty_script();
+    script.code.code = vec![
+        MoveBytecode::LdU64(1u64),
+        MoveBytecode::LdU64(2u64),
+        MoveBytecode::Add,
+        MoveBytecode::Pop,
+        MoveBytecode::Ret,
+    ];
+    let bytecodes = (script, vec![]).into();
 
     let step_0 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -308,7 +318,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     rw_operations.push(rw_op_5);
     rw_operations.push(fake_rw_op);
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+    let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
     let circuit_exe = ExecutionCircuit {
         circuit_inputs: circuit_inputs.clone(),
     };
@@ -334,12 +344,15 @@ fn test_fake_rw_operation() -> VmResult<()> {
 fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     logger::init_for_test();
 
-    // code:
-    // MoveBytecode::LdU64(1u64),
-    // MoveBytecode::LdU64(1u64),
-    // MoveBytecode::Add,
-    // MoveBytecode::Pop,
-    // MoveBytecode::Ret,
+    let mut script = empty_script();
+    script.code.code = vec![
+        MoveBytecode::LdU64(1u64),
+        MoveBytecode::LdU64(1u64),
+        MoveBytecode::Add,
+        MoveBytecode::Pop,
+        MoveBytecode::Ret,
+    ];
+    let bytecodes = (script, vec![]).into();
 
     let step_0 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -457,7 +470,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     wrong_sorted_stack_operations.push(rw_op_1);
     wrong_sorted_stack_operations.push(rw_op_2);
 
-    let mut circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+    let mut circuit_inputs =
+        CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
     circuit_inputs.sorted_stack_ops.0 = wrong_sorted_stack_operations;
     let circuit_exe = ExecutionCircuit {
         circuit_inputs: circuit_inputs.clone(),

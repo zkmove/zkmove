@@ -4,7 +4,12 @@ use crate::value::Value;
 use crate::vm_circuit::chips::bytecode::Opcode;
 use crate::vm_circuit::chips::lookup_tables::RWTarget;
 use halo2_proofs::arithmetic::FieldExt;
+use move_binary_format::file_format::{
+    Bytecode, CompiledModuleMut, CompiledScript, CompiledScriptMut,
+};
+use move_binary_format::CompiledModule;
 use std::cmp::Ordering;
+use std::convert::From;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -223,22 +228,131 @@ impl<F: FieldExt> From<&SortedLocalsOps<F>> for Vec<Vec<Option<F>>> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct BytecodeInfo {
+    module_index: u16,
+    function_index: u16,
+    pc: u16,
+    bytecode: Bytecode,
+}
+
+impl Default for BytecodeInfo {
+    fn default() -> Self {
+        Self::new(0, 0, 0, Bytecode::Nop)
+    }
+}
+
+impl BytecodeInfo {
+    pub fn new(module_index: u16, function_index: u16, pc: u16, bytecode: Bytecode) -> Self {
+        BytecodeInfo {
+            module_index,
+            function_index,
+            pc,
+            bytecode,
+        }
+    }
+}
+
+#[derive(Clone, Default, PartialEq, Debug)]
+pub struct BytecodeTable(Vec<BytecodeInfo>);
+
+impl BytecodeTable {
+    pub fn new(bytecodes: Vec<BytecodeInfo>) -> Self {
+        Self(bytecodes)
+    }
+    pub fn as_inner(&self) -> &Vec<BytecodeInfo> {
+        &self.0
+    }
+    pub fn into_inner(self) -> Vec<BytecodeInfo> {
+        self.0
+    }
+}
+
+impl From<CompiledScriptMut> for BytecodeTable {
+    fn from(script: CompiledScriptMut) -> BytecodeTable {
+        BytecodeTable(
+            script
+                .code
+                .code
+                .iter()
+                .enumerate()
+                .map(|(i, bytecode)| BytecodeInfo::new(0, 0, i as u16, bytecode.clone()))
+                .collect(),
+        )
+    }
+}
+
+impl From<Vec<CompiledModuleMut>> for BytecodeTable {
+    fn from(modules: Vec<CompiledModuleMut>) -> BytecodeTable {
+        let mut bytecodes = Vec::new();
+        for (index, module) in modules.iter().enumerate() {
+            let module_index = index + 1;
+            for func_def in module.function_defs.iter() {
+                if let Some(code_unit) = func_def.code.clone() {
+                    let mut func_bytecodes = code_unit
+                        .code
+                        .iter()
+                        .enumerate()
+                        .map(|(i, bytecode)| {
+                            BytecodeInfo::new(
+                                module_index as u16,
+                                func_def.function.0,
+                                i as u16,
+                                bytecode.clone(),
+                            )
+                        })
+                        .collect();
+                    bytecodes.append(&mut func_bytecodes);
+                }
+            }
+        }
+        BytecodeTable(bytecodes)
+    }
+}
+
+impl From<(CompiledScriptMut, Vec<CompiledModuleMut>)> for BytecodeTable {
+    fn from((script, modules): (CompiledScriptMut, Vec<CompiledModuleMut>)) -> BytecodeTable {
+        let script_bytecodes = BytecodeTable::from(script);
+        let modules_bytecodes = BytecodeTable::from(modules);
+        let mut bytecodes = Vec::new();
+        bytecodes.append(&mut script_bytecodes.into_inner());
+        bytecodes.append(&mut modules_bytecodes.into_inner());
+        BytecodeTable(bytecodes)
+    }
+}
+
+impl From<(CompiledScript, Vec<CompiledModule>)> for BytecodeTable {
+    fn from((script, modules): (CompiledScript, Vec<CompiledModule>)) -> BytecodeTable {
+        let modules_into_inner = modules
+            .into_iter()
+            .map(|module| module.into_inner())
+            .collect();
+        (script.into_inner(), modules_into_inner).into()
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct CircuitInputs<F: FieldExt> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_lookup_table: RWLookUpTable<F>,
     pub sorted_stack_ops: SortedStackOps<F>,
     pub sorted_locals_ops: SortedLocalsOps<F>,
+    pub bytecode_table: BytecodeTable,
 }
 
 impl<F: FieldExt> CircuitInputs<F> {
-    pub fn new(exec_steps: Vec<ExecutionStep<F>>, rw_lookup_table: RWLookUpTable<F>) -> Self {
+    pub fn new(
+        exec_steps: Vec<ExecutionStep<F>>,
+        rw_lookup_table: RWLookUpTable<F>,
+        bytecode_table: BytecodeTable,
+    ) -> Self {
         let (sorted_stack_ops, sorted_locals_ops) = rw_lookup_table.clone().into();
         CircuitInputs {
             exec_steps,
             rw_lookup_table,
             sorted_stack_ops,
             sorted_locals_ops,
+            bytecode_table,
         }
     }
 }
@@ -265,6 +379,80 @@ impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
         self.sorted_locals_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::vm_circuit::circuit_inputs::{BytecodeInfo, BytecodeTable};
+    use error::VmResult;
+    use move_binary_format::file_format::{
+        empty_module, empty_script, Bytecode, CodeUnit, CompiledModuleMut, CompiledScriptMut,
+        FunctionDefinition, FunctionHandle, FunctionHandleIndex, IdentifierIndex,
+        ModuleHandleIndex, SignatureIndex, Visibility,
+    };
+    use move_core_types::identifier::Identifier;
+
+    // module {
+    //     foo() {
+    //     }
+    // }
+    fn test_module() -> CompiledModuleMut {
+        let mut m = empty_module();
+
+        m.function_handles.push(FunctionHandle {
+            module: ModuleHandleIndex(0),
+            name: IdentifierIndex(m.identifiers.len() as u16),
+            parameters: SignatureIndex(0),
+            return_: SignatureIndex(0),
+            type_parameters: vec![],
+        });
+        m.identifiers
+            .push(Identifier::new("foo".to_string()).unwrap());
+
+        m.function_defs.push(FunctionDefinition {
+            function: FunctionHandleIndex(0),
+            visibility: Visibility::Private,
+            acquires_global_resources: vec![],
+            code: Some(CodeUnit {
+                locals: SignatureIndex(0),
+                code: vec![Bytecode::Ret],
+            }),
+        });
+        m
+    }
+
+    fn test_script() -> CompiledScriptMut {
+        let mut script = empty_script();
+        script.code.code = vec![
+            Bytecode::LdU64(1u64),
+            Bytecode::LdU64(2u64),
+            Bytecode::Add,
+            Bytecode::Pop,
+            Bytecode::Ret,
+        ];
+        script
+    }
+
+    #[test]
+    fn test_bytecode_table() -> VmResult<()> {
+        logger::init_for_test();
+
+        let script = test_script();
+        let module = test_module();
+        let bytecodes = BytecodeTable::from((script.clone(), vec![module]));
+
+        let expected_bytecode_table = BytecodeTable(vec![
+            BytecodeInfo::new(0, 0, 0, Bytecode::LdU64(1u64)),
+            BytecodeInfo::new(0, 0, 1, Bytecode::LdU64(2u64)),
+            BytecodeInfo::new(0, 0, 2, Bytecode::Add),
+            BytecodeInfo::new(0, 0, 3, Bytecode::Pop),
+            BytecodeInfo::new(0, 0, 4, Bytecode::Ret),
+            BytecodeInfo::new(1, 0, 0, Bytecode::Ret),
+        ]);
+
+        assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");
         Ok(())
     }
 }

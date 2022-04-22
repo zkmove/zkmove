@@ -1,7 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use crate::fast_circuit::move_circuit::FastMoveCircuit;
-use crate::vm_circuit::circuit_inputs::{CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation};
+use crate::vm_circuit::circuit_inputs::{
+    BytecodeTable, CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation,
+};
 use crate::vm_circuit::execution_circuit::ExecutionCircuit;
 use crate::vm_circuit::interpreter::Interpreter;
 use crate::vm_circuit::memory_circuit::MemoryCircuit;
@@ -72,9 +74,11 @@ impl Runtime {
         &self,
         exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
+        bytecodes: BytecodeTable,
         k: u32,
     ) -> VmResult<()> {
-        let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations));
+        let circuit_inputs =
+            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
         debug!("{:?}", circuit_inputs);
         let circuit_exe = ExecutionCircuit {
             circuit_inputs: circuit_inputs.clone(),
