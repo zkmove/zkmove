@@ -73,6 +73,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let k = 6;
         let runtime = Runtime::new();
         let mut state = StateStore::new();
+
+        // todo: refactor bytecode table, global state and module table
+        let bytecodes = (script, compiled_modules.clone()).into();
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);
         }
@@ -118,7 +121,6 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             config.args,
             &mut state,
         )?;
-        let bytecodes = (script, compiled_modules).into();
         let k = 10; // todo: auto chose a proper degree
         runtime.mock_prove_execution_trace(exec_steps, rw_operations, bytecodes, k)?;
     }

@@ -18,12 +18,14 @@ use std::cell::RefCell;
 #[derive(Clone)]
 pub struct StateStore {
     modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
+    module_table: RefCell<Vec<ModuleId>>,
 }
 
 impl StateStore {
     pub fn new() -> Self {
         Self {
             modules: RefCell::new(HashMap::new()),
+            module_table: RefCell::new(Vec::new()),
         }
     }
 
@@ -31,7 +33,20 @@ impl StateStore {
         let module_id = compiled_module.self_id();
         let mut bytes = vec![];
         compiled_module.serialize(&mut bytes).unwrap();
-        self.modules.borrow_mut().insert(module_id, bytes);
+        self.modules.borrow_mut().insert(module_id.clone(), bytes);
+        self.module_table.borrow_mut().push(module_id);
+    }
+
+    // module index is used in vm circuit to lookup the bytecode in the module
+    // todo: we need a more elegant approach to maintain the module table
+    pub fn module_index(&self, module_id: &ModuleId) -> Option<u16> {
+        let mut module_index = None;
+        for (index, id) in self.module_table.borrow().iter().enumerate() {
+            if id == module_id {
+                module_index = Some(index as u16 + 1); // add 1, to reserve 0 for txn script
+            }
+        }
+        module_index
     }
 }
 
@@ -91,6 +106,10 @@ impl<'s> DataStore for State<'s> {
                     ))
                     .finish(Location::Undefined)
             })?;
+        self.state_store
+            .module_table
+            .borrow_mut()
+            .push(module_id.clone());
         Ok(())
     }
 

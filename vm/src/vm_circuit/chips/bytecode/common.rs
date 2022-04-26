@@ -1,4 +1,5 @@
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::bytecode::Opcode;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
@@ -208,6 +209,31 @@ impl<F: FieldExt> LoadOp<F> {
                 cells.value_a.expression.clone(),
             ),
             cond,
+        ));
+    }
+}
+
+pub struct LookupBytecode<F: FieldExt> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> LookupBytecode<F> {
+    pub fn lookup_bytecode(
+        cells: &StepChipCells<F>,
+        opcode: Opcode,
+        bytecode_operand: Expression<F>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        cond: Expression<F>,
+    ) {
+        bytecode_lookups.push((
+            BytecodeLookup {
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                opcode: (opcode.index() as u64).expr(),
+                operand: bytecode_operand,
+            },
+            cond.clone(),
         ));
     }
 }

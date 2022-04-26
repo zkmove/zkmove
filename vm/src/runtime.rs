@@ -63,6 +63,7 @@ impl Runtime {
             args,
             arg_types,
             self.loader(),
+            data_store,
             &mut exec_steps,
             &mut rw_operations,
         )?;

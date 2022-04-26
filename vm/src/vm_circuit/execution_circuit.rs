@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::lookup_tables::RWTable;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookupTable, RWTable};
 use crate::vm_circuit::chips::step_chip::{StepChip, StepConfig};
 use crate::vm_circuit::chips::step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
@@ -16,6 +16,7 @@ use logger::prelude::*;
 pub struct ExecutionCircuitConfig<F: FieldExt> {
     step_config: StepConfig<F>,
     rw_table: RWTable,
+    bytecode_table: BytecodeLookupTable,
 }
 
 #[derive(Clone, Default)]
@@ -33,12 +34,14 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let rw_table = RWTable::construct(meta);
+        let bytecode_table = BytecodeLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        let step_config = StepChip::configure(meta, advices, &rw_table);
+        let step_config = StepChip::configure(meta, advices, &rw_table, &bytecode_table);
 
         Self::Config {
             step_config,
             rw_table,
+            bytecode_table,
         }
     }
 
@@ -105,6 +108,42 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
                                         error!("rw operation field[{}] is None", column_idx);
                                         Error::Synthesis
                                     })
+                                },
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )?;
+        }
+
+        let converted_bytecodes: Vec<Vec<F>> = (&self.circuit_inputs.bytecode_table).into();
+        for (column_idx, column) in config.bytecode_table.columns().into_iter().enumerate() {
+            layouter.assign_table(
+                || format!("bytecode_table[{}]", column_idx),
+                |mut table_column| {
+                    table_column.assign_cell(
+                        || format!("bytecode_table[{}][0]", column_idx),
+                        column,
+                        0,
+                        || Ok(F::zero()),
+                    )?;
+                    (0..converted_bytecodes.len())
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("bytecode_table[{}][{}]", column_idx, i),
+                                column,
+                                i + 1,
+                                || {
+                                    let bytecode_info =
+                                        converted_bytecodes.get(i).ok_or_else(|| {
+                                            error!("get bytecode table element error");
+                                            Error::Synthesis
+                                        })?;
+                                    let field = bytecode_info.get(column_idx).ok_or_else(|| {
+                                        error!("get bytecode_info_field error");
+                                        Error::Synthesis
+                                    })?;
+                                    Ok(field.clone())
                                 },
                             )
                         })

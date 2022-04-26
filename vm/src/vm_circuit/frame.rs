@@ -9,6 +9,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
+use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::sync::Arc;
 
@@ -39,14 +40,26 @@ impl<F: FieldExt> Frame<F> {
         self.pc += 1;
     }
 
+    pub fn module_index(&self, data_store: &mut StateStore) -> Option<u16> {
+        match self.function.module_id() {
+            Some(module_id) => data_store.module_index(module_id),
+            None => Some(0), // function is in the script
+        }
+    }
+
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
+        data_store: &mut StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
         let call_index = interp.frames.size();
+        let module_index = self
+            .module_index(data_store)
+            .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+        let function_index = self.function.index().0;
         loop {
             for instruction in &code[self.pc as usize..] {
                 let mut execution_step = ExecutionStep {
@@ -56,6 +69,8 @@ impl<F: FieldExt> Frame<F> {
                     call_index,
                     locals_index: 0, // will be filled in CopyLoc, StLoc, MoveLoc
                     gc: rw_operations.len(),
+                    module_index,
+                    function_index,
                     auxiliary: None,
                 };
 

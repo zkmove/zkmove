@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::common::UnaryOp;
+use crate::vm_circuit::chips::bytecode::common::{LookupBytecode, UnaryOp};
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
@@ -20,6 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for Not<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Not.index()].expression.clone();
 
@@ -29,7 +30,8 @@ impl<F: FieldExt> BytecodeInterface<F> for Not<F> {
         let constraint = cond.clone() * (1.expr() - x - out);
         constraints.push(("Not", constraint));
         UnaryOp::constrain_unary_op(cells, constraints, cond.clone());
-        UnaryOp::lookup_unary_op(cells, rw_lookups, cond);
+        UnaryOp::lookup_unary_op(cells, rw_lookups, cond.clone());
+        LookupBytecode::lookup_bytecode(cells, Opcode::Not, 0.expr(), bytecode_lookups, cond);
     }
 
     fn assign(

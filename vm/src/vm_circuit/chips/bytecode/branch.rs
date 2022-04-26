@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
+use crate::vm_circuit::chips::bytecode::common::LookupBytecode;
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
@@ -19,6 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for Branch<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         _rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Branch.index()].expression.clone();
         // next pc is assigned in the auxiliary
@@ -32,8 +34,16 @@ impl<F: FieldExt> BytecodeInterface<F> for Branch<F> {
             ("branch pc", cond.clone() * pc_expr),
             ("branch stack size", cond.clone() * stack_size_expr),
             ("branch call index", cond.clone() * call_index_expr),
-            ("branch gc", cond * gc_expr),
+            ("branch gc", cond.clone() * gc_expr),
         ]);
+
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Branch,
+            cells.auxiliary.expression.clone(),
+            bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(

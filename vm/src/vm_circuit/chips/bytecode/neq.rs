@@ -1,9 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::common::BinaryOp;
+use crate::vm_circuit::chips::bytecode::common::{BinaryOp, LookupBytecode};
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
+use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -19,6 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for Neq<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         //Neq
         let cond = cells.conditions[Opcode::Neq.index()].expression.clone();
@@ -34,7 +36,8 @@ impl<F: FieldExt> BytecodeInterface<F> for Neq<F> {
 
         constraints.push(("Neq", constraint));
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, rw_lookups, cond);
+        BinaryOp::lookup_binary_op(cells, rw_lookups, cond.clone());
+        LookupBytecode::lookup_bytecode(cells, Opcode::Neq, 0.expr(), bytecode_lookups, cond);
     }
 
     fn assign(

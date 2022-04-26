@@ -175,3 +175,43 @@ impl<F: FieldExt> RWLookup<F> {
         )
     }
 }
+
+#[derive(Clone)]
+pub struct BytecodeLookupTable {
+    pub module_index_column: TableColumn,
+    pub function_index_column: TableColumn,
+    pub pc_column: TableColumn,
+    pub opcode_column: TableColumn,
+    pub operand_column: TableColumn,
+}
+pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 5;
+
+impl BytecodeLookupTable {
+    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+        BytecodeLookupTable {
+            module_index_column: meta.lookup_table_column(),
+            function_index_column: meta.lookup_table_column(),
+            pc_column: meta.lookup_table_column(),
+            opcode_column: meta.lookup_table_column(),
+            operand_column: meta.lookup_table_column(),
+        }
+    }
+
+    pub fn columns(&self) -> Vec<TableColumn> {
+        let mut columns = Vec::new();
+        columns.push(self.module_index_column);
+        columns.push(self.function_index_column);
+        columns.push(self.pc_column);
+        columns.push(self.opcode_column);
+        columns.push(self.operand_column);
+        columns
+    }
+}
+
+pub struct BytecodeLookup<F: FieldExt> {
+    pub module_index: Expression<F>,
+    pub function_index: Expression<F>,
+    pub pc: Expression<F>,
+    pub opcode: Expression<F>,
+    pub operand: Expression<F>,
+}

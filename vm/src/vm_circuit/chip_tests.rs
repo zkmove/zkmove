@@ -56,6 +56,7 @@ fn test_execution_step() -> VmResult<()> {
             None,
             arg_types,
             runtime.loader(),
+            &mut data_store,
             &mut exec_steps,
             &mut rw_operations,
         )
@@ -68,6 +69,8 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 0,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let expected_step_1 = ExecutionStep {
@@ -77,6 +80,8 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 1,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let expected_step_2 = ExecutionStep {
@@ -86,6 +91,8 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 2,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let expected_step_3 = ExecutionStep {
@@ -95,6 +102,8 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 5,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let expected_step_4 = ExecutionStep {
@@ -104,6 +113,8 @@ fn test_execution_step() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 6,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
 
@@ -207,6 +218,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 0,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_1 = ExecutionStep::<Fp> {
@@ -216,6 +229,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 1,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_2 = ExecutionStep::<Fp> {
@@ -225,6 +240,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 2,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_3 = ExecutionStep::<Fp> {
@@ -234,6 +251,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 5,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_4 = ExecutionStep::<Fp> {
@@ -243,6 +262,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 6,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
 
@@ -361,6 +382,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 0,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_1 = ExecutionStep::<Fp> {
@@ -370,6 +393,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 1,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_2 = ExecutionStep::<Fp> {
@@ -379,6 +404,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 2,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_3 = ExecutionStep::<Fp> {
@@ -388,6 +415,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 5,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
     let step_4 = ExecutionStep::<Fp> {
@@ -397,6 +426,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         call_index: 0,
         locals_index: 0,
         gc: 6,
+        module_index: 0,
+        function_index: 0,
         auxiliary: None,
     };
 

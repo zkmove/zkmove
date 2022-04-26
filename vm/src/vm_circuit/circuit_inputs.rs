@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::chips::bytecode::Opcode;
+use crate::vm_circuit::chips::bytecode::{convert_to_fields, Opcode};
 use crate::vm_circuit::chips::lookup_tables::RWTarget;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{
@@ -20,6 +20,8 @@ pub struct ExecutionStep<F: FieldExt> {
     pub call_index: usize,
     pub locals_index: usize,
     pub gc: usize, // global counter for stack, locals, state accesses
+    pub module_index: u16,
+    pub function_index: u16,
     pub auxiliary: Option<Value<F>>,
 }
 
@@ -253,6 +255,22 @@ impl BytecodeInfo {
     }
 }
 
+// convert BytecodeInfo into a vector of field values
+impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
+    fn from(bytecode_info: &BytecodeInfo) -> Vec<F> {
+        let mut field_values = Vec::new();
+        field_values.push(F::from_u128(bytecode_info.module_index as u128));
+        field_values.push(F::from_u128(bytecode_info.function_index as u128));
+        field_values.push(F::from_u128(bytecode_info.pc as u128));
+
+        let (opcode, operand) = convert_to_fields(bytecode_info.bytecode.clone());
+        field_values.push(opcode);
+        field_values.push(operand);
+
+        field_values
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct BytecodeTable(Vec<BytecodeInfo>);
 
@@ -265,6 +283,17 @@ impl BytecodeTable {
     }
     pub fn into_inner(self) -> Vec<BytecodeInfo> {
         self.0
+    }
+}
+
+// convert BytecodeTable into a vector of vector of field values
+impl<F: FieldExt> From<&BytecodeTable> for Vec<Vec<F>> {
+    fn from(bytecode_table: &BytecodeTable) -> Vec<Vec<F>> {
+        bytecode_table
+            .0
+            .iter()
+            .map(|bytecode_info| bytecode_info.into())
+            .collect()
     }
 }
 

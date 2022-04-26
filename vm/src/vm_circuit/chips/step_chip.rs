@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::vm_circuit::chips::bytecode::Opcode;
-use crate::vm_circuit::chips::lookup_tables::RWTable;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookupTable, RWTable};
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
@@ -11,8 +11,8 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 6;
-pub const NUM_OF_STEP_STATE: usize = 6; //pc, stack_size, call_index, locals_index, gc, auxiliary
+pub const STEP_HEIGHT: usize = 7;
+pub const NUM_OF_STEP_STATE: usize = 8; //pc, stack_size, call_index, locals_index, gc, auxiliary, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
 
@@ -23,6 +23,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub call_index: Cell<F>,
     pub locals_index: Cell<F>,
     pub gc: Cell<F>,
+    pub module_index: Cell<F>,
+    pub function_index: Cell<F>,
     pub auxiliary: Cell<F>,
 
     pub conditions: Vec<Cell<F>>,
@@ -39,6 +41,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub next_call_index: Cell<F>,
     pub next_locals_index: Cell<F>,
     pub next_gc: Cell<F>,
+    pub next_module_index: Cell<F>,
+    pub next_function_index: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +85,7 @@ impl<F: FieldExt> StepChip<F> {
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         rw_table: &RWTable,
+        bytecode_table: &BytecodeLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
@@ -110,7 +115,10 @@ impl<F: FieldExt> StepChip<F> {
             call_index: cells.pop_front().unwrap(),
             locals_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
+            module_index: cells.pop_front().unwrap(),
+            function_index: cells.pop_front().unwrap(),
             auxiliary: cells.pop_front().unwrap(),
+
             conditions: cells.drain(0..Opcode::total_numbers()).collect(),
 
             value_a: cells.pop_front().unwrap(),
@@ -125,14 +133,23 @@ impl<F: FieldExt> StepChip<F> {
             next_call_index: cells.pop_front().unwrap(),
             next_locals_index: cells.pop_front().unwrap(),
             next_gc: cells.pop_front().unwrap(),
+            next_module_index: cells.pop_front().unwrap(),
+            next_function_index: cells.pop_front().unwrap(),
         };
 
         // config each execution path of the step
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
+        let mut bytecode_lookups = Vec::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        Opcode::iter()
-            .for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut rw_lookups));
+        Opcode::iter().for_each(|opcode| {
+            opcode.configure(
+                &cells,
+                &mut constraints,
+                &mut rw_lookups,
+                &mut bytecode_lookups,
+            )
+        });
 
         let s_step = meta.complex_selector();
 
@@ -171,6 +188,34 @@ impl<F: FieldExt> StepChip<F> {
                         rw_table.address_column,
                     ),
                     (s_step * lookup.value * cond, rw_table.value_column),
+                ]
+            });
+        }
+
+        for (lookup, cond) in bytecode_lookups {
+            meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.module_index * cond.clone(),
+                        bytecode_table.module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.function_index * cond.clone(),
+                        bytecode_table.function_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pc * cond.clone(),
+                        bytecode_table.pc_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.opcode * cond.clone(),
+                        bytecode_table.opcode_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.operand * cond.clone(),
+                        bytecode_table.operand_column,
+                    ),
                 ]
             });
         }
@@ -240,6 +285,16 @@ impl<F: FieldExt> StepChip<F> {
             .cells
             .gc
             .assign(region, offset, Some(F::from(step.gc as u64)))?;
+        self.config.cells.module_index.assign(
+            region,
+            offset,
+            Some(F::from(step.module_index as u64)),
+        )?;
+        self.config.cells.function_index.assign(
+            region,
+            offset,
+            Some(F::from(step.function_index as u64)),
+        )?;
 
         // assign conditions
         self.config
@@ -256,7 +311,7 @@ impl<F: FieldExt> StepChip<F> {
                 let _assigned = cell.assign(region, offset, Some(condition));
             });
 
-        // assign operands for the opcode
+        // assign other cells for the step
         step.opcode
             .assign(region, offset, step, rw_table, &self.config.cells)?;
 

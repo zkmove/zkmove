@@ -1,8 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::BytecodeInterface;
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::bytecode::common::LookupBytecode;
+use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
+use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -15,10 +17,13 @@ pub struct Ret<F: FieldExt> {
 
 impl<F: FieldExt> BytecodeInterface<F> for Ret<F> {
     fn configure(
-        _cells: &StepChipCells<F>,
+        cells: &StepChipCells<F>,
         _constraints: &mut Vec<(&str, Expression<F>)>,
         _rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
+        let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
+        LookupBytecode::lookup_bytecode(cells, Opcode::Ret, 0.expr(), bytecode_lookups, cond);
     }
 
     fn assign(

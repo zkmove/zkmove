@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::{RWLookup, RWTarget};
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
 use crate::vm_circuit::chips::step_chip::{StepChipCells, MAX_NUM_OF_ARGUMENTS};
 use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
@@ -20,6 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for Call<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
         let arg_num = cells.auxiliary.expression.clone();
@@ -60,6 +61,8 @@ impl<F: FieldExt> BytecodeInterface<F> for Call<F> {
                 cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
             ));
         }
+
+        // todo: lookup Call(index: FunctionHandleIndex) in bytecode table. how to constrain index?
     }
 
     fn assign(

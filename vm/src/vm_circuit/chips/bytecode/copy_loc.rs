@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
+use crate::vm_circuit::chips::bytecode::common::LookupBytecode;
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
@@ -19,6 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for CopyLoc<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::CopyLoc.index()].expression.clone();
 
@@ -45,7 +47,14 @@ impl<F: FieldExt> BytecodeInterface<F> for CopyLoc<F> {
         );
 
         rw_lookups.push((read, cond.clone()));
-        rw_lookups.push((write, cond));
+        rw_lookups.push((write, cond.clone()));
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::CopyLoc,
+            cells.locals_index.expression.clone(),
+            bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(

@@ -1,9 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::vm_circuit::chips::bytecode::common::LoadOp;
+use crate::vm_circuit::chips::bytecode::common::{LoadOp, LookupBytecode};
 use crate::vm_circuit::chips::bytecode::{BytecodeInterface, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWLookup;
+use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
+use crate::vm_circuit::chips::utilities::Expr;
 use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -19,11 +20,13 @@ impl<F: FieldExt> BytecodeInterface<F> for LdFalse<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         //LdFalse
         let cond = cells.conditions[Opcode::LdFalse.index()].expression.clone();
         LoadOp::constrain_ld_op(cells, constraints, cond.clone());
-        LoadOp::lookup_ld_op(cells, rw_lookups, cond);
+        LoadOp::lookup_ld_op(cells, rw_lookups, cond.clone());
+        LookupBytecode::lookup_bytecode(cells, Opcode::LdFalse, 0.expr(), bytecode_lookups, cond);
     }
 
     fn assign(

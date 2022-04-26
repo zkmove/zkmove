@@ -11,6 +11,7 @@ use logger::prelude::*;
 use move_vm_runtime::loader::Function;
 use movelang::argument::{convert_from, ScriptArguments};
 use movelang::loader::MoveLoader;
+use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::sync::Arc;
 
@@ -103,6 +104,7 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
+        data_store: &mut StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
@@ -113,7 +115,7 @@ impl<F: FieldExt> Interpreter<F> {
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, exec_steps, rw_operations)?;
+            let status = frame.execute(self, data_store, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
