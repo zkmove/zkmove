@@ -7,6 +7,7 @@ pub mod interpreter;
 pub mod locals;
 pub mod stack;
 
+pub mod bytecode_circuit;
 #[cfg(test)]
 mod chip_tests;
 pub mod execution_circuit;
