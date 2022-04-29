@@ -117,7 +117,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("Generate execution trace for script {:?}", script_file);
         let (exec_steps, rw_operations) = runtime.generate_trace::<Fp>(
             script_bytes,
-            compiled_modules.clone(),
+            compiled_modules,
             config.args,
             &mut state,
         )?;

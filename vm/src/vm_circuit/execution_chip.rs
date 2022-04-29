@@ -4,53 +4,67 @@ use crate::vm_circuit::chips::lookup_tables::{BytecodeLookupTable, RWTable};
 use crate::vm_circuit::chips::step_chip::{StepChip, StepConfig};
 use crate::vm_circuit::chips::step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
-use halo2_proofs::circuit::Region;
+use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
+    circuit::Layouter,
+    plonk::{ConstraintSystem, Error},
 };
 use logger::prelude::*;
 
-#[derive(Clone)]
-pub struct ExecutionCircuitConfig<F: FieldExt> {
+#[derive(Clone, Debug)]
+pub struct ExecutionChipConfig<F: FieldExt> {
     step_config: StepConfig<F>,
     rw_table: RWTable,
     bytecode_table: BytecodeLookupTable,
 }
 
-#[derive(Clone, Default)]
-pub struct ExecutionCircuit<F: FieldExt> {
+#[derive(Clone, Debug)]
+pub struct ExecutionChip<F: FieldExt> {
     pub circuit_inputs: CircuitInputs<F>,
+    pub config: ExecutionChipConfig<F>,
 }
 
-impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
-    type Config = ExecutionCircuitConfig<F>;
-    type FloorPlanner = SimpleFloorPlanner;
+impl<F: FieldExt> Chip<F> for ExecutionChip<F> {
+    type Config = ExecutionChipConfig<F>;
+    type Loaded = ();
 
-    fn without_witnesses(&self) -> Self {
-        Self::default()
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 
-    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
+}
+
+impl<F: FieldExt> ExecutionChip<F> {
+    pub fn construct(
+        circuit_inputs: CircuitInputs<F>,
+        config: <Self as Chip<F>>::Config,
+        _loaded: <Self as Chip<F>>::Loaded,
+    ) -> Self {
+        Self {
+            circuit_inputs,
+            config,
+        }
+    }
+
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let rw_table = RWTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
         let step_config = StepChip::configure(meta, advices, &rw_table, &bytecode_table);
 
-        Self::Config {
+        ExecutionChipConfig {
             step_config,
             rw_table,
             bytecode_table,
         }
     }
 
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
-        let step_chip = StepChip::<F>::construct(config.step_config, ());
+    pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        let step_chip = StepChip::<F>::construct(self.config.step_config.clone(), ());
 
         layouter.assign_region(
             || "execution steps",
@@ -79,7 +93,7 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
         converted_rw_operations.append(&mut stack_operations);
         converted_rw_operations.append(&mut locals_operations);
 
-        for (column_idx, column) in config.rw_table.columns().into_iter().enumerate() {
+        for (column_idx, column) in self.config.rw_table.columns().into_iter().enumerate() {
             layouter.assign_table(
                 || format!("rw_table[{}]", column_idx),
                 |mut table_column| {
@@ -117,7 +131,7 @@ impl<F: FieldExt> Circuit<F> for ExecutionCircuit<F> {
         }
 
         let converted_bytecodes: Vec<Vec<F>> = (&self.circuit_inputs.bytecode_table).into();
-        for (column_idx, column) in config.bytecode_table.columns().into_iter().enumerate() {
+        for (column_idx, column) in self.config.bytecode_table.columns().into_iter().enumerate() {
             layouter.assign_table(
                 || format!("bytecode_table[{}]", column_idx),
                 |mut table_column| {

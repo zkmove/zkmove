@@ -5,34 +5,34 @@ use crate::vm_circuit::chips::locals_op_chip::{
 };
 use crate::vm_circuit::chips::stack_op_chip::{StackOpChip, StackOpChipConfig};
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
-use halo2_proofs::circuit::Region;
+use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
+    circuit::Layouter,
+    plonk::{ConstraintSystem, Error},
 };
 use logger::prelude::*;
 
-// Memory circuit is used to prove memory coherence - each load from memory(locals/stack)
+// Memory chip is used to prove memory coherence - each load from memory(locals/stack)
 // retrieves the last value stored there. The circuit input is the rw operations sorted by
 // address(locals index/stack address). For each address, we constrain the value we read
 // is equal to the value we just write.
 //
 // We don't need to constrain the 'sort by address' process, but need to constrain rw ops
 // in the execution steps is equal to the sorted rw ops. To do this, we need to:
-// 1. in execution circuit, lookup rw ops of each execution step in the sorted rw operations,
-// 2. in execution circuit, constrain the strict monotonic increment of gc.
+// 1. in execution chip, lookup rw ops of each execution step in the sorted rw operations,
+// 2. in execution chip, constrain the strict monotonic increment of gc.
 // 3. make sure total number of sorted rw operations is equal to the gc of the last
 // execution step.
 
-pub const MEM_CIRCUIT_WIDTH: usize = 8; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
+pub const MEM_CHIP_WIDTH: usize = 8; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
 
-#[derive(Clone)]
-pub struct MemoryCircuitConfig<F: FieldExt> {
-    advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+#[derive(Clone, Debug)]
+pub struct MemoryChipConfig<F: FieldExt> {
+    advices: [Column<Advice>; MEM_CHIP_WIDTH],
     stack_op_config: StackOpChipConfig<F>,
     locals_op_config: LocalsOpChipConfig<F>,
     s_add_counters: Selector,
@@ -41,21 +41,39 @@ pub struct MemoryCircuitConfig<F: FieldExt> {
     locals_index_table: TableColumn,
 }
 
-#[derive(Clone, Default)]
-pub struct MemoryCircuit<F: FieldExt> {
+#[derive(Clone, Debug)]
+pub struct MemoryChip<F: FieldExt> {
     pub circuit_inputs: CircuitInputs<F>,
+    pub config: MemoryChipConfig<F>,
 }
 
-impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
-    type Config = MemoryCircuitConfig<F>;
-    type FloorPlanner = SimpleFloorPlanner;
+impl<F: FieldExt> Chip<F> for MemoryChip<F> {
+    type Config = MemoryChipConfig<F>;
+    type Loaded = ();
 
-    fn without_witnesses(&self) -> Self {
-        Self::default()
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 
-    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let advices = [(); MEM_CIRCUIT_WIDTH].map(|_| meta.advice_column());
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
+}
+
+impl<F: FieldExt> MemoryChip<F> {
+    pub fn construct(
+        circuit_inputs: CircuitInputs<F>,
+        config: <Self as Chip<F>>::Config,
+        _loaded: <Self as Chip<F>>::Loaded,
+    ) -> Self {
+        Self {
+            circuit_inputs,
+            config,
+        }
+    }
+
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
+        let advices = [(); MEM_CHIP_WIDTH].map(|_| meta.advice_column());
         let gc_table = meta.lookup_table_column();
         let call_index_table = meta.lookup_table_column();
         let locals_index_table = meta.lookup_table_column();
@@ -82,7 +100,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
             vec![s_add_counters * (last_stack_counter + last_locals_counter - last_step_gc)]
         });
 
-        Self::Config {
+        MemoryChipConfig {
             advices,
             stack_op_config,
             locals_op_config,
@@ -93,12 +111,8 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         }
     }
 
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
-        let stack_op_chip = StackOpChip::<F>::construct(config.stack_op_config.clone(), ());
+    pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
         let stack_ops = &self.circuit_inputs.sorted_stack_ops.0;
         let mut last_stack_counter = None;
 
@@ -125,7 +139,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
             },
         )?;
 
-        let locals_op_chip = LocalsOpChip::<F>::construct(config.locals_op_config.clone(), ());
+        let locals_op_chip = LocalsOpChip::<F>::construct(self.config.locals_op_config.clone(), ());
         let mut last_locals_counter = None;
 
         layouter.assign_region(
@@ -170,12 +184,12 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
         layouter.assign_region(
             || "add counter",
             |mut region: Region<'_, F>| {
-                config.s_add_counters.enable(&mut region, 0)?;
+                self.config.s_add_counters.enable(&mut region, 0)?;
 
                 if let Some(assigned_last_stack_counter) = &last_stack_counter {
                     let lhs = region.assign_advice(
                         || "lhs",
-                        config.advices[0],
+                        self.config.advices[0],
                         0,
                         || {
                             let value_ref = assigned_last_stack_counter
@@ -186,13 +200,13 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                     )?;
                     region.constrain_equal(assigned_last_stack_counter.cell(), lhs.cell())?;
                 } else {
-                    region.assign_advice(|| "lhs", config.advices[0], 0, || Ok(F::zero()))?;
+                    region.assign_advice(|| "lhs", self.config.advices[0], 0, || Ok(F::zero()))?;
                 }
 
                 if let Some(assigned_last_locals_counter) = &last_locals_counter {
                     let rhs = region.assign_advice(
                         || "rhs",
-                        config.advices[1],
+                        self.config.advices[1],
                         0,
                         || {
                             let value_ref = assigned_last_locals_counter
@@ -203,12 +217,12 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                     )?;
                     region.constrain_equal(assigned_last_locals_counter.cell(), rhs.cell())?;
                 } else {
-                    region.assign_advice(|| "rhs", config.advices[1], 0, || Ok(F::zero()))?;
+                    region.assign_advice(|| "rhs", self.config.advices[1], 0, || Ok(F::zero()))?;
                 }
 
                 region.assign_advice(
                     || "last step gc",
-                    config.advices[2],
+                    self.config.advices[2],
                     0,
                     || Ok(F::from_u128(last_step_gc as u128)),
                 )?;
@@ -222,7 +236,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                 if last_step_gc == 0 {
                     table_column.assign_cell(
                         || format!("gc_table[0]"),
-                        config.gc_table,
+                        self.config.gc_table,
                         0,
                         || Ok(F::zero()),
                     )
@@ -231,7 +245,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                         .map(|i| {
                             table_column.assign_cell(
                                 || format!("gc_table[{}]", i),
-                                config.gc_table,
+                                self.config.gc_table,
                                 i,
                                 || Ok(F::from_u128(i as u128)),
                             )
@@ -248,7 +262,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                     .map(|i| {
                         table_column.assign_cell(
                             || format!("call_index_table[{}]", i),
-                            config.call_index_table,
+                            self.config.call_index_table,
                             i,
                             || Ok(F::from_u128(i as u128)),
                         )
@@ -264,7 +278,7 @@ impl<F: FieldExt> Circuit<F> for MemoryCircuit<F> {
                     .map(|i| {
                         table_column.assign_cell(
                             || format!("locals_index_table[{}]", i),
-                            config.locals_index_table,
+                            self.config.locals_index_table,
                             i,
                             || Ok(F::from_u128(i as u128)),
                         )

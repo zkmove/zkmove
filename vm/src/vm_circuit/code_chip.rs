@@ -4,51 +4,66 @@ use crate::vm_circuit::chips::bytecode_chip::{
     BytecodeChip, BytecodeChipConfig, BYTECODE_CHIP_WIDTH,
 };
 use crate::vm_circuit::circuit_inputs::CircuitInputs;
-use halo2_proofs::circuit::Region;
+use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
+    circuit::Layouter,
+    plonk::{ConstraintSystem, Error},
 };
 
-#[derive(Clone)]
-pub struct BytecodeCircuitConfig<F: FieldExt> {
+#[derive(Clone, Debug)]
+pub struct CodeChipConfig<F: FieldExt> {
     advices: [Column<Advice>; BYTECODE_CHIP_WIDTH],
     bytecode_chip_config: BytecodeChipConfig<F>,
 }
 
-#[derive(Clone, Default)]
-pub struct BytecodeCircuit<F: FieldExt> {
+#[derive(Clone, Debug)]
+pub struct CodeChip<F: FieldExt> {
     pub circuit_inputs: CircuitInputs<F>,
+    pub config: CodeChipConfig<F>,
 }
 
-impl<F: FieldExt> Circuit<F> for BytecodeCircuit<F> {
-    type Config = BytecodeCircuitConfig<F>;
-    type FloorPlanner = SimpleFloorPlanner;
+impl<F: FieldExt> Chip<F> for CodeChip<F> {
+    type Config = CodeChipConfig<F>;
+    type Loaded = ();
 
-    fn without_witnesses(&self) -> Self {
-        Self::default()
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 
-    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
+}
+
+impl<F: FieldExt> CodeChip<F> {
+    pub fn construct(
+        circuit_inputs: CircuitInputs<F>,
+        config: <Self as Chip<F>>::Config,
+        _loaded: <Self as Chip<F>>::Loaded,
+    ) -> Self {
+        Self {
+            circuit_inputs,
+            config,
+        }
+    }
+
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let advices = [(); BYTECODE_CHIP_WIDTH].map(|_| meta.advice_column());
         let bytecode_chip_config = BytecodeChip::configure(meta, advices);
 
         // todo: create gate for code hash check
 
-        BytecodeCircuitConfig {
+        CodeChipConfig {
             advices,
             bytecode_chip_config,
         }
     }
 
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
-        let bytecode_chip = BytecodeChip::<F>::construct(config.bytecode_chip_config.clone(), ());
+    pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        let bytecode_chip =
+            BytecodeChip::<F>::construct(self.config.bytecode_chip_config.clone(), ());
         let bytecodes = self.circuit_inputs.bytecode_table.as_inner();
         let mut code_hash = None;
 

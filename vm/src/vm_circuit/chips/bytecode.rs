@@ -1,8 +1,8 @@
 use crate::vm_circuit::chips::bytecode::{
-    _mod::Mod, add::Add, and::And, br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call,
-    copy_loc::CopyLoc, div::Div, eq::Eq, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128,
-    ldu64::LdU64, ldu8::LdU8, move_loc::MoveLoc, mul::Mul, neq::Neq, not::Not, or::Or, pop::Pop,
-    ret::Ret, st_loc::StLoc, sub::Sub, abort::Abort,
+    _mod::Mod, abort::Abort, add::Add, and::And, br_false::BrFalse, br_true::BrTrue,
+    branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, ld_false::LdFalse,
+    ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, move_loc::MoveLoc, mul::Mul,
+    neq::Neq, not::Not, or::Or, pop::Pop, ret::Ret, st_loc::StLoc, sub::Sub,
 };
 use crate::vm_circuit::chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::step_chip::StepChipCells;
@@ -13,6 +13,7 @@ use halo2_proofs::plonk::{Error, Expression};
 use move_binary_format::file_format::Bytecode;
 
 pub mod _mod;
+pub mod abort;
 pub mod add;
 pub mod and;
 pub mod br_false;
@@ -37,7 +38,6 @@ pub mod pop;
 pub mod ret;
 pub mod st_loc;
 pub mod sub;
-pub mod abort;
 
 pub trait BytecodeInterface<F: FieldExt> {
     fn configure(
@@ -291,10 +291,7 @@ pub fn convert_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::Call.index() as u128),
             F::from_u128(func_handle_index.0 as u128),
         ),
-        Bytecode::Abort => (
-            F::from_u128(Opcode::Abort.index() as u128),
-            F::zero(),
-        ),
+        Bytecode::Abort => (F::from_u128(Opcode::Abort.index() as u128), F::zero()),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

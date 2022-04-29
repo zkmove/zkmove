@@ -6,9 +6,8 @@ use crate::vm_circuit::circuit_inputs::RW::{READ, WRITE};
 use crate::vm_circuit::circuit_inputs::{
     CircuitInputs, ExecutionStep, LocalsOp, RWLookUpTable, RWOperation, StackOp,
 };
-use crate::vm_circuit::execution_circuit::ExecutionCircuit;
 use crate::vm_circuit::interpreter::Interpreter;
-use crate::vm_circuit::memory_circuit::MemoryCircuit;
+use crate::vm_circuit::vm_circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
@@ -177,19 +176,11 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
     let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
-    let circuit_exe = ExecutionCircuit {
-        circuit_inputs: circuit_inputs.clone(),
+    let vm_circuit = VmCircuit {
+        circuit_inputs: circuit_inputs,
     };
     let k = 10; // todo: how to chose a proper degree
-    let prover = MockProver::<Fp>::run(k, &circuit_exe, vec![]).map_err(|e| {
-        debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
-    })?;
-    assert_eq!(prover.verify(), Ok(()));
-
-    let circuit_mem = MemoryCircuit { circuit_inputs };
-    let k = 10;
-    let prover = MockProver::<Fp>::run(k, &circuit_mem, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)
     })?;
@@ -340,19 +331,11 @@ fn test_fake_rw_operation() -> VmResult<()> {
     rw_operations.push(fake_rw_op);
 
     let circuit_inputs = CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
-    let circuit_exe = ExecutionCircuit {
-        circuit_inputs: circuit_inputs.clone(),
+    let vm_circuit = VmCircuit {
+        circuit_inputs: circuit_inputs,
     };
-    let k = 10;
-    let prover = MockProver::<Fp>::run(k, &circuit_exe, vec![]).map_err(|e| {
-        debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
-    })?;
-    assert_eq!(prover.verify(), Ok(()));
-
-    let circuit_mem = MemoryCircuit { circuit_inputs };
-    let k = 10;
-    let prover = MockProver::<Fp>::run(k, &circuit_mem, vec![]).map_err(|e| {
+    let k = 10; // todo: how to chose a proper degree
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)
     })?;
@@ -504,19 +487,11 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     let mut circuit_inputs =
         CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
     circuit_inputs.sorted_stack_ops.0 = wrong_sorted_stack_operations;
-    let circuit_exe = ExecutionCircuit {
-        circuit_inputs: circuit_inputs.clone(),
+    let vm_circuit = VmCircuit {
+        circuit_inputs: circuit_inputs,
     };
-    let k = 10;
-    let prover = MockProver::<Fp>::run(k, &circuit_exe, vec![]).map_err(|e| {
-        debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
-    })?;
-    assert_eq!(prover.verify(), Ok(()));
-
-    let circuit_mem = MemoryCircuit { circuit_inputs };
-    let k = 10;
-    let prover = MockProver::<Fp>::run(k, &circuit_mem, vec![]).map_err(|e| {
+    let k = 10; // todo: how to chose a proper degree
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::SynthesisError)
     })?;

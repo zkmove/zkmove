@@ -2,7 +2,7 @@
 
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{StackOp, RW};
-use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
+use crate::vm_circuit::memory_chip::MEM_CHIP_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{
@@ -30,7 +30,7 @@ pub struct StackOpCells<F: FieldExt> {
 
 #[derive(Debug, Clone)]
 pub struct StackOpChipConfig<F: FieldExt> {
-    pub advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+    pub advices: [Column<Advice>; MEM_CHIP_WIDTH],
     pub cells: StackOpCells<F>,
     pub s_first_stack_op: Selector,
     pub s_stack_op: Selector,
@@ -67,7 +67,7 @@ impl<F: FieldExt> StackOpChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+        advices: [Column<Advice>; MEM_CHIP_WIDTH],
         gc_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
         let mut cells = VecDeque::with_capacity(STACK_OP_CHIP_WIDTH * 2);

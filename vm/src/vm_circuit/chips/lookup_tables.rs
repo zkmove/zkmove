@@ -5,7 +5,7 @@ use crate::vm_circuit::circuit_inputs::RW;
 use halo2_proofs::plonk::{Expression, TableColumn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RWTable {
     pub gc_column: TableColumn,
     pub rw_target_column: TableColumn,
@@ -176,7 +176,7 @@ impl<F: FieldExt> RWLookup<F> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BytecodeLookupTable {
     pub module_index_column: TableColumn,
     pub function_index_column: TableColumn,

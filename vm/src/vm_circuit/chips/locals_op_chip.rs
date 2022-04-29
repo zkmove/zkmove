@@ -3,7 +3,7 @@
 use crate::value::Value;
 use crate::vm_circuit::chips::utilities::*;
 use crate::vm_circuit::circuit_inputs::{LocalsOp, RW};
-use crate::vm_circuit::memory_circuit::MEM_CIRCUIT_WIDTH;
+use crate::vm_circuit::memory_chip::MEM_CHIP_WIDTH;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{
@@ -39,7 +39,7 @@ pub struct LocalsOpCells<F: FieldExt> {
 
 #[derive(Debug, Clone)]
 pub struct LocalsOpChipConfig<F: FieldExt> {
-    pub advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+    pub advices: [Column<Advice>; MEM_CHIP_WIDTH],
     pub cells: LocalsOpCells<F>,
     pub s_first_locals_op: Selector,
     pub s_locals_op: Selector,
@@ -76,7 +76,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advices: [Column<Advice>; MEM_CIRCUIT_WIDTH],
+        advices: [Column<Advice>; MEM_CHIP_WIDTH],
         gc_table: &TableColumn,
         call_index_table: &TableColumn,
         locals_index_table: &TableColumn,
