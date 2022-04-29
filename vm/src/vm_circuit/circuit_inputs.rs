@@ -408,6 +408,11 @@ impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
         self.sorted_locals_ops.0.iter().for_each(|op| {
             write!(f, "{:?}\n", op).unwrap();
         });
+        write!(f, "\n")?;
+        write!(f, "Bytecode table:\n")?;
+        self.bytecode_table.0.iter().for_each(|bytecode| {
+            write!(f, "{:?}\n", bytecode).unwrap();
+        });
         Ok(())
     }
 }

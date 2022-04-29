@@ -20,7 +20,7 @@ impl<F: FieldExt> BytecodeInterface<F> for Call<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
         let arg_num = cells.auxiliary.expression.clone();
