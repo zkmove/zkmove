@@ -7,10 +7,4 @@ pub mod interpreter;
 pub mod locals;
 pub mod stack;
 
-#[cfg(test)]
-mod chip_tests;
-pub mod code_chip;
-pub mod execution_chip;
-pub mod memory_chip;
-
-pub mod vm_circuit;
+pub mod circuit;

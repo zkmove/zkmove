@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
 use crate::fast_circuit::move_circuit::FastMoveCircuit;
+use crate::vm_circuit::circuit::VmCircuit;
 use crate::vm_circuit::circuit_inputs::{
     BytecodeTable, CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation,
 };
 use crate::vm_circuit::interpreter::Interpreter;
-use crate::vm_circuit::vm_circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
@@ -80,9 +80,7 @@ impl Runtime {
         let circuit_inputs =
             CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
         debug!("{:?}", circuit_inputs);
-        let circuit = VmCircuit {
-            circuit_inputs: circuit_inputs.clone(),
-        };
+        let circuit = VmCircuit { circuit_inputs };
         let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::SynthesisError)
@@ -157,7 +155,7 @@ impl Runtime {
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
 
-        let strategy = SingleVerifier::new(&params);
+        let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
         let result = verify_proof(
             params,

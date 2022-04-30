@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::chips::bytecode::{convert_to_fields, Opcode};
-use crate::vm_circuit::chips::lookup_tables::RWTarget;
+use crate::vm_circuit::chips::execution_chips::lookup_tables::RWTarget;
+use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{
     Bytecode, CompiledModuleMut, CompiledScript, CompiledScriptMut,
@@ -255,6 +255,67 @@ impl BytecodeInfo {
     }
 }
 
+pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
+    match bytecode {
+        Bytecode::LdU8(v) => (
+            F::from_u128(Opcode::LdU8.index() as u128),
+            F::from_u128(v as u128),
+        ),
+        Bytecode::LdU64(v) => (
+            F::from_u128(Opcode::LdU64.index() as u128),
+            F::from_u128(v as u128),
+        ),
+        Bytecode::LdU128(v) => (
+            F::from_u128(Opcode::LdU128.index() as u128),
+            F::from_u128(v as u128),
+        ),
+        Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::zero()),
+        Bytecode::Ret => (F::from_u128(Opcode::Ret.index() as u128), F::zero()),
+        Bytecode::Add => (F::from_u128(Opcode::Add.index() as u128), F::zero()),
+        Bytecode::Mul => (F::from_u128(Opcode::Mul.index() as u128), F::zero()),
+        Bytecode::CopyLoc(local_index) => (
+            F::from_u128(Opcode::CopyLoc.index() as u128),
+            F::from_u128(local_index as u128),
+        ),
+        Bytecode::Sub => (F::from_u128(Opcode::Sub.index() as u128), F::zero()),
+        Bytecode::Div => (F::from_u128(Opcode::Div.index() as u128), F::zero()),
+        Bytecode::Mod => (F::from_u128(Opcode::Mod.index() as u128), F::zero()),
+        Bytecode::LdTrue => (F::from_u128(Opcode::LdTrue.index() as u128), F::zero()),
+        Bytecode::LdFalse => (F::from_u128(Opcode::LdFalse.index() as u128), F::zero()),
+        Bytecode::Eq => (F::from_u128(Opcode::Eq.index() as u128), F::zero()),
+        Bytecode::Neq => (F::from_u128(Opcode::Neq.index() as u128), F::zero()),
+        Bytecode::And => (F::from_u128(Opcode::And.index() as u128), F::zero()),
+        Bytecode::Or => (F::from_u128(Opcode::Or.index() as u128), F::zero()),
+        Bytecode::Not => (F::from_u128(Opcode::Not.index() as u128), F::zero()),
+        Bytecode::MoveLoc(local_index) => (
+            F::from_u128(Opcode::MoveLoc.index() as u128),
+            F::from_u128(local_index as u128),
+        ),
+        Bytecode::StLoc(local_index) => (
+            F::from_u128(Opcode::StLoc.index() as u128),
+            F::from_u128(local_index as u128),
+        ),
+        Bytecode::Branch(code_offset) => (
+            F::from_u128(Opcode::Branch.index() as u128),
+            F::from_u128(code_offset as u128),
+        ),
+        Bytecode::BrTrue(code_offset) => (
+            F::from_u128(Opcode::BrTrue.index() as u128),
+            F::from_u128(code_offset as u128),
+        ),
+        Bytecode::BrFalse(code_offset) => (
+            F::from_u128(Opcode::BrFalse.index() as u128),
+            F::from_u128(code_offset as u128),
+        ),
+        Bytecode::Call(func_handle_index) => (
+            F::from_u128(Opcode::Call.index() as u128),
+            F::from_u128(func_handle_index.0 as u128),
+        ),
+        Bytecode::Abort => (F::from_u128(Opcode::Abort.index() as u128), F::zero()),
+        _ => unimplemented!("{:?}", bytecode),
+    }
+}
+
 // convert BytecodeInfo into a vector of field values
 impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
     fn from(bytecode_info: &BytecodeInfo) -> Vec<F> {
@@ -263,7 +324,7 @@ impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
         field_values.push(F::from_u128(bytecode_info.function_index as u128));
         field_values.push(F::from_u128(bytecode_info.pc as u128));
 
-        let (opcode, operand) = convert_to_fields(bytecode_info.bytecode.clone());
+        let (opcode, operand) = convert_bytecode_to_fields(bytecode_info.bytecode.clone());
         field_values.push(opcode);
         field_values.push(operand);
 
@@ -388,30 +449,30 @@ impl<F: FieldExt> CircuitInputs<F> {
 
 impl<F: FieldExt> fmt::Debug for CircuitInputs<F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\n")?;
-        write!(f, "Execution steps:\n")?;
+        writeln!(f)?;
+        writeln!(f, "Execution steps:")?;
         self.exec_steps.iter().enumerate().for_each(|(i, step)| {
-            write!(f, "{}: {:?}\n", i, step).unwrap();
+            writeln!(f, "{}: {:?}", i, step).unwrap();
         });
-        write!(f, "\n")?;
-        write!(f, "Read/Write operations:\n")?;
+        writeln!(f)?;
+        writeln!(f, "Read/Write operations:")?;
         self.rw_lookup_table.0.iter().for_each(|op| {
-            write!(f, "{:?}\n", op).unwrap();
+            writeln!(f, "{:?}", op).unwrap();
         });
-        write!(f, "\n")?;
-        write!(f, "Sorted stack operations:\n")?;
+        writeln!(f)?;
+        writeln!(f, "Sorted stack operations:")?;
         self.sorted_stack_ops.0.iter().for_each(|op| {
-            write!(f, "{:?}\n", op).unwrap();
+            writeln!(f, "{:?}", op).unwrap();
         });
-        write!(f, "\n")?;
-        write!(f, "Sorted locals operations:\n")?;
+        writeln!(f)?;
+        writeln!(f, "Sorted locals operations:")?;
         self.sorted_locals_ops.0.iter().for_each(|op| {
-            write!(f, "{:?}\n", op).unwrap();
+            writeln!(f, "{:?}", op).unwrap();
         });
-        write!(f, "\n")?;
-        write!(f, "Bytecode table:\n")?;
+        writeln!(f)?;
+        writeln!(f, "Bytecode table:")?;
         self.bytecode_table.0.iter().for_each(|bytecode| {
-            write!(f, "{:?}\n", bytecode).unwrap();
+            writeln!(f, "{:?}", bytecode).unwrap();
         });
         Ok(())
     }
