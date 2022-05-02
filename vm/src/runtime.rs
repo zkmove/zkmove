@@ -9,7 +9,7 @@ use crate::vm_circuit::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, ProvingKey, SingleVerifier,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, SingleVerifier,
 };
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
@@ -20,15 +20,21 @@ use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
 use movelang::state::{State, StateStore};
 use rand_core::OsRng;
+use std::marker::PhantomData;
 
-pub struct Runtime {
+pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
+    _marker: PhantomData<F>,
 }
 
-impl Runtime {
+impl<F: FieldExt> Runtime<F>
+where
+    VmCircuit<F>: Circuit<Fp>,
+{
     pub fn new() -> Self {
         Runtime {
             loader: MoveLoader::new(),
+            _marker: PhantomData,
         }
     }
 
@@ -36,7 +42,7 @@ impl Runtime {
         &self.loader
     }
 
-    pub fn generate_trace<F: FieldExt>(
+    pub fn generate_trace(
         &self,
         script: Vec<u8>,
         _modules: Vec<CompiledModule>,
@@ -70,7 +76,7 @@ impl Runtime {
         Ok((exec_steps, rw_operations))
     }
 
-    pub fn mock_prove_execution_trace<F: FieldExt>(
+    pub fn mock_prove_execution_trace(
         &self,
         exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
@@ -167,10 +173,58 @@ impl Runtime {
         assert!(result.is_ok());
         Ok(())
     }
-}
 
-impl Default for Runtime {
-    fn default() -> Self {
-        Self::new()
+    pub fn setup_execution_trace(
+        &self,
+        exec_steps: Vec<ExecutionStep<F>>,
+        rw_operations: Vec<RWOperation<F>>,
+        bytecodes: BytecodeTable,
+        params: &Params<EqAffine>,
+    ) -> VmResult<ProvingKey<EqAffine>> {
+        let circuit_inputs =
+            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
+        let circuit = VmCircuit { circuit_inputs };
+        debug!("Generate vk");
+        let vk = keygen_vk(params, &circuit).map_err(|_| {
+            RuntimeError::new(StatusCode::SynthesisError)
+                .with_message("keygen_vk should not fail".to_string())
+        })?;
+        debug!("Generate pk");
+        let pk = keygen_pk(params, vk, &circuit).map_err(|_| {
+            RuntimeError::new(StatusCode::SynthesisError)
+                .with_message("keygen_pk should not fail".to_string())
+        })?;
+        Ok(pk)
+    }
+
+    pub fn prove_execution_trace(
+        &self,
+        exec_steps: Vec<ExecutionStep<F>>,
+        rw_operations: Vec<RWOperation<F>>,
+        bytecodes: BytecodeTable,
+        params: &Params<EqAffine>,
+        pk: ProvingKey<EqAffine>,
+    ) -> VmResult<()> {
+        let circuit_inputs =
+            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
+        let circuit = VmCircuit { circuit_inputs };
+
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        // Create a proof
+        create_proof(params, &pk, &[circuit], &[], OsRng, &mut transcript)
+            .expect("proof generation should not fail");
+        let proof: Vec<u8> = transcript.finalize();
+
+        let strategy = SingleVerifier::new(params);
+        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let result = verify_proof(params, pk.get_vk(), strategy, &[], &mut transcript);
+        assert!(result.is_ok());
+        Ok(())
     }
 }
+
+// impl<F: FieldExt> Default for Runtime<F>{
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }

@@ -33,7 +33,7 @@ fn test_execution_step() -> VmResult<()> {
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
 
-    let runtime = Runtime::new();
+    let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
     let mut state = State::new(&mut data_store);

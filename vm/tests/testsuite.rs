@@ -10,6 +10,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use vm::runtime::Runtime;
+use vm::vm_circuit::circuit_inputs::BytecodeTable;
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -71,11 +72,11 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         script.serialize(&mut script_bytes)?;
 
         let k = 6;
-        let runtime = Runtime::new();
+        let runtime = Runtime::<Fp>::new();
         let mut state = StateStore::new();
 
         // todo: refactor bytecode table, global state and module table
-        let bytecodes = (script, compiled_modules.clone()).into();
+        let bytecodes = BytecodeTable::from((script, compiled_modules.clone()));
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);
         }
@@ -115,14 +116,27 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         )?;
 
         debug!("Generate execution trace for script {:?}", script_file);
-        let (exec_steps, rw_operations) = runtime.generate_trace::<Fp>(
-            script_bytes,
-            compiled_modules,
-            config.args,
-            &mut state,
-        )?;
+        let (exec_steps, rw_operations) =
+            runtime.generate_trace(script_bytes, compiled_modules, config.args, &mut state)?;
         let k = 10; // todo: auto chose a proper degree
-        runtime.mock_prove_execution_trace(exec_steps, rw_operations, bytecodes, k)?;
+        runtime.mock_prove_execution_trace(
+            exec_steps.clone(),
+            rw_operations.clone(),
+            bytecodes.clone(),
+            k,
+        )?;
+
+        debug!("Generate parameters for execution trace");
+        let params: Params<EqAffine> = Params::new(k);
+        let pk = runtime.setup_execution_trace(
+            exec_steps.clone(),
+            rw_operations.clone(),
+            bytecodes.clone(),
+            &params,
+        )?;
+
+        debug!("Generate zk proof for execution trace");
+        runtime.prove_execution_trace(exec_steps, rw_operations, bytecodes, &params, pk)?;
     }
 
     Ok(())
