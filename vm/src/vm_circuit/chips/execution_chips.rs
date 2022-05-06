@@ -99,10 +99,10 @@ impl<F: FieldExt> ExecutionChip<F> {
         converted_rw_operations.append(&mut locals_operations);
 
         for (column_idx, column) in self.config.rw_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
+            layouter.assign_region(
                 || format!("rw_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
+                |mut region| {
+                    region.assign_advice(
                         || format!("rw_table[{}][0]", column_idx),
                         column,
                         0,
@@ -110,7 +110,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     )?;
                     (0..converted_rw_operations.len())
                         .map(|i| {
-                            table_column.assign_cell(
+                            region.assign_advice(
                                 || format!("rw_table[{}][{}]", column_idx, i),
                                 column,
                                 i + 1,
@@ -128,7 +128,8 @@ impl<F: FieldExt> ExecutionChip<F> {
                                         Error::Synthesis
                                     })
                                 },
-                            )
+                            )?;
+                            Ok(())
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))
                 },
@@ -137,10 +138,10 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         let converted_bytecodes: Vec<Vec<F>> = (&self.circuit_inputs.bytecode_table).into();
         for (column_idx, column) in self.config.bytecode_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
+            layouter.assign_region(
                 || format!("bytecode_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
+                |mut region| {
+                    region.assign_advice(
                         || format!("bytecode_table[{}][0]", column_idx),
                         column,
                         0,
@@ -148,7 +149,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     )?;
                     (0..converted_bytecodes.len())
                         .map(|i| {
-                            table_column.assign_cell(
+                            region.assign_advice(
                                 || format!("bytecode_table[{}][{}]", column_idx, i),
                                 column,
                                 i + 1,
@@ -164,7 +165,8 @@ impl<F: FieldExt> ExecutionChip<F> {
                                     })?;
                                     Ok(field.clone())
                                 },
-                            )
+                            )?;
+                            Ok(())
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))
                 },

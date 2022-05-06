@@ -7,6 +7,7 @@ use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
+use halo2_proofs::poly::Rotation;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -164,57 +165,60 @@ impl<F: FieldExt> StepChip<F> {
         });
 
         for (lookup, cond) in rw_lookups {
-            meta.lookup(|meta| {
+            meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
                         s_step.clone() * lookup.gc * cond.clone(),
-                        rw_table.gc_column,
+                        meta.query_advice(rw_table.gc_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.rw_target * cond.clone(),
-                        rw_table.rw_target_column,
+                        meta.query_advice(rw_table.rw_target_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.rw * cond.clone(),
-                        rw_table.rw_column,
+                        meta.query_advice(rw_table.rw_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.call_index * cond.clone(),
-                        rw_table.call_index_column,
+                        meta.query_advice(rw_table.call_index_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.address * cond.clone(),
-                        rw_table.address_column,
+                        meta.query_advice(rw_table.address_column, Rotation::cur()),
                     ),
-                    (s_step * lookup.value * cond, rw_table.value_column),
+                    (
+                        s_step * lookup.value * cond,
+                        meta.query_advice(rw_table.value_column, Rotation::cur()),
+                    ),
                 ]
             });
         }
 
         for (lookup, cond) in bytecode_lookups {
-            meta.lookup(|meta| {
+            meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
                         s_step.clone() * lookup.module_index * cond.clone(),
-                        bytecode_table.module_index_column,
+                        meta.query_advice(bytecode_table.module_index_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.function_index * cond.clone(),
-                        bytecode_table.function_index_column,
+                        meta.query_advice(bytecode_table.function_index_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.pc * cond.clone(),
-                        bytecode_table.pc_column,
+                        meta.query_advice(bytecode_table.pc_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.opcode * cond.clone(),
-                        bytecode_table.opcode_column,
+                        meta.query_advice(bytecode_table.opcode_column, Rotation::cur()),
                     ),
                     (
                         s_step * lookup.operand * cond.clone(),
-                        bytecode_table.operand_column,
+                        meta.query_advice(bytecode_table.operand_column, Rotation::cur()),
                     ),
                 ]
             });
