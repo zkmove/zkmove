@@ -114,7 +114,10 @@ impl<F: FieldExt> MemoryChip<F> {
 
     pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
-        let stack_ops = &self.circuit_inputs.sorted_stack_ops.0;
+        let (sorted_stack_ops, sorted_locals_ops) =
+            self.circuit_inputs.rw_operations.clone().into();
+
+        let stack_ops = &sorted_stack_ops.0;
         let mut last_stack_counter = None;
 
         layouter.assign_region(
@@ -146,7 +149,7 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter.assign_region(
             || "locals operations",
             |mut region: Region<'_, F>| {
-                let locals_ops = &self.circuit_inputs.sorted_locals_ops.0;
+                let locals_ops = &sorted_locals_ops.0;
                 let mut prev_op = None;
                 for (index, op) in locals_ops.iter().enumerate() {
                     let counter = index + 1;

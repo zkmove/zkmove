@@ -81,7 +81,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                         &mut region,
                         offset,
                         step,
-                        &self.circuit_inputs.rw_lookup_table,
+                        &self.circuit_inputs.rw_operations,
                     )?;
 
                     offset += STEP_HEIGHT;
@@ -90,10 +90,10 @@ impl<F: FieldExt> ExecutionChip<F> {
             },
         )?;
 
-        let mut stack_operations: Vec<Vec<Option<F>>> =
-            (&self.circuit_inputs.sorted_stack_ops).into();
-        let mut locals_operations: Vec<Vec<Option<F>>> =
-            (&self.circuit_inputs.sorted_locals_ops).into();
+        let (sorted_stack_ops, sorted_locals_ops) =
+            self.circuit_inputs.rw_operations.clone().into();
+        let mut stack_operations: Vec<Vec<Option<F>>> = (&sorted_stack_ops).into();
+        let mut locals_operations: Vec<Vec<Option<F>>> = (&sorted_locals_ops).into();
         let mut converted_rw_operations = Vec::new();
         converted_rw_operations.append(&mut stack_operations);
         converted_rw_operations.append(&mut locals_operations);

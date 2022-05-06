@@ -2,9 +2,10 @@
 
 use crate::fast_circuit::move_circuit::FastMoveCircuit;
 use crate::vm_circuit::circuit::VmCircuit;
-use crate::vm_circuit::circuit_inputs::{
-    BytecodeTable, CircuitInputs, ExecutionStep, RWLookUpTable, RWOperation,
-};
+use crate::vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperation;
+use crate::vm_circuit::circuit_inputs::CircuitInputs;
 use crate::vm_circuit::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
@@ -83,8 +84,7 @@ where
         bytecodes: BytecodeTable,
         k: u32,
     ) -> VmResult<()> {
-        let circuit_inputs =
-            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
+        let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
         debug!("{:?}", circuit_inputs);
         let circuit = VmCircuit { circuit_inputs };
         let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
@@ -181,8 +181,7 @@ where
         bytecodes: BytecodeTable,
         params: &Params<EqAffine>,
     ) -> VmResult<ProvingKey<EqAffine>> {
-        let circuit_inputs =
-            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
+        let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
         let circuit = VmCircuit { circuit_inputs };
         debug!("Generate vk");
         let vk = keygen_vk(params, &circuit).map_err(|_| {
@@ -205,8 +204,7 @@ where
         params: &Params<EqAffine>,
         pk: ProvingKey<EqAffine>,
     ) -> VmResult<()> {
-        let circuit_inputs =
-            CircuitInputs::new(exec_steps, RWLookUpTable(rw_operations), bytecodes);
+        let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
         let circuit = VmCircuit { circuit_inputs };
 
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);

@@ -6,7 +6,8 @@ use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookup, R
 use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use crate::vm_circuit::chips::execution_chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::*;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -62,10 +63,10 @@ impl<F: FieldExt> Instructions<F> for StLoc<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_table.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::vm_circuit::chips::utilities::Expr;
-use crate::vm_circuit::circuit_inputs::RW;
+use crate::vm_circuit::circuit_inputs::rw_operations::RW;
 use halo2_proofs::plonk::{Advice, Column, Expression};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 

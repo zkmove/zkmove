@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::circuit_inputs::{LocalsOp, RWOperation, RW};
+use crate::vm_circuit::circuit_inputs::rw_operations::{LocalsOp, RWOperation, RW};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};

@@ -7,7 +7,8 @@ use crate::vm_circuit::chips::execution_chips::lookup_tables::{
 use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use crate::vm_circuit::chips::execution_chips::step_chip::{StepChipCells, MAX_NUM_OF_ARGUMENTS};
 use crate::vm_circuit::chips::utilities::Expr;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable, RW};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -72,7 +73,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign arg_num
@@ -91,7 +92,10 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             .get_lower_128() as usize;
 
         for i in 0..arg_num {
-            let op = rw_table.0.get(step.gc + i * 2).ok_or(Error::Synthesis)?;
+            let op = rw_operations
+                .0
+                .get(step.gc + i * 2)
+                .ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
             cells.args[i].assign(region, offset, op.value().value())?;
             cells.args_mask[i].assign(region, offset, Some(F::zero()))?;

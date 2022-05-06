@@ -7,7 +7,8 @@ use crate::vm_circuit::chips::execution_chips::instructions::{
 };
 use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::execution_chips::step_chip::StepChipCells;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -125,35 +126,35 @@ impl Opcode {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         match self {
-            Opcode::LdU8 => LdU8::assign(region, offset, step, rw_table, cells)?,
-            Opcode::LdU64 => LdU64::assign(region, offset, step, rw_table, cells)?,
-            Opcode::LdU128 => LdU128::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Pop => Pop::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Ret => Ret::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Add => Add::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Mul => Mul::assign(region, offset, step, rw_table, cells)?,
-            Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Sub => Sub::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Div => Div::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Mod => Mod::assign(region, offset, step, rw_table, cells)?,
-            Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_table, cells)?,
-            Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Eq => Eq::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Neq => Neq::assign(region, offset, step, rw_table, cells)?,
-            Opcode::And => And::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Or => Or::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Not => Not::assign(region, offset, step, rw_table, cells)?,
-            Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_table, cells)?,
-            Opcode::StLoc => StLoc::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Branch => Branch::assign(region, offset, step, rw_table, cells)?,
-            Opcode::BrTrue => BrTrue::assign(region, offset, step, rw_table, cells)?,
-            Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Call => Call::assign(region, offset, step, rw_table, cells)?,
-            Opcode::Abort => Abort::assign(region, offset, step, rw_table, cells)?,
+            Opcode::LdU8 => LdU8::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::LdU64 => LdU64::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::LdU128 => LdU128::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Pop => Pop::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Ret => Ret::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Add => Add::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Mul => Mul::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Sub => Sub::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Div => Div::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Mod => Mod::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Eq => Eq::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Neq => Neq::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::And => And::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Or => Or::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Not => Not::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::StLoc => StLoc::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Branch => Branch::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::BrTrue => BrTrue::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
         }
         Ok(())
     }

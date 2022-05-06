@@ -6,7 +6,8 @@ use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookup, R
 use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use crate::vm_circuit::chips::execution_chips::step_chip::StepChipCells;
 use crate::vm_circuit::chips::utilities::Expr;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -40,9 +41,9 @@ impl<F: FieldExt> Instructions<F> for Div<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        BinaryOp::assign_binary_op_with_auxiliary(region, offset, step, rw_table, cells)
+        BinaryOp::assign_binary_op_with_auxiliary(region, offset, step, rw_operations, cells)
     }
 }

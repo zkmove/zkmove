@@ -2,7 +2,7 @@
 
 use crate::vm_circuit::chips::memory_chips::MEM_CHIP_WIDTH;
 use crate::vm_circuit::chips::utilities::*;
-use crate::vm_circuit::circuit_inputs::{StackOp, RW};
+use crate::vm_circuit::circuit_inputs::rw_operations::{StackOp, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{

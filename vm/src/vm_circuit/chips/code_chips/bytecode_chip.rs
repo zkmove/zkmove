@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::vm_circuit::chips::utilities::*;
-use crate::vm_circuit::circuit_inputs::BytecodeInfo;
+use crate::vm_circuit::circuit_inputs::bytecode_table::BytecodeInfo;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};

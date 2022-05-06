@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use vm::runtime::Runtime;
-use vm::vm_circuit::circuit_inputs::BytecodeTable;
+use vm::vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 

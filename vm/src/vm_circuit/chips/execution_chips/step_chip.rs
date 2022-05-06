@@ -3,7 +3,8 @@
 use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookupTable, RWTable};
 use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use crate::vm_circuit::chips::utilities::*;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
@@ -263,7 +264,7 @@ impl<F: FieldExt> StepChip<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
     ) -> Result<(), Error> {
         // assign step states
         self.config
@@ -317,7 +318,7 @@ impl<F: FieldExt> StepChip<F> {
 
         // assign other cells for the step
         step.opcode
-            .assign(region, offset, step, rw_table, &self.config.cells)?;
+            .assign(region, offset, step, rw_operations, &self.config.cells)?;
 
         Ok(())
     }

@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWOperation};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperation;
 use crate::vm_circuit::frame::{ExitStatus, Frame};
 use crate::vm_circuit::locals::Locals;
 use crate::vm_circuit::stack::{CallStack, EvalStack};

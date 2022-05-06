@@ -2,7 +2,8 @@
 
 use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::vm_circuit::chips::execution_chips::step_chip::StepChipCells;
-use crate::vm_circuit::circuit_inputs::{ExecutionStep, RWLookUpTable};
+use crate::vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
+use crate::vm_circuit::circuit_inputs::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -46,7 +47,7 @@ pub trait Instructions<F: FieldExt> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_table: &RWLookUpTable<F>,
+        rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error>;
 }

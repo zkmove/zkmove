@@ -1,8 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::Value;
-use crate::vm_circuit::circuit_inputs::StackOp;
-use crate::vm_circuit::circuit_inputs::{RWOperation, RW};
+use crate::vm_circuit::circuit_inputs::rw_operations::{RWOperation, StackOp, RW};
 use crate::vm_circuit::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
