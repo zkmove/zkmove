@@ -150,6 +150,7 @@ where
         let public_inputs = vec![Fp::zero()];
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         // Create a proof
+        let fast_prove_start = std::time::Instant::now();
         create_proof(
             params,
             &pk,
@@ -160,15 +161,26 @@ where
         )
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
+        let fast_prove_time = std::time::Instant::now().duration_since(fast_prove_start);
+        info!(
+            "fast circuit prove time: {} ms",
+            fast_prove_time.as_millis()
+        );
 
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let fast_verify_start = std::time::Instant::now();
         let result = verify_proof(
             params,
             pk.get_vk(),
             strategy,
             &[&[public_inputs.as_slice()]],
             &mut transcript,
+        );
+        let fast_verify_time = std::time::Instant::now().duration_since(fast_verify_start);
+        info!(
+            "fast circuit verify time: {} ms",
+            fast_verify_time.as_millis()
         );
         assert!(result.is_ok());
         Ok(())
@@ -209,13 +221,25 @@ where
 
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         // Create a proof
+        let slow_prove_start = std::time::Instant::now();
         create_proof(params, &pk, &[circuit], &[], OsRng, &mut transcript)
             .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
+        let slow_prove_time = std::time::Instant::now().duration_since(slow_prove_start);
+        info!(
+            "slow circuit prove time: {} ms",
+            slow_prove_time.as_millis()
+        );
 
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let slow_verify_start = std::time::Instant::now();
         let result = verify_proof(params, pk.get_vk(), strategy, &[], &mut transcript);
+        let slow_verify_time = std::time::Instant::now().duration_since(slow_verify_start);
+        info!(
+            "slow circuit verify time: {} ms",
+            slow_verify_time.as_millis()
+        );
         assert!(result.is_ok());
         Ok(())
     }
