@@ -23,6 +23,7 @@ pub enum StatusCode {
     ModuleNotFound,
     ProgramBlockError,
     ShouldNotReachHere,
+    InternalError,
 }
 
 pub struct RuntimeError {

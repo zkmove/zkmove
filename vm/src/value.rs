@@ -6,6 +6,8 @@ use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
 
+pub const NUM_OF_BYTES_U128: usize = 16;
+
 #[derive(Clone, Debug)]
 pub struct FConstant<F: FieldExt> {
     pub value: F,
@@ -135,6 +137,13 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
+    pub fn less_than(&self, other: &Self) -> VmResult<bool> {
+        match (self.value(), other.value()) {
+            (Some(v1), Some(v2)) => Ok(v1 < v2),
+            _ => Err(RuntimeError::new(StatusCode::InternalError)),
+        }
+    }
+
     pub fn is_zero(&self) -> bool {
         match self.value() {
             Some(v) => v.is_zero_vartime(),
@@ -172,7 +181,7 @@ impl<F: FieldExt> Eq for Value<F> {}
 impl<F: FieldExt> Value<F> {
     pub fn add(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = a.value().and_then(|a| b.value().map(|b| a + b));
-        let c = Value::new_variable(value, None, a.ty())?;
+        let c = Value::new_variable(value, None, a.ty())?; //todo: refactor Value
         Ok(c)
     }
 
@@ -237,6 +246,13 @@ impl<F: FieldExt> Value<F> {
         Ok(c)
     }
 
+    pub fn lt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        let lt = a.less_than(&b)?;
+        let value = if lt { F::one() } else { F::zero() };
+        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        Ok(c)
+    }
+
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() || b.is_zero() {
             F::zero()
@@ -272,6 +288,16 @@ impl<F: FieldExt> Value<F> {
         };
 
         let value = Value::new_variable(Some(delta_invert), None, a.ty())?;
+        Ok(value)
+    }
+
+    pub fn diff(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        let lhs = a.value().unwrap();
+        let rhs = b.value().unwrap();
+        let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
+        let range_or_zero = if lhs < rhs { range } else { F::zero() };
+        let diff = (lhs - rhs) + range_or_zero;
+        let value = Value::new_variable(Some(diff), None, a.ty())?;
         Ok(value)
     }
 }

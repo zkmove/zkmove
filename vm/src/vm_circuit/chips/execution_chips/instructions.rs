@@ -25,6 +25,7 @@ pub mod ld_true;
 pub mod ldu128;
 pub mod ldu64;
 pub mod ldu8;
+pub mod lt;
 pub mod move_loc;
 pub mod mul;
 pub mod neq;

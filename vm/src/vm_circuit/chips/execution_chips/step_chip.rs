@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::value::NUM_OF_BYTES_U128;
 use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookupTable, RWTable};
 use crate::vm_circuit::chips::execution_chips::opcode::Opcode;
 use crate::vm_circuit::chips::utilities::*;
@@ -13,7 +14,7 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 7;
+pub const STEP_HEIGHT: usize = 9;
 pub const NUM_OF_STEP_STATE: usize = 8; //pc, stack_size, call_index, locals_index, gc, auxiliary, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
@@ -37,6 +38,8 @@ pub struct StepChipCells<F: FieldExt> {
 
     pub args: Vec<Cell<F>>,
     pub args_mask: Vec<Cell<F>>,
+
+    pub bytes: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -93,7 +96,8 @@ impl<F: FieldExt> StepChip<F> {
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
-            + MAX_NUM_OF_ARGUMENTS * 2;
+            + MAX_NUM_OF_ARGUMENTS * 2
+            + NUM_OF_BYTES_U128;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -129,6 +133,8 @@ impl<F: FieldExt> StepChip<F> {
 
             args: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
             args_mask: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
+
+            bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),

@@ -2,7 +2,7 @@ use crate::vm_circuit::chips::execution_chips::instructions::Instructions;
 use crate::vm_circuit::chips::execution_chips::instructions::{
     _mod::Mod, abort::Abort, add::Add, and::And, br_false::BrFalse, br_true::BrTrue,
     branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, ld_false::LdFalse,
-    ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, move_loc::MoveLoc, mul::Mul,
+    ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul,
     neq::Neq, not::Not, or::Or, pop::Pop, ret::Ret, st_loc::StLoc, sub::Sub,
 };
 use crate::vm_circuit::chips::execution_chips::lookup_tables::{BytecodeLookup, RWLookup};
@@ -42,6 +42,7 @@ pub enum Opcode {
     BrFalse,
     Call,
     Abort,
+    Lt,
 }
 
 impl Opcode {
@@ -76,6 +77,7 @@ impl Opcode {
             Self::BrFalse,
             Self::Call,
             Self::Abort,
+            Self::Lt,
         ]
         .iter()
         .copied()
@@ -118,6 +120,7 @@ impl Opcode {
             Opcode::BrFalse => BrFalse::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Call => Call::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Abort => Abort::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::Lt => Lt::configure(cells, constraints, rw_lookups, bytecode_lookups),
         }
     }
 
@@ -155,6 +158,7 @@ impl Opcode {
             Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Lt => Lt::assign(region, offset, step, rw_operations, cells)?,
         }
         Ok(())
     }
@@ -188,6 +192,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::BrFalse(_) => Opcode::BrFalse,
             Bytecode::Call(_) => Opcode::Call,
             Bytecode::Abort => Opcode::Abort,
+            Bytecode::Lt => Opcode::Lt,
             _ => unimplemented!(),
         }
     }
