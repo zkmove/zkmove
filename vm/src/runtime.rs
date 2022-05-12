@@ -161,6 +161,7 @@ where
         )
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
+        info!("proof size {} bytes", proof.len());
         let fast_prove_time = std::time::Instant::now().duration_since(fast_prove_start);
         info!(
             "fast circuit prove time: {} ms",
@@ -225,6 +226,7 @@ where
         create_proof(params, &pk, &[circuit], &[], OsRng, &mut transcript)
             .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
+        info!("proof size {} bytes", proof.len());
         let slow_prove_time = std::time::Instant::now().duration_since(slow_prove_start);
         info!(
             "slow circuit prove time: {} ms",
