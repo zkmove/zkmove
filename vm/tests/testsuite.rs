@@ -102,7 +102,6 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        let k = 6;
         let runtime = Runtime::<Fp>::new();
         let mut state = StateStore::new();
 
@@ -119,6 +118,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         };
 
         if use_fast_circuit {
+            debug!("Find the best suitable k for the circuit");
+            let k = runtime.find_best_k_for_fast_circuit(
+                script_bytes.clone(),
+                compiled_modules.clone(),
+                config.args.clone(),
+                &mut state,
+            )?;
+            info!("k = {}", k);
+
             debug!(
                 "Generate zk proof for script {:?} with mock prover",
                 script_file
@@ -158,7 +166,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             debug!("Generate execution trace for script {:?}", script_file);
             let (exec_steps, rw_operations) =
                 runtime.generate_trace(script_bytes, compiled_modules, config.args, &mut state)?;
-            let k = 15; // todo: auto chose a proper degree
+
+            let vm_circuit = runtime.create_vm_circuit(
+                exec_steps.clone(),
+                rw_operations.clone(),
+                bytecodes.clone(),
+            );
+            let k = runtime.find_best_k(&vm_circuit, vec![])?;
+            info!("k = {}", k);
+
             runtime.mock_prove_execution_trace(
                 exec_steps.clone(),
                 rw_operations.clone(),

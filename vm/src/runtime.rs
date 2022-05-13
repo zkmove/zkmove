@@ -10,7 +10,7 @@ use crate::vm_circuit::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, SingleVerifier,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
 };
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
@@ -22,6 +22,10 @@ use movelang::loader::MoveLoader;
 use movelang::state::{State, StateStore};
 use rand_core::OsRng;
 use std::marker::PhantomData;
+
+// number of circuit rows cannot exceed 2^MAX_K
+pub const MAX_K: u32 = 18;
+pub const MIN_K: u32 = 1;
 
 pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
@@ -41,6 +45,45 @@ where
 
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
+    }
+
+    // find the minimum k that satisfies the circuit row number less than 2^k
+    pub fn find_best_k<MoveCircuit: Circuit<F>>(
+        &self,
+        circuit: &MoveCircuit,
+        instance: Vec<Vec<F>>,
+    ) -> VmResult<u32> {
+        let mut k = MIN_K;
+        while k <= MAX_K {
+            let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
+            let result = MockProver::run(k, circuit, instance.clone());
+            match result {
+                Ok(_) => {
+                    break;
+                }
+                Err(e) => {
+                    if e.to_string() == not_enough_rows_error.to_string() {
+                        k += 1;
+                    } else {
+                        debug!("Prover Error: {:?}", e);
+                        return Err(RuntimeError::new(StatusCode::SynthesisError));
+                    }
+                }
+            }
+        }
+        Ok(k)
+    }
+
+    pub fn find_best_k_for_fast_circuit(
+        &self,
+        script: Vec<u8>,
+        modules: Vec<CompiledModule>,
+        args: Option<ScriptArguments>,
+        data_store: &mut StateStore,
+    ) -> VmResult<u32> {
+        let circuit = FastMoveCircuit::new(script, modules, args, data_store, self.loader());
+        let public_inputs = vec![F::zero()];
+        self.find_best_k(&circuit, vec![public_inputs])
     }
 
     pub fn generate_trace(
@@ -94,6 +137,16 @@ where
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())
+    }
+
+    pub fn create_vm_circuit(
+        &self,
+        exec_steps: Vec<ExecutionStep<F>>,
+        rw_operations: Vec<RWOperation<F>>,
+        bytecodes: BytecodeTable,
+    ) -> VmCircuit<F> {
+        let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
+        VmCircuit { circuit_inputs }
     }
 
     pub fn mock_prove_script(
@@ -161,7 +214,7 @@ where
         )
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
-        info!("proof size {} bytes", proof.len());
+        info!("fast circuit proof size {} bytes", proof.len());
         let fast_prove_time = std::time::Instant::now().duration_since(fast_prove_start);
         info!(
             "fast circuit prove time: {} ms",
@@ -226,12 +279,9 @@ where
         create_proof(params, &pk, &[circuit], &[], OsRng, &mut transcript)
             .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
-        info!("proof size {} bytes", proof.len());
+        info!("vm circuit proof size {} bytes", proof.len());
         let slow_prove_time = std::time::Instant::now().duration_since(slow_prove_start);
-        info!(
-            "slow circuit prove time: {} ms",
-            slow_prove_time.as_millis()
-        );
+        info!("vm circuit prove time: {} ms", slow_prove_time.as_millis());
 
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
@@ -239,7 +289,7 @@ where
         let result = verify_proof(params, pk.get_vk(), strategy, &[], &mut transcript);
         let slow_verify_time = std::time::Instant::now().duration_since(slow_verify_start);
         info!(
-            "slow circuit verify time: {} ms",
+            "vm circuit verify time: {} ms",
             slow_verify_time.as_millis()
         );
         assert!(result.is_ok());
