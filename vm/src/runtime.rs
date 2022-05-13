@@ -66,7 +66,7 @@ where
                         k += 1;
                     } else {
                         debug!("Prover Error: {:?}", e);
-                        return Err(RuntimeError::new(StatusCode::SynthesisError));
+                        return Err(RuntimeError::new(StatusCode::ProofSystemError(e)));
                     }
                 }
             }
@@ -132,7 +132,7 @@ where
         let circuit = VmCircuit { circuit_inputs };
         let prover = MockProver::run(k, &circuit, vec![]).map_err(|e| {
             debug!("Prover Error: {:?}", e);
-            RuntimeError::new(StatusCode::SynthesisError)
+            RuntimeError::new(StatusCode::ProofSystemError(e))
         })?;
         assert_eq!(prover.verify(), Ok(()));
 
@@ -162,7 +162,7 @@ where
         let public_inputs = vec![Fp::zero()];
         let prover = MockProver::<Fp>::run(k, &circuit, vec![public_inputs]).map_err(|e| {
             debug!("Prover Error: {:?}", e);
-            RuntimeError::new(StatusCode::SynthesisError)
+            RuntimeError::new(StatusCode::ProofSystemError(e))
         })?;
         assert_eq!(prover.verify(), Ok(()));
         Ok(())
@@ -177,13 +177,13 @@ where
     ) -> VmResult<ProvingKey<EqAffine>> {
         let circuit = FastMoveCircuit::new(script, modules, None, data_store, self.loader());
         debug!("Generate vk");
-        let vk = keygen_vk(params, &circuit).map_err(|_| {
-            RuntimeError::new(StatusCode::SynthesisError)
+        let vk = keygen_vk(params, &circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_vk should not fail".to_string())
         })?;
         debug!("Generate pk");
-        let pk = keygen_pk(params, vk, &circuit).map_err(|_| {
-            RuntimeError::new(StatusCode::SynthesisError)
+        let pk = keygen_pk(params, vk, &circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_pk should not fail".to_string())
         })?;
         Ok(pk)
@@ -250,13 +250,13 @@ where
         let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
         let circuit = VmCircuit { circuit_inputs };
         debug!("Generate vk");
-        let vk = keygen_vk(params, &circuit).map_err(|_| {
-            RuntimeError::new(StatusCode::SynthesisError)
+        let vk = keygen_vk(params, &circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_vk should not fail".to_string())
         })?;
         debug!("Generate pk");
-        let pk = keygen_pk(params, vk, &circuit).map_err(|_| {
-            RuntimeError::new(StatusCode::SynthesisError)
+        let pk = keygen_pk(params, vk, &circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_pk should not fail".to_string())
         })?;
         Ok(pk)

@@ -180,7 +180,7 @@ fn test_execution_step() -> VmResult<()> {
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
+        RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
     assert_eq!(prover.verify(), Ok(()));
 
@@ -333,7 +333,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
+        RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
     assert_ne!(prover.verify(), Ok(()));
 
@@ -487,7 +487,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     let k = 10; // todo: how to chose a proper degree
     let _prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::SynthesisError)
+        RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
     // assert_ne!(prover.verify(), Ok(()));
 

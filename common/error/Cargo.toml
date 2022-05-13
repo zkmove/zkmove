@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 bellman = { package = "bellman_ce", version = "0.3.0" }
+halo2_proofs = { git = "https://github.com/guangyuz/halo2", rev = "3c0c07737509c0f592ec51904990094176413fa0" }

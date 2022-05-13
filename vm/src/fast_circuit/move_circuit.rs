@@ -109,8 +109,8 @@ impl<'l, 's, F: FieldExt> Circuit<F> for FastMoveCircuit<'l, 's> {
                 self.loader(),
             )
             .map_err(|e| {
-                error!("run script failed: {:?}", e);
-                Error::Synthesis
+                let error: Error = e.into();
+                error
             })?;
 
         // evaluation_chip.expose_public(layouter.namespace(|| "expose state root"), state_root, 0)?;

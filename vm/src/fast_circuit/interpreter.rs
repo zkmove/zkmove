@@ -83,7 +83,7 @@ impl<F: FieldExt> Interpreter<F> {
                 )
                 .map_err(|e| {
                     debug!("Process arguments error: {:?}", e);
-                    RuntimeError::new(StatusCode::SynthesisError)
+                    RuntimeError::from(e)
                 })?;
 
             locals.store(i, Value::new_variable(cell.value(), cell.cell(), ty)?)?;

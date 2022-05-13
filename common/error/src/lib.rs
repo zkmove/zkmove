@@ -1,15 +1,16 @@
 // Copyright (c) zkMove Authors
 
+use halo2_proofs::plonk::{Error as ProofSystemError, Error};
 use std::result::Result;
 
 pub type VmResult<T> = Result<T, RuntimeError>;
 
 #[derive(Debug)]
 pub enum StatusCode {
+    // Vm error
     StackUnderflow,
     StackOverflow,
     ValueConversionError,
-    SynthesisError,
     ScriptLoadingError,
     CopyLocalError,
     StoreLocalError,
@@ -24,6 +25,9 @@ pub enum StatusCode {
     ProgramBlockError,
     ShouldNotReachHere,
     InternalError,
+
+    // Proof system error
+    ProofSystemError(Error),
 }
 
 pub struct RuntimeError {
@@ -79,5 +83,20 @@ impl std::fmt::Debug for RuntimeError {
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
+    }
+}
+
+impl From<ProofSystemError> for RuntimeError {
+    fn from(error: ProofSystemError) -> RuntimeError {
+        RuntimeError::new(StatusCode::ProofSystemError(error))
+    }
+}
+
+impl Into<ProofSystemError> for RuntimeError {
+    fn into(self) -> ProofSystemError {
+        match self.status {
+            StatusCode::ProofSystemError(e) => e,
+            _ => ProofSystemError::Synthesis,
+        }
     }
 }
