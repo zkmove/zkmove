@@ -1,0 +1,10 @@
+[package]
+name = "types"
+version = "0.1.0"
+authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+halo2_proofs = { git = "https://github.com/guangyuz/halo2", rev = "3c0c07737509c0f592ec51904990094176413fa0" }
+error = { path = "../../common/error" }
+movelang = { path = "../../movelang" }

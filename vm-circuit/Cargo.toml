@@ -1,5 +1,5 @@
 [package]
-name = "vm"
+name = "vm-circuit"
 version = "0.1.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
@@ -8,10 +8,8 @@ edition = "2018"
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 types = { path = "../common/types" }
-vm-circuit = { path = "../vm-circuit" }
-movelang = { path = "../movelang"}
 move-binary-format = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
-move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-core-types = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 halo2_proofs = { git = "https://github.com/guangyuz/halo2", rev = "3c0c07737509c0f592ec51904990094176413fa0" }
 #halo2_proofs = { path = "../../halo2/halo2_proofs"}
 

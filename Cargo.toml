@@ -1,7 +1,11 @@
 [workspace]
 members = [
     "movelang",
-    "vm",
     "common/logger",
     "common/error",
+    "common/types",
+    "fast-circuit",
+    "vm-circuit",
+    "vm",
+    "zkmove",
 ]

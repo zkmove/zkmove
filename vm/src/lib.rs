@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-pub mod fast_circuit;
-pub mod runtime;
-pub mod value;
-pub mod vm_circuit;
+pub mod frame;
+pub mod interpreter;
+pub mod locals;
+pub mod stack;

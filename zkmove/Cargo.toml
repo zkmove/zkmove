@@ -1,19 +1,34 @@
 [package]
-name = "vm"
+name = "zkmove"
 version = "0.1.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+criterion = "0.3.4"
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
-types = { path = "../common/types" }
+fast-circuit = { path = "../fast-circuit" }
 vm-circuit = { path = "../vm-circuit" }
+vm = { path = "../vm" }
+anyhow = "1.0.38"
 movelang = { path = "../movelang"}
+rand_core = { version = "0.6", default-features = false }
 move-binary-format = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
-move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
 halo2_proofs = { git = "https://github.com/guangyuz/halo2", rev = "3c0c07737509c0f592ec51904990094176413fa0" }
 #halo2_proofs = { path = "../../halo2/halo2_proofs"}
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
+
+#[[test]]
+#name = "scripts"
+#harness = false
+
+[[test]]
+name = "testsuite"
+harness = false
+
+[[bench]]
+name = "circuit_benchmark"
+harness = false
