@@ -3,4 +3,8 @@
 pub mod frame;
 pub mod interpreter;
 pub mod locals;
+pub mod runtime;
 pub mod stack;
+
+#[cfg(test)]
+mod tests;

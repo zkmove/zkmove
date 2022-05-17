@@ -10,8 +10,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
+use vm::runtime::Runtime;
 use vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
-use zkmove::runtime::Runtime;
 
 // directives can be added to move source files to tell vm how to run the test.
 // currently we support three kinds of directives: mods, args and circuit. For example,

@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use fast_circuit::move_circuit::FastMoveCircuit;
 use halo2_proofs::arithmetic::FieldExt;
@@ -16,7 +17,6 @@ use movelang::loader::MoveLoader;
 use movelang::state::{State, StateStore};
 use rand_core::OsRng;
 use std::marker::PhantomData;
-use vm::interpreter::Interpreter;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
 use vm_circuit::circuit_inputs::execution_steps::ExecutionStep;

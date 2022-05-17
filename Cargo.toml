@@ -7,5 +7,5 @@ members = [
     "fast-circuit",
     "vm-circuit",
     "vm",
-    "zkmove",
+    "functional-tests",
 ]

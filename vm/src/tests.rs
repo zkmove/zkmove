@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
@@ -12,7 +13,6 @@ use movelang::state::{State, StateStore};
 use movelang::value::MoveValueType;
 use types::value::Value::Variable;
 use types::value::{FVariable, Value};
-use vm::interpreter::Interpreter;
 use vm_circuit::chips::execution_chips::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
