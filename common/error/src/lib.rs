@@ -28,6 +28,9 @@ pub enum StatusCode {
 
     // Proof system error
     ProofSystemError(Error),
+
+    // error from OS
+    OperatingSystemError(anyhow::Error),
 }
 
 pub struct RuntimeError {
@@ -83,6 +86,12 @@ impl std::fmt::Debug for RuntimeError {
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
+    }
+}
+
+impl From<anyhow::Error> for RuntimeError {
+    fn from(e: anyhow::Error) -> Self {
+        RuntimeError::new(StatusCode::OperatingSystemError(e))
     }
 }
 

@@ -8,4 +8,5 @@ members = [
     "vm-circuit",
     "vm",
     "functional-tests",
+    "cli",
 ]

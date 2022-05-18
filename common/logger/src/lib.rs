@@ -11,6 +11,14 @@ pub fn init() {
     let _ = env_logger::builder().try_init();
 }
 
+pub fn init_for_main(verbose: bool) {
+    let filter = match verbose {
+        true => "debug",
+        false => "info",
+    };
+    let _ = Builder::from_env(Env::default().default_filter_or(filter)).try_init();
+}
+
 pub fn init_for_test() {
     let _ = Builder::from_env(Env::default().default_filter_or("debug")).try_init();
 }
