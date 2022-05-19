@@ -5,10 +5,10 @@ script {
             a;
         };
         let c = a && b;
-        assert(c == false, 101);
+        assert!(c == false, 101);
         let d = a || b;
-        assert(d == true, 102);
+        assert!(d == true, 102);
         let e = !a;
-        assert(e == false, 103);
+        assert!(e == false, 103);
     }
 }

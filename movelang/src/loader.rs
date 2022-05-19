@@ -3,7 +3,8 @@
 use move_binary_format::errors::VMResult;
 use move_binary_format::file_format::FunctionHandleIndex;
 use move_vm_runtime::loader::{Function, Loader};
-use move_vm_runtime::logging::NoContextLog;
+use move_vm_runtime::native_functions::NativeFunctions;
+use move_vm_runtime::session::LoadedFunctionInstantiation;
 use move_vm_types::data_store::DataStore;
 use move_vm_types::loaded_data::runtime_types::Type;
 use std::sync::Arc;
@@ -14,8 +15,9 @@ pub struct MoveLoader {
 
 impl MoveLoader {
     pub fn new() -> Self {
+        let native_functions = NativeFunctions::new(vec![]).expect("should never failed.");
         MoveLoader {
-            loader: Loader::new(),
+            loader: Loader::new(native_functions),
         }
     }
 
@@ -24,10 +26,14 @@ impl MoveLoader {
         script_blob: &[u8],
         data_store: &mut impl DataStore,
     ) -> VMResult<(Arc<Function>, Vec<Type>)> {
-        let log_context = NoContextLog::new();
-        let (main, _ty_args, arg_types) =
-            self.loader
-                .load_script(script_blob, &[], data_store, &log_context)?;
+        let (
+            main,
+            LoadedFunctionInstantiation {
+                type_arguments: _,
+                parameters: arg_types,
+                return_: _,
+            },
+        ) = self.loader.load_script(script_blob, &[], data_store)?;
         Ok((main, arg_types))
     }
 

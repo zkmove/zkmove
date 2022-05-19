@@ -33,7 +33,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         config.args, targets
     );
 
-    let (compiled_script, compiled_modules) = compile_script(&targets)?;
+    let (compiled_script, compiled_modules) = compile_script(targets)?;
 
     if let Some(script) = compiled_script {
         let mut script_bytes = vec![];

@@ -71,7 +71,7 @@ impl Arguments {
                 .to_string();
             targets.push(path);
         }
-        let (compiled_script, compiled_modules) = compile_script(&targets)?;
+        let (compiled_script, compiled_modules) = compile_script(targets)?;
 
         let script = compiled_script.expect("script is missing");
         let mut script_bytes = vec![];

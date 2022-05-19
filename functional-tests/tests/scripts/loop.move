@@ -5,6 +5,6 @@ script {
         while (i < 10u64) {
             i = i + 1;
         };
-        assert(i == 10, 101);
+        assert!(i == 10, 101);
     }
 }

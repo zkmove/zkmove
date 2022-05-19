@@ -12,6 +12,7 @@ use move_vm_types::{
 };
 use std::collections::HashMap;
 
+use move_core_types::value::MoveTypeLayout;
 pub use move_vm_types::data_store::DataStore;
 use std::cell::RefCell;
 
@@ -124,6 +125,10 @@ impl<'s> DataStore for State<'s> {
         _ty: Type,
         _val: Value,
     ) -> PartialVMResult<()> {
+        unimplemented!()
+    }
+
+    fn events(&self) -> &Vec<(Vec<u8>, u64, Type, MoveTypeLayout, Value)> {
         unimplemented!()
     }
 }

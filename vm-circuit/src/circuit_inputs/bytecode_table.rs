@@ -2,10 +2,7 @@
 
 use crate::chips::execution_chips::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
-use move_binary_format::file_format::{
-    Bytecode, CompiledModuleMut, CompiledScript, CompiledScriptMut,
-};
-use move_binary_format::CompiledModule;
+use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
 use std::convert::From;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -137,22 +134,29 @@ impl<F: FieldExt> From<&BytecodeTable> for Vec<Vec<F>> {
     }
 }
 
-impl From<CompiledScriptMut> for BytecodeTable {
-    fn from(script: CompiledScriptMut) -> BytecodeTable {
+impl From<CompiledScript> for BytecodeTable {
+    fn from(script: CompiledScript) -> BytecodeTable {
         BytecodeTable(
             script
                 .code
                 .code
                 .iter()
                 .enumerate()
-                .map(|(i, bytecode)| BytecodeInfo::new(0, 0, i as u16, bytecode.clone()))
+                .map(|(i, bytecode)| {
+                    BytecodeInfo::new(
+                        0, /* module id of a script is always 0 */
+                        0,
+                        i as u16,
+                        bytecode.clone(),
+                    )
+                })
                 .collect(),
         )
     }
 }
 
-impl From<Vec<CompiledModuleMut>> for BytecodeTable {
-    fn from(modules: Vec<CompiledModuleMut>) -> BytecodeTable {
+impl From<Vec<CompiledModule>> for BytecodeTable {
+    fn from(modules: Vec<CompiledModule>) -> BytecodeTable {
         let mut bytecodes = Vec::new();
         for (index, module) in modules.iter().enumerate() {
             let module_index = index + 1;
@@ -179,8 +183,8 @@ impl From<Vec<CompiledModuleMut>> for BytecodeTable {
     }
 }
 
-impl From<(CompiledScriptMut, Vec<CompiledModuleMut>)> for BytecodeTable {
-    fn from((script, modules): (CompiledScriptMut, Vec<CompiledModuleMut>)) -> BytecodeTable {
+impl From<(CompiledScript, Vec<CompiledModule>)> for BytecodeTable {
+    fn from((script, modules): (CompiledScript, Vec<CompiledModule>)) -> BytecodeTable {
         let script_bytecodes = BytecodeTable::from(script);
         let modules_bytecodes = BytecodeTable::from(modules);
         let mut bytecodes = Vec::new();
@@ -190,22 +194,12 @@ impl From<(CompiledScriptMut, Vec<CompiledModuleMut>)> for BytecodeTable {
     }
 }
 
-impl From<(CompiledScript, Vec<CompiledModule>)> for BytecodeTable {
-    fn from((script, modules): (CompiledScript, Vec<CompiledModule>)) -> BytecodeTable {
-        let modules_into_inner = modules
-            .into_iter()
-            .map(|module| module.into_inner())
-            .collect();
-        (script.into_inner(), modules_into_inner).into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::circuit_inputs::bytecode_table::{BytecodeInfo, BytecodeTable};
     use error::VmResult;
     use move_binary_format::file_format::{
-        empty_module, empty_script, Bytecode, CodeUnit, CompiledModuleMut, CompiledScriptMut,
+        empty_module, empty_script, Bytecode, CodeUnit, CompiledModule, CompiledScript,
         FunctionDefinition, FunctionHandle, FunctionHandleIndex, IdentifierIndex,
         ModuleHandleIndex, SignatureIndex, Visibility,
     };
@@ -215,7 +209,7 @@ mod tests {
     //     foo() {
     //     }
     // }
-    fn test_module() -> CompiledModuleMut {
+    fn test_module() -> CompiledModule {
         let mut m = empty_module();
 
         m.function_handles.push(FunctionHandle {
@@ -240,7 +234,7 @@ mod tests {
         m
     }
 
-    fn test_script() -> CompiledScriptMut {
+    fn test_script() -> CompiledScript {
         let mut script = empty_script();
         script.code.code = vec![
             Bytecode::LdU64(1u64),

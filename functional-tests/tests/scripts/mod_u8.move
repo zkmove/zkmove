@@ -2,6 +2,6 @@
 script {
     fun main(x: u8) {
         let _y = x % 2u8;
-//        assert(y == 1u8, 101);
+//        assert!(y == 1u8, 101);
     }
 }

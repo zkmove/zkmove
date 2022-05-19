@@ -12,8 +12,9 @@ vm-circuit = { path = "../vm-circuit" }
 fast-circuit = { path = "../fast-circuit" }
 movelang = { path = "../movelang"}
 rand_core = { version = "0.6", default-features = false }
-move-binary-format = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
-move-vm-runtime = { git = "https://github.com/zkmove/diem", rev ="0e608052d180d5ef7e3c4a5884cbd26e5e8d1be6" }
+move-binary-format = { git = "https://github.com/zkmove/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
+move-vm-types = { git = "https://github.com/zkmove/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
+move-vm-runtime = { git = "https://github.com/zkmove/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
 halo2_proofs = { git = "https://github.com/zkmove/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
 #halo2_proofs = { path = "../../halo2/halo2_proofs"}
 

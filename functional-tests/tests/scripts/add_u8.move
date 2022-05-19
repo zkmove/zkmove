@@ -2,6 +2,6 @@
 script {
     fun main(x: u8) {
         x + 2u8;
-        //assert(y == 3u8, 101);
+        //assert!(y == 3u8, 101);
     }
 }
