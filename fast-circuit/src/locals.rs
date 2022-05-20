@@ -5,7 +5,6 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Clone)]
 pub struct Locals<F: FieldExt>(Rc<RefCell<Vec<Value<F>>>>);
 
 impl<F: FieldExt> Locals<F> {
@@ -52,9 +51,25 @@ impl<F: FieldExt> Locals<F> {
     pub fn get(&self, index: usize) -> Option<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
-            Some(Value::Invalid) => Some(Value::Invalid),
             Some(v) => Some(v.clone()),
             None => None,
         }
+    }
+}
+
+impl<F: FieldExt> Clone for Locals<F> {
+    fn clone(&self) -> Self {
+        let inner = (0..self.len()).map(|i| self.get(i).unwrap()).collect();
+        Locals(Rc::new(RefCell::new(inner)))
+    }
+}
+
+impl<F: FieldExt> std::fmt::Debug for Locals<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f)?;
+        for i in 0..self.len() {
+            writeln!(f, "locals[{}]:{:?}", i, self.get(i))?;
+        }
+        Ok(())
     }
 }

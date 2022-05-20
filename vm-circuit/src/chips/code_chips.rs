@@ -4,7 +4,6 @@ use crate::chips::code_chips::bytecode_chip::{BytecodeChip, BytecodeChipConfig};
 use crate::circuit_inputs::CircuitInputs;
 use bytecode_chip::BYTECODE_CHIP_WIDTH;
 use halo2_proofs::circuit::{Chip, Region};
-use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -15,7 +14,6 @@ pub mod bytecode_chip;
 
 #[derive(Clone, Debug)]
 pub struct CodeChipConfig<F: FieldExt> {
-    advices: [Column<Advice>; BYTECODE_CHIP_WIDTH],
     bytecode_chip_config: BytecodeChipConfig<F>,
 }
 
@@ -57,7 +55,6 @@ impl<F: FieldExt> CodeChip<F> {
         // todo: create gate for code hash check
 
         CodeChipConfig {
-            advices,
             bytecode_chip_config,
         }
     }

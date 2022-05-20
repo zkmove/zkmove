@@ -7,5 +7,6 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.38"
 bellman = { package = "bellman_ce", version = "0.3.0" }
+logger = { path = "../logger" }
 halo2_proofs = { git = "https://github.com/zkmove/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
 #halo2_proofs = { path = "../../../halo2/halo2_proofs"}

@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use halo2_proofs::plonk::{Error as ProofSystemError, Error};
+use logger::prelude::*;
 use std::result::Result;
 
 pub type VmResult<T> = Result<T, RuntimeError>;
@@ -105,7 +106,10 @@ impl Into<ProofSystemError> for RuntimeError {
     fn into(self) -> ProofSystemError {
         match self.status {
             StatusCode::ProofSystemError(e) => e,
-            _ => ProofSystemError::Synthesis,
+            _ => {
+                error!("RuntimeError: {:?}", self.status);
+                ProofSystemError::Synthesis
+            }
         }
     }
 }

@@ -236,8 +236,8 @@ impl<F: FieldExt> std::fmt::Debug for Block<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Block {{ pc {}, start {}, end {:?}, condition {:?} }}",
-            self.pc, self.start, self.end, self.condition
+            "Block {{ pc {}, start {}, end {:?}, condition {:?}, locals {:?}}}",
+            self.pc, self.start, self.end, self.condition, self.locals
         )
     }
 }

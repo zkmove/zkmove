@@ -55,6 +55,7 @@ where
     ) -> VmResult<u32> {
         let mut k = MIN_K;
         while k <= MAX_K {
+            debug!("Try k={}...", k);
             let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
             let result = MockProver::run(k, circuit, instance.clone());
             match result {

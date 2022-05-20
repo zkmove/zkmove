@@ -55,7 +55,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         };
 
         if use_fast_circuit {
-            debug!("Find the best suitable k for the circuit");
+            debug!("Find the best suitable k for the circuit...");
             let k = runtime.find_best_k_for_fast_circuit(
                 script_bytes.clone(),
                 compiled_modules.clone(),
