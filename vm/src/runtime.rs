@@ -277,7 +277,7 @@ where
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         // Create a proof
         let slow_prove_start = std::time::Instant::now();
-        create_proof(params, &pk, &[circuit], &[], OsRng, &mut transcript)
+        create_proof(params, &pk, &[circuit], &[&[]], OsRng, &mut transcript)
             .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
         info!("vm circuit proof size {} bytes", proof.len());
@@ -287,7 +287,7 @@ where
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
         let slow_verify_start = std::time::Instant::now();
-        let result = verify_proof(params, pk.get_vk(), strategy, &[], &mut transcript);
+        let result = verify_proof(params, pk.get_vk(), strategy, &[&[]], &mut transcript);
         let slow_verify_time = std::time::Instant::now().duration_since(slow_verify_start);
         info!(
             "vm circuit verify time: {} ms",
