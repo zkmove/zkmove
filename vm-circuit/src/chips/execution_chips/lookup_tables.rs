@@ -2,7 +2,7 @@
 
 use crate::chips::utilities::Expr;
 use crate::circuit_inputs::rw_operations::RW;
-use halo2_proofs::plonk::{Advice, Column, Expression};
+use halo2_proofs::plonk::{Advice, Column, Expression, TableColumn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
@@ -178,26 +178,26 @@ impl<F: FieldExt> RWLookup<F> {
 
 #[derive(Clone, Debug)]
 pub struct BytecodeLookupTable {
-    pub module_index_column: Column<Advice>,
-    pub function_index_column: Column<Advice>,
-    pub pc_column: Column<Advice>,
-    pub opcode_column: Column<Advice>,
-    pub operand_column: Column<Advice>,
+    pub module_index_column: TableColumn,
+    pub function_index_column: TableColumn,
+    pub pc_column: TableColumn,
+    pub opcode_column: TableColumn,
+    pub operand_column: TableColumn,
 }
 pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 5;
 
 impl BytecodeLookupTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
         BytecodeLookupTable {
-            module_index_column: meta.advice_column(),
-            function_index_column: meta.advice_column(),
-            pc_column: meta.advice_column(),
-            opcode_column: meta.advice_column(),
-            operand_column: meta.advice_column(),
+            module_index_column: meta.lookup_table_column(),
+            function_index_column: meta.lookup_table_column(),
+            pc_column: meta.lookup_table_column(),
+            opcode_column: meta.lookup_table_column(),
+            operand_column: meta.lookup_table_column(),
         }
     }
 
-    pub fn columns(&self) -> Vec<Column<Advice>> {
+    pub fn columns(&self) -> Vec<TableColumn> {
         let mut columns = vec![];
         columns.push(self.module_index_column);
         columns.push(self.function_index_column);

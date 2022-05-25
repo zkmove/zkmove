@@ -204,28 +204,28 @@ impl<F: FieldExt> StepChip<F> {
         }
 
         for (lookup, cond) in bytecode_lookups {
-            meta.lookup_any(|meta| {
+            meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
                         s_step.clone() * lookup.module_index * cond.clone(),
-                        meta.query_advice(bytecode_table.module_index_column, Rotation::cur()),
+                        bytecode_table.module_index_column,
                     ),
                     (
                         s_step.clone() * lookup.function_index * cond.clone(),
-                        meta.query_advice(bytecode_table.function_index_column, Rotation::cur()),
+                        bytecode_table.function_index_column,
                     ),
                     (
                         s_step.clone() * lookup.pc * cond.clone(),
-                        meta.query_advice(bytecode_table.pc_column, Rotation::cur()),
+                        bytecode_table.pc_column,
                     ),
                     (
                         s_step.clone() * lookup.opcode * cond.clone(),
-                        meta.query_advice(bytecode_table.opcode_column, Rotation::cur()),
+                        bytecode_table.opcode_column,
                     ),
                     (
                         s_step * lookup.operand * cond.clone(),
-                        meta.query_advice(bytecode_table.operand_column, Rotation::cur()),
+                        bytecode_table.operand_column,
                     ),
                 ]
             });
