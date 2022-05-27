@@ -13,8 +13,8 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::sync::Arc;
 use types::value::Value;
-use vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
-use vm_circuit::circuit_inputs::rw_operations::RWOperation;
+use vm_circuit::witness::execution_steps::ExecutionStep;
+use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -105,7 +105,7 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-        data_store: &mut StateStore,
+        data_store: &StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {

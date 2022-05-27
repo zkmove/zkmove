@@ -8,7 +8,7 @@ use movelang::compiler::compile_script;
 use movelang::state::StateStore;
 use std::path::Path;
 use vm::runtime::Runtime;
-use vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
+use vm_circuit::circuit::VmCircuit;
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -34,103 +34,65 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     );
 
     let (compiled_script, compiled_modules) = compile_script(targets)?;
+    let script = compiled_script.expect("script is missing");
+    let runtime = Runtime::<Fp>::new();
+    let mut state = StateStore::new();
 
-    if let Some(script) = compiled_script {
-        let mut script_bytes = vec![];
-        script.serialize(&mut script_bytes)?;
+    for module in compiled_modules.clone().into_iter() {
+        state.add_module(module);
+    }
 
-        let runtime = Runtime::<Fp>::new();
-        let mut state = StateStore::new();
+    let (use_fast_circuit, use_vm_circuit) = match config.circuit {
+        Some(Circuit::FastCircuit) => (true, false),
+        Some(Circuit::VmCircuit) => (false, true),
+        None => (true, true),
+    };
 
-        // todo: refactor bytecode table, global state and module table
-        let bytecodes = BytecodeTable::from((script, compiled_modules.clone()));
-        for module in compiled_modules.clone().into_iter() {
-            state.add_module(module);
-        }
+    if use_fast_circuit {
+        let move_circuit = runtime.create_move_circuit(
+            script.clone(),
+            compiled_modules.clone(),
+            config.args.clone(),
+            state.clone(),
+        );
+        let public_inputs = vec![Fp::zero()];
+        debug!("Find the best suitable k for the circuit...");
+        let k = runtime.find_best_k(&move_circuit, vec![public_inputs.clone()])?;
+        info!("use move circuit, k = {}", k);
 
-        let (use_fast_circuit, use_vm_circuit) = match config.circuit {
-            Some(Circuit::FastCircuit) => (true, false),
-            Some(Circuit::VmCircuit) => (false, true),
-            None => (true, true),
-        };
+        debug!(
+            "Generate zk proof for script {:?} with mock prover",
+            script_file
+        );
+        runtime.mock_prove_circuit(&move_circuit, vec![public_inputs.clone()], k)?;
 
-        if use_fast_circuit {
-            debug!("Find the best suitable k for the circuit...");
-            let k = runtime.find_best_k_for_fast_circuit(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                config.args.clone(),
-                &mut state,
-            )?;
-            info!("k = {}", k);
+        debug!("Generate parameters for script {:?}", script_file);
+        let params: Params<EqAffine> = Params::new(k);
+        let pk = runtime.setup_move_circuit(&move_circuit, &params)?;
 
-            debug!(
-                "Generate zk proof for script {:?} with mock prover",
-                script_file
-            );
-            runtime.mock_prove_script(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                config.args.clone(),
-                &mut state,
-                k,
-            )?;
+        debug!(
+            "Generate zk proof for script {:?} with real prover",
+            script_file
+        );
+        runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
+    }
 
-            debug!("Generate parameters for script {:?}", script_file);
-            let params: Params<EqAffine> = Params::new(k);
-            let pk = runtime.setup_script(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                &mut state,
-                &params,
-            )?;
+    if use_vm_circuit {
+        debug!("Generate execution trace for script {:?}", script_file);
+        let witness = runtime.execute_script(script, compiled_modules, config.args, &state)?;
 
-            debug!(
-                "Generate zk proof for script {:?} with real prover",
-                script_file
-            );
-            runtime.prove_script(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                config.args.clone(),
-                &mut state,
-                &params,
-                pk,
-            )?;
-        }
+        let vm_circuit = VmCircuit { witness };
+        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        info!("use vm circuit, k = {}", k);
 
-        if use_vm_circuit {
-            debug!("Generate execution trace for script {:?}", script_file);
-            let (exec_steps, rw_operations) =
-                runtime.generate_trace(script_bytes, compiled_modules, config.args, &mut state)?;
+        runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
 
-            let vm_circuit = runtime.create_vm_circuit(
-                exec_steps.clone(),
-                rw_operations.clone(),
-                bytecodes.clone(),
-            );
-            let k = runtime.find_best_k(&vm_circuit, vec![])?;
-            info!("k = {}", k);
+        debug!("Generate parameters for execution trace");
+        let params: Params<EqAffine> = Params::new(k);
+        let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
-            runtime.mock_prove_execution_trace(
-                exec_steps.clone(),
-                rw_operations.clone(),
-                bytecodes.clone(),
-                k,
-            )?;
-
-            debug!("Generate parameters for execution trace");
-            let params: Params<EqAffine> = Params::new(k);
-            let pk = runtime.setup_execution_trace(
-                exec_steps.clone(),
-                rw_operations.clone(),
-                bytecodes.clone(),
-                &params,
-            )?;
-
-            debug!("Generate zk proof for execution trace");
-            runtime.prove_execution_trace(exec_steps, rw_operations, bytecodes, &params, pk)?;
-        }
+        debug!("Generate zk proof for execution trace");
+        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk)?;
     }
 
     Ok(())

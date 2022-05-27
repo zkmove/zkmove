@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use structopt::StructOpt;
 use vm::runtime::Runtime;
-use vm_circuit::circuit_inputs::bytecode_table::BytecodeTable;
+use vm_circuit::circuit::VmCircuit;
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -74,8 +74,6 @@ impl Arguments {
         let (compiled_script, compiled_modules) = compile_script(targets)?;
 
         let script = compiled_script.expect("script is missing");
-        let mut script_bytes = vec![];
-        script.serialize(&mut script_bytes)?;
         let runtime = Runtime::<Fp>::new();
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
@@ -83,71 +81,34 @@ impl Arguments {
         }
 
         if fast_mode {
-            let k = runtime.find_best_k_for_fast_circuit(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                config.args.clone(),
-                &mut state,
-            )?;
+            let move_circuit =
+                runtime.create_move_circuit(script, compiled_modules, config.args, state);
+            let public_inputs = vec![Fp::zero()];
+            let k = runtime.find_best_k(&move_circuit, vec![public_inputs.clone()])?;
             info!("k = {}", k);
 
             if use_mock {
-                runtime.mock_prove_script(
-                    script_bytes.clone(),
-                    compiled_modules.clone(),
-                    config.args.clone(),
-                    &mut state,
-                    k,
-                )?;
+                runtime.mock_prove_circuit(&move_circuit, vec![public_inputs.clone()], k)?;
             }
 
             let params: Params<EqAffine> = Params::new(k);
-            let pk = runtime.setup_script(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                &mut state,
-                &params,
-            )?;
+            let pk = runtime.setup_move_circuit(&move_circuit, &params)?;
 
-            runtime.prove_script(
-                script_bytes.clone(),
-                compiled_modules.clone(),
-                config.args.clone(),
-                &mut state,
-                &params,
-                pk,
-            )?;
+            runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
         } else {
-            let bytecodes = BytecodeTable::from((script, compiled_modules.clone()));
-            let (exec_steps, rw_operations) =
-                runtime.generate_trace(script_bytes, compiled_modules, config.args, &mut state)?;
-
-            let vm_circuit = runtime.create_vm_circuit(
-                exec_steps.clone(),
-                rw_operations.clone(),
-                bytecodes.clone(),
-            );
+            let witness = runtime.execute_script(script, compiled_modules, config.args, &state)?;
+            let vm_circuit = VmCircuit { witness };
             let k = runtime.find_best_k(&vm_circuit, vec![])?;
             info!("k = {}", k);
 
             if use_mock {
-                runtime.mock_prove_execution_trace(
-                    exec_steps.clone(),
-                    rw_operations.clone(),
-                    bytecodes.clone(),
-                    k,
-                )?;
+                runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
             }
 
             let params: Params<EqAffine> = Params::new(k);
-            let pk = runtime.setup_execution_trace(
-                exec_steps.clone(),
-                rw_operations.clone(),
-                bytecodes.clone(),
-                &params,
-            )?;
+            let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
-            runtime.prove_execution_trace(exec_steps, rw_operations, bytecodes, &params, pk)?;
+            runtime.prove_vm_circuit(vm_circuit, &[], &params, pk)?;
         }
 
         Ok(())

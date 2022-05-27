@@ -3,5 +3,5 @@ pub mod utilities;
 #[cfg(test)]
 mod chip_tests;
 
-pub mod execution_chips;
-pub mod memory_chips;
+pub mod execution_chip;
+pub mod memory_chip;

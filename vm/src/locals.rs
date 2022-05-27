@@ -4,7 +4,7 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
 use types::value::Value;
-use vm_circuit::circuit_inputs::rw_operations::{LocalsOp, RWOperation, RW};
+use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
 pub struct Locals<F: FieldExt>(Rc<RefCell<Vec<Value<F>>>>);

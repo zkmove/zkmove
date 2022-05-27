@@ -4,7 +4,7 @@ members = [
     "common/logger",
     "common/error",
     "common/types",
-    "fast-circuit",
+    "move-circuit",
     "vm-circuit",
     "vm",
     "functional-tests",

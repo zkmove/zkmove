@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use types::value::Value;
-use vm_circuit::circuit_inputs::rw_operations::{RWOperation, StackOp, RW};
+use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;

@@ -12,11 +12,10 @@ pub fn init() {
 }
 
 pub fn init_for_main(verbose: bool) {
-    let filter = match verbose {
-        true => "debug",
-        false => "info",
+    let _ = match verbose {
+        true => Builder::from_env(Env::default().default_filter_or("debug")).try_init(),
+        false => Builder::from_env(Env::default().default_filter_or("info")).try_init(),
     };
-    let _ = Builder::from_env(Env::default().default_filter_or(filter)).try_init();
 }
 
 pub fn init_for_test() {

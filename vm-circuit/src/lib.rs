@@ -2,4 +2,4 @@
 
 pub mod chips;
 pub mod circuit;
-pub mod circuit_inputs;
+pub mod witness;

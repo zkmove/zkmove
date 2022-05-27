@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chips::{ExecutionChip, ExecutionChipConfig};
-use crate::chips::memory_chips::{MemoryChip, MemoryChipConfig};
-use crate::circuit_inputs::CircuitInputs;
+use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
+use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
+use crate::witness::Witness;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -17,7 +17,7 @@ pub struct VmCircuitConfig<F: FieldExt> {
 
 #[derive(Clone, Default)]
 pub struct VmCircuit<F: FieldExt> {
-    pub circuit_inputs: CircuitInputs<F>,
+    pub witness: Witness<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
@@ -40,15 +40,12 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let execution_chip = ExecutionChip::<F>::construct(
-            self.circuit_inputs.clone(),
-            config.execution_chip_config,
-            (),
-        );
+        let execution_chip =
+            ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
         execution_chip.assign(&mut layouter)?;
 
         let memory_chip =
-            MemoryChip::<F>::construct(self.circuit_inputs.clone(), config.memory_chip_config, ());
+            MemoryChip::<F>::construct(self.witness.clone(), config.memory_chip_config, ());
         memory_chip.assign(&mut layouter)?;
 
         Ok(())

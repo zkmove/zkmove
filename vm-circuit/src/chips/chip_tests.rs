@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chips::opcode::Opcode;
+use crate::chips::execution_chip::opcode::Opcode;
 use crate::circuit::VmCircuit;
-use crate::circuit_inputs::execution_steps::ExecutionStep;
-use crate::circuit_inputs::rw_operations::RW::{READ, WRITE};
-use crate::circuit_inputs::rw_operations::{LocalsOp, RWOperation, StackOp};
-use crate::circuit_inputs::CircuitInputs;
+use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::rw_operations::RW::{READ, WRITE};
+use crate::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
+use crate::witness::Witness;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
@@ -158,8 +158,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
     rw_operations.push(rw_op_5);
     rw_operations.push(fake_rw_op);
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
-    let vm_circuit = VmCircuit { circuit_inputs };
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
@@ -170,7 +170,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     Ok(())
 }
 
-// after the CircuitInputs change this test is dropped because we could not inject a sorted ops.
+// after the Witness change this test is dropped because we could not inject a sorted ops.
 #[test]
 fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     logger::init_for_test();
@@ -311,9 +311,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     wrong_sorted_stack_operations.push(rw_op_1);
     wrong_sorted_stack_operations.push(rw_op_2);
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
-    // circuit_inputs.sorted_stack_ops.0 = wrong_sorted_stack_operations;
-    let vm_circuit = VmCircuit { circuit_inputs };
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;
+    let vm_circuit = VmCircuit { witness };
     let k = 10;
     let _prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

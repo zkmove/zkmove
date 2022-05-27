@@ -9,16 +9,16 @@ use halo2_proofs::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
-use movelang::state::{State, StateStore};
+use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use types::value::Value::Variable;
 use types::value::{FVariable, Value};
-use vm_circuit::chips::execution_chips::opcode::Opcode;
+use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
-use vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
-use vm_circuit::circuit_inputs::rw_operations::RW::{READ, WRITE};
-use vm_circuit::circuit_inputs::rw_operations::{LocalsOp, RWOperation, StackOp};
-use vm_circuit::circuit_inputs::CircuitInputs;
+use vm_circuit::witness::execution_steps::ExecutionStep;
+use vm_circuit::witness::rw_operations::RW::{READ, WRITE};
+use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
+use vm_circuit::witness::Witness;
 
 #[test]
 fn test_execution_step() -> VmResult<()> {
@@ -38,11 +38,10 @@ fn test_execution_step() -> VmResult<()> {
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
-    let mut state = State::new(&mut data_store);
 
     let (entry, arg_types) = runtime
         .loader()
-        .load_script(&blob, &mut state)
+        .load_script(&blob, &data_store)
         .map_err(|e| {
             error!("load script failed: {:?}", e);
             RuntimeError::new(StatusCode::ScriptLoadingError)
@@ -177,8 +176,8 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
-    let vm_circuit = VmCircuit { circuit_inputs };
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let vm_circuit = VmCircuit { witness };
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
@@ -330,8 +329,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
     rw_operations.push(rw_op_5);
     rw_operations.push(fake_rw_op);
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
-    let vm_circuit = VmCircuit { circuit_inputs };
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
@@ -342,7 +341,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     Ok(())
 }
 
-// after the CircuitInputs change this test is dropped because we could not inject a sorted ops.
+// after the Witness change this test is dropped because we could not inject a sorted ops.
 #[test]
 fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     logger::init_for_test();
@@ -483,9 +482,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     wrong_sorted_stack_operations.push(rw_op_1);
     wrong_sorted_stack_operations.push(rw_op_2);
 
-    let circuit_inputs = CircuitInputs::new(exec_steps, rw_operations, bytecodes);
-    // circuit_inputs.sorted_stack_ops.0 = wrong_sorted_stack_operations;
-    let vm_circuit = VmCircuit { circuit_inputs };
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;
+    let vm_circuit = VmCircuit { witness };
     let k = 10;
     let _prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

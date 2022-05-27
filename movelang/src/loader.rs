@@ -24,7 +24,7 @@ impl MoveLoader {
     pub fn load_script(
         &self,
         script_blob: &[u8],
-        data_store: &mut impl DataStore,
+        data_store: &impl DataStore,
     ) -> VMResult<(Arc<Function>, Vec<Type>)> {
         let (
             main,

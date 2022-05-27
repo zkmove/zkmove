@@ -57,22 +57,7 @@ impl Default for StateStore {
     }
 }
 
-#[derive(Clone)]
-pub struct State<'s> {
-    pub state_store: &'s StateStore,
-}
-
-impl<'s> State<'s> {
-    pub fn new(state_store: &'s StateStore) -> Self {
-        State { state_store }
-    }
-
-    pub fn state_store(&'s self) -> &'s StateStore {
-        self.state_store
-    }
-}
-
-impl<'s> DataStore for State<'s> {
+impl DataStore for StateStore {
     fn load_resource(
         &mut self,
         _addr: AccountAddress,
@@ -82,7 +67,7 @@ impl<'s> DataStore for State<'s> {
     }
 
     fn load_module(&self, module_id: &ModuleId) -> VMResult<Vec<u8>> {
-        let modules_ref = self.state_store.modules.borrow();
+        let modules_ref = self.modules.borrow();
         let module = modules_ref.get(module_id).ok_or_else(|| {
             PartialVMError::new(StatusCode::MISSING_DEPENDENCY)
                 .with_message(format!(
@@ -95,8 +80,7 @@ impl<'s> DataStore for State<'s> {
     }
 
     fn publish_module(&mut self, module_id: &ModuleId, blob: Vec<u8>) -> VMResult<()> {
-        self.state_store
-            .modules
+        self.modules
             .borrow_mut()
             .insert(module_id.clone(), blob)
             .ok_or_else(|| {
@@ -107,15 +91,12 @@ impl<'s> DataStore for State<'s> {
                     ))
                     .finish(Location::Undefined)
             })?;
-        self.state_store
-            .module_table
-            .borrow_mut()
-            .push(module_id.clone());
+        self.module_table.borrow_mut().push(module_id.clone());
         Ok(())
     }
 
     fn exists_module(&self, module_id: &ModuleId) -> VMResult<bool> {
-        Ok(self.state_store.modules.borrow().contains_key(module_id))
+        Ok(self.modules.borrow().contains_key(module_id))
     }
 
     fn emit_event(

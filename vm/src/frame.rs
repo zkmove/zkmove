@@ -11,8 +11,8 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::sync::Arc;
 use types::value::Value;
-use vm_circuit::circuit_inputs::execution_steps::ExecutionStep;
-use vm_circuit::circuit_inputs::rw_operations::RWOperation;
+use vm_circuit::witness::execution_steps::ExecutionStep;
+use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -41,7 +41,7 @@ impl<F: FieldExt> Frame<F> {
         self.pc += 1;
     }
 
-    pub fn module_index(&self, data_store: &mut StateStore) -> Option<u16> {
+    pub fn module_index(&self, data_store: &StateStore) -> Option<u16> {
         match self.function.module_id() {
             Some(module_id) => data_store.module_index(module_id),
             None => Some(0), // function is in the script
@@ -51,7 +51,7 @@ impl<F: FieldExt> Frame<F> {
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
-        data_store: &mut StateStore,
+        data_store: &StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus<F>> {
