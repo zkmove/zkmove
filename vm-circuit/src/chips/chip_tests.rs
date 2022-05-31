@@ -85,6 +85,17 @@ fn test_fake_rw_operation() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
+    let step_5 = ExecutionStep::<Fp> {
+        opcode: Opcode::Stop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
 
     let mut exec_steps = Vec::new();
     exec_steps.push(step_0);
@@ -92,6 +103,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     exec_steps.push(step_2);
     exec_steps.push(step_3);
     exec_steps.push(step_4);
+    exec_steps.push(step_5);
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -240,6 +252,17 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
+    let step_5 = ExecutionStep::<Fp> {
+        opcode: Opcode::Stop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
 
     let mut exec_steps = Vec::new();
     exec_steps.push(step_0);
@@ -247,6 +270,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     exec_steps.push(step_2);
     exec_steps.push(step_3);
     exec_steps.push(step_4);
+    exec_steps.push(step_5);
 
     let rw_op_0 = StackOp {
         address: 0,

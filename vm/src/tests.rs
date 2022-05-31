@@ -117,12 +117,24 @@ fn test_execution_step() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
+    let expected_step_5 = ExecutionStep {
+        opcode: Opcode::Stop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
 
     assert_eq!(exec_steps[0], expected_step_0, "result is not expected");
     assert_eq!(exec_steps[1], expected_step_1, "result is not expected");
     assert_eq!(exec_steps[2], expected_step_2, "result is not expected");
     assert_eq!(exec_steps[3], expected_step_3, "result is not expected");
     assert_eq!(exec_steps[4], expected_step_4, "result is not expected");
+    assert_eq!(exec_steps[5], expected_step_5, "result is not expected");
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -189,7 +201,7 @@ fn test_execution_step() -> VmResult<()> {
 }
 
 #[test]
-fn test_fake_rw_operation() -> VmResult<()> {
+fn test_nop_step() -> VmResult<()> {
     logger::init_for_test();
     let mut script = empty_script();
     script.code.code = vec![
@@ -256,6 +268,39 @@ fn test_fake_rw_operation() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
+    let step_5 = ExecutionStep::<Fp> {
+        opcode: Opcode::Nop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
+    let step_6 = ExecutionStep::<Fp> {
+        opcode: Opcode::Nop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
+    let step_7 = ExecutionStep::<Fp> {
+        opcode: Opcode::Stop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
 
     let mut exec_steps = Vec::new();
     exec_steps.push(step_0);
@@ -263,6 +308,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
     exec_steps.push(step_2);
     exec_steps.push(step_3);
     exec_steps.push(step_4);
+    exec_steps.push(step_5);
+    exec_steps.push(step_6);
+    exec_steps.push(step_7);
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -341,22 +389,26 @@ fn test_fake_rw_operation() -> VmResult<()> {
     Ok(())
 }
 
-// after the Witness change this test is dropped because we could not inject a sorted ops.
 #[test]
-fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
+fn test_nop_steps() -> VmResult<()> {
     logger::init_for_test();
-
     let mut script = empty_script();
     script.code.code = vec![
         MoveBytecode::LdU64(1u64),
-        MoveBytecode::LdU64(1u64),
+        MoveBytecode::LdU64(2u64),
         MoveBytecode::Add,
         MoveBytecode::Pop,
         MoveBytecode::Ret,
     ];
-    let bytecodes = (script, vec![]).into();
 
-    let step_0 = ExecutionStep::<Fp> {
+    let runtime = Runtime::<Fp>::new();
+    let data_store = StateStore::new();
+    let witness = runtime.execute_script(script, vec![], None, &data_store, Some(8), None)?;
+
+    let vm_circuit = VmCircuit { witness };
+    let k = runtime.find_best_k(&vm_circuit, vec![])?;
+
+    let expected_step_0 = ExecutionStep {
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -367,7 +419,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
-    let step_1 = ExecutionStep::<Fp> {
+    let expected_step_1 = ExecutionStep {
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -378,7 +430,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
-    let step_2 = ExecutionStep::<Fp> {
+    let expected_step_2 = ExecutionStep {
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -389,7 +441,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
-    let step_3 = ExecutionStep::<Fp> {
+    let expected_step_3 = ExecutionStep {
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -400,7 +452,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
-    let step_4 = ExecutionStep::<Fp> {
+    let expected_step_4 = ExecutionStep {
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -411,86 +463,108 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         function_index: 0,
         auxiliary: None,
     };
+    let expected_step_5 = ExecutionStep {
+        opcode: Opcode::Nop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
+    let expected_step_6 = ExecutionStep {
+        opcode: Opcode::Nop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
+    let expected_step_7 = ExecutionStep {
+        opcode: Opcode::Stop,
+        pc: 4,
+        stack_size: 0,
+        call_index: 0,
+        locals_index: 0,
+        gc: 6,
+        module_index: 0,
+        function_index: 0,
+        auxiliary: None,
+    };
 
-    let mut exec_steps = Vec::new();
-    exec_steps.push(step_0);
-    exec_steps.push(step_1);
-    exec_steps.push(step_2);
-    exec_steps.push(step_3);
-    exec_steps.push(step_4);
+    let steps = &vm_circuit.witness.exec_steps;
+    assert_eq!(steps[0], expected_step_0, "result is not expected");
+    assert_eq!(steps[1], expected_step_1, "result is not expected");
+    assert_eq!(steps[2], expected_step_2, "result is not expected");
+    assert_eq!(steps[3], expected_step_3, "result is not expected");
+    assert_eq!(steps[4], expected_step_4, "result is not expected");
+    assert_eq!(steps[5], expected_step_5, "result is not expected");
+    assert_eq!(steps[6], expected_step_6, "result is not expected");
+    assert_eq!(steps[7], expected_step_7, "result is not expected");
 
-    let rw_op_0 = StackOp {
+    let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Value::u64(1, None).unwrap(),
         rw: WRITE,
         gc: 0,
-    };
-    let rw_op_1 = StackOp {
+    });
+    let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(2, None).unwrap(),
         rw: WRITE,
         gc: 1,
-    };
-    let rw_op_2 = StackOp {
+    });
+    let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(2, None).unwrap(),
         rw: READ,
         gc: 2,
-    };
-    let rw_op_3 = StackOp {
+    });
+    let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Value::u64(1, None).unwrap(),
         rw: READ,
         gc: 3,
-    };
-    let rw_op_4 = StackOp {
+    });
+    let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(2)),
+            value: Some(Fp::from_u128(3)),
             cell: None,
             ty: MoveValueType::U64,
         }),
         rw: WRITE,
         gc: 4,
-    };
-    let rw_op_5 = StackOp {
+    });
+    let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(2)),
+            value: Some(Fp::from_u128(3)),
             cell: None,
             ty: MoveValueType::U64,
         }),
         rw: READ,
         gc: 5,
-    };
+    });
 
-    let mut rw_operations = Vec::new();
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_0.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_1.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_2.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_3.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_4.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_5.clone()));
+    let rw_ops = &vm_circuit.witness.rw_operations.0;
+    assert_eq!(rw_ops[0], expected_rw_op_0, "result is not expected");
+    assert_eq!(rw_ops[1], expected_rw_op_1, "result is not expected");
+    assert_eq!(rw_ops[2], expected_rw_op_2, "result is not expected");
+    assert_eq!(rw_ops[3], expected_rw_op_3, "result is not expected");
+    assert_eq!(rw_ops[4], expected_rw_op_4, "result is not expected");
+    assert_eq!(rw_ops[5], expected_rw_op_5, "result is not expected");
 
-    // correct sorted ops: 0,3,4,5,1,2
-    // wrong sorted ops: 4,5,0,3,1,2
-    let mut wrong_sorted_stack_operations = Vec::new();
-    wrong_sorted_stack_operations.push(rw_op_4);
-    wrong_sorted_stack_operations.push(rw_op_5);
-    wrong_sorted_stack_operations.push(rw_op_0);
-    wrong_sorted_stack_operations.push(rw_op_3);
-    wrong_sorted_stack_operations.push(rw_op_1);
-    wrong_sorted_stack_operations.push(rw_op_2);
-
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
-    // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;
-    let vm_circuit = VmCircuit { witness };
-    let k = 10;
-    let _prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
-    // assert_ne!(prover.verify(), Ok(()));
+    assert_eq!(prover.verify(), Ok(()));
 
     Ok(())
 }

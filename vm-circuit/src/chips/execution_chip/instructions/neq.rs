@@ -32,6 +32,12 @@ impl<F: FieldExt> Instructions<F> for Neq<F> {
         let out = cells.value_c.expression.clone();
         let delta_invert = cells.auxiliary.expression.clone();
 
+        // constrain delta_invert
+        let constraint = cond.clone()
+            * (((lhs.clone() - rhs.clone()) * delta_invert.clone() - 1.expr())
+                * (lhs.clone() - rhs.clone()));
+        constraints.push(("delta_invert", constraint));
+
         // if a != b then (a - b) * inverse(a - b) == out
         // if a == b then (a - b) * 1 == out
         let constraint = cond.clone() * ((lhs - rhs) * delta_invert - out);

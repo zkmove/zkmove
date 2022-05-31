@@ -41,6 +41,10 @@ impl<F: FieldExt> Frame<F> {
         self.pc += 1;
     }
 
+    pub fn pc(&self) -> u16 {
+        self.pc
+    }
+
     pub fn module_index(&self, data_store: &StateStore) -> Option<u16> {
         match self.function.module_id() {
             Some(module_id) => data_store.module_index(module_id),

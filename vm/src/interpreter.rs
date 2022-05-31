@@ -3,7 +3,7 @@
 use crate::frame::{ExitStatus, Frame};
 use crate::locals::Locals;
 use crate::stack::{CallStack, EvalStack};
-use error::VmResult;
+use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
@@ -13,6 +13,7 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::sync::Arc;
 use types::value::Value;
+use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RWOperation;
 
@@ -123,6 +124,21 @@ impl<F: FieldExt> Interpreter<F> {
                         frame = caller_frame;
                         frame.add_pc();
                     } else {
+                        let last = exec_steps
+                            .last()
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
+                        let stop = ExecutionStep {
+                            opcode: Opcode::Stop,
+                            pc: last.pc,
+                            stack_size: last.stack_size,
+                            call_index: last.call_index,
+                            locals_index: last.locals_index,
+                            gc: last.gc,
+                            module_index: last.module_index,
+                            function_index: last.function_index,
+                            auxiliary: last.auxiliary.clone(),
+                        };
+                        exec_steps.push(stop);
                         return Ok(());
                     }
                 }

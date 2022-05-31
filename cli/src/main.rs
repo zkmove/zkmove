@@ -96,7 +96,14 @@ impl Arguments {
 
             runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
         } else {
-            let witness = runtime.execute_script(script, compiled_modules, config.args, &state)?;
+            let witness = runtime.execute_script(
+                script,
+                compiled_modules,
+                config.args,
+                &state,
+                None,
+                None,
+            )?;
             let vm_circuit = VmCircuit { witness };
             let k = runtime.find_best_k(&vm_circuit, vec![])?;
             info!("k = {}", k);

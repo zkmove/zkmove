@@ -29,11 +29,13 @@ pub mod lt;
 pub mod move_loc;
 pub mod mul;
 pub mod neq;
+pub mod nop;
 pub mod not;
 pub mod or;
 pub mod pop;
 pub mod ret;
 pub mod st_loc;
+pub mod stop;
 pub mod sub;
 
 pub trait Instructions<F: FieldExt> {
