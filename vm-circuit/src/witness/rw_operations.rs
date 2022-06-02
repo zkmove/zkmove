@@ -21,6 +21,18 @@ pub struct LocalsOp<F: FieldExt> {
     pub value: Value<F>,
 }
 
+impl<F: FieldExt> LocalsOp<F> {
+    pub fn empty() -> Self {
+        Self {
+            call_index: 0,
+            index: 0,
+            gc: 0,
+            rw: RW::READ,
+            value: Value::u64(0, None).unwrap(),
+        }
+    }
+}
+
 impl<F: FieldExt> PartialOrd for LocalsOp<F> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))

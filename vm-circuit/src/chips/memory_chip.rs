@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::witness::rw_operations::StackOp;
+use crate::witness::rw_operations::{LocalsOp, StackOp};
 use crate::witness::Witness;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
@@ -30,7 +30,7 @@ pub mod stack_op_chip;
 // 3. make sure total number of sorted rw operations is equal to the gc of the last
 // execution step.
 
-pub const MEM_CHIP_WIDTH: usize = 8; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
+pub const MEM_CHIP_WIDTH: usize = 9; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH)
 
 #[derive(Clone, Debug)]
 pub struct MemoryChipConfig<F: FieldExt> {
@@ -182,26 +182,67 @@ impl<F: FieldExt> MemoryChip<F> {
             |mut region: Region<'_, F>| {
                 let locals_ops = &sorted_locals_ops.0;
                 let mut prev_op = None;
+                let mut counter = 0;
                 for (index, op) in locals_ops.iter().enumerate() {
-                    let counter = index + 1;
+                    counter = index + 1;
                     let assigned_counter = if index == 0 {
                         locals_op_chip
                             .config
                             .s_first_locals_op
                             .enable(&mut region, index)?;
-                        locals_op_chip.assign(&mut region, index, op, counter, None)?
+                        locals_op_chip.assign(&mut region, index, op, counter, None, false)?
                     } else {
                         locals_op_chip
                             .config
                             .s_locals_op
                             .enable(&mut region, index)?;
-                        locals_op_chip.assign(&mut region, index, op, counter, prev_op)?
+                        locals_op_chip.assign(&mut region, index, op, counter, prev_op, false)?
                     };
                     if counter == locals_ops.len() {
                         last_locals_counter = Some(assigned_counter);
                     }
                     prev_op = Some(op.clone());
                 }
+
+                // If the number of locals ops is less than locals_ops_num set by user, fill with
+                // empty locals op.
+                if let Some(locals_ops_num) = self.witness.circuit_config.locals_ops_num {
+                    if locals_ops.len() < locals_ops_num {
+                        for index in locals_ops.len()..locals_ops_num {
+                            let assigned_counter = if index == 0 {
+                                locals_op_chip
+                                    .config
+                                    .s_first_locals_op
+                                    .enable(&mut region, index)?;
+                                locals_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &LocalsOp::empty(),
+                                    counter,
+                                    None,
+                                    true,
+                                )?
+                            } else {
+                                locals_op_chip
+                                    .config
+                                    .s_locals_op
+                                    .enable(&mut region, index)?;
+                                locals_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &LocalsOp::empty(),
+                                    counter,
+                                    prev_op,
+                                    true,
+                                )?
+                            };
+
+                            last_locals_counter = Some(assigned_counter);
+                            prev_op = Some(LocalsOp::empty());
+                        }
+                    }
+                }
+
                 Ok(())
             },
         )?;
@@ -288,19 +329,27 @@ impl<F: FieldExt> MemoryChip<F> {
                         .fold(Ok(()), |acc, res| acc.and(res))?;
                 }
 
-                if let Some(stack_ops_num) = self.witness.circuit_config.stack_ops_num {
-                    if last_step_gc < stack_ops_num {
-                        (last_step_gc..=stack_ops_num)
-                            .map(|i| {
-                                table_column.assign_cell(
-                                    || format!("gc_table[{}]", i),
-                                    self.config.gc_table,
-                                    i,
-                                    || Ok(F::from_u128(i as u128)),
-                                )
-                            })
-                            .fold(Ok(()), |acc, res| acc.and(res))?;
-                    }
+                let ops_num = match (
+                    self.witness.circuit_config.stack_ops_num,
+                    self.witness.circuit_config.locals_ops_num,
+                ) {
+                    (Some(stack_ops_num), Some(locals_ops_num)) => stack_ops_num + locals_ops_num,
+                    (Some(stack_ops_num), None) => stack_ops_num,
+                    (None, Some(locals_ops_num)) => locals_ops_num,
+                    (None, None) => 0,
+                };
+
+                if last_step_gc < ops_num {
+                    (last_step_gc..=ops_num)
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("gc_table[{}]", i),
+                                self.config.gc_table,
+                                i,
+                                || Ok(F::from_u128(i as u128)),
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))?;
                 }
 
                 Ok(())

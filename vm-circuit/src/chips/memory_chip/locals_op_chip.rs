@@ -12,7 +12,7 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 use types::value::Value;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 8;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 9;
 pub const MAX_CALL_INDEX: usize = 256;
 pub const MAX_LOCALS_SIZE: usize = 16;
 
@@ -24,6 +24,7 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
+    pub is_empty: Cell<F>, // is empty op or not
     // delta_invert_xxx is used to constrain the strict monotonic
     // increment of gc for the same locals
     pub delta_invert_call_index: Cell<F>,
@@ -35,6 +36,7 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
+    pub prev_is_empty: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -106,14 +108,17 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
+            is_empty: cells.pop_front().unwrap(),
             delta_invert_call_index: cells.pop_front().unwrap(),
             delta_invert_index: cells.pop_front().unwrap(),
+
             prev_counter: cells.pop_front().unwrap(),
             prev_call_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
+            prev_is_empty: cells.pop_front().unwrap(),
         };
 
         let s_first_locals_op = meta.complex_selector();
@@ -205,41 +210,56 @@ impl<F: FieldExt> LocalsOpChip<F> {
         call_index_lookups: &mut Vec<Expression<F>>,
         locals_index_lookups: &mut Vec<Expression<F>>,
     ) {
+        constraints.push((
+            "is_empty is bool",
+            (cells.is_empty.expression.clone() - 1.expr()) * cells.is_empty.expression.clone(),
+        ));
+        let cond = 1.expr() - cells.is_empty.expression.clone();
+
         if is_first {
             // for the first op: counter == 1, rw == Write
             // note, ether call_index or index may NOT be 0
             constraints.push((
                 "first locals op",
-                cells.counter.expression.clone() - 1.expr(),
+                cond.clone() * (cells.counter.expression.clone() - 1.expr()),
             ));
             constraints.push((
                 "first locals op",
-                cells.rw.expression.clone() - (RW::WRITE as u64).expr(),
+                cond.clone() * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
             ));
         } else {
             // counter == prev_counter + 1
             constraints.push((
                 "counter",
-                cells.counter.expression.clone() - cells.prev_counter.expression.clone() - 1.expr(),
+                cond.clone()
+                    * (cells.counter.expression.clone()
+                        - cells.prev_counter.expression.clone()
+                        - 1.expr()),
             ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
                 "read op",
-                (cells.value.expression.clone() - cells.prev_value.expression.clone()) * is_read,
+                cond.clone()
+                    * (cells.value.expression.clone() - cells.prev_value.expression.clone())
+                    * is_read,
             ));
 
             // if index != prev_index then rw == Write
             let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
             constraints.push((
                 "index",
-                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_index.clone(),
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * delt_index.clone(),
             ));
 
             // rw == 0 || rw == 1
             constraints.push((
                 "rw",
-                cells.rw.expression.clone() * (cells.rw.expression.clone() - 1.expr()),
+                cond.clone()
+                    * cells.rw.expression.clone()
+                    * (cells.rw.expression.clone() - 1.expr()),
             ));
 
             // for ops with same call_index/index, gc must be great than prev_gc
@@ -249,35 +269,50 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cells.call_index.expression.clone() - cells.prev_call_index.expression.clone();
             constraints.push((
                 "delt_invert_call_index",
-                delt_call_index.clone()
+                cond.clone()
+                    * delt_call_index.clone()
                     * (delt_call_index.clone() * cells.delta_invert_call_index.expression.clone()
                         - 1.expr()),
             ));
             constraints.push((
                 "delt_invert_index",
-                delt_index.clone()
+                cond.clone()
+                    * delt_index.clone()
                     * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
             ));
             gc_lookups.push(
-                (1.expr()
-                    - delt_call_index.clone() * cells.delta_invert_call_index.expression.clone())
+                cond.clone()
+                    * (1.expr()
+                        - delt_call_index.clone()
+                            * cells.delta_invert_call_index.expression.clone())
                     * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
             // call_index must be less than MAX_CALL_INDEX
-            call_index_lookups.push(cells.index.expression.clone());
+            call_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // index must be less than MAX_LOCALS_SIZE
-            locals_index_lookups.push(cells.index.expression.clone());
+            locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // call_index must be great than or equal to prev_call_index
             call_index_lookups.push(
-                cells.call_index.expression.clone() - cells.prev_call_index.expression.clone(),
+                cond.clone()
+                    * (cells.call_index.expression.clone()
+                        - cells.prev_call_index.expression.clone()),
             );
             // for same call_index, index must be great than or equal to prev_index
             locals_index_lookups.push(
-                (1.expr() - delt_call_index * cells.delta_invert_call_index.expression.clone())
+                cond.clone()
+                    * (1.expr()
+                        - delt_call_index * cells.delta_invert_call_index.expression.clone())
                     * (cells.index.expression.clone() - cells.prev_index.expression.clone()),
             );
+
+            // empty op
+            constraints.push((
+                "empty op counter",
+                cells.is_empty.expression.clone()
+                    * (cells.counter.expression.clone() - cells.prev_counter.expression.clone()),
+            ));
         }
     }
 
@@ -289,6 +324,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
         op: &LocalsOp<F>,
         counter: usize,
         prev_op: Option<LocalsOp<F>>,
+        is_empty: bool,
     ) -> Result<AssignedCell<F, F>, Error> {
         let assigned =
             self.config
@@ -337,6 +373,12 @@ impl<F: FieldExt> LocalsOpChip<F> {
             offset,
             op.index.sub_invert(prev_index),
         )?;
+
+        let is_empty = if is_empty { F::one() } else { F::zero() };
+        self.config
+            .cells
+            .is_empty
+            .assign(region, offset, Some(is_empty))?;
 
         Ok(assigned)
     }

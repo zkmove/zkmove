@@ -562,7 +562,7 @@ fn test_empty_ops() -> VmResult<()> {
     let runtime = Runtime::<Fp>::new();
     let data_store = StateStore::new();
     let witness =
-        runtime.execute_script(script, vec![], None, &data_store, None, Some(20), None)?;
+        runtime.execute_script(script, vec![], None, &data_store, None, Some(20), Some(20))?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
