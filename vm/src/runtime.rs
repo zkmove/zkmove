@@ -18,12 +18,9 @@ use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use rand_core::OsRng;
 use std::marker::PhantomData;
-use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
-use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::RWOperation;
-use vm_circuit::witness::Witness;
+use vm_circuit::witness::{CircuitConfig, Witness};
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
@@ -59,16 +56,6 @@ impl<F: FieldExt> Runtime<F> {
         MoveCircuit::new(script, modules, args, data_store, self.loader())
     }
 
-    pub fn create_vm_circuit(
-        &self,
-        exec_steps: Vec<ExecutionStep<F>>,
-        rw_operations: Vec<RWOperation<F>>,
-        bytecodes: BytecodeTable,
-    ) -> VmCircuit<F> {
-        let witness = Witness::new(exec_steps, rw_operations, bytecodes);
-        VmCircuit { witness }
-    }
-
     pub fn execute_script(
         &self,
         script: CompiledScript,
@@ -76,7 +63,8 @@ impl<F: FieldExt> Runtime<F> {
         args: Option<ScriptArguments>,
         data_store: &StateStore,
         steps_num: Option<usize>,
-        ops_num: Option<usize>,
+        stack_ops_num: Option<usize>,
+        locals_ops_num: Option<usize>,
     ) -> VmResult<Witness<F>> {
         let mut interp = Interpreter::<F>::new();
         let mut script_bytes = vec![];
@@ -103,34 +91,18 @@ impl<F: FieldExt> Runtime<F> {
             &mut rw_operations,
         )?;
 
-        // If the number of steps is less than a given steps number, fill with nop.
-        // This happened when an execution path is not fixed, for example, if there
-        // is loop in the code.
-        if let Some(steps_number) = steps_num {
-            while exec_steps.len() < steps_number {
-                let last = exec_steps
-                    .last()
-                    .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
-                let nop = ExecutionStep {
-                    opcode: Opcode::Nop,
-                    pc: last.pc,
-                    stack_size: last.stack_size,
-                    call_index: last.call_index,
-                    locals_index: last.locals_index,
-                    gc: last.gc,
-                    module_index: last.module_index,
-                    function_index: last.function_index,
-                    auxiliary: last.auxiliary.clone(),
-                };
-                exec_steps.insert(exec_steps.len() - 1, nop);
-            }
-        }
-
-        if let Some(_ops_number) = ops_num {}
-
         let bytecodes = BytecodeTable::from((script.clone(), modules.clone()));
-
-        Ok(Witness::new(exec_steps, rw_operations, bytecodes))
+        let circuit_config = CircuitConfig {
+            steps_num,
+            stack_ops_num,
+            locals_ops_num,
+        };
+        Ok(Witness::new(
+            exec_steps,
+            rw_operations,
+            bytecodes,
+            circuit_config,
+        ))
     }
 }
 

@@ -103,6 +103,7 @@ impl Arguments {
                 &state,
                 None,
                 None,
+                None,
             )?;
             let vm_circuit = VmCircuit { witness };
             let k = runtime.find_best_k(&vm_circuit, vec![])?;

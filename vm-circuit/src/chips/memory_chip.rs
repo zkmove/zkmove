@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::witness::rw_operations::StackOp;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
@@ -119,20 +120,54 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter.assign_region(
             || "stack operations",
             |mut region: Region<'_, F>| {
+                let mut counter = 0;
                 for (index, op) in stack_ops.iter().enumerate() {
-                    let counter = index + 1;
+                    counter = index + 1;
                     let assigned_counter = if index == 0 {
                         stack_op_chip
                             .config
                             .s_first_stack_op
                             .enable(&mut region, index)?;
-                        stack_op_chip.assign(&mut region, index, op, counter)?
+                        stack_op_chip.assign(&mut region, index, op, counter, false)?
                     } else {
                         stack_op_chip.config.s_stack_op.enable(&mut region, index)?;
-                        stack_op_chip.assign(&mut region, index, op, counter)?
+                        stack_op_chip.assign(&mut region, index, op, counter, false)?
                     };
                     if counter == stack_ops.len() {
                         last_stack_counter = Some(assigned_counter);
+                    }
+                }
+
+                // If the number of stack ops is less than stack_ops_num set by user, fill with
+                // empty op. This happened when the execution path is not fixed, for example,
+                // if there is loop in the code.
+                if let Some(stack_ops_num) = self.witness.circuit_config.stack_ops_num {
+                    if stack_ops.len() < stack_ops_num {
+                        for index in stack_ops.len()..stack_ops_num {
+                            let assigned_counter = if index == 0 {
+                                stack_op_chip
+                                    .config
+                                    .s_first_stack_op
+                                    .enable(&mut region, index)?;
+                                stack_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &StackOp::empty(),
+                                    counter,
+                                    true,
+                                )?
+                            } else {
+                                stack_op_chip.config.s_stack_op.enable(&mut region, index)?;
+                                stack_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &StackOp::empty(),
+                                    counter,
+                                    true,
+                                )?
+                            };
+                            last_stack_counter = Some(assigned_counter);
+                        }
                     }
                 }
                 Ok(())
@@ -239,7 +274,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         self.config.gc_table,
                         0,
                         || Ok(F::zero()),
-                    )
+                    )?;
                 } else {
                     (0..last_step_gc)
                         .map(|i| {
@@ -250,8 +285,25 @@ impl<F: FieldExt> MemoryChip<F> {
                                 || Ok(F::from_u128(i as u128)),
                             )
                         })
-                        .fold(Ok(()), |acc, res| acc.and(res))
+                        .fold(Ok(()), |acc, res| acc.and(res))?;
                 }
+
+                if let Some(stack_ops_num) = self.witness.circuit_config.stack_ops_num {
+                    if last_step_gc < stack_ops_num {
+                        (last_step_gc..=stack_ops_num)
+                            .map(|i| {
+                                table_column.assign_cell(
+                                    || format!("gc_table[{}]", i),
+                                    self.config.gc_table,
+                                    i,
+                                    || Ok(F::from_u128(i as u128)),
+                                )
+                            })
+                            .fold(Ok(()), |acc, res| acc.and(res))?;
+                    }
+                }
+
+                Ok(())
             },
         )?;
 

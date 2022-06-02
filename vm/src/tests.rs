@@ -18,7 +18,7 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RW::{READ, WRITE};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
-use vm_circuit::witness::Witness;
+use vm_circuit::witness::{CircuitConfig, Witness};
 
 #[test]
 fn test_execution_step() -> VmResult<()> {
@@ -188,7 +188,8 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let circuit_config = CircuitConfig::default();
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
     let vm_circuit = VmCircuit { witness };
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
@@ -377,7 +378,8 @@ fn test_nop_step() -> VmResult<()> {
     rw_operations.push(rw_op_5);
     rw_operations.push(fake_rw_op);
 
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let circuit_config = CircuitConfig::default();
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
     let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
@@ -403,7 +405,7 @@ fn test_nop_steps() -> VmResult<()> {
 
     let runtime = Runtime::<Fp>::new();
     let data_store = StateStore::new();
-    let witness = runtime.execute_script(script, vec![], None, &data_store, Some(8), None)?;
+    let witness = runtime.execute_script(script, vec![], None, &data_store, Some(8), None, None)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
@@ -464,28 +466,6 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary: None,
     };
     let expected_step_5 = ExecutionStep {
-        opcode: Opcode::Nop,
-        pc: 4,
-        stack_size: 0,
-        call_index: 0,
-        locals_index: 0,
-        gc: 6,
-        module_index: 0,
-        function_index: 0,
-        auxiliary: None,
-    };
-    let expected_step_6 = ExecutionStep {
-        opcode: Opcode::Nop,
-        pc: 4,
-        stack_size: 0,
-        call_index: 0,
-        locals_index: 0,
-        gc: 6,
-        module_index: 0,
-        function_index: 0,
-        auxiliary: None,
-    };
-    let expected_step_7 = ExecutionStep {
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -504,8 +484,6 @@ fn test_nop_steps() -> VmResult<()> {
     assert_eq!(steps[3], expected_step_3, "result is not expected");
     assert_eq!(steps[4], expected_step_4, "result is not expected");
     assert_eq!(steps[5], expected_step_5, "result is not expected");
-    assert_eq!(steps[6], expected_step_6, "result is not expected");
-    assert_eq!(steps[7], expected_step_7, "result is not expected");
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -559,6 +537,35 @@ fn test_nop_steps() -> VmResult<()> {
     assert_eq!(rw_ops[3], expected_rw_op_3, "result is not expected");
     assert_eq!(rw_ops[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_ops[5], expected_rw_op_5, "result is not expected");
+
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+        debug!("Prover Error: {:?}", e);
+        RuntimeError::new(StatusCode::ProofSystemError(e))
+    })?;
+    assert_eq!(prover.verify(), Ok(()));
+
+    Ok(())
+}
+
+#[test]
+fn test_empty_ops() -> VmResult<()> {
+    logger::init_for_test();
+    let mut script = empty_script();
+    script.code.code = vec![
+        MoveBytecode::LdU64(1u64),
+        MoveBytecode::LdU64(2u64),
+        MoveBytecode::Add,
+        MoveBytecode::Pop,
+        MoveBytecode::Ret,
+    ];
+
+    let runtime = Runtime::<Fp>::new();
+    let data_store = StateStore::new();
+    let witness =
+        runtime.execute_script(script, vec![], None, &data_store, None, Some(20), None)?;
+
+    let vm_circuit = VmCircuit { witness };
+    let k = runtime.find_best_k(&vm_circuit, vec![])?;
 
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

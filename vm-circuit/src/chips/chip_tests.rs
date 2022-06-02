@@ -5,7 +5,7 @@ use crate::circuit::VmCircuit;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RW::{READ, WRITE};
 use crate::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
-use crate::witness::Witness;
+use crate::witness::{CircuitConfig, Witness};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
@@ -170,7 +170,8 @@ fn test_fake_rw_operation() -> VmResult<()> {
     rw_operations.push(rw_op_5);
     rw_operations.push(fake_rw_op);
 
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let circuit_config = CircuitConfig::default();
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
     let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
@@ -335,7 +336,8 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     wrong_sorted_stack_operations.push(rw_op_1);
     wrong_sorted_stack_operations.push(rw_op_2);
 
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes);
+    let circuit_config = CircuitConfig::default();
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
     // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;
     let vm_circuit = VmCircuit { witness };
     let k = 10;

@@ -67,12 +67,13 @@ impl<F: FieldExt> ExecutionChip<F> {
 
     pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         let step_chip = StepChip::<F>::construct(self.config.step_config.clone(), ());
+        let exec_steps = self.witness.process_exec_steps()?;
 
         layouter.assign_region(
             || "execution steps",
             |mut region: Region<'_, F>| {
                 let mut offset = 0;
-                for step in &self.witness.exec_steps {
+                for step in &exec_steps {
                     step_chip.config.s_step.enable(&mut region, offset)?;
                     step_chip.assign(&mut region, offset, step, &self.witness.rw_operations)?;
 

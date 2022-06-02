@@ -60,6 +60,17 @@ pub struct StackOp<F: FieldExt> {
     pub value: Value<F>,
 }
 
+impl<F: FieldExt> StackOp<F> {
+    pub fn empty() -> Self {
+        Self {
+            address: 0,
+            value: Value::u64(0, None).unwrap(),
+            rw: RW::READ,
+            gc: 0,
+        }
+    }
+}
+
 impl<F: FieldExt> PartialOrd for StackOp<F> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))

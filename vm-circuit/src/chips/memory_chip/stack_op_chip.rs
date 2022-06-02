@@ -11,7 +11,7 @@ use halo2_proofs::plonk::{
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 5;
+pub const STACK_OP_CHIP_WIDTH: usize = 6;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
@@ -20,12 +20,14 @@ pub struct StackOpCells<F: FieldExt> {
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
+    pub is_empty: Cell<F>, // is empty op or not
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
+    pub prev_is_empty: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,11 +96,13 @@ impl<F: FieldExt> StackOpChip<F> {
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
+            is_empty: cells.pop_front().unwrap(),
             prev_counter: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
+            prev_is_empty: cells.pop_front().unwrap(),
         };
 
         let s_first_stack_op = meta.complex_selector();
@@ -145,59 +149,85 @@ impl<F: FieldExt> StackOpChip<F> {
         cells: &StackOpCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
-        lookups: &mut Vec<Expression<F>>,
+        gc_lookups: &mut Vec<Expression<F>>,
     ) {
+        constraints.push((
+            "is_empty is bool",
+            (cells.is_empty.expression.clone() - 1.expr()) * cells.is_empty.expression.clone(),
+        ));
+        let cond = 1.expr() - cells.is_empty.expression.clone();
+
         if is_first {
             // for the first op: counter == 1, address == 0, rw == Write
             constraints.push((
                 "first stack op",
-                cells.counter.expression.clone() - 1.expr(),
+                cond.clone() * (cells.counter.expression.clone() - 1.expr()),
             ));
-            constraints.push(("first stack op", cells.address.expression.clone()));
             constraints.push((
                 "first stack op",
-                cells.rw.expression.clone() - (RW::WRITE as u64).expr(),
+                cond.clone() * cells.address.expression.clone(),
+            ));
+            constraints.push((
+                "first stack op",
+                cond.clone() * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
             ));
         } else {
             // counter == prev_counter + 1
             constraints.push((
                 "counter",
-                cells.counter.expression.clone() - cells.prev_counter.expression.clone() - 1.expr(),
+                cond.clone()
+                    * (cells.counter.expression.clone()
+                        - cells.prev_counter.expression.clone()
+                        - 1.expr()),
             ));
             // 'address == prev_address' or 'address == prev_address + 1'
             let delt_addr =
                 cells.address.expression.clone() - cells.prev_address.expression.clone();
             constraints.push((
                 "address",
-                delt_addr.clone() * (delt_addr.clone() - 1.expr()),
+                cond.clone() * (delt_addr.clone() * (delt_addr.clone() - 1.expr())),
             ));
 
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
                 "read op",
-                (cells.value.expression.clone() - cells.prev_value.expression.clone()) * is_read,
+                cond.clone()
+                    * (cells.value.expression.clone() - cells.prev_value.expression.clone())
+                    * is_read,
             ));
 
             // if address != prev_address then rw == Write
             constraints.push((
                 "address ",
-                (cells.rw.expression.clone() - (RW::WRITE as u64).expr()) * delt_addr.clone(),
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * delt_addr.clone(),
             ));
 
             // rw == 0 || rw == 1
             constraints.push((
                 "rw",
-                cells.rw.expression.clone() * (cells.rw.expression.clone() - 1.expr()),
+                cond.clone()
+                    * cells.rw.expression.clone()
+                    * (cells.rw.expression.clone() - 1.expr()),
             ));
 
             // todo: address must be less than EVAL_STACK_SIZE
 
             // for ops with same address, gc must be great than prev_gc
-            lookups.push(
-                (1.expr() - delt_addr)
+            gc_lookups.push(
+                cond.clone()
+                    * (1.expr() - delt_addr)
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
+
+            // empty op
+            constraints.push((
+                "empty op counter",
+                cells.is_empty.expression.clone()
+                    * (cells.counter.expression.clone() - cells.prev_counter.expression.clone()),
+            ));
         }
     }
 
@@ -208,6 +238,7 @@ impl<F: FieldExt> StackOpChip<F> {
         offset: usize,
         op: &StackOp<F>,
         counter: usize,
+        is_empty: bool,
     ) -> Result<AssignedCell<F, F>, Error> {
         let assigned =
             self.config
@@ -234,6 +265,12 @@ impl<F: FieldExt> StackOpChip<F> {
             .cells
             .value
             .assign(region, offset, op.value.value())?;
+
+        let is_empty = if is_empty { F::one() } else { F::zero() };
+        self.config
+            .cells
+            .is_empty
+            .assign(region, offset, Some(is_empty))?;
 
         Ok(assigned)
     }

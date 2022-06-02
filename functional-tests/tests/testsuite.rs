@@ -79,8 +79,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     if use_vm_circuit {
         debug!("Generate execution trace for script {:?}", script_file);
-        let witness =
-            runtime.execute_script(script, compiled_modules, config.args, &state, None, None)?;
+        let witness = runtime.execute_script(
+            script,
+            compiled_modules,
+            config.args,
+            &state,
+            None,
+            None,
+            None,
+        )?;
         debug!("{:?}", witness);
 
         let vm_circuit = VmCircuit { witness };
