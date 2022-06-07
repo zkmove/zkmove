@@ -84,9 +84,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             compiled_modules,
             config.args,
             &state,
-            None,
-            None,
-            None,
+            config.steps_num,
+            config.stack_ops_num,
+            config.locals_ops_num,
         )?;
         debug!("{:?}", witness);
 

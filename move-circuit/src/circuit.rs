@@ -98,7 +98,7 @@ impl<'l, F: FieldExt> Circuit<F> for MoveCircuit<'l> {
                 error!("load script failed: {:?}", e);
                 Error::Synthesis
             })?;
-        debug!("script entry {:?}", entry.name());
+        trace!("script entry {:?}", entry.name());
 
         // condition is true by default
         interp.conditions().push(F::one()).map_err(|e| {

@@ -139,7 +139,7 @@ impl<F: FieldExt> Interpreter<F> {
                 }
                 ExitStatus::Call(index) => {
                     let func = loader.function_from_handle(frame.func(), index);
-                    debug!("Call into function: {:?}", func.name());
+                    trace!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func)?;
                     callee_frame.print_frame();
                     self.frames.push(frame)?;

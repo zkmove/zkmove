@@ -115,7 +115,7 @@ impl<F: FieldExt> Frame<F> {
                         &mut execution_step,
                     ),
                     Bytecode::Ret => {
-                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
                         interp.step += 1; // todo: remove interp.step
                         return Ok(ExitStatus::Return);
@@ -163,7 +163,7 @@ impl<F: FieldExt> Frame<F> {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::one() {
-                            debug!("step #{}, {:?}", interp.step, execution_step);
+                            trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
                             self.pc = *offset;
@@ -178,7 +178,7 @@ impl<F: FieldExt> Frame<F> {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::zero() {
-                            debug!("step #{}, {:?}", interp.step, execution_step);
+                            trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
                             self.pc = *offset;
@@ -188,14 +188,14 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Branch(offset) => {
                         execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
-                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
                         interp.step += 1;
                         self.pc = *offset;
                         break;
                     }
                     Bytecode::Abort => {
-                        debug!("step #{}, {:?}", interp.step, execution_step);
+                        trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
 
                         let value =
@@ -235,7 +235,7 @@ impl<F: FieldExt> Frame<F> {
                     _ => unreachable!(),
                 }?;
 
-                debug!("step #{}, {:?}", interp.step, execution_step);
+                trace!("step #{}, {:?}", interp.step, execution_step);
                 exec_steps.push(execution_step);
                 interp.step += 1;
                 self.pc += 1;
@@ -245,9 +245,9 @@ impl<F: FieldExt> Frame<F> {
 
     pub fn print_frame(&self) {
         // currently only print bytecode of entry function
-        debug!("Bytecode of function {:?}:", self.function.name());
+        trace!("Bytecode of function {:?}:", self.function.name());
         for (i, instruction) in self.function.code().iter().enumerate() {
-            debug!("#{}, {:?}", i, instruction);
+            trace!("#{}, {:?}", i, instruction);
         }
     }
 }

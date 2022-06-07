@@ -1,4 +1,7 @@
 //! circuit: vm
+//! steps_num: 1000
+//! stack_ops_num: 1000
+//! locals_ops_num: 1000
 //! args: 11u8
 script {
     fun main(n: u8) {

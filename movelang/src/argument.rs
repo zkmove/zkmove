@@ -6,6 +6,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
 
+pub use move_core_types::parser::parse_transaction_argument;
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
 
 #[derive(Debug, Clone)]

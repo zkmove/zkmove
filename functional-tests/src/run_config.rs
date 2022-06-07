@@ -13,6 +13,9 @@ use std::str::FromStr;
 // //! mods: arith.move - import a module
 // //! args: 0, 1       - pass arguments to the script, multiple args should separate with comma
 // //! circuit: vm      - specify which circuit to use (vm or fast, default to support both)
+// //! steps_num        - fix the number of execution steps
+// //! stack_ops_num    - fix the number of stack ops
+// //! locals_ops_num   - fix the number of locals ops
 
 #[derive(Debug)]
 pub enum Circuit {
@@ -25,6 +28,9 @@ pub struct RunConfig {
     pub args: Option<ScriptArguments>,
     pub modules: Vec<String>,
     pub circuit: Option<Circuit>,
+    pub steps_num: Option<usize>,
+    pub stack_ops_num: Option<usize>,
+    pub locals_ops_num: Option<usize>,
 }
 
 impl RunConfig {
@@ -33,6 +39,9 @@ impl RunConfig {
             args: None,
             modules: vec![],
             circuit: None,
+            steps_num: None,
+            stack_ops_num: None,
+            locals_ops_num: None,
         };
         let file_str = script_file.to_str().expect("path is None.");
 
@@ -51,6 +60,15 @@ impl RunConfig {
             }
             if let Some(s) = s.strip_prefix("//!circuit:") {
                 config.circuit = Some(s.parse::<Circuit>()?);
+            }
+            if let Some(s) = s.strip_prefix("//!steps_num:") {
+                config.steps_num = Some(s.parse::<usize>()?);
+            }
+            if let Some(s) = s.strip_prefix("//!stack_ops_num:") {
+                config.stack_ops_num = Some(s.parse::<usize>()?);
+            }
+            if let Some(s) = s.strip_prefix("//!locals_ops_num:") {
+                config.locals_ops_num = Some(s.parse::<usize>()?);
             }
         }
         Ok(config)

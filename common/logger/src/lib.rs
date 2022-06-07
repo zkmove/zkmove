@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
 use env_logger::{Builder, Env};
-pub use log::{debug, error, info, log_enabled, warn, Level};
+pub use log::{debug, error, info, log_enabled, trace, warn, Level};
 
 pub mod prelude {
-    pub use log::{debug, error, info, log_enabled, warn, Level};
+    pub use log::{debug, error, info, log_enabled, trace, warn, Level};
 }
 
 pub fn init() {
@@ -33,6 +33,7 @@ mod tests {
         info!("This record will be captured by `cargo test`");
         debug!("This record will be captured by `cargo test`");
         warn!("This record will be captured by `cargo test`");
+        trace!("This record will be captured by `cargo test`");
 
         assert_eq!(2, 1 + 1);
     }

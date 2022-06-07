@@ -317,7 +317,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || Ok(F::zero()),
                     )?;
                 } else {
-                    (0..last_step_gc)
+                    (0..=last_step_gc)
                         .map(|i| {
                             table_column.assign_cell(
                                 || format!("gc_table[{}]", i),
@@ -340,7 +340,7 @@ impl<F: FieldExt> MemoryChip<F> {
                 };
 
                 if last_step_gc < ops_num {
-                    (last_step_gc..=ops_num)
+                    ((last_step_gc + 1)..=ops_num)
                         .map(|i| {
                             table_column.assign_cell(
                                 || format!("gc_table[{}]", i),

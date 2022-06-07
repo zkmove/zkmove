@@ -233,9 +233,9 @@ impl<F: FieldExt> Frame<F> {
 
     pub fn print_frame(&self) {
         // print bytecode of the current function
-        debug!("Bytecode of function {:?}:", self.function.name());
+        trace!("Bytecode of function {:?}:", self.function.name());
         for (i, instruction) in self.function.code().iter().enumerate() {
-            debug!("#{}, {:?}", i, instruction);
+            trace!("#{}, {:?}", i, instruction);
         }
     }
 }

@@ -147,10 +147,10 @@ impl<F: FieldExt> Interpreter<F> {
                     let func = loader.function_from_handle(frame.func(), index);
                     execution_step.auxiliary = Some(Value::u64(func.arg_count() as u64, None)?);
                     execution_step.call_index = call_index;
-                    debug!("step #{}, {:?}", self.step, execution_step);
+                    trace!("step #{}, {:?}", self.step, execution_step);
                     exec_steps.push(execution_step);
                     self.step += 1;
-                    debug!("Call into function: {:?}", func.name());
+                    trace!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func, call_index + 1, rw_operations)?;
                     callee_frame.print_frame();
                     self.frames.push(frame)?;

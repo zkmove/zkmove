@@ -119,9 +119,11 @@ impl<F: FieldExt> Block<F> {
         let code = self.code.as_slice();
         loop {
             for instruction in &code[self.pc as usize..] {
-                debug!(
+                trace!(
                     "step #{}, pc #{}, instruction {:?}",
-                    interp.step, self.pc, instruction
+                    interp.step,
+                    self.pc,
+                    instruction
                 );
                 interp.step += 1;
 

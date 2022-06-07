@@ -77,7 +77,7 @@ impl<F: FieldExt> Runtime<F> {
                 error!("load script failed: {:?}", e);
                 RuntimeError::new(StatusCode::ScriptLoadingError)
             })?;
-        debug!("script entry {:?}", entry.name());
+        trace!("script entry {:?}", entry.name());
 
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
@@ -115,7 +115,7 @@ impl<F: FieldExt> Runtime<F> {
     ) -> VmResult<u32> {
         let mut k = MIN_K;
         while k <= MAX_K {
-            debug!("Try k={}...", k);
+            trace!("Try k={}...", k);
             let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
             let result = MockProver::run(k, circuit, instance.clone());
             match result {
