@@ -10,11 +10,11 @@ zkMove is a zero-knowledge proof friendly Move language runtime environment. It 
 
 ### Highlights
 
-**Powered by Move language and Halo2**. As a new generation of programming language for digital assets, Move guarantees secutiry of assets at the language level. Halo2 provides excellent tools for writing plonkish ciruit.
+**A zero-knowledge proof-friendly bytecode virtual machine**, to solve zero-knowledge proof programmability and composability problems.
 
-**Build a zero-knowledge proof-friendly bytecode virtual machine**. It greatly improves the programmability of zero-knowledge applications.
+**Powered by Move language and Halo2**. As a new generation of programming language for digital assets, Move guarantees secutiry of assets at the language level. Halo2 uses Plonkish arithmetization, fitable for constructing complicated ciruit. No trusted setup required
 
-**Turing-completeness and fast mode**. Two types of circuits are combined: VM circuits to handle conditional branches and loops, and Move circuits, which enable bytecodes to be compiled directly into PLONKish, with smaller proof size and shorter proving time. 
+**No compromise on performance while pursuing Turing completeness**. Two types of circuits are combined: VM circuits to handle conditional branches and loops, and Move circuits, which directly compiled from bytecodes, offer smaller proof size and shorter proving time. 
 
 ### Example
 
@@ -28,10 +28,12 @@ bin/zkmove run -s examples/scripts/add.move
 
 ### Performance
 
+It's too early to share any data. The project is still in an early stage. 
 
 ### Limitations and issues
 
-The project is still in an early stage. There are many limitations and issues in the virtual machine. For example, there is a lack of support for global state and only simple data types are supported. Moreover, the performance of both the circuit and the underlying proof system needs further improvement.
+There are many limitations and issues in the virtual machine. For example, there is a lack of support for global state and only simple data types are supported. Moreover, the performance of both the circuit and the underlying proof system needs further improvement.
+
 ## License
 
 zkMove is licensed as [Apache 2.0](./LICENSE).
