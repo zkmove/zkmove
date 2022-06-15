@@ -6,11 +6,11 @@
 
 ## zkMove
 
-zkMove is a zero-knowledge proof friendly Move language runtime environment. It is both a scaling and privacy solution rolled into one.
+zkMove is a zero-knowledge proof friendly Move language runtime environment. We can build scaling and privacy solution based on it.
 
-### Highlights
+### Overview
 
-**A zero-knowledge proof-friendly bytecode virtual machine**, to solve zero-knowledge proof programmability and composability problems.
+**A zero-knowledge proof-friendly bytecode virtual machine**, to improve programmability and composability of zk-proof application.
 
 **Powered by Move language and Halo2**. As a new generation of programming language for digital assets, Move guarantees secutiry of assets at the language level. Halo2 uses Plonkish arithmetization, fitable for constructing complicated ciruit. No trusted setup required
 
