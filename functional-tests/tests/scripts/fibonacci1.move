@@ -1,4 +1,7 @@
 //! args: 10u64
+//! steps_num: 1000
+//! stack_ops_num: 1000
+//! locals_ops_num: 1000
 script {
     fun main(n: u64) {
         let value1 = 0u64;

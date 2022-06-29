@@ -63,6 +63,9 @@ pub enum Command {
 
         #[structopt(short = "v", long = "verbose")]
         verbose: bool,
+
+        #[structopt(long = "print-layout")]
+        print_layout: bool,
     },
 }
 
@@ -78,6 +81,7 @@ impl Arguments {
         // locals_ops_num: Option<usize>,
         new_args: &Option<Vec<ScriptArgument>>,
         verbose: bool,
+        print_layout: bool,
     ) -> VmResult<()> {
         logger::init_for_main(verbose);
 
@@ -122,6 +126,11 @@ impl Arguments {
                 runtime.mock_prove_circuit(&move_circuit, vec![public_inputs.clone()], k)?;
             }
 
+            if print_layout {
+                info!("print circuit layout into layout.svg ...");
+                runtime.print_circuit_layout(k, &move_circuit);
+            }
+
             info!("setup move circuit...");
             let params: Params<EqAffine> = Params::new(k);
             let pk = runtime.setup_move_circuit(&move_circuit, &params)?;
@@ -147,6 +156,11 @@ impl Arguments {
             if use_mock {
                 info!("run with mock prover...");
                 runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
+            }
+
+            if print_layout {
+                info!("print circuit layout into layout.svg ...");
+                runtime.print_circuit_layout(k, &vm_circuit);
             }
 
             info!("setup vm circuit...");
@@ -194,12 +208,18 @@ fn main() {
             // locals_ops_num,
             ref new_args,
             verbose,
+            print_layout,
         } => args.run(
-            script, modules, fast_mode, use_mock,
+            script,
+            modules,
+            fast_mode,
+            use_mock,
             // steps_num,
             // stack_ops_num,
             // locals_ops_num,
-            new_args, verbose,
+            new_args,
+            verbose,
+            print_layout,
         ),
     };
 

@@ -16,6 +16,7 @@ use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
+use plotters::prelude::*;
 use rand_core::OsRng;
 use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
@@ -148,6 +149,22 @@ impl<F: FieldExt> Runtime<F> {
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())
+    }
+
+    pub fn print_circuit_layout<ConcreteCircuit: Circuit<F>>(
+        &self,
+        k: u32,
+        circuit: &ConcreteCircuit,
+    ) {
+        let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
+        root.fill(&WHITE).unwrap();
+        let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
+
+        halo2_proofs::dev::CircuitLayout::default()
+            .mark_equality_cells(true)
+            .show_equality_constraints(true)
+            .render(k, circuit, &root)
+            .unwrap();
     }
 }
 
