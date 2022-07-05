@@ -1,3 +1,4 @@
+//! circuit: vm
 //! args: 10u64
 //! steps_num: 1000
 //! stack_ops_num: 1000

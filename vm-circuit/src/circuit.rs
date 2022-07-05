@@ -46,7 +46,7 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
 
         let memory_chip =
             MemoryChip::<F>::construct(self.witness.clone(), config.memory_chip_config, ());
-        memory_chip.assign(&mut layouter)?;
+        memory_chip.assign(&mut layouter, &self.witness.circuit_config)?;
 
         Ok(())
     }

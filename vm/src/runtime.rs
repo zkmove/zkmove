@@ -63,9 +63,7 @@ impl<F: FieldExt> Runtime<F> {
         modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
         data_store: &StateStore,
-        steps_num: Option<usize>,
-        stack_ops_num: Option<usize>,
-        locals_ops_num: Option<usize>,
+        circuit_config: CircuitConfig,
     ) -> VmResult<Witness<F>> {
         let mut interp = Interpreter::<F>::new();
         let mut script_bytes = vec![];
@@ -93,11 +91,6 @@ impl<F: FieldExt> Runtime<F> {
         )?;
 
         let bytecodes = BytecodeTable::from((script.clone(), modules.clone()));
-        let circuit_config = CircuitConfig {
-            steps_num,
-            stack_ops_num,
-            locals_ops_num,
-        };
         Ok(Witness::new(
             exec_steps,
             rw_operations,

@@ -405,7 +405,8 @@ fn test_nop_steps() -> VmResult<()> {
 
     let runtime = Runtime::<Fp>::new();
     let data_store = StateStore::new();
-    let witness = runtime.execute_script(script, vec![], None, &data_store, Some(8), None, None)?;
+    let circuit_config = CircuitConfig::default().steps_num(Some(8));
+    let witness = runtime.execute_script(script, vec![], None, &data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
@@ -561,8 +562,10 @@ fn test_empty_ops() -> VmResult<()> {
 
     let runtime = Runtime::<Fp>::new();
     let data_store = StateStore::new();
-    let witness =
-        runtime.execute_script(script, vec![], None, &data_store, None, Some(20), Some(20))?;
+    let circuit_config = CircuitConfig::default()
+        .stack_ops_num(Some(20))
+        .locals_ops_num(Some(20));
+    let witness = runtime.execute_script(script, vec![], None, &data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
