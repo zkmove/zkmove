@@ -9,6 +9,7 @@ use movelang::state::StateStore;
 use std::path::Path;
 use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
+use vm_circuit::witness::CircuitConfig;
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -79,14 +80,17 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     if use_vm_circuit {
         debug!("Generate execution trace for script {:?}", script_file);
+        let circuit_config = CircuitConfig::default()
+            .steps_num(config.steps_num)
+            .stack_ops_num(config.stack_ops_num)
+            .locals_ops_num(config.locals_ops_num);
+
         let witness = runtime.execute_script(
             script,
             compiled_modules,
             config.args,
             &state,
-            config.steps_num,
-            config.stack_ops_num,
-            config.locals_ops_num,
+            circuit_config,
         )?;
         debug!("{:?}", witness);
 

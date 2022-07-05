@@ -13,11 +13,55 @@ pub mod bytecode_table;
 pub mod execution_steps;
 pub mod rw_operations;
 
-#[derive(Clone, Default)]
+pub const DEFAULT_MAX_CALL_INDEX: usize = 16;
+pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
+
+#[derive(Clone)]
 pub struct CircuitConfig {
     pub steps_num: Option<usize>,
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
+    pub max_call_index: usize,
+    pub max_locals_size: usize,
+}
+
+impl Default for CircuitConfig {
+    fn default() -> Self {
+        CircuitConfig {
+            steps_num: None,
+            stack_ops_num: None,
+            locals_ops_num: None,
+            max_call_index: DEFAULT_MAX_CALL_INDEX,
+            max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
+        }
+    }
+}
+
+impl CircuitConfig {
+    pub fn steps_num(mut self, steps_num: Option<usize>) -> Self {
+        self.steps_num = steps_num;
+        self
+    }
+
+    pub fn stack_ops_num(mut self, stack_ops_num: Option<usize>) -> Self {
+        self.stack_ops_num = stack_ops_num;
+        self
+    }
+
+    pub fn locals_ops_num(mut self, locals_ops_num: Option<usize>) -> Self {
+        self.locals_ops_num = locals_ops_num;
+        self
+    }
+
+    pub fn max_call_index(mut self, max_call_index: usize) -> Self {
+        self.max_call_index = max_call_index;
+        self
+    }
+
+    pub fn max_locals_size(mut self, max_locals_size: usize) -> Self {
+        self.max_locals_size = max_locals_size;
+        self
+    }
 }
 
 #[derive(Clone, Default)]

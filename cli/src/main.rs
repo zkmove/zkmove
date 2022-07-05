@@ -11,6 +11,7 @@ use std::process::exit;
 use structopt::StructOpt;
 use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
+use vm_circuit::witness::CircuitConfig;
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -139,14 +140,16 @@ impl Arguments {
             runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
         } else {
             info!("generate execution trace...");
+            let circuit_config = CircuitConfig::default()
+                .steps_num(config.steps_num)
+                .stack_ops_num(config.stack_ops_num)
+                .locals_ops_num(config.locals_ops_num);
             let witness = runtime.execute_script(
                 script.clone(),
                 compiled_modules.clone(),
                 config.args,
                 &state,
-                config.steps_num,
-                config.stack_ops_num,
-                config.locals_ops_num,
+                circuit_config.clone(),
             )?;
             let vm_circuit = VmCircuit { witness };
             info!("find the best k...");
@@ -178,9 +181,7 @@ impl Arguments {
                     compiled_modules,
                     arguments,
                     &state,
-                    config.steps_num,
-                    config.stack_ops_num,
-                    config.locals_ops_num,
+                    circuit_config,
                 )?;
                 let new_vm_circuit = VmCircuit {
                     witness: new_witness,

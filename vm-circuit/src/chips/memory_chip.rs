@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::witness::rw_operations::{LocalsOp, StackOp};
-use crate::witness::Witness;
+use crate::witness::{CircuitConfig, Witness};
 use halo2_proofs::circuit::{Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
@@ -11,7 +11,7 @@ use halo2_proofs::{
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
-use locals_op_chip::{LocalsOpChip, LocalsOpChipConfig, MAX_CALL_INDEX, MAX_LOCALS_SIZE};
+use locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
 use logger::prelude::*;
 use stack_op_chip::{StackOpChip, StackOpChipConfig};
 
@@ -110,7 +110,11 @@ impl<F: FieldExt> MemoryChip<F> {
         }
     }
 
-    pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        circuit_config: &CircuitConfig,
+    ) -> Result<(), Error> {
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
         let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
 
@@ -359,7 +363,7 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter.assign_table(
             || "call_index_table",
             |mut table_column| {
-                (0..=MAX_CALL_INDEX)
+                (0..=circuit_config.max_call_index)
                     .map(|i| {
                         table_column.assign_cell(
                             || format!("call_index_table[{}]", i),
@@ -375,7 +379,7 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter.assign_table(
             || "locals_index_table",
             |mut table_column| {
-                (0..=MAX_LOCALS_SIZE)
+                (0..=circuit_config.max_locals_size)
                     .map(|i| {
                         table_column.assign_cell(
                             || format!("locals_index_table[{}]", i),

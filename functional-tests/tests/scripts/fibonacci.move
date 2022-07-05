@@ -1,3 +1,4 @@
+//! circuit: vm
 //! args: 10u64
 script {
     fun main(n: u64) {

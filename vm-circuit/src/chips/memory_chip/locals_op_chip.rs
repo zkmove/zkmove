@@ -13,8 +13,6 @@ use std::marker::PhantomData;
 use types::value::Value;
 
 pub const LOCALS_OP_CHIP_WIDTH: usize = 9;
-pub const MAX_CALL_INDEX: usize = 256;
-pub const MAX_LOCALS_SIZE: usize = 16;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
@@ -289,9 +287,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
-            // call_index must be less than MAX_CALL_INDEX
+            // call_index must be less than max_call_index
             call_index_lookups.push(cond.clone() * cells.index.expression.clone());
-            // index must be less than MAX_LOCALS_SIZE
+            // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // call_index must be great than or equal to prev_call_index
             call_index_lookups.push(
