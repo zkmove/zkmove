@@ -8,6 +8,7 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use logger::prelude::*;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
@@ -42,11 +43,18 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     ) -> Result<(), Error> {
         let execution_chip =
             ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
-        execution_chip.assign(&mut layouter)?;
+        let last_step_gc_cell = execution_chip.assign(&mut layouter)?.ok_or_else(|| {
+            error!("last step gc cell is None");
+            Error::Synthesis
+        })?;
 
         let memory_chip =
             MemoryChip::<F>::construct(self.witness.clone(), config.memory_chip_config, ());
-        memory_chip.assign(&mut layouter, &self.witness.circuit_config)?;
+        memory_chip.assign(
+            &mut layouter,
+            &self.witness.circuit_config,
+            last_step_gc_cell,
+        )?;
 
         Ok(())
     }

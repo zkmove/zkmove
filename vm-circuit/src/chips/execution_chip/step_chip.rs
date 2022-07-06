@@ -6,7 +6,7 @@ use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
 use std::collections::VecDeque;
@@ -147,6 +147,9 @@ impl<F: FieldExt> StepChip<F> {
             next_auxiliary: cells.pop_front().unwrap(),
         };
 
+        // enable equality for gc column, because we will copy last gc cell to memory chip.
+        meta.enable_equality(cells.gc.column);
+
         // config each execution path of the step
         let mut constraints = Vec::new();
         let mut rw_lookups = Vec::new();
@@ -266,14 +269,14 @@ impl<F: FieldExt> StepChip<F> {
         constraints.push(("sum to one", sum_to_one));
     }
 
-    // assign each cell of the step
+    // assign each cell of the step, return assigned cell for gc
     pub fn assign(
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<AssignedCell<F, F>>, Error> {
         // assign step states
         self.config
             .cells
@@ -294,10 +297,11 @@ impl<F: FieldExt> StepChip<F> {
             offset,
             Some(F::from(step.locals_index as u64)),
         )?;
-        self.config
-            .cells
-            .gc
-            .assign(region, offset, Some(F::from(step.gc as u64)))?;
+        let gc_assigned_cell =
+            self.config
+                .cells
+                .gc
+                .assign(region, offset, Some(F::from(step.gc as u64)))?;
         self.config.cells.module_index.assign(
             region,
             offset,
@@ -328,6 +332,6 @@ impl<F: FieldExt> StepChip<F> {
         step.opcode
             .assign(region, offset, step, rw_operations, &self.config.cells)?;
 
-        Ok(())
+        Ok(Some(gc_assigned_cell))
     }
 }

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::witness::Witness;
-use halo2_proofs::circuit::{Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -26,8 +26,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
 
 #[derive(Clone, Debug)]
 pub struct ExecutionChip<F: FieldExt> {
-    pub witness: Witness<F>,
-    pub config: ExecutionChipConfig<F>,
+    pub(crate) witness: Witness<F>,
+    pub(crate) config: ExecutionChipConfig<F>,
 }
 
 impl<F: FieldExt> Chip<F> for ExecutionChip<F> {
@@ -65,23 +65,28 @@ impl<F: FieldExt> ExecutionChip<F> {
         }
     }
 
-    pub fn assign(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+    ) -> Result<Option<AssignedCell<F, F>>, Error> {
         let step_chip = StepChip::<F>::construct(self.config.step_config.clone(), ());
         let exec_steps = self.witness.process_exec_steps()?;
-
+        let mut gc_cell = None;
         layouter.assign_region(
             || "execution steps",
             |mut region: Region<'_, F>| {
                 let mut offset = 0;
                 for step in &exec_steps {
                     step_chip.config.s_step.enable(&mut region, offset)?;
-                    step_chip.assign(&mut region, offset, step, &self.witness.rw_operations)?;
+                    gc_cell =
+                        step_chip.assign(&mut region, offset, step, &self.witness.rw_operations)?;
 
                     offset += STEP_HEIGHT;
                 }
                 Ok(())
             },
         )?;
+        let last_step_gc_cell = gc_cell;
 
         let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
         let mut stack_operations: Vec<Vec<Option<F>>> = (&sorted_stack_ops).into();
@@ -164,6 +169,6 @@ impl<F: FieldExt> ExecutionChip<F> {
             )?;
         }
 
-        Ok(())
+        Ok(last_step_gc_cell)
     }
 }

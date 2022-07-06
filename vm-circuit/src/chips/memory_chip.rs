@@ -2,7 +2,7 @@
 
 use crate::witness::rw_operations::{LocalsOp, StackOp};
 use crate::witness::{CircuitConfig, Witness};
-use halo2_proofs::circuit::{Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
 use halo2_proofs::poly::Rotation;
@@ -114,6 +114,7 @@ impl<F: FieldExt> MemoryChip<F> {
         &self,
         layouter: &mut impl Layouter<F>,
         circuit_config: &CircuitConfig,
+        last_step_gc_cell: AssignedCell<F, F>,
     ) -> Result<(), Error> {
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
         let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
@@ -251,16 +252,6 @@ impl<F: FieldExt> MemoryChip<F> {
             },
         )?;
 
-        let last_step_gc = self
-            .witness
-            .exec_steps
-            .last()
-            .ok_or_else(|| {
-                error!("last step gc is None");
-                Error::Synthesis
-            })?
-            .gc;
-
         layouter.assign_region(
             || "add counter",
             |mut region: Region<'_, F>| {
@@ -300,15 +291,26 @@ impl<F: FieldExt> MemoryChip<F> {
                     region.assign_advice(|| "rhs", self.config.advices[1], 0, || Ok(F::zero()))?;
                 }
 
-                region.assign_advice(
+                last_step_gc_cell.copy_advice(
                     || "last step gc",
+                    &mut region,
                     self.config.advices[2],
                     0,
-                    || Ok(F::from_u128(last_step_gc as u128)),
                 )?;
+
                 Ok(())
             },
         )?;
+
+        let last_step_gc = self
+            .witness
+            .exec_steps
+            .last()
+            .ok_or_else(|| {
+                error!("last step gc is None");
+                Error::Synthesis
+            })?
+            .gc;
 
         layouter.assign_table(
             || "gc_table",
