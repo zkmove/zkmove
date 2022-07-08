@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::{
@@ -65,10 +66,18 @@ impl<F: FieldExt> ExecutionChip<F> {
         }
     }
 
+    // return assigned cells for 1.last_step_gc, 2.sorted_stack_ops, 3.sorted_locals_ops
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-    ) -> Result<Option<AssignedCell<F, F>>, Error> {
+    ) -> Result<
+        (
+            Option<AssignedCell<F, F>>,
+            Vec<ConvertedRWOperation<F>>,
+            Vec<ConvertedRWOperation<F>>,
+        ),
+        Error,
+    > {
         let step_chip = StepChip::<F>::construct(self.config.step_config.clone(), ());
         let exec_steps = self.witness.process_exec_steps()?;
         let mut gc_cell = None;
@@ -89,11 +98,8 @@ impl<F: FieldExt> ExecutionChip<F> {
         let last_step_gc_cell = gc_cell;
 
         let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
-        let mut stack_operations: Vec<Vec<Option<F>>> = (&sorted_stack_ops).into();
-        let mut locals_operations: Vec<Vec<Option<F>>> = (&sorted_locals_ops).into();
-        let mut converted_rw_operations = Vec::new();
-        converted_rw_operations.append(&mut stack_operations);
-        converted_rw_operations.append(&mut locals_operations);
+        let mut stack_operations: Vec<ConvertedRWOperation<F>> = (&sorted_stack_ops).into();
+        let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
 
         for (column_idx, column) in self.config.rw_table.columns().into_iter().enumerate() {
             layouter.assign_region(
@@ -105,27 +111,56 @@ impl<F: FieldExt> ExecutionChip<F> {
                         0,
                         || Ok(F::zero()),
                     )?;
-                    (0..converted_rw_operations.len())
+                    (0..stack_operations.len())
                         .map(|i| {
-                            region.assign_advice(
+                            let op = stack_operations.get_mut(i).ok_or_else(|| {
+                                error!("get rw operation error");
+                                Error::Synthesis
+                            })?;
+                            let field = op.get_field(column_idx).map_err(|e| {
+                                error!("get field failed: {:?}", e);
+                                Error::Synthesis
+                            })?;
+
+                            let cell = region.assign_advice(
                                 || format!("rw_table[{}][{}]", column_idx, i),
                                 column,
                                 i + 1,
-                                || {
-                                    let op = converted_rw_operations.get(i).ok_or_else(|| {
-                                        error!("get rw operation error");
-                                        Error::Synthesis
-                                    })?;
-                                    let field = op.get(column_idx).ok_or_else(|| {
-                                        error!("get op_field error");
-                                        Error::Synthesis
-                                    })?;
-                                    field.ok_or_else(|| {
-                                        error!("rw operation field[{}] is None", column_idx);
-                                        Error::Synthesis
-                                    })
-                                },
+                                || Ok(field),
                             )?;
+                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
+                                error!("assign cell failed: {:?}", e);
+                                Error::Synthesis
+                            })
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))?;
+
+                    (0..locals_operations.len())
+                        .map(|i| {
+                            let op = locals_operations.get_mut(i).ok_or_else(|| {
+                                error!("get rw operation error");
+                                Error::Synthesis
+                            })?;
+                            let field = op.get_field(column_idx).map_err(|e| {
+                                error!("get field failed: {:?}", e);
+                                Error::Synthesis
+                            })?;
+                            let cell = region.assign_advice(
+                                || {
+                                    format!(
+                                        "rw_table[{}][{}]",
+                                        column_idx,
+                                        stack_operations.len() + i
+                                    )
+                                },
+                                column,
+                                stack_operations.len() + i + 1,
+                                || Ok(field),
+                            )?;
+                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
+                                error!("assign cell failed: {:?}", e);
+                                Error::Synthesis
+                            })?;
                             Ok(())
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))
@@ -169,6 +204,6 @@ impl<F: FieldExt> ExecutionChip<F> {
             )?;
         }
 
-        Ok(last_step_gc_cell)
+        Ok((last_step_gc_cell, stack_operations, locals_operations))
     }
 }

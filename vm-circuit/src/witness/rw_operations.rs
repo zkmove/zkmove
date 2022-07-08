@@ -1,10 +1,79 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::RWTarget;
+use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
 use std::cmp::Ordering;
 use std::convert::From;
 use types::value::Value;
+
+#[derive(Clone)]
+pub struct ConvertedRWOperation<F: FieldExt> {
+    pub(crate) gc: (F, Option<AssignedCell<F, F>>),
+    pub(crate) rw_target: (F, Option<AssignedCell<F, F>>),
+    pub(crate) rw: (F, Option<AssignedCell<F, F>>),
+    pub(crate) call_index: (F, Option<AssignedCell<F, F>>),
+    pub(crate) address: (F, Option<AssignedCell<F, F>>),
+    pub(crate) value: (Option<F>, Option<AssignedCell<F, F>>),
+}
+
+impl<F: FieldExt> ConvertedRWOperation<F> {
+    pub fn empty() -> Self {
+        Self {
+            gc: (F::from_u128(0u128), None),
+            rw_target: (F::from_u128(0u128), None),
+            rw: (F::from_u128(0u128), None),
+            call_index: (F::from_u128(0u128), None),
+            address: (F::from_u128(0u128), None),
+            value: (Some(F::from_u128(0u128)), None),
+        }
+    }
+    pub fn get_field(&mut self, index: usize) -> VmResult<F> {
+        match index {
+            0 => Ok(self.gc.0.clone()),
+            1 => Ok(self.rw_target.0.clone()),
+            2 => Ok(self.rw.0.clone()),
+            3 => Ok(self.call_index.0.clone()),
+            4 => Ok(self.address.0.clone()),
+            5 => self
+                .value
+                .0
+                .clone()
+                .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere)),
+            _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+    pub fn assign_cell(&mut self, index: usize, cell: Option<AssignedCell<F, F>>) -> VmResult<()> {
+        match index {
+            0 => {
+                self.gc = (self.gc.0.clone(), cell);
+                Ok(())
+            }
+            1 => {
+                self.rw_target = (self.rw_target.0.clone(), cell);
+                Ok(())
+            }
+            2 => {
+                self.rw = (self.rw.0.clone(), cell);
+                Ok(())
+            }
+            3 => {
+                self.call_index = (self.call_index.0.clone(), cell);
+                Ok(())
+            }
+            4 => {
+                self.address = (self.address.0.clone(), cell);
+                Ok(())
+            }
+            5 => {
+                self.value = (self.value.0.clone(), cell);
+                Ok(())
+            }
+            _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RW {
@@ -46,21 +115,20 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
 }
 
 // convert LocalsOp into a vector of field value
-impl<F: FieldExt> From<&LocalsOp<F>> for Vec<Option<F>> {
-    fn from(rw_op: &LocalsOp<F>) -> Vec<Option<F>> {
-        let mut field_values = Vec::new();
-        field_values.push(Some(F::from_u128(rw_op.gc as u128)));
-        field_values.push(Some(F::from_u128(RWTarget::Locals as u128)));
-        field_values.push(Some(F::from_u128(rw_op.rw.clone() as u128)));
-        field_values.push(Some(F::from_u128(rw_op.call_index as u128)));
-        field_values.push(Some(F::from_u128(rw_op.index as u128)));
-
+impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
+    fn from(rw_op: &LocalsOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             _ => rw_op.value.value(),
         };
-        field_values.push(value);
-        field_values
+        ConvertedRWOperation {
+            gc: (F::from_u128(rw_op.gc as u128), None),
+            rw_target: (F::from_u128(RWTarget::Locals as u128), None),
+            rw: (F::from_u128(rw_op.rw.clone() as u128), None),
+            call_index: (F::from_u128(rw_op.call_index as u128), None),
+            address: (F::from_u128(rw_op.index as u128), None),
+            value: (value, None),
+        }
     }
 }
 
@@ -96,21 +164,20 @@ impl<F: FieldExt> Ord for StackOp<F> {
 }
 
 // convert StackOp into a vector of field value
-impl<F: FieldExt> From<&StackOp<F>> for Vec<Option<F>> {
-    fn from(rw_op: &StackOp<F>) -> Vec<Option<F>> {
-        let mut field_values = Vec::new();
-        field_values.push(Some(F::from_u128(rw_op.gc as u128)));
-        field_values.push(Some(F::from_u128(RWTarget::Stack as u128)));
-        field_values.push(Some(F::from_u128(rw_op.rw.clone() as u128)));
-        field_values.push(Some(F::from_u128(0)));
-        field_values.push(Some(F::from_u128(rw_op.address as u128)));
-
+impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
+    fn from(rw_op: &StackOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             _ => rw_op.value.value(),
         };
-        field_values.push(value);
-        field_values
+        ConvertedRWOperation {
+            gc: (F::from_u128(rw_op.gc as u128), None),
+            rw_target: (F::from_u128(RWTarget::Stack as u128), None),
+            rw: (F::from_u128(rw_op.rw.clone() as u128), None),
+            call_index: (F::from_u128(0), None),
+            address: (F::from_u128(rw_op.address as u128), None),
+            value: (value, None),
+        }
     }
 }
 
@@ -179,21 +246,20 @@ impl<F: FieldExt> RWOperation<F> {
 }
 
 // convert RWOperation into a vector of field value
-impl<F: FieldExt> From<&RWOperation<F>> for Vec<Option<F>> {
-    fn from(rw_op: &RWOperation<F>) -> Vec<Option<F>> {
-        let mut field_values = Vec::new();
-        field_values.push(Some(F::from_u128(rw_op.gc() as u128)));
-        field_values.push(Some(F::from_u128(rw_op.rw_target() as u128)));
-        field_values.push(Some(F::from_u128(rw_op.rw() as u128)));
-        field_values.push(Some(F::from_u128(rw_op.call_index() as u128)));
-        field_values.push(Some(F::from_u128(rw_op.address() as u128)));
-
+impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
+    fn from(rw_op: &RWOperation<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value() {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             _ => rw_op.value().value(),
         };
-        field_values.push(value);
-        field_values
+        ConvertedRWOperation {
+            gc: (F::from_u128(rw_op.gc() as u128), None),
+            rw_target: (F::from_u128(rw_op.rw_target() as u128), None),
+            rw: (F::from_u128(rw_op.rw() as u128), None),
+            call_index: (F::from_u128(rw_op.call_index() as u128), None),
+            address: (F::from_u128(rw_op.address() as u128), None),
+            value: (value, None),
+        }
     }
 }
 
@@ -218,8 +284,8 @@ impl<F: FieldExt> From<RWOperations<F>> for (SortedStackOps<F>, SortedLocalsOps<
 pub struct SortedStackOps<F: FieldExt>(pub Vec<StackOp<F>>);
 
 // convert SortedStackOps into field values
-impl<F: FieldExt> From<&SortedStackOps<F>> for Vec<Vec<Option<F>>> {
-    fn from(rw_ops: &SortedStackOps<F>) -> Vec<Vec<Option<F>>> {
+impl<F: FieldExt> From<&SortedStackOps<F>> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedStackOps<F>) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }
@@ -228,8 +294,8 @@ impl<F: FieldExt> From<&SortedStackOps<F>> for Vec<Vec<Option<F>>> {
 pub struct SortedLocalsOps<F: FieldExt>(pub Vec<LocalsOp<F>>);
 
 // convert SortedLocalsOps into field values
-impl<F: FieldExt> From<&SortedLocalsOps<F>> for Vec<Vec<Option<F>>> {
-    fn from(rw_ops: &SortedLocalsOps<F>) -> Vec<Vec<Option<F>>> {
+impl<F: FieldExt> From<&SortedLocalsOps<F>> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedLocalsOps<F>) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }

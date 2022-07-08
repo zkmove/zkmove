@@ -2,15 +2,15 @@
 
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
-use crate::witness::rw_operations::{LocalsOp, RW};
+use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
+use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use types::value::Value;
 
 pub const LOCALS_OP_CHIP_WIDTH: usize = 9;
 
@@ -319,9 +319,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        op: &LocalsOp<F>,
+        op: &ConvertedRWOperation<F>,
         counter: usize,
-        prev_op: Option<LocalsOp<F>>,
+        prev_op: Option<ConvertedRWOperation<F>>,
         is_empty: bool,
     ) -> Result<AssignedCell<F, F>, Error> {
         let assigned =
@@ -330,46 +330,96 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .counter
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
-        self.config
-            .cells
-            .gc
-            .assign(region, offset, Some(F::from(op.gc as u64)))?;
+        if is_empty {
+            self.config
+                .cells
+                .gc
+                .assign(region, offset, Some(op.gc.0.clone()))?;
 
-        self.config
-            .cells
-            .rw
-            .assign(region, offset, Some(F::from(op.rw.clone() as u64)))?;
+            self.config
+                .cells
+                .rw
+                .assign(region, offset, Some(op.rw.0.clone()))?;
 
-        self.config
-            .cells
-            .call_index
-            .assign(region, offset, Some(F::from(op.call_index as u64)))?;
+            self.config
+                .cells
+                .call_index
+                .assign(region, offset, Some(op.call_index.0.clone()))?;
 
-        self.config
-            .cells
-            .index
-            .assign(region, offset, Some(F::from(op.index as u64)))?;
+            self.config
+                .cells
+                .index
+                .assign(region, offset, Some(op.address.0.clone()))?;
 
-        let field = match op.value {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => op.value.value(),
-        };
+            self.config
+                .cells
+                .value
+                .assign(region, offset, op.value.0.clone())?;
+        } else {
+            self.config.cells.gc.assign_equality(
+                region,
+                offset,
+                op.gc.1.clone().ok_or_else(|| {
+                    error!("gc assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "gc",
+            )?;
 
-        self.config.cells.value.assign(region, offset, field)?;
+            self.config.cells.rw.assign_equality(
+                region,
+                offset,
+                op.rw.1.clone().ok_or_else(|| {
+                    error!("rw assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "rw",
+            )?;
+
+            self.config.cells.call_index.assign_equality(
+                region,
+                offset,
+                op.call_index.1.clone().ok_or_else(|| {
+                    error!("call_index assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "call_index",
+            )?;
+
+            self.config.cells.index.assign_equality(
+                region,
+                offset,
+                op.address.1.clone().ok_or_else(|| {
+                    error!("address assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address",
+            )?;
+
+            self.config.cells.value.assign_equality(
+                region,
+                offset,
+                op.value.1.clone().ok_or_else(|| {
+                    error!("value assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "value",
+            )?;
+        }
 
         let (prev_call_index, prev_index) = match prev_op {
-            None => (0, 0),
-            Some(v) => (v.call_index, v.index),
+            None => (F::zero(), F::zero()),
+            Some(v) => (v.call_index.0, v.address.0),
         };
         self.config.cells.delta_invert_call_index.assign(
             region,
             offset,
-            op.call_index.sub_invert(prev_call_index),
+            op.call_index.0.delta_invert(prev_call_index),
         )?;
         self.config.cells.delta_invert_index.assign(
             region,
             offset,
-            op.index.sub_invert(prev_index),
+            op.address.0.delta_invert(prev_index),
         )?;
 
         let is_empty = if is_empty { F::one() } else { F::zero() };

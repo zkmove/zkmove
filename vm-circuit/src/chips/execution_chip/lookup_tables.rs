@@ -18,14 +18,24 @@ pub const RW_LOOKUP_TABLE_WIDTH: usize = 6;
 
 impl RWTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
-        RWTable {
+        let rw_table = RWTable {
             gc_column: meta.advice_column(),
             rw_target_column: meta.advice_column(),
             rw_column: meta.advice_column(),
             call_index_column: meta.advice_column(),
             address_column: meta.advice_column(),
             value_column: meta.advice_column(),
-        }
+        };
+
+        // rw_table will be copied to memory chip
+        meta.enable_equality(rw_table.gc_column);
+        meta.enable_equality(rw_table.rw_target_column);
+        meta.enable_equality(rw_table.rw_column);
+        meta.enable_equality(rw_table.call_index_column);
+        meta.enable_equality(rw_table.address_column);
+        meta.enable_equality(rw_table.value_column);
+
+        rw_table
     }
 
     pub fn columns(&self) -> Vec<Column<Advice>> {

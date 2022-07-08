@@ -43,7 +43,9 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     ) -> Result<(), Error> {
         let execution_chip =
             ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
-        let last_step_gc_cell = execution_chip.assign(&mut layouter)?.ok_or_else(|| {
+        let (last_step_gc_cell_opt, stack_operations, locals_operations) =
+            execution_chip.assign(&mut layouter)?;
+        let last_step_gc_cell = last_step_gc_cell_opt.ok_or_else(|| {
             error!("last step gc cell is None");
             Error::Synthesis
         })?;
@@ -54,6 +56,8 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
             &mut layouter,
             &self.witness.circuit_config,
             last_step_gc_cell,
+            stack_operations,
+            locals_operations,
         )?;
 
         Ok(())
