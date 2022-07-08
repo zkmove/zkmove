@@ -2,12 +2,13 @@
 
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
-use crate::witness::rw_operations::{StackOp, RW};
+use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
+use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -236,7 +237,7 @@ impl<F: FieldExt> StackOpChip<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        op: &StackOp<F>,
+        op: &ConvertedRWOperation<F>,
         counter: usize,
         is_empty: bool,
     ) -> Result<AssignedCell<F, F>, Error> {
@@ -246,31 +247,77 @@ impl<F: FieldExt> StackOpChip<F> {
                 .counter
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
-        self.config
-            .cells
-            .gc
-            .assign(region, offset, Some(F::from(op.gc as u64)))?;
+        if is_empty {
+            self.config
+                .cells
+                .gc
+                .assign(region, offset, Some(op.gc.0.clone()))?;
 
-        self.config
-            .cells
-            .rw
-            .assign(region, offset, Some(F::from(op.rw.clone() as u64)))?;
+            self.config
+                .cells
+                .rw
+                .assign(region, offset, Some(op.rw.0.clone()))?;
 
-        self.config
-            .cells
-            .address
-            .assign(region, offset, Some(F::from(op.address as u64)))?;
+            self.config
+                .cells
+                .address
+                .assign(region, offset, Some(op.address.0.clone()))?;
 
-        self.config
-            .cells
-            .value
-            .assign(region, offset, op.value.value())?;
+            self.config
+                .cells
+                .value
+                .assign(region, offset, op.value.0.clone())?;
 
-        let is_empty = if is_empty { F::one() } else { F::zero() };
-        self.config
-            .cells
-            .is_empty
-            .assign(region, offset, Some(is_empty))?;
+            self.config
+                .cells
+                .is_empty
+                .assign(region, offset, Some(F::one()))?;
+        } else {
+            self.config.cells.gc.assign_equality(
+                region,
+                offset,
+                op.gc.1.clone().ok_or_else(|| {
+                    error!("gc assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "gc",
+            )?;
+
+            self.config.cells.rw.assign_equality(
+                region,
+                offset,
+                op.rw.1.clone().ok_or_else(|| {
+                    error!("rw assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "rw",
+            )?;
+
+            self.config.cells.address.assign_equality(
+                region,
+                offset,
+                op.address.1.clone().ok_or_else(|| {
+                    error!("address assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address",
+            )?;
+
+            self.config.cells.value.assign_equality(
+                region,
+                offset,
+                op.value.1.clone().ok_or_else(|| {
+                    error!("value assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "value",
+            )?;
+
+            self.config
+                .cells
+                .is_empty
+                .assign(region, offset, Some(F::zero()))?;
+        }
 
         Ok(assigned)
     }

@@ -42,6 +42,21 @@ impl<F: FieldExt> Cell<F> {
             },
         )
     }
+
+    pub fn assign_equality(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        cell: AssignedCell<F, F>,
+        annotation: &str,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        cell.copy_advice(
+            || annotation,
+            region,
+            self.column,
+            (offset as i32 + self.rotation.0) as usize,
+        )
+    }
 }
 
 pub(crate) trait Expr<F: FieldExt> {
@@ -93,6 +108,20 @@ impl<F: FieldExt> SubInvert<F> for usize {
             Some(F::one())
         } else {
             let delta = F::from_u128(*self as u128) - F::from_u128(other as u128);
+            delta.invert().into()
+        }
+    }
+}
+
+pub(crate) trait DeltaInvert<F: FieldExt> {
+    fn delta_invert(&self, other: F) -> Option<F>;
+}
+impl<F: FieldExt> DeltaInvert<F> for F {
+    fn delta_invert(&self, other: F) -> Option<F> {
+        if self.clone() == other {
+            Some(F::one())
+        } else {
+            let delta = self.clone() - other;
             delta.invert().into()
         }
     }

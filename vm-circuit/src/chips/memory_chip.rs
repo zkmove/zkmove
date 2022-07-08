@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::witness::rw_operations::{LocalsOp, StackOp};
+use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::{CircuitConfig, Witness};
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
@@ -85,7 +85,6 @@ impl<F: FieldExt> MemoryChip<F> {
             &locals_index_table,
         );
 
-        // todo: evaluate the cost to enable equality
         for column in &advices {
             meta.enable_equality(*column);
         }
@@ -115,11 +114,10 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter: &mut impl Layouter<F>,
         circuit_config: &CircuitConfig,
         last_step_gc_cell: AssignedCell<F, F>,
+        stack_ops: Vec<ConvertedRWOperation<F>>,
+        locals_ops: Vec<ConvertedRWOperation<F>>,
     ) -> Result<(), Error> {
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
-        let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
-
-        let stack_ops = &sorted_stack_ops.0;
         let mut last_stack_counter = None;
 
         layouter.assign_region(
@@ -157,7 +155,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 stack_op_chip.assign(
                                     &mut region,
                                     index,
-                                    &StackOp::empty(),
+                                    &ConvertedRWOperation::empty(),
                                     counter,
                                     true,
                                 )?
@@ -166,7 +164,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 stack_op_chip.assign(
                                     &mut region,
                                     index,
-                                    &StackOp::empty(),
+                                    &ConvertedRWOperation::empty(),
                                     counter,
                                     true,
                                 )?
@@ -185,7 +183,6 @@ impl<F: FieldExt> MemoryChip<F> {
         layouter.assign_region(
             || "locals operations",
             |mut region: Region<'_, F>| {
-                let locals_ops = &sorted_locals_ops.0;
                 let mut prev_op = None;
                 let mut counter = 0;
                 for (index, op) in locals_ops.iter().enumerate() {
@@ -222,7 +219,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 locals_op_chip.assign(
                                     &mut region,
                                     index,
-                                    &LocalsOp::empty(),
+                                    &ConvertedRWOperation::empty(),
                                     counter,
                                     None,
                                     true,
@@ -235,7 +232,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 locals_op_chip.assign(
                                     &mut region,
                                     index,
-                                    &LocalsOp::empty(),
+                                    &ConvertedRWOperation::empty(),
                                     counter,
                                     prev_op,
                                     true,
@@ -243,7 +240,7 @@ impl<F: FieldExt> MemoryChip<F> {
                             };
 
                             last_locals_counter = Some(assigned_counter);
-                            prev_op = Some(LocalsOp::empty());
+                            prev_op = Some(ConvertedRWOperation::empty());
                         }
                     }
                 }
