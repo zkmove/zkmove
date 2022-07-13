@@ -26,13 +26,12 @@ For example, the following command will first compile add.move into bytecode, ex
 bin/zkmove run -s examples/scripts/add.move
 ```
 
-### Performance
+### Source code
 
-It's too early to share any data. The project is still in an early stage. 
+**Move circuit:** https://github.com/young-rocks/zkmove-lite
 
-### Limitations and issues
+**VM circuit:** we plan to make the source code available later this year
 
-There are many limitations and issues in the virtual machine. For example, there is a lack of support for global state and only simple data types are supported. Moreover, the performance of both the circuit and the underlying proof system needs further improvement.
 
 ## License
 
