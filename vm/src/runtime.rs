@@ -27,9 +27,6 @@ use vm_circuit::witness::{CircuitConfig, Witness};
 pub const MAX_K: u32 = 18;
 pub const MIN_K: u32 = 1;
 
-pub const MAX_STEPS_NUM: usize = 1000;
-pub const MAX_OPS_NUM: usize = 1000;
-
 pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
     _marker: PhantomData<F>,

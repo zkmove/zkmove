@@ -12,7 +12,7 @@ movelang = { path = "../movelang" }
 structopt = "0.3.25"
 vm = { path = "../vm" }
 vm-circuit = { path = "../vm-circuit" }
-halo2_proofs = { git = "https://github.com/zkmove/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
+halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
 #halo2_proofs = { path = "../../halo2/halo2_proofs"}
 
 [dev-dependencies]
