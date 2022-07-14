@@ -1,5 +1,5 @@
 use error::VmResult;
-use functional_tests::run_config::RunConfig;
+use functional_tests::run_config::{RunConfig, Circuit};
 use halo2_proofs::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
@@ -41,8 +41,8 @@ pub enum Command {
         )]
         modules: Option<PathBuf>,
 
-        #[structopt(short = "f", long = "fast-mode", help = "use fast circuit")]
-        fast_mode: bool,
+        #[structopt(long = "vm-circuit", help = "use vm circuit")]
+        vm_circuit: bool,
 
         #[structopt(short = "d", long = "debug", help = "debug with mock prover")]
         use_mock: bool,
@@ -75,7 +75,7 @@ impl Arguments {
         &self,
         script: &PathBuf,
         module_dir: &Option<PathBuf>,
-        fast_mode: bool,
+        vm_circuit: bool,
         use_mock: bool,
         // steps_num: Option<usize>,
         // stack_ops_num: Option<usize>,
@@ -113,10 +113,20 @@ impl Arguments {
             state.add_module(module);
         }
 
-        if fast_mode {
-            info!("enable fast mode");
+        let (use_move_circuit, mut use_vm_circuit) = match config.circuit {
+            Some(Circuit::FastCircuit) => (true, false),
+            Some(Circuit::VmCircuit) => (false, true),
+            None => (true, false), // by default use move circuit
+        };
+
+        if vm_circuit {
+            use_vm_circuit = true;
+        }
+
+        if use_move_circuit {
+            info!("use move circuit");
             let move_circuit =
-                runtime.create_move_circuit(script, compiled_modules, config.args, state);
+                runtime.create_move_circuit(script.clone(), compiled_modules.clone(), config.args.clone(), state.clone());
             let public_inputs = vec![Fp::zero()];
             info!("find the best k...");
             let k = runtime.find_best_k(&move_circuit, vec![public_inputs.clone()])?;
@@ -137,8 +147,26 @@ impl Arguments {
             let pk = runtime.setup_move_circuit(&move_circuit, &params)?;
 
             info!("prove move circuit...");
-            runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
-        } else {
+            runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk.clone())?;
+
+            if let Some(new_args) = new_args {
+                info!("execute script with new arguments");
+                let arguments = Some(ScriptArguments::new(new_args.clone()));
+
+                let new_move_circuit =
+                    runtime.create_move_circuit(script.clone(), compiled_modules.clone(), arguments, state.clone());
+
+                info!("prove the new execution with old proving key...");
+                runtime.prove_move_circuit(
+                    new_move_circuit,
+                    &[public_inputs.as_slice()],
+                    &params,
+                    pk,
+                )?;
+            }
+        }
+
+        if use_vm_circuit {
             info!("generate execution trace...");
             let circuit_config = CircuitConfig::default()
                 .steps_num(config.steps_num)
@@ -202,7 +230,7 @@ fn main() {
         Command::Run {
             ref script,
             ref modules,
-            fast_mode,
+            vm_circuit,
             use_mock,
             // steps_num,
             // stack_ops_num,
@@ -213,7 +241,7 @@ fn main() {
         } => args.run(
             script,
             modules,
-            fast_mode,
+            vm_circuit,
             use_mock,
             // steps_num,
             // stack_ops_num,

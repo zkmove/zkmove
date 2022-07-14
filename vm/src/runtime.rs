@@ -221,7 +221,7 @@ where
         let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
         let verify_time = std::time::Instant::now().duration_since(verify_start);
         info!("verify time: {} ms", verify_time.as_millis());
-        info!("{:?}", result);
+        debug!("{:?}", result);
         assert!(result.is_ok());
         Ok(())
     }
