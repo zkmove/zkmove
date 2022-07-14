@@ -1,14 +1,12 @@
-//! steps_num: 1000
-//! stack_ops_num: 1000
-//! locals_ops_num: 1000
-//! args: 11u8
+//! circuit: vm
+//! args: 10u64
 script {
-    fun main(n: u8) {
-        let value1 = 0u128;
-        let value2 = 1u128;
-        let fibo = 0u128;
+    fun main(n: u64) {
+        let value1 = 0u64;
+        let value2 = 1u64;
+        let fibo = 0u64;
 
-        let i = 0u8;
+        let i = 0u64;
         while (i < n) {
             fibo = value1 + value2;
             value1 = value2;
@@ -16,6 +14,5 @@ script {
             i = i + 1;
         };
         fibo;
-//        assert!(fibo == 573147844013817084101, 101);
     }
 }
