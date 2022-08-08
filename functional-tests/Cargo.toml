@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.38"
 criterion = "0.3.4"
-fast-circuit = { path = "../move-circuit" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang"}
 rand_core = { version = "0.6", default-features = false }

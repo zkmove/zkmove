@@ -2,7 +2,6 @@
 
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
-use fast_circuit::circuit::MoveCircuit;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{
     create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
@@ -42,16 +41,6 @@ impl<F: FieldExt> Runtime<F> {
 
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
-    }
-
-    pub fn create_move_circuit(
-        &self,
-        script: CompiledScript,
-        modules: Vec<CompiledModule>,
-        args: Option<ScriptArguments>,
-        data_store: StateStore,
-    ) -> MoveCircuit {
-        MoveCircuit::new(script, modules, args, data_store, self.loader())
     }
 
     pub fn execute_script(
@@ -162,24 +151,6 @@ impl<F: FieldExt> Runtime<F>
 where
     VmCircuit<F>: Circuit<Fp>,
 {
-    pub fn setup_move_circuit(
-        &self,
-        circuit: &MoveCircuit,
-        params: &Params<EqAffine>,
-    ) -> VmResult<ProvingKey<EqAffine>> {
-        debug!("Generate vk");
-        let vk = keygen_vk(params, circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_vk should not fail".to_string())
-        })?;
-        debug!("Generate pk");
-        let pk = keygen_pk(params, vk, circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_pk should not fail".to_string())
-        })?;
-        Ok(pk)
-    }
-
     pub fn setup_vm_circuit(
         &self,
         circuit: &VmCircuit<F>,
@@ -196,34 +167,6 @@ where
                 .with_message("keygen_pk should not fail".to_string())
         })?;
         Ok(pk)
-    }
-
-    pub fn prove_move_circuit(
-        &self,
-        circuit: MoveCircuit,
-        instance: &[&[Fp]],
-        params: &Params<EqAffine>,
-        pk: ProvingKey<EqAffine>,
-    ) -> VmResult<()> {
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-        // Create a proof
-        let prove_start = std::time::Instant::now();
-        create_proof(params, &pk, &[circuit], &[instance], OsRng, &mut transcript)
-            .expect("proof generation should not fail");
-        let proof: Vec<u8> = transcript.finalize();
-        info!("proof size {} bytes", proof.len());
-        let prove_time = std::time::Instant::now().duration_since(prove_start);
-        info!("prove time: {} ms", prove_time.as_millis());
-
-        let strategy = SingleVerifier::new(params);
-        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-        let verify_start = std::time::Instant::now();
-        let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
-        let verify_time = std::time::Instant::now().duration_since(verify_start);
-        info!("verify time: {} ms", verify_time.as_millis());
-        debug!("{:?}", result);
-        assert!(result.is_ok());
-        Ok(())
     }
 
     pub fn prove_vm_circuit(

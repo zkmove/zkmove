@@ -60,7 +60,7 @@ Move circuit is ~40 times faster than vm circuit, but it's not Turing-complete. 
 We can enable the vm circuit via the command option "--vm-circuit" or use directive 'circuit: vm'.
 
 ```bash
-zkmove run -s examples/scripts/add.move -f
+zkmove run -s examples/scripts/add.move --vm-circuit
 ```
 
 ### Handle loops and conditional branch

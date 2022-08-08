@@ -9,7 +9,6 @@ error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 types = { path = "../common/types" }
 vm-circuit = { path = "../vm-circuit" }
-fast-circuit = { path = "../move-circuit" }
 movelang = { path = "../movelang"}
 rand_core = { version = "0.6", default-features = false }
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }

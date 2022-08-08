@@ -43,40 +43,11 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         state.add_module(module);
     }
 
-    let (use_fast_circuit, use_vm_circuit) = match config.circuit {
+    let (_use_fast_circuit, use_vm_circuit) = match config.circuit {
         Some(Circuit::FastCircuit) => (true, false),
         Some(Circuit::VmCircuit) => (false, true),
         None => (true, true),
     };
-
-    if use_fast_circuit {
-        let move_circuit = runtime.create_move_circuit(
-            script.clone(),
-            compiled_modules.clone(),
-            config.args.clone(),
-            state.clone(),
-        );
-        let public_inputs = vec![Fp::zero()];
-        debug!("Find the best suitable k for the circuit...");
-        let k = runtime.find_best_k(&move_circuit, vec![public_inputs.clone()])?;
-        info!("use move circuit, k = {}", k);
-
-        debug!(
-            "Generate zk proof for script {:?} with mock prover",
-            script_file
-        );
-        runtime.mock_prove_circuit(&move_circuit, vec![public_inputs.clone()], k)?;
-
-        debug!("Generate parameters for script {:?}", script_file);
-        let params: Params<EqAffine> = Params::new(k);
-        let pk = runtime.setup_move_circuit(&move_circuit, &params)?;
-
-        debug!(
-            "Generate zk proof for script {:?} with real prover",
-            script_file
-        );
-        runtime.prove_move_circuit(move_circuit, &[public_inputs.as_slice()], &params, pk)?;
-    }
 
     if use_vm_circuit {
         debug!("Generate execution trace for script {:?}", script_file);
