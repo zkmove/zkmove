@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
+use proof_system::halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 
 pub const NUM_OF_BYTES_U128: usize = 16;
 

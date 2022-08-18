@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::opcode::Opcode;
-use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use std::convert::From;
 
 #[derive(Clone, PartialEq, Debug)]

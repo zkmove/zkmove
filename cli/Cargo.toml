@@ -12,11 +12,16 @@ movelang = { path = "../movelang" }
 structopt = "0.3.25"
 vm = { path = "../vm" }
 vm-circuit = { path = "../vm-circuit" }
-halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
-#halo2_proofs = { path = "../../halo2/halo2_proofs"}
+proof-system = { path = "../proof-system" }
+move-binary-format = { git = "https://github.com/young-rocks/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
 
 [dev-dependencies]
 
 [[bin]]
 name = "zkmove"
 path = "src/main.rs"
+
+[features]
+default = ["kzg"]
+IPAs = []
+kzg = []

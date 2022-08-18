@@ -2,17 +2,17 @@
 
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::{CircuitConfig, Witness};
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column};
-use halo2_proofs::plonk::{Selector, TableColumn};
-use halo2_proofs::poly::Rotation;
-use halo2_proofs::{
+use locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
+use logger::prelude::*;
+use proof_system::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use proof_system::halo2_proofs::plonk::{Advice, Column};
+use proof_system::halo2_proofs::plonk::{Selector, TableColumn};
+use proof_system::halo2_proofs::poly::Rotation;
+use proof_system::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
-use locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
-use logger::prelude::*;
 use stack_op_chip::{StackOpChip, StackOpChipConfig};
 
 pub mod locals_op_chip;

@@ -1,0 +1,14 @@
+[package]
+name = "proof-system"
+version = "0.1.0"
+authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "75cdde39f10e64d2dcb4c2b8217761b98bdb6d9c", default-features = false, features = ["dev-graph"], optional = true }
+halo2_proofs_kzg = { path = "../../halo2/halo2_proofs", package = "halo2_proofs", optional = true }
+
+[features]
+default = ["kzg"]
+IPAs = ["halo2_proofs"]
+kzg = ["halo2_proofs_kzg"]

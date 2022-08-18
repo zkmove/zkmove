@@ -7,5 +7,9 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.38"
 logger = { path = "../logger" }
-halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
-#halo2_proofs = { path = "../../../halo2/halo2_proofs"}
+proof-system = { path = "../../proof-system" }
+
+[features]
+default = ["kzg"]
+IPAs = []
+kzg = []

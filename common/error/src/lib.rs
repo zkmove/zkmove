@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::plonk::{Error as ProofSystemError, Error};
 use logger::prelude::*;
+use proof_system::halo2_proofs::plonk::Error as ProofSystemError;
 use std::result::Result;
 
 pub type VmResult<T> = Result<T, RuntimeError>;
@@ -28,7 +28,7 @@ pub enum StatusCode {
     InternalError,
 
     // Proof system error
-    ProofSystemError(Error),
+    ProofSystemError(ProofSystemError),
 
     // error from OS
     OperatingSystemError(anyhow::Error),

@@ -3,12 +3,12 @@
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
-use halo2_proofs::{
+use logger::prelude::*;
+use proof_system::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use logger::prelude::*;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {

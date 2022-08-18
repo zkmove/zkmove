@@ -2,8 +2,8 @@
 
 use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use std::str::FromStr;
 
 pub use move_core_types::parser::parse_transaction_argument;

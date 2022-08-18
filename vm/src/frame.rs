@@ -3,12 +3,12 @@
 use crate::interpreter::Interpreter;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
 use movelang::state::StateStore;
 use movelang::value::MoveValueType;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use std::sync::Arc;
 use types::value::Value;
 use vm_circuit::witness::execution_steps::ExecutionStep;

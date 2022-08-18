@@ -2,8 +2,8 @@
 
 use crate::chips::execution_chip::lookup_tables::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::AssignedCell;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::circuit::AssignedCell;
 use std::cmp::Ordering;
 use std::convert::From;
 use types::value::Value;

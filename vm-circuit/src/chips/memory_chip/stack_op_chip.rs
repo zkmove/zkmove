@@ -3,12 +3,12 @@
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{
+use logger::prelude::*;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use proof_system::halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
-use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -139,7 +139,7 @@ impl<F: FieldExt> StackOpChip<F> {
         });
 
         for lookup in gc_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("gc lookup", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *gc_table)]
             });

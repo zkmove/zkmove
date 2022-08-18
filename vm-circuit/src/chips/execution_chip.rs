@@ -2,14 +2,14 @@
 
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::{
+use logger::prelude::*;
+use lookup_tables::{BytecodeLookupTable, RWTable};
+use proof_system::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use proof_system::halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
-use logger::prelude::*;
-use lookup_tables::{BytecodeLookupTable, RWTable};
 use step_chip::{StepChip, StepConfig};
 use step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 

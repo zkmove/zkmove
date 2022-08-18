@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 
 pub fn convert_to_field<F: FieldExt>(value: MoveValue) -> F {
     match value {
@@ -51,10 +51,14 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
 #[cfg(test)]
 mod tests {
     use crate::value::convert_to_field;
-    use halo2_proofs::arithmetic::FieldExt;
-    use halo2_proofs::pasta::Fp;
     use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
+    use proof_system::halo2_proofs::arithmetic::FieldExt;
+    #[cfg(feature = "kzg")]
+    use proof_system::halo2_proofs::pairing::bn256::Fr;
+    #[cfg(feature = "IPAs")]
+    use proof_system::halo2_proofs::pasta::Fp;
 
+    #[cfg(feature = "IPAs")]
     #[test]
     fn test_conversion() {
         assert_eq!(convert_to_field::<Fp>(U8(0u8)), Fp::zero());
@@ -79,6 +83,34 @@ mod tests {
         assert_eq!(
             convert_to_field::<Fp>(U128(0x1111111111111111u128)),
             Fp::from_u128(0x1111111111111111u128)
+        );
+    }
+
+    #[cfg(feature = "kzg")]
+    #[test]
+    fn test_conversion() {
+        assert_eq!(convert_to_field::<Fr>(U8(0u8)), Fr::zero());
+        assert_eq!(convert_to_field::<Fr>(U64(0u64)), Fr::zero());
+        assert_eq!(convert_to_field::<Fr>(U128(0u128)), Fr::zero());
+        assert_eq!(convert_to_field::<Fr>(Bool(false)), Fr::zero());
+
+        assert_eq!(convert_to_field::<Fr>(U8(1u8)), Fr::one());
+        assert_eq!(convert_to_field::<Fr>(U64(1u64)), Fr::one());
+        assert_eq!(convert_to_field::<Fr>(U128(1u128)), Fr::one());
+        assert_eq!(convert_to_field::<Fr>(Bool(true)), Fr::one());
+
+        assert_eq!(convert_to_field::<Fr>(U8(0x11u8)), Fr::from_u128(0x11u128));
+        assert_eq!(
+            convert_to_field::<Fr>(U64(0x1111u64)),
+            Fr::from_u128(0x1111u128)
+        );
+        assert_eq!(
+            convert_to_field::<Fr>(U128(0x1111111111u128)),
+            Fr::from_u128(0x1111111111u128)
+        );
+        assert_eq!(
+            convert_to_field::<Fr>(U128(0x1111111111111111u128)),
+            Fr::from_u128(0x1111111111111111u128)
         );
     }
 }

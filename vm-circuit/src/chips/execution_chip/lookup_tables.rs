@@ -2,8 +2,8 @@
 
 use crate::chips::utilities::Expr;
 use crate::witness::rw_operations::RW;
-use halo2_proofs::plonk::{Advice, Column, Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use proof_system::halo2_proofs::plonk::{Advice, Column, Expression, TableColumn};
+use proof_system::halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
 pub struct RWTable {

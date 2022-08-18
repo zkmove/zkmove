@@ -8,4 +8,5 @@ members = [
     "vm",
     "functional-tests",
     "cli",
+    "proof-system",
 ]

@@ -1,5 +1,5 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use types::value::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

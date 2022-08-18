@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{AssignedCell, Region};
-use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
-use halo2_proofs::poly::Rotation;
 use logger::prelude::*;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::circuit::{AssignedCell, Region};
+use proof_system::halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
+use proof_system::halo2_proofs::poly::Rotation;
 use std::convert::TryInto;
 use types::value::NUM_OF_BYTES_U128;
 

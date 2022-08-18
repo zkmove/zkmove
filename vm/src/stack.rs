@@ -2,7 +2,7 @@
 
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use types::value::Value;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 

@@ -8,9 +8,9 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::circuit::Region;
+use proof_system::halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
 pub struct LdFalse<F: FieldExt> {

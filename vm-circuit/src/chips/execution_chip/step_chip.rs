@@ -5,10 +5,12 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
-use halo2_proofs::poly::Rotation;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use proof_system::halo2_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Error, Expression, Selector,
+};
+use proof_system::halo2_proofs::poly::Rotation;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use types::value::NUM_OF_BYTES_U128;
@@ -177,7 +179,7 @@ impl<F: FieldExt> StepChip<F> {
         });
 
         for (lookup, cond) in rw_lookups {
-            meta.lookup_any(|meta| {
+            meta.lookup_any("rw lookup", |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -209,7 +211,7 @@ impl<F: FieldExt> StepChip<F> {
         }
 
         for (lookup, cond) in bytecode_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("bytecode lookup", |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (

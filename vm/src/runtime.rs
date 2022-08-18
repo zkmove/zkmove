@@ -2,20 +2,28 @@
 
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
-};
-use halo2_proofs::poly::commitment::Params;
-use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
-use halo2_proofs::{dev::MockProver, pasta::EqAffine, pasta::Fp};
 use logger::prelude::*;
 use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;
 use movelang::argument::ScriptArguments;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
+#[cfg(feature = "IPAs")]
 use plotters::prelude::*;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::dev::MockProver;
+use proof_system::halo2_proofs::plonk::{
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
+};
+use proof_system::halo2_proofs::poly::commitment::Params;
+use proof_system::halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
+#[cfg(feature = "kzg")]
+use proof_system::halo2_proofs::{
+    pairing::bn256::{Bn256, Fr, G1Affine},
+    poly::commitment::ParamsVerifier,
+};
+#[cfg(feature = "IPAs")]
+use proof_system::halo2_proofs::{pasta::EqAffine, pasta::Fp};
 use rand_core::OsRng;
 use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
@@ -130,6 +138,7 @@ impl<F: FieldExt> Runtime<F> {
         Ok(())
     }
 
+    #[cfg(feature = "IPAs")]
     pub fn print_circuit_layout<ConcreteCircuit: Circuit<F>>(
         &self,
         k: u32,
@@ -139,7 +148,7 @@ impl<F: FieldExt> Runtime<F> {
         root.fill(&WHITE).unwrap();
         let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
 
-        halo2_proofs::dev::CircuitLayout::default()
+        proof_system::halo2_proofs::dev::CircuitLayout::default()
             .mark_equality_cells(true)
             .show_equality_constraints(true)
             .render(k, circuit, &root)
@@ -147,6 +156,7 @@ impl<F: FieldExt> Runtime<F> {
     }
 }
 
+#[cfg(feature = "IPAs")]
 impl<F: FieldExt> Runtime<F>
 where
     VmCircuit<F>: Circuit<Fp>,
@@ -174,12 +184,12 @@ where
         circuit: VmCircuit<F>,
         instance: &[&[Fp]],
         params: &Params<EqAffine>,
-        pk: ProvingKey<EqAffine>,
+        pk: &ProvingKey<EqAffine>,
     ) -> VmResult<()> {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         // Create a proof
         let prove_start = std::time::Instant::now();
-        create_proof(params, &pk, &[circuit], &[instance], OsRng, &mut transcript)
+        create_proof(params, pk, &[circuit], &[instance], OsRng, &mut transcript)
             .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
         info!("proof size {} bytes", proof.len());
@@ -190,6 +200,65 @@ where
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
         let verify_start = std::time::Instant::now();
         let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
+        let verify_time = std::time::Instant::now().duration_since(verify_start);
+        info!("verify time: {} ms", verify_time.as_millis());
+        debug!("{:?}", result);
+        assert!(result.is_ok());
+        Ok(())
+    }
+}
+
+#[cfg(feature = "kzg")]
+impl<F: FieldExt> Runtime<F>
+where
+    VmCircuit<F>: Circuit<Fr>,
+{
+    pub fn setup_vm_circuit(
+        &self,
+        circuit: &VmCircuit<F>,
+        params: &Params<G1Affine>,
+    ) -> VmResult<ProvingKey<G1Affine>> {
+        debug!("Generate vk");
+        let vk = keygen_vk(params, circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
+                .with_message("keygen_vk should not fail".to_string())
+        })?;
+        debug!("Generate pk");
+        let pk = keygen_pk(params, vk, circuit).map_err(|e| {
+            RuntimeError::new(StatusCode::ProofSystemError(e))
+                .with_message("keygen_pk should not fail".to_string())
+        })?;
+        Ok(pk)
+    }
+
+    pub fn prove_vm_circuit(
+        &self,
+        circuit: VmCircuit<F>,
+        instance: &[&[Fr]],
+        params: &Params<G1Affine>,
+        pk: &ProvingKey<G1Affine>,
+    ) -> VmResult<()> {
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        // Create a proof
+        let prove_start = std::time::Instant::now();
+        create_proof(params, pk, &[circuit], &[instance], OsRng, &mut transcript)
+            .expect("proof generation should not fail");
+        let proof: Vec<u8> = transcript.finalize();
+        info!("proof size {} bytes", proof.len());
+        let prove_time = std::time::Instant::now().duration_since(prove_start);
+        info!("prove time: {} ms", prove_time.as_millis());
+
+        let verifier_params: ParamsVerifier<Bn256> = params.verifier(0).unwrap();
+        let strategy = SingleVerifier::new(&verifier_params);
+        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let verify_start = std::time::Instant::now();
+        let result = verify_proof(
+            &verifier_params,
+            pk.get_vk(),
+            strategy,
+            &[instance],
+            &mut transcript,
+        );
         let verify_time = std::time::Instant::now().duration_since(verify_start);
         info!("verify time: {} ms", verify_time.as_millis());
         debug!("{:?}", result);

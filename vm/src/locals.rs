@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use proof_system::halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
 use types::value::Value;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
