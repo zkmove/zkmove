@@ -118,10 +118,10 @@ pub(crate) trait DeltaInvert<F: FieldExt> {
 }
 impl<F: FieldExt> DeltaInvert<F> for F {
     fn delta_invert(&self, other: F) -> Option<F> {
-        if self.clone() == other {
+        if *self == other {
             Some(F::one())
         } else {
-            let delta = self.clone() - other;
+            let delta = *self - other;
             delta.invert().into()
         }
     }

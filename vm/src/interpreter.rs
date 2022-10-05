@@ -100,6 +100,7 @@ impl<F: FieldExt> Interpreter<F> {
         Ok(Frame::new(func, locals))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn run_script(
         &mut self,
         entry: Arc<Function>,

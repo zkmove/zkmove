@@ -31,6 +31,12 @@ pub struct Runtime<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
+impl<F: FieldExt> Default for Runtime<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F: FieldExt> Runtime<F> {
     pub fn new() -> Self {
         Runtime {
@@ -76,7 +82,7 @@ impl<F: FieldExt> Runtime<F> {
             &mut rw_operations,
         )?;
 
-        let bytecodes = BytecodeTable::from((script.clone(), modules.clone()));
+        let bytecodes = BytecodeTable::from((script.clone(), modules));
         Ok(Witness::new(
             exec_steps,
             rw_operations,

@@ -95,10 +95,11 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
 // convert BytecodeInfo into a vector of field values
 impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
     fn from(bytecode_info: &BytecodeInfo) -> Vec<F> {
-        let mut field_values = Vec::new();
-        field_values.push(F::from_u128(bytecode_info.module_index as u128));
-        field_values.push(F::from_u128(bytecode_info.function_index as u128));
-        field_values.push(F::from_u128(bytecode_info.pc as u128));
+        let mut field_values = vec![
+            F::from_u128(bytecode_info.module_index as u128),
+            F::from_u128(bytecode_info.function_index as u128),
+            F::from_u128(bytecode_info.pc as u128),
+        ];
 
         let (opcode, operand) = convert_bytecode_to_fields(bytecode_info.bytecode.clone());
         field_values.push(opcode);

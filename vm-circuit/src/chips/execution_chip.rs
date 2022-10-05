@@ -67,6 +67,7 @@ impl<F: FieldExt> ExecutionChip<F> {
     }
 
     // return assigned cells for 1.last_step_gc, 2.sorted_stack_ops, 3.sorted_locals_ops
+    #[allow(clippy::type_complexity)]
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
@@ -195,7 +196,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                                         error!("get bytecode_info_field error");
                                         Error::Synthesis
                                     })?;
-                                    Ok(field.clone())
+                                    Ok(field)
                                 },
                             )
                         })

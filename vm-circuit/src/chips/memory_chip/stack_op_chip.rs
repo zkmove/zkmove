@@ -170,7 +170,7 @@ impl<F: FieldExt> StackOpChip<F> {
             ));
             constraints.push((
                 "first stack op",
-                cond.clone() * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
+                cond * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
             ));
         } else {
             // counter == prev_counter + 1
@@ -218,8 +218,7 @@ impl<F: FieldExt> StackOpChip<F> {
 
             // for ops with same address, gc must be great than prev_gc
             gc_lookups.push(
-                cond.clone()
-                    * (1.expr() - delt_addr)
+                cond * (1.expr() - delt_addr)
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -248,25 +247,16 @@ impl<F: FieldExt> StackOpChip<F> {
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
         if is_empty {
-            self.config
-                .cells
-                .gc
-                .assign(region, offset, Some(op.gc.0.clone()))?;
+            self.config.cells.gc.assign(region, offset, Some(op.gc.0))?;
 
-            self.config
-                .cells
-                .rw
-                .assign(region, offset, Some(op.rw.0.clone()))?;
+            self.config.cells.rw.assign(region, offset, Some(op.rw.0))?;
 
             self.config
                 .cells
                 .address
-                .assign(region, offset, Some(op.address.0.clone()))?;
+                .assign(region, offset, Some(op.address.0))?;
 
-            self.config
-                .cells
-                .value
-                .assign(region, offset, op.value.0.clone())?;
+            self.config.cells.value.assign(region, offset, op.value.0)?;
 
             self.config
                 .cells

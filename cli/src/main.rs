@@ -6,7 +6,7 @@ use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_script;
 use movelang::state::StateStore;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
 use vm::runtime::Runtime;
@@ -71,9 +71,10 @@ pub enum Command {
 }
 
 impl Arguments {
+    #[allow(clippy::too_many_arguments)]
     pub fn run(
         &self,
-        script: &PathBuf,
+        script: &Path,
         module_dir: &Option<PathBuf>,
         vm_circuit: bool,
         use_mock: bool,
@@ -89,9 +90,8 @@ impl Arguments {
         let script_file = script.to_str().expect("path is None.");
 
         // compile script and depended modules
-        let mut targets = vec![];
-        targets.push(script_file.to_string());
-        let config = RunConfig::new(script.as_path())?;
+        let mut targets = vec![script_file.to_string()];
+        let config = RunConfig::new(script)?;
         for module in config.modules.into_iter() {
             let path = module_dir
                 .clone()
@@ -200,7 +200,7 @@ fn main() {
             verbose,
             print_layout,
         } => args.run(
-            script,
+            script.as_path(),
             modules,
             vm_circuit,
             use_mock,

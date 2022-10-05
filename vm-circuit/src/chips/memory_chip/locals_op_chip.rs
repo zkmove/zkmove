@@ -223,7 +223,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             ));
             constraints.push((
                 "first locals op",
-                cond.clone() * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
+                cond * (cells.rw.expression.clone() - (RW::WRITE as u64).expr()),
             ));
         } else {
             // counter == prev_counter + 1
@@ -299,9 +299,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
             // for same call_index, index must be great than or equal to prev_index
             locals_index_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_call_index * cells.delta_invert_call_index.expression.clone())
+                cond * (1.expr()
+                    - delt_call_index * cells.delta_invert_call_index.expression.clone())
                     * (cells.index.expression.clone() - cells.prev_index.expression.clone()),
             );
 
@@ -331,30 +330,21 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
         if is_empty {
-            self.config
-                .cells
-                .gc
-                .assign(region, offset, Some(op.gc.0.clone()))?;
+            self.config.cells.gc.assign(region, offset, Some(op.gc.0))?;
 
-            self.config
-                .cells
-                .rw
-                .assign(region, offset, Some(op.rw.0.clone()))?;
+            self.config.cells.rw.assign(region, offset, Some(op.rw.0))?;
 
             self.config
                 .cells
                 .call_index
-                .assign(region, offset, Some(op.call_index.0.clone()))?;
+                .assign(region, offset, Some(op.call_index.0))?;
 
             self.config
                 .cells
                 .index
-                .assign(region, offset, Some(op.address.0.clone()))?;
+                .assign(region, offset, Some(op.address.0))?;
 
-            self.config
-                .cells
-                .value
-                .assign(region, offset, op.value.0.clone())?;
+            self.config.cells.value.assign(region, offset, op.value.0)?;
         } else {
             self.config.cells.gc.assign_equality(
                 region,
