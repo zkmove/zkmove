@@ -18,8 +18,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let script_file = path.to_str().expect("path is None.");
     debug!("Run test {:?}", script_file);
 
-    let mut targets = vec![];
-    targets.push(script_file.to_string());
+    let mut targets = vec![script_file.to_string()];
     let config = RunConfig::new(path)?;
     for module in config.modules.into_iter() {
         let path = Path::new(TEST_MODULE_PATH)

@@ -97,13 +97,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary: None,
     };
 
-    let mut exec_steps = Vec::new();
-    exec_steps.push(step_0);
-    exec_steps.push(step_1);
-    exec_steps.push(step_2);
-    exec_steps.push(step_3);
-    exec_steps.push(step_4);
-    exec_steps.push(step_5);
+    let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -161,14 +155,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 6,
     });
 
-    let mut rw_operations = Vec::new();
-    rw_operations.push(rw_op_0);
-    rw_operations.push(rw_op_1);
-    rw_operations.push(rw_op_2);
-    rw_operations.push(rw_op_3);
-    rw_operations.push(rw_op_4);
-    rw_operations.push(rw_op_5);
-    rw_operations.push(fake_rw_op);
+    let rw_operations = vec![
+        rw_op_0, rw_op_1, rw_op_2, rw_op_3, rw_op_4, rw_op_5, fake_rw_op,
+    ];
 
     let circuit_config = CircuitConfig::default();
     let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
@@ -265,13 +254,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary: None,
     };
 
-    let mut exec_steps = Vec::new();
-    exec_steps.push(step_0);
-    exec_steps.push(step_1);
-    exec_steps.push(step_2);
-    exec_steps.push(step_3);
-    exec_steps.push(step_4);
-    exec_steps.push(step_5);
+    let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
 
     let rw_op_0 = StackOp {
         address: 0,
@@ -318,23 +301,18 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 5,
     };
 
-    let mut rw_operations = Vec::new();
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_0.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_1.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_2.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_3.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_4.clone()));
-    rw_operations.push(RWOperation::<Fp>::StackOp(rw_op_5.clone()));
+    let rw_operations = vec![
+        RWOperation::<Fp>::StackOp(rw_op_0),
+        RWOperation::<Fp>::StackOp(rw_op_1),
+        RWOperation::<Fp>::StackOp(rw_op_2),
+        RWOperation::<Fp>::StackOp(rw_op_3),
+        RWOperation::<Fp>::StackOp(rw_op_4),
+        RWOperation::<Fp>::StackOp(rw_op_5),
+    ];
 
     // correct sorted ops: 0,3,4,5,1,2
     // wrong sorted ops: 4,5,0,3,1,2
-    let mut wrong_sorted_stack_operations = Vec::new();
-    wrong_sorted_stack_operations.push(rw_op_4);
-    wrong_sorted_stack_operations.push(rw_op_5);
-    wrong_sorted_stack_operations.push(rw_op_0);
-    wrong_sorted_stack_operations.push(rw_op_3);
-    wrong_sorted_stack_operations.push(rw_op_1);
-    wrong_sorted_stack_operations.push(rw_op_2);
+    // let wrong_sorted_stack_operations = vec![rw_op_4, rw_op_5, rw_op_0, rw_op_3, rw_op_1, rw_op_2];
 
     let circuit_config = CircuitConfig::default();
     let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);

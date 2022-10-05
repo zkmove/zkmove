@@ -36,7 +36,7 @@ fn test_execution_step() -> VmResult<()> {
     script.serialize(&mut blob).expect("script must serialize");
 
     let runtime = Runtime::<Fp>::new();
-    let mut data_store = StateStore::new();
+    let data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
 
     let (entry, arg_types) = runtime
@@ -56,7 +56,7 @@ fn test_execution_step() -> VmResult<()> {
             None,
             arg_types,
             runtime.loader(),
-            &mut data_store,
+            &data_store,
             &mut exec_steps,
             &mut rw_operations,
         )
@@ -303,15 +303,9 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary: None,
     };
 
-    let mut exec_steps = Vec::new();
-    exec_steps.push(step_0);
-    exec_steps.push(step_1);
-    exec_steps.push(step_2);
-    exec_steps.push(step_3);
-    exec_steps.push(step_4);
-    exec_steps.push(step_5);
-    exec_steps.push(step_6);
-    exec_steps.push(step_7);
+    let exec_steps = vec![
+        step_0, step_1, step_2, step_3, step_4, step_5, step_6, step_7,
+    ];
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
@@ -369,14 +363,9 @@ fn test_nop_step() -> VmResult<()> {
         gc: 6,
     });
 
-    let mut rw_operations = Vec::new();
-    rw_operations.push(rw_op_0);
-    rw_operations.push(rw_op_1);
-    rw_operations.push(rw_op_2);
-    rw_operations.push(rw_op_3);
-    rw_operations.push(rw_op_4);
-    rw_operations.push(rw_op_5);
-    rw_operations.push(fake_rw_op);
+    let rw_operations = vec![
+        rw_op_0, rw_op_1, rw_op_2, rw_op_3, rw_op_4, rw_op_5, fake_rw_op,
+    ];
 
     let circuit_config = CircuitConfig::default();
     let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);

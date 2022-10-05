@@ -253,7 +253,7 @@ mod tests {
 
         let script = test_script();
         let module = test_module();
-        let bytecodes = BytecodeTable::from((script.clone(), vec![module]));
+        let bytecodes = BytecodeTable::from((script, vec![module]));
 
         let expected_bytecode_table = BytecodeTable(vec![
             BytecodeInfo::new(0, 0, 0, Bytecode::LdU64(1u64)),
