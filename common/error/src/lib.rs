@@ -102,12 +102,12 @@ impl From<ProofSystemError> for RuntimeError {
     }
 }
 
-impl Into<ProofSystemError> for RuntimeError {
-    fn into(self) -> ProofSystemError {
-        match self.status {
+impl From<RuntimeError> for ProofSystemError {
+    fn from(error: RuntimeError) -> ProofSystemError {
+        match error.status {
             StatusCode::ProofSystemError(e) => e,
             _ => {
-                error!("RuntimeError: {:?}", self.status);
+                error!("RuntimeError: {:?}", error.status);
                 ProofSystemError::Synthesis
             }
         }
