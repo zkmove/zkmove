@@ -68,7 +68,7 @@ impl<F: FieldExt> Instructions<F> for StLoc<F> {
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        cells.value_a.assign(region, offset, op.value().value()?)?;
         Ok(())
     }
 }

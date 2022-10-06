@@ -60,7 +60,7 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
             error!("auxiliary is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells.auxiliary.assign(region, offset, aux_value.value()?)?;
         Ok(())
     }
 }

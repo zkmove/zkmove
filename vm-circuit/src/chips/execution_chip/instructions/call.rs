@@ -79,10 +79,10 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             error!("auxiliary is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells.auxiliary.assign(region, offset, aux_value.value()?)?;
 
         let arg_num = aux_value
-            .value()
+            .value()?
             .ok_or_else(|| {
                 error!("failed to get arg_num");
                 Error::Synthesis
@@ -95,7 +95,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 .get(step.gc + i * 2)
                 .ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args[i].assign(region, offset, op.value().value())?;
+            cells.args[i].assign(region, offset, op.value().value()?)?;
             cells.args_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 

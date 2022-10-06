@@ -65,7 +65,7 @@ impl<F: FieldExt> Instructions<F> for Lt<F> {
             Error::Synthesis
         })?;
 
-        let diff = aux_value.value().ok_or_else(|| {
+        let diff = aux_value.value()?.ok_or_else(|| {
             error!("auxiliary value is None");
             Error::Synthesis
         })?;

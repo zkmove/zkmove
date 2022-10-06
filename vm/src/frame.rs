@@ -147,6 +147,22 @@ impl<F: FieldExt> Frame<F> {
                             rw_operations,
                         )
                     }
+                    Bytecode::MutBorrowLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals
+                                .mut_borrow(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::ImmBorrowLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals
+                                .imm_borrow(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
                     Bytecode::LdTrue => {
                         let constant = F::one();
                         let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
@@ -160,7 +176,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::BrTrue(offset) => {
                         execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::one() {
@@ -175,7 +191,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::BrFalse(offset) => {
                         execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::zero() {
@@ -200,7 +216,7 @@ impl<F: FieldExt> Frame<F> {
                         exec_steps.push(execution_step);
 
                         let value =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         let error_code = value.get_lower_128(); // fixme should cast to u64?

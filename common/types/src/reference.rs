@@ -6,18 +6,21 @@ use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::MoveValueType;
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
+#[derive(Clone, Debug)]
 pub struct MutRef<F: FieldExt> {
     pub index: usize,
     pub container: Rc<RefCell<Vec<Value<F>>>>,
     pub ty: MoveValueType,
 }
 
+#[derive(Clone, Debug)]
 pub struct ImmRef<F: FieldExt> {
     pub index: usize,
     pub container: Rc<RefCell<Vec<Value<F>>>>,
     pub ty: MoveValueType,
 }
 
+#[derive(Clone, Debug)]
 pub enum Ref<F: FieldExt> {
     Mut(MutRef<F>),
     Imm(ImmRef<F>),
@@ -83,5 +86,13 @@ impl<F: FieldExt> Ref<F> {
             Self::Mut(r) => r.ty.clone(),
             Self::Imm(r) => r.ty.clone(),
         }
+    }
+
+    pub fn equals(&self, other: &Self) -> VmResult<bool> {
+        if self.ty() != other.ty() {
+            return Ok(false);
+        }
+
+        Ok(self.read()? == other.read()?)
     }
 }

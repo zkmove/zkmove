@@ -101,7 +101,7 @@ impl<F: FieldExt> Locals<F> {
         index: usize,
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Ref<F>> {
+    ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
@@ -114,7 +114,7 @@ impl<F: FieldExt> Locals<F> {
                     gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op));
-                Ok(Ref::new_mut(index, self.0.clone(), v.ty()))
+                Value::new_reference(Ref::new_mut(index, self.0.clone(), v.ty()))
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
@@ -125,7 +125,7 @@ impl<F: FieldExt> Locals<F> {
         index: usize,
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Ref<F>> {
+    ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
@@ -138,7 +138,7 @@ impl<F: FieldExt> Locals<F> {
                     gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op));
-                Ok(Ref::new_imm(index, self.0.clone(), v.ty()))
+                Value::new_reference(Ref::new_imm(index, self.0.clone(), v.ty()))
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }

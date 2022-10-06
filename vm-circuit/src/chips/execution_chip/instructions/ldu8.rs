@@ -45,7 +45,7 @@ impl<F: FieldExt> Instructions<F> for LdU8<F> {
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        cells.value_a.assign(region, offset, op.value().value()?)?;
         Ok(())
     }
 }
