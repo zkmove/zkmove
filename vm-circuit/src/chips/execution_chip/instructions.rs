@@ -20,6 +20,7 @@ pub mod common;
 pub mod copy_loc;
 pub mod div;
 pub mod eq;
+pub mod freeze_ref;
 pub mod imm_borrow_loc;
 pub mod ld_false;
 pub mod ld_true;

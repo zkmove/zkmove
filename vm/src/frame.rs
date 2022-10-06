@@ -180,6 +180,16 @@ impl<F: FieldExt> Frame<F> {
                             Err(RuntimeError::new(StatusCode::TypeMissMatch))
                         }
                     }
+                    Bytecode::FreezeRef => {
+                        let reference = interp.stack.pop(rw_operations)?;
+                        if let Value::Reference(reference) = reference {
+                            interp
+                                .stack
+                                .push(Value::new_reference(reference.freeze())?, rw_operations)
+                        } else {
+                            Err(RuntimeError::new(StatusCode::TypeMissMatch))
+                        }
+                    }
                     Bytecode::LdTrue => {
                         let constant = F::one();
                         let value = Value::new_constant(constant, None, MoveValueType::Bool)?;

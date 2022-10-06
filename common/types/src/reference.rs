@@ -95,4 +95,22 @@ impl<F: FieldExt> Ref<F> {
 
         Ok(self.read()? == other.read()?)
     }
+
+    pub fn is_mut(&self) -> bool {
+        match self {
+            Self::Mut(_) => true,
+            Self::Imm(_) => false,
+        }
+    }
+
+    pub fn freeze(&self) -> Self {
+        match self {
+            Self::Mut(r) => Self::Imm(ImmRef {
+                index: r.index,
+                container: r.container.clone(),
+                ty: r.ty.clone(),
+            }),
+            Self::Imm(_) => self.clone(),
+        }
+    }
 }
