@@ -22,6 +22,6 @@ datatest-stable = "0.1.1"
 name = "testsuite"
 harness = false
 
-[[bench]]
-name = "circuit_benchmark"
-harness = false
+#[[bench]]
+#name = "circuit_benchmark"
+#harness = false
