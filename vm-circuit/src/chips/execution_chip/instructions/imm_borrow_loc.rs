@@ -42,7 +42,7 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowLoc<F> {
             ("gc", cond.clone() * gc_expr),
         ]);
 
-        let (read, write) = RWLookup::locals_copy(
+        let (read, write) = RWLookup::locals_ref(
             cells.gc.expression.clone(),
             cells.call_index.expression.clone(),
             cells.locals_index.expression.clone(),
