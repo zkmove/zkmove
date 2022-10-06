@@ -64,7 +64,7 @@ impl<F: FieldExt> Ref<F> {
         }
     }
 
-    pub fn write(&mut self, value: Value<F>) -> VmResult<()> {
+    pub fn write(&self, value: Value<F>) -> VmResult<()> {
         match self {
             Self::Mut(r) => {
                 let values: &RefCell<Vec<Value<F>>> = r.container.borrow();

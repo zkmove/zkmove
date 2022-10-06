@@ -171,6 +171,15 @@ impl<F: FieldExt> Frame<F> {
                             Err(RuntimeError::new(StatusCode::TypeMissMatch))
                         }
                     }
+                    Bytecode::WriteRef => {
+                        let value = interp.stack.pop(rw_operations)?;
+                        let reference = interp.stack.pop(rw_operations)?;
+                        if let Value::Reference(reference) = reference {
+                            reference.write(value)
+                        } else {
+                            Err(RuntimeError::new(StatusCode::TypeMissMatch))
+                        }
+                    }
                     Bytecode::LdTrue => {
                         let constant = F::one();
                         let value = Value::new_constant(constant, None, MoveValueType::Bool)?;

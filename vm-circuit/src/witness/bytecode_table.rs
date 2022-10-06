@@ -97,6 +97,7 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(local_index as u128),
         ),
         Bytecode::ReadRef => (F::from_u128(Opcode::ReadRef.index() as u128), F::zero()),
+        Bytecode::WriteRef => (F::from_u128(Opcode::WriteRef.index() as u128), F::zero()),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

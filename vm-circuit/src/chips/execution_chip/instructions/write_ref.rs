@@ -13,22 +13,25 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
-pub struct ReadRef<F: FieldExt> {
+pub struct WriteRef<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for ReadRef<F> {
+impl<F: FieldExt> Instructions<F> for WriteRef<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
         bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
-        let cond = cells.conditions[Opcode::ReadRef.index()].expression.clone();
+        let cond = cells.conditions[Opcode::WriteRef.index()]
+            .expression
+            .clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
-        let stack_size_expr =
-            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
+        let stack_size_expr = cells.stack_size.expression.clone()
+            - cells.next_stack_size.expression.clone()
+            - 2.expr();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
@@ -51,7 +54,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         rw_lookups.push((write, cond.clone()));
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::ReadRef,
+            Opcode::WriteRef,
             cells.locals_index.expression.clone(),
             bytecode_lookups,
             cond,

@@ -40,6 +40,7 @@ pub mod ret;
 pub mod st_loc;
 pub mod stop;
 pub mod sub;
+pub mod write_ref;
 
 pub trait Instructions<F: FieldExt> {
     fn configure(
