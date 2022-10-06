@@ -34,7 +34,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             - 2.expr();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
