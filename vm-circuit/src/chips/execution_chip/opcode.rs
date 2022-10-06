@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::{
     branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, imm_borrow_loc::ImmBorrowLoc,
     ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, lt::Lt,
     move_loc::MoveLoc, mul::Mul, mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not,
-    or::Or, pop::Pop, ret::Ret, st_loc::StLoc, stop::Stop, sub::Sub,
+    or::Or, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop, sub::Sub,
 };
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -48,6 +48,7 @@ pub enum Opcode {
     Nop,
     MutBorrowLoc,
     ImmBorrowLoc,
+    ReadRef,
 }
 
 impl Opcode {
@@ -87,6 +88,7 @@ impl Opcode {
             Self::Nop,
             Self::MutBorrowLoc,
             Self::ImmBorrowLoc,
+            Self::ReadRef,
         ]
         .iter()
         .copied()
@@ -138,6 +140,7 @@ impl Opcode {
             Opcode::ImmBorrowLoc => {
                 ImmBorrowLoc::configure(cells, constraints, rw_lookups, bytecode_lookups)
             }
+            Opcode::ReadRef => ReadRef::configure(cells, constraints, rw_lookups, bytecode_lookups),
         }
     }
 
@@ -184,6 +187,7 @@ impl Opcode {
             Opcode::ImmBorrowLoc => {
                 ImmBorrowLoc::assign(region, offset, step, rw_operations, cells)?
             }
+            Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
         }
         Ok(())
     }
@@ -220,6 +224,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Lt => Opcode::Lt,
             Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,
             Bytecode::ImmBorrowLoc(_) => Opcode::ImmBorrowLoc,
+            Bytecode::ReadRef => Opcode::ReadRef,
             _ => unimplemented!(),
         }
     }

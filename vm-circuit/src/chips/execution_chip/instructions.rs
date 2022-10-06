@@ -35,6 +35,7 @@ pub mod nop;
 pub mod not;
 pub mod or;
 pub mod pop;
+pub mod read_ref;
 pub mod ret;
 pub mod st_loc;
 pub mod stop;
