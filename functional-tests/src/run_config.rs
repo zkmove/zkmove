@@ -50,7 +50,7 @@ impl RunConfig {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer)?;
 
-        for line in buffer.lines().into_iter() {
+        for line in buffer.lines() {
             let s = line.split_whitespace().collect::<String>();
             if let Some(s) = s.strip_prefix("//!args:") {
                 config.args = Some(s.parse::<ScriptArguments>()?);

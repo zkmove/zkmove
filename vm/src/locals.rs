@@ -101,4 +101,8 @@ impl<F: FieldExt> Locals<F> {
     pub fn len(&self) -> usize {
         self.0.borrow().len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
 }

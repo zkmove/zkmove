@@ -39,14 +39,14 @@ impl RWTable {
     }
 
     pub fn columns(&self) -> Vec<Column<Advice>> {
-        let mut columns = vec![];
-        columns.push(self.gc_column);
-        columns.push(self.rw_target_column);
-        columns.push(self.rw_column);
-        columns.push(self.call_index_column);
-        columns.push(self.address_column);
-        columns.push(self.value_column);
-        columns
+        vec![
+            self.gc_column,
+            self.rw_target_column,
+            self.rw_column,
+            self.call_index_column,
+            self.address_column,
+            self.value_column,
+        ]
     }
 }
 
@@ -208,13 +208,13 @@ impl BytecodeLookupTable {
     }
 
     pub fn columns(&self) -> Vec<TableColumn> {
-        let mut columns = vec![];
-        columns.push(self.module_index_column);
-        columns.push(self.function_index_column);
-        columns.push(self.pc_column);
-        columns.push(self.opcode_column);
-        columns.push(self.operand_column);
-        columns
+        vec![
+            self.module_index_column,
+            self.function_index_column,
+            self.pc_column,
+            self.opcode_column,
+            self.operand_column,
+        ]
     }
 }
 

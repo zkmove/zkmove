@@ -1,0 +1,89 @@
+name: CI checks
+
+on:
+  pull_request:
+    types: [synchronize, opened, reopened, ready_for_review]
+  push:
+    branches:
+      - main
+
+env:
+  RUSTFLAGS: "-D warnings"
+
+## `actions-rs/toolchain@v1` overwrite set to false so that
+## `rust-toolchain` is always used and the only source of truth.
+
+jobs:
+  test:
+    if: github.event.pull_request.draft == false
+
+    name: Test on ubuntu
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --all
+      - name: Check Benchmarks
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --all
+
+  build:
+    if: github.event.pull_request.draft == false
+
+    name: Build target ${{ matrix.target }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+  fmt:
+    if: github.event.pull_request.draft == false
+
+    name: Rustfmt
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    if: github.event.pull_request.draft == false
+
+    name: Clippy lint checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+          components: clippy
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --verbose --release --all --tests

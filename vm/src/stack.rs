@@ -102,3 +102,9 @@ impl<F: FieldExt> CallStack<F> {
         self.0.len()
     }
 }
+
+impl<F: FieldExt> Default for CallStack<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

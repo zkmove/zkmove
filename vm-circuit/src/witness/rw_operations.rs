@@ -31,15 +31,14 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
     }
     pub fn get_field(&mut self, index: usize) -> VmResult<F> {
         match index {
-            0 => Ok(self.gc.0.clone()),
-            1 => Ok(self.rw_target.0.clone()),
-            2 => Ok(self.rw.0.clone()),
-            3 => Ok(self.call_index.0.clone()),
-            4 => Ok(self.address.0.clone()),
+            0 => Ok(self.gc.0),
+            1 => Ok(self.rw_target.0),
+            2 => Ok(self.rw.0),
+            3 => Ok(self.call_index.0),
+            4 => Ok(self.address.0),
             5 => self
                 .value
                 .0
-                .clone()
                 .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere)),
             _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
@@ -47,27 +46,27 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
     pub fn assign_cell(&mut self, index: usize, cell: Option<AssignedCell<F, F>>) -> VmResult<()> {
         match index {
             0 => {
-                self.gc = (self.gc.0.clone(), cell);
+                self.gc = (self.gc.0, cell);
                 Ok(())
             }
             1 => {
-                self.rw_target = (self.rw_target.0.clone(), cell);
+                self.rw_target = (self.rw_target.0, cell);
                 Ok(())
             }
             2 => {
-                self.rw = (self.rw.0.clone(), cell);
+                self.rw = (self.rw.0, cell);
                 Ok(())
             }
             3 => {
-                self.call_index = (self.call_index.0.clone(), cell);
+                self.call_index = (self.call_index.0, cell);
                 Ok(())
             }
             4 => {
-                self.address = (self.address.0.clone(), cell);
+                self.address = (self.address.0, cell);
                 Ok(())
             }
             5 => {
-                self.value = (self.value.0.clone(), cell);
+                self.value = (self.value.0, cell);
                 Ok(())
             }
             _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
@@ -189,17 +188,11 @@ pub enum RWOperation<F: FieldExt> {
 
 impl<F: FieldExt> RWOperation<F> {
     pub fn is_stack_op(&self) -> bool {
-        match self {
-            Self::StackOp(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::StackOp(_))
     }
 
     pub fn is_locals_op(&self) -> bool {
-        match self {
-            Self::LocalsOp(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::LocalsOp(_))
     }
 
     pub fn gc(&self) -> usize {
