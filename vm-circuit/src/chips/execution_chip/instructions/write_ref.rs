@@ -42,16 +42,31 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ("gc", cond.clone() * gc_expr),
         ]);
 
-        let (read, write) = RWLookup::locals_copy(
-            cells.gc.expression.clone(),
-            cells.call_index.expression.clone(),
-            cells.locals_index.expression.clone(),
-            cells.stack_size.expression.clone(),
-            cells.value_a.expression.clone(),
-        );
+        rw_lookups.push((
+            RWLookup::stack_pop(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_a.expression.clone(),
+            ),
+            cond.clone(),
+        ));
+        rw_lookups.push((
+            RWLookup::stack_pop(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_b.expression.clone(),
+            ),
+            cond.clone(),
+        ));
+        rw_lookups.push((
+            RWLookup::stack_push(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_c.expression.clone(),
+            ),
+            cond.clone(),
+        ));
 
-        rw_lookups.push((read, cond.clone()));
-        rw_lookups.push((write, cond.clone()));
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::WriteRef,
