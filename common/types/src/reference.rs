@@ -48,7 +48,7 @@ impl<F: FieldExt> Ref<F> {
             Self::Mut(r) => {
                 let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
                 match values.borrow().get(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
                     Some(v) => Ok(v.clone()),
                     None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
                 }
@@ -56,7 +56,7 @@ impl<F: FieldExt> Ref<F> {
             Self::Imm(r) => {
                 let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
                 match values.borrow().get(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
                     Some(v) => Ok(v.clone()),
                     None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
                 }
@@ -69,7 +69,7 @@ impl<F: FieldExt> Ref<F> {
             Self::Mut(r) => {
                 let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
                 match values.borrow_mut().get_mut(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
                     Some(v) => {
                         *v = value;
                         Ok(())
@@ -77,7 +77,7 @@ impl<F: FieldExt> Ref<F> {
                     None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
                 }
             }
-            Self::Imm(_r) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+            Self::Imm(_r) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
         }
     }
 
