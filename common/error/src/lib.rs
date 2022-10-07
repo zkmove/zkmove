@@ -20,7 +20,7 @@ pub enum StatusCode {
     UnsupportedBytecode,
     MoveAbort,
     UnsupportedMoveType,
-    TypeMissMatch,
+    TypeMisMatch,
     ArithmeticError,
     ModuleNotFound,
     ProgramBlockError,
