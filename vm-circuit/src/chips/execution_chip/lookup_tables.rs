@@ -206,7 +206,7 @@ impl<F: FieldExt> RWLookup<F> {
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 call_index: 0.expr(),
-                address: stack_size + 1.expr(),
+                address: stack_size,
                 value,
             },
         )
