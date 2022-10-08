@@ -128,7 +128,7 @@ impl<F: FieldExt> Locals<F> {
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => {
                 let locals_op = LocalsOp {
                     call_index,
