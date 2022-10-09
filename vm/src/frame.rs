@@ -172,8 +172,8 @@ impl<F: FieldExt> Frame<F> {
                         }
                     }
                     Bytecode::WriteRef => {
-                        let value = interp.stack.pop(rw_operations)?;
                         let reference = interp.stack.pop(rw_operations)?;
+                        let value = interp.stack.pop(rw_operations)?;
                         if let Value::Reference(reference) = reference {
                             reference.write(value)
                         } else {
