@@ -31,7 +31,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -49,9 +49,9 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         ));
         rw_lookups.push((
             RWLookup::stack_push(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                cells.value_b.expression.clone(),
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                cells.value_c.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -75,6 +75,9 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value()?)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        cells.value_c.assign(region, offset, op.value().value()?)?;
         Ok(())
     }
 }
