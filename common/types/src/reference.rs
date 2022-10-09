@@ -6,6 +6,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::MoveValueType;
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
+// TODO: ref types should encode what container they point to
 #[derive(Clone, Debug)]
 pub struct MutRef {
     pub index: usize,
