@@ -48,6 +48,7 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             cells.locals_index.expression.clone(),
             cells.stack_size.expression.clone(),
             cells.value_a.expression.clone(),
+            cells.value_c.expression.clone(),
         );
 
         rw_lookups.push((read, cond.clone()));
@@ -71,6 +72,9 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value()?)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        cells.value_c.assign(region, offset, op.value().value()?)?;
         Ok(())
     }
 }

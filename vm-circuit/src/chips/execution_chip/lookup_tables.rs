@@ -191,6 +191,7 @@ impl<F: FieldExt> RWLookup<F> {
         locals_index: Expression<F>,
         stack_size: Expression<F>,
         value: Expression<F>,
+        reference_index: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -207,9 +208,43 @@ impl<F: FieldExt> RWLookup<F> {
                 rw: (RW::WRITE as u64).expr(),
                 call_index: 0.expr(),
                 address: stack_size,
-                value,
+                value: reference_index,
             },
         )
+    }
+
+    pub fn locals_read_ref(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc: gc.clone(),
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::READ as u64).expr(),
+            call_index,
+            address: locals_index,
+            value: value.clone(),
+        }
+    }
+
+    pub fn locals_write_ref(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc: gc.clone(),
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::WRITE as u64).expr(),
+            call_index,
+            address: locals_index,
+            value: value.clone(),
+        }
     }
 }
 

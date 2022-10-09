@@ -31,7 +31,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -47,9 +47,17 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             ),
             cond.clone(),
         ));
+        let read = RWLookup::locals_read_ref(
+            cells.gc.expression.clone() + 1.expr(),
+            cells.call_index.expression.clone(),
+            cells.locals_index.expression.clone(),
+            cells.stack_size.expression.clone() - 1.expr(),
+            cells.value_c.expression.clone(),
+        );
+        rw_lookups.push((read, cond.clone()));
         rw_lookups.push((
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 cells.value_c.expression.clone(),
             ),

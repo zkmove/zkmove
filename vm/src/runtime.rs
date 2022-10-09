@@ -131,6 +131,7 @@ impl<F: FieldExt> Runtime<F> {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::ProofSystemError(e))
         })?;
+        prover.assert_satisfied();
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())

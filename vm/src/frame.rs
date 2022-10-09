@@ -166,7 +166,15 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::ReadRef => {
                         let reference = interp.stack.pop(rw_operations)?;
                         if let Value::Reference(reference) = reference {
-                            interp.stack.push(reference.read()?, rw_operations)
+                            execution_step.locals_index = reference.index();
+                            interp.stack.push(
+                                self.locals.read_ref(
+                                    reference.index(),
+                                    call_index,
+                                    rw_operations,
+                                )?,
+                                rw_operations,
+                            )
                         } else {
                             Err(RuntimeError::new(StatusCode::TypeMissMatch))
                         }
@@ -175,7 +183,12 @@ impl<F: FieldExt> Frame<F> {
                         let reference = interp.stack.pop(rw_operations)?;
                         let value = interp.stack.pop(rw_operations)?;
                         if let Value::Reference(reference) = reference {
-                            reference.write(value)
+                            self.locals.write_ref(
+                                reference.index(),
+                                value,
+                                call_index,
+                                rw_operations,
+                            )
                         } else {
                             Err(RuntimeError::new(StatusCode::TypeMissMatch))
                         }

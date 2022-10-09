@@ -34,7 +34,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             - 2.expr();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -54,10 +54,18 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                cells.value_b.expression.clone(),
+                cells.value_c.expression.clone(),
             ),
             cond.clone(),
         ));
+        let write = RWLookup::locals_write_ref(
+            cells.gc.expression.clone() + 2.expr(),
+            cells.call_index.expression.clone(),
+            cells.locals_index.expression.clone(),
+            cells.stack_size.expression.clone() - 2.expr(),
+            cells.value_c.expression.clone(),
+        );
+        rw_lookups.push((write, cond.clone()));
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -80,7 +88,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         cells.value_a.assign(region, offset, op.value().value()?)?;
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_b.assign(region, offset, op.value().value()?)?;
+        cells.value_c.assign(region, offset, op.value().value()?)?;
         Ok(())
     }
 }

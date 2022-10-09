@@ -65,7 +65,7 @@ pub enum Value<F: FieldExt> {
     Invalid,
     Constant(FConstant<F>),
     Variable(FVariable<F>),
-    Reference(Ref<F>),
+    Reference(Ref),
 }
 
 impl<F: FieldExt> Value<F> {
@@ -75,7 +75,7 @@ impl<F: FieldExt> Value<F> {
     pub fn new_constant(value: F, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
         Ok(Self::Constant(FConstant { value, cell, ty }))
     }
-    pub fn new_reference(reference: Ref<F>) -> VmResult<Self> {
+    pub fn new_reference(reference: Ref) -> VmResult<Self> {
         Ok(Self::Reference(reference))
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
@@ -115,7 +115,7 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => Ok(None),
             Self::Constant(c) => Ok(Some(c.value)),
             Self::Variable(v) => Ok(v.value),
-            Self::Reference(r) => r.read()?.value(),
+            Self::Reference(r) => Ok(Some(F::from_u128(r.index() as u128))),
         }
     }
     pub fn cell(&self) -> Option<Cell> {

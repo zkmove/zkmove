@@ -7,78 +7,30 @@ use movelang::value::MoveValueType;
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug)]
-pub struct MutRef<F: FieldExt> {
+pub struct MutRef {
     pub index: usize,
-    pub container: Rc<RefCell<Vec<Value<F>>>>,
     pub ty: MoveValueType,
 }
 
 #[derive(Clone, Debug)]
-pub struct ImmRef<F: FieldExt> {
+pub struct ImmRef {
     pub index: usize,
-    pub container: Rc<RefCell<Vec<Value<F>>>>,
     pub ty: MoveValueType,
 }
 
 #[derive(Clone, Debug)]
-pub enum Ref<F: FieldExt> {
-    Mut(MutRef<F>),
-    Imm(ImmRef<F>),
+pub enum Ref {
+    Mut(MutRef),
+    Imm(ImmRef),
 }
 
-impl<F: FieldExt> Ref<F> {
-    pub fn new_mut(index: usize, container: Rc<RefCell<Vec<Value<F>>>>, ty: MoveValueType) -> Self {
-        Self::Mut(MutRef {
-            index,
-            container,
-            ty,
-        })
+impl Ref {
+    pub fn new_mut(index: usize, ty: MoveValueType) -> Self {
+        Self::Mut(MutRef { index, ty })
     }
 
-    pub fn new_imm(index: usize, container: Rc<RefCell<Vec<Value<F>>>>, ty: MoveValueType) -> Self {
-        Self::Imm(ImmRef {
-            index,
-            container,
-            ty,
-        })
-    }
-
-    pub fn read(&self) -> VmResult<Value<F>> {
-        match self {
-            Self::Mut(r) => {
-                let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
-                match values.borrow().get(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
-                    Some(v) => Ok(v.clone()),
-                    None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-                }
-            }
-            Self::Imm(r) => {
-                let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
-                match values.borrow().get(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-                    Some(v) => Ok(v.clone()),
-                    None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-                }
-            }
-        }
-    }
-
-    pub fn write(&self, value: Value<F>) -> VmResult<()> {
-        match self {
-            Self::Mut(r) => {
-                let values: &RefCell<Vec<Value<F>>> = r.container.borrow();
-                match values.borrow_mut().get_mut(r.index) {
-                    Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
-                    Some(v) => {
-                        *v = value;
-                        Ok(())
-                    }
-                    None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-                }
-            }
-            Self::Imm(_r) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-        }
+    pub fn new_imm(index: usize, ty: MoveValueType) -> Self {
+        Self::Imm(ImmRef { index, ty })
     }
 
     pub fn ty(&self) -> MoveValueType {
@@ -88,12 +40,19 @@ impl<F: FieldExt> Ref<F> {
         }
     }
 
+    pub fn index(&self) -> usize {
+        match self {
+            Ref::Mut(r) => r.index,
+            Ref::Imm(r) => r.index,
+        }
+    }
+
     pub fn equals(&self, other: &Self) -> VmResult<bool> {
         if self.ty() != other.ty() {
             return Ok(false);
         }
 
-        Ok(self.read()? == other.read()?)
+        Ok(self.index() == other.index())
     }
 
     pub fn is_mut(&self) -> bool {
@@ -107,7 +66,6 @@ impl<F: FieldExt> Ref<F> {
         match self {
             Self::Mut(r) => Self::Imm(ImmRef {
                 index: r.index,
-                container: r.container.clone(),
                 ty: r.ty.clone(),
             }),
             Self::Imm(_) => self.clone(),
