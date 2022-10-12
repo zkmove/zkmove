@@ -217,7 +217,7 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         call_index: Expression<F>,
         locals_index: Expression<F>,
-        stack_size: Expression<F>,
+        _stack_size: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
@@ -234,7 +234,7 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         call_index: Expression<F>,
         locals_index: Expression<F>,
-        stack_size: Expression<F>,
+        _stack_size: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {

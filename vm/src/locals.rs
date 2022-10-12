@@ -178,7 +178,7 @@ impl<F: FieldExt> Locals<F> {
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-            Some(v) => {
+            Some(_v) => {
                 let locals_op = LocalsOp {
                     call_index,
                     index,

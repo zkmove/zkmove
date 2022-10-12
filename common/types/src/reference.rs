@@ -1,10 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::value::Value;
-use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use error::VmResult;
 use movelang::value::MoveValueType;
-use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 // TODO: ref types should encode what container they point to
 #[derive(Clone, Debug)]
