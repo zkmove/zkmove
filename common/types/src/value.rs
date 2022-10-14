@@ -11,30 +11,6 @@ use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 pub const NUM_OF_BYTES_U128: usize = 16;
 
 #[derive(Clone, Debug)]
-pub struct FConstant<F: FieldExt> {
-    pub value: F,
-    pub cell: Option<Cell>,
-    pub ty: MoveValueType,
-}
-
-impl<F: FieldExt> FConstant<F> {
-    fn equals(&self, other: &Self) -> bool {
-        if self.ty != other.ty {
-            return false;
-        }
-        if self.value == other.value {
-            match (self.cell, other.cell) {
-                (Some(c1), Some(c2)) => c1 == c2,
-                (None, None) => true,
-                _ => false,
-            }
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct FVariable<F: FieldExt> {
     pub value: Option<F>,
     pub cell: Option<Cell>,
@@ -63,7 +39,6 @@ impl<F: FieldExt> FVariable<F> {
 #[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
-    Constant(FConstant<F>),
     Variable(FVariable<F>),
     Reference(Ref),
 }
@@ -72,40 +47,37 @@ impl<F: FieldExt> Value<F> {
     pub fn new_variable(value: Option<F>, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
         Ok(Self::Variable(FVariable { value, cell, ty }))
     }
-    pub fn new_constant(value: F, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
-        Ok(Self::Constant(FConstant { value, cell, ty }))
-    }
     pub fn new_reference(reference: Ref) -> VmResult<Self> {
         Ok(Self::Reference(reference))
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::Variable(FVariable {
+            value: Some(value),
             cell,
             ty: MoveValueType::Bool,
         }))
     }
     pub fn u8(x: u8, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x as u128); //todo: range check
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::Variable(FVariable {
+            value: Some(value),
             cell,
             ty: MoveValueType::U8,
         }))
     }
     pub fn u64(x: u64, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x as u128);
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::Variable(FVariable {
+            value: Some(value),
             cell,
             ty: MoveValueType::U64,
         }))
     }
     pub fn u128(x: u128, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x);
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::Variable(FVariable {
+            value: Some(value),
             cell,
             ty: MoveValueType::U128,
         }))
@@ -113,7 +85,6 @@ impl<F: FieldExt> Value<F> {
     pub fn value(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
-            Self::Constant(c) => Some(c.value),
             Self::Variable(v) => v.value,
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
         }
@@ -121,7 +92,6 @@ impl<F: FieldExt> Value<F> {
     pub fn cell(&self) -> Option<Cell> {
         match self {
             Self::Invalid => None,
-            Self::Constant(c) => c.cell,
             Self::Variable(v) => v.cell,
             Self::Reference(_r) => None,
         }
@@ -131,7 +101,6 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => {
                 unreachable!()
             }
-            Self::Constant(c) => c.ty.clone(),
             Self::Variable(v) => v.ty.clone(),
             Self::Reference(r) => r.ty(),
         }
@@ -140,7 +109,6 @@ impl<F: FieldExt> Value<F> {
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
-            (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
             (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
             (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
             _ => false,

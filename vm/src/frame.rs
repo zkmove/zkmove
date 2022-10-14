@@ -83,17 +83,17 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_constant(constant, None, MoveValueType::U8)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU64(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_constant(constant, None, MoveValueType::U64)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U64)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU128(v) => {
                         let constant = F::from_u128(*v);
-                        let value = Value::new_constant(constant, None, MoveValueType::U128)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U128)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Pop => {
@@ -205,12 +205,12 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
-                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
                         let constant = F::zero();
-                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
