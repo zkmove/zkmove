@@ -3,7 +3,6 @@
 use crate::reference::Ref;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
-use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -11,88 +10,98 @@ use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 pub const NUM_OF_BYTES_U128: usize = 16;
 
 #[derive(Clone, Debug)]
-pub struct FVariable<F: FieldExt> {
+pub struct U8<F: FieldExt> {
     pub value: Option<F>,
     pub cell: Option<Cell>,
-    pub ty: MoveValueType,
 }
 
-impl<F: FieldExt> FVariable<F> {
-    fn equals(&self, other: &Self) -> bool {
-        if self.ty != other.ty {
-            return false;
-        }
-        let eq_value = match (self.value, other.value) {
-            (Some(v1), Some(v2)) => v1 == v2,
-            (None, None) => true,
-            _ => false,
-        };
-        let eq_cell = match (self.cell, other.cell) {
-            (Some(c1), Some(c2)) => c1 == c2,
-            (None, None) => true,
-            _ => false,
-        };
-        eq_value && eq_cell
-    }
+#[derive(Clone, Debug)]
+pub struct U64<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
+}
+
+#[derive(Clone, Debug)]
+pub struct U128<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Bool<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
 }
 
 #[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
-    Variable(FVariable<F>),
+    U8(U8<F>),
+    U64(U64<F>),
+    U128(U128<F>),
+    Bool(Bool<F>),
     Reference(Ref),
 }
 
 impl<F: FieldExt> Value<F> {
     pub fn new_variable(value: Option<F>, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
-        Ok(Self::Variable(FVariable { value, cell, ty }))
+        match ty {
+            MoveValueType::U8 => Ok(Value::U8(U8 { value, cell })),
+            MoveValueType::U64 => Ok(Value::U64(U64 { value, cell })),
+            MoveValueType::U128 => Ok(Value::U128(U128 { value, cell })),
+            MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
+            _ => unimplemented!(),
+        }
+        //Ok(Self::Variable(FVariable { value, cell, ty }))
     }
     pub fn new_reference(reference: Ref) -> VmResult<Self> {
         Ok(Self::Reference(reference))
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
-        Ok(Self::Variable(FVariable {
+        Ok(Self::Bool(Bool {
             value: Some(value),
             cell,
-            ty: MoveValueType::Bool,
         }))
     }
     pub fn u8(x: u8, cell: Option<Cell>) -> VmResult<Self> {
-        let value = F::from_u128(x as u128); //todo: range check
-        Ok(Self::Variable(FVariable {
+        let value = F::from_u128(x as u128);
+        Ok(Self::U8(U8 {
             value: Some(value),
             cell,
-            ty: MoveValueType::U8,
         }))
     }
     pub fn u64(x: u64, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x as u128);
-        Ok(Self::Variable(FVariable {
+        Ok(Self::U64(U64 {
             value: Some(value),
             cell,
-            ty: MoveValueType::U64,
         }))
     }
     pub fn u128(x: u128, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x);
-        Ok(Self::Variable(FVariable {
+        Ok(Self::U128(U128 {
             value: Some(value),
             cell,
-            ty: MoveValueType::U128,
         }))
     }
     pub fn value(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
-            Self::Variable(v) => v.value,
+            Self::U8(v) => v.value,
+            Self::U64(v) => v.value,
+            Self::U128(v) => v.value,
+            Self::Bool(v) => v.value,
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
         match self {
             Self::Invalid => None,
-            Self::Variable(v) => v.cell,
+            Self::U8(v) => v.cell,
+            Self::U64(v) => v.cell,
+            Self::U128(v) => v.cell,
+            Self::Bool(v) => v.cell,
             Self::Reference(_r) => None,
         }
     }
@@ -101,7 +110,10 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => {
                 unreachable!()
             }
-            Self::Variable(v) => v.ty.clone(),
+            Self::U8(_) => MoveValueType::U8,
+            Self::U64(_) => MoveValueType::U64,
+            Self::U128(_) => MoveValueType::U128,
+            Self::Bool(_) => MoveValueType::Bool,
             Self::Reference(r) => r.ty(),
         }
     }
@@ -109,7 +121,10 @@ impl<F: FieldExt> Value<F> {
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
-            (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
+            (Self::U8(v1), Self::U8(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::U64(v1), Self::U64(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::U128(v1), Self::U128(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::Bool(v1), Self::Bool(v2)) => v1.value.unwrap() == v2.value.unwrap(),
             (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
             _ => false,
         }
@@ -160,8 +175,9 @@ impl<F: FieldExt> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
+        // todo: handle type mismatch
         let value = self.value().and_then(|a| b.value().map(|b| a + b));
-        let c = Value::new_variable(value, None, self.ty())?; //todo: refactor Value
+        let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
 }
@@ -309,10 +325,10 @@ impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
         match value.value() {
             Some(field) => {
                 let value = match value.ty() {
-                    MoveValueType::U8 => U8(field.get_lower_128() as u8),
-                    MoveValueType::U64 => U64(field.get_lower_128() as u64),
-                    MoveValueType::U128 => U128(field.get_lower_128()),
-                    MoveValueType::Bool => Bool(field == F::one()),
+                    MoveValueType::U8 => MoveValue::U8(field.get_lower_128() as u8),
+                    MoveValueType::U64 => MoveValue::U64(field.get_lower_128() as u64),
+                    MoveValueType::U128 => MoveValue::U128(field.get_lower_128()),
+                    MoveValueType::Bool => MoveValue::Bool(field == F::one()),
                     _ => unimplemented!(),
                 };
                 Some(value)
