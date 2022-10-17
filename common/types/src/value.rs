@@ -5,6 +5,7 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
+use std::{cell::RefCell, rc::Rc};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 
 pub const NUM_OF_BYTES_U128: usize = 16;
@@ -34,12 +35,38 @@ pub struct Bool<F: FieldExt> {
 }
 
 #[derive(Clone, Debug)]
+pub enum Container<F: FieldExt> {
+    Locals(Rc<RefCell<Vec<Value<F>>>>),
+    Struct(Rc<RefCell<Vec<Value<F>>>>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ContainerRef<F: FieldExt> {
+    Local(Container<F>),
+    Global(Container<F>),
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexedRef<F: FieldExt> {
+    idx: usize,
+    container_ref: ContainerRef<F>,
+}
+
+#[derive(Debug)]
+pub struct Struct<F: FieldExt> {
+    fields: Vec<Value<F>>,
+}
+
+#[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
     U8(U8<F>),
     U64(U64<F>),
     U128(U128<F>),
     Bool(Bool<F>),
+    Container(Container<F>),
+    ContainerRef(ContainerRef<F>),
+    IndexedRef(IndexedRef<F>),
     Reference(Ref),
 }
 
@@ -93,6 +120,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => v.value,
             Self::Bool(v) => v.value,
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
+            _ => unimplemented!()
         }
     }
     pub fn cell(&self) -> Option<Cell> {
@@ -103,6 +131,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => v.cell,
             Self::Bool(v) => v.cell,
             Self::Reference(_r) => None,
+            _ => unimplemented!()
         }
     }
     pub fn ty(&self) -> MoveValueType {
@@ -115,6 +144,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
             Self::Reference(r) => r.ty(),
+            _ => unimplemented!()
         }
     }
 
