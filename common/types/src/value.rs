@@ -5,8 +5,8 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
-use std::{cell::RefCell, rc::Rc};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::{cell::RefCell, rc::Rc};
 
 pub const NUM_OF_BYTES_U128: usize = 16;
 
@@ -55,6 +55,16 @@ pub struct IndexedRef<F: FieldExt> {
 #[derive(Debug)]
 pub struct Struct<F: FieldExt> {
     fields: Vec<Value<F>>,
+}
+
+impl<F: FieldExt> Struct<F> {
+    pub fn pack(values: Vec<Value<F>>) -> Self {
+        Self { fields: values }
+    }
+
+    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
+        Ok(self.fields)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -111,6 +121,9 @@ impl<F: FieldExt> Value<F> {
             value: Some(value),
             cell,
         }))
+    }
+    pub fn struct_(s: Struct<F>) -> Self {
+        Self::Container(Container::Struct(Rc::new(RefCell::new(s.fields))))
     }
     pub fn value(&self) -> Option<F> {
         match self {

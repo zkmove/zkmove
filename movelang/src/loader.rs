@@ -21,6 +21,10 @@ impl MoveLoader {
         }
     }
 
+    pub fn inner(&self) -> &Loader {
+        &self.loader
+    }
+
     pub fn load_script(
         &self,
         script_blob: &[u8],

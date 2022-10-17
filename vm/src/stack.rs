@@ -3,7 +3,8 @@
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use types::value::Value;
+use std::rc::Rc;
+use types::value::{Container, Struct, Value};
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -53,6 +54,44 @@ impl<F: FieldExt> EvalStack<F> {
 
             Ok(value)
         }
+    }
+
+    pub fn popn(
+        &mut self,
+        n: u16,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Vec<Value<F>>> {
+        let remaining_stack_size = self
+            .0
+            .len()
+            .checked_sub(n as usize)
+            .ok_or_else(|| RuntimeError::new(StatusCode::StackUnderflow))?;
+        let args = self.0.split_off(remaining_stack_size);
+
+        //todo generate rw operations
+
+        Ok(args)
+    }
+
+    pub fn pop_as_struct(
+        &mut self,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Struct<F>> {
+        match self.0.pop() {
+            Some(Value::Container(Container::Struct(struct_))) => {
+                let fields = match Rc::try_unwrap(struct_) {
+                    Ok(cell) => Ok(cell.into_inner()),
+                    Err(v) => Err(RuntimeError::new(StatusCode::InternalError)
+                        .with_message(format!("moving value {:?} with dangling references", v))),
+                };
+                Ok(Struct::pack(fields?))
+            }
+            Some(v) => Err(RuntimeError::new(StatusCode::TypeMisMatch)
+                .with_message(format!("cannot pop {:?} to struct", v))),
+            None => Err(RuntimeError::new(StatusCode::StackUnderflow)),
+        }
+
+        //todo generate rw operations
     }
 
     pub fn top(&self) -> Option<&Value<F>> {

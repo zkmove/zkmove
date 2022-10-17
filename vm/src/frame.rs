@@ -7,11 +7,12 @@ use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
+use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::Value;
+use types::value::{Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RWOperation;
 
@@ -56,6 +57,7 @@ impl<F: FieldExt> Frame<F> {
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
+        loader: &MoveLoader,
         data_store: &StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
@@ -66,6 +68,7 @@ impl<F: FieldExt> Frame<F> {
             .module_index(data_store)
             .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
         let function_index = self.function.index().0;
+        let resolver = self.function.get_resolver(loader.inner());
         loop {
             for instruction in &code[self.pc as usize..] {
                 let mut execution_step = ExecutionStep {
@@ -289,6 +292,21 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::And => interp.binary_op(Value::and, rw_operations),
                     Bytecode::Or => interp.binary_op(Value::or, rw_operations),
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
+                    Bytecode::Pack(sd_idx) => {
+                        let field_count = resolver.field_count(*sd_idx);
+                        let args = interp.stack.popn(field_count, rw_operations)?;
+                        interp
+                            .stack
+                            .push(Value::struct_(Struct::pack(args)), rw_operations)
+                    }
+                    Bytecode::Unpack(sd_idx) => {
+                        let _field_count = resolver.field_count(*sd_idx);
+                        let struct_ = interp.stack.pop_as_struct(rw_operations)?;
+                        for value in struct_.unpack()? {
+                            interp.stack.push(value, rw_operations)?;
+                        }
+                        Ok(())
+                    }
                     _ => unreachable!(),
                 }?;
 

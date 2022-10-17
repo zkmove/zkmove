@@ -118,7 +118,7 @@ impl<F: FieldExt> Interpreter<F> {
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, data_store, exec_steps, rw_operations)?;
+            let status = frame.execute(self, loader, data_store, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
