@@ -36,7 +36,6 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-
         // assign
 
         Ok(())

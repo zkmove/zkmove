@@ -79,10 +79,13 @@ impl<F: FieldExt> EvalStack<F> {
     ) -> VmResult<Struct<F>> {
         match self.0.pop() {
             Some(Value::Container(Container::Struct(struct_))) => {
+                debug_assert_eq!(Rc::strong_count(&struct_), 1);
                 let fields = match Rc::try_unwrap(struct_) {
                     Ok(cell) => Ok(cell.into_inner()),
-                    Err(v) => Err(RuntimeError::new(StatusCode::InternalError)
-                        .with_message(format!("moving value {:?} with dangling references", v))),
+                    Err(v) => Err(
+                        RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                            .with_message(format!("moving value {:?} with dangling references", v)),
+                    ),
                 };
                 Ok(Struct::pack(fields?))
             }

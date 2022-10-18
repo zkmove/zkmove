@@ -34,10 +34,26 @@ pub struct Bool<F: FieldExt> {
     pub cell: Option<Cell>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Container<F: FieldExt> {
     Locals(Rc<RefCell<Vec<Value<F>>>>),
     Struct(Rc<RefCell<Vec<Value<F>>>>),
+}
+
+impl<F: FieldExt> Container<F> {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Locals(r) => r.borrow().len(),
+            Self::Struct(r) => r.borrow().len(),
+        }
+    }
+
+    pub fn rc_count(&self) -> usize {
+        match self {
+            Self::Locals(r) => Rc::strong_count(r),
+            Self::Struct(r) => Rc::strong_count(r),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -378,5 +394,41 @@ impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
             }
             None => None,
         }
+    }
+}
+
+impl<F: FieldExt> Value<F> {
+    fn copy_value(&self) -> VmResult<Self> {
+        Ok(match self {
+            Value::Invalid => Value::Invalid,
+            Value::Container(c) => Value::Container(c.copy_value()?),
+            Value::ContainerRef(_r) => unimplemented!(),
+            Value::IndexedRef(_r) => unimplemented!(),
+            v => v.clone(), // directly clone() for U8, U64, U128, Bool
+        })
+    }
+}
+
+impl<F: FieldExt> Container<F> {
+    fn copy_value(&self) -> VmResult<Self> {
+        Ok(match self {
+            Self::Struct(r) => {
+                let struct_ = Rc::new(RefCell::new(
+                    r.borrow()
+                        .iter()
+                        .map(|v| v.copy_value())
+                        .collect::<VmResult<_>>()?,
+                ));
+                Self::Struct(struct_)
+            }
+            Self::Locals(_) => unreachable!(),
+        })
+    }
+}
+
+impl<F: FieldExt> Clone for Container<F> {
+    fn clone(&self) -> Self {
+        self.copy_value()
+            .expect("Container copy_value() should succeed")
     }
 }

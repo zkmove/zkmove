@@ -47,8 +47,17 @@ impl<F: FieldExt> Locals<F> {
     ) -> VmResult<()> {
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
-            // Todo: check ref count
-            Some(_v) => {
+            Some(v) => {
+                if let Value::Container(c) = v {
+                    if c.rc_count() > 1 {
+                        return Err(
+                            RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                                .with_message(
+                                    "moving container with dangling references".to_string(),
+                                ),
+                        );
+                    }
+                }
                 let locals_op = LocalsOp {
                     call_index,
                     index,
