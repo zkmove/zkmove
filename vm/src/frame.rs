@@ -186,7 +186,7 @@ impl<F: FieldExt> Frame<F> {
                                 rw_operations,
                             )
                         } else {
-                            Err(RuntimeError::new(StatusCode::TypeMissMatch))
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
                         }
                     }
                     Bytecode::WriteRef => {
@@ -200,7 +200,7 @@ impl<F: FieldExt> Frame<F> {
                                 rw_operations,
                             )
                         } else {
-                            Err(RuntimeError::new(StatusCode::TypeMissMatch))
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
                         }
                     }
                     Bytecode::FreezeRef => {
@@ -210,7 +210,7 @@ impl<F: FieldExt> Frame<F> {
                                 .stack
                                 .push(Value::new_reference(reference.freeze())?, rw_operations)
                         } else {
-                            Err(RuntimeError::new(StatusCode::TypeMissMatch))
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
                         }
                     }
                     Bytecode::LdTrue => {

@@ -29,7 +29,7 @@ pub fn move_div(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
         (U128(l), U128(r)) => u128::checked_div(l, r).map(U128),
         (l, r) => {
             let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMisMatch).with_message(msg));
+            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
         }
     };
     result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
@@ -42,7 +42,7 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
         (U128(l), U128(r)) => u128::checked_rem(l, r).map(U128),
         (l, r) => {
             let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMisMatch).with_message(msg));
+            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
         }
     };
     result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
