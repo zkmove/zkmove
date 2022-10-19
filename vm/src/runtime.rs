@@ -8,7 +8,11 @@ use halo2_proofs::plonk::{
 };
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
-use halo2_proofs::{dev::MockProver, pasta::EqAffine, pasta::Fp};
+use halo2_proofs::{
+    dev::{MockProver, VerifyFailure},
+    pasta::EqAffine,
+    pasta::Fp,
+};
 use logger::prelude::*;
 use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;
@@ -105,7 +109,22 @@ impl<F: FieldExt> Runtime<F> {
             let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
             let result = MockProver::run(k, circuit, instance.clone());
             match result {
-                Ok(_) => {
+                Ok(r) => {
+                    // Ensure that no constraints will get poisoned.
+                    // This can happen if the circuit is principally big enough, but the
+                    // constraint count exceeds the number of usable rows
+                    // (2^k - 1 - blinding_factors).
+                    let _ = r.verify().map_err(|e| {
+                        if e.iter().any(|e| {
+                            if let VerifyFailure::ConstraintPoisoned { .. } = e {
+                                true
+                            } else {
+                                false
+                            }
+                        }) {
+                            k += 1;
+                        }
+                    });
                     break;
                 }
                 Err(e) => {
@@ -131,7 +150,6 @@ impl<F: FieldExt> Runtime<F> {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::ProofSystemError(e))
         })?;
-        prover.assert_satisfied();
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())
@@ -142,7 +160,6 @@ impl<F: FieldExt> Runtime<F> {
         k: u32,
         circuit: &ConcreteCircuit,
     ) {
-        /*
         let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
         root.fill(&WHITE).unwrap();
         let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
@@ -152,7 +169,6 @@ impl<F: FieldExt> Runtime<F> {
             .show_equality_constraints(true)
             .render(k, circuit, &root)
             .unwrap();
-        */
     }
 }
 
