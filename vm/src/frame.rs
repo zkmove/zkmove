@@ -100,20 +100,30 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.pop(rw_operations)?;
                         Ok(())
                     }
-                    Bytecode::Add => interp.binary_op(Value::add, rw_operations),
-                    Bytecode::Sub => interp.binary_op(Value::sub, rw_operations),
-                    Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
+                    Bytecode::Add => {
+                        interp.binary_op(Value::add, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Sub => {
+                        interp.binary_op(Value::sub, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Mul => {
+                        interp.binary_op(Value::mul, rw_operations, &mut self.locals, call_index)
+                    }
                     Bytecode::Div => interp.binary_op_auxiliary(
                         Value::div,
                         Value::rem,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Mod => interp.binary_op_auxiliary(
                         Value::rem,
                         Value::div,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Ret => {
                         trace!("step #{}, {:?}", interp.step, execution_step);
@@ -273,22 +283,34 @@ impl<F: FieldExt> Frame<F> {
                         Value::delta_invert,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Neq => interp.binary_op_auxiliary(
                         Value::neq,
                         Value::delta_invert,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Lt => interp.binary_op_auxiliary(
                         Value::lt,
                         Value::diff,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
-                    Bytecode::And => interp.binary_op(Value::and, rw_operations),
-                    Bytecode::Or => interp.binary_op(Value::or, rw_operations),
-                    Bytecode::Not => interp.unary_op(Value::not, rw_operations),
+                    Bytecode::And => {
+                        interp.binary_op(Value::and, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Or => {
+                        interp.binary_op(Value::or, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Not => {
+                        interp.unary_op(Value::not, rw_operations, &mut self.locals, call_index)
+                    }
                     _ => unreachable!(),
                 }?;
 
