@@ -115,13 +115,9 @@ impl<F: FieldExt> Runtime<F> {
                     // constraint count exceeds the number of usable rows
                     // (2^k - 1 - blinding_factors).
                     let _ = r.verify().map_err(|e| {
-                        if e.iter().any(|e| {
-                            if let VerifyFailure::ConstraintPoisoned { .. } = e {
-                                true
-                            } else {
-                                false
-                            }
-                        }) {
+                        if e.iter()
+                            .any(|e| matches!(e, VerifyFailure::ConstraintPoisoned { .. }))
+                        {
                             k += 1;
                         }
                     });
