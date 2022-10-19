@@ -161,6 +161,8 @@ impl<F: FieldExt> Interpreter<F> {
         }
     }
 
+    // TODO: we should have better access to different types of containers that refs
+    // can point to. perhaps we should encapsulate this in the frame and pass that down instead.
     pub fn binary_op<Fn>(
         &mut self,
         op: Fn,
