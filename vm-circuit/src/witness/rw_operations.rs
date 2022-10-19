@@ -118,7 +118,7 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &LocalsOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value.value().unwrap_or_default(),
+            _ => rw_op.value.value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -167,7 +167,7 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &StackOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value.value().unwrap_or_default(),
+            _ => rw_op.value.value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -243,7 +243,7 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &RWOperation<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value() {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value().value().unwrap_or_default(),
+            _ => rw_op.value().value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc() as u128), None),

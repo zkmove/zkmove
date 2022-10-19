@@ -226,7 +226,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::BrTrue(offset) => {
                         execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
-                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::one() {
@@ -241,7 +241,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::BrFalse(offset) => {
                         execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
                         let cond =
-                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == F::zero() {
@@ -266,7 +266,7 @@ impl<F: FieldExt> Frame<F> {
                         exec_steps.push(execution_step);
 
                         let value =
-                            interp.stack.pop(rw_operations)?.value()?.ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         let error_code = value.get_lower_128(); // fixme should cast to u64?

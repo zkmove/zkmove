@@ -79,14 +79,14 @@ impl<F: FieldExt> Instructions<F> for BrFalse<F> {
             error!("auxiliary is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value()?)?;
+        cells.auxiliary.assign(region, offset, aux_value.value())?;
 
         let op = rw_operations.0.get(step.gc).ok_or_else(|| {
             error!("gc is is None");
             Error::Synthesis
         })?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value()?)?;
+        cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }

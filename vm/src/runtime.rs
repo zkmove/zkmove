@@ -142,6 +142,7 @@ impl<F: FieldExt> Runtime<F> {
         k: u32,
         circuit: &ConcreteCircuit,
     ) {
+        /*
         let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
         root.fill(&WHITE).unwrap();
         let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
@@ -151,6 +152,7 @@ impl<F: FieldExt> Runtime<F> {
             .show_equality_constraints(true)
             .render(k, circuit, &root)
             .unwrap();
+        */
     }
 }
 

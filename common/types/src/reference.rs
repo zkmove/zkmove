@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use error::VmResult;
 use movelang::value::MoveValueType;
 
 // TODO: ref types should encode what container they point to
@@ -45,12 +44,12 @@ impl Ref {
         }
     }
 
-    pub fn equals(&self, other: &Self) -> VmResult<bool> {
+    pub fn equals(&self, other: &Self) -> bool {
         if self.ty() != other.ty() {
-            return Ok(false);
+            return false;
         }
 
-        Ok(self.index() == other.index())
+        self.index() == other.index()
     }
 
     pub fn is_mut(&self) -> bool {

@@ -110,12 +110,12 @@ impl<F: FieldExt> Value<F> {
             ty: MoveValueType::U128,
         }))
     }
-    pub fn value(&self) -> VmResult<Option<F>> {
+    pub fn value(&self) -> Option<F> {
         match self {
-            Self::Invalid => Ok(None),
-            Self::Constant(c) => Ok(Some(c.value)),
-            Self::Variable(v) => Ok(v.value),
-            Self::Reference(r) => Ok(Some(F::from_u128(r.index() as u128))),
+            Self::Invalid => None,
+            Self::Constant(c) => Some(c.value),
+            Self::Variable(v) => v.value,
+            Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
@@ -137,27 +137,27 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
-    pub fn equals(&self, other: &Self) -> VmResult<bool> {
+    pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Invalid, Self::Invalid) => Ok(true),
-            (Self::Constant(c1), Self::Constant(c2)) => Ok(c1.equals(c2)),
-            (Self::Variable(v1), Self::Variable(v2)) => Ok(v1.equals(v2)),
+            (Self::Invalid, Self::Invalid) => true,
+            (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
+            (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
             (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
-            _ => Ok(false),
+            _ => false,
         }
     }
 
     pub fn less_than(&self, other: &Self) -> VmResult<bool> {
-        match (self.value()?, other.value()?) {
+        match (self.value(), other.value()) {
             (Some(v1), Some(v2)) => Ok(v1 < v2),
             _ => Err(RuntimeError::new(StatusCode::InternalError)),
         }
     }
 
-    pub fn is_zero(&self) -> VmResult<bool> {
-        match self.value()? {
-            Some(v) => Ok(v.is_zero_vartime()),
-            None => Ok(false),
+    pub fn is_zero(&self) -> bool {
+        match self.value() {
+            Some(v) => v.is_zero_vartime(),
+            None => false,
         }
     }
 
@@ -182,7 +182,7 @@ impl<F: FieldExt> Value<F> {
 
 impl<F: FieldExt> PartialEq for Value<F> {
     fn eq(&self, other: &Self) -> bool {
-        self.equals(other).unwrap_or(false)
+        self.equals(other)
     }
 }
 
@@ -192,7 +192,7 @@ impl<F: FieldExt> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
-        let value = self.value()?.and_then(|a| b.value().ok()?.map(|b| a + b));
+        let value = self.value().and_then(|a| b.value().map(|b| a + b));
         let c = Value::new_variable(value, None, self.ty())?; //todo: refactor Value
         Ok(c)
     }
@@ -202,7 +202,7 @@ impl<F: FieldExt> Sub for Value<F> {
     type Output = VmResult<Self>;
 
     fn sub(self, b: Value<F>) -> Self::Output {
-        let value = self.value()?.and_then(|a| b.value().ok()?.map(|b| a - b));
+        let value = self.value().and_then(|a| b.value().map(|b| a - b));
         let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
@@ -212,7 +212,7 @@ impl<F: FieldExt> Mul for Value<F> {
     type Output = VmResult<Self>;
 
     fn mul(self, b: Value<F>) -> Self::Output {
-        let value = self.value()?.and_then(|a| b.value().ok()?.map(|b| a * b));
+        let value = self.value().and_then(|a| b.value().map(|b| a * b));
         let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
@@ -260,7 +260,7 @@ impl<F: FieldExt> Not for Value<F> {
     type Output = VmResult<Self>;
 
     fn not(self) -> Self::Output {
-        let value = if self.is_zero()? { F::one() } else { F::zero() };
+        let value = if self.is_zero() { F::one() } else { F::zero() };
         let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -268,7 +268,7 @@ impl<F: FieldExt> Not for Value<F> {
 
 impl<F: FieldExt> Value<F> {
     pub fn eq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = match (a.value()?, b.value()?) {
+        let value = match (a.value(), b.value()) {
             (Some(a), Some(b)) => {
                 let fr = if a == b { F::one() } else { F::zero() };
                 Some(fr)
@@ -281,7 +281,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn neq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if !a.equals(&b)? { F::one() } else { F::zero() };
+        let value = if !a.equals(&b) { F::one() } else { F::zero() };
         let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -294,7 +294,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if a.is_zero()? || b.is_zero()? {
+        let value = if a.is_zero() || b.is_zero() {
             F::zero()
         } else {
             F::one()
@@ -304,7 +304,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn or(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if a.is_zero()? && b.is_zero()? {
+        let value = if a.is_zero() && b.is_zero() {
             F::zero()
         } else {
             F::one()
@@ -314,10 +314,10 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn delta_invert(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let delta_invert = if a.value().unwrap().unwrap() == b.value().unwrap().unwrap() {
+        let delta_invert = if a.value() == b.value() {
             F::one()
         } else {
-            let delta = a.value().unwrap().unwrap() - b.value().unwrap().unwrap();
+            let delta = a.value().unwrap() - b.value().unwrap();
             delta.invert().unwrap()
         };
 
@@ -326,8 +326,8 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn diff(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let lhs = a.value().unwrap().unwrap();
-        let rhs = b.value().unwrap().unwrap();
+        let lhs = a.value().unwrap();
+        let rhs = b.value().unwrap();
         let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
         let range_or_zero = if lhs < rhs { range } else { F::zero() };
         let diff = (lhs - rhs) + range_or_zero;
@@ -338,7 +338,7 @@ impl<F: FieldExt> Value<F> {
 
 impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
     fn from(value: Value<F>) -> Option<MoveValue> {
-        match value.value().unwrap() {
+        match value.value() {
             Some(field) => {
                 let value = match value.ty() {
                     MoveValueType::U8 => U8(field.get_lower_128() as u8),

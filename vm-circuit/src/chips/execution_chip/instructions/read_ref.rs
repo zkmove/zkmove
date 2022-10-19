@@ -82,10 +82,10 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value()?)?;
+        cells.value_a.assign(region, offset, op.value().value())?;
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value()?)?;
+        cells.value_c.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }

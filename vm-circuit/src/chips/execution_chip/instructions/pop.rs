@@ -65,7 +65,7 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
             Error::Synthesis
         })?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value()?)?;
+        cells.value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }
