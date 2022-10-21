@@ -161,12 +161,27 @@ impl<F: FieldExt> Interpreter<F> {
         }
     }
 
-    pub fn binary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
+    // TODO: we should have better access to different types of containers that refs
+    // can point to. perhaps we should encapsulate this in the frame and pass that down instead.
+    pub fn binary_op<Fn>(
+        &mut self,
+        op: Fn,
+        rw_operations: &mut Vec<RWOperation<F>>,
+        locals: &mut Locals<F>,
+        call_index: usize,
+    ) -> VmResult<()>
     where
         Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
-        let right = self.stack.pop(rw_operations)?;
-        let left = self.stack.pop(rw_operations)?;
+        let mut right = self.stack.pop(rw_operations)?;
+        if let Value::Reference(r) = right {
+            right = locals.read_ref(r.index(), call_index, rw_operations)?;
+        };
+
+        let mut left = self.stack.pop(rw_operations)?;
+        if let Value::Reference(l) = left {
+            left = locals.read_ref(l.index(), call_index, rw_operations)?;
+        };
 
         let result = op(left, right)?;
         self.stack.push(result, rw_operations)
@@ -178,13 +193,22 @@ impl<F: FieldExt> Interpreter<F> {
         fn_aux: Fb,
         rw_operations: &mut Vec<RWOperation<F>>,
         step: &mut ExecutionStep<F>,
+        locals: &mut Locals<F>,
+        call_index: usize,
     ) -> VmResult<()>
     where
         Fa: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
         Fb: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
-        let right = self.stack.pop(rw_operations)?;
-        let left = self.stack.pop(rw_operations)?;
+        let mut right = self.stack.pop(rw_operations)?;
+        if let Value::Reference(r) = right {
+            right = locals.read_ref(r.index(), call_index, rw_operations)?;
+        };
+
+        let mut left = self.stack.pop(rw_operations)?;
+        if let Value::Reference(l) = left {
+            left = locals.read_ref(l.index(), call_index, rw_operations)?;
+        };
 
         let result = op(left.clone(), right.clone())?;
         self.stack.push(result, rw_operations)?;
@@ -194,11 +218,20 @@ impl<F: FieldExt> Interpreter<F> {
         Ok(())
     }
 
-    pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
+    pub fn unary_op<Fn>(
+        &mut self,
+        op: Fn,
+        rw_operations: &mut Vec<RWOperation<F>>,
+        locals: &mut Locals<F>,
+        call_index: usize,
+    ) -> VmResult<()>
     where
         Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
     {
-        let operand = self.stack.pop(rw_operations)?;
+        let mut operand = self.stack.pop(rw_operations)?;
+        if let Value::Reference(o) = operand {
+            operand = locals.read_ref(o.index(), call_index, rw_operations)?;
+        };
 
         let result = op(operand)?;
         self.stack.push(result, rw_operations)

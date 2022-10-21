@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
+use crate::reference::Ref;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
-
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 
 pub const NUM_OF_BYTES_U128: usize = 16;
@@ -65,6 +65,7 @@ pub enum Value<F: FieldExt> {
     Invalid,
     Constant(FConstant<F>),
     Variable(FVariable<F>),
+    Reference(Ref),
 }
 
 impl<F: FieldExt> Value<F> {
@@ -73,6 +74,9 @@ impl<F: FieldExt> Value<F> {
     }
     pub fn new_constant(value: F, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
         Ok(Self::Constant(FConstant { value, cell, ty }))
+    }
+    pub fn new_reference(reference: Ref) -> VmResult<Self> {
+        Ok(Self::Reference(reference))
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
@@ -111,6 +115,7 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => None,
             Self::Constant(c) => Some(c.value),
             Self::Variable(v) => v.value,
+            Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
@@ -118,6 +123,7 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => None,
             Self::Constant(c) => c.cell,
             Self::Variable(v) => v.cell,
+            Self::Reference(_r) => None,
         }
     }
     pub fn ty(&self) -> MoveValueType {
@@ -127,6 +133,7 @@ impl<F: FieldExt> Value<F> {
             }
             Self::Constant(c) => c.ty.clone(),
             Self::Variable(v) => v.ty.clone(),
+            Self::Reference(r) => r.ty(),
         }
     }
 
@@ -135,6 +142,7 @@ impl<F: FieldExt> Value<F> {
             (Self::Invalid, Self::Invalid) => true,
             (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
             (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
+            (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
             _ => false,
         }
     }

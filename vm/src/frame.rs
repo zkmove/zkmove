@@ -100,20 +100,30 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.pop(rw_operations)?;
                         Ok(())
                     }
-                    Bytecode::Add => interp.binary_op(Value::add, rw_operations),
-                    Bytecode::Sub => interp.binary_op(Value::sub, rw_operations),
-                    Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
+                    Bytecode::Add => {
+                        interp.binary_op(Value::add, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Sub => {
+                        interp.binary_op(Value::sub, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Mul => {
+                        interp.binary_op(Value::mul, rw_operations, &mut self.locals, call_index)
+                    }
                     Bytecode::Div => interp.binary_op_auxiliary(
                         Value::div,
                         Value::rem,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Mod => interp.binary_op_auxiliary(
                         Value::rem,
                         Value::div,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Ret => {
                         trace!("step #{}, {:?}", interp.step, execution_step);
@@ -146,6 +156,62 @@ impl<F: FieldExt> Frame<F> {
                             self.locals.move_(*v as usize, call_index, rw_operations)?,
                             rw_operations,
                         )
+                    }
+                    Bytecode::MutBorrowLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals
+                                .mut_borrow(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::ImmBorrowLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals
+                                .imm_borrow(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::ReadRef => {
+                        let reference = interp.stack.pop(rw_operations)?;
+                        if let Value::Reference(reference) = reference {
+                            execution_step.locals_index = reference.index();
+                            interp.stack.push(
+                                self.locals.read_ref(
+                                    reference.index(),
+                                    call_index,
+                                    rw_operations,
+                                )?,
+                                rw_operations,
+                            )
+                        } else {
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
+                        }
+                    }
+                    Bytecode::WriteRef => {
+                        let reference = interp.stack.pop(rw_operations)?;
+                        let value = interp.stack.pop(rw_operations)?;
+                        if let Value::Reference(reference) = reference {
+                            self.locals.write_ref(
+                                reference.index(),
+                                value,
+                                call_index,
+                                rw_operations,
+                            )
+                        } else {
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
+                        }
+                    }
+                    Bytecode::FreezeRef => {
+                        let reference = interp.stack.pop(rw_operations)?;
+                        if let Value::Reference(reference) = reference {
+                            interp
+                                .stack
+                                .push(Value::new_reference(reference.freeze())?, rw_operations)
+                        } else {
+                            Err(RuntimeError::new(StatusCode::TypeMismatch))
+                        }
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
@@ -217,22 +283,34 @@ impl<F: FieldExt> Frame<F> {
                         Value::delta_invert,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Neq => interp.binary_op_auxiliary(
                         Value::neq,
                         Value::delta_invert,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
                     Bytecode::Lt => interp.binary_op_auxiliary(
                         Value::lt,
                         Value::diff,
                         rw_operations,
                         &mut execution_step,
+                        &mut self.locals,
+                        call_index,
                     ),
-                    Bytecode::And => interp.binary_op(Value::and, rw_operations),
-                    Bytecode::Or => interp.binary_op(Value::or, rw_operations),
-                    Bytecode::Not => interp.unary_op(Value::not, rw_operations),
+                    Bytecode::And => {
+                        interp.binary_op(Value::and, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Or => {
+                        interp.binary_op(Value::or, rw_operations, &mut self.locals, call_index)
+                    }
+                    Bytecode::Not => {
+                        interp.unary_op(Value::not, rw_operations, &mut self.locals, call_index)
+                    }
                     _ => unreachable!(),
                 }?;
 

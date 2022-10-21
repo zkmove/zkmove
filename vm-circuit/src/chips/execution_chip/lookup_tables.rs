@@ -184,6 +184,68 @@ impl<F: FieldExt> RWLookup<F> {
             },
         )
     }
+
+    pub fn locals_ref(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        stack_size: Expression<F>,
+        value: Expression<F>,
+        reference_index: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
+        (
+            RWLookup {
+                gc: gc.clone(),
+                rw_target: (RWTarget::Locals as u64).expr(),
+                rw: (RW::READ as u64).expr(),
+                call_index,
+                address: locals_index,
+                value,
+            },
+            RWLookup {
+                gc: gc + 1.expr(),
+                rw_target: (RWTarget::Stack as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                call_index: 0.expr(),
+                address: stack_size,
+                value: reference_index,
+            },
+        )
+    }
+
+    pub fn locals_read_ref(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        _stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc,
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::READ as u64).expr(),
+            call_index,
+            address: locals_index,
+            value,
+        }
+    }
+
+    pub fn locals_write_ref(
+        gc: Expression<F>,
+        call_index: Expression<F>,
+        locals_index: Expression<F>,
+        _stack_size: Expression<F>,
+        value: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc,
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::WRITE as u64).expr(),
+            call_index,
+            address: locals_index,
+            value,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

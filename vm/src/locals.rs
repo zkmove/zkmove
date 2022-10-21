@@ -3,7 +3,7 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
-use types::value::Value;
+use types::{reference::Ref, value::Value};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
@@ -91,6 +91,104 @@ impl<F: FieldExt> Locals<F> {
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op_2));
                 Ok(std::mem::replace(v, Value::Invalid))
+            }
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn mut_borrow(
+        &self,
+        index: usize,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Value<F>> {
+        let values = self.0.borrow();
+        match values.get(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
+            Some(v) => {
+                let locals_op = LocalsOp {
+                    call_index,
+                    index,
+                    value: v.clone(),
+                    rw: RW::READ,
+                    gc: rw_operations.len(),
+                };
+                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                Value::new_reference(Ref::new_mut(index, v.ty()))
+            }
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn imm_borrow(
+        &self,
+        index: usize,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Value<F>> {
+        let values = self.0.borrow();
+        match values.get(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+            Some(v) => {
+                let locals_op = LocalsOp {
+                    call_index,
+                    index,
+                    value: v.clone(),
+                    rw: RW::READ,
+                    gc: rw_operations.len(),
+                };
+                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                Value::new_reference(Ref::new_imm(index, v.ty()))
+            }
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn read_ref(
+        &self,
+        index: usize,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Value<F>> {
+        let values = self.0.borrow();
+        match values.get(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+            Some(v) => {
+                let locals_op = LocalsOp {
+                    call_index,
+                    index,
+                    value: v.clone(),
+                    rw: RW::READ,
+                    gc: rw_operations.len(),
+                };
+                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                Ok(v.clone())
+            }
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn write_ref(
+        &self,
+        index: usize,
+        value: Value<F>,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
+        let mut values = self.0.borrow_mut();
+        match values.get_mut(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+            Some(_v) => {
+                let locals_op = LocalsOp {
+                    call_index,
+                    index,
+                    value: value.clone(),
+                    rw: RW::WRITE,
+                    gc: rw_operations.len(),
+                };
+                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                values[index] = value;
+                Ok(())
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
