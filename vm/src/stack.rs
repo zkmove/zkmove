@@ -68,7 +68,15 @@ impl<F: FieldExt> EvalStack<F> {
             .ok_or_else(|| RuntimeError::new(StatusCode::StackUnderflow))?;
         let args = self.0.split_off(remaining_stack_size);
 
-        //todo generate rw operations
+        for i in 0..n as usize {
+            let stack_op = StackOp {
+                address: self.0.len() - n as usize + 1 + i,
+                value: args[i].clone(),
+                rw: RW::READ,
+                gc: rw_operations.len() + i,
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+        }
 
         Ok(args)
     }
@@ -77,24 +85,35 @@ impl<F: FieldExt> EvalStack<F> {
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Struct<F>> {
-        match self.0.pop() {
-            Some(Value::Container(Container::Struct(struct_))) => {
-                debug_assert_eq!(Rc::strong_count(&struct_), 1);
-                let fields = match Rc::try_unwrap(struct_) {
-                    Ok(cell) => Ok(cell.into_inner()),
-                    Err(v) => Err(
-                        RuntimeError::new(StatusCode::UnknownInvariantViolationError)
-                            .with_message(format!("moving value {:?} with dangling references", v)),
-                    ),
-                };
-                Ok(Struct::pack(fields?))
-            }
-            Some(v) => Err(RuntimeError::new(StatusCode::TypeMisMatch)
-                .with_message(format!("cannot pop {:?} to struct", v))),
-            None => Err(RuntimeError::new(StatusCode::StackUnderflow)),
-        }
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            let value = self.0.pop().unwrap();
 
-        //todo generate rw operations
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            match value {
+                Value::Container(Container::Struct(struct_)) => {
+                    debug_assert_eq!(Rc::strong_count(&struct_), 1);
+                    let fields = match Rc::try_unwrap(struct_) {
+                        Ok(cell) => Ok(cell.into_inner()),
+                        Err(v) => Err(RuntimeError::new(
+                            StatusCode::UnknownInvariantViolationError,
+                        )
+                        .with_message(format!("moving value {:?} with dangling references", v))),
+                    };
+                    Ok(Struct::pack(fields?))
+                }
+                v => Err(RuntimeError::new(StatusCode::TypeMisMatch)
+                    .with_message(format!("cannot pop {:?} to struct", v))),
+            }
+        }
     }
 
     pub fn top(&self) -> Option<&Value<F>> {

@@ -54,6 +54,13 @@ impl<F: FieldExt> Container<F> {
             Self::Struct(r) => Rc::strong_count(r),
         }
     }
+
+    pub fn value(&self) -> Option<F> {
+        match self {
+            Self::Locals(r) => Some(F::zero()), //fixme
+            Self::Struct(r) => Some(F::one()),  //fixme
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -148,6 +155,7 @@ impl<F: FieldExt> Value<F> {
             Self::U64(v) => v.value,
             Self::U128(v) => v.value,
             Self::Bool(v) => v.value,
+            Self::Container(c) => c.value(),
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
             _ => unimplemented!()
         }
