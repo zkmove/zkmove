@@ -110,7 +110,7 @@ impl<F: FieldExt> EvalStack<F> {
                     };
                     Ok(Struct::pack(fields?))
                 }
-                v => Err(RuntimeError::new(StatusCode::TypeMisMatch)
+                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} to struct", v))),
             }
         }

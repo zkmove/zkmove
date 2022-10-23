@@ -57,8 +57,10 @@ impl<F: FieldExt> Container<F> {
 
     pub fn value(&self) -> Option<F> {
         match self {
-            Self::Locals(r) => Some(F::zero()), //fixme
-            Self::Struct(r) => Some(F::one()),  //fixme
+            //todo: As a workaround, we temporarily use 0 and 1 to represent the container.
+            // It should be replaced by a value that truly represents the container.
+            Self::Locals(_r) => Some(F::zero()),
+            Self::Struct(_r) => Some(F::one()),
         }
     }
 }
@@ -157,7 +159,7 @@ impl<F: FieldExt> Value<F> {
             Self::Bool(v) => v.value,
             Self::Container(c) => c.value(),
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
@@ -168,7 +170,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => v.cell,
             Self::Bool(v) => v.cell,
             Self::Reference(_r) => None,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
     pub fn ty(&self) -> MoveValueType {
@@ -181,7 +183,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
             Self::Reference(r) => r.ty(),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 

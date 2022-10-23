@@ -4,8 +4,8 @@ use crate::chips::execution_chip::instructions::{
     branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, freeze_ref::FreezeRef,
     imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64,
     ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul, mut_borrow_loc::MutBorrowLoc, neq::Neq,
-    nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop,
-    sub::Sub, write_ref::WriteRef, unpack::Unpack,
+    nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc,
+    stop::Stop, sub::Sub, unpack::Unpack, write_ref::WriteRef,
 };
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::chips::execution_chip::step_chip::StepChipCells;
