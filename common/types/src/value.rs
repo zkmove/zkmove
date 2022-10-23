@@ -73,8 +73,8 @@ pub enum ContainerRef<F: FieldExt> {
 
 #[derive(Clone, Debug)]
 pub struct IndexedRef<F: FieldExt> {
-    idx: usize,
-    container_ref: ContainerRef<F>,
+    pub idx: usize,
+    pub container_ref: ContainerRef<F>,
 }
 
 #[derive(Debug)]
@@ -114,7 +114,6 @@ impl<F: FieldExt> Value<F> {
             MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
             _ => unimplemented!(),
         }
-        //Ok(Self::Variable(FVariable { value, cell, ty }))
     }
     pub fn new_reference(reference: Ref) -> VmResult<Self> {
         Ok(Self::Reference(reference))
@@ -159,6 +158,7 @@ impl<F: FieldExt> Value<F> {
             Self::Bool(v) => v.value,
             Self::Container(c) => c.value(),
             Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
+            Self::IndexedRef(r) => Some(F::from_u128(r.idx as u128)),
             _ => unimplemented!(),
         }
     }
@@ -431,7 +431,7 @@ impl<F: FieldExt> Container<F> {
                 ));
                 Self::Struct(struct_)
             }
-            Self::Locals(_) => unreachable!(),
+            Self::Locals(l) => Self::Locals(l.clone()),
         })
     }
 }
