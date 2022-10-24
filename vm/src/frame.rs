@@ -182,28 +182,25 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
+                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let index = reference.index();
                         let value = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            self.locals.write_ref(
-                                reference.index(),
-                                value,
-                                call_index,
-                                rw_operations,
-                            )
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        reference.write_ref(value.clone())?;
+                        let locals_op = LocalsOp {
+                            call_index, // todo: consider the referenced locals is not in the same frame.
+                            index,
+                            value: value,
+                            rw: RW::WRITE,
+                            gc: rw_operations.len(),
+                        };
+                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        Ok(())
                     }
                     Bytecode::FreezeRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            interp
-                                .stack
-                                .push(Value::new_reference(reference.freeze())?, rw_operations)
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        // In native Move VM, FreezeRef is just be a null op. There is no difference
+                        // between mut and imm ref at runtime. let's follow native Move VM at the moment.
+                        // but this can be a security risk in zkMove VM. Need further discussion.
+                        Ok(())
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();

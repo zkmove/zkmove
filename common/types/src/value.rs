@@ -100,9 +100,27 @@ impl<F: FieldExt> IndexedRef<F> {
     fn read_ref(self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
             Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
-            Container::Struct(r) => unimplemented!(),
+            Container::Struct(_) => unimplemented!(),
         };
         Ok(value)
+    }
+    fn write_ref(self, x: Value<F>) -> VmResult<()> {
+        match &x {
+            Value::IndexedRef(_)
+            | Value::ContainerRef(_)
+            | Value::Invalid
+            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+            _ => (),
+        }
+
+        match (self.container_ref.container(), &x) {
+            (Container::Locals(r), _) => {
+                let mut v = r.borrow_mut();
+                v[self.idx] = x;
+            }
+            (Container::Struct(_), _) => unimplemented!(),
+        }
+        Ok(())
     }
     fn index(&self) -> usize {
         self.idx
@@ -116,9 +134,15 @@ impl<F: FieldExt> Reference<F> {
             Self::IndexedRef(r) => r.read_ref(),
         }
     }
+    pub fn write_ref(self, x: Value<F>) -> VmResult<()> {
+        match self {
+            Self::ContainerRef(_) => unimplemented!(),
+            Self::IndexedRef(r) => r.write_ref(x),
+        }
+    }
     pub fn index(&self) -> usize {
         match self {
-            Self::ContainerRef(r) => unimplemented!(),
+            Self::ContainerRef(_) => unimplemented!(),
             Self::IndexedRef(r) => r.index(),
         }
     }

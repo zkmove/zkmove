@@ -3,8 +3,8 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
+use types::value::Value;
 use types::value::{Container, ContainerRef, IndexedRef};
-use types::{reference::Ref, value::Value};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
