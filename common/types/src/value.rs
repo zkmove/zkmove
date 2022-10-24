@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use crate::reference::Ref;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use movelang::value::{convert_to_field, move_div, move_rem};
@@ -180,7 +179,6 @@ pub enum Value<F: FieldExt> {
     Container(Container<F>),
     ContainerRef(ContainerRef<F>),
     IndexedRef(IndexedRef<F>),
-    Reference(Ref),
 }
 
 impl<F: FieldExt> Value<F> {
@@ -192,9 +190,6 @@ impl<F: FieldExt> Value<F> {
             MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
             _ => unimplemented!(),
         }
-    }
-    pub fn new_reference(reference: Ref) -> VmResult<Self> {
-        Ok(Self::Reference(reference))
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
@@ -235,7 +230,6 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => v.value,
             Self::Bool(v) => v.value,
             Self::Container(c) => c.value(),
-            Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
             Self::IndexedRef(r) => Some(F::from_u128(r.idx as u128)),
             _ => unimplemented!(),
         }
@@ -247,7 +241,6 @@ impl<F: FieldExt> Value<F> {
             Self::U64(v) => v.cell,
             Self::U128(v) => v.cell,
             Self::Bool(v) => v.cell,
-            Self::Reference(_r) => None,
             _ => unimplemented!(),
         }
     }
@@ -260,7 +253,6 @@ impl<F: FieldExt> Value<F> {
             Self::U64(_) => MoveValueType::U64,
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
-            Self::Reference(r) => r.ty(),
             _ => unimplemented!(),
         }
     }
@@ -272,7 +264,6 @@ impl<F: FieldExt> Value<F> {
             (Self::U64(v1), Self::U64(v2)) => v1.value.unwrap() == v2.value.unwrap(),
             (Self::U128(v1), Self::U128(v2)) => v1.value.unwrap() == v2.value.unwrap(),
             (Self::Bool(v1), Self::Bool(v2)) => v1.value.unwrap() == v2.value.unwrap(),
-            (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
             _ => false,
         }
     }
