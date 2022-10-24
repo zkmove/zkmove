@@ -61,10 +61,10 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
         rw_lookups.push((
             RWLookup::stack_push(
                 cells.gc.expression.clone() + field_num.clone(),
-                cells.stack_size.expression.clone() - field_num.clone(),
+                cells.stack_size.expression.clone() - field_num,
                 cells.value_c.expression.clone(),
             ),
-            cond.clone(),
+            cond,
         ));
 
         // todo lookup bytecode table

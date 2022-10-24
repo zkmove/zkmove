@@ -66,19 +66,19 @@ impl<F: FieldExt> EvalStack<F> {
             .len()
             .checked_sub(n as usize)
             .ok_or_else(|| RuntimeError::new(StatusCode::StackUnderflow))?;
-        let args = self.0.split_off(remaining_stack_size);
+        let values = self.0.split_off(remaining_stack_size);
 
-        for i in 0..n as usize {
+        for (i, value) in values.iter().enumerate() {
             let stack_op = StackOp {
-                address: self.0.len() - n as usize + 1 + i,
-                value: args[i].clone(),
+                address: self.0.len() - values.len() + i,
+                value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len() + i,
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
         }
 
-        Ok(args)
+        Ok(values)
     }
 
     pub fn pop_as_struct(

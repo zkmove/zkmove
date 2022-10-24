@@ -189,7 +189,7 @@ impl<F: FieldExt> Frame<F> {
                         let locals_op = LocalsOp {
                             call_index, // todo: consider the referenced locals is not in the same frame.
                             index,
-                            value: value,
+                            value,
                             rw: RW::WRITE,
                             gc: rw_operations.len(),
                         };

@@ -48,6 +48,13 @@ impl<F: FieldExt> Container<F> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Locals(r) => r.borrow().is_empty(),
+            Self::Struct(r) => r.borrow().is_empty(),
+        }
+    }
+
     pub fn rc_count(&self) -> usize {
         match self {
             Self::Locals(r) => Rc::strong_count(r),

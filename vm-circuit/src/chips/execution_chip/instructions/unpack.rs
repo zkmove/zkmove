@@ -34,9 +34,8 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             - 1.expr();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + field_num.clone()
-            + 1.expr();
+        let gc_expr =
+            cells.gc.expression.clone() - cells.next_gc.expression.clone() + field_num + 1.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
