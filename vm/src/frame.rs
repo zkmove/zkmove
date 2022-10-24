@@ -14,7 +14,7 @@ use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
 use types::value::{Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::RWOperation;
+use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -167,20 +167,19 @@ impl<F: FieldExt> Frame<F> {
                         )
                     }
                     Bytecode::ReadRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            execution_step.locals_index = reference.index();
-                            interp.stack.push(
-                                self.locals.read_ref(
-                                    reference.index(),
-                                    call_index,
-                                    rw_operations,
-                                )?,
-                                rw_operations,
-                            )
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let index = reference.index();
+                        let value = reference.read_ref()?;
+                        execution_step.locals_index = index;
+                        let locals_op = LocalsOp {
+                            call_index, // todo: consider the referenced locals is not in the same frame.
+                            index,
+                            value: value.clone(),
+                            rw: RW::READ,
+                            gc: rw_operations.len(),
+                        };
+                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
                         let reference = interp.stack.pop(rw_operations)?;

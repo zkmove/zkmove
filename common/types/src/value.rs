@@ -71,10 +71,57 @@ pub enum ContainerRef<F: FieldExt> {
     Global(Container<F>),
 }
 
+impl<F: FieldExt> ContainerRef<F> {
+    fn container(&self) -> &Container<F> {
+        match self {
+            Self::Local(container) => container,
+            Self::Global(_) => unimplemented!(),
+        }
+    }
+
+    fn read_ref(self) -> VmResult<Value<F>> {
+        Ok(Value::Container(self.container().copy_value()?))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct IndexedRef<F: FieldExt> {
     pub idx: usize,
     pub container_ref: ContainerRef<F>,
+}
+
+#[derive(Debug)]
+pub enum Reference<F: FieldExt> {
+    IndexedRef(IndexedRef<F>),
+    ContainerRef(ContainerRef<F>),
+}
+
+impl<F: FieldExt> IndexedRef<F> {
+    fn read_ref(self) -> VmResult<Value<F>> {
+        let value = match &*self.container_ref.container() {
+            Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
+            Container::Struct(r) => unimplemented!(),
+        };
+        Ok(value)
+    }
+    fn index(&self) -> usize {
+        self.idx
+    }
+}
+
+impl<F: FieldExt> Reference<F> {
+    pub fn read_ref(self) -> VmResult<Value<F>> {
+        match self {
+            Self::ContainerRef(r) => r.read_ref(),
+            Self::IndexedRef(r) => r.read_ref(),
+        }
+    }
+    pub fn index(&self) -> usize {
+        match self {
+            Self::ContainerRef(r) => unimplemented!(),
+            Self::IndexedRef(r) => r.index(),
+        }
+    }
 }
 
 #[derive(Debug)]
