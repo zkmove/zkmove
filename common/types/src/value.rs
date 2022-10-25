@@ -39,6 +39,13 @@ pub enum Container<F: FieldExt> {
     Struct(Rc<RefCell<Vec<Value<F>>>>),
 }
 
+//todo: As a workaround, we temporarily use 0 and 1 to represent the container.
+// It should be replaced by a value that truly represents the container.
+pub enum FakeContainerValue {
+    LOCALS,
+    STRUCT,
+}
+
 impl<F: FieldExt> Container<F> {
     pub fn len(&self) -> usize {
         match self {
@@ -63,10 +70,8 @@ impl<F: FieldExt> Container<F> {
 
     pub fn value(&self) -> Option<F> {
         match self {
-            //todo: As a workaround, we temporarily use 0 and 1 to represent the container.
-            // It should be replaced by a value that truly represents the container.
-            Self::Locals(_r) => Some(F::zero()),
-            Self::Struct(_r) => Some(F::one()),
+            Self::Locals(_r) => Some(F::from_u128(FakeContainerValue::LOCALS as u128)),
+            Self::Struct(_r) => Some(F::from_u128(FakeContainerValue::STRUCT as u128)),
         }
     }
 }
