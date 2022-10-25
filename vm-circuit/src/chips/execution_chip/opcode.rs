@@ -4,8 +4,8 @@ use crate::chips::execution_chip::instructions::{
     branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, freeze_ref::FreezeRef,
     imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64,
     ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul, mut_borrow_loc::MutBorrowLoc, neq::Neq,
-    nop::Nop, not::Not, or::Or, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop,
-    sub::Sub, write_ref::WriteRef,
+    nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc,
+    stop::Stop, sub::Sub, unpack::Unpack, write_ref::WriteRef,
 };
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -45,13 +45,15 @@ pub enum Opcode {
     Call,
     Abort,
     Lt,
-    Stop,
-    Nop,
+    Pack,
+    Unpack,
     MutBorrowLoc,
     ImmBorrowLoc,
     ReadRef,
     WriteRef,
     FreezeRef,
+    Stop,
+    Nop,
 }
 
 impl Opcode {
@@ -87,13 +89,15 @@ impl Opcode {
             Self::Call,
             Self::Abort,
             Self::Lt,
-            Self::Stop,
-            Self::Nop,
+            Self::Pack,
+            Self::Unpack,
             Self::MutBorrowLoc,
             Self::ImmBorrowLoc,
             Self::ReadRef,
             Self::WriteRef,
             Self::FreezeRef,
+            Self::Stop,
+            Self::Nop,
         ]
         .iter()
         .copied()
@@ -137,8 +141,8 @@ impl Opcode {
             Opcode::Call => Call::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Abort => Abort::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Lt => Lt::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Stop => Stop::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Nop => Nop::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::Pack => Pack::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::Unpack => Unpack::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::MutBorrowLoc => {
                 MutBorrowLoc::configure(cells, constraints, rw_lookups, bytecode_lookups)
             }
@@ -152,6 +156,8 @@ impl Opcode {
             Opcode::FreezeRef => {
                 FreezeRef::configure(cells, constraints, rw_lookups, bytecode_lookups)
             }
+            Opcode::Stop => Stop::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::Nop => Nop::configure(cells, constraints, rw_lookups, bytecode_lookups),
         }
     }
 
@@ -190,8 +196,8 @@ impl Opcode {
             Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Lt => Lt::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Pack => Pack::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Unpack => Unpack::assign(region, offset, step, rw_operations, cells)?,
             Opcode::MutBorrowLoc => {
                 MutBorrowLoc::assign(region, offset, step, rw_operations, cells)?
             }
@@ -201,6 +207,8 @@ impl Opcode {
             Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
             Opcode::WriteRef => WriteRef::assign(region, offset, step, rw_operations, cells)?,
             Opcode::FreezeRef => FreezeRef::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
         }
         Ok(())
     }
@@ -235,6 +243,8 @@ impl From<Bytecode> for Opcode {
             Bytecode::Call(_) => Opcode::Call,
             Bytecode::Abort => Opcode::Abort,
             Bytecode::Lt => Opcode::Lt,
+            Bytecode::Pack(_) => Opcode::Pack,
+            Bytecode::Unpack(_) => Opcode::Unpack,
             Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,
             Bytecode::ImmBorrowLoc(_) => Opcode::ImmBorrowLoc,
             Bytecode::ReadRef => Opcode::ReadRef,

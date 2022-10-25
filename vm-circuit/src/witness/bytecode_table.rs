@@ -88,6 +88,14 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(func_handle_index.0 as u128),
         ),
         Bytecode::Abort => (F::from_u128(Opcode::Abort.index() as u128), F::zero()),
+        Bytecode::Pack(struct_def_index) => (
+            F::from_u128(Opcode::Pack.index() as u128),
+            F::from_u128(struct_def_index.0 as u128),
+        ),
+        Bytecode::Unpack(struct_def_index) => (
+            F::from_u128(Opcode::Unpack.index() as u128),
+            F::from_u128(struct_def_index.0 as u128),
+        ),
         Bytecode::MutBorrowLoc(local_index) => (
             F::from_u128(Opcode::MutBorrowLoc.index() as u128),
             F::from_u128(local_index as u128),

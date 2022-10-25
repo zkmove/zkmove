@@ -35,12 +35,14 @@ pub mod neq;
 pub mod nop;
 pub mod not;
 pub mod or;
+pub mod pack;
 pub mod pop;
 pub mod read_ref;
 pub mod ret;
 pub mod st_loc;
 pub mod stop;
 pub mod sub;
+pub mod unpack;
 pub mod write_ref;
 
 pub trait Instructions<F: FieldExt> {

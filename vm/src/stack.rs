@@ -3,7 +3,8 @@
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use types::value::Value;
+use std::rc::Rc;
+use types::value::{Container, Reference, Struct, Value};
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -52,6 +53,92 @@ impl<F: FieldExt> EvalStack<F> {
             rw_operations.push(RWOperation::StackOp(stack_op));
 
             Ok(value)
+        }
+    }
+
+    pub fn popn(
+        &mut self,
+        n: u16,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Vec<Value<F>>> {
+        let remaining_stack_size = self
+            .0
+            .len()
+            .checked_sub(n as usize)
+            .ok_or_else(|| RuntimeError::new(StatusCode::StackUnderflow))?;
+        let values = self.0.split_off(remaining_stack_size);
+
+        for (i, value) in values.iter().enumerate() {
+            let stack_op = StackOp {
+                address: self.0.len() - values.len() + 1 + i,
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len() + i,
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+        }
+
+        Ok(values)
+    }
+
+    pub fn pop_as_struct(
+        &mut self,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Struct<F>> {
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            let value = self.0.pop().unwrap();
+
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            match value {
+                Value::Container(Container::Struct(struct_)) => {
+                    debug_assert_eq!(Rc::strong_count(&struct_), 1);
+                    let fields = match Rc::try_unwrap(struct_) {
+                        Ok(cell) => Ok(cell.into_inner()),
+                        Err(v) => Err(RuntimeError::new(
+                            StatusCode::UnknownInvariantViolationError,
+                        )
+                        .with_message(format!("moving value {:?} with dangling references", v))),
+                    };
+                    Ok(Struct::pack(fields?))
+                }
+                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message(format!("cannot pop {:?} to struct", v))),
+            }
+        }
+    }
+
+    pub fn pop_as_reference(
+        &mut self,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Reference<F>> {
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            let value = self.0.pop().unwrap();
+
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            match value {
+                Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
+                Value::IndexedRef(r) => Ok(Reference::IndexedRef(r)),
+                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message(format!("cannot pop {:?} to struct", v))),
+            }
         }
     }
 

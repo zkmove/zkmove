@@ -3,16 +3,13 @@
 use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::state::StateStore;
-use movelang::value::MoveValueType;
-use types::value::Value::Variable;
-use types::value::{FVariable, Value};
+use types::value::Value;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::execution_steps::ExecutionStep;
@@ -162,21 +159,13 @@ fn test_execution_step() -> VmResult<()> {
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: READ,
         gc: 5,
     });
@@ -333,32 +322,20 @@ fn test_nop_step() -> VmResult<()> {
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: READ,
         gc: 5,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         call_index: 0,
         index: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 6,
     });
@@ -501,21 +478,13 @@ fn test_nop_steps() -> VmResult<()> {
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: READ,
         gc: 5,
     });

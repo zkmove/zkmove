@@ -28,6 +28,7 @@ pub enum StatusCode {
     ProgramBlockError,
     ShouldNotReachHere,
     InternalError,
+    UnknownInvariantViolationError,
 
     // Proof system error
     ProofSystemError(Error),

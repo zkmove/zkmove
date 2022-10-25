@@ -7,13 +7,14 @@ use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
+use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::Value;
+use types::value::{Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::RWOperation;
+use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -56,6 +57,7 @@ impl<F: FieldExt> Frame<F> {
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
+        loader: &MoveLoader,
         data_store: &StateStore,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
@@ -66,6 +68,7 @@ impl<F: FieldExt> Frame<F> {
             .module_index(data_store)
             .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
         let function_index = self.function.index().0;
+        let resolver = self.function.get_resolver(loader.inner());
         loop {
             for instruction in &code[self.pc as usize..] {
                 let mut execution_step = ExecutionStep {
@@ -83,17 +86,17 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_constant(constant, None, MoveValueType::U8)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU64(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_constant(constant, None, MoveValueType::U64)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U64)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU128(v) => {
                         let constant = F::from_u128(*v);
-                        let value = Value::new_constant(constant, None, MoveValueType::U128)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::U128)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Pop => {
@@ -164,53 +167,49 @@ impl<F: FieldExt> Frame<F> {
                         )
                     }
                     Bytecode::ReadRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            execution_step.locals_index = reference.index();
-                            interp.stack.push(
-                                self.locals.read_ref(
-                                    reference.index(),
-                                    call_index,
-                                    rw_operations,
-                                )?,
-                                rw_operations,
-                            )
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let index = reference.index();
+                        let value = reference.read_ref()?;
+                        execution_step.locals_index = index;
+                        let locals_op = LocalsOp {
+                            call_index, // todo: consider the referenced locals is not in the same frame.
+                            index,
+                            value: value.clone(),
+                            rw: RW::READ,
+                            gc: rw_operations.len(),
+                        };
+                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
+                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let index = reference.index();
                         let value = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            self.locals.write_ref(
-                                reference.index(),
-                                value,
-                                call_index,
-                                rw_operations,
-                            )
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        reference.write_ref(value.clone())?;
+                        let locals_op = LocalsOp {
+                            call_index, // todo: consider the referenced locals is not in the same frame.
+                            index,
+                            value,
+                            rw: RW::WRITE,
+                            gc: rw_operations.len(),
+                        };
+                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        Ok(())
                     }
                     Bytecode::FreezeRef => {
-                        let reference = interp.stack.pop(rw_operations)?;
-                        if let Value::Reference(reference) = reference {
-                            interp
-                                .stack
-                                .push(Value::new_reference(reference.freeze())?, rw_operations)
-                        } else {
-                            Err(RuntimeError::new(StatusCode::TypeMismatch))
-                        }
+                        // In native Move VM, FreezeRef is just be a null op. There is no difference
+                        // between mut and imm ref at runtime. let's follow native Move VM at the moment.
+                        // but this can be a security risk in zkMove VM. Need further discussion.
+                        Ok(())
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
-                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
                         let constant = F::zero();
-                        let value = Value::new_constant(constant, None, MoveValueType::Bool)?;
+                        let value = Value::new_variable(Some(constant), None, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
@@ -289,6 +288,23 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::And => interp.binary_op(Value::and, rw_operations),
                     Bytecode::Or => interp.binary_op(Value::or, rw_operations),
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
+                    Bytecode::Pack(sd_idx) => {
+                        let field_count = resolver.field_count(*sd_idx);
+                        execution_step.auxiliary = Some(Value::u64(field_count as u64, None)?);
+                        let args = interp.stack.popn(field_count, rw_operations)?;
+                        interp
+                            .stack
+                            .push(Value::struct_(Struct::pack(args)), rw_operations)
+                    }
+                    Bytecode::Unpack(sd_idx) => {
+                        let field_count = resolver.field_count(*sd_idx);
+                        execution_step.auxiliary = Some(Value::u64(field_count as u64, None)?);
+                        let struct_ = interp.stack.pop_as_struct(rw_operations)?;
+                        for value in struct_.unpack()? {
+                            interp.stack.push(value, rw_operations)?;
+                        }
+                        Ok(())
+                    }
                     _ => unreachable!(),
                 }?;
 

@@ -7,15 +7,12 @@ use crate::witness::rw_operations::RW::{READ, WRITE};
 use crate::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
 use crate::witness::{CircuitConfig, Witness};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
-use movelang::value::MoveValueType;
-use types::value::Value::Variable;
-use types::value::{FVariable, Value};
+use types::value::Value;
 
 #[test]
 fn test_fake_rw_operation() -> VmResult<()> {
@@ -125,32 +122,20 @@ fn test_fake_rw_operation() -> VmResult<()> {
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: READ,
         gc: 5,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         call_index: 0,
         index: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(3)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(3, None).unwrap(),
         rw: WRITE,
         gc: 6,
     });
@@ -282,21 +267,13 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     };
     let rw_op_4 = StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(2)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(2, None).unwrap(),
         rw: WRITE,
         gc: 4,
     };
     let rw_op_5 = StackOp {
         address: 0,
-        value: Variable(FVariable::<Fp> {
-            value: Some(Fp::from_u128(2)),
-            cell: None,
-            ty: MoveValueType::U64,
-        }),
+        value: Value::u64(2, None).unwrap(),
         rw: READ,
         gc: 5,
     };

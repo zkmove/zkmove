@@ -118,7 +118,7 @@ impl<F: FieldExt> Interpreter<F> {
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, data_store, exec_steps, rw_operations)?;
+            let status = frame.execute(self, loader, data_store, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
                     if let Some(caller_frame) = self.frames.pop() {
@@ -168,25 +168,7 @@ impl<F: FieldExt> Interpreter<F> {
         Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
         let right = self.stack.pop(rw_operations)?;
-        if let Value::Reference(r) = right {
-            return Err(
-                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-                    "Cannot dereference reference {:?} in unary operation",
-                    r
-                )),
-            );
-        };
-
         let left = self.stack.pop(rw_operations)?;
-        if let Value::Reference(l) = left {
-            return Err(
-                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-                    "Cannot dereference reference {:?} in unary operation",
-                    l
-                )),
-            );
-        };
-
         let result = op(left, right)?;
         self.stack.push(result, rw_operations)
     }
@@ -203,25 +185,7 @@ impl<F: FieldExt> Interpreter<F> {
         Fb: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
         let right = self.stack.pop(rw_operations)?;
-        if let Value::Reference(r) = right {
-            return Err(
-                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-                    "Cannot dereference reference {:?} in unary operation",
-                    r
-                )),
-            );
-        };
-
         let left = self.stack.pop(rw_operations)?;
-        if let Value::Reference(l) = left {
-            return Err(
-                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-                    "Cannot dereference reference {:?} in unary operation",
-                    l
-                )),
-            );
-        };
-
         let result = op(left.clone(), right.clone())?;
         self.stack.push(result, rw_operations)?;
 
@@ -235,15 +199,6 @@ impl<F: FieldExt> Interpreter<F> {
         Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
     {
         let operand = self.stack.pop(rw_operations)?;
-        if let Value::Reference(o) = operand {
-            return Err(
-                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-                    "Cannot dereference reference {:?} in unary operation",
-                    o
-                )),
-            );
-        };
-
         let result = op(operand)?;
         self.stack.push(result, rw_operations)
     }

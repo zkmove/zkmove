@@ -1,129 +1,252 @@
 // Copyright (c) zkMove Authors
 
-use crate::reference::Ref;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
-use movelang::value::MoveValue::{Bool, U128, U64, U8};
 use movelang::value::{convert_to_field, move_div, move_rem};
 use movelang::value::{MoveValue, MoveValueType};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::{cell::RefCell, rc::Rc};
 
 pub const NUM_OF_BYTES_U128: usize = 16;
 
 #[derive(Clone, Debug)]
-pub struct FConstant<F: FieldExt> {
-    pub value: F,
+pub struct U8<F: FieldExt> {
+    pub value: Option<F>,
     pub cell: Option<Cell>,
-    pub ty: MoveValueType,
 }
 
-impl<F: FieldExt> FConstant<F> {
-    fn equals(&self, other: &Self) -> bool {
-        if self.ty != other.ty {
-            return false;
+#[derive(Clone, Debug)]
+pub struct U64<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
+}
+
+#[derive(Clone, Debug)]
+pub struct U128<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Bool<F: FieldExt> {
+    pub value: Option<F>,
+    pub cell: Option<Cell>,
+}
+
+#[derive(Debug)]
+pub enum Container<F: FieldExt> {
+    Locals(Rc<RefCell<Vec<Value<F>>>>),
+    Struct(Rc<RefCell<Vec<Value<F>>>>),
+}
+
+//todo: As a workaround, we temporarily use 0 and 1 to represent the container.
+// It should be replaced by a value that truly represents the container.
+pub enum FakeContainerValue {
+    LOCALS,
+    STRUCT,
+}
+
+impl<F: FieldExt> Container<F> {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Locals(r) => r.borrow().len(),
+            Self::Struct(r) => r.borrow().len(),
         }
-        if self.value == other.value {
-            match (self.cell, other.cell) {
-                (Some(c1), Some(c2)) => c1 == c2,
-                (None, None) => true,
-                _ => false,
-            }
-        } else {
-            false
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Locals(r) => r.borrow().is_empty(),
+            Self::Struct(r) => r.borrow().is_empty(),
+        }
+    }
+
+    pub fn rc_count(&self) -> usize {
+        match self {
+            Self::Locals(r) => Rc::strong_count(r),
+            Self::Struct(r) => Rc::strong_count(r),
+        }
+    }
+
+    pub fn value(&self) -> Option<F> {
+        match self {
+            Self::Locals(_r) => Some(F::from_u128(FakeContainerValue::LOCALS as u128)),
+            Self::Struct(_r) => Some(F::from_u128(FakeContainerValue::STRUCT as u128)),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct FVariable<F: FieldExt> {
-    pub value: Option<F>,
-    pub cell: Option<Cell>,
-    pub ty: MoveValueType,
+pub enum ContainerRef<F: FieldExt> {
+    Local(Container<F>),
+    Global(Container<F>),
 }
 
-impl<F: FieldExt> FVariable<F> {
-    fn equals(&self, other: &Self) -> bool {
-        if self.ty != other.ty {
-            return false;
+impl<F: FieldExt> ContainerRef<F> {
+    fn container(&self) -> &Container<F> {
+        match self {
+            Self::Local(container) => container,
+            Self::Global(_) => unimplemented!(),
         }
-        let eq_value = match (self.value, other.value) {
-            (Some(v1), Some(v2)) => v1 == v2,
-            (None, None) => true,
-            _ => false,
+    }
+
+    fn read_ref(self) -> VmResult<Value<F>> {
+        Ok(Value::Container(self.container().copy_value()?))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexedRef<F: FieldExt> {
+    pub idx: usize,
+    pub container_ref: ContainerRef<F>,
+}
+
+#[derive(Debug)]
+pub enum Reference<F: FieldExt> {
+    IndexedRef(IndexedRef<F>),
+    ContainerRef(ContainerRef<F>),
+}
+
+impl<F: FieldExt> IndexedRef<F> {
+    fn read_ref(self) -> VmResult<Value<F>> {
+        let value = match &*self.container_ref.container() {
+            Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
+            Container::Struct(_) => unimplemented!(),
         };
-        let eq_cell = match (self.cell, other.cell) {
-            (Some(c1), Some(c2)) => c1 == c2,
-            (None, None) => true,
-            _ => false,
-        };
-        eq_value && eq_cell
+        Ok(value)
+    }
+    fn write_ref(self, x: Value<F>) -> VmResult<()> {
+        match &x {
+            Value::IndexedRef(_)
+            | Value::ContainerRef(_)
+            | Value::Invalid
+            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+            _ => (),
+        }
+
+        match (self.container_ref.container(), &x) {
+            (Container::Locals(r), _) => {
+                let mut v = r.borrow_mut();
+                v[self.idx] = x;
+            }
+            (Container::Struct(_), _) => unimplemented!(),
+        }
+        Ok(())
+    }
+    fn index(&self) -> usize {
+        self.idx
+    }
+}
+
+impl<F: FieldExt> Reference<F> {
+    pub fn read_ref(self) -> VmResult<Value<F>> {
+        match self {
+            Self::ContainerRef(r) => r.read_ref(),
+            Self::IndexedRef(r) => r.read_ref(),
+        }
+    }
+    pub fn write_ref(self, x: Value<F>) -> VmResult<()> {
+        match self {
+            Self::ContainerRef(_) => unimplemented!(),
+            Self::IndexedRef(r) => r.write_ref(x),
+        }
+    }
+    pub fn index(&self) -> usize {
+        match self {
+            Self::ContainerRef(_) => unimplemented!(),
+            Self::IndexedRef(r) => r.index(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Struct<F: FieldExt> {
+    fields: Vec<Value<F>>,
+}
+
+impl<F: FieldExt> Struct<F> {
+    pub fn pack(values: Vec<Value<F>>) -> Self {
+        Self { fields: values }
+    }
+
+    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
+        Ok(self.fields)
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
-    Constant(FConstant<F>),
-    Variable(FVariable<F>),
-    Reference(Ref),
+    U8(U8<F>),
+    U64(U64<F>),
+    U128(U128<F>),
+    Bool(Bool<F>),
+    Container(Container<F>),
+    ContainerRef(ContainerRef<F>),
+    IndexedRef(IndexedRef<F>),
 }
 
 impl<F: FieldExt> Value<F> {
     pub fn new_variable(value: Option<F>, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
-        Ok(Self::Variable(FVariable { value, cell, ty }))
-    }
-    pub fn new_constant(value: F, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
-        Ok(Self::Constant(FConstant { value, cell, ty }))
-    }
-    pub fn new_reference(reference: Ref) -> VmResult<Self> {
-        Ok(Self::Reference(reference))
+        match ty {
+            MoveValueType::U8 => Ok(Value::U8(U8 { value, cell })),
+            MoveValueType::U64 => Ok(Value::U64(U64 { value, cell })),
+            MoveValueType::U128 => Ok(Value::U128(U128 { value, cell })),
+            MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
+            _ => unimplemented!(),
+        }
     }
     pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::Bool(Bool {
+            value: Some(value),
             cell,
-            ty: MoveValueType::Bool,
         }))
     }
     pub fn u8(x: u8, cell: Option<Cell>) -> VmResult<Self> {
-        let value = F::from_u128(x as u128); //todo: range check
-        Ok(Self::Constant(FConstant {
-            value,
+        let value = F::from_u128(x as u128);
+        Ok(Self::U8(U8 {
+            value: Some(value),
             cell,
-            ty: MoveValueType::U8,
         }))
     }
     pub fn u64(x: u64, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x as u128);
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::U64(U64 {
+            value: Some(value),
             cell,
-            ty: MoveValueType::U64,
         }))
     }
     pub fn u128(x: u128, cell: Option<Cell>) -> VmResult<Self> {
         let value = F::from_u128(x);
-        Ok(Self::Constant(FConstant {
-            value,
+        Ok(Self::U128(U128 {
+            value: Some(value),
             cell,
-            ty: MoveValueType::U128,
         }))
+    }
+    pub fn struct_(s: Struct<F>) -> Self {
+        Self::Container(Container::Struct(Rc::new(RefCell::new(s.fields))))
     }
     pub fn value(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
-            Self::Constant(c) => Some(c.value),
-            Self::Variable(v) => v.value,
-            Self::Reference(r) => Some(F::from_u128(r.index() as u128)),
+            Self::U8(v) => v.value,
+            Self::U64(v) => v.value,
+            Self::U128(v) => v.value,
+            Self::Bool(v) => v.value,
+            Self::Container(c) => c.value(),
+            Self::IndexedRef(r) => Some(F::from_u128(r.idx as u128)),
+            _ => unimplemented!(),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
         match self {
             Self::Invalid => None,
-            Self::Constant(c) => c.cell,
-            Self::Variable(v) => v.cell,
-            Self::Reference(_r) => None,
+            Self::U8(v) => v.cell,
+            Self::U64(v) => v.cell,
+            Self::U128(v) => v.cell,
+            Self::Bool(v) => v.cell,
+            _ => unimplemented!(),
         }
     }
     pub fn ty(&self) -> MoveValueType {
@@ -131,18 +254,21 @@ impl<F: FieldExt> Value<F> {
             Self::Invalid => {
                 unreachable!()
             }
-            Self::Constant(c) => c.ty.clone(),
-            Self::Variable(v) => v.ty.clone(),
-            Self::Reference(r) => r.ty(),
+            Self::U8(_) => MoveValueType::U8,
+            Self::U64(_) => MoveValueType::U64,
+            Self::U128(_) => MoveValueType::U128,
+            Self::Bool(_) => MoveValueType::Bool,
+            _ => unimplemented!(),
         }
     }
 
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
-            (Self::Constant(c1), Self::Constant(c2)) => c1.equals(c2),
-            (Self::Variable(v1), Self::Variable(v2)) => v1.equals(v2),
-            (Self::Reference(r1), Self::Reference(r2)) => r1.equals(r2),
+            (Self::U8(v1), Self::U8(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::U64(v1), Self::U64(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::U128(v1), Self::U128(v2)) => v1.value.unwrap() == v2.value.unwrap(),
+            (Self::Bool(v1), Self::Bool(v2)) => v1.value.unwrap() == v2.value.unwrap(),
             _ => false,
         }
     }
@@ -192,8 +318,9 @@ impl<F: FieldExt> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
+        // todo: handle type mismatch
         let value = self.value().and_then(|a| b.value().map(|b| a + b));
-        let c = Value::new_variable(value, None, self.ty())?; //todo: refactor Value
+        let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
 }
@@ -341,15 +468,51 @@ impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
         match value.value() {
             Some(field) => {
                 let value = match value.ty() {
-                    MoveValueType::U8 => U8(field.get_lower_128() as u8),
-                    MoveValueType::U64 => U64(field.get_lower_128() as u64),
-                    MoveValueType::U128 => U128(field.get_lower_128()),
-                    MoveValueType::Bool => Bool(field == F::one()),
+                    MoveValueType::U8 => MoveValue::U8(field.get_lower_128() as u8),
+                    MoveValueType::U64 => MoveValue::U64(field.get_lower_128() as u64),
+                    MoveValueType::U128 => MoveValue::U128(field.get_lower_128()),
+                    MoveValueType::Bool => MoveValue::Bool(field == F::one()),
                     _ => unimplemented!(),
                 };
                 Some(value)
             }
             None => None,
         }
+    }
+}
+
+impl<F: FieldExt> Value<F> {
+    fn copy_value(&self) -> VmResult<Self> {
+        Ok(match self {
+            Value::Invalid => Value::Invalid,
+            Value::Container(c) => Value::Container(c.copy_value()?),
+            Value::ContainerRef(_r) => unimplemented!(),
+            Value::IndexedRef(_r) => unimplemented!(),
+            v => v.clone(), // directly clone() for U8, U64, U128, Bool
+        })
+    }
+}
+
+impl<F: FieldExt> Container<F> {
+    fn copy_value(&self) -> VmResult<Self> {
+        Ok(match self {
+            Self::Struct(r) => {
+                let struct_ = Rc::new(RefCell::new(
+                    r.borrow()
+                        .iter()
+                        .map(|v| v.copy_value())
+                        .collect::<VmResult<_>>()?,
+                ));
+                Self::Struct(struct_)
+            }
+            Self::Locals(l) => Self::Locals(l.clone()),
+        })
+    }
+}
+
+impl<F: FieldExt> Clone for Container<F> {
+    fn clone(&self) -> Self {
+        self.copy_value()
+            .expect("Container copy_value() should succeed")
     }
 }
