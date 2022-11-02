@@ -97,6 +97,7 @@ impl<F: FieldExt> ContainerRef<F> {
 
 #[derive(Clone, Debug)]
 pub struct IndexedRef<F: FieldExt> {
+    pub call_index: usize,
     pub idx: usize,
     pub container_ref: ContainerRef<F>,
 }
@@ -136,6 +137,9 @@ impl<F: FieldExt> IndexedRef<F> {
     fn index(&self) -> usize {
         self.idx
     }
+    fn call_index(&self) -> usize {
+        self.call_index
+    }
 }
 
 impl<F: FieldExt> Reference<F> {
@@ -155,6 +159,12 @@ impl<F: FieldExt> Reference<F> {
         match self {
             Self::ContainerRef(_) => unimplemented!(),
             Self::IndexedRef(r) => r.index(),
+        }
+    }
+    pub fn call_index(&self) -> usize {
+        match self {
+            Self::ContainerRef(_) => unimplemented!(),
+            Self::IndexedRef(r) => r.call_index(),
         }
     }
 }
@@ -236,7 +246,7 @@ impl<F: FieldExt> Value<F> {
             Self::Bool(v) => v.value,
             Self::Container(c) => c.value(),
             Self::IndexedRef(r) => Some(F::from_u128(r.idx as u128)),
-            _ => unimplemented!(),
+            Self::ContainerRef(r) => r.container().value(),
         }
     }
     pub fn cell(&self) -> Option<Cell> {
@@ -507,6 +517,13 @@ impl<F: FieldExt> Container<F> {
             }
             Self::Locals(l) => Self::Locals(l.clone()),
         })
+    }
+
+    pub fn copy_by_ref(&self) -> Self {
+        match self {
+            Self::Struct(r) => Self::Struct(Rc::clone(r)),
+            Self::Locals(r) => Self::Locals(Rc::clone(r)),
+        }
     }
 }
 

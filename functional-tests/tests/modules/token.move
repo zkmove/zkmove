@@ -13,9 +13,9 @@ module Token {
 //        coin.value
 //    }
 //
-//    public fun withdraw(coin: &mut Coin, amount: u64) {
+    public fun withdraw(_coin: &mut Coin, _amount: u64) {
 //        coin.value = coin.value - amount;
-//    }
+    }
 //
 //    public fun deposit(coin: &mut Coin, amount: u64) {
 //        coin.value = coin.value + amount;
