@@ -168,13 +168,13 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::ReadRef => {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
-                        let ori_call_index = reference.call_index();
+                        let ref_call_index = reference.call_index();
                         let index = reference.index();
                         let value = reference.read_ref()?;
                         execution_step.locals_index = index;
-                        execution_step.auxiliary = Some(Value::u64(ori_call_index as u64, None)?);
+                        execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
                         let locals_op = LocalsOp {
-                            call_index: ori_call_index,
+                            call_index: ref_call_index,
                             index,
                             value: value.clone(),
                             rw: RW::READ,
@@ -185,12 +185,14 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::WriteRef => {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
-                        let ori_call_index = reference.call_index();
+                        let ref_call_index = reference.call_index();
                         let index = reference.index();
                         let value = interp.stack.pop(rw_operations)?;
+                        execution_step.locals_index = index;
+                        execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
                         reference.write_ref(value.clone())?;
                         let locals_op = LocalsOp {
-                            call_index: ori_call_index,
+                            call_index: ref_call_index,
                             index,
                             value,
                             rw: RW::WRITE,

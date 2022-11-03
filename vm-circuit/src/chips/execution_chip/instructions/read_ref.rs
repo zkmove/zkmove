@@ -81,7 +81,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
 
-        // assign the original call_index
+        // assign the call_index of the frame we refer to
         let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
             error!("auxiliary is None");
             Error::Synthesis
