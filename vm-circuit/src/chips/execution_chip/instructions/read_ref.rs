@@ -11,6 +11,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct ReadRef<F: FieldExt> {
@@ -49,7 +50,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         ));
         let read = RWLookup::locals_read_ref(
             cells.gc.expression.clone() + 1.expr(),
-            cells.call_index.expression.clone(),
+            cells.auxiliary.expression.clone(), // call_index of indexed ref
             cells.locals_index.expression.clone(),
             cells.value_c.expression.clone(),
         );
@@ -63,13 +64,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cond.clone(),
         ));
 
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::ReadRef,
-            cells.locals_index.expression.clone(),
-            bytecode_lookups,
-            cond,
-        );
+        LookupBytecode::lookup_bytecode(cells, Opcode::ReadRef, 0.expr(), bytecode_lookups, cond);
     }
 
     fn assign(
@@ -85,6 +80,14 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
+
+        // assign the call_index of the frame we refer to
+        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
+            error!("auxiliary is None");
+            Error::Synthesis
+        })?;
+        cells.auxiliary.assign(region, offset, aux_value.value())?;
+
         Ok(())
     }
 }

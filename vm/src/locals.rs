@@ -126,9 +126,21 @@ impl<F: FieldExt> Locals<F> {
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
                     Ok(Value::IndexedRef(IndexedRef {
+                        call_index,
                         idx: index,
                         container_ref: ContainerRef::Local(Container::Locals(Rc::clone(&self.0))),
                     }))
+                }
+                Value::Container(c) => {
+                    let locals_op = LocalsOp {
+                        call_index,
+                        index,
+                        value: v.clone(),
+                        rw: RW::READ,
+                        gc: rw_operations.len(),
+                    };
+                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
             },
@@ -156,9 +168,21 @@ impl<F: FieldExt> Locals<F> {
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
                     Ok(Value::IndexedRef(IndexedRef {
+                        call_index,
                         idx: index,
                         container_ref: ContainerRef::Local(Container::Locals(Rc::clone(&self.0))),
                     }))
+                }
+                Value::Container(c) => {
+                    let locals_op = LocalsOp {
+                        call_index,
+                        index,
+                        value: v.clone(),
+                        rw: RW::READ,
+                        gc: rw_operations.len(),
+                    };
+                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
             },
