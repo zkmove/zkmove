@@ -33,7 +33,7 @@ impl<F: FieldExt> Locals<F> {
                     gc: rw_operations.len(),
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op));
-                Ok(v.clone())
+                Ok(v.copy_value()?)
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }

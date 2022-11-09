@@ -2,10 +2,11 @@ use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
     _mod::Mod, abort::Abort, add::Add, and::And, br_false::BrFalse, br_true::BrTrue,
     branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, freeze_ref::FreezeRef,
-    imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64,
-    ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul, mut_borrow_loc::MutBorrowLoc, neq::Neq,
-    nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc,
-    stop::Stop, sub::Sub, unpack::Unpack, write_ref::WriteRef,
+    imm_borrow_field::ImmBorrowField, imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse,
+    ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul,
+    mut_borrow_field::MutBorrowField, mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not,
+    or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop, sub::Sub,
+    unpack::Unpack, write_ref::WriteRef,
 };
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -52,6 +53,8 @@ pub enum Opcode {
     ReadRef,
     WriteRef,
     FreezeRef,
+    ImmBorrowField,
+    MutBorrowField,
     Stop,
     Nop,
 }
@@ -96,6 +99,8 @@ impl Opcode {
             Self::ReadRef,
             Self::WriteRef,
             Self::FreezeRef,
+            Self::ImmBorrowField,
+            Self::MutBorrowField,
             Self::Stop,
             Self::Nop,
         ]
@@ -156,6 +161,12 @@ impl Opcode {
             Opcode::FreezeRef => {
                 FreezeRef::configure(cells, constraints, rw_lookups, bytecode_lookups)
             }
+            Opcode::ImmBorrowField => {
+                ImmBorrowField::configure(cells, constraints, rw_lookups, bytecode_lookups)
+            }
+            Opcode::MutBorrowField => {
+                MutBorrowField::configure(cells, constraints, rw_lookups, bytecode_lookups)
+            }
             Opcode::Stop => Stop::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Nop => Nop::configure(cells, constraints, rw_lookups, bytecode_lookups),
         }
@@ -207,6 +218,12 @@ impl Opcode {
             Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
             Opcode::WriteRef => WriteRef::assign(region, offset, step, rw_operations, cells)?,
             Opcode::FreezeRef => FreezeRef::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::ImmBorrowField => {
+                ImmBorrowField::assign(region, offset, step, rw_operations, cells)?
+            }
+            Opcode::MutBorrowField => {
+                MutBorrowField::assign(region, offset, step, rw_operations, cells)?
+            }
             Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
         }
@@ -250,6 +267,9 @@ impl From<Bytecode> for Opcode {
             Bytecode::ReadRef => Opcode::ReadRef,
             Bytecode::WriteRef => Opcode::WriteRef,
             Bytecode::FreezeRef => Opcode::FreezeRef,
+            Bytecode::ImmBorrowField(_) => Opcode::ImmBorrowField,
+            Bytecode::MutBorrowField(_) => Opcode::MutBorrowField,
+
             _ => unimplemented!(),
         }
     }

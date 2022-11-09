@@ -90,8 +90,49 @@ impl<F: FieldExt> ContainerRef<F> {
         }
     }
 
-    fn read_ref(self) -> VmResult<Value<F>> {
+    fn read_ref(&self) -> VmResult<Value<F>> {
         Ok(Value::Container(self.container().copy_value()?))
+    }
+
+    fn borrow_element(&self, call_index: usize, idx: usize) -> VmResult<Value<F>> {
+        let len = self.container().len();
+        if idx >= len {
+            return Err(
+                RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
+                    "index out of bounds when borrowing container element: index: {}, length: {}",
+                    idx, len
+                )),
+            );
+        }
+
+        let res = match self.container() {
+            Container::Locals(r) | Container::Struct(r) => {
+                let v = r.borrow();
+                match &v[idx] {
+                    Value::Container(container) => {
+                        let r = match self {
+                            Self::Local(_) => Self::Local(container.copy_by_ref()),
+                            Self::Global(_) => unimplemented!(),
+                        };
+                        Value::ContainerRef(r)
+                    }
+                    _ => Value::IndexedRef(IndexedRef {
+                        call_index,
+                        idx,
+                        container_ref: self.copy_value(),
+                    }),
+                }
+            }
+        };
+
+        Ok(res)
+    }
+
+    fn copy_value(&self) -> Self {
+        match self {
+            Self::Local(container) => Self::Local(container.copy_by_ref()),
+            Self::Global(_) => unimplemented!(),
+        }
     }
 }
 
@@ -102,6 +143,7 @@ pub struct IndexedRef<F: FieldExt> {
     pub container_ref: ContainerRef<F>,
 }
 
+// Reference is used to support read_ref and write_ref.
 #[derive(Debug)]
 pub enum Reference<F: FieldExt> {
     IndexedRef(IndexedRef<F>),
@@ -109,10 +151,12 @@ pub enum Reference<F: FieldExt> {
 }
 
 impl<F: FieldExt> IndexedRef<F> {
-    fn read_ref(self) -> VmResult<Value<F>> {
+    pub fn container(&self) -> &Container<F> {
+        self.container_ref.container()
+    }
+    fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
-            Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
-            Container::Struct(_) => unimplemented!(),
+            Container::Locals(r) | Container::Struct(r) => r.borrow()[self.idx].copy_value()?,
         };
         Ok(value)
     }
@@ -126,11 +170,10 @@ impl<F: FieldExt> IndexedRef<F> {
         }
 
         match (self.container_ref.container(), &x) {
-            (Container::Locals(r), _) => {
+            (Container::Locals(r), _) | (Container::Struct(r), _) => {
                 let mut v = r.borrow_mut();
                 v[self.idx] = x;
             }
-            (Container::Struct(_), _) => unimplemented!(),
         }
         Ok(())
     }
@@ -140,10 +183,17 @@ impl<F: FieldExt> IndexedRef<F> {
     fn call_index(&self) -> usize {
         self.call_index
     }
+    fn copy_value(&self) -> Self {
+        Self {
+            call_index: self.call_index,
+            idx: self.idx,
+            container_ref: self.container_ref.copy_value(),
+        }
+    }
 }
 
 impl<F: FieldExt> Reference<F> {
-    pub fn read_ref(self) -> VmResult<Value<F>> {
+    pub fn read_ref(&self) -> VmResult<Value<F>> {
         match self {
             Self::ContainerRef(r) => r.read_ref(),
             Self::IndexedRef(r) => r.read_ref(),
@@ -181,6 +231,16 @@ impl<F: FieldExt> Struct<F> {
 
     pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
         Ok(self.fields)
+    }
+}
+
+// StructRef is used to support ImmBorrowField and MutBorrowField
+#[derive(Debug)]
+pub struct StructRef<F: FieldExt>(pub ContainerRef<F>);
+
+impl<F: FieldExt> StructRef<F> {
+    pub fn borrow_field(&self, call_index: usize, idx: usize) -> VmResult<Value<F>> {
+        Ok(self.0.borrow_element(call_index, idx)?)
     }
 }
 
@@ -492,12 +552,12 @@ impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
 }
 
 impl<F: FieldExt> Value<F> {
-    fn copy_value(&self) -> VmResult<Self> {
+    pub fn copy_value(&self) -> VmResult<Self> {
         Ok(match self {
             Value::Invalid => Value::Invalid,
             Value::Container(c) => Value::Container(c.copy_value()?),
-            Value::ContainerRef(_r) => unimplemented!(),
-            Value::IndexedRef(_r) => unimplemented!(),
+            Value::ContainerRef(r) => Value::ContainerRef(r.copy_value()),
+            Value::IndexedRef(r) => Value::IndexedRef(r.copy_value()),
             v => v.clone(), // directly clone() for U8, U64, U128, Bool
         })
     }

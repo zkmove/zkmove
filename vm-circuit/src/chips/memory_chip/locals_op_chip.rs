@@ -237,7 +237,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
-                "read op",
+                "locals read op",
                 cond.clone()
                     * (cells.value.expression.clone() - cells.prev_value.expression.clone())
                     * is_read,

@@ -32,7 +32,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -48,16 +48,21 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             ),
             cond.clone(),
         ));
-        let read = RWLookup::locals_read_ref(
-            cells.gc.expression.clone() + 1.expr(),
-            cells.auxiliary.expression.clone(), // call_index of indexed ref
-            cells.locals_index.expression.clone(),
-            cells.value_c.expression.clone(),
-        );
-        rw_lookups.push((read, cond.clone()));
+
+        // todo: constrain that the pushed value is what we read from the reference
+        //
+        // for the normal case (for example, the functional test in read_ref.move), we can
+        // read the referenced object from locals and make sure it's same as pushed value.
+        // But for some complicated case, the referenced object may be already moved. We need
+        // find a way to handle them. For example (in token.move):
+        //
+        // MoveLoc(0)
+        // ImmBorrowField(FieldHandleIndex(0))
+        // ReadRef
+
         rw_lookups.push((
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 2.expr(),
+                cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 cells.value_c.expression.clone(),
             ),
@@ -77,7 +82,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
 

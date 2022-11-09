@@ -35,7 +35,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             - 2.expr();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -59,13 +59,18 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ),
             cond.clone(),
         ));
-        let write = RWLookup::locals_write_ref(
-            cells.gc.expression.clone() + 2.expr(),
-            cells.auxiliary.expression.clone(), // call_index of indexed ref
-            cells.locals_index.expression.clone(),
-            cells.value_c.expression.clone(),
-        );
-        rw_lookups.push((write, cond.clone()));
+        // todo: constrain that the popped value is written into the reference
+        //
+        // for the normal case (for example, the functional test in write_ref.move), we can
+        // add a lookup to make sure the popped value is written into the referenced locals.
+        // But for some complicated case, such as the referenced object is a member of struct,
+        // what we write is just the member, not the whole struct. how to handle this case?
+        // For example (in token.move):
+        //
+        // ...
+        // CopyLoc(0)
+        // MutBorrowField(FieldHandleIndex(0))
+        // WriteRef
 
         LookupBytecode::lookup_bytecode(cells, Opcode::WriteRef, 0.expr(), bytecode_lookups, cond);
     }

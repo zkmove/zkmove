@@ -12,7 +12,7 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::{Struct, Value};
+use types::value::{Container, Reference, Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
@@ -173,14 +173,6 @@ impl<F: FieldExt> Frame<F> {
                         let value = reference.read_ref()?;
                         execution_step.locals_index = index;
                         execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
-                        let locals_op = LocalsOp {
-                            call_index: ref_call_index,
-                            index,
-                            value: value.clone(),
-                            rw: RW::READ,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::LocalsOp(locals_op));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
@@ -191,14 +183,6 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.locals_index = index;
                         execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
                         reference.write_ref(value.clone())?;
-                        let locals_op = LocalsOp {
-                            call_index: ref_call_index,
-                            index,
-                            value,
-                            rw: RW::WRITE,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::LocalsOp(locals_op));
                         Ok(())
                     }
                     Bytecode::FreezeRef => {
@@ -206,6 +190,12 @@ impl<F: FieldExt> Frame<F> {
                         // between mut and imm ref at runtime. let's follow native Move VM at the moment.
                         // but this can be a security risk in zkMove VM. Need further discussion.
                         Ok(())
+                    }
+                    Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
+                        let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
+                        let field_offset = resolver.field_offset(*fh_idx);
+                        let field_ref = reference.borrow_field(call_index, field_offset)?;
+                        interp.stack.push(field_ref, rw_operations)
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
