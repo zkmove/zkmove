@@ -11,6 +11,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct ImmBorrowField<F: FieldExt> {
@@ -29,37 +30,45 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
             .clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
-        let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
-            + 1.expr();
+        let stack_size_expr =
+            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
-        // constraints.append(&mut vec![
-        //     ("pc", cond.clone() * pc_expr),
-        //     ("stack size", cond.clone() * stack_size_expr),
-        //     ("call index", cond.clone() * call_index_expr),
-        //     ("gc", cond.clone() * gc_expr),
-        // ]);
+        constraints.append(&mut vec![
+            ("pc", cond.clone() * pc_expr),
+            ("stack size", cond.clone() * stack_size_expr),
+            ("call index", cond.clone() * call_index_expr),
+            ("gc", cond.clone() * gc_expr),
+        ]);
 
-        // let (read, write) = RWLookup::locals_ref(
-        //     cells.gc.expression.clone(),
-        //     cells.call_index.expression.clone(),
-        //     cells.locals_index.expression.clone(),
-        //     cells.stack_size.expression.clone(),
-        //     cells.value_a.expression.clone(),
-        //     cells.value_c.expression.clone(),
-        // );
-        //
-        // rw_lookups.push((read, cond.clone()));
-        // rw_lookups.push((write, cond.clone()));
-        // LookupBytecode::lookup_bytecode(
-        //     cells,
-        //     Opcode::ImmBorrowField,
-        //     cells.locals_index.expression.clone(),
-        //     bytecode_lookups,
-        //     cond,
-        // );
+        rw_lookups.push((
+            RWLookup::stack_pop(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.value_a.expression.clone(),
+            ),
+            cond.clone(),
+        ));
+
+        // todo: constrain that the pushed value is what we read from the struct field
+
+        rw_lookups.push((
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                cells.value_c.expression.clone(),
+            ),
+            cond.clone(),
+        ));
+
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::ImmBorrowField,
+            cells.auxiliary.expression.clone(),
+            bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
@@ -69,12 +78,20 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
-        // debug_assert!(op.rw() == RW::READ);
-        // cells.value_a.assign(region, offset, op.value().value())?;
-        // let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        // debug_assert!(op.rw() == RW::WRITE);
-        // cells.value_c.assign(region, offset, op.value().value())?;
+        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        cells.value_a.assign(region, offset, op.value().value())?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        cells.value_c.assign(region, offset, op.value().value())?;
+
+        // assign the fh_idx
+        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
+            error!("auxiliary is None");
+            Error::Synthesis
+        })?;
+        cells.auxiliary.assign(region, offset, aux_value.value())?;
+
         Ok(())
     }
 }

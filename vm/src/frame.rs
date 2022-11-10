@@ -12,9 +12,9 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::{Container, Reference, Struct, Value};
+use types::value::{Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
+use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -192,6 +192,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
+                        execution_step.auxiliary = Some(Value::u64(fh_idx.0 as u64, None)?);
                         let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
                         let field_offset = resolver.field_offset(*fh_idx);
                         let field_ref = reference.borrow_field(call_index, field_offset)?;
