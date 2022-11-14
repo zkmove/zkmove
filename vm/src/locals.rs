@@ -3,8 +3,8 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::{cell::RefCell, rc::Rc};
-use types::value::Value;
 use types::value::{Container, ContainerRef, IndexedRef};
+use types::value::{IndexedLocalsRef, Value};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
@@ -125,11 +125,15 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef {
-                        call_index,
-                        idx: index,
-                        container_ref: ContainerRef::Local(Container::Locals(Rc::clone(&self.0))),
-                    }))
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(Container::Locals(Rc::clone(
+                                &self.0,
+                            ))),
+                        },
+                    )))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
@@ -140,7 +144,13 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(c.copy_by_ref()),
+                        },
+                    )))
                 }
                 _ => unimplemented!(),
             },
@@ -167,11 +177,15 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef {
-                        call_index,
-                        idx: index,
-                        container_ref: ContainerRef::Local(Container::Locals(Rc::clone(&self.0))),
-                    }))
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(Container::Locals(Rc::clone(
+                                &self.0,
+                            ))),
+                        },
+                    )))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
@@ -182,7 +196,13 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(c.copy_by_ref()),
+                        },
+                    )))
                 }
                 _ => unimplemented!(),
             },

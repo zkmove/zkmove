@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::rc::Rc;
-use types::value::{Container, Reference, Struct, StructRef, Value};
+use types::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -145,7 +145,7 @@ impl<F: FieldExt> EvalStack<F> {
     pub fn pop_as_struct_ref(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<StructRef<F>> {
+    ) -> VmResult<IndexedLocalsRef<F>> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -160,7 +160,12 @@ impl<F: FieldExt> EvalStack<F> {
             rw_operations.push(RWOperation::StackOp(stack_op));
 
             match value {
-                Value::ContainerRef(r) => Ok(StructRef(r)),
+                Value::IndexedRef(r) => match r {
+                    IndexedRef::IndexedLocalsRef(r) => Ok(r),
+                    IndexedRef::IndexedStructRef(_) => {
+                        unreachable!("delete me")
+                    }
+                },
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct_ref", v))),
             }
