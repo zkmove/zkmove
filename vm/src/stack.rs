@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use std::rc::Rc;
-use types::value::{Container, Reference, Struct, Value};
+use types::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -23,15 +23,15 @@ impl<F: FieldExt> EvalStack<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            self.0.push(value.clone());
-
             let stack_op = StackOp {
-                address: self.0.len() - 1,
-                value,
+                address: self.0.len(),
+                value: value.clone(),
                 rw: RW::WRITE,
                 gc: rw_operations.len(),
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
+            self.0.push(value);
+
             Ok(())
         } else {
             Err(RuntimeError::new(StatusCode::StackOverflow))
@@ -111,7 +111,7 @@ impl<F: FieldExt> EvalStack<F> {
                     Ok(Struct::pack(fields?))
                 }
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
-                    .with_message(format!("cannot pop {:?} to struct", v))),
+                    .with_message(format!("cannot pop {:?} as struct", v))),
             }
         }
     }
@@ -137,7 +137,35 @@ impl<F: FieldExt> EvalStack<F> {
                 Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
                 Value::IndexedRef(r) => Ok(Reference::IndexedRef(r)),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
-                    .with_message(format!("cannot pop {:?} to struct", v))),
+                    .with_message(format!("cannot pop {:?} as reference", v))),
+            }
+        }
+    }
+
+    pub fn pop_struct_ref(
+        &mut self,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<IndexedLocalsRef<F>> {
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            let value = self.0.pop().unwrap();
+
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            match value {
+                Value::IndexedRef(r) => match r {
+                    IndexedRef::IndexedLocalsRef(r) => Ok(r),
+                    _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                },
+                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message(format!("cannot pop {:?} as struct_ref", v))),
             }
         }
     }

@@ -107,6 +107,14 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
         Bytecode::ReadRef => (F::from_u128(Opcode::ReadRef.index() as u128), F::zero()),
         Bytecode::WriteRef => (F::from_u128(Opcode::WriteRef.index() as u128), F::zero()),
         Bytecode::FreezeRef => (F::from_u128(Opcode::FreezeRef.index() as u128), F::zero()),
+        Bytecode::ImmBorrowField(fh_idx) => (
+            F::from_u128(Opcode::ImmBorrowField.index() as u128),
+            F::from_u128(fh_idx.0 as u128),
+        ),
+        Bytecode::MutBorrowField(fh_idx) => (
+            F::from_u128(Opcode::MutBorrowField.index() as u128),
+            F::from_u128(fh_idx.0 as u128),
+        ),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

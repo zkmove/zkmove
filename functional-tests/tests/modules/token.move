@@ -9,18 +9,18 @@ module Token {
         Coin { value }
     }
 
-//    public fun value(coin: &Coin): u64 {
-//        coin.value
-//    }
-//
-    public fun withdraw(_coin: &mut Coin, _amount: u64) {
-//        coin.value = coin.value - amount;
+    public fun value(coin: &Coin): u64 {
+        coin.value
     }
-//
-//    public fun deposit(coin: &mut Coin, amount: u64) {
-//        coin.value = coin.value + amount;
-//    }
-//
+
+    public fun withdraw(coin: &mut Coin, amount: u64) {
+        coin.value = coin.value - amount;
+    }
+
+    public fun deposit(coin: &mut Coin, amount: u64) {
+        coin.value = coin.value + amount;
+    }
+
     public fun destroy(coin: Coin) {
         let Coin { value: _ } = coin;
     }

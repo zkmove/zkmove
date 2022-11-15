@@ -14,28 +14,27 @@ use halo2_proofs::plonk::{Error, Expression};
 use logger::prelude::*;
 use std::marker::PhantomData;
 
-pub struct WriteRef<F: FieldExt> {
+pub struct MutBorrowField<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for WriteRef<F> {
+impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
         bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
-        let cond = cells.conditions[Opcode::WriteRef.index()]
+        let cond = cells.conditions[Opcode::MutBorrowField.index()]
             .expression
             .clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
-        let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
-            - 2.expr();
+        let stack_size_expr =
+            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -51,23 +50,25 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ),
             cond.clone(),
         ));
+
+        // todo: constrain that the pushed value is what we read from the struct field
+
         rw_lookups.push((
-            RWLookup::stack_pop(
+            RWLookup::stack_push(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                cells.value_b.expression.clone(),
+                cells.value_c.expression.clone(),
             ),
             cond.clone(),
         ));
-        let write = RWLookup::locals_write_ref(
-            cells.gc.expression.clone() + 2.expr(),
-            cells.auxiliary.expression.clone(), // call_index of indexed ref
-            cells.locals_index.expression.clone(),
-            cells.value_c.expression.clone(),
-        );
-        rw_lookups.push((write, cond.clone()));
 
-        LookupBytecode::lookup_bytecode(cells, Opcode::WriteRef, 0.expr(), bytecode_lookups, cond);
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::MutBorrowField,
+            cells.auxiliary.expression.clone(),
+            bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
@@ -81,13 +82,10 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        cells.value_b.assign(region, offset, op.value().value())?;
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
 
-        // assign the call_index of the frame we refer to
+        // assign the fh_idx
         let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
             error!("auxiliary is None");
             Error::Synthesis

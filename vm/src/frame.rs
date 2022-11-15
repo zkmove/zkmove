@@ -12,7 +12,7 @@ use movelang::state::StateStore;
 use movelang::value::MoveValueType;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::{Struct, Value};
+use types::value::{Container, Reference, Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
@@ -173,10 +173,24 @@ impl<F: FieldExt> Frame<F> {
                         let value = reference.read_ref()?;
                         execution_step.locals_index = index;
                         execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
+
+                        let (locals_value, locals_index) = match reference.clone() {
+                            Reference::ContainerRef(_) => (value.clone(), index),
+                            Reference::IndexedRef(r) => {
+                                match r.container() {
+                                    Container::Locals(_) => (value.clone(), index),
+                                    // if we come here, the value should be a member of a struct
+                                    // we should return the struct instead of the member
+                                    Container::Struct(_) => {
+                                        (Value::Container(r.container().copy_value()?), r.index())
+                                    }
+                                }
+                            }
+                        };
                         let locals_op = LocalsOp {
                             call_index: ref_call_index,
-                            index,
-                            value: value.clone(),
+                            index: locals_index,
+                            value: locals_value,
                             rw: RW::READ,
                             gc: rw_operations.len(),
                         };
@@ -184,17 +198,33 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
-                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let mut reference = interp.stack.pop_as_reference(rw_operations)?;
                         let ref_call_index = reference.call_index();
                         let index = reference.index();
                         let value = interp.stack.pop(rw_operations)?;
                         execution_step.locals_index = index;
                         execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
-                        reference.write_ref(value.clone())?;
+                        let value_copy = value.clone();
+                        reference.write_ref(value)?; // must write ref first, then record local_op
+
+                        let (locals_value, locals_index) = match reference.clone() {
+                            Reference::ContainerRef(_) => (value_copy, index),
+                            Reference::IndexedRef(r) => {
+                                match r.container() {
+                                    Container::Locals(_) => (value_copy, index),
+                                    // if we come here, the value should be a member of a struct
+                                    // we should return the struct instead of the member
+                                    Container::Struct(_) => {
+                                        (Value::Container(r.container().copy_value()?), r.index())
+                                    }
+                                }
+                            }
+                        };
+
                         let locals_op = LocalsOp {
                             call_index: ref_call_index,
-                            index,
-                            value,
+                            index: locals_index,
+                            value: locals_value,
                             rw: RW::WRITE,
                             gc: rw_operations.len(),
                         };
@@ -206,6 +236,13 @@ impl<F: FieldExt> Frame<F> {
                         // between mut and imm ref at runtime. let's follow native Move VM at the moment.
                         // but this can be a security risk in zkMove VM. Need further discussion.
                         Ok(())
+                    }
+                    Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
+                        execution_step.auxiliary = Some(Value::u64(fh_idx.0 as u64, None)?);
+                        let reference = interp.stack.pop_struct_ref(rw_operations)?;
+                        let field_offset = resolver.field_offset(*fh_idx);
+                        let field_ref = reference.borrow_element(field_offset)?;
+                        interp.stack.push(field_ref, rw_operations)
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();

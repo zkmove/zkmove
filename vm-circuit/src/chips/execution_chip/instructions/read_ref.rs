@@ -48,13 +48,15 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             ),
             cond.clone(),
         ));
+
         let read = RWLookup::locals_read_ref(
             cells.gc.expression.clone() + 1.expr(),
-            cells.auxiliary.expression.clone(), // call_index of indexed ref
+            cells.auxiliary.expression.clone(),
             cells.locals_index.expression.clone(),
-            cells.value_c.expression.clone(),
+            cells.value_b.expression.clone(),
         );
         rw_lookups.push((read, cond.clone()));
+
         rw_lookups.push((
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
@@ -77,6 +79,9 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        cells.value_b.assign(region, offset, op.value().value())?;
         let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
