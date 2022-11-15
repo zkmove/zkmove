@@ -205,7 +205,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.locals_index = index;
                         execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
                         let value_copy = value.clone();
-                        reference.write_ref(value)?;
+                        reference.write_ref(value)?; // must write ref first, then record local_op
 
                         let (locals_value, locals_index) = match reference.clone() {
                             Reference::ContainerRef(_) => (value_copy, index),
@@ -239,9 +239,9 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
                         execution_step.auxiliary = Some(Value::u64(fh_idx.0 as u64, None)?);
-                        let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
+                        let reference = interp.stack.pop_struct_ref(rw_operations)?;
                         let field_offset = resolver.field_offset(*fh_idx);
-                        let field_ref = reference.borrow_field(field_offset)?;
+                        let field_ref = reference.borrow_element(field_offset)?;
                         interp.stack.push(field_ref, rw_operations)
                     }
                     Bytecode::LdTrue => {

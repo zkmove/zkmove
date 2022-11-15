@@ -101,31 +101,8 @@ impl<F: FieldExt> ContainerRef<F> {
         member_idx: usize,
     ) -> VmResult<Value<F>> {
         let res = match self.container() {
-            Container::Locals(r) => {
-                let len = r.borrow().len();
-                if idx >= len {
-                    return Err(
-                        RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
-                            "index out of bounds when borrowing container element: index: {}, length: {}",
-                            idx, len
-                        )),
-                    );
-                }
-                let v = r.borrow();
-                match &v[idx] {
-                    Value::Container(container) => {
-                        let r = match self {
-                            Self::Local(_) => Self::Local(container.copy_by_ref()),
-                            Self::Global(_) => unimplemented!(),
-                        };
-                        Value::ContainerRef(r)
-                    }
-                    _ => Value::IndexedRef(IndexedRef::IndexedLocalsRef(IndexedLocalsRef {
-                        call_index,
-                        idx,
-                        container_ref: self.copy_value(),
-                    })),
-                }
+            Container::Locals(_) => {
+                unreachable!("should not come here.")
             }
             Container::Struct(r) => {
                 let len = r.borrow().len();
@@ -217,7 +194,7 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
             container_ref: self.container_ref.copy_value(),
         }
     }
-    pub fn borrow_field(&self, field_idx: usize) -> VmResult<Value<F>> {
+    pub fn borrow_element(&self, field_idx: usize) -> VmResult<Value<F>> {
         self.container_ref
             .borrow_element(self.call_index, self.idx, field_idx)
     }

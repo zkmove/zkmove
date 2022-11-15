@@ -142,7 +142,7 @@ impl<F: FieldExt> EvalStack<F> {
         }
     }
 
-    pub fn pop_as_struct_ref(
+    pub fn pop_struct_ref(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<IndexedLocalsRef<F>> {
@@ -162,9 +162,7 @@ impl<F: FieldExt> EvalStack<F> {
             match value {
                 Value::IndexedRef(r) => match r {
                     IndexedRef::IndexedLocalsRef(r) => Ok(r),
-                    IndexedRef::IndexedStructRef(_) => {
-                        unreachable!("delete me")
-                    }
+                    _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
                 },
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct_ref", v))),
