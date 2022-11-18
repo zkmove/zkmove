@@ -16,7 +16,7 @@ pub mod rw_operations;
 pub const DEFAULT_MAX_CALL_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub steps_num: Option<usize>,
     pub stack_ops_num: Option<usize>,
@@ -146,6 +146,9 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         self.bytecode_table.as_inner().iter().for_each(|bytecode| {
             writeln!(f, "{:?}", bytecode).unwrap();
         });
+        writeln!(f)?;
+        writeln!(f, "Circuit Config:")?;
+        writeln!(f, "{:?}", self.circuit_config).unwrap();
         Ok(())
     }
 }
