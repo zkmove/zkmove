@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
-use types::value::Value;
+use movelang::value::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionStep<F: FieldExt> {

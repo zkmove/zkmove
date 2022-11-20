@@ -12,7 +12,7 @@ use halo2_proofs::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
-use types::value::Value;
+use movelang::value::Value;
 
 #[test]
 fn test_fake_rw_operation() -> VmResult<()> {

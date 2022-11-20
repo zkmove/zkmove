@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
-types = { path = "../common/types" }
 vm-circuit = { path = "../vm-circuit" }
 movelang = { path = "../movelang"}
 rand_core = { version = "0.6", default-features = false }

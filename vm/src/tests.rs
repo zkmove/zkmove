@@ -9,7 +9,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::state::StateStore;
-use types::value::Value;
+use movelang::value::Value;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::execution_steps::ExecutionStep;

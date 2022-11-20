@@ -9,10 +9,10 @@ use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
 use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
-use movelang::value::MoveValueType;
+use movelang::utility::MoveValueType;
+use movelang::value::{Container, Reference, Struct, Value};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::value::{Container, Reference, Struct, Value};
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
