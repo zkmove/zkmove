@@ -47,7 +47,7 @@ impl<F: FieldExt> Frame<F> {
         self.pc
     }
 
-    pub fn module_index(&self, data_store: &StateStore) -> Option<u16> {
+    pub fn module_index(&self, data_store: &StateStore<F>) -> Option<u16> {
         match self.function.module_id() {
             Some(module_id) => data_store.module_index(module_id),
             None => Some(0), // function is in the script
@@ -58,7 +58,7 @@ impl<F: FieldExt> Frame<F> {
         &mut self,
         interp: &mut Interpreter<F>,
         loader: &MoveLoader,
-        data_store: &StateStore,
+        data_store: &StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus<F>> {

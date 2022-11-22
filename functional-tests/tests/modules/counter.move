@@ -4,7 +4,8 @@ module Counter {
         value: u64,
     }
 
-    public fun init(_account: &signer) {
+    public fun init(account: &signer) {
+        move_to(account, Counter { value: 0 });
     }
 }
 }

@@ -380,6 +380,19 @@ impl<F: FieldExt> Struct<F> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum GlobalValue<F: FieldExt> {
+    None,
+    Fresh { fields: Rc<RefCell<Vec<Value<F>>>> },
+    Deleted,
+}
+
+impl<F: FieldExt> GlobalValue<F> {
+    pub fn none() -> Self {
+        GlobalValue::None
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Value<F: FieldExt> {
     Invalid,
