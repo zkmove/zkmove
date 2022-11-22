@@ -1,5 +1,7 @@
+// Copyright (c) The Move Contributors
 // Copyright (c) zkMove Authors
 
+use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
@@ -31,6 +33,18 @@ pub struct U128<F: FieldExt> {
 pub struct Bool<F: FieldExt> {
     pub value: Option<F>,
     pub cell: Option<Cell>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Address<F: FieldExt> {
+    pub value: Option<AccountAddress<F>>,
+    pub cell: Option<Cell>,
+}
+
+impl<F: FieldExt> Address<F> {
+    pub fn value(&self) -> Option<F> {
+        self.value.map(|addr| addr.value())
+    }
 }
 
 #[derive(Debug)]
@@ -73,6 +87,13 @@ impl<F: FieldExt> Container<F> {
             Self::Locals(_r) => Some(F::from_u128(FakeContainerValue::LOCALS as u128)),
             Self::Struct(_r) => Some(F::from_u128(FakeContainerValue::STRUCT as u128)),
         }
+    }
+
+    pub fn signer(x: AccountAddress<F>) -> Self {
+        Container::Struct(Rc::new(RefCell::new(vec![Value::Address(Address {
+            value: Some(x),
+            cell: None,
+        })])))
     }
 }
 
@@ -366,6 +387,7 @@ pub enum Value<F: FieldExt> {
     U64(U64<F>),
     U128(U128<F>),
     Bool(Bool<F>),
+    Address(Address<F>),
     Container(Container<F>),
     ContainerRef(ContainerRef<F>),
     IndexedRef(IndexedRef<F>),
@@ -378,6 +400,9 @@ impl<F: FieldExt> Value<F> {
             MoveValueType::U64 => Ok(Value::U64(U64 { value, cell })),
             MoveValueType::U128 => Ok(Value::U128(U128 { value, cell })),
             MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
+            MoveValueType::Signer => Ok(Value::signer(AccountAddress::new(
+                value.expect("address should not be None"),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -409,6 +434,17 @@ impl<F: FieldExt> Value<F> {
             cell,
         }))
     }
+    pub fn address(x: AccountAddress<F>, cell: Option<Cell>) -> VmResult<Self> {
+        Ok(Self::Address(Address {
+            value: Some(x),
+            cell,
+        }))
+    }
+
+    pub fn signer(x: AccountAddress<F>) -> Self {
+        Self::Container(Container::signer(x))
+    }
+
     pub fn struct_(s: Struct<F>) -> Self {
         Self::Container(Container::Struct(Rc::new(RefCell::new(s.fields))))
     }
@@ -419,6 +455,7 @@ impl<F: FieldExt> Value<F> {
             Self::U64(v) => v.value,
             Self::U128(v) => v.value,
             Self::Bool(v) => v.value,
+            Self::Address(addr) => addr.value(),
             Self::Container(c) => c.value(),
             Self::IndexedRef(r) => Some(F::from_u128(r.index() as u128)),
             Self::ContainerRef(r) => r.container().value(),

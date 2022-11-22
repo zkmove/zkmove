@@ -6,6 +6,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
 
+use crate::account_address::AccountAddress;
 pub use move_core_types::parser::parse_transaction_argument;
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
 
@@ -36,6 +37,7 @@ pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
         ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U128(v) => Ok(F::from_u128(v)),
         ScriptArgument::Bool(v) => Ok(if v { F::one() } else { F::zero() }),
+        ScriptArgument::Address(v) => Ok(AccountAddress::from(v).value()),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
     }
 }
