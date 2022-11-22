@@ -12,9 +12,9 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::prelude::*;
+use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
 use std::marker::PhantomData;
-use types::value::NUM_OF_BYTES_U128;
 
 pub struct Lt<F: FieldExt> {
     _marker: PhantomData<F>,

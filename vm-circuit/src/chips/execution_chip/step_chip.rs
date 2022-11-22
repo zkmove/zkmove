@@ -9,9 +9,9 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
+use movelang::value::NUM_OF_BYTES_U128;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
-use types::value::NUM_OF_BYTES_U128;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 9; //todo: calculate step height automatically

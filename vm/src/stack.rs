@@ -3,8 +3,8 @@
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
+use movelang::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
 use std::rc::Rc;
-use types::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
