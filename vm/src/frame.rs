@@ -321,8 +321,20 @@ impl<F: FieldExt> Frame<F> {
                         rw_operations,
                         &mut execution_step,
                     ),
+                    Bytecode::Le => interp.binary_op_auxiliary(
+                        Value::le,
+                        Value::diff,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
                     Bytecode::Lt => interp.binary_op_auxiliary(
                         Value::lt,
+                        Value::diff,
+                        rw_operations,
+                        &mut execution_step,
+                    ),
+                    Bytecode::Ge => interp.binary_op_auxiliary(
+                        Value::ge,
                         Value::diff,
                         rw_operations,
                         &mut execution_step,
