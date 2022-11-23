@@ -5,8 +5,8 @@ use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
 use halo2_proofs::poly::Rotation;
 use logger::prelude::*;
+use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
-use types::value::NUM_OF_BYTES_U128;
 
 #[derive(Clone, Debug)]
 pub struct Cell<F: FieldExt> {

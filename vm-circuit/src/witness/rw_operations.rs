@@ -4,9 +4,9 @@ use crate::chips::execution_chip::lookup_tables::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
+use movelang::value::Value;
 use std::cmp::Ordering;
 use std::convert::From;
-use types::value::Value;
 
 #[derive(Clone)]
 pub struct ConvertedRWOperation<F: FieldExt> {

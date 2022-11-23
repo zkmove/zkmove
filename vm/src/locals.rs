@@ -2,9 +2,9 @@
 
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
+use movelang::value::{Container, ContainerRef, IndexedRef};
+use movelang::value::{IndexedLocalsRef, Value};
 use std::{cell::RefCell, rc::Rc};
-use types::value::{Container, ContainerRef, IndexedRef};
-use types::value::{IndexedLocalsRef, Value};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
