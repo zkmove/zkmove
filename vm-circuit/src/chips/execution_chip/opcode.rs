@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
     _mod::Mod, abort::Abort, add::Add, and::And, br_false::BrFalse, br_true::BrTrue,
-    branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, freeze_ref::FreezeRef,
+    branch::Branch, call::Call, copy_loc::CopyLoc, div::Div, eq::Eq, freeze_ref::FreezeRef, gt::Gt,
     imm_borrow_field::ImmBorrowField, imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse,
     ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, lt::Lt, move_loc::MoveLoc, mul::Mul,
     mut_borrow_field::MutBorrowField, mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not,
@@ -46,6 +46,7 @@ pub enum Opcode {
     Call,
     Abort,
     Lt,
+    Gt,
     Pack,
     Unpack,
     MutBorrowLoc,
@@ -92,6 +93,7 @@ impl Opcode {
             Self::Call,
             Self::Abort,
             Self::Lt,
+            Self::Gt,
             Self::Pack,
             Self::Unpack,
             Self::MutBorrowLoc,
@@ -146,6 +148,7 @@ impl Opcode {
             Opcode::Call => Call::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Abort => Abort::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Lt => Lt::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::Gt => Gt::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Pack => Pack::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::Unpack => Unpack::configure(cells, constraints, rw_lookups, bytecode_lookups),
             Opcode::MutBorrowLoc => {
@@ -207,6 +210,7 @@ impl Opcode {
             Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Lt => Lt::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Gt => Gt::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Pack => Pack::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Unpack => Unpack::assign(region, offset, step, rw_operations, cells)?,
             Opcode::MutBorrowLoc => {
@@ -260,6 +264,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Call(_) => Opcode::Call,
             Bytecode::Abort => Opcode::Abort,
             Bytecode::Lt => Opcode::Lt,
+            Bytecode::Gt => Opcode::Gt,
             Bytecode::Pack(_) => Opcode::Pack,
             Bytecode::Unpack(_) => Opcode::Unpack,
             Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,

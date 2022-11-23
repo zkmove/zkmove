@@ -465,6 +465,13 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
+    pub fn greater_than(&self, other: &Self) -> VmResult<bool> {
+        match (self.value(), other.value()) {
+            (Some(v1), Some(v2)) => Ok(v1 > v2),
+            _ => Err(RuntimeError::new(StatusCode::InternalError)),
+        }
+    }
+
     pub fn is_zero(&self) -> bool {
         match self.value() {
             Some(v) => v.is_zero_vartime(),
@@ -601,6 +608,13 @@ impl<F: FieldExt> Value<F> {
     pub fn lt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let lt = a.less_than(&b)?;
         let value = if lt { F::one() } else { F::zero() };
+        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        Ok(c)
+    }
+
+    pub fn gt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        let gt = a.greater_than(&b)?;
+        let value = if gt { F::one() } else { F::zero() };
         let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
         Ok(c)
     }

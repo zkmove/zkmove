@@ -21,6 +21,7 @@ pub mod copy_loc;
 pub mod div;
 pub mod eq;
 pub mod freeze_ref;
+pub mod gt;
 pub mod imm_borrow_field;
 pub mod imm_borrow_loc;
 pub mod ld_false;
