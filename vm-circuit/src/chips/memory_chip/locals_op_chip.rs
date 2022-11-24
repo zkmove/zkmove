@@ -288,7 +288,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
 
             // call_index must be less than max_call_index
-            call_index_lookups.push(cond.clone() * cells.index.expression.clone());
+            call_index_lookups.push(cond.clone() * cells.call_index.expression.clone());
             // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // call_index must be great than or equal to prev_call_index
