@@ -5,7 +5,7 @@ script {
         assert!(m == true, 101);
         let n = b <= a;
         assert!(n == false, 102);
-        let o = c == d;
+        let o = c <= d;
         assert!(o == true, 103);
     }
 }
