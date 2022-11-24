@@ -42,8 +42,11 @@ impl<F: FieldExt> Instructions<F> for Le<F> {
 
         // there is only 16 bytes for diff, so diff is in range 2 ^ 128
         // if lhs > rhs, then out = 0, diff = lhs - rhs
-        // if lhs <= rhs, then out == 1, diff = lhs - rhs + range
-        let constraint = cond.clone() * ((lhs - rhs) + out * range - diff.clone()) * diff;
+        // if lhs < rhs, then out == 1, diff = lhs - rhs + range
+        // if lhs == rhs, then out == 1, diff = 0
+        let constraint = cond.clone()
+            * ((lhs.clone() - rhs.clone()) + out.clone() * range - diff)
+            * (lhs - rhs + 1.expr() - out);
         constraints.push(("Le", constraint));
 
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
