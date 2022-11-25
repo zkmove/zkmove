@@ -118,6 +118,18 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::MutBorrowField.index() as u128),
             F::from_u128(fh_idx.0 as u128),
         ),
+        Bytecode::MoveTo(sd_idx) => (
+            F::from_u128(Opcode::MoveTo.index() as u128),
+            F::from_u128(sd_idx.0 as u128),
+        ),
+        Bytecode::MoveFrom(sd_idx) => (
+            F::from_u128(Opcode::MoveFrom.index() as u128),
+            F::from_u128(sd_idx.0 as u128),
+        ),
+        Bytecode::Exists(sd_idx) => (
+            F::from_u128(Opcode::Exists.index() as u128),
+            F::from_u128(sd_idx.0 as u128),
+        ),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

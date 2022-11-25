@@ -137,7 +137,7 @@ impl Arguments {
                 script.clone(),
                 compiled_modules.clone(),
                 config.args,
-                &state,
+                &mut state,
                 circuit_config.clone(),
             )?;
             let vm_circuit = VmCircuit { witness };
@@ -169,7 +169,7 @@ impl Arguments {
                     script,
                     compiled_modules,
                     arguments,
-                    &state,
+                    &mut state,
                     circuit_config,
                 )?;
                 let new_vm_circuit = VmCircuit {

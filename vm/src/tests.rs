@@ -33,7 +33,7 @@ fn test_execution_step() -> VmResult<()> {
     script.serialize(&mut blob).expect("script must serialize");
 
     let runtime = Runtime::<Fp>::new();
-    let data_store = StateStore::new();
+    let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
 
     let (entry, arg_types) = runtime
@@ -53,7 +53,7 @@ fn test_execution_step() -> VmResult<()> {
             None,
             arg_types,
             runtime.loader(),
-            &data_store,
+            &mut data_store,
             &mut exec_steps,
             &mut rw_operations,
         )
@@ -370,9 +370,9 @@ fn test_nop_steps() -> VmResult<()> {
     ];
 
     let runtime = Runtime::<Fp>::new();
-    let data_store = StateStore::new();
+    let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default().steps_num(Some(8));
-    let witness = runtime.execute_script(script, vec![], None, &data_store, circuit_config)?;
+    let witness = runtime.execute_script(script, vec![], None, &mut data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
@@ -519,11 +519,11 @@ fn test_empty_ops() -> VmResult<()> {
     ];
 
     let runtime = Runtime::<Fp>::new();
-    let data_store = StateStore::new();
+    let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default()
         .stack_ops_num(Some(20))
         .locals_ops_num(Some(20));
-    let witness = runtime.execute_script(script, vec![], None, &data_store, circuit_config)?;
+    let witness = runtime.execute_script(script, vec![], None, &mut data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
