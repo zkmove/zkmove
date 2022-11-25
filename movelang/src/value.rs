@@ -37,13 +37,16 @@ pub struct Bool<F: FieldExt> {
 
 #[derive(Clone, Debug)]
 pub struct Address<F: FieldExt> {
-    pub value: Option<AccountAddress<F>>,
+    pub account_address: Option<AccountAddress<F>>,
     pub cell: Option<Cell>,
 }
 
 impl<F: FieldExt> Address<F> {
+    pub fn account_address(self) -> AccountAddress<F> {
+        self.account_address.expect("address should not be None")
+    }
     pub fn value(&self) -> Option<F> {
-        self.value.map(|addr| addr.value())
+        self.account_address.map(|addr| addr.value())
     }
 }
 
@@ -91,7 +94,7 @@ impl<F: FieldExt> Container<F> {
 
     pub fn signer(x: AccountAddress<F>) -> Self {
         Container::Struct(Rc::new(RefCell::new(vec![Value::Address(Address {
-            value: Some(x),
+            account_address: Some(x),
             cell: None,
         })])))
     }
@@ -380,16 +383,97 @@ impl<F: FieldExt> Struct<F> {
     }
 }
 
+// Clean - the value was only read.
+// Dirty - the value was possibly modified.
+#[derive(Debug, Clone, Copy)]
+pub enum GlobalDataStatus {
+    Clean,
+    Dirty,
+}
+
 #[derive(Debug, Clone)]
 pub enum GlobalValue<F: FieldExt> {
+    // No resource resides in this slot or in storage.
     None,
-    Fresh { fields: Rc<RefCell<Vec<Value<F>>>> },
+    // A resource has been published to this slot and it did not previously exist in storage.
+    Fresh {
+        fields: Rc<RefCell<Vec<Value<F>>>>,
+    },
+    // A resource resides in this slot and also in storage. The status flag indicates whether
+    // it has potentially been altered.
+    Cached {
+        fields: Rc<RefCell<Vec<Value<F>>>>,
+        status: Rc<RefCell<GlobalDataStatus>>,
+    },
+    // A resource used to exist in storage but has been deleted by the current transaction.
     Deleted,
 }
 
 impl<F: FieldExt> GlobalValue<F> {
     pub fn none() -> Self {
         GlobalValue::None
+    }
+
+    fn fresh(val: Value<F>) -> VmResult<Self> {
+        match val {
+            Value::Container(Container::Struct(fields)) => Ok(Self::Fresh { fields }),
+            _ => Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("not a resource type".to_string()),
+            ),
+        }
+    }
+
+    fn cached(val: Value<F>, status: GlobalDataStatus) -> VmResult<Self> {
+        match val {
+            Value::Container(Container::Struct(fields)) => {
+                let status = Rc::new(RefCell::new(status));
+                Ok(Self::Cached { fields, status })
+            }
+            _ => Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("not a resource type".to_string()),
+            ),
+        }
+    }
+
+    pub fn move_from(&mut self) -> VmResult<Value<F>> {
+        let fields = match self {
+            Self::None | Self::Deleted => return Err(RuntimeError::new(StatusCode::MissingData)),
+            Self::Fresh { .. } => match std::mem::replace(self, Self::None) {
+                Self::Fresh { fields } => fields,
+                _ => unreachable!(),
+            },
+            Self::Cached { .. } => match std::mem::replace(self, Self::Deleted) {
+                Self::Cached { fields, .. } => fields,
+                _ => unreachable!(),
+            },
+        };
+        if Rc::strong_count(&fields) != 1 {
+            return Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("moving global resource with dangling reference".to_string()),
+            );
+        }
+        Ok(Value::Container(Container::Struct(fields)))
+    }
+
+    pub fn move_to(&mut self, val: Value<F>) -> VmResult<()> {
+        match self {
+            Self::Fresh { .. } | Self::Cached { .. } => {
+                return Err(RuntimeError::new(StatusCode::ResourceAlreadyExists))
+            }
+            Self::None => *self = Self::fresh(val)?,
+            Self::Deleted => *self = Self::cached(val, GlobalDataStatus::Dirty)?,
+        }
+        Ok(())
+    }
+
+    pub fn exists(&self) -> VmResult<bool> {
+        match self {
+            Self::Fresh { .. } | Self::Cached { .. } => Ok(true),
+            Self::None | Self::Deleted => Ok(false),
+        }
     }
 }
 
@@ -416,6 +500,10 @@ impl<F: FieldExt> Value<F> {
             MoveValueType::Signer => Ok(Value::signer(AccountAddress::new(
                 value.expect("address should not be None"),
             ))),
+            MoveValueType::Address => Ok(Value::address(
+                AccountAddress::new(value.expect("address should not be None")),
+                cell,
+            )),
             _ => unimplemented!(),
         }
     }
@@ -447,11 +535,11 @@ impl<F: FieldExt> Value<F> {
             cell,
         }))
     }
-    pub fn address(x: AccountAddress<F>, cell: Option<Cell>) -> VmResult<Self> {
-        Ok(Self::Address(Address {
-            value: Some(x),
+    pub fn address(x: AccountAddress<F>, cell: Option<Cell>) -> Self {
+        Self::Address(Address {
+            account_address: Some(x),
             cell,
-        }))
+        })
     }
 
     pub fn signer(x: AccountAddress<F>) -> Self {
@@ -798,5 +886,24 @@ impl<F: FieldExt> Clone for Container<F> {
     fn clone(&self) -> Self {
         self.copy_value()
             .expect("Container copy_value() should succeed")
+    }
+}
+
+impl<F: FieldExt> Value<F> {
+    pub fn as_account_address(self) -> VmResult<AccountAddress<F>> {
+        match self {
+            Value::Address(address) => Ok(address.account_address()),
+            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as AccountAddress".to_string())),
+        }
+    }
+
+    pub fn as_reference(self) -> VmResult<Reference<F>> {
+        match self {
+            Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
+            Value::IndexedRef(r) => Ok(Reference::IndexedRef(r)),
+            v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message(format!("cannot convert {:?} to reference", v))),
+        }
     }
 }

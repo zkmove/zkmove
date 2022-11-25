@@ -7,11 +7,13 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_vm_runtime::loader::Function;
+use move_vm_types::loaded_data::runtime_types::Type;
+use movelang::account_address::AccountAddress;
 use movelang::argument::{convert_from, ScriptArguments};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::Value;
+use movelang::value::{GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
@@ -107,7 +109,7 @@ impl<F: FieldExt> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-        data_store: &StateStore<F>,
+        data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
@@ -201,6 +203,56 @@ impl<F: FieldExt> Interpreter<F> {
         let operand = self.stack.pop(rw_operations)?;
         let result = op(operand)?;
         self.stack.push(result, rw_operations)
+    }
+
+    fn load_resource<'a>(
+        data_store: &'a mut StateStore<F>,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+    ) -> VmResult<&'a mut GlobalValue<F>> {
+        match data_store.load_resource(loader, addr, ty) {
+            Ok(gv) => Ok(gv),
+            Err(e) => {
+                error!(
+                    "failed to load resource {:?} at {:?} from data store",
+                    ty, addr
+                );
+                Err(e)
+            }
+        }
+    }
+
+    pub fn exists(
+        &mut self,
+        data_store: &mut StateStore<F>,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+    ) -> VmResult<bool> {
+        let global_value = Self::load_resource(data_store, loader, addr, ty)?;
+        global_value.exists()
+    }
+
+    pub fn move_from(
+        &mut self,
+        data_store: &mut StateStore<F>,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+    ) -> VmResult<Value<F>> {
+        Self::load_resource(data_store, loader, addr, ty)?.move_from()
+    }
+
+    pub fn move_to(
+        &mut self,
+        data_store: &mut StateStore<F>,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+        resource: Value<F>,
+    ) -> VmResult<()> {
+        Self::load_resource(data_store, loader, addr, ty)?.move_to(resource)
     }
 }
 

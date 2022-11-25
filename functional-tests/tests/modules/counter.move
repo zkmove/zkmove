@@ -7,5 +7,13 @@ module Counter {
     public fun init(account: &signer) {
         move_to(account, Counter { value: 0 });
     }
+
+    public fun check(addr: address): bool {
+        exists<Counter>(addr)
+    }
+
+    public fun delete(account: address) acquires Counter {
+        let Counter { value: _ } = move_from<Counter>(account);
+    }
 }
 }

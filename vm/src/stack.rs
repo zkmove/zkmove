@@ -3,6 +3,7 @@
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
+use movelang::account_address::AccountAddress;
 use movelang::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
@@ -142,7 +143,7 @@ impl<F: FieldExt> EvalStack<F> {
         }
     }
 
-    pub fn pop_struct_ref(
+    pub fn pop_as_struct_ref(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<IndexedLocalsRef<F>> {
@@ -166,6 +167,31 @@ impl<F: FieldExt> EvalStack<F> {
                 },
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct_ref", v))),
+            }
+        }
+    }
+
+    pub fn pop_as_account_address(
+        &mut self,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<AccountAddress<F>> {
+        if self.0.is_empty() {
+            Err(RuntimeError::new(StatusCode::StackUnderflow))
+        } else {
+            let value = self.0.pop().unwrap();
+
+            let stack_op = StackOp {
+                address: self.0.len(),
+                value: value.clone(),
+                rw: RW::READ,
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+
+            match value {
+                Value::Address(addr) => Ok(addr.account_address()),
+                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message(format!("cannot pop {:?} as account address", v))),
             }
         }
     }
