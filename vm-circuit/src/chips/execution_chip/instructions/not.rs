@@ -25,12 +25,17 @@ impl<F: FieldExt> Instructions<F> for Not<F> {
         bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Not.index()].expression.clone();
-
         let x = cells.value_a.expression.clone();
         let out = cells.value_c.expression.clone();
+
+        // out is 0 or 1
+        let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
+        constraints.push(("out value is bool", constraint));
+
         // 1 - x = out
         let constraint = cond.clone() * (1.expr() - x - out);
         constraints.push(("Not", constraint));
+
         UnaryOp::constrain_unary_op(cells, constraints, cond.clone());
         UnaryOp::lookup_unary_op(cells, rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(cells, Opcode::Not, 0.expr(), bytecode_lookups, cond);
