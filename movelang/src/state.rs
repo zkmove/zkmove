@@ -1,32 +1,63 @@
+// Copyright (c) The Move Contributors
 // Copyright (c) zkMove Authors
 
 use move_binary_format::errors::{Location, PartialVMError};
 use move_binary_format::errors::{PartialVMResult, VMResult};
 use move_binary_format::CompiledModule;
 use move_core_types::{
-    account_address::AccountAddress, language_storage::ModuleId, vm_status::StatusCode,
+    account_address::AccountAddress as MoveAccountAddress, language_storage::ModuleId,
+    vm_status::StatusCode as MoveStatusCode,
 };
 use move_vm_types::{
     loaded_data::runtime_types::Type,
-    values::{GlobalValue, Value},
+    values::{GlobalValue as MoveGlobalValue, Value},
 };
 use std::collections::HashMap;
 
+use crate::account_address::AccountAddress;
+use crate::loader::MoveLoader;
+use crate::value::GlobalValue;
+use error::{RuntimeError, StatusCode, VmResult};
+use halo2_proofs::arithmetic::FieldExt;
+use logger::prelude::*;
+use move_core_types::language_storage::TypeTag;
 use move_core_types::value::MoveTypeLayout;
 pub use move_vm_types::data_store::DataStore;
 use std::cell::RefCell;
+use std::collections::btree_map::BTreeMap;
 
 #[derive(Clone)]
-pub struct StateStore {
-    modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
-    module_table: RefCell<Vec<ModuleId>>,
+pub struct AccountData<F: FieldExt> {
+    data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue<F>)>,
 }
 
-impl StateStore {
+impl<F: FieldExt> AccountData<F> {
+    fn new() -> Self {
+        Self {
+            data_map: BTreeMap::new(),
+        }
+    }
+    fn global_value(&mut self, ty: &Type) -> &mut GlobalValue<F> {
+        self.data_map
+            .get_mut(ty)
+            .map(|(_ty_layout, global_value)| global_value)
+            .expect("global value must exist")
+    }
+}
+
+#[derive(Clone)]
+pub struct StateStore<F: FieldExt> {
+    modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
+    module_table: RefCell<Vec<ModuleId>>,
+    account_map: RefCell<BTreeMap<AccountAddress<F>, AccountData<F>>>,
+}
+
+impl<F: FieldExt> StateStore<F> {
     pub fn new() -> Self {
         Self {
             modules: RefCell::new(HashMap::new()),
             module_table: RefCell::new(Vec::new()),
+            account_map: RefCell::new(BTreeMap::new()),
         }
     }
 
@@ -49,27 +80,63 @@ impl StateStore {
         }
         module_index
     }
+
+    pub fn load_resource(
+        &mut self,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+    ) -> VmResult<&mut GlobalValue<F>> {
+        if !self.account_map.borrow().contains_key(&addr) {
+            self.account_map
+                .borrow_mut()
+                .insert(addr, AccountData::new());
+        }
+        let account_data = self.account_map.get_mut().get_mut(&addr).unwrap();
+
+        if !account_data.data_map.contains_key(ty) {
+            let ty_tag = loader.inner().type_to_type_tag(ty).map_err(|e| {
+                debug!("type to type tag: {:?}", e);
+                RuntimeError::new(StatusCode::InternalError)
+            })?;
+            match ty_tag {
+                // only struct top-level value is allowed
+                TypeTag::Struct(s_tag) => s_tag,
+                _ => return Err(RuntimeError::new(StatusCode::ShouldNotReachHere)),
+            };
+            let ty_layout = loader.inner().type_to_type_layout(ty).map_err(|e| {
+                debug!("type to type layout: {:?}", e);
+                RuntimeError::new(StatusCode::InternalError)
+            })?;
+            let global_value = GlobalValue::none();
+            account_data
+                .data_map
+                .insert(ty.clone(), (ty_layout, global_value));
+        }
+
+        Ok(account_data.global_value(ty))
+    }
 }
 
-impl Default for StateStore {
+impl<F: FieldExt> Default for StateStore<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DataStore for StateStore {
+impl<F: FieldExt> DataStore for StateStore<F> {
     fn load_resource(
         &mut self,
-        _addr: AccountAddress,
+        _addr: MoveAccountAddress,
         _ty: &Type,
-    ) -> PartialVMResult<&mut GlobalValue> {
+    ) -> PartialVMResult<&mut MoveGlobalValue> {
         unimplemented!()
     }
 
     fn load_module(&self, module_id: &ModuleId) -> VMResult<Vec<u8>> {
         let modules_ref = self.modules.borrow();
         let module = modules_ref.get(module_id).ok_or_else(|| {
-            PartialVMError::new(StatusCode::MISSING_DEPENDENCY)
+            PartialVMError::new(MoveStatusCode::MISSING_DEPENDENCY)
                 .with_message(format!(
                     "failed to find module {:?} in data store",
                     module_id
@@ -84,7 +151,7 @@ impl DataStore for StateStore {
             .borrow_mut()
             .insert(module_id.clone(), blob)
             .ok_or_else(|| {
-                PartialVMError::new(StatusCode::MISSING_DEPENDENCY)
+                PartialVMError::new(MoveStatusCode::MISSING_DEPENDENCY)
                     .with_message(format!(
                         "failed to put module {:?} into data store.",
                         module_id

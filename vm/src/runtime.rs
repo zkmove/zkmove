@@ -58,7 +58,7 @@ impl<F: FieldExt> Runtime<F> {
         script: CompiledScript,
         modules: Vec<CompiledModule>,
         args: Option<ScriptArguments>,
-        data_store: &StateStore,
+        data_store: &mut StateStore<F>,
         circuit_config: CircuitConfig,
     ) -> VmResult<Witness<F>> {
         let mut interp = Interpreter::<F>::new();

@@ -59,7 +59,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             script,
             compiled_modules,
             config.args,
-            &state,
+            &mut state,
             circuit_config,
         )?;
         debug!("{:?}", witness);

@@ -29,6 +29,8 @@ pub enum StatusCode {
     ShouldNotReachHere,
     InternalError,
     UnknownInvariantViolationError,
+    MissingData,
+    ResourceAlreadyExists,
 
     // Proof system error
     ProofSystemError(Error),

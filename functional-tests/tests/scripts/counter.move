@@ -1,9 +1,15 @@
 //! mods: counter.move
-//! args: 0x1
+//! args: 0x1, 0x1
 script {
     use 0x1::Counter;
 
-    fun main(account: signer) {
+    // We haven't implemented Signer.move yet, so we have to pass
+    // the same address 0x1 twice, the first time as the signer and
+    // the second time as the account address
+    fun main(account: signer, addr: address) {
         Counter::init(&account);
+        let is_exist = Counter::check(addr);
+        assert!(is_exist, 101);
+        Counter::delete(addr);
     }
 }

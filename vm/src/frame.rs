@@ -47,7 +47,7 @@ impl<F: FieldExt> Frame<F> {
         self.pc
     }
 
-    pub fn module_index(&self, data_store: &StateStore) -> Option<u16> {
+    pub fn module_index(&self, data_store: &StateStore<F>) -> Option<u16> {
         match self.function.module_id() {
             Some(module_id) => data_store.module_index(module_id),
             None => Some(0), // function is in the script
@@ -58,7 +58,7 @@ impl<F: FieldExt> Frame<F> {
         &mut self,
         interp: &mut Interpreter<F>,
         loader: &MoveLoader,
-        data_store: &StateStore,
+        data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<ExitStatus<F>> {
@@ -239,7 +239,7 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
                         execution_step.auxiliary = Some(Value::u64(fh_idx.0 as u64, None)?);
-                        let reference = interp.stack.pop_struct_ref(rw_operations)?;
+                        let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
                         let field_offset = resolver.field_offset(*fh_idx);
                         let field_ref = reference.borrow_element(field_offset)?;
                         interp.stack.push(field_ref, rw_operations)
@@ -364,6 +364,30 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.push(value, rw_operations)?;
                         }
                         Ok(())
+                    }
+                    Bytecode::Exists(sd_idx) => {
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.get_struct_type(*sd_idx);
+                        let exists = interp.exists(data_store, loader, addr, &ty)?;
+                        interp.stack.push(Value::bool(exists, None)?, rw_operations)
+                    }
+                    Bytecode::MoveFrom(sd_idx) => {
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.get_struct_type(*sd_idx);
+                        let value = interp.move_from(data_store, loader, addr, &ty)?;
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::MoveTo(sd_idx) => {
+                        let resource = interp.stack.pop(rw_operations)?;
+                        let signer_reference = interp.stack.pop_as_struct_ref(rw_operations)?;
+                        let addr = signer_reference
+                            .borrow_element(0)?
+                            .as_reference()?
+                            .read_ref()?
+                            .as_account_address()
+                            .expect("address should not be None");
+                        let ty = resolver.get_struct_type(*sd_idx);
+                        interp.move_to(data_store, loader, addr, &ty, resource)
                     }
                     _ => unreachable!(),
                 }?;
