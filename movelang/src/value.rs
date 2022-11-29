@@ -110,7 +110,7 @@ impl<F: FieldExt> ContainerRef<F> {
     fn container(&self) -> &Container<F> {
         match self {
             Self::Local(container) => container,
-            Self::Global(_) => unimplemented!(),
+            Self::Global(container) => container,
         }
     }
 
@@ -118,28 +118,23 @@ impl<F: FieldExt> ContainerRef<F> {
         Ok(Value::Container(self.container().copy_value()?))
     }
 
-    fn borrow_element(
-        &self,
-        call_index: usize,
-        idx: usize,
-        member_idx: usize,
-    ) -> VmResult<Value<F>> {
+    fn borrow_global_value_element(&self, element_idx: usize) -> VmResult<Value<F>> {
         let res = match self.container() {
             Container::Locals(_) => {
                 unreachable!("should not come here.")
             }
             Container::Struct(r) => {
                 let len = r.borrow().len();
-                if member_idx >= len {
+                if element_idx >= len {
                     return Err(
                         RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
                             "index out of bounds when borrowing container element: index: {}, length: {}",
-                            member_idx, len
+                            element_idx, len
                         )),
                     );
                 }
                 let v = r.borrow();
-                match &v[member_idx] {
+                match &v[element_idx] {
                     Value::Container(container) => {
                         let r = match self {
                             Self::Local(_) => Self::Local(container.copy_by_ref()),
@@ -147,10 +142,8 @@ impl<F: FieldExt> ContainerRef<F> {
                         };
                         Value::ContainerRef(r)
                     }
-                    _ => Value::IndexedRef(IndexedRef::IndexedStructRef(IndexedStructRef {
-                        call_index,
-                        idx,
-                        member_idx,
+                    _ => Value::IndexedRef(IndexedRef::IndexedGlobalRef(IndexedGlobalRef {
+                        element_idx,
                         container_ref: self.copy_value(),
                     })),
                 }
@@ -163,11 +156,16 @@ impl<F: FieldExt> ContainerRef<F> {
     fn copy_value(&self) -> Self {
         match self {
             Self::Local(container) => Self::Local(container.copy_by_ref()),
-            Self::Global(_) => unimplemented!(),
+            Self::Global(container) => Self::Global(container.copy_by_ref()),
         }
+    }
+
+    fn is_global(&self) -> bool {
+        matches!(self, Self::Global(_)) // container holds global value
     }
 }
 
+// Reference to one of locals
 #[derive(Clone, Debug)]
 pub struct IndexedLocalsRef<F: FieldExt> {
     pub call_index: usize,
@@ -218,17 +216,50 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
             container_ref: self.container_ref.copy_value(),
         }
     }
-    pub fn borrow_element(&self, field_idx: usize) -> VmResult<Value<F>> {
-        self.container_ref
-            .borrow_element(self.call_index, self.idx, field_idx)
+    pub fn borrow_element(&self, element_idx: usize) -> VmResult<Value<F>> {
+        let res = match self.container() {
+            Container::Locals(_) => {
+                unreachable!("should not come here.")
+            }
+            Container::Struct(r) => {
+                let len = r.borrow().len();
+                if element_idx >= len {
+                    return Err(
+                        RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
+                            "index out of bounds when borrowing container element: index: {}, length: {}",
+                            element_idx, len
+                        )),
+                    );
+                }
+                let v = r.borrow();
+                match &v[element_idx] {
+                    Value::Container(container) => {
+                        let r = match self.container_ref {
+                            ContainerRef::Local(_) => ContainerRef::Local(container.copy_by_ref()),
+                            ContainerRef::Global(_) => unimplemented!(),
+                        };
+                        Value::ContainerRef(r)
+                    }
+                    _ => Value::IndexedRef(IndexedRef::IndexedStructRef(IndexedStructRef {
+                        call_index: self.call_index,
+                        idx: self.idx,
+                        element_idx,
+                        container_ref: self.container_ref.copy_value(),
+                    })),
+                }
+            }
+        };
+
+        Ok(res)
     }
 }
 
+// Reference to an element of a struct
 #[derive(Clone, Debug)]
 pub struct IndexedStructRef<F: FieldExt> {
     pub call_index: usize,
     pub idx: usize,
-    pub member_idx: usize,
+    pub element_idx: usize,
     pub container_ref: ContainerRef<F>,
 }
 
@@ -242,7 +273,7 @@ impl<F: FieldExt> IndexedStructRef<F> {
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
             Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
-            Container::Struct(r) => r.borrow()[self.member_idx].copy_value()?,
+            Container::Struct(r) => r.borrow()[self.element_idx].copy_value()?,
         };
         Ok(value)
     }
@@ -262,7 +293,7 @@ impl<F: FieldExt> IndexedStructRef<F> {
             }
             (Container::Struct(r), _) => {
                 let mut v = r.borrow_mut();
-                v[self.member_idx] = x;
+                v[self.element_idx] = x;
             }
         }
         Ok(())
@@ -277,16 +308,65 @@ impl<F: FieldExt> IndexedStructRef<F> {
         Self {
             call_index: self.call_index,
             idx: self.idx,
-            member_idx: self.member_idx,
+            element_idx: self.element_idx,
             container_ref: self.container_ref.copy_value(),
         }
     }
 }
 
+// Reference to an element of a global value
+#[derive(Clone, Debug)]
+pub struct IndexedGlobalRef<F: FieldExt> {
+    pub element_idx: usize,
+    pub container_ref: ContainerRef<F>,
+}
+
+impl<F: FieldExt> IndexedGlobalRef<F> {
+    pub fn container(&self) -> &Container<F> {
+        self.container_ref.container()
+    }
+    pub fn container_ref(self) -> ContainerRef<F> {
+        self.container_ref
+    }
+    fn read_ref(&self) -> VmResult<Value<F>> {
+        let value = match &*self.container_ref.container() {
+            Container::Locals(_) => unreachable!("IndexedGlobalRef should point to a struct"),
+            Container::Struct(r) => r.borrow()[self.element_idx].copy_value()?,
+        };
+        Ok(value)
+    }
+    fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
+        match &x {
+            Value::IndexedRef(_)
+            | Value::ContainerRef(_)
+            | Value::Invalid
+            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+            _ => (),
+        }
+
+        match (self.container_ref.container(), &x) {
+            (Container::Locals(_), _) => unreachable!("IndexedGlobalRef should point to a struct"),
+            (Container::Struct(r), _) => {
+                let mut v = r.borrow_mut();
+                v[self.element_idx] = x;
+            }
+        }
+        Ok(())
+    }
+    fn copy_value(&self) -> Self {
+        Self {
+            element_idx: self.element_idx,
+            container_ref: self.container_ref.copy_value(),
+        }
+    }
+}
+
+// A reference pointing to an element in a container.
 #[derive(Clone, Debug)]
 pub enum IndexedRef<F: FieldExt> {
-    IndexedLocalsRef(IndexedLocalsRef<F>),
-    IndexedStructRef(IndexedStructRef<F>),
+    IndexedLocalsRef(IndexedLocalsRef<F>), // reference pointing to a local (an element of locals).
+    IndexedStructRef(IndexedStructRef<F>), // reference pointing to an element of a local struct.
+    IndexedGlobalRef(IndexedGlobalRef<F>), // reference pointing to an element of a global value.
 }
 
 impl<F: FieldExt> IndexedRef<F> {
@@ -294,43 +374,53 @@ impl<F: FieldExt> IndexedRef<F> {
         match self {
             Self::IndexedLocalsRef(r) => r.container(),
             Self::IndexedStructRef(r) => r.container(),
+            Self::IndexedGlobalRef(r) => r.container(),
         }
     }
     pub fn container_ref(self) -> ContainerRef<F> {
         match self {
             Self::IndexedLocalsRef(r) => r.container_ref(),
             Self::IndexedStructRef(r) => r.container_ref(),
+            Self::IndexedGlobalRef(r) => r.container_ref(),
         }
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         match self {
             Self::IndexedLocalsRef(r) => r.read_ref(),
             Self::IndexedStructRef(r) => r.read_ref(),
+            Self::IndexedGlobalRef(r) => r.read_ref(),
         }
     }
     fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
         match self {
             Self::IndexedLocalsRef(r) => r.write_ref(x),
             Self::IndexedStructRef(r) => r.write_ref(x),
+            Self::IndexedGlobalRef(r) => r.write_ref(x),
         }
     }
     pub fn index(&self) -> usize {
         match self {
             Self::IndexedLocalsRef(r) => r.index(),
             Self::IndexedStructRef(r) => r.index(),
+            Self::IndexedGlobalRef(_) => unimplemented!(),
         }
     }
     fn call_index(&self) -> usize {
         match self {
             Self::IndexedLocalsRef(r) => r.call_index(),
             Self::IndexedStructRef(r) => r.call_index(),
+            Self::IndexedGlobalRef(_) => unimplemented!(),
         }
     }
     fn copy_value(&self) -> Self {
         match self {
             Self::IndexedLocalsRef(r) => Self::IndexedLocalsRef(r.copy_value()),
             Self::IndexedStructRef(r) => Self::IndexedStructRef(r.copy_value()),
+            Self::IndexedGlobalRef(r) => Self::IndexedGlobalRef(r.copy_value()),
         }
+    }
+    fn is_global(&self) -> bool {
+        matches!(self, Self::IndexedGlobalRef(_)) // element of a global value.
     }
 }
 
@@ -364,6 +454,31 @@ impl<F: FieldExt> Reference<F> {
         match self {
             Self::ContainerRef(_) => unimplemented!(),
             Self::IndexedRef(r) => r.call_index(),
+        }
+    }
+
+    pub fn is_global(&self) -> bool {
+        match self {
+            Self::ContainerRef(r) => r.is_global(),
+            Self::IndexedRef(r) => r.is_global(),
+        }
+    }
+}
+
+// StructRef is used to support borrow_element
+#[derive(Debug, Clone)]
+pub enum StructRef<F: FieldExt> {
+    // local Struct value
+    LocalStructRef(IndexedLocalsRef<F>),
+    // GlobalValue
+    GlobalStructRef(ContainerRef<F>),
+}
+
+impl<F: FieldExt> StructRef<F> {
+    pub fn borrow_element(&self, field_idx: usize) -> VmResult<Value<F>> {
+        match self {
+            Self::LocalStructRef(r) => r.borrow_element(field_idx),
+            Self::GlobalStructRef(r) => r.borrow_global_value_element(field_idx),
         }
     }
 }
@@ -475,6 +590,18 @@ impl<F: FieldExt> GlobalValue<F> {
             Self::None | Self::Deleted => Ok(false),
         }
     }
+
+    pub fn borrow_global(&self) -> VmResult<Value<F>> {
+        match self {
+            Self::None | Self::Deleted => Err(RuntimeError::new(StatusCode::MissingData)),
+            Self::Fresh { fields } => Ok(Value::ContainerRef(ContainerRef::Global(
+                Container::Struct(Rc::clone(fields)),
+            ))),
+            Self::Cached { fields, status: _ } => Ok(Value::ContainerRef(ContainerRef::Global(
+                Container::Struct(Rc::clone(fields)),
+            ))),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -558,7 +685,7 @@ impl<F: FieldExt> Value<F> {
             Self::Bool(v) => v.value,
             Self::Address(addr) => addr.value(),
             Self::Container(c) => c.value(),
-            Self::IndexedRef(r) => Some(F::from_u128(r.index() as u128)),
+            Self::IndexedRef(r) => r.container().value(),
             Self::ContainerRef(r) => r.container().value(),
         }
     }

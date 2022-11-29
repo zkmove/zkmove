@@ -14,7 +14,7 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 9; //todo: calculate step height automatically
+pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 8; //pc, stack_size, call_index, locals_index, gc, auxiliary, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
