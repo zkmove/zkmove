@@ -254,6 +254,16 @@ impl<F: FieldExt> Interpreter<F> {
     ) -> VmResult<()> {
         Self::load_resource(data_store, loader, addr, ty)?.move_to(resource)
     }
+
+    pub fn borrow_global(
+        &mut self,
+        data_store: &mut StateStore<F>,
+        loader: &MoveLoader,
+        addr: AccountAddress<F>,
+        ty: &Type,
+    ) -> VmResult<Value<F>> {
+        Self::load_resource(data_store, loader, addr, ty)?.borrow_global()
+    }
 }
 
 impl<F: FieldExt> Default for Interpreter<F> {
