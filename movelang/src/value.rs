@@ -236,7 +236,7 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
                     Value::Container(container) => {
                         let r = match self.container_ref {
                             ContainerRef::Local(_) => ContainerRef::Local(container.copy_by_ref()),
-                            ContainerRef::Global(_) => unimplemented!(),
+                            ContainerRef::Global(_) => unreachable!(),
                         };
                         Value::ContainerRef(r)
                     }
