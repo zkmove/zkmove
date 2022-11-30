@@ -168,67 +168,77 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::ReadRef => {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
-                        let ref_call_index = reference.call_index();
-                        let index = reference.index();
                         let value = reference.read_ref()?;
-                        execution_step.locals_index = index;
-                        execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
 
-                        let (locals_value, locals_index) = match reference.clone() {
-                            Reference::ContainerRef(_) => (value.clone(), index),
-                            Reference::IndexedRef(r) => {
-                                match r.container() {
-                                    Container::Locals(_) => (value.clone(), index),
-                                    // if we come here, the value should be a member of a struct
-                                    // we should return the struct instead of the member
-                                    Container::Struct(_) => {
-                                        (Value::Container(r.container().copy_value()?), r.index())
+                        if !reference.is_global() {
+                            let ref_call_index = reference.call_index();
+                            let index = reference.index();
+                            execution_step.locals_index = index;
+                            execution_step.auxiliary =
+                                Some(Value::u64(ref_call_index as u64, None)?);
+
+                            let (locals_value, locals_index) = match reference.clone() {
+                                Reference::ContainerRef(_) => (value.clone(), index),
+                                Reference::IndexedRef(r) => {
+                                    match r.container() {
+                                        Container::Locals(_) => (value.clone(), index),
+                                        // if we come here, the value should be a member of a struct
+                                        // we should return the struct instead of the member
+                                        Container::Struct(_) => (
+                                            Value::Container(r.container().copy_value()?),
+                                            r.index(),
+                                        ),
                                     }
                                 }
-                            }
-                        };
-                        let locals_op = LocalsOp {
-                            call_index: ref_call_index,
-                            index: locals_index,
-                            value: locals_value,
-                            rw: RW::READ,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                            };
+                            let locals_op = LocalsOp {
+                                call_index: ref_call_index,
+                                index: locals_index,
+                                value: locals_value,
+                                rw: RW::READ,
+                                gc: rw_operations.len(),
+                            };
+                            rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        }
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {
                         let mut reference = interp.stack.pop_as_reference(rw_operations)?;
-                        let ref_call_index = reference.call_index();
-                        let index = reference.index();
                         let value = interp.stack.pop(rw_operations)?;
-                        execution_step.locals_index = index;
-                        execution_step.auxiliary = Some(Value::u64(ref_call_index as u64, None)?);
                         let value_copy = value.clone();
                         reference.write_ref(value)?; // must write ref first, then record local_op
 
-                        let (locals_value, locals_index) = match reference.clone() {
-                            Reference::ContainerRef(_) => (value_copy, index),
-                            Reference::IndexedRef(r) => {
-                                match r.container() {
-                                    Container::Locals(_) => (value_copy, index),
-                                    // if we come here, the value should be a member of a struct
-                                    // we should return the struct instead of the member
-                                    Container::Struct(_) => {
-                                        (Value::Container(r.container().copy_value()?), r.index())
+                        if !reference.is_global() {
+                            let ref_call_index = reference.call_index();
+                            let index = reference.index();
+                            execution_step.locals_index = index;
+                            execution_step.auxiliary =
+                                Some(Value::u64(ref_call_index as u64, None)?);
+
+                            let (locals_value, locals_index) = match reference.clone() {
+                                Reference::ContainerRef(_) => (value_copy, index),
+                                Reference::IndexedRef(r) => {
+                                    match r.container() {
+                                        Container::Locals(_) => (value_copy, index),
+                                        // if we come here, the value should be a member of a struct
+                                        // we should return the struct instead of the member
+                                        Container::Struct(_) => (
+                                            Value::Container(r.container().copy_value()?),
+                                            r.index(),
+                                        ),
                                     }
                                 }
-                            }
-                        };
+                            };
 
-                        let locals_op = LocalsOp {
-                            call_index: ref_call_index,
-                            index: locals_index,
-                            value: locals_value,
-                            rw: RW::WRITE,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::LocalsOp(locals_op));
+                            let locals_op = LocalsOp {
+                                call_index: ref_call_index,
+                                index: locals_index,
+                                value: locals_value,
+                                rw: RW::WRITE,
+                                gc: rw_operations.len(),
+                            };
+                            rw_operations.push(RWOperation::LocalsOp(locals_op));
+                        }
                         Ok(())
                     }
                     Bytecode::FreezeRef => {
@@ -388,6 +398,12 @@ impl<F: FieldExt> Frame<F> {
                             .expect("address should not be None");
                         let ty = resolver.get_struct_type(*sd_idx);
                         interp.move_to(data_store, loader, addr, &ty, resource)
+                    }
+                    Bytecode::ImmBorrowGlobal(sd_idx) | Bytecode::MutBorrowGlobal(sd_idx) => {
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.get_struct_type(*sd_idx);
+                        let value = interp.borrow_global(data_store, loader, addr, &ty)?;
+                        interp.stack.push(value, rw_operations)
                     }
                     _ => unreachable!(),
                 }?;

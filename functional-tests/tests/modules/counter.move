@@ -12,6 +12,16 @@ module Counter {
         exists<Counter>(addr)
     }
 
+    public fun incr(addr: address) acquires Counter {
+        let _counter = borrow_global_mut<Counter>(addr);
+        //counter.value = counter.value + 1;
+    }
+
+    public fun value(addr: address): u64 acquires Counter {
+        let counter = borrow_global<Counter>(addr);
+        counter.value
+    }
+
     public fun delete(account: address) acquires Counter {
         let Counter { value: _ } = move_from<Counter>(account);
     }

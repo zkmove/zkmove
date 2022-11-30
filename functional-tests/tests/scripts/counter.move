@@ -10,6 +10,9 @@ script {
         Counter::init(&account);
         let is_exist = Counter::check(addr);
         assert!(is_exist, 101);
+        Counter::incr(addr);
+//        let value = Counter::value(addr);
+//        assert!(value == 1, 102);
         Counter::delete(addr);
     }
 }

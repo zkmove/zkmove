@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
-use movelang::value::{Container, IndexedLocalsRef, IndexedRef, Reference, Struct, Value};
+use movelang::value::{Container, ContainerRef, IndexedRef, Reference, Struct, StructRef, Value};
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
@@ -146,7 +146,7 @@ impl<F: FieldExt> EvalStack<F> {
     pub fn pop_as_struct_ref(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<IndexedLocalsRef<F>> {
+    ) -> VmResult<StructRef<F>> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -162,8 +162,15 @@ impl<F: FieldExt> EvalStack<F> {
 
             match value {
                 Value::IndexedRef(r) => match r {
-                    IndexedRef::IndexedLocalsRef(r) => Ok(r),
+                    IndexedRef::IndexedLocalsRef(r) => Ok(StructRef::LocalStructRef(r)),
                     _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                },
+                Value::ContainerRef(r) => match r {
+                    ContainerRef::Global(c) => {
+                        Ok(StructRef::GlobalStructRef(ContainerRef::Global(c)))
+                    }
+                    v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                        .with_message(format!("cannot pop {:?} as struct_ref", v))),
                 },
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct_ref", v))),
