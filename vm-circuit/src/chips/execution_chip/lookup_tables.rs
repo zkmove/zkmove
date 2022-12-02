@@ -13,8 +13,9 @@ pub struct RWTable {
     pub call_index_column: Column<Advice>,
     pub address_column: Column<Advice>,
     pub value_column: Column<Advice>,
+    pub sd_index_column: Column<Advice>,
 }
-pub const RW_LOOKUP_TABLE_WIDTH: usize = 6;
+pub const RW_LOOKUP_TABLE_WIDTH: usize = 7;
 
 impl RWTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
@@ -25,6 +26,7 @@ impl RWTable {
             call_index_column: meta.advice_column(),
             address_column: meta.advice_column(),
             value_column: meta.advice_column(),
+            sd_index_column: meta.advice_column(),
         };
 
         // rw_table will be copied to memory chip
@@ -34,6 +36,7 @@ impl RWTable {
         meta.enable_equality(rw_table.call_index_column);
         meta.enable_equality(rw_table.address_column);
         meta.enable_equality(rw_table.value_column);
+        meta.enable_equality(rw_table.sd_index_column);
 
         rw_table
     }
@@ -46,6 +49,7 @@ impl RWTable {
             self.call_index_column,
             self.address_column,
             self.value_column,
+            self.sd_index_column,
         ]
     }
 }
@@ -54,6 +58,7 @@ impl RWTable {
 pub enum RWTarget {
     Stack = 0,
     Locals,
+    Global,
 }
 
 pub struct RWLookup<F: FieldExt> {
@@ -61,8 +66,9 @@ pub struct RWLookup<F: FieldExt> {
     pub rw_target: Expression<F>,  // RWTarget
     pub rw: Expression<F>,         // read or write
     pub call_index: Expression<F>, // always zero for stack op
-    pub address: Expression<F>,    // locals index, or stack address
+    pub address: Expression<F>,    // locals index, stack address, or global account address
     pub value: Expression<F>,
+    pub sd_index: Expression<F>, // struct definition index used by global rw ops
 }
 
 impl<F: FieldExt> RWLookup<F> {
@@ -78,6 +84,7 @@ impl<F: FieldExt> RWLookup<F> {
             call_index: 0.expr(),
             address: stack_size,
             value,
+            sd_index: 0.expr(),
         }
     }
 
@@ -93,6 +100,7 @@ impl<F: FieldExt> RWLookup<F> {
             call_index: 0.expr(),
             address: stack_size - 1.expr(),
             value,
+            sd_index: 0.expr(),
         }
     }
 
@@ -111,6 +119,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index,
                 address: locals_index,
                 value: value.clone(),
+                sd_index: 0.expr(),
             },
             RWLookup {
                 gc: gc + 1.expr(),
@@ -119,6 +128,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index: 0.expr(),
                 address: stack_size,
                 value,
+                sd_index: 0.expr(),
             },
         )
     }
@@ -138,6 +148,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index: call_index.clone(),
                 address: locals_index.clone(),
                 value: value.clone(),
+                sd_index: 0.expr(),
             },
             RWLookup {
                 gc: gc.clone() + 1.expr(),
@@ -146,6 +157,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index,
                 address: locals_index,
                 value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
+                sd_index: 0.expr(),
             },
             RWLookup {
                 gc: gc + 2.expr(),
@@ -154,6 +166,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index: 0.expr(),
                 address: stack_size,
                 value,
+                sd_index: 0.expr(),
             },
         )
     }
@@ -173,6 +186,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index: 0.expr(),
                 address: stack_size - 1.expr(),
                 value: value.clone(),
+                sd_index: 0.expr(),
             },
             RWLookup {
                 gc: gc + 1.expr(),
@@ -181,6 +195,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index,
                 address: locals_index,
                 value,
+                sd_index: 0.expr(),
             },
         )
     }
@@ -201,6 +216,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index,
                 address: locals_index,
                 value,
+                sd_index: 0.expr(),
             },
             RWLookup {
                 gc: gc + 1.expr(),
@@ -209,6 +225,7 @@ impl<F: FieldExt> RWLookup<F> {
                 call_index: 0.expr(),
                 address: stack_size,
                 value: reference_index,
+                sd_index: 0.expr(),
             },
         )
     }
@@ -226,6 +243,7 @@ impl<F: FieldExt> RWLookup<F> {
             call_index,
             address: locals_index,
             value,
+            sd_index: 0.expr(),
         }
     }
 
@@ -242,6 +260,7 @@ impl<F: FieldExt> RWLookup<F> {
             call_index,
             address: locals_index,
             value,
+            sd_index: 0.expr(),
         }
     }
 }

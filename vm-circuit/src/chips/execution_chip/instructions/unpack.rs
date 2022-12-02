@@ -61,6 +61,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
                     call_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - 1.expr() + (i as u64).expr(),
                     value: cells.args[i].expression.clone(),
+                    sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
             ));

@@ -16,6 +16,8 @@ pub struct ConvertedRWOperation<F: FieldExt> {
     pub(crate) call_index: (F, Option<AssignedCell<F, F>>),
     pub(crate) address: (F, Option<AssignedCell<F, F>>),
     pub(crate) value: (Option<F>, Option<AssignedCell<F, F>>),
+    //struct definition index, only used by global ops
+    pub(crate) sd_index: (F, Option<AssignedCell<F, F>>),
 }
 
 impl<F: FieldExt> ConvertedRWOperation<F> {
@@ -27,6 +29,7 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
             call_index: (F::from_u128(0u128), None),
             address: (F::from_u128(0u128), None),
             value: (Some(F::from_u128(0u128)), None),
+            sd_index: (F::from_u128(0u128), None),
         }
     }
     pub fn get_field(&mut self, index: usize) -> VmResult<F> {
@@ -40,6 +43,7 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
                 .value
                 .0
                 .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere)),
+            6 => Ok(self.sd_index.0),
             _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
@@ -67,6 +71,10 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
             }
             5 => {
                 self.value = (self.value.0, cell);
+                Ok(())
+            }
+            6 => {
+                self.sd_index = (self.sd_index.0, cell);
                 Ok(())
             }
             _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
@@ -127,6 +135,7 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
             call_index: (F::from_u128(rw_op.call_index as u128), None),
             address: (F::from_u128(rw_op.index as u128), None),
             value: (value, None),
+            sd_index: (F::from_u128(0), None),
         }
     }
 }
@@ -176,6 +185,59 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
             call_index: (F::from_u128(0), None),
             address: (F::from_u128(rw_op.address as u128), None),
             value: (value, None),
+            sd_index: (F::from_u128(0), None),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GlobalOp<F: FieldExt> {
+    pub address: usize,  // global ops will be sorted by (address, sd_index, gc)
+    pub sd_index: usize, // struct definition index
+    pub gc: usize,
+    pub rw: RW,
+    pub value: Value<F>,
+}
+
+impl<F: FieldExt> GlobalOp<F> {
+    pub fn empty() -> Self {
+        Self {
+            address: 0,
+            sd_index: 0,
+            value: Value::u64(0, None).unwrap(),
+            rw: RW::READ,
+            gc: 0,
+        }
+    }
+}
+
+impl<F: FieldExt> PartialOrd for GlobalOp<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<F: FieldExt> Ord for GlobalOp<F> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (&self.address, &self.sd_index, &self.gc).cmp(&(&other.address, &other.sd_index, &other.gc))
+    }
+}
+
+// convert GlobalOp into a vector of field value
+impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
+    fn from(rw_op: &GlobalOp<F>) -> ConvertedRWOperation<F> {
+        let value = match rw_op.value {
+            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            _ => rw_op.value.value(),
+        };
+        ConvertedRWOperation {
+            gc: (F::from_u128(rw_op.gc as u128), None),
+            rw_target: (F::from_u128(RWTarget::Stack as u128), None),
+            rw: (F::from_u128(rw_op.rw.clone() as u128), None),
+            call_index: (F::from_u128(0), None),
+            address: (F::from_u128(rw_op.address as u128), None),
+            value: (value, None),
+            sd_index: (F::from_u128(0), None),
         }
     }
 }
@@ -184,6 +246,7 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
 pub enum RWOperation<F: FieldExt> {
     LocalsOp(LocalsOp<F>),
     StackOp(StackOp<F>),
+    GlobalOp(GlobalOp<F>),
 }
 
 impl<F: FieldExt> RWOperation<F> {
@@ -195,10 +258,15 @@ impl<F: FieldExt> RWOperation<F> {
         matches!(self, Self::LocalsOp(_))
     }
 
+    pub fn is_global_op(&self) -> bool {
+        matches!(self, Self::GlobalOp(_))
+    }
+
     pub fn gc(&self) -> usize {
         match self {
             Self::StackOp(op) => op.gc,
             Self::LocalsOp(op) => op.gc,
+            Self::GlobalOp(op) => op.gc,
         }
     }
 
@@ -206,6 +274,7 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(_) => RWTarget::Stack,
             Self::LocalsOp(_) => RWTarget::Locals,
+            Self::GlobalOp(_) => RWTarget::Global,
         }
     }
 
@@ -213,6 +282,7 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(op) => op.rw.clone(),
             Self::LocalsOp(op) => op.rw.clone(),
+            Self::GlobalOp(op) => op.rw.clone(),
         }
     }
 
@@ -220,6 +290,7 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(_) => 0,
             Self::LocalsOp(op) => op.call_index,
+            Self::GlobalOp(_) => 0,
         }
     }
 
@@ -227,6 +298,7 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(op) => op.address,
             Self::LocalsOp(op) => op.index,
+            Self::GlobalOp(op) => op.address,
         }
     }
 
@@ -234,6 +306,15 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(op) => op.value.clone(),
             Self::LocalsOp(op) => op.value.clone(),
+            Self::GlobalOp(op) => op.value.clone(),
+        }
+    }
+
+    pub fn sd_index(&self) -> usize {
+        match self {
+            Self::StackOp(_) => 0,
+            Self::LocalsOp(_) => 0,
+            Self::GlobalOp(op) => op.sd_index,
         }
     }
 }
@@ -252,6 +333,7 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             call_index: (F::from_u128(rw_op.call_index() as u128), None),
             address: (F::from_u128(rw_op.address() as u128), None),
             value: (value, None),
+            sd_index: (F::from_u128(rw_op.sd_index() as u128), None),
         }
     }
 }
@@ -259,17 +341,28 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
 #[derive(Clone, Debug, Default)]
 pub struct RWOperations<F: FieldExt>(pub Vec<RWOperation<F>>);
 
-impl<F: FieldExt> From<RWOperations<F>> for (SortedStackOps<F>, SortedLocalsOps<F>) {
-    fn from(rw_operations: RWOperations<F>) -> (SortedStackOps<F>, SortedLocalsOps<F>) {
+impl<F: FieldExt> From<RWOperations<F>>
+    for (SortedStackOps<F>, SortedLocalsOps<F>, SortedGlobalOps<F>)
+{
+    fn from(
+        rw_operations: RWOperations<F>,
+    ) -> (SortedStackOps<F>, SortedLocalsOps<F>, SortedGlobalOps<F>) {
         let mut stack_ops = Vec::new();
         let mut locals_ops = Vec::new();
+        let mut global_ops = Vec::new();
         rw_operations.0.into_iter().for_each(|op| match op {
             RWOperation::StackOp(stack_op) => stack_ops.push(stack_op),
             RWOperation::LocalsOp(locals_op) => locals_ops.push(locals_op),
+            RWOperation::GlobalOp(global_op) => global_ops.push(global_op),
         });
         stack_ops.sort();
         locals_ops.sort();
-        (SortedStackOps(stack_ops), SortedLocalsOps(locals_ops))
+        global_ops.sort();
+        (
+            SortedStackOps(stack_ops),
+            SortedLocalsOps(locals_ops),
+            SortedGlobalOps(global_ops),
+        )
     }
 }
 
@@ -289,6 +382,16 @@ pub struct SortedLocalsOps<F: FieldExt>(pub Vec<LocalsOp<F>>);
 // convert SortedLocalsOps into field values
 impl<F: FieldExt> From<&SortedLocalsOps<F>> for Vec<ConvertedRWOperation<F>> {
     fn from(rw_ops: &SortedLocalsOps<F>) -> Vec<ConvertedRWOperation<F>> {
+        rw_ops.0.iter().map(|op| op.into()).collect()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SortedGlobalOps<F: FieldExt>(pub Vec<GlobalOp<F>>);
+
+// convert SortedGlobalOps into field values
+impl<F: FieldExt> From<&SortedGlobalOps<F>> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedGlobalOps<F>) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }

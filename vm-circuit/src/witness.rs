@@ -21,6 +21,7 @@ pub struct CircuitConfig {
     pub steps_num: Option<usize>,
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
+    pub global_ops_num: Option<usize>,
     pub max_call_index: usize,
     pub max_locals_size: usize,
 }
@@ -31,6 +32,7 @@ impl Default for CircuitConfig {
             steps_num: None,
             stack_ops_num: None,
             locals_ops_num: None,
+            global_ops_num: None,
             max_call_index: DEFAULT_MAX_CALL_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
         }
@@ -50,6 +52,11 @@ impl CircuitConfig {
 
     pub fn locals_ops_num(mut self, locals_ops_num: Option<usize>) -> Self {
         self.locals_ops_num = locals_ops_num;
+        self
+    }
+
+    pub fn global_ops_num(mut self, global_ops_num: Option<usize>) -> Self {
+        self.global_ops_num = global_ops_num;
         self
     }
 
@@ -131,7 +138,8 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;
-        let (sorted_stack_ops, sorted_locals_ops) = self.rw_operations.clone().into();
+        let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
+            self.rw_operations.clone().into();
         writeln!(f, "Sorted stack operations:")?;
         sorted_stack_ops.0.iter().for_each(|op| {
             writeln!(f, "{:?}", op).unwrap();
@@ -139,6 +147,11 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Sorted locals operations:")?;
         sorted_locals_ops.0.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Sorted global operations:")?;
+        sorted_global_ops.0.iter().for_each(|op| {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;
