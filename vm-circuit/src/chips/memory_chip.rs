@@ -128,7 +128,6 @@ impl<F: FieldExt> MemoryChip<F> {
         locals_ops: Vec<ConvertedRWOperation<F>>,
         global_ops: Vec<ConvertedRWOperation<F>>,
     ) -> Result<(), Error> {
-
         let stack_ops_num = match self.witness.circuit_config.stack_ops_num {
             Some(num) => num,
             None => 0,
@@ -241,40 +240,40 @@ impl<F: FieldExt> MemoryChip<F> {
 
                     // If the number of locals ops is less than locals_ops_num set by user, fill with
                     // empty locals op.
-                        if locals_ops.len() < locals_ops_num {
-                            for index in locals_ops.len()..locals_ops_num {
-                                let assigned_counter = if index == 0 {
-                                    locals_op_chip
-                                        .config
-                                        .s_first_locals_op
-                                        .enable(&mut region, index)?;
-                                    locals_op_chip.assign(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        None,
-                                        true,
-                                    )?
-                                } else {
-                                    locals_op_chip
-                                        .config
-                                        .s_locals_op
-                                        .enable(&mut region, index)?;
-                                    locals_op_chip.assign(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        prev_op,
-                                        true,
-                                    )?
-                                };
+                    if locals_ops.len() < locals_ops_num {
+                        for index in locals_ops.len()..locals_ops_num {
+                            let assigned_counter = if index == 0 {
+                                locals_op_chip
+                                    .config
+                                    .s_first_locals_op
+                                    .enable(&mut region, index)?;
+                                locals_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &ConvertedRWOperation::empty(),
+                                    counter,
+                                    None,
+                                    true,
+                                )?
+                            } else {
+                                locals_op_chip
+                                    .config
+                                    .s_locals_op
+                                    .enable(&mut region, index)?;
+                                locals_op_chip.assign(
+                                    &mut region,
+                                    index,
+                                    &ConvertedRWOperation::empty(),
+                                    counter,
+                                    prev_op,
+                                    true,
+                                )?
+                            };
 
-                                last_locals_counter = Some(assigned_counter);
-                                prev_op = Some(ConvertedRWOperation::empty());
-                            }
+                            last_locals_counter = Some(assigned_counter);
+                            prev_op = Some(ConvertedRWOperation::empty());
                         }
+                    }
 
                     Ok(())
                 },

@@ -263,6 +263,40 @@ impl<F: FieldExt> RWLookup<F> {
             sd_index: 0.expr(),
         }
     }
+
+    pub fn global_move_to(
+        gc: Expression<F>,
+        address: Expression<F>,
+        value: Expression<F>,
+        sd_index: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc,
+            rw_target: (RWTarget::Global as u64).expr(),
+            rw: (RW::WRITE as u64).expr(),
+            call_index: 0.expr(),
+            address,
+            value,
+            sd_index,
+        }
+    }
+
+    pub fn global_move_from(
+        gc: Expression<F>,
+        address: Expression<F>,
+        value: Expression<F>,
+        sd_index: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc,
+            rw_target: (RWTarget::Global as u64).expr(),
+            rw: (RW::READ as u64).expr(),
+            call_index: 0.expr(),
+            address,
+            value,
+            sd_index,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

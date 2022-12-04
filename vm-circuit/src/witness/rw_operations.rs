@@ -4,11 +4,12 @@ use crate::chips::execution_chip::lookup_tables::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
+use movelang::account_address::AccountAddress;
 use movelang::value::Value;
 use std::cmp::Ordering;
 use std::convert::From;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConvertedRWOperation<F: FieldExt> {
     pub(crate) gc: (F, Option<AssignedCell<F, F>>),
     pub(crate) rw_target: (F, Option<AssignedCell<F, F>>),
@@ -192,8 +193,8 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GlobalOp<F: FieldExt> {
-    pub address: usize,  // global ops will be sorted by (address, sd_index, gc)
-    pub sd_index: usize, // struct definition index
+    pub address: AccountAddress<F>, // global ops will be sorted by (address, sd_index, gc)
+    pub sd_index: usize,            // struct definition index
     pub gc: usize,
     pub rw: RW,
     pub value: Value<F>,
@@ -202,7 +203,7 @@ pub struct GlobalOp<F: FieldExt> {
 impl<F: FieldExt> GlobalOp<F> {
     pub fn empty() -> Self {
         Self {
-            address: 0,
+            address: AccountAddress::zero(),
             sd_index: 0,
             value: Value::u64(0, None).unwrap(),
             rw: RW::READ,
@@ -232,10 +233,10 @@ impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
-            rw_target: (F::from_u128(RWTarget::Stack as u128), None),
+            rw_target: (F::from_u128(RWTarget::Global as u128), None),
             rw: (F::from_u128(rw_op.rw.clone() as u128), None),
             call_index: (F::from_u128(0), None),
-            address: (F::from_u128(rw_op.address as u128), None),
+            address: (rw_op.address.value(), None),
             value: (value, None),
             sd_index: (F::from_u128(0), None),
         }
@@ -294,14 +295,6 @@ impl<F: FieldExt> RWOperation<F> {
         }
     }
 
-    pub fn address(&self) -> usize {
-        match self {
-            Self::StackOp(op) => op.address,
-            Self::LocalsOp(op) => op.index,
-            Self::GlobalOp(op) => op.address,
-        }
-    }
-
     pub fn value(&self) -> Value<F> {
         match self {
             Self::StackOp(op) => op.value.clone(),
@@ -317,6 +310,14 @@ impl<F: FieldExt> RWOperation<F> {
             Self::GlobalOp(op) => op.sd_index,
         }
     }
+
+    pub fn account_address(&self) -> AccountAddress<F> {
+        match self {
+            Self::StackOp(_) => unimplemented!(),
+            Self::LocalsOp(_) => unimplemented!(),
+            Self::GlobalOp(op) => op.address.clone(),
+        }
+    }
 }
 
 // convert RWOperation into a vector of field value
@@ -326,12 +327,19 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             _ => rw_op.value().value(),
         };
+
+        let address_value = match rw_op {
+            RWOperation::StackOp(op) => F::from_u128(op.address as u128),
+            RWOperation::LocalsOp(op) => F::from_u128(op.index as u128),
+            RWOperation::GlobalOp(op) => op.address.value(),
+        };
+
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc() as u128), None),
             rw_target: (F::from_u128(rw_op.rw_target() as u128), None),
             rw: (F::from_u128(rw_op.rw() as u128), None),
             call_index: (F::from_u128(rw_op.call_index() as u128), None),
-            address: (F::from_u128(rw_op.address() as u128), None),
+            address: (address_value, None),
             value: (value, None),
             sd_index: (F::from_u128(rw_op.sd_index() as u128), None),
         }
