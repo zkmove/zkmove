@@ -128,23 +128,14 @@ impl<F: FieldExt> MemoryChip<F> {
         locals_ops: Vec<ConvertedRWOperation<F>>,
         global_ops: Vec<ConvertedRWOperation<F>>,
     ) -> Result<(), Error> {
-        let stack_ops_num = match self.witness.circuit_config.stack_ops_num {
-            Some(num) => num,
-            None => 0,
-        };
-        let locals_ops_num = match self.witness.circuit_config.locals_ops_num {
-            Some(num) => num,
-            None => 0,
-        };
-        let global_ops_num = match self.witness.circuit_config.global_ops_num {
-            Some(num) => num,
-            None => 0,
-        };
+        let stack_ops_num = self.witness.circuit_config.stack_ops_num.unwrap_or(0);
+        let locals_ops_num = self.witness.circuit_config.locals_ops_num.unwrap_or(0);
+        let global_ops_num = self.witness.circuit_config.global_ops_num.unwrap_or(0);
 
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
         let mut last_stack_counter: Option<AssignedCell<F, F>> = None;
 
-        if stack_ops.len() > 0 || stack_ops_num > 0 {
+        if !stack_ops.is_empty() || stack_ops_num > 0 {
             layouter.assign_region(
                 || "stack operations",
                 |mut region: Region<'_, F>| {
@@ -204,7 +195,7 @@ impl<F: FieldExt> MemoryChip<F> {
         let locals_op_chip = LocalsOpChip::<F>::construct(self.config.locals_op_config.clone(), ());
         let mut last_locals_counter: Option<AssignedCell<F, F>> = None;
 
-        if locals_ops.len() > 0 || locals_ops_num > 0 {
+        if !locals_ops.is_empty() || locals_ops_num > 0 {
             layouter.assign_region(
                 || "locals operations",
                 |mut region: Region<'_, F>| {
@@ -283,7 +274,7 @@ impl<F: FieldExt> MemoryChip<F> {
         let global_op_chip = GlobalOpChip::<F>::construct(self.config.global_op_config.clone(), ());
         let mut last_global_counter: Option<AssignedCell<F, F>> = None;
 
-        if global_ops.len() > 0 || global_ops_num > 0 {
+        if !global_ops.is_empty() || global_ops_num > 0 {
             layouter.assign_region(
                 || "global operations",
                 |mut region: Region<'_, F>| {

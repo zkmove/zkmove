@@ -387,7 +387,7 @@ impl<F: FieldExt> Frame<F> {
                         let value = interp.move_from(data_store, loader, addr, &ty)?;
 
                         let global_op = GlobalOp {
-                            address: addr.clone(),
+                            address: addr,
                             sd_index: sd_idx.0 as usize,
                             value: value.clone(),
                             rw: RW::READ,
@@ -409,7 +409,7 @@ impl<F: FieldExt> Frame<F> {
                         let ty = resolver.get_struct_type(*sd_idx);
 
                         let global_op = GlobalOp {
-                            address: addr.clone(),
+                            address: addr,
                             sd_index: sd_idx.0 as usize,
                             value: resource.clone(),
                             rw: RW::WRITE,

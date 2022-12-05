@@ -315,7 +315,7 @@ impl<F: FieldExt> RWOperation<F> {
         match self {
             Self::StackOp(_) => unimplemented!(),
             Self::LocalsOp(_) => unimplemented!(),
-            Self::GlobalOp(op) => op.address.clone(),
+            Self::GlobalOp(op) => op.address,
         }
     }
 }
