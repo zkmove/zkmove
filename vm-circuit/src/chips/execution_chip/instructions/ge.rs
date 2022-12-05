@@ -60,13 +60,13 @@ impl<F: FieldExt> Instructions<F> for Ge<F> {
     ) -> Result<(), Error> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)?;
 
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
 
         let diff = aux_value.value().ok_or_else(|| {
-            error!("auxiliary value is None");
+            error!("auxiliary_1 value is None");
             Error::Synthesis
         })?;
 

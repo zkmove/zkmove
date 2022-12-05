@@ -27,12 +27,12 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
     ) {
         let cond = cells.conditions[Opcode::BrTrue.index()].expression.clone();
 
-        // branch target is assigned in the auxiliary, condition is popped form stack as value_a
-        let aux = cells.auxiliary.expression.clone();
+        // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
+        let aux = cells.auxiliary_1.expression.clone();
         let value_a = cells.value_a.expression.clone();
         let pc = cells.pc.expression.clone();
         let next_pc = cells.next_pc.expression.clone();
-        // auxiliary * value_a + (pc + 1) * (1 - value_a) - next_pc = 0
+        // auxiliary_1 * value_a + (pc + 1) * (1 - value_a) - next_pc = 0
         let pc_expr = aux * value_a.clone() + (pc + 1.expr()) * (1.expr() - value_a) - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -61,7 +61,7 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::BrTrue,
-            cells.auxiliary.expression.clone(),
+            cells.auxiliary_1.expression.clone(),
             bytecode_lookups,
             cond,
         );
@@ -74,12 +74,14 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // assign next_pc into the auxiliary
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        // assign next_pc into the auxiliary_1
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);

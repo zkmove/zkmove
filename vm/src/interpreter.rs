@@ -139,7 +139,9 @@ impl<F: FieldExt> Interpreter<F> {
                             gc: last.gc,
                             module_index: last.module_index,
                             function_index: last.function_index,
-                            auxiliary: last.auxiliary.clone(),
+                            auxiliary_1: last.auxiliary_1.clone(),
+                            auxiliary_2: last.auxiliary_2.clone(),
+                            auxiliary_3: last.auxiliary_3.clone(),
                         };
                         exec_steps.push(stop);
                         return Ok(());
@@ -148,7 +150,7 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Call(index, mut execution_step) => {
                     let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
-                    execution_step.auxiliary = Some(Value::u64(func.arg_count() as u64, None)?);
+                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64, None)?);
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
                     exec_steps.push(execution_step);
@@ -192,7 +194,7 @@ impl<F: FieldExt> Interpreter<F> {
         self.stack.push(result, rw_operations)?;
 
         let aux = fn_aux(left, right)?;
-        step.auxiliary = Some(aux);
+        step.auxiliary_1 = Some(aux);
         Ok(())
     }
 

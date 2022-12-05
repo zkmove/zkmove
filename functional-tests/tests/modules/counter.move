@@ -14,7 +14,7 @@ module Counter {
 
     public fun incr(addr: address) acquires Counter {
         let _counter = borrow_global_mut<Counter>(addr);
-        //counter.value = counter.value + 1;
+//        counter.value = counter.value + 1;
     }
 
     public fun value(addr: address): u64 acquires Counter {

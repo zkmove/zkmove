@@ -26,7 +26,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
     ) {
         //Unpack
         let cond = cells.conditions[Opcode::Unpack.index()].expression.clone();
-        let field_num = cells.auxiliary.expression.clone();
+        let field_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
@@ -78,11 +78,13 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);

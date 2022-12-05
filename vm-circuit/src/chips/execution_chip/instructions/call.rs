@@ -25,7 +25,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
-        let arg_num = cells.auxiliary.expression.clone();
+        let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0
         let pc_expr = cells.next_pc.expression.clone();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -75,11 +75,13 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign arg_num
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         let arg_num = aux_value
             .value()

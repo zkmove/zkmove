@@ -30,7 +30,7 @@ impl<F: FieldExt> Instructions<F> for Eq<F> {
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
-        let delta_invert = cells.auxiliary.expression.clone();
+        let delta_invert = cells.auxiliary_1.expression.clone();
 
         // constrain delta_invert
         let constraint = cond.clone()

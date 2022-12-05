@@ -36,7 +36,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 0,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_1 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -47,7 +49,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 1,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_2 = ExecutionStep::<Fp> {
         opcode: Opcode::Add,
@@ -58,7 +62,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 2,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_3 = ExecutionStep::<Fp> {
         opcode: Opcode::Pop,
@@ -69,7 +75,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 5,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_4 = ExecutionStep::<Fp> {
         opcode: Opcode::Ret,
@@ -80,7 +88,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 6,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_5 = ExecutionStep::<Fp> {
         opcode: Opcode::Stop,
@@ -91,7 +101,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 6,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
@@ -181,7 +193,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 0,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_1 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -192,7 +206,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 1,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_2 = ExecutionStep::<Fp> {
         opcode: Opcode::Add,
@@ -203,7 +219,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 2,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_3 = ExecutionStep::<Fp> {
         opcode: Opcode::Pop,
@@ -214,7 +232,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 5,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_4 = ExecutionStep::<Fp> {
         opcode: Opcode::Ret,
@@ -225,7 +245,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 6,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
     let step_5 = ExecutionStep::<Fp> {
         opcode: Opcode::Stop,
@@ -236,7 +258,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         gc: 6,
         module_index: 0,
         function_index: 0,
-        auxiliary: None,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];

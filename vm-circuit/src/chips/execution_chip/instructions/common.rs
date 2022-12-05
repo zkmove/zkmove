@@ -97,11 +97,13 @@ impl<F: FieldExt> BinaryOp<F> {
     ) -> Result<(), Error> {
         Self::assign_binary_op(region, offset, step, rw_operations, cells)?;
 
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         Ok(())
     }

@@ -80,7 +80,9 @@ impl<F: FieldExt> Frame<F> {
                     gc: rw_operations.len(),
                     module_index,
                     function_index,
-                    auxiliary: None,
+                    auxiliary_1: None,
+                    auxiliary_2: None,
+                    auxiliary_3: None,
                 };
 
                 match instruction {
@@ -174,7 +176,7 @@ impl<F: FieldExt> Frame<F> {
                             let ref_call_index = reference.call_index();
                             let index = reference.index();
                             execution_step.locals_index = index;
-                            execution_step.auxiliary =
+                            execution_step.auxiliary_1 =
                                 Some(Value::u64(ref_call_index as u64, None)?);
 
                             let (locals_value, locals_index) = match reference.clone() {
@@ -212,7 +214,7 @@ impl<F: FieldExt> Frame<F> {
                             let ref_call_index = reference.call_index();
                             let index = reference.index();
                             execution_step.locals_index = index;
-                            execution_step.auxiliary =
+                            execution_step.auxiliary_1 =
                                 Some(Value::u64(ref_call_index as u64, None)?);
 
                             let (locals_value, locals_index) = match reference.clone() {
@@ -248,7 +250,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
-                        execution_step.auxiliary = Some(Value::u64(fh_idx.0 as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64, None)?);
                         let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
                         let field_offset = resolver.field_offset(*fh_idx);
                         let field_ref = reference.borrow_element(field_offset)?;
@@ -265,7 +267,7 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
-                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64, None)?);
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
@@ -280,7 +282,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
-                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64, None)?);
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
@@ -295,7 +297,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Branch(offset) => {
-                        execution_step.auxiliary = Some(Value::u64(*offset as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64, None)?);
                         trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
                         interp.step += 1;
@@ -360,7 +362,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
                     Bytecode::Pack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
-                        execution_step.auxiliary = Some(Value::u64(field_count as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64, None)?);
                         let args = interp.stack.popn(field_count, rw_operations)?;
                         interp
                             .stack
@@ -368,7 +370,7 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
-                        execution_step.auxiliary = Some(Value::u64(field_count as u64, None)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64, None)?);
                         let struct_ = interp.stack.pop_as_struct(rw_operations)?;
                         for value in struct_.unpack()? {
                             interp.stack.push(value, rw_operations)?;

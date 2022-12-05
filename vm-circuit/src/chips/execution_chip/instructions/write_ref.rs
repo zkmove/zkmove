@@ -61,7 +61,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         ));
         let write = RWLookup::locals_write_ref(
             cells.gc.expression.clone() + 2.expr(),
-            cells.auxiliary.expression.clone(), // call_index of indexed ref
+            cells.auxiliary_1.expression.clone(), // call_index of indexed ref
             cells.locals_index.expression.clone(),
             cells.value_c.expression.clone(),
         );
@@ -88,11 +88,13 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         cells.value_c.assign(region, offset, op.value().value())?;
 
         // assign the call_index of the frame we refer to
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         Ok(())
     }
