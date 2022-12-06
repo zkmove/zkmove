@@ -54,6 +54,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                     address: cells.stack_size.expression.clone() - field_num.clone()
                         + (i as u64).expr(),
                     value: cells.args[i].expression.clone(),
+                    sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
             ));

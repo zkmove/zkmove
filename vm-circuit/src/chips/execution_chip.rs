@@ -67,6 +67,7 @@ impl<F: FieldExt> ExecutionChip<F> {
     }
 
     // return assigned cells for 1.last_step_gc, 2.sorted_stack_ops, 3.sorted_locals_ops
+    // 4. sorted_global_ops
     #[allow(clippy::type_complexity)]
     pub fn assign(
         &self,
@@ -74,6 +75,7 @@ impl<F: FieldExt> ExecutionChip<F> {
     ) -> Result<
         (
             Option<AssignedCell<F, F>>,
+            Vec<ConvertedRWOperation<F>>,
             Vec<ConvertedRWOperation<F>>,
             Vec<ConvertedRWOperation<F>>,
         ),
@@ -98,9 +100,11 @@ impl<F: FieldExt> ExecutionChip<F> {
         )?;
         let last_step_gc_cell = gc_cell;
 
-        let (sorted_stack_ops, sorted_locals_ops) = self.witness.rw_operations.clone().into();
+        let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
+            self.witness.rw_operations.clone().into();
         let mut stack_operations: Vec<ConvertedRWOperation<F>> = (&sorted_stack_ops).into();
         let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
+        let mut global_operations: Vec<ConvertedRWOperation<F>> = (&sorted_global_ops).into();
 
         for (column_idx, column) in self.config.rw_table.columns().into_iter().enumerate() {
             layouter.assign_region(
@@ -161,6 +165,35 @@ impl<F: FieldExt> ExecutionChip<F> {
                             op.assign_cell(column_idx, Some(cell)).map_err(|e| {
                                 error!("assign cell failed: {:?}", e);
                                 Error::Synthesis
+                            })
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))?;
+
+                    (0..global_operations.len())
+                        .map(|i| {
+                            let op = global_operations.get_mut(i).ok_or_else(|| {
+                                error!("get rw operation error");
+                                Error::Synthesis
+                            })?;
+                            let field = op.get_field(column_idx).map_err(|e| {
+                                error!("get field failed: {:?}", e);
+                                Error::Synthesis
+                            })?;
+                            let cell = region.assign_advice(
+                                || {
+                                    format!(
+                                        "rw_table[{}][{}]",
+                                        column_idx,
+                                        stack_operations.len() + locals_operations.len() + i
+                                    )
+                                },
+                                column,
+                                stack_operations.len() + locals_operations.len() + i + 1,
+                                || Ok(field),
+                            )?;
+                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
+                                error!("assign cell failed: {:?}", e);
+                                Error::Synthesis
                             })?;
                             Ok(())
                         })
@@ -205,6 +238,11 @@ impl<F: FieldExt> ExecutionChip<F> {
             )?;
         }
 
-        Ok((last_step_gc_cell, stack_operations, locals_operations))
+        Ok((
+            last_step_gc_cell,
+            stack_operations,
+            locals_operations,
+            global_operations,
+        ))
     }
 }

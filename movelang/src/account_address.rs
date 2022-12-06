@@ -14,6 +14,13 @@ impl<F: FieldExt> AccountAddress<F> {
     pub fn value(&self) -> F {
         self.0
     }
+
+    pub fn zero() -> Self {
+        MoveAccountAddress::ZERO.into()
+    }
+    pub fn one() -> Self {
+        MoveAccountAddress::ONE.into()
+    }
 }
 
 impl<F: FieldExt> From<MoveAccountAddress> for AccountAddress<F> {
