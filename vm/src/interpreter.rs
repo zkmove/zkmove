@@ -6,6 +6,7 @@ use crate::stack::{CallStack, EvalStack};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
+use move_binary_format::file_format::StructDefinitionIndex;
 use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
@@ -263,8 +264,9 @@ impl<F: FieldExt> Interpreter<F> {
         loader: &MoveLoader,
         addr: AccountAddress<F>,
         ty: &Type,
+        sd_index: StructDefinitionIndex,
     ) -> VmResult<Value<F>> {
-        Self::load_resource(data_store, loader, addr, ty)?.borrow_global()
+        Self::load_resource(data_store, loader, addr, ty)?.borrow_global(addr, sd_index)
     }
 }
 

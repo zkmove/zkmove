@@ -166,9 +166,9 @@ impl<F: FieldExt> EvalStack<F> {
                     _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
                 },
                 Value::ContainerRef(r) => match r {
-                    ContainerRef::Global(c) => {
-                        Ok(StructRef::GlobalStructRef(ContainerRef::Global(c)))
-                    }
+                    ContainerRef::Global(addr, sd_index, c) => Ok(StructRef::GlobalStructRef(
+                        ContainerRef::Global(addr, sd_index, c),
+                    )),
                     v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                         .with_message(format!("cannot pop {:?} as struct_ref", v))),
                 },

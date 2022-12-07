@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
-pub const NUM_OF_STEP_STATE: usize = 9; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, module_index, func_index
+pub const NUM_OF_STEP_STATE: usize = 10; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
 
@@ -52,6 +52,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub next_function_index: Cell<F>,
     pub next_auxiliary_1: Cell<F>,
     pub next_auxiliary_2: Cell<F>,
+    pub next_auxiliary_3: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -151,6 +152,7 @@ impl<F: FieldExt> StepChip<F> {
             next_function_index: cells.pop_front().unwrap(),
             next_auxiliary_1: cells.pop_front().unwrap(),
             next_auxiliary_2: cells.pop_front().unwrap(),
+            next_auxiliary_3: cells.pop_front().unwrap(),
         };
 
         // enable equality for gc column, because we will copy last gc cell to memory chip.

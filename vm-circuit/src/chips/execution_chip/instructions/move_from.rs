@@ -51,7 +51,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         ));
 
         rw_lookups.push((
-            RWLookup::global_move_from(
+            RWLookup::global_read(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.value_a.expression.clone(), //address
                 cells.value_b.expression.clone(),

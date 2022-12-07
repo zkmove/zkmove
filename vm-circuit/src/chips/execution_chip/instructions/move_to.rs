@@ -59,7 +59,7 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
         ));
 
         rw_lookups.push((
-            RWLookup::global_move_to(
+            RWLookup::global_write(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.value_c.expression.clone(), //address
                 cells.value_a.expression.clone(),

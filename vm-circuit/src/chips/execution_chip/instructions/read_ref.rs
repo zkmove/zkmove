@@ -49,13 +49,23 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cond.clone(),
         ));
 
+        let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
         let read = RWLookup::locals_read_ref(
             cells.gc.expression.clone() + 1.expr(),
-            cells.auxiliary_1.expression.clone(),
+            cells.auxiliary_2.expression.clone(),
             cells.locals_index.expression.clone(),
             cells.value_b.expression.clone(),
         );
-        rw_lookups.push((read, cond.clone()));
+        rw_lookups.push((read, cond.clone() * is_locals));
+
+        let is_global = cells.auxiliary_1.expression.clone();
+        let read = RWLookup::global_read(
+            cells.gc.expression.clone() + 1.expr(),
+            cells.auxiliary_2.expression.clone(), //address
+            cells.value_b.expression.clone(),
+            cells.auxiliary_3.expression.clone(), //sd_index
+        );
+        rw_lookups.push((read, cond.clone() * is_global));
 
         rw_lookups.push((
             RWLookup::stack_push(
@@ -86,15 +96,38 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         debug_assert!(op.rw() == RW::WRITE);
         cells.value_c.assign(region, offset, op.value().value())?;
 
-        // assign the call_index of the frame we refer to
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+        let is_global = step.auxiliary_1.as_ref().ok_or_else(|| {
             error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
         cells
             .auxiliary_1
-            .assign(region, offset, aux_value.value())?;
+            .assign(region, offset, is_global.value())?;
 
+        if is_global.value() == Some(F::zero()) {
+            // assign the call_index of the frame we refer to
+            let aux_value = step.auxiliary_2.as_ref().ok_or_else(|| {
+                error!("auxiliary_2 is None");
+                Error::Synthesis
+            })?;
+            cells
+                .auxiliary_2
+                .assign(region, offset, aux_value.value())?;
+        } else {
+            // assign the account address to auxiliary_2
+            let address = step.auxiliary_2.as_ref().ok_or_else(|| {
+                error!("auxiliary_2 is None");
+                Error::Synthesis
+            })?;
+            cells.auxiliary_2.assign(region, offset, address.value())?;
+
+            // assign the sd_index to auxiliary_3
+            let sd_index = step.auxiliary_3.as_ref().ok_or_else(|| {
+                error!("auxiliary_3 is None");
+                Error::Synthesis
+            })?;
+            cells.auxiliary_3.assign(region, offset, sd_index.value())?;
+        }
         Ok(())
     }
 }

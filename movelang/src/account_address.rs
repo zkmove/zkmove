@@ -21,6 +21,9 @@ impl<F: FieldExt> AccountAddress<F> {
     pub fn one() -> Self {
         MoveAccountAddress::ONE.into()
     }
+    pub fn copy(&self) -> Self {
+        Self(self.value())
+    }
 }
 
 impl<F: FieldExt> From<MoveAccountAddress> for AccountAddress<F> {
