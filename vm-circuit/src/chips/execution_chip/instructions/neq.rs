@@ -32,6 +32,10 @@ impl<F: FieldExt> Instructions<F> for Neq<F> {
         let out = cells.value_c.expression.clone();
         let delta_invert = cells.auxiliary_1.expression.clone();
 
+        // out is 0 or 1
+        let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
+        constraints.push(("out value is bool", constraint));
+
         // constrain delta_invert
         let constraint = cond.clone()
             * (((lhs.clone() - rhs.clone()) * delta_invert.clone() - 1.expr())
@@ -41,8 +45,8 @@ impl<F: FieldExt> Instructions<F> for Neq<F> {
         // if a != b then (a - b) * inverse(a - b) == out
         // if a == b then (a - b) * 1 == out
         let constraint = cond.clone() * ((lhs - rhs) * delta_invert - out);
-
         constraints.push(("Neq", constraint));
+
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
         BinaryOp::lookup_binary_op(cells, rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(cells, Opcode::Neq, 0.expr(), bytecode_lookups, cond);

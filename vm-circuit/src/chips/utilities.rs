@@ -98,6 +98,18 @@ impl<F: FieldExt> Expr<F> for FieldBytes<F> {
     }
 }
 
+impl<F: FieldExt> FieldBytes<F> {
+    pub fn expr_with_n(&self, num: usize) -> Expression<F> {
+        let mut value = 0.expr();
+        let mut multiplier = F::one();
+        for byte in self.0.iter().take(num) {
+            value = value + byte.expression.clone() * multiplier;
+            multiplier *= F::from(256);
+        }
+        value
+    }
+}
+
 pub(crate) trait SubInvert<F: FieldExt> {
     fn sub_invert(&self, other: usize) -> Option<F>;
 }

@@ -10,6 +10,8 @@ use move_binary_format::file_format::StructDefinitionIndex;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 
 #[derive(Clone, Debug)]
@@ -850,8 +852,23 @@ impl<F: FieldExt> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
+        // implement add based on checked_add API to check arithmetic overflow
+        // let value = self.value().and_then(|a| b.value().map(|b| a + b));
         // todo: handle type mismatch
-        let value = self.value().and_then(|a| b.value().map(|b| a + b));
+        let lhs = self.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128();
+        let value = match (self.ty(), b.ty()) {
+            (MoveValueType::U8, MoveValueType::U8) => Some(F::from_u128(
+                u8::checked_add(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U64, MoveValueType::U64) => Some(F::from_u128(
+                u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U128, MoveValueType::U128) => Some(F::from_u128(
+                u128::checked_add(lhs, rhs).expect("arithmetic error found"),
+            )),
+            (_, _) => unimplemented!(),
+        };
         let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
@@ -861,7 +878,23 @@ impl<F: FieldExt> Sub for Value<F> {
     type Output = VmResult<Self>;
 
     fn sub(self, b: Value<F>) -> Self::Output {
-        let value = self.value().and_then(|a| b.value().map(|b| a - b));
+        // implement sub based on checked_sub API to check arithmetic overflow
+        // let value = self.value().and_then(|a| b.value().map(|b| a - b));
+        // todo: handle type mismatch
+        let lhs = self.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128();
+        let value = match (self.ty(), b.ty()) {
+            (MoveValueType::U8, MoveValueType::U8) => Some(F::from_u128(
+                u8::checked_sub(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U64, MoveValueType::U64) => Some(F::from_u128(
+                u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U128, MoveValueType::U128) => Some(F::from_u128(
+                u128::checked_sub(lhs, rhs).expect("arithmetic error found"),
+            )),
+            (_, _) => unimplemented!(),
+        };
         let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
@@ -871,7 +904,23 @@ impl<F: FieldExt> Mul for Value<F> {
     type Output = VmResult<Self>;
 
     fn mul(self, b: Value<F>) -> Self::Output {
-        let value = self.value().and_then(|a| b.value().map(|b| a * b));
+        // implement mul based on checked_mul API to check arithmetic overflow
+        // let value = self.value().and_then(|a| b.value().map(|b| a * b));
+        // todo: handle type mismatch
+        let lhs = self.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128();
+        let value = match (self.ty(), b.ty()) {
+            (MoveValueType::U8, MoveValueType::U8) => Some(F::from_u128(
+                u8::checked_mul(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U64, MoveValueType::U64) => Some(F::from_u128(
+                u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
+            )),
+            (MoveValueType::U128, MoveValueType::U128) => Some(F::from_u128(
+                u128::checked_mul(lhs, rhs).expect("arithmetic error found"),
+            )),
+            (_, _) => unimplemented!(),
+        };
         let c = Value::new_variable(value, None, self.ty())?;
         Ok(c)
     }
