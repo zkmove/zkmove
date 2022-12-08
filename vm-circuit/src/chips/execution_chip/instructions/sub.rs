@@ -41,7 +41,7 @@ impl<F: FieldExt> Instructions<F> for Sub<F> {
         // if bytes_len = NUM_OF_BYTES_U8, then bytes_1 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
-        let num_of_bytes = cells.auxiliary.expression.clone();
+        let num_of_bytes = cells.auxiliary_1.expression.clone();
         let constraint = cond.clone()
             * (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr() + bytes_1 - out.clone())
             * (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr() + bytes_8 - out.clone())
@@ -87,7 +87,7 @@ impl<F: FieldExt> Instructions<F> for Sub<F> {
             _ => unimplemented!(),
         };
         cells
-            .auxiliary
+            .auxiliary_1
             .assign(region, offset, Some(F::from_u128(num_of_bytes)))?;
 
         Ok(())
