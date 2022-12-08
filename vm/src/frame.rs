@@ -455,6 +455,18 @@ impl<F: FieldExt> Frame<F> {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;
                         let ty = resolver.get_struct_type(*sd_idx);
                         let value = interp.borrow_global(data_store, loader, addr, &ty, *sd_idx)?;
+
+                        let global_value =
+                            value.copy_value()?.as_reference()?.copy_global_value()?;
+                        let global_op = GlobalOp {
+                            address: addr,
+                            sd_index: sd_idx.0 as usize,
+                            value: global_value,
+                            rw: RW::READ,
+                            gc: rw_operations.len(),
+                        };
+                        rw_operations.push(RWOperation::GlobalOp(global_op));
+
                         interp.stack.push(value, rw_operations)
                     }
                     _ => unreachable!(),

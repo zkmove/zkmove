@@ -178,8 +178,8 @@ impl<F: FieldExt> ContainerRef<F> {
         if self.is_global() {
             self.read_ref()
         } else {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("The value doesn't contain global value".to_string()));
+            Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("The value doesn't contain global value".to_string()))
         }
     }
 }
@@ -455,8 +455,8 @@ impl<F: FieldExt> IndexedRef<F> {
         if self.is_global() {
             self.container_ref().read_ref()
         } else {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("The value doesn't contain global value".to_string()));
+            Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("The value doesn't contain global value".to_string()))
         }
     }
 }
