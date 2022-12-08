@@ -6,6 +6,7 @@ use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
+use move_binary_format::file_format::StructDefinitionIndex;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
@@ -105,14 +106,14 @@ impl<F: FieldExt> Container<F> {
 #[derive(Clone, Debug)]
 pub enum ContainerRef<F: FieldExt> {
     Local(Container<F>),
-    Global(Container<F>),
+    Global(AccountAddress<F>, StructDefinitionIndex, Container<F>),
 }
 
 impl<F: FieldExt> ContainerRef<F> {
     fn container(&self) -> &Container<F> {
         match self {
             Self::Local(container) => container,
-            Self::Global(container) => container,
+            Self::Global(_, _, container) => container,
         }
     }
 
@@ -140,7 +141,7 @@ impl<F: FieldExt> ContainerRef<F> {
                     Value::Container(container) => {
                         let r = match self {
                             Self::Local(_) => Self::Local(container.copy_by_ref()),
-                            Self::Global(_) => unimplemented!(),
+                            Self::Global(_, _, _) => unimplemented!(),
                         };
                         Value::ContainerRef(r)
                     }
@@ -158,12 +159,30 @@ impl<F: FieldExt> ContainerRef<F> {
     fn copy_value(&self) -> Self {
         match self {
             Self::Local(container) => Self::Local(container.copy_by_ref()),
-            Self::Global(container) => Self::Global(container.copy_by_ref()),
+            Self::Global(address, sd_index, container) => {
+                Self::Global(address.copy(), *sd_index, container.copy_by_ref())
+            }
         }
     }
 
     fn is_global(&self) -> bool {
-        matches!(self, Self::Global(_)) // container holds global value
+        matches!(self, Self::Global(_, _, _)) // container holds global value
+    }
+
+    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+        match self {
+            Self::Local(_) => unimplemented!(),
+            Self::Global(address, sd_index, _) => (address.copy(), sd_index),
+        }
+    }
+
+    fn copy_global_value(&self) -> VmResult<Value<F>> {
+        if self.is_global() {
+            self.read_ref()
+        } else {
+            Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("The value doesn't contain global value".to_string()))
+        }
     }
 }
 
@@ -179,8 +198,8 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
     pub fn container(&self) -> &Container<F> {
         self.container_ref.container()
     }
-    pub fn container_ref(self) -> ContainerRef<F> {
-        self.container_ref
+    pub fn container_ref(&self) -> &ContainerRef<F> {
+        &self.container_ref
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
@@ -238,7 +257,7 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
                     Value::Container(container) => {
                         let r = match self.container_ref {
                             ContainerRef::Local(_) => ContainerRef::Local(container.copy_by_ref()),
-                            ContainerRef::Global(_) => unreachable!(),
+                            ContainerRef::Global(_, _, _) => unreachable!(),
                         };
                         Value::ContainerRef(r)
                     }
@@ -269,8 +288,8 @@ impl<F: FieldExt> IndexedStructRef<F> {
     pub fn container(&self) -> &Container<F> {
         self.container_ref.container()
     }
-    pub fn container_ref(self) -> ContainerRef<F> {
-        self.container_ref
+    pub fn container_ref(&self) -> &ContainerRef<F> {
+        &self.container_ref
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
@@ -327,8 +346,8 @@ impl<F: FieldExt> IndexedGlobalRef<F> {
     pub fn container(&self) -> &Container<F> {
         self.container_ref.container()
     }
-    pub fn container_ref(self) -> ContainerRef<F> {
-        self.container_ref
+    pub fn container_ref(&self) -> &ContainerRef<F> {
+        &self.container_ref
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
@@ -361,6 +380,9 @@ impl<F: FieldExt> IndexedGlobalRef<F> {
             container_ref: self.container_ref.copy_value(),
         }
     }
+    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+        self.container_ref.global_path()
+    }
 }
 
 // A reference pointing to an element in a container.
@@ -379,7 +401,7 @@ impl<F: FieldExt> IndexedRef<F> {
             Self::IndexedGlobalRef(r) => r.container(),
         }
     }
-    pub fn container_ref(self) -> ContainerRef<F> {
+    pub fn container_ref(&self) -> &ContainerRef<F> {
         match self {
             Self::IndexedLocalsRef(r) => r.container_ref(),
             Self::IndexedStructRef(r) => r.container_ref(),
@@ -424,6 +446,21 @@ impl<F: FieldExt> IndexedRef<F> {
     fn is_global(&self) -> bool {
         matches!(self, Self::IndexedGlobalRef(_)) // element of a global value.
     }
+    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+        match self {
+            Self::IndexedLocalsRef(_) => unreachable!(),
+            Self::IndexedStructRef(_) => unreachable!(),
+            Self::IndexedGlobalRef(r) => r.global_path(),
+        }
+    }
+    fn copy_global_value(&self) -> VmResult<Value<F>> {
+        if self.is_global() {
+            self.container_ref().read_ref()
+        } else {
+            Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("The value doesn't contain global value".to_string()))
+        }
+    }
 }
 
 // Reference is used to support read_ref and write_ref.
@@ -463,6 +500,22 @@ impl<F: FieldExt> Reference<F> {
         match self {
             Self::ContainerRef(r) => r.is_global(),
             Self::IndexedRef(r) => r.is_global(),
+        }
+    }
+
+    pub fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+        match self {
+            Self::ContainerRef(r) => r.global_path(),
+            Self::IndexedRef(r) => r.global_path(),
+        }
+    }
+
+    // For a reference pointing to a global value, return the global value
+    // For a reference pointing to an element of a global value, return the global value
+    pub fn copy_global_value(&self) -> VmResult<Value<F>> {
+        match self {
+            Self::ContainerRef(r) => r.copy_global_value(),
+            Self::IndexedRef(r) => r.copy_global_value(),
         }
     }
 }
@@ -593,13 +646,21 @@ impl<F: FieldExt> GlobalValue<F> {
         }
     }
 
-    pub fn borrow_global(&self) -> VmResult<Value<F>> {
+    pub fn borrow_global(
+        &self,
+        address: AccountAddress<F>,
+        sd_index: StructDefinitionIndex,
+    ) -> VmResult<Value<F>> {
         match self {
             Self::None | Self::Deleted => Err(RuntimeError::new(StatusCode::MissingData)),
             Self::Fresh { fields } => Ok(Value::ContainerRef(ContainerRef::Global(
+                address,
+                sd_index,
                 Container::Struct(Rc::clone(fields)),
             ))),
             Self::Cached { fields, status: _ } => Ok(Value::ContainerRef(ContainerRef::Global(
+                address,
+                sd_index,
                 Container::Struct(Rc::clone(fields)),
             ))),
         }

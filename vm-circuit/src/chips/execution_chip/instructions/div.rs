@@ -29,7 +29,7 @@ impl<F: FieldExt> Instructions<F> for Div<F> {
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let quotient = cells.value_c.expression.clone();
-        let remainder = cells.auxiliary.expression.clone();
+        let remainder = cells.auxiliary_1.expression.clone();
         let constraint = cond.clone() * (lhs - rhs * quotient - remainder);
         constraints.push(("Div", constraint));
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());

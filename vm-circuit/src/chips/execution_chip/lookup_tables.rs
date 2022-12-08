@@ -264,7 +264,7 @@ impl<F: FieldExt> RWLookup<F> {
         }
     }
 
-    pub fn global_move_to(
+    pub fn global_write(
         gc: Expression<F>,
         address: Expression<F>,
         value: Expression<F>,
@@ -281,7 +281,7 @@ impl<F: FieldExt> RWLookup<F> {
         }
     }
 
-    pub fn global_move_from(
+    pub fn global_read(
         gc: Expression<F>,
         address: Expression<F>,
         value: Expression<F>,

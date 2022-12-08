@@ -26,7 +26,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
     ) {
         let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
         let call_index = cells.call_index.expression.clone();
-        let inverse = cells.auxiliary.expression.clone();
+        let inverse = cells.auxiliary_1.expression.clone();
 
         // todo:
         // if call_index != 0, the next step will be a normal bytecode, we have
@@ -60,7 +60,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         cells
-            .auxiliary
+            .auxiliary_1
             .assign(region, offset, (step.call_index as usize).sub_invert(0))?;
 
         Ok(())

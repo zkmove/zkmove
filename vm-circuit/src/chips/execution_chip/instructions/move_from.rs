@@ -51,11 +51,11 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         ));
 
         rw_lookups.push((
-            RWLookup::global_move_from(
+            RWLookup::global_read(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.value_a.expression.clone(), //address
                 cells.value_b.expression.clone(),
-                cells.auxiliary.expression.clone(), //sd_index
+                cells.auxiliary_1.expression.clone(), //sd_index
             ),
             cond.clone(),
         ));
@@ -72,7 +72,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::MoveFrom,
-            cells.auxiliary.expression.clone(),
+            cells.auxiliary_1.expression.clone(),
             bytecode_lookups,
             cond,
         );
@@ -93,7 +93,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         debug_assert!(op.rw() == RW::READ);
         cells.value_b.assign(region, offset, op.value().value())?;
         cells
-            .auxiliary
+            .auxiliary_1
             .assign(region, offset, Some(F::from_u128(op.sd_index() as u128)))?;
 
         Ok(())

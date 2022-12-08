@@ -65,7 +65,7 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::ImmBorrowField,
-            cells.auxiliary.expression.clone(),
+            cells.auxiliary_1.expression.clone(),
             bytecode_lookups,
             cond,
         );
@@ -86,11 +86,13 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
         cells.value_c.assign(region, offset, op.value().value())?;
 
         // assign the fh_idx
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
 
         Ok(())
     }

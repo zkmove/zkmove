@@ -30,7 +30,7 @@ impl<F: FieldExt> Instructions<F> for Neq<F> {
         let lhs = cells.value_a.expression.clone();
         let rhs = cells.value_b.expression.clone();
         let out = cells.value_c.expression.clone();
-        let delta_invert = cells.auxiliary.expression.clone();
+        let delta_invert = cells.auxiliary_1.expression.clone();
 
         // out is 0 or 1
         let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());

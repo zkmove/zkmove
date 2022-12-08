@@ -25,8 +25,8 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         let cond = cells.conditions[Opcode::Branch.index()].expression.clone();
-        // next pc is assigned in the auxiliary
-        let pc_expr = cells.auxiliary.expression.clone() - cells.next_pc.expression.clone();
+        // next pc is assigned in the auxiliary_1
+        let pc_expr = cells.auxiliary_1.expression.clone() - cells.next_pc.expression.clone();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let call_index_expr =
@@ -42,7 +42,7 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::Branch,
-            cells.auxiliary.expression.clone(),
+            cells.auxiliary_1.expression.clone(),
             bytecode_lookups,
             cond,
         );
@@ -55,12 +55,14 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         _rw_table: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // assign next_pc into the auxiliary
-        let aux_value = step.auxiliary.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        // assign next_pc into the auxiliary_1
+        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
+            error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells.auxiliary.assign(region, offset, aux_value.value())?;
+        cells
+            .auxiliary_1
+            .assign(region, offset, aux_value.value())?;
         Ok(())
     }
 }

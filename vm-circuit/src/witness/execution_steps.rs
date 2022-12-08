@@ -12,5 +12,7 @@ pub struct ExecutionStep<F: FieldExt> {
     pub gc: usize, // global counter for stack, locals, state accesses
     pub module_index: u16,
     pub function_index: u16,
-    pub auxiliary: Option<Value<F>>,
+    pub auxiliary_1: Option<Value<F>>,
+    pub auxiliary_2: Option<Value<F>>,
+    pub auxiliary_3: Option<Value<F>>,
 }
