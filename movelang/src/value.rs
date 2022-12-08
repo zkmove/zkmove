@@ -9,6 +9,8 @@ use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 
 #[derive(Clone, Debug)]
@@ -816,7 +818,7 @@ impl<F: FieldExt> Sub for Value<F> {
 
     fn sub(self, b: Value<F>) -> Self::Output {
         // implement sub based on checked_sub API to check arithmetic overflow
-        //let value = self.value().and_then(|a| b.value().map(|b| a - b));
+        // let value = self.value().and_then(|a| b.value().map(|b| a - b));
         // todo: handle type mismatch
         let lhs = self.value().unwrap().get_lower_128();
         let rhs = b.value().unwrap().get_lower_128();
