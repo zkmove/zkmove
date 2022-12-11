@@ -393,6 +393,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Pack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64, None)?);
+                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64, None)?);
                         let args = interp.stack.popn(field_count, rw_operations)?;
                         interp
                             .stack
@@ -401,6 +402,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64, None)?);
+                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64, None)?);
                         let struct_ = interp.stack.pop_as_struct(rw_operations)?;
                         for value in struct_.unpack()? {
                             interp.stack.push(value, rw_operations)?;

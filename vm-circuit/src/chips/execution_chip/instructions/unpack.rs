@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -22,7 +23,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
     ) {
         //Unpack
         let cond = cells.conditions[Opcode::Unpack.index()].expression.clone();
@@ -67,7 +68,13 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ));
         }
 
-        // todo lookup bytecode table
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Unpack,
+            cells.auxiliary_2.expression.clone(),
+            bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
@@ -114,6 +121,12 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         for i in field_num..MAX_NUM_OF_ARGUMENTS {
             cells.args_mask[i].assign(region, offset, Some(F::one()))?;
         }
+
+        let sd_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
+            error!("auxiliary_2 is None");
+            Error::Synthesis
+        })?;
+        cells.auxiliary_2.assign(region, offset, sd_idx.value())?;
 
         Ok(())
     }
