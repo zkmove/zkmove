@@ -32,11 +32,15 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
+        let module_index = cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("branch pc", cond.clone() * pc_expr),
             ("branch stack size", cond.clone() * stack_size_expr),
             ("branch call index", cond.clone() * call_index_expr),
             ("branch gc", cond.clone() * gc_expr),
+            ("branch module index", cond.clone() * module_index),
+            ("branch function index", cond.clone() * func_index),
         ]);
 
         LookupBytecode::lookup_bytecode(

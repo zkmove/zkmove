@@ -41,12 +41,16 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+        let module_index = cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
 
         constraints.append(&mut vec![
             ("BrTrue pc", cond.clone() * pc_expr),
             ("BrTrue stack size", cond.clone() * stack_size_expr),
             ("BrTrue call index", cond.clone() * call_index_expr),
             ("BrTrue gc", cond.clone() * gc_expr),
+            ("BrFalse module index", cond.clone() * module_index),
+            ("BrFalse function index", cond.clone() * func_index),
         ]);
 
         rw_lookups.push((
