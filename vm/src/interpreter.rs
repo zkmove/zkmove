@@ -19,6 +19,7 @@ use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RWOperation;
+use vm_circuit::witness::function_calls::FunctionCall;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -113,6 +114,7 @@ impl<F: FieldExt> Interpreter<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
+        func_calls: &mut Vec<FunctionCall>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
@@ -154,10 +156,27 @@ impl<F: FieldExt> Interpreter<F> {
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64, None)?);
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
+                    let module_index = execution_step.module_index;
+                    let function_index = execution_step.function_index;
+                    let pc = execution_step.pc;
                     exec_steps.push(execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func, call_index + 1, rw_operations)?;
+
+                    // record function call
+                    let callee_module_index = callee_frame
+                        .module_index(data_store)
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+                    let callee_function_index = callee_frame.func().index().0;
+                    func_calls.push(FunctionCall {
+                        module_index,
+                        function_index,
+                        pc,
+                        callee_module_index,
+                        callee_function_index,
+                    });
+
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;

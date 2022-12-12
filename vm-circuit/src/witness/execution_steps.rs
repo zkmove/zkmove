@@ -1,3 +1,5 @@
+// Copyright (c) zkMove Authors
+
 use crate::chips::execution_chip::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::Value;
