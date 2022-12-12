@@ -17,7 +17,8 @@ pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 10; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
-pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
+pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
+                                                             //todo: dynamic configure according to the real argument number and struct fields
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -38,8 +39,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
 
-    pub args: Vec<Cell<F>>,
-    pub args_mask: Vec<Cell<F>>,
+    pub args_or_fields: Vec<Cell<F>>,
+    pub args_or_fields_mask: Vec<Cell<F>>,
 
     pub bytes: Vec<Cell<F>>,
 
@@ -101,7 +102,7 @@ impl<F: FieldExt> StepChip<F> {
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
-            + MAX_NUM_OF_ARGUMENTS * 2
+            + MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS * 2
             + NUM_OF_BYTES_U128;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
@@ -138,8 +139,12 @@ impl<F: FieldExt> StepChip<F> {
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
 
-            args: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
-            args_mask: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
+            args_or_fields: cells
+                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+                .collect(),
+            args_or_fields_mask: cells
+                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+                .collect(),
 
             bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
 

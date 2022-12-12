@@ -4,7 +4,9 @@ use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_ARGUMENTS};
+use crate::chips::execution_chip::step_chip::{
+    StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
+};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -45,7 +47,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             ("gc", cond.clone() * gc_expr),
         ]);
 
-        for i in 0..MAX_NUM_OF_ARGUMENTS {
+        for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
             rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
@@ -54,10 +56,10 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                     call_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - field_num.clone()
                         + (i as u64).expr(),
-                    value: cells.args[i].expression.clone(),
+                    value: cells.args_or_fields[i].expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));
         }
         rw_lookups.push((
@@ -101,18 +103,16 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             })?
             .get_lower_128() as usize;
 
-        // todo: We temporarily reuse cells for args here. should be abstracted as a gadget.
-
-        // fixme: field_num may be large than MAX_NUM_OF_ARGUMENTS
+        // fixme: field_num may be large than MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS
         for i in 0..field_num {
             let op = rw_operations.0.get(step.gc + i).ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args[i].assign(region, offset, op.value().value())?;
-            cells.args_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
+            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in field_num..MAX_NUM_OF_ARGUMENTS {
-            cells.args_mask[i].assign(region, offset, Some(F::one()))?;
+        for i in field_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         let op = rw_operations
