@@ -833,7 +833,7 @@ impl<F: FieldExt> Value<F> {
         let val = self.value().unwrap().get_lower_128();
 
         match self {
-            Self::U8(_) => Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8),
+            Self::U8(_) => Ok(self),
             Self::U64(_) => {
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
