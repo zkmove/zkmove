@@ -60,7 +60,8 @@ impl<F: FieldExt> ExecutionChip<F> {
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let call_table = CallLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        let step_config = StepChip::configure(meta, advices, &rw_table, &bytecode_table);
+        let step_config =
+            StepChip::configure(meta, advices, &rw_table, &bytecode_table, &call_table);
 
         ExecutionChipConfig {
             step_config,

@@ -18,7 +18,7 @@ use movelang::value::{GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::function_calls::FunctionCall;
+use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
 use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
@@ -154,6 +154,7 @@ impl<F: FieldExt> Interpreter<F> {
                     let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64, None)?);
+                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64, None)?);
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
                     let module_index = execution_step.module_index;
@@ -165,16 +166,18 @@ impl<F: FieldExt> Interpreter<F> {
                     let callee_frame = self.make_frame(func, call_index + 1, rw_operations)?;
 
                     // record function call
-                    let callee_module_index = callee_frame
+                    let next_module_index = callee_frame
                         .module_index(data_store)
                         .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
-                    let callee_function_index = callee_frame.func().index().0;
+                    let next_function_index = callee_frame.func().index().0;
                     func_calls.push(FunctionCall {
+                        type_: EntryType::CALL,
                         module_index,
                         function_index,
                         pc,
-                        callee_module_index,
-                        callee_function_index,
+                        next_module_index,
+                        next_function_index,
+                        next_pc: 0,
                     });
 
                     callee_frame.print_frame();

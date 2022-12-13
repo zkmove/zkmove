@@ -1,13 +1,17 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup, RWTarget};
+use crate::chips::execution_chip::lookup_tables::{
+    CallLookup, LookupsWithCondition, RWLookup, RWTarget,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{
     StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
 };
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -65,7 +69,28 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             ));
         }
 
-        // todo: lookup Call(index: FunctionHandleIndex) in bytecode table. how to constrain index?
+        // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
+        // must be in the calls table.
+        lookups.call_lookups.push((
+            CallLookup {
+                type_: (EntryType::CALL as u64).expr(),
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                next_module_index: cells.next_module_index.expression.clone(),
+                next_function_index: cells.next_function_index.expression.clone(),
+                next_pc: cells.next_pc.expression.clone(),
+            },
+            cond.clone(),
+        ));
+
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Call,
+            cells.auxiliary_2.expression.clone(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
@@ -105,6 +130,14 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         for i in arg_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
             cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
         }
+
+        let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
+            error!("auxiliary_2 is None");
+            Error::Synthesis
+        })?;
+        cells
+            .auxiliary_2
+            .assign(region, offset, func_handle_idx.value())?;
 
         Ok(())
     }

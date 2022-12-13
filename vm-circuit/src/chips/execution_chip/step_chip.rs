@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::{
-    BytecodeLookupTable, LookupsWithCondition, RWTable,
+    BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
@@ -99,6 +99,7 @@ impl<F: FieldExt> StepChip<F> {
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         rw_table: &RWTable,
         bytecode_table: &BytecodeLookupTable,
+        calls_table: &CallLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
@@ -239,6 +240,39 @@ impl<F: FieldExt> StepChip<F> {
                         s_step * lookup.operand * cond.clone(),
                         bytecode_table.operand_column,
                     ),
+                ]
+            });
+        }
+
+        for (lookup, cond) in lookups.call_lookups {
+            meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.type_ * cond.clone(),
+                        calls_table.type_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.module_index * cond.clone(),
+                        calls_table.module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.function_index * cond.clone(),
+                        calls_table.function_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pc * cond.clone(),
+                        calls_table.pc_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.next_module_index * cond.clone(),
+                        calls_table.callee_module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.next_function_index * cond.clone(),
+                        calls_table.callee_function_index_column,
+                    ),
+                    (s_step * lookup.next_pc * cond, calls_table.next_pc_column),
                 ]
             });
         }

@@ -2,11 +2,12 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+use crate::chips::execution_chip::lookup_tables::{CallLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::{Expr, SubInvert};
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -27,17 +28,13 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
         let call_index = cells.call_index.expression.clone();
         let inverse = cells.auxiliary_1.expression.clone();
 
-        // todo:
-        // if call_index != 0, the next step will be a normal bytecode, we have
-        // call_index * inverse(call_index) == 1
-        // next_pc == ?
-        // let pc_expr = (call_index * inverse - 1.expr()) - (cells.next_pc.expression.clone() - cells.pc.expression.clone() - 1.expr());
-
-        // if call_index == 0, the next step will be 'Nop' or 'Stop', we have
-        // call_index * inverse(call_index) == 0
-        // next_pc == pc
+        // constrain the inverse, if call_index != 0, call_index * inverse(call_index) == 1
         let call_index_expr =
             call_index.clone() * (call_index.clone() * inverse.clone() - 1.expr());
+
+        // if call_index == 0, the next step will be 'Nop' or 'Stop', we have
+        // call_index * inverse(call_index) != 1
+        // next_pc == pc
         let pc_expr = (call_index * inverse - 1.expr())
             * (cells.next_pc.expression.clone() - cells.pc.expression.clone());
 
@@ -48,6 +45,23 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
             ("pc", cond.clone() * pc_expr),
             ("gc", cond.clone() * gc_expr),
         ]);
+
+        // if call_index != 0, the next step will be a normal bytecode,
+        // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
+        // must be in calls table.
+        lookups.call_lookups.push((
+            CallLookup {
+                type_: (EntryType::RET as u64).expr(),
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                next_module_index: cells.next_module_index.expression.clone(),
+                next_function_index: cells.next_function_index.expression.clone(),
+                next_pc: cells.next_pc.expression.clone(),
+            },
+            cond.clone(),
+        ));
+
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::Ret,

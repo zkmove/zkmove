@@ -37,7 +37,7 @@ impl<F: FieldExt> BinaryOp<F> {
             ("call index", cond.clone() * call_index_expr),
             ("gc", cond.clone() * gc_expr),
             ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("function index", cond * func_index),
         ]);
     }
 
@@ -141,7 +141,7 @@ impl<F: FieldExt> UnaryOp<F> {
             ("call index", cond.clone() * call_index_expr),
             ("gc", cond.clone() * gc_expr),
             ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("function index", cond * func_index),
         ]);
     }
 
