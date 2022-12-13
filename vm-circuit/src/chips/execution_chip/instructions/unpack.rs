@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
+use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup, RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{
     StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
@@ -24,8 +24,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         //Unpack
         let cond = cells.conditions[Opcode::Unpack.index()].expression.clone();
@@ -39,8 +38,10 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr =
             cells.gc.expression.clone() - cells.next_gc.expression.clone() + field_num + 1.expr();
-        let module_index = cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index = cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -50,7 +51,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        rw_lookups.push((
+        lookups.rw_lookups.push((
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -60,7 +61,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         ));
 
         for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
-            rw_lookups.push((
+            lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
@@ -78,7 +79,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             cells,
             Opcode::Unpack,
             cells.auxiliary_2.expression.clone(),
-            bytecode_lookups,
+            &mut lookups.bytecode_lookups,
             cond,
         );
     }

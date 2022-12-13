@@ -339,7 +339,6 @@ pub struct BytecodeLookup<F: FieldExt> {
     pub operand: Expression<F>,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct CallLookupTable {
     pub module_index_column: TableColumn,
@@ -378,4 +377,18 @@ pub struct CallLookup<F: FieldExt> {
     pub pc: Expression<F>,
     pub callee_module_index: Expression<F>,
     pub callee_function_index: Expression<F>,
+}
+
+pub struct LookupsWithCondition<F: FieldExt> {
+    pub rw_lookups: Vec<(RWLookup<F>, /*condition*/ Expression<F>)>,
+    pub bytecode_lookups: Vec<(BytecodeLookup<F>, /*condition*/ Expression<F>)>,
+}
+
+impl<F: FieldExt> LookupsWithCondition<F> {
+    pub fn new() -> Self {
+        Self {
+            rw_lookups: Vec::new(),
+            bytecode_lookups: Vec::new(),
+        }
+    }
 }

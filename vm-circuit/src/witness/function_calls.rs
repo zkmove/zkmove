@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::FieldExt;
 
 #[derive(Clone, Debug, Copy)]
 pub struct FunctionCall {
-    pub module_index: u16, //caller's module index
+    pub module_index: u16,   //caller's module index
     pub function_index: u16, //caller's function index
     pub pc: u16,
     pub callee_module_index: u16,

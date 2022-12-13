@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
+use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup, RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{
     StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
@@ -23,8 +23,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
         let arg_num = cells.auxiliary_1.expression.clone();
@@ -56,11 +55,11 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 cells.args_or_fields[i].expression.clone(),
             );
 
-            rw_lookups.push((
+            lookups.rw_lookups.push((
                 read,
                 cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));
-            rw_lookups.push((
+            lookups.rw_lookups.push((
                 write,
                 cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));

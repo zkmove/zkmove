@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::witness::execution_steps::ExecutionStep;
@@ -20,18 +20,17 @@ impl<F: FieldExt> Instructions<F> for LdU8<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         //LdU8
         let cond = cells.conditions[Opcode::LdU8.index()].expression.clone();
         LoadOp::constrain_ld_op(cells, constraints, cond.clone());
-        LoadOp::lookup_ld_op(cells, rw_lookups, cond.clone());
+        LoadOp::lookup_ld_op(cells, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::LdU8,
             cells.value_a.expression.clone(),
-            bytecode_lookups,
+            &mut lookups.bytecode_lookups,
             cond,
         );
     }

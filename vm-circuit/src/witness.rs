@@ -3,17 +3,17 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::function_calls::FunctionCall;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use std::fmt;
-use crate::witness::function_calls::FunctionCall;
 
 pub mod bytecode_table;
 pub mod execution_steps;
-pub mod rw_operations;
 pub mod function_calls;
+pub mod rw_operations;
 
 pub const DEFAULT_MAX_CALL_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;

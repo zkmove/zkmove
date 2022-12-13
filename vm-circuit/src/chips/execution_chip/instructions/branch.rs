@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::witness::execution_steps::ExecutionStep;
@@ -21,8 +21,7 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        _rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Branch.index()].expression.clone();
         // next pc is assigned in the auxiliary_1
@@ -32,8 +31,10 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
-        let module_index = cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index = cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("branch pc", cond.clone() * pc_expr),
             ("branch stack size", cond.clone() * stack_size_expr),
@@ -47,7 +48,7 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
             cells,
             Opcode::Branch,
             cells.auxiliary_1.expression.clone(),
-            bytecode_lookups,
+            &mut lookups.bytecode_lookups,
             cond,
         );
     }

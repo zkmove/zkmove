@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookupTable, RWTable};
+use crate::chips::execution_chip::lookup_tables::{
+    BytecodeLookupTable, LookupsWithCondition, RWTable,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
@@ -165,17 +167,9 @@ impl<F: FieldExt> StepChip<F> {
 
         // config each execution path of the step
         let mut constraints = Vec::new();
-        let mut rw_lookups = Vec::new();
-        let mut bytecode_lookups = Vec::new();
+        let mut lookups = LookupsWithCondition::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        Opcode::iter().for_each(|opcode| {
-            opcode.configure(
-                &cells,
-                &mut constraints,
-                &mut rw_lookups,
-                &mut bytecode_lookups,
-            )
-        });
+        Opcode::iter().for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut lookups));
 
         let s_step = meta.complex_selector();
 
@@ -189,7 +183,7 @@ impl<F: FieldExt> StepChip<F> {
                 .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
 
-        for (lookup, cond) in rw_lookups {
+        for (lookup, cond) in lookups.rw_lookups {
             meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
@@ -221,7 +215,7 @@ impl<F: FieldExt> StepChip<F> {
             });
         }
 
-        for (lookup, cond) in bytecode_lookups {
+        for (lookup, cond) in lookups.bytecode_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![

@@ -18,8 +18,8 @@ use movelang::value::{GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::RWOperation;
 use vm_circuit::witness::function_calls::FunctionCall;
+use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,

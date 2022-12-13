@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -62,8 +62,7 @@ pub trait Instructions<F: FieldExt> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     );
 
     fn assign(

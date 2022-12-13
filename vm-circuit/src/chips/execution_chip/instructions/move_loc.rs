@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::*;
@@ -21,8 +21,7 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::MoveLoc.index()].expression.clone();
 
@@ -33,8 +32,10 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
-        let module_index = cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index = cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -52,14 +53,14 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
             cells.value_a.expression.clone(),
         );
 
-        rw_lookups.push((read, cond.clone()));
-        rw_lookups.push((write_locals, cond.clone()));
-        rw_lookups.push((write_stack, cond.clone()));
+        lookups.rw_lookups.push((read, cond.clone()));
+        lookups.rw_lookups.push((write_locals, cond.clone()));
+        lookups.rw_lookups.push((write_stack, cond.clone()));
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::MoveLoc,
             cells.locals_index.expression.clone(),
-            bytecode_lookups,
+            &mut lookups.bytecode_lookups,
             cond,
         );
     }
