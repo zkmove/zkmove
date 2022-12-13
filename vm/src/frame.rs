@@ -390,6 +390,9 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::And => interp.binary_op(Value::and, rw_operations),
                     Bytecode::Or => interp.binary_op(Value::or, rw_operations),
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
+                    Bytecode::CastU8 => interp.unary_op(Value::castu8, rw_operations),
+                    Bytecode::CastU64 => interp.unary_op(Value::castu64, rw_operations),
+                    Bytecode::CastU128 => interp.unary_op(Value::castu128, rw_operations),
                     Bytecode::Pack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64, None)?);
