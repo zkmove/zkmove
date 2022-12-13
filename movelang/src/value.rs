@@ -828,7 +828,7 @@ impl<F: FieldExt> Value<F> {
     pub fn castu8(self) -> VmResult<Self> {
         if !self.is_integer() {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string()));
+                .with_message("the value can not be cast as u8".to_string()));
         }
         let val = self.value().unwrap().get_lower_128();
 
@@ -852,14 +852,14 @@ impl<F: FieldExt> Value<F> {
                     Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8)
                 }
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 
     pub fn castu64(self) -> VmResult<Self> {
         if !self.is_integer() {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string()));
+                .with_message("the value can not be cast as u64".to_string()));
         }
         let val = self.value().unwrap().get_lower_128();
 
@@ -876,14 +876,14 @@ impl<F: FieldExt> Value<F> {
                     Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U64)
                 }
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 
     pub fn castu128(self) -> VmResult<Self> {
         if !self.is_integer() {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string()));
+                .with_message("the value can not be cast as u128".to_string()));
         }
         let val = self.value().unwrap().get_lower_128();
 
@@ -891,7 +891,7 @@ impl<F: FieldExt> Value<F> {
             Self::U8(_) | Self::U64(_) | Self::U128(_) => {
                 Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U128)
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 
