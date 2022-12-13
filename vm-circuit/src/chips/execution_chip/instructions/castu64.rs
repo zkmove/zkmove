@@ -63,13 +63,6 @@ impl<F: FieldExt> Instructions<F> for CastU64<F> {
             Value::U128(_) => Ok(v_u128),
             _ => Err(Error::Synthesis),
         };
-        // assign auxiliary cell with number of bytes
-        let num_of_bytes = match op.value() {
-            Value::U8(_) => NUM_OF_BYTES_U8 as u128,
-            Value::U64(_) => NUM_OF_BYTES_U64 as u128,
-            Value::U128(_) => NUM_OF_BYTES_U128 as u128,
-            _ => unimplemented!(),
-        };
         for (index, cell) in cells.bytes.iter().enumerate() {
             cell.assign(
                 region,
@@ -79,6 +72,12 @@ impl<F: FieldExt> Instructions<F> for CastU64<F> {
         }
 
         // assign auxiliary cell with number of bytes
+        let num_of_bytes = match op.value() {
+            Value::U8(_) => NUM_OF_BYTES_U8 as u128,
+            Value::U64(_) => NUM_OF_BYTES_U64 as u128,
+            Value::U128(_) => NUM_OF_BYTES_U128 as u128,
+            _ => unimplemented!(),
+        };
         cells
             .auxiliary_1
             .assign(region, offset, Some(F::from_u128(num_of_bytes)))?;
