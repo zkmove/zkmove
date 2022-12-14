@@ -1,11 +1,17 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup, RWTarget};
+use crate::chips::execution_chip::lookup_tables::{
+    CallLookup, LookupsWithCondition, RWLookup, RWTarget,
+};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_ARGUMENTS};
+use crate::chips::execution_chip::step_chip::{
+    StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
+};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
@@ -21,8 +27,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
         let arg_num = cells.auxiliary_1.expression.clone();
@@ -45,26 +50,47 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             ("Call gc", cond.clone() * gc_expr),
         ]);
 
-        for i in 0..MAX_NUM_OF_ARGUMENTS {
+        for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64 * 2).expr(),
                 cells.call_index.expression.clone() + 1.expr(),
                 arg_num.clone() - (i as u64 + 1).expr(),
                 cells.stack_size.expression.clone() - (i as u64).expr(),
-                cells.args[i].expression.clone(),
+                cells.args_or_fields[i].expression.clone(),
             );
 
-            rw_lookups.push((
+            lookups.rw_lookups.push((
                 read,
-                cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));
-            rw_lookups.push((
+            lookups.rw_lookups.push((
                 write,
-                cond.clone() * (1.expr() - cells.args_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));
         }
 
-        // todo: lookup Call(index: FunctionHandleIndex) in bytecode table. how to constrain index?
+        // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
+        // must be in the calls table.
+        lookups.call_lookups.push((
+            CallLookup {
+                type_: (EntryType::CALL as u64).expr(),
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                next_module_index: cells.next_module_index.expression.clone(),
+                next_function_index: cells.next_function_index.expression.clone(),
+                next_pc: cells.next_pc.expression.clone(),
+            },
+            cond.clone(),
+        ));
+
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Call,
+            cells.auxiliary_2.expression.clone(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
@@ -97,13 +123,21 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 .get(step.gc + i * 2)
                 .ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args[i].assign(region, offset, op.value().value())?;
-            cells.args_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
+            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in arg_num..MAX_NUM_OF_ARGUMENTS {
-            cells.args_mask[i].assign(region, offset, Some(F::one()))?;
+        for i in arg_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
         }
+
+        let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
+            error!("auxiliary_2 is None");
+            Error::Synthesis
+        })?;
+        cells
+            .auxiliary_2
+            .assign(region, offset, func_handle_idx.value())?;
 
         Ok(())
     }

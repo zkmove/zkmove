@@ -11,7 +11,7 @@ use crate::chips::execution_chip::instructions::{
     read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop, sub::Sub, unpack::Unpack,
     write_ref::WriteRef,
 };
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -141,78 +141,57 @@ impl Opcode {
         &self,
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         match self {
-            Opcode::LdU8 => LdU8::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::LdU64 => LdU64::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::LdU128 => LdU128::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::CastU8 => CastU8::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::CastU64 => CastU64::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::CastU128 => {
-                CastU128::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::Pop => Pop::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Ret => Ret::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Add => Add::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Mul => Mul::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::CopyLoc => CopyLoc::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Sub => Sub::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Div => Div::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Mod => Mod::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::LdTrue => LdTrue::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::LdFalse => LdFalse::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Eq => Eq::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Neq => Neq::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::And => And::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Or => Or::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Not => Not::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::MoveLoc => MoveLoc::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::StLoc => StLoc::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Branch => Branch::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::BrTrue => BrTrue::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::BrFalse => BrFalse::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Call => Call::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Abort => Abort::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Le => Le::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Lt => Lt::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Ge => Ge::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Gt => Gt::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Pack => Pack::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Unpack => Unpack::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::MutBorrowLoc => {
-                MutBorrowLoc::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::ImmBorrowLoc => {
-                ImmBorrowLoc::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::ReadRef => ReadRef::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::WriteRef => {
-                WriteRef::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::FreezeRef => {
-                FreezeRef::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::ImmBorrowField => {
-                ImmBorrowField::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::MutBorrowField => {
-                MutBorrowField::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::MoveFrom => {
-                MoveFrom::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::MoveTo => MoveTo::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Exists => Exists::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::ImmBorrowGlobal => {
-                ImmBorrowGlobal::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::MutBorrowGlobal => {
-                MutBorrowGlobal::configure(cells, constraints, rw_lookups, bytecode_lookups)
-            }
-            Opcode::Stop => Stop::configure(cells, constraints, rw_lookups, bytecode_lookups),
-            Opcode::Nop => Nop::configure(cells, constraints, rw_lookups, bytecode_lookups),
+            Opcode::LdU8 => LdU8::configure(cells, constraints, lookups),
+            Opcode::LdU64 => LdU64::configure(cells, constraints, lookups),
+            Opcode::LdU128 => LdU128::configure(cells, constraints, lookups),
+            Opcode::CastU8 => CastU8::configure(cells, constraints, lookups),
+            Opcode::CastU64 => CastU64::configure(cells, constraints, lookups),
+            Opcode::CastU128 => CastU128::configure(cells, constraints, lookups),
+            Opcode::Pop => Pop::configure(cells, constraints, lookups),
+            Opcode::Ret => Ret::configure(cells, constraints, lookups),
+            Opcode::Add => Add::configure(cells, constraints, lookups),
+            Opcode::Mul => Mul::configure(cells, constraints, lookups),
+            Opcode::CopyLoc => CopyLoc::configure(cells, constraints, lookups),
+            Opcode::Sub => Sub::configure(cells, constraints, lookups),
+            Opcode::Div => Div::configure(cells, constraints, lookups),
+            Opcode::Mod => Mod::configure(cells, constraints, lookups),
+            Opcode::LdTrue => LdTrue::configure(cells, constraints, lookups),
+            Opcode::LdFalse => LdFalse::configure(cells, constraints, lookups),
+            Opcode::Eq => Eq::configure(cells, constraints, lookups),
+            Opcode::Neq => Neq::configure(cells, constraints, lookups),
+            Opcode::And => And::configure(cells, constraints, lookups),
+            Opcode::Or => Or::configure(cells, constraints, lookups),
+            Opcode::Not => Not::configure(cells, constraints, lookups),
+            Opcode::MoveLoc => MoveLoc::configure(cells, constraints, lookups),
+            Opcode::StLoc => StLoc::configure(cells, constraints, lookups),
+            Opcode::Branch => Branch::configure(cells, constraints, lookups),
+            Opcode::BrTrue => BrTrue::configure(cells, constraints, lookups),
+            Opcode::BrFalse => BrFalse::configure(cells, constraints, lookups),
+            Opcode::Call => Call::configure(cells, constraints, lookups),
+            Opcode::Abort => Abort::configure(cells, constraints, lookups),
+            Opcode::Le => Le::configure(cells, constraints, lookups),
+            Opcode::Lt => Lt::configure(cells, constraints, lookups),
+            Opcode::Ge => Ge::configure(cells, constraints, lookups),
+            Opcode::Gt => Gt::configure(cells, constraints, lookups),
+            Opcode::Pack => Pack::configure(cells, constraints, lookups),
+            Opcode::Unpack => Unpack::configure(cells, constraints, lookups),
+            Opcode::MutBorrowLoc => MutBorrowLoc::configure(cells, constraints, lookups),
+            Opcode::ImmBorrowLoc => ImmBorrowLoc::configure(cells, constraints, lookups),
+            Opcode::ReadRef => ReadRef::configure(cells, constraints, lookups),
+            Opcode::WriteRef => WriteRef::configure(cells, constraints, lookups),
+            Opcode::FreezeRef => FreezeRef::configure(cells, constraints, lookups),
+            Opcode::ImmBorrowField => ImmBorrowField::configure(cells, constraints, lookups),
+            Opcode::MutBorrowField => MutBorrowField::configure(cells, constraints, lookups),
+            Opcode::MoveFrom => MoveFrom::configure(cells, constraints, lookups),
+            Opcode::MoveTo => MoveTo::configure(cells, constraints, lookups),
+            Opcode::Exists => Exists::configure(cells, constraints, lookups),
+            Opcode::ImmBorrowGlobal => ImmBorrowGlobal::configure(cells, constraints, lookups),
+            Opcode::MutBorrowGlobal => MutBorrowGlobal::configure(cells, constraints, lookups),
+            Opcode::Stop => Stop::configure(cells, constraints, lookups),
+            Opcode::Nop => Nop::configure(cells, constraints, lookups),
         }
     }
 

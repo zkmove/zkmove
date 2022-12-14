@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookupTable, RWTable};
+use crate::chips::execution_chip::lookup_tables::{
+    BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
@@ -17,7 +19,8 @@ pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 10; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
-pub const MAX_NUM_OF_ARGUMENTS: usize = 10; //todo: dynamic configure according to the real argument number
+pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
+                                                             //todo: dynamic configure according to the real argument number and struct fields
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -38,8 +41,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
 
-    pub args: Vec<Cell<F>>,
-    pub args_mask: Vec<Cell<F>>,
+    pub args_or_fields: Vec<Cell<F>>,
+    pub args_or_fields_mask: Vec<Cell<F>>,
 
     pub bytes: Vec<Cell<F>>,
 
@@ -96,12 +99,13 @@ impl<F: FieldExt> StepChip<F> {
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         rw_table: &RWTable,
         bytecode_table: &BytecodeLookupTable,
+        calls_table: &CallLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
-            + MAX_NUM_OF_ARGUMENTS * 2
+            + MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS * 2
             + NUM_OF_BYTES_U128;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
@@ -138,8 +142,12 @@ impl<F: FieldExt> StepChip<F> {
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
 
-            args: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
-            args_mask: cells.drain(0..MAX_NUM_OF_ARGUMENTS).collect(),
+            args_or_fields: cells
+                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+                .collect(),
+            args_or_fields_mask: cells
+                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+                .collect(),
 
             bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
 
@@ -160,17 +168,9 @@ impl<F: FieldExt> StepChip<F> {
 
         // config each execution path of the step
         let mut constraints = Vec::new();
-        let mut rw_lookups = Vec::new();
-        let mut bytecode_lookups = Vec::new();
+        let mut lookups = LookupsWithCondition::new();
         StepChip::constrain_step_conditions(&cells, &mut constraints);
-        Opcode::iter().for_each(|opcode| {
-            opcode.configure(
-                &cells,
-                &mut constraints,
-                &mut rw_lookups,
-                &mut bytecode_lookups,
-            )
-        });
+        Opcode::iter().for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut lookups));
 
         let s_step = meta.complex_selector();
 
@@ -184,7 +184,7 @@ impl<F: FieldExt> StepChip<F> {
                 .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
 
-        for (lookup, cond) in rw_lookups {
+        for (lookup, cond) in lookups.rw_lookups {
             meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
@@ -216,7 +216,7 @@ impl<F: FieldExt> StepChip<F> {
             });
         }
 
-        for (lookup, cond) in bytecode_lookups {
+        for (lookup, cond) in lookups.bytecode_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
@@ -240,6 +240,39 @@ impl<F: FieldExt> StepChip<F> {
                         s_step * lookup.operand * cond.clone(),
                         bytecode_table.operand_column,
                     ),
+                ]
+            });
+        }
+
+        for (lookup, cond) in lookups.call_lookups {
+            meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.type_ * cond.clone(),
+                        calls_table.type_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.module_index * cond.clone(),
+                        calls_table.module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.function_index * cond.clone(),
+                        calls_table.function_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pc * cond.clone(),
+                        calls_table.pc_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.next_module_index * cond.clone(),
+                        calls_table.callee_module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.next_function_index * cond.clone(),
+                        calls_table.callee_function_index_column,
+                    ),
+                    (s_step * lookup.next_pc * cond, calls_table.next_pc_column),
                 ]
             });
         }

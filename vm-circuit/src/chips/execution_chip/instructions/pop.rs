@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::*;
@@ -22,8 +22,7 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Pop.index()].expression.clone();
 
@@ -34,14 +33,20 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
             ("gc", cond.clone() * gc_expr),
+            ("module index", cond.clone() * module_index),
+            ("function index", cond.clone() * func_index),
         ]);
 
-        rw_lookups.push((
+        lookups.rw_lookups.push((
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -50,7 +55,13 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
             cond.clone(),
         ));
 
-        LookupBytecode::lookup_bytecode(cells, Opcode::Pop, 0.expr(), bytecode_lookups, cond);
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Pop,
+            0.expr(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(

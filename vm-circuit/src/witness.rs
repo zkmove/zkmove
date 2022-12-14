@@ -3,6 +3,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::function_calls::FunctionCall;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -11,6 +12,7 @@ use std::fmt;
 
 pub mod bytecode_table;
 pub mod execution_steps;
+pub mod function_calls;
 pub mod rw_operations;
 
 pub const DEFAULT_MAX_CALL_INDEX: usize = 16;
@@ -76,6 +78,7 @@ pub struct Witness<F: FieldExt> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_operations: RWOperations<F>,
     pub bytecode_table: BytecodeTable,
+    pub func_calls: Vec<FunctionCall>,
     pub circuit_config: CircuitConfig,
 }
 
@@ -84,12 +87,14 @@ impl<F: FieldExt> Witness<F> {
         exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
         bytecode_table: BytecodeTable,
+        func_calls: Vec<FunctionCall>,
         circuit_config: CircuitConfig,
     ) -> Self {
         Witness {
             exec_steps,
             rw_operations: RWOperations(rw_operations),
             bytecode_table,
+            func_calls,
             circuit_config,
         }
     }
@@ -160,6 +165,11 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f, "Bytecode table:")?;
         self.bytecode_table.as_inner().iter().for_each(|bytecode| {
             writeln!(f, "{:?}", bytecode).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Function calls table:")?;
+        self.func_calls.iter().for_each(|call| {
+            writeln!(f, "{:?}", call).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;

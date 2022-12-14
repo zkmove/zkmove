@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
@@ -21,11 +21,16 @@ impl<F: FieldExt> Instructions<F> for Abort<F> {
     fn configure(
         cells: &StepChipCells<F>,
         _constraints: &mut Vec<(&str, Expression<F>)>,
-        _rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Abort.index()].expression.clone();
-        LookupBytecode::lookup_bytecode(cells, Opcode::Abort, 0.expr(), bytecode_lookups, cond);
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Abort,
+            0.expr(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(

@@ -76,6 +76,7 @@ impl<F: FieldExt> Runtime<F> {
 
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
+        let mut func_calls = Vec::new();
         interp.run_script(
             entry,
             args,
@@ -84,6 +85,7 @@ impl<F: FieldExt> Runtime<F> {
             data_store,
             &mut exec_steps,
             &mut rw_operations,
+            &mut func_calls,
         )?;
 
         let bytecodes = BytecodeTable::from((script.clone(), modules));
@@ -91,6 +93,7 @@ impl<F: FieldExt> Runtime<F> {
             exec_steps,
             rw_operations,
             bytecodes,
+            func_calls,
             circuit_config,
         ))
     }

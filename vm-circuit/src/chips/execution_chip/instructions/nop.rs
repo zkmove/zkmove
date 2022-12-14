@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::witness::execution_steps::ExecutionStep;
@@ -19,8 +19,7 @@ impl<F: FieldExt> Instructions<F> for Nop<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        _rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        _bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        _lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Nop.index()].expression.clone();
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone();

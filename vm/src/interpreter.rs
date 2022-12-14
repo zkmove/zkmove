@@ -18,6 +18,7 @@ use movelang::value::{GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::execution_steps::ExecutionStep;
+use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
 use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
@@ -113,6 +114,7 @@ impl<F: FieldExt> Interpreter<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
+        func_calls: &mut Vec<FunctionCall>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
@@ -124,25 +126,40 @@ impl<F: FieldExt> Interpreter<F> {
             let status = frame.execute(self, loader, data_store, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
+                    let step_current = exec_steps
+                        .last()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
                     if let Some(caller_frame) = self.frames.pop() {
+                        // record function ret
+                        let next_module_index = caller_frame
+                            .module_index(data_store)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+                        let next_function_index = caller_frame.func().index().0;
+                        func_calls.push(FunctionCall {
+                            type_: EntryType::RET,
+                            module_index: step_current.module_index,
+                            function_index: step_current.function_index,
+                            pc: step_current.pc,
+                            next_module_index,
+                            next_function_index,
+                            next_pc: caller_frame.pc() + 1, //next instruction after 'Call'
+                        });
+
                         frame = caller_frame;
                         frame.add_pc();
                     } else {
-                        let last = exec_steps
-                            .last()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
                         let stop = ExecutionStep {
                             opcode: Opcode::Stop,
-                            pc: last.pc,
-                            stack_size: last.stack_size,
-                            call_index: last.call_index,
-                            locals_index: last.locals_index,
-                            gc: last.gc,
-                            module_index: last.module_index,
-                            function_index: last.function_index,
-                            auxiliary_1: last.auxiliary_1.clone(),
-                            auxiliary_2: last.auxiliary_2.clone(),
-                            auxiliary_3: last.auxiliary_3.clone(),
+                            pc: step_current.pc,
+                            stack_size: step_current.stack_size,
+                            call_index: step_current.call_index,
+                            locals_index: step_current.locals_index,
+                            gc: step_current.gc,
+                            module_index: step_current.module_index,
+                            function_index: step_current.function_index,
+                            auxiliary_1: step_current.auxiliary_1.clone(),
+                            auxiliary_2: step_current.auxiliary_2.clone(),
+                            auxiliary_3: step_current.auxiliary_3.clone(),
                         };
                         exec_steps.push(stop);
                         return Ok(());
@@ -152,12 +169,32 @@ impl<F: FieldExt> Interpreter<F> {
                     let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64, None)?);
+                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64, None)?);
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
+                    let module_index = execution_step.module_index;
+                    let function_index = execution_step.function_index;
+                    let pc = execution_step.pc;
                     exec_steps.push(execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let callee_frame = self.make_frame(func, call_index + 1, rw_operations)?;
+
+                    // record function call
+                    let next_module_index = callee_frame
+                        .module_index(data_store)
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+                    let next_function_index = callee_frame.func().index().0;
+                    func_calls.push(FunctionCall {
+                        type_: EntryType::CALL,
+                        module_index,
+                        function_index,
+                        pc,
+                        next_module_index,
+                        next_function_index,
+                        next_pc: 0,
+                    });
+
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;

@@ -47,6 +47,7 @@ fn test_execution_step() -> VmResult<()> {
 
     let mut exec_steps = Vec::new();
     let mut rw_operations = Vec::new();
+    let mut func_calls = Vec::new();
     interp
         .run_script(
             entry,
@@ -56,6 +57,7 @@ fn test_execution_step() -> VmResult<()> {
             &mut data_store,
             &mut exec_steps,
             &mut rw_operations,
+            &mut func_calls,
         )
         .unwrap();
 
@@ -190,7 +192,7 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
 
     let circuit_config = CircuitConfig::default();
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, vec![], circuit_config);
     let vm_circuit = VmCircuit { witness };
     let k = 10; // todo: how to chose a proper degree
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
@@ -373,7 +375,7 @@ fn test_nop_step() -> VmResult<()> {
     ];
 
     let circuit_config = CircuitConfig::default();
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes, circuit_config);
+    let witness = Witness::new(exec_steps, rw_operations, bytecodes, vec![], circuit_config);
     let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {

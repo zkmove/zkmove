@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
@@ -21,8 +21,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::MoveFrom.index()]
             .expression
@@ -34,14 +33,20 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
             ("gc", cond.clone() * gc_expr),
+            ("module index", cond.clone() * module_index),
+            ("function index", cond.clone() * func_index),
         ]);
 
-        rw_lookups.push((
+        lookups.rw_lookups.push((
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -50,7 +55,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
             cond.clone(),
         ));
 
-        rw_lookups.push((
+        lookups.rw_lookups.push((
             RWLookup::global_read(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.value_a.expression.clone(), //address
@@ -60,7 +65,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
             cond.clone(),
         ));
 
-        rw_lookups.push((
+        lookups.rw_lookups.push((
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
@@ -73,7 +78,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
             cells,
             Opcode::MoveFrom,
             cells.auxiliary_1.expression.clone(),
-            bytecode_lookups,
+            &mut lookups.bytecode_lookups,
             cond,
         );
     }

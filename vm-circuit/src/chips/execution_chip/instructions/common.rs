@@ -27,11 +27,17 @@ impl<F: FieldExt> BinaryOp<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
-            ("gc", cond * gc_expr),
+            ("gc", cond.clone() * gc_expr),
+            ("module index", cond.clone() * module_index),
+            ("function index", cond * func_index),
         ]);
     }
 
@@ -125,11 +131,17 @@ impl<F: FieldExt> UnaryOp<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
-            ("gc", cond * gc_expr),
+            ("gc", cond.clone() * gc_expr),
+            ("module index", cond.clone() * module_index),
+            ("function index", cond * func_index),
         ]);
     }
 
@@ -192,11 +204,17 @@ impl<F: FieldExt> LoadOp<F> {
         let call_index_expr =
             cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+        let module_index =
+            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
+        let func_index =
+            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("call index", cond.clone() * call_index_expr),
-            ("gc", cond * gc_expr),
+            ("gc", cond.clone() * gc_expr),
+            ("module index", cond.clone() * module_index),
+            ("function index", cond * func_index),
         ]);
     }
 

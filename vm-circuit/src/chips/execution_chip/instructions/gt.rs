@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::{Expr, FieldBytes};
@@ -24,8 +24,7 @@ impl<F: FieldExt> Instructions<F> for Gt<F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
         //Gt
         let cond = cells.conditions[Opcode::Gt.index()].expression.clone();
@@ -47,8 +46,14 @@ impl<F: FieldExt> Instructions<F> for Gt<F> {
         constraints.push(("Gt", constraint));
 
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(cells, Opcode::Gt, 0.expr(), bytecode_lookups, cond);
+        BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::Gt,
+            0.expr(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(

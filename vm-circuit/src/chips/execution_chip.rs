@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::lookup_tables::CallLookupTable;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
@@ -23,6 +24,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     step_config: StepConfig<F>,
     rw_table: RWTable,
     bytecode_table: BytecodeLookupTable,
+    call_table: CallLookupTable,
 }
 
 #[derive(Clone, Debug)]
@@ -56,13 +58,16 @@ impl<F: FieldExt> ExecutionChip<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let rw_table = RWTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
+        let call_table = CallLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        let step_config = StepChip::configure(meta, advices, &rw_table, &bytecode_table);
+        let step_config =
+            StepChip::configure(meta, advices, &rw_table, &bytecode_table, &call_table);
 
         ExecutionChipConfig {
             step_config,
             rw_table,
             bytecode_table,
+            call_table,
         }
     }
 
@@ -230,6 +235,34 @@ impl<F: FieldExt> ExecutionChip<F> {
                                         Error::Synthesis
                                     })?;
                                     Ok(field)
+                                },
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )?;
+        }
+
+        let func_calls = &self.witness.func_calls;
+        for (column_idx, column) in self.config.call_table.columns().into_iter().enumerate() {
+            layouter.assign_table(
+                || format!("call_table[{}]", column_idx),
+                |mut table_column| {
+                    table_column.assign_cell(
+                        || format!("call_table[{}][0]", column_idx),
+                        column,
+                        0,
+                        || Ok(F::zero()),
+                    )?;
+                    (0..func_calls.len())
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("call_table[{}][{}]", column_idx, i),
+                                column,
+                                i + 1,
+                                || {
+                                    let func_call: Vec<F> = func_calls[i].into();
+                                    Ok(func_call[column_idx])
                                 },
                             )
                         })
