@@ -821,6 +821,80 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
+    pub fn is_integer(&self) -> bool {
+        matches!(self, Self::U8(_) | Self::U64(_) | Self::U128(_))
+    }
+
+    pub fn castu8(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u8".to_string()));
+        }
+        let val = self.value().unwrap().get_lower_128();
+
+        match self {
+            Self::U8(_) => Ok(self),
+            Self::U64(_) => {
+                if val > (std::u8::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u64({}) to u8", val)))
+                } else {
+                    // Self::u64(val as u64, None)
+                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8)
+                }
+            }
+            Self::U128(_) => {
+                if val > (std::u8::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u128({}) to u8", val)))
+                } else {
+                    // Self::u128(val, None)
+                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn castu64(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u64".to_string()));
+        }
+        let val = self.value().unwrap().get_lower_128();
+
+        match self {
+            Self::U8(_) | Self::U64(_) => {
+                Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U64)
+            }
+            Self::U128(_) => {
+                if val > (std::u64::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u128({}) to u64", val)))
+                } else {
+                    // Self::u128(val, None)
+                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U64)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn castu128(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u128".to_string()));
+        }
+        let val = self.value().unwrap().get_lower_128();
+
+        match self {
+            Self::U8(_) | Self::U64(_) | Self::U128(_) => {
+                Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U128)
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub fn div_rem(&self, other: Value<F>) -> VmResult<(Value<F>, Value<F>)> {
         let l_move: Option<MoveValue> = self.clone().into();
         let r_move: Option<MoveValue> = other.into();
