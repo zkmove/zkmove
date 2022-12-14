@@ -10,9 +10,11 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{Container, Reference, Struct, Value};
+use movelang::value::{Container, IntegerType, Reference, Struct, Value};
+use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
+use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::{GlobalOp, LocalsOp, RWOperation, RW};
 
@@ -61,6 +63,7 @@ impl<F: FieldExt> Frame<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
+        arith_operations: &mut Vec<ArithOperation>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
         let call_index = interp.frames.size();
@@ -105,9 +108,39 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.pop(rw_operations)?;
                         Ok(())
                     }
-                    Bytecode::Add => interp.binary_op(Value::add, rw_operations),
-                    Bytecode::Sub => interp.binary_op(Value::sub, rw_operations),
-                    Bytecode::Mul => interp.binary_op(Value::mul, rw_operations),
+                    Bytecode::Add => {
+                        let ty = interp.binary_op(Value::add, rw_operations)?;
+                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
+                        arith_operations.push(ArithOperation {
+                            module_index,
+                            function_index,
+                            pc: self.pc,
+                            num_of_bytes,
+                        });
+                        Ok(())
+                    }
+                    Bytecode::Sub => {
+                        let ty = interp.binary_op(Value::sub, rw_operations)?;
+                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
+                        arith_operations.push(ArithOperation {
+                            module_index,
+                            function_index,
+                            pc: self.pc,
+                            num_of_bytes,
+                        });
+                        Ok(())
+                    }
+                    Bytecode::Mul => {
+                        let ty = interp.binary_op(Value::mul, rw_operations)?;
+                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
+                        arith_operations.push(ArithOperation {
+                            module_index,
+                            function_index,
+                            pc: self.pc,
+                            num_of_bytes,
+                        });
+                        Ok(())
+                    }
                     Bytecode::Div => interp.binary_op_auxiliary(
                         Value::div,
                         Value::rem,
@@ -387,8 +420,14 @@ impl<F: FieldExt> Frame<F> {
                         rw_operations,
                         &mut execution_step,
                     ),
-                    Bytecode::And => interp.binary_op(Value::and, rw_operations),
-                    Bytecode::Or => interp.binary_op(Value::or, rw_operations),
+                    Bytecode::And => {
+                        interp.binary_op(Value::and, rw_operations)?;
+                        Ok(())
+                    }
+                    Bytecode::Or => {
+                        interp.binary_op(Value::or, rw_operations)?;
+                        Ok(())
+                    }
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
                     Bytecode::CastU8 => interp.unary_op(Value::castu8, rw_operations),
                     Bytecode::CastU64 => interp.unary_op(Value::castu64, rw_operations),

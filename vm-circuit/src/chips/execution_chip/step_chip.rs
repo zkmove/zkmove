@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::{
-    BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
+    ArithOpLookupTable, BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
@@ -100,6 +100,7 @@ impl<F: FieldExt> StepChip<F> {
         rw_table: &RWTable,
         bytecode_table: &BytecodeLookupTable,
         calls_table: &CallLookupTable,
+        arith_op_table: &ArithOpLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
@@ -273,6 +274,30 @@ impl<F: FieldExt> StepChip<F> {
                         calls_table.callee_function_index_column,
                     ),
                     (s_step * lookup.next_pc * cond, calls_table.next_pc_column),
+                ]
+            });
+        }
+
+        for (lookup, cond) in lookups.arith_op_lookups {
+            meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.module_index * cond.clone(),
+                        arith_op_table.module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.function_index * cond.clone(),
+                        arith_op_table.function_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pc * cond.clone(),
+                        arith_op_table.pc_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.num_of_bytes * cond.clone(),
+                        arith_op_table.num_of_bytes_column,
+                    ),
                 ]
             });
         }

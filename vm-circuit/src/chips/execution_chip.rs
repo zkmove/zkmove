@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::CallLookupTable;
+use crate::chips::execution_chip::lookup_tables::{ArithOpLookupTable, CallLookupTable};
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
@@ -25,6 +25,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     rw_table: RWTable,
     bytecode_table: BytecodeLookupTable,
     call_table: CallLookupTable,
+    arith_op_table: ArithOpLookupTable,
 }
 
 #[derive(Clone, Debug)]
@@ -59,15 +60,23 @@ impl<F: FieldExt> ExecutionChip<F> {
         let rw_table = RWTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let call_table = CallLookupTable::construct(meta);
+        let arith_op_table = ArithOpLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        let step_config =
-            StepChip::configure(meta, advices, &rw_table, &bytecode_table, &call_table);
+        let step_config = StepChip::configure(
+            meta,
+            advices,
+            &rw_table,
+            &bytecode_table,
+            &call_table,
+            &arith_op_table,
+        );
 
         ExecutionChipConfig {
             step_config,
             rw_table,
             bytecode_table,
             call_table,
+            arith_op_table,
         }
     }
 
@@ -263,6 +272,34 @@ impl<F: FieldExt> ExecutionChip<F> {
                                 || {
                                     let func_call: Vec<F> = func_calls[i].into();
                                     Ok(func_call[column_idx])
+                                },
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )?;
+        }
+
+        let arith_ops = &self.witness.arith_operations;
+        for (column_idx, column) in self.config.arith_op_table.columns().into_iter().enumerate() {
+            layouter.assign_table(
+                || format!("arith_op_table[{}]", column_idx),
+                |mut table_column| {
+                    table_column.assign_cell(
+                        || format!("arith_op_table[{}][0]", column_idx),
+                        column,
+                        0,
+                        || Ok(F::zero()),
+                    )?;
+                    (0..arith_ops.len())
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("arith_op_table[{}][{}]", column_idx, i),
+                                column,
+                                i + 1,
+                                || {
+                                    let arith_op: Vec<F> = arith_ops[i].into();
+                                    Ok(arith_op[column_idx])
                                 },
                             )
                         })

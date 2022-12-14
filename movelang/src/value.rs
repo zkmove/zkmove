@@ -7,6 +7,7 @@ use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
 use move_binary_format::file_format::StructDefinitionIndex;
+use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
@@ -1215,6 +1216,36 @@ impl<F: FieldExt> Value<F> {
             Value::IndexedRef(r) => Ok(Reference::IndexedRef(r)),
             v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                 .with_message(format!("cannot convert {:?} to reference", v))),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub enum IntegerType {
+    U8,
+    U64,
+    U128,
+}
+
+impl IntegerType {
+    pub fn num_of_bytes(&self) -> usize {
+        match self {
+            Self::U8 => NUM_OF_BYTES_U8,
+            Self::U64 => NUM_OF_BYTES_U64,
+            Self::U128 => NUM_OF_BYTES_U128,
+        }
+    }
+}
+
+impl TryFrom<MoveValueType> for IntegerType {
+    type Error = RuntimeError;
+
+    fn try_from(move_ty: MoveValueType) -> VmResult<IntegerType> {
+        match move_ty {
+            MoveValueType::U8 => Ok(IntegerType::U8),
+            MoveValueType::U64 => Ok(IntegerType::U64),
+            MoveValueType::U128 => Ok(IntegerType::U128),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
         }
     }
 }
