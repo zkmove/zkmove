@@ -126,25 +126,40 @@ impl<F: FieldExt> Interpreter<F> {
             let status = frame.execute(self, loader, data_store, exec_steps, rw_operations)?;
             match status {
                 ExitStatus::Return => {
+                    let step_current = exec_steps
+                        .last()
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
                     if let Some(caller_frame) = self.frames.pop() {
+                        // record function ret
+                        let next_module_index = caller_frame
+                            .module_index(data_store)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+                        let next_function_index = caller_frame.func().index().0;
+                        func_calls.push(FunctionCall {
+                            type_: EntryType::RET,
+                            module_index: step_current.module_index,
+                            function_index: step_current.function_index,
+                            pc: step_current.pc,
+                            next_module_index,
+                            next_function_index,
+                            next_pc: caller_frame.pc() + 1, //next instruction after 'Call'
+                        });
+
                         frame = caller_frame;
                         frame.add_pc();
                     } else {
-                        let last = exec_steps
-                            .last()
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
                         let stop = ExecutionStep {
                             opcode: Opcode::Stop,
-                            pc: last.pc,
-                            stack_size: last.stack_size,
-                            call_index: last.call_index,
-                            locals_index: last.locals_index,
-                            gc: last.gc,
-                            module_index: last.module_index,
-                            function_index: last.function_index,
-                            auxiliary_1: last.auxiliary_1.clone(),
-                            auxiliary_2: last.auxiliary_2.clone(),
-                            auxiliary_3: last.auxiliary_3.clone(),
+                            pc: step_current.pc,
+                            stack_size: step_current.stack_size,
+                            call_index: step_current.call_index,
+                            locals_index: step_current.locals_index,
+                            gc: step_current.gc,
+                            module_index: step_current.module_index,
+                            function_index: step_current.function_index,
+                            auxiliary_1: step_current.auxiliary_1.clone(),
+                            auxiliary_2: step_current.auxiliary_2.clone(),
+                            auxiliary_3: step_current.auxiliary_3.clone(),
                         };
                         exec_steps.push(stop);
                         return Ok(());

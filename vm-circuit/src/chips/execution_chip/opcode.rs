@@ -149,9 +149,7 @@ impl Opcode {
             Opcode::LdU128 => LdU128::configure(cells, constraints, lookups),
             Opcode::CastU8 => CastU8::configure(cells, constraints, lookups),
             Opcode::CastU64 => CastU64::configure(cells, constraints, lookups),
-            Opcode::CastU128 => {
-                CastU128::configure(cells, constraints, lookups)
-            }
+            Opcode::CastU128 => CastU128::configure(cells, constraints, lookups),
             Opcode::Pop => Pop::configure(cells, constraints, lookups),
             Opcode::Ret => Ret::configure(cells, constraints, lookups),
             Opcode::Add => Add::configure(cells, constraints, lookups),

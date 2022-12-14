@@ -35,7 +35,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
         // if call_index == 0, the next step will be 'Nop' or 'Stop', we have
         // call_index * inverse(call_index) != 1
         // next_pc == pc
-        let pc_expr = (call_index * inverse - 1.expr())
+        let pc_expr = (call_index.clone() * inverse.clone() - 1.expr())
             * (cells.next_pc.expression.clone() - cells.pc.expression.clone());
 
         // gc should not change
@@ -59,7 +59,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
                 next_function_index: cells.next_function_index.expression.clone(),
                 next_pc: cells.next_pc.expression.clone(),
             },
-            cond.clone(),
+            call_index * inverse * cond.clone(), // only take effect when call_index != 0
         ));
 
         LookupBytecode::lookup_bytecode(
