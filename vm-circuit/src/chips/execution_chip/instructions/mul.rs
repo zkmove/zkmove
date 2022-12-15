@@ -31,7 +31,7 @@ impl<F: FieldExt> Instructions<F> for Mul<F> {
         let constraint = cond.clone() * (lhs * rhs - out.clone());
         constraints.push(("mul", constraint));
 
-        ArithOverflow::constrain_range_check(cells, constraints, cond.clone(), out.clone());
+        ArithOverflow::constrain_range_check(cells, constraints, cond.clone(), out);
         ArithOverflow::lookup_arith_op(
             cells,
             &mut lookups.arith_op_lookups,

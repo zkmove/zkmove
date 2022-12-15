@@ -299,7 +299,7 @@ impl<F: FieldExt> StepChip<F> {
                         arith_op_table.pc_column,
                     ),
                     (
-                        s_step.clone() * lookup.num_of_bytes * cond.clone(),
+                        s_step * lookup.num_of_bytes * cond,
                         arith_op_table.num_of_bytes_column,
                     ),
                 ]

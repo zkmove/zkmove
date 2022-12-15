@@ -291,15 +291,14 @@ impl<F: FieldExt> ArithOverflow<F> {
         let cond_8 = cond.clone()
             * (1.expr()
                 - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8);
-        let cond_16 = cond.clone()
-            * (1.expr()
-                - (num_of_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
+        let cond_16 = cond
+            * (1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
         constraints.push(("mul range check 1", constraint_1));
         let constraint_8 = cond_8 * (bytes_8 - out.clone());
         constraints.push(("mul range check 8", constraint_8));
-        let constraint_16 = cond_16 * (bytes_16 - out.clone());
+        let constraint_16 = cond_16 * (bytes_16 - out);
         constraints.push(("mul range check 16", constraint_16));
     }
 
