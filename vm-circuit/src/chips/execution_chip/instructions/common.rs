@@ -1,13 +1,15 @@
-use crate::chips::execution_chip::lookup_tables::{BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::{ArithOpLookup, BytecodeLookup, RWLookup};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::Expr;
+use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::prelude::*;
+use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
+use std::convert::TryInto;
 use std::marker::PhantomData;
 
 pub struct BinaryOp<F: FieldExt> {
@@ -256,5 +258,115 @@ impl<F: FieldExt> LookupBytecode<F> {
             },
             cond,
         ));
+    }
+}
+
+pub struct ArithOverflow<F: FieldExt> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> ArithOverflow<F> {
+    pub fn constrain_range_check(
+        cells: &StepChipCells<F>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
+        cond: Expression<F>,
+        out: Expression<F>,
+    ) {
+        // arithmetic overflow check
+        // if bytes_len = NUM_OF_BYTES_U8, then bytes_1 == out
+        // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
+        // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
+        let bytes_1 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
+        let bytes_8 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
+        let bytes_16 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U128);
+
+        let num_of_bytes = cells.auxiliary_1.expression.clone();
+        let delta_inverse_1 = cells.auxiliary_2.expression.clone();
+        let delta_inverse_8 = cells.auxiliary_3.expression.clone();
+        let delta_inverse_16 = cells.auxiliary_4.expression.clone();
+
+        let cond_1 = cond.clone()
+            * (1.expr()
+                - (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr()) * delta_inverse_1);
+        let cond_8 = cond.clone()
+            * (1.expr()
+                - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8);
+        let cond_16 = cond.clone()
+            * (1.expr()
+                - (num_of_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
+
+        let constraint_1 = cond_1 * (bytes_1 - out.clone());
+        constraints.push(("mul range check 1", constraint_1));
+        let constraint_8 = cond_8 * (bytes_8 - out.clone());
+        constraints.push(("mul range check 8", constraint_8));
+        let constraint_16 = cond_16 * (bytes_16 - out.clone());
+        constraints.push(("mul range check 16", constraint_16));
+    }
+
+    // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.
+    pub fn lookup_arith_op(
+        cells: &StepChipCells<F>,
+        arith_op_lookups: &mut Vec<(ArithOpLookup<F>, Expression<F>)>,
+        cond: Expression<F>,
+        num_of_bytes: Expression<F>,
+    ) {
+        arith_op_lookups.push((
+            ArithOpLookup {
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                num_of_bytes,
+            },
+            cond,
+        ));
+    }
+
+    // given a value, assign it's number of bytes (num_of_bytes) into auxiliary_1
+    // assign delta_inverse of num_of_bytes and NUM_OF_BYTES_U8 into auxiliary_2
+    // assign delta_inverse of num_of_bytes and NUM_OF_BYTES_U64 into auxiliary_3
+    // assign delta_inverse of num_of_bytes and NUM_OF_BYTES_U128 into auxiliary_4
+    pub fn assign_num_of_bytes(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        cells: &StepChipCells<F>,
+        value: Value<F>,
+    ) -> Result<(), Error> {
+        // assign value into bytes
+        let field = value.value().ok_or_else(|| {
+            error!("result is None");
+            Error::Synthesis
+        })?;
+        let value_bytes: [u8; 32] = field
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes.iter().enumerate() {
+            byte.assign(region, offset, Some(F::from(value_bytes[index] as u64)))?;
+        }
+
+        // assign auxiliary cell with number of bytes
+        let num_of_bytes = match value {
+            Value::U8(_) => NUM_OF_BYTES_U8 as u128,
+            Value::U64(_) => NUM_OF_BYTES_U64 as u128,
+            Value::U128(_) => NUM_OF_BYTES_U128 as u128,
+            _ => unreachable!(),
+        };
+        cells
+            .auxiliary_1
+            .assign(region, offset, Some(F::from_u128(num_of_bytes)))?;
+
+        // assign delta_inverse(num_of_bytes, NUM_OF_BYTES_U8/U64/U128)
+        let delta_inverse_1 =
+            F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U8 as u128));
+        let delta_inverse_8 =
+            F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U64 as u128));
+        let delta_inverse_16 =
+            F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U128 as u128));
+        cells.auxiliary_2.assign(region, offset, delta_inverse_1)?;
+        cells.auxiliary_3.assign(region, offset, delta_inverse_8)?;
+        cells.auxiliary_4.assign(region, offset, delta_inverse_16)?;
+
+        Ok(())
     }
 }

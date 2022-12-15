@@ -205,7 +205,7 @@ fn test_execution_step() -> VmResult<()> {
         rw_operations,
         bytecodes,
         vec![],
-        vec![],
+        arith_operations,
         circuit_config,
     );
     let vm_circuit = VmCircuit { witness };
