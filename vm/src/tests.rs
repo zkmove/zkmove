@@ -75,6 +75,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_1 = ExecutionStep {
         opcode: Opcode::LdU64,
@@ -88,6 +89,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_2 = ExecutionStep {
         opcode: Opcode::Add,
@@ -101,6 +103,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_3 = ExecutionStep {
         opcode: Opcode::Pop,
@@ -114,6 +117,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_4 = ExecutionStep {
         opcode: Opcode::Ret,
@@ -127,6 +131,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_5 = ExecutionStep {
         opcode: Opcode::Stop,
@@ -140,6 +145,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
 
     assert_eq!(exec_steps[0], expected_step_0, "result is not expected");
@@ -238,6 +244,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_1 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -251,6 +258,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_2 = ExecutionStep::<Fp> {
         opcode: Opcode::Add,
@@ -264,6 +272,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_3 = ExecutionStep::<Fp> {
         opcode: Opcode::Pop,
@@ -277,6 +286,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_4 = ExecutionStep::<Fp> {
         opcode: Opcode::Ret,
@@ -290,6 +300,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_5 = ExecutionStep::<Fp> {
         opcode: Opcode::Nop,
@@ -303,6 +314,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_6 = ExecutionStep::<Fp> {
         opcode: Opcode::Nop,
@@ -316,6 +328,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_7 = ExecutionStep::<Fp> {
         opcode: Opcode::Stop,
@@ -329,6 +342,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
 
     let exec_steps = vec![
@@ -435,6 +449,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_1 = ExecutionStep {
         opcode: Opcode::LdU64,
@@ -448,6 +463,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_2 = ExecutionStep {
         opcode: Opcode::Add,
@@ -461,6 +477,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_3 = ExecutionStep {
         opcode: Opcode::Pop,
@@ -474,6 +491,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_4 = ExecutionStep {
         opcode: Opcode::Ret,
@@ -487,6 +505,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let expected_step_5 = ExecutionStep {
         opcode: Opcode::Stop,
@@ -500,6 +519,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
 
     let steps = &vm_circuit.witness.exec_steps;

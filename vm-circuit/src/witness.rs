@@ -126,7 +126,8 @@ impl<F: FieldExt> Witness<F> {
                 function_index: last.function_index,
                 auxiliary_1: last.auxiliary_1.clone(),
                 auxiliary_2: last.auxiliary_2.clone(),
-                auxiliary_3: last.auxiliary_2.clone(),
+                auxiliary_3: last.auxiliary_3.clone(),
+                auxiliary_4: last.auxiliary_4.clone(),
             };
 
             while exec_steps.len() < steps_number {

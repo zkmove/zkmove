@@ -86,6 +86,7 @@ impl<F: FieldExt> Frame<F> {
                     auxiliary_1: None,
                     auxiliary_2: None,
                     auxiliary_3: None,
+                    auxiliary_4: None,
                 };
 
                 match instruction {
