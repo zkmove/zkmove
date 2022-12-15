@@ -230,7 +230,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     (0..converted_bytecodes.len())
                         .map(|i| {
                             table_column.assign_cell(
-                                || format!("bytecode_table[{}][{}]", column_idx, i),
+                                || format!("bytecode_table[{}][{}]", column_idx, i + 1),
                                 column,
                                 i + 1,
                                 || {
@@ -266,7 +266,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     (0..func_calls.len())
                         .map(|i| {
                             table_column.assign_cell(
-                                || format!("call_table[{}][{}]", column_idx, i),
+                                || format!("call_table[{}][{}]", column_idx, i + 1),
                                 column,
                                 i + 1,
                                 || {
@@ -294,7 +294,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     (0..arith_ops.len())
                         .map(|i| {
                             table_column.assign_cell(
-                                || format!("arith_op_table[{}][{}]", column_idx, i),
+                                || format!("arith_op_table[{}][{}]", column_idx, i + 1),
                                 column,
                                 i + 1,
                                 || {
