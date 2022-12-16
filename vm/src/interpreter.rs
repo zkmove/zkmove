@@ -17,6 +17,7 @@ use movelang::utility::MoveValueType;
 use movelang::value::{GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
+use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
 use vm_circuit::witness::rw_operations::RWOperation;
@@ -115,6 +116,7 @@ impl<F: FieldExt> Interpreter<F> {
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
         func_calls: &mut Vec<FunctionCall>,
+        arith_operations: &mut Vec<ArithOperation>,
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
@@ -123,7 +125,14 @@ impl<F: FieldExt> Interpreter<F> {
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
         loop {
-            let status = frame.execute(self, loader, data_store, exec_steps, rw_operations)?;
+            let status = frame.execute(
+                self,
+                loader,
+                data_store,
+                exec_steps,
+                rw_operations,
+                arith_operations,
+            )?;
             match status {
                 ExitStatus::Return => {
                     let step_current = exec_steps
@@ -160,6 +169,7 @@ impl<F: FieldExt> Interpreter<F> {
                             auxiliary_1: step_current.auxiliary_1.clone(),
                             auxiliary_2: step_current.auxiliary_2.clone(),
                             auxiliary_3: step_current.auxiliary_3.clone(),
+                            auxiliary_4: step_current.auxiliary_4.clone(),
                         };
                         exec_steps.push(stop);
                         return Ok(());
@@ -203,16 +213,20 @@ impl<F: FieldExt> Interpreter<F> {
         }
     }
 
-    // TODO: we should have better access to different types of containers that refs
-    // can point to. perhaps we should encapsulate this in the frame and pass that down instead.
-    pub fn binary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
+    pub fn binary_op<Fn>(
+        &mut self,
+        op: Fn,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<MoveValueType>
     where
         Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
     {
         let right = self.stack.pop(rw_operations)?;
         let left = self.stack.pop(rw_operations)?;
         let result = op(left, right)?;
-        self.stack.push(result, rw_operations)
+        let ty = result.ty();
+        self.stack.push(result, rw_operations)?;
+        Ok(ty)
     }
 
     pub fn binary_op_auxiliary<Fa, Fb>(

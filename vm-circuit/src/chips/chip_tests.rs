@@ -39,6 +39,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_1 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -52,6 +53,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_2 = ExecutionStep::<Fp> {
         opcode: Opcode::Add,
@@ -65,6 +67,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_3 = ExecutionStep::<Fp> {
         opcode: Opcode::Pop,
@@ -78,6 +81,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_4 = ExecutionStep::<Fp> {
         opcode: Opcode::Ret,
@@ -91,6 +95,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_5 = ExecutionStep::<Fp> {
         opcode: Opcode::Stop,
@@ -104,6 +109,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
@@ -157,7 +163,14 @@ fn test_fake_rw_operation() -> VmResult<()> {
     ];
 
     let circuit_config = CircuitConfig::default();
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes, vec![], circuit_config);
+    let witness = Witness::new(
+        exec_steps,
+        rw_operations,
+        bytecodes,
+        vec![],
+        vec![],
+        circuit_config,
+    );
     let vm_circuit = VmCircuit { witness };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
@@ -196,6 +209,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_1 = ExecutionStep::<Fp> {
         opcode: Opcode::LdU64,
@@ -209,6 +223,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_2 = ExecutionStep::<Fp> {
         opcode: Opcode::Add,
@@ -222,6 +237,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_3 = ExecutionStep::<Fp> {
         opcode: Opcode::Pop,
@@ -235,6 +251,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_4 = ExecutionStep::<Fp> {
         opcode: Opcode::Ret,
@@ -248,6 +265,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
     let step_5 = ExecutionStep::<Fp> {
         opcode: Opcode::Stop,
@@ -261,6 +279,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_1: None,
         auxiliary_2: None,
         auxiliary_3: None,
+        auxiliary_4: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
@@ -316,7 +335,14 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     // let wrong_sorted_stack_operations = vec![rw_op_4, rw_op_5, rw_op_0, rw_op_3, rw_op_1, rw_op_2];
 
     let circuit_config = CircuitConfig::default();
-    let witness = Witness::new(exec_steps, rw_operations, bytecodes, vec![], circuit_config);
+    let witness = Witness::new(
+        exec_steps,
+        rw_operations,
+        bytecodes,
+        vec![],
+        vec![],
+        circuit_config,
+    );
     // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;
     let vm_circuit = VmCircuit { witness };
     let k = 10;

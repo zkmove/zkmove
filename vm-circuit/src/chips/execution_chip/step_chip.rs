@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::{
-    BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
+    ArithOpLookupTable, BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;
@@ -17,7 +17,7 @@ use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
-pub const NUM_OF_STEP_STATE: usize = 10; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, module_index, func_index
+pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
                                                              //todo: dynamic configure according to the real argument number and struct fields
@@ -34,6 +34,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub auxiliary_1: Cell<F>,
     pub auxiliary_2: Cell<F>,
     pub auxiliary_3: Cell<F>,
+    pub auxiliary_4: Cell<F>,
 
     pub conditions: Vec<Cell<F>>,
 
@@ -56,6 +57,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub next_auxiliary_1: Cell<F>,
     pub next_auxiliary_2: Cell<F>,
     pub next_auxiliary_3: Cell<F>,
+    pub next_auxiliary_4: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +102,7 @@ impl<F: FieldExt> StepChip<F> {
         rw_table: &RWTable,
         bytecode_table: &BytecodeLookupTable,
         calls_table: &CallLookupTable,
+        arith_op_table: &ArithOpLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
@@ -135,6 +138,7 @@ impl<F: FieldExt> StepChip<F> {
             auxiliary_1: cells.pop_front().unwrap(),
             auxiliary_2: cells.pop_front().unwrap(),
             auxiliary_3: cells.pop_front().unwrap(),
+            auxiliary_4: cells.pop_front().unwrap(),
 
             conditions: cells.drain(0..Opcode::total_numbers()).collect(),
 
@@ -161,6 +165,7 @@ impl<F: FieldExt> StepChip<F> {
             next_auxiliary_1: cells.pop_front().unwrap(),
             next_auxiliary_2: cells.pop_front().unwrap(),
             next_auxiliary_3: cells.pop_front().unwrap(),
+            next_auxiliary_4: cells.pop_front().unwrap(),
         };
 
         // enable equality for gc column, because we will copy last gc cell to memory chip.
@@ -273,6 +278,30 @@ impl<F: FieldExt> StepChip<F> {
                         calls_table.callee_function_index_column,
                     ),
                     (s_step * lookup.next_pc * cond, calls_table.next_pc_column),
+                ]
+            });
+        }
+
+        for (lookup, cond) in lookups.arith_op_lookups {
+            meta.lookup(|meta| {
+                let s_step = meta.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.module_index * cond.clone(),
+                        arith_op_table.module_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.function_index * cond.clone(),
+                        arith_op_table.function_index_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pc * cond.clone(),
+                        arith_op_table.pc_column,
+                    ),
+                    (
+                        s_step * lookup.num_of_bytes * cond,
+                        arith_op_table.num_of_bytes_column,
+                    ),
                 ]
             });
         }

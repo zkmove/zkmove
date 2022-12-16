@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::FunctionCall;
@@ -10,6 +11,7 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use std::fmt;
 
+pub mod arith_operations;
 pub mod bytecode_table;
 pub mod execution_steps;
 pub mod function_calls;
@@ -79,6 +81,7 @@ pub struct Witness<F: FieldExt> {
     pub rw_operations: RWOperations<F>,
     pub bytecode_table: BytecodeTable,
     pub func_calls: Vec<FunctionCall>,
+    pub arith_operations: Vec<ArithOperation>,
     pub circuit_config: CircuitConfig,
 }
 
@@ -88,6 +91,7 @@ impl<F: FieldExt> Witness<F> {
         rw_operations: Vec<RWOperation<F>>,
         bytecode_table: BytecodeTable,
         func_calls: Vec<FunctionCall>,
+        arith_operations: Vec<ArithOperation>,
         circuit_config: CircuitConfig,
     ) -> Self {
         Witness {
@@ -95,6 +99,7 @@ impl<F: FieldExt> Witness<F> {
             rw_operations: RWOperations(rw_operations),
             bytecode_table,
             func_calls,
+            arith_operations,
             circuit_config,
         }
     }
@@ -121,7 +126,8 @@ impl<F: FieldExt> Witness<F> {
                 function_index: last.function_index,
                 auxiliary_1: last.auxiliary_1.clone(),
                 auxiliary_2: last.auxiliary_2.clone(),
-                auxiliary_3: last.auxiliary_2.clone(),
+                auxiliary_3: last.auxiliary_3.clone(),
+                auxiliary_4: last.auxiliary_4.clone(),
             };
 
             while exec_steps.len() < steps_number {
@@ -170,6 +176,11 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f, "Function calls table:")?;
         self.func_calls.iter().for_each(|call| {
             writeln!(f, "{:?}", call).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Arithmetic op table:")?;
+        self.arith_operations.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;
