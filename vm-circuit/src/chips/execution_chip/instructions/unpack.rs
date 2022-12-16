@@ -2,7 +2,9 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{LookupsWithCondition, RWLookup, RWTarget};
+use crate::chips::execution_chip::lookup_tables::{
+    rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{
     StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,

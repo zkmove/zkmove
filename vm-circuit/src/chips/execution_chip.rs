@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::{ArithOpLookupTable, CallLookupTable};
+use crate::chips::execution_chip::lookup_tables::{
+    arith_op_lookup_table::ArithOpLookupTable, call_lookup_table::CallLookupTable,
+};
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
@@ -10,7 +12,7 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, Error},
 };
 use logger::prelude::*;
-use lookup_tables::{BytecodeLookupTable, RWTable};
+use lookup_tables::{bytecode_lookup_table::BytecodeLookupTable, rw_table::RWTable};
 use step_chip::{StepChip, StepConfig};
 use step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 

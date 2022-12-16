@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::{
-    ArithOpLookupTable, BytecodeLookupTable, CallLookupTable, LookupsWithCondition, RWTable,
+    arith_op_lookup_table::ArithOpLookupTable, bytecode_lookup_table::BytecodeLookupTable,
+    call_lookup_table::CallLookupTable, rw_table::RWTable, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::utilities::*;

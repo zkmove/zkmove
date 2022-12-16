@@ -2,7 +2,9 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::{CallLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::{
+    call_lookup_table::CallLookup, LookupsWithCondition,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::{Expr, SubInvert};

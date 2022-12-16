@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::RWTarget;
+use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;

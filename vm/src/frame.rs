@@ -157,7 +157,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::Ret => {
                         trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
-                        interp.step += 1; // todo: remove interp.step
+                        interp.step += 1;
                         return Ok(ExitStatus::Return);
                     }
                     Bytecode::Call(index) => {

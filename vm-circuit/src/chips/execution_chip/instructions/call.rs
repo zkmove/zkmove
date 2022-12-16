@@ -3,7 +3,7 @@
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{
-    CallLookup, LookupsWithCondition, RWLookup, RWTarget,
+    call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{
