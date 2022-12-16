@@ -16,8 +16,8 @@ pub struct ArithOperation {
 }
 
 // convert ArithOperation into a vector of field values
-impl<F: FieldExt> From<ArithOperation> for Vec<F> {
-    fn from(arith_op: ArithOperation) -> Vec<F> {
+impl<F: FieldExt> From<&ArithOperation> for Vec<F> {
+    fn from(arith_op: &ArithOperation) -> Vec<F> {
         vec![
             F::from_u128(arith_op.module_index as u128),
             F::from_u128(arith_op.function_index as u128),

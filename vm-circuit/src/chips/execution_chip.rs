@@ -6,6 +6,7 @@ use crate::chips::execution_chip::lookup_tables::{
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -218,97 +219,43 @@ impl<F: FieldExt> ExecutionChip<F> {
             )?;
         }
 
-        let converted_bytecodes: Vec<Vec<F>> = (&self.witness.bytecode_table).into();
-        for (column_idx, column) in self.config.bytecode_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
-                || format!("bytecode_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
-                        || format!("bytecode_table[{}][0]", column_idx),
-                        column,
-                        0,
-                        || Ok(F::zero()),
-                    )?;
-                    (0..converted_bytecodes.len())
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("bytecode_table[{}][{}]", column_idx, i + 1),
-                                column,
-                                i + 1,
-                                || {
-                                    let bytecode_info =
-                                        converted_bytecodes.get(i).ok_or_else(|| {
-                                            error!("get bytecode table element error");
-                                            Error::Synthesis
-                                        })?;
-                                    let field = bytecode_info.get(column_idx).ok_or_else(|| {
-                                        error!("get bytecode_info_field error");
-                                        Error::Synthesis
-                                    })?;
-                                    Ok(field)
-                                },
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )?;
-        }
+        let bytecodes = self
+            .witness
+            .bytecode_table
+            .as_inner()
+            .iter()
+            .map(|bytecode_info| bytecode_info.into())
+            .collect::<Vec<_>>();
+        let bytecode_table_columns = self.config.bytecode_table.columns();
+        self.assign_table(
+            layouter,
+            bytecode_table_columns,
+            &bytecodes,
+            "bytecode_table",
+        )?;
 
-        let func_calls = &self.witness.func_calls;
-        for (column_idx, column) in self.config.call_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
-                || format!("call_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
-                        || format!("call_table[{}][0]", column_idx),
-                        column,
-                        0,
-                        || Ok(F::zero()),
-                    )?;
-                    (0..func_calls.len())
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("call_table[{}][{}]", column_idx, i + 1),
-                                column,
-                                i + 1,
-                                || {
-                                    let func_call: Vec<F> = func_calls[i].into();
-                                    Ok(func_call[column_idx])
-                                },
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )?;
-        }
+        let func_calls = &self
+            .witness
+            .func_calls
+            .iter()
+            .map(|call| call.into())
+            .collect();
+        let call_table_columns = self.config.call_table.columns();
+        self.assign_table(layouter, call_table_columns, func_calls, "call_table")?;
 
-        let arith_ops = &self.witness.arith_operations;
-        for (column_idx, column) in self.config.arith_op_table.columns().into_iter().enumerate() {
-            layouter.assign_table(
-                || format!("arith_op_table[{}]", column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
-                        || format!("arith_op_table[{}][0]", column_idx),
-                        column,
-                        0,
-                        || Ok(F::zero()),
-                    )?;
-                    (0..arith_ops.len())
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("arith_op_table[{}][{}]", column_idx, i + 1),
-                                column,
-                                i + 1,
-                                || {
-                                    let arith_op: Vec<F> = arith_ops[i].into();
-                                    Ok(arith_op[column_idx])
-                                },
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )?;
-        }
+        let arith_ops = &self
+            .witness
+            .arith_operations
+            .iter()
+            .map(|op| op.into())
+            .collect();
+        let arith_op_table_columns = self.config.arith_op_table.columns();
+        self.assign_table(
+            layouter,
+            arith_op_table_columns,
+            arith_ops,
+            "arith_op_table",
+        )?;
 
         Ok((
             last_step_gc_cell,
@@ -316,5 +263,42 @@ impl<F: FieldExt> ExecutionChip<F> {
             locals_operations,
             global_operations,
         ))
+    }
+
+    fn assign_table(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        table_columns: Vec<TableColumn>,
+        values: &Vec<Vec<F>>,
+        table_name: &str,
+    ) -> Result<(), Error> {
+        for (column_idx, column) in table_columns.into_iter().enumerate() {
+            layouter.assign_table(
+                || format!("{:?}[{}]", table_name, column_idx),
+                |mut table_column| {
+                    table_column.assign_cell(
+                        || format!("{:?}[{}][0]", table_name, column_idx),
+                        column,
+                        0,
+                        || Ok(F::zero()),
+                    )?;
+                    (0..values.len())
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("{:?}[{}][{}]", table_name, column_idx, i + 1),
+                                column,
+                                i + 1,
+                                || {
+                                    // let op: Vec<F> = values[i];
+                                    // Ok(op[column_idx])
+                                    Ok(values[i][column_idx])
+                                },
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )?;
+        }
+        Ok(())
     }
 }
