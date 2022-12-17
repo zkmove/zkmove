@@ -6,11 +6,10 @@ use crate::chips::execution_chip::lookup_tables::{
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
-    plonk::{ConstraintSystem, Error},
+    plonk::{Advice, Column, ConstraintSystem, Error, TableColumn},
 };
 use logger::prelude::*;
 use lookup_tables::{bytecode_lookup_table::BytecodeLookupTable, rw_table::RWTable};
@@ -133,99 +132,30 @@ impl<F: FieldExt> ExecutionChip<F> {
                         0,
                         || Ok(F::zero()),
                     )?;
-                    (0..stack_operations.len())
-                        .map(|i| {
-                            let op = stack_operations.get_mut(i).ok_or_else(|| {
-                                error!("get rw operation error");
-                                Error::Synthesis
-                            })?;
-                            let field = op.get_field(column_idx).map_err(|e| {
-                                error!("get field failed: {:?}", e);
-                                Error::Synthesis
-                            })?;
 
-                            let cell = region.assign_advice(
-                                || format!("rw_table[{}][{}]", column_idx, i),
-                                column,
-                                i + 1,
-                                || Ok(field),
-                            )?;
-                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
-                                error!("assign cell failed: {:?}", e);
-                                Error::Synthesis
-                            })
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))?;
-
-                    (0..locals_operations.len())
-                        .map(|i| {
-                            let op = locals_operations.get_mut(i).ok_or_else(|| {
-                                error!("get rw operation error");
-                                Error::Synthesis
-                            })?;
-                            let field = op.get_field(column_idx).map_err(|e| {
-                                error!("get field failed: {:?}", e);
-                                Error::Synthesis
-                            })?;
-                            let cell = region.assign_advice(
-                                || {
-                                    format!(
-                                        "rw_table[{}][{}]",
-                                        column_idx,
-                                        stack_operations.len() + i
-                                    )
-                                },
-                                column,
-                                stack_operations.len() + i + 1,
-                                || Ok(field),
-                            )?;
-                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
-                                error!("assign cell failed: {:?}", e);
-                                Error::Synthesis
-                            })
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))?;
-
-                    (0..global_operations.len())
-                        .map(|i| {
-                            let op = global_operations.get_mut(i).ok_or_else(|| {
-                                error!("get rw operation error");
-                                Error::Synthesis
-                            })?;
-                            let field = op.get_field(column_idx).map_err(|e| {
-                                error!("get field failed: {:?}", e);
-                                Error::Synthesis
-                            })?;
-                            let cell = region.assign_advice(
-                                || {
-                                    format!(
-                                        "rw_table[{}][{}]",
-                                        column_idx,
-                                        stack_operations.len() + locals_operations.len() + i
-                                    )
-                                },
-                                column,
-                                stack_operations.len() + locals_operations.len() + i + 1,
-                                || Ok(field),
-                            )?;
-                            op.assign_cell(column_idx, Some(cell)).map_err(|e| {
-                                error!("assign cell failed: {:?}", e);
-                                Error::Synthesis
-                            })?;
-                            Ok(())
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
+                    // assign stack operations
+                    self.assign_rw_ops(&mut region, column_idx, column, 0, &mut stack_operations)?;
+                    // assign locals operations after stack operations
+                    self.assign_rw_ops(
+                        &mut region,
+                        column_idx,
+                        column,
+                        stack_operations.len(),
+                        &mut locals_operations,
+                    )?;
+                    // assign global operations after locals operations
+                    self.assign_rw_ops(
+                        &mut region,
+                        column_idx,
+                        column,
+                        stack_operations.len() + locals_operations.len(),
+                        &mut global_operations,
+                    )
                 },
             )?;
         }
 
-        let bytecodes = self
-            .witness
-            .bytecode_table
-            .as_inner()
-            .iter()
-            .map(|bytecode_info| bytecode_info.into())
-            .collect::<Vec<_>>();
+        let bytecodes: Vec<Vec<F>> = (&self.witness.bytecode_table).into();
         let bytecode_table_columns = self.config.bytecode_table.columns();
         self.assign_table(
             layouter,
@@ -263,6 +193,39 @@ impl<F: FieldExt> ExecutionChip<F> {
             locals_operations,
             global_operations,
         ))
+    }
+
+    fn assign_rw_ops(
+        &self,
+        region: &mut Region<'_, F>,
+        column_idx: usize,
+        column: Column<Advice>,
+        offset: usize,
+        rw_operations: &mut Vec<ConvertedRWOperation<F>>,
+    ) -> Result<(), Error> {
+        (0..rw_operations.len())
+            .map(|i| {
+                let op = rw_operations.get_mut(i).ok_or_else(|| {
+                    error!("get rw operation error");
+                    Error::Synthesis
+                })?;
+                let field = op.get_field(column_idx).map_err(|e| {
+                    error!("get field failed: {:?}", e);
+                    Error::Synthesis
+                })?;
+
+                let cell = region.assign_advice(
+                    || format!("rw_table[{}][{}]", column_idx, offset + i + 1),
+                    column,
+                    offset + i + 1,
+                    || Ok(field),
+                )?;
+                op.assign_cell(column_idx, Some(cell)).map_err(|e| {
+                    error!("assign cell failed: {:?}", e);
+                    Error::Synthesis
+                })
+            })
+            .fold(Ok(()), |acc, res| acc.and(res))
     }
 
     fn assign_table(
