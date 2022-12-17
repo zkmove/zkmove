@@ -929,7 +929,6 @@ impl<F: FieldExt> Add for Value<F> {
     fn add(self, b: Value<F>) -> Self::Output {
         // implement add based on checked_add API to check arithmetic overflow
         // let value = self.value().and_then(|a| b.value().map(|b| a + b));
-        // todo: handle type mismatch
         let lhs = self.value().unwrap().get_lower_128();
         let rhs = b.value().unwrap().get_lower_128();
         let value = match (self.ty(), b.ty()) {
@@ -955,7 +954,6 @@ impl<F: FieldExt> Sub for Value<F> {
     fn sub(self, b: Value<F>) -> Self::Output {
         // implement sub based on checked_sub API to check arithmetic overflow
         // let value = self.value().and_then(|a| b.value().map(|b| a - b));
-        // todo: handle type mismatch
         let lhs = self.value().unwrap().get_lower_128();
         let rhs = b.value().unwrap().get_lower_128();
         let value = match (self.ty(), b.ty()) {
@@ -981,7 +979,6 @@ impl<F: FieldExt> Mul for Value<F> {
     fn mul(self, b: Value<F>) -> Self::Output {
         // implement mul based on checked_mul API to check arithmetic overflow
         // let value = self.value().and_then(|a| b.value().map(|b| a * b));
-        // todo: handle type mismatch
         let lhs = self.value().unwrap().get_lower_128();
         let rhs = b.value().unwrap().get_lower_128();
         let value = match (self.ty(), b.ty()) {

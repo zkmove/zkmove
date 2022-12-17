@@ -1,4 +1,6 @@
-use crate::chips::execution_chip::lookup_tables::{ArithOpLookup, BytecodeLookup, RWLookup};
+use crate::chips::execution_chip::lookup_tables::{
+    arith_op_lookup_table::ArithOpLookup, bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
+};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
@@ -295,11 +297,11 @@ impl<F: FieldExt> ArithOverflow<F> {
             * (1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
-        constraints.push(("mul range check 1", constraint_1));
+        constraints.push(("range check 1", constraint_1));
         let constraint_8 = cond_8 * (bytes_8 - out.clone());
-        constraints.push(("mul range check 8", constraint_8));
+        constraints.push(("range check 8", constraint_8));
         let constraint_16 = cond_16 * (bytes_16 - out);
-        constraints.push(("mul range check 16", constraint_16));
+        constraints.push(("range check 16", constraint_16));
     }
 
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.

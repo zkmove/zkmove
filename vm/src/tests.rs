@@ -209,7 +209,7 @@ fn test_execution_step() -> VmResult<()> {
         circuit_config,
     );
     let vm_circuit = VmCircuit { witness };
-    let k = 10; // todo: how to chose a proper degree
+    let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))

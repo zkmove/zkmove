@@ -21,8 +21,8 @@ pub struct FunctionCall {
 }
 
 // convert FunctionCall into a vector of field values
-impl<F: FieldExt> From<FunctionCall> for Vec<F> {
-    fn from(func_call: FunctionCall) -> Vec<F> {
+impl<F: FieldExt> From<&FunctionCall> for Vec<F> {
+    fn from(func_call: &FunctionCall) -> Vec<F> {
         vec![
             F::from_u128(func_call.type_ as u128),
             F::from_u128(func_call.module_index as u128),
