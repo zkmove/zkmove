@@ -105,7 +105,7 @@ impl<F: FieldExt> LocalsOp<F> {
             index: 0,
             gc: 0,
             rw: RW::READ,
-            value: Value::u64(0, None).unwrap(),
+            value: Value::u64(0).unwrap(),
         }
     }
 }
@@ -153,7 +153,7 @@ impl<F: FieldExt> StackOp<F> {
     pub fn empty() -> Self {
         Self {
             address: 0,
-            value: Value::u64(0, None).unwrap(),
+            value: Value::u64(0).unwrap(),
             rw: RW::READ,
             gc: 0,
         }
@@ -205,7 +205,7 @@ impl<F: FieldExt> GlobalOp<F> {
         Self {
             address: AccountAddress::zero(),
             sd_index: 0,
-            value: Value::u64(0, None).unwrap(),
+            value: Value::u64(0).unwrap(),
             rw: RW::READ,
             gc: 0,
         }

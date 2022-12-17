@@ -5,7 +5,7 @@ use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::{arithmetic::FieldExt, circuit::Cell};
+use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -18,31 +18,26 @@ pub const NUM_OF_BYTES_U128: usize = 16;
 #[derive(Clone, Debug)]
 pub struct U8<F: FieldExt> {
     pub value: Option<F>,
-    pub cell: Option<Cell>,
 }
 
 #[derive(Clone, Debug)]
 pub struct U64<F: FieldExt> {
     pub value: Option<F>,
-    pub cell: Option<Cell>,
 }
 
 #[derive(Clone, Debug)]
 pub struct U128<F: FieldExt> {
     pub value: Option<F>,
-    pub cell: Option<Cell>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Bool<F: FieldExt> {
     pub value: Option<F>,
-    pub cell: Option<Cell>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Address<F: FieldExt> {
     pub account_address: Option<AccountAddress<F>>,
-    pub cell: Option<Cell>,
 }
 
 impl<F: FieldExt> Address<F> {
@@ -99,7 +94,6 @@ impl<F: FieldExt> Container<F> {
     pub fn signer(x: AccountAddress<F>) -> Self {
         Container::Struct(Rc::new(RefCell::new(vec![Value::Address(Address {
             account_address: Some(x),
-            cell: None,
         })])))
     }
 }
@@ -682,54 +676,40 @@ pub enum Value<F: FieldExt> {
 }
 
 impl<F: FieldExt> Value<F> {
-    pub fn new_variable(value: Option<F>, cell: Option<Cell>, ty: MoveValueType) -> VmResult<Self> {
+    pub fn new_variable(value: Option<F>, ty: MoveValueType) -> VmResult<Self> {
         match ty {
-            MoveValueType::U8 => Ok(Value::U8(U8 { value, cell })),
-            MoveValueType::U64 => Ok(Value::U64(U64 { value, cell })),
-            MoveValueType::U128 => Ok(Value::U128(U128 { value, cell })),
-            MoveValueType::Bool => Ok(Value::Bool(Bool { value, cell })),
+            MoveValueType::U8 => Ok(Value::U8(U8 { value })),
+            MoveValueType::U64 => Ok(Value::U64(U64 { value })),
+            MoveValueType::U128 => Ok(Value::U128(U128 { value })),
+            MoveValueType::Bool => Ok(Value::Bool(Bool { value })),
             MoveValueType::Signer => Ok(Value::signer(AccountAddress::new(
                 value.expect("address should not be None"),
             ))),
-            MoveValueType::Address => Ok(Value::address(
-                AccountAddress::new(value.expect("address should not be None")),
-                cell,
-            )),
+            MoveValueType::Address => Ok(Value::address(AccountAddress::new(
+                value.expect("address should not be None"),
+            ))),
             _ => unimplemented!(),
         }
     }
-    pub fn bool(x: bool, cell: Option<Cell>) -> VmResult<Self> {
+    pub fn bool(x: bool) -> VmResult<Self> {
         let value = if x { F::one() } else { F::zero() };
-        Ok(Self::Bool(Bool {
-            value: Some(value),
-            cell,
-        }))
+        Ok(Self::Bool(Bool { value: Some(value) }))
     }
-    pub fn u8(x: u8, cell: Option<Cell>) -> VmResult<Self> {
+    pub fn u8(x: u8) -> VmResult<Self> {
         let value = F::from_u128(x as u128);
-        Ok(Self::U8(U8 {
-            value: Some(value),
-            cell,
-        }))
+        Ok(Self::U8(U8 { value: Some(value) }))
     }
-    pub fn u64(x: u64, cell: Option<Cell>) -> VmResult<Self> {
+    pub fn u64(x: u64) -> VmResult<Self> {
         let value = F::from_u128(x as u128);
-        Ok(Self::U64(U64 {
-            value: Some(value),
-            cell,
-        }))
+        Ok(Self::U64(U64 { value: Some(value) }))
     }
-    pub fn u128(x: u128, cell: Option<Cell>) -> VmResult<Self> {
+    pub fn u128(x: u128) -> VmResult<Self> {
         let value = F::from_u128(x);
-        Ok(Self::U128(U128 {
-            value: Some(value),
-            cell,
-        }))
+        Ok(Self::U128(U128 { value: Some(value) }))
     }
-    pub fn address(x: AccountAddress<F>, cell: Option<Cell>) -> Self {
+    pub fn address(x: AccountAddress<F>) -> Self {
         Self::Address(Address {
             account_address: Some(x),
-            cell,
         })
     }
 
@@ -753,16 +733,7 @@ impl<F: FieldExt> Value<F> {
             Self::ContainerRef(r) => r.container().value(),
         }
     }
-    pub fn cell(&self) -> Option<Cell> {
-        match self {
-            Self::Invalid => None,
-            Self::U8(v) => v.cell,
-            Self::U64(v) => v.cell,
-            Self::U128(v) => v.cell,
-            Self::Bool(v) => v.cell,
-            _ => unimplemented!(),
-        }
-    }
+
     pub fn ty(&self) -> MoveValueType {
         match self {
             Self::Invalid => {
@@ -841,7 +812,7 @@ impl<F: FieldExt> Value<F> {
                         .with_message(format!("Cannot cast u64({}) to u8", val)))
                 } else {
                     // Self::u64(val as u64, None)
-                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8)
+                    Value::new_variable(Some(F::from_u128(val)), MoveValueType::U8)
                 }
             }
             Self::U128(_) => {
@@ -850,7 +821,7 @@ impl<F: FieldExt> Value<F> {
                         .with_message(format!("Cannot cast u128({}) to u8", val)))
                 } else {
                     // Self::u128(val, None)
-                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U8)
+                    Value::new_variable(Some(F::from_u128(val)), MoveValueType::U8)
                 }
             }
             _ => unreachable!(),
@@ -866,7 +837,7 @@ impl<F: FieldExt> Value<F> {
 
         match self {
             Self::U8(_) | Self::U64(_) => {
-                Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U64)
+                Value::new_variable(Some(F::from_u128(val)), MoveValueType::U64)
             }
             Self::U128(_) => {
                 if val > (std::u64::MAX as u128) {
@@ -874,7 +845,7 @@ impl<F: FieldExt> Value<F> {
                         .with_message(format!("Cannot cast u128({}) to u64", val)))
                 } else {
                     // Self::u128(val, None)
-                    Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U64)
+                    Value::new_variable(Some(F::from_u128(val)), MoveValueType::U64)
                 }
             }
             _ => unreachable!(),
@@ -890,7 +861,7 @@ impl<F: FieldExt> Value<F> {
 
         match self {
             Self::U8(_) | Self::U64(_) | Self::U128(_) => {
-                Value::new_variable(Some(F::from_u128(val)), None, MoveValueType::U128)
+                Value::new_variable(Some(F::from_u128(val)), MoveValueType::U128)
             }
             _ => unreachable!(),
         }
@@ -905,8 +876,8 @@ impl<F: FieldExt> Value<F> {
                 let rem = move_rem(l, r)?;
                 let quo_field = Some(convert_to_field::<F>(quo));
                 let rem_field = Some(convert_to_field::<F>(rem));
-                let quo_value = Value::new_variable(quo_field, None, self.ty())?;
-                let rem_value = Value::new_variable(rem_field, None, self.ty())?;
+                let quo_value = Value::new_variable(quo_field, self.ty())?;
+                let rem_value = Value::new_variable(rem_field, self.ty())?;
                 Ok((quo_value, rem_value))
             }
             _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
@@ -943,7 +914,7 @@ impl<F: FieldExt> Add for Value<F> {
             )),
             (_, _) => unimplemented!(),
         };
-        let c = Value::new_variable(value, None, self.ty())?;
+        let c = Value::new_variable(value, self.ty())?;
         Ok(c)
     }
 }
@@ -968,7 +939,7 @@ impl<F: FieldExt> Sub for Value<F> {
             )),
             (_, _) => unimplemented!(),
         };
-        let c = Value::new_variable(value, None, self.ty())?;
+        let c = Value::new_variable(value, self.ty())?;
         Ok(c)
     }
 }
@@ -993,7 +964,7 @@ impl<F: FieldExt> Mul for Value<F> {
             )),
             (_, _) => unimplemented!(),
         };
-        let c = Value::new_variable(value, None, self.ty())?;
+        let c = Value::new_variable(value, self.ty())?;
         Ok(c)
     }
 }
@@ -1008,7 +979,7 @@ impl<F: FieldExt> Div for Value<F> {
             (Some(l), Some(r)) => {
                 let quo = move_div(l, r)?;
                 let v = Some(convert_to_field::<F>(quo));
-                let value = Value::new_variable(v, None, self.ty())?;
+                let value = Value::new_variable(v, self.ty())?;
                 Ok(value)
             }
             _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
@@ -1027,7 +998,7 @@ impl<F: FieldExt> Rem for Value<F> {
             (Some(l), Some(r)) => {
                 let rem = move_rem(l, r)?;
                 let v = Some(convert_to_field::<F>(rem));
-                let value = Value::new_variable(v, None, self.ty())?;
+                let value = Value::new_variable(v, self.ty())?;
                 Ok(value)
             }
             _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
@@ -1041,7 +1012,7 @@ impl<F: FieldExt> Not for Value<F> {
 
     fn not(self) -> Self::Output {
         let value = if self.is_zero() { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 }
@@ -1056,41 +1027,41 @@ impl<F: FieldExt> Value<F> {
             _ => None,
         };
 
-        let c = Value::new_variable(value, None, MoveValueType::Bool)?;
+        let c = Value::new_variable(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn neq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if !a.equals(&b) { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn lt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let lt = a.less_than(&b)?;
         let value = if lt { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn le(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let le = a.less_equal(&b)?;
         let value = if le { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn gt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let gt = a.greater_than(&b)?;
         let value = if gt { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn ge(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let ge = a.greater_equal(&b)?;
         let value = if ge { F::one() } else { F::zero() };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
@@ -1100,7 +1071,7 @@ impl<F: FieldExt> Value<F> {
         } else {
             F::one()
         };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
@@ -1110,7 +1081,7 @@ impl<F: FieldExt> Value<F> {
         } else {
             F::one()
         };
-        let c = Value::new_variable(Some(value), None, MoveValueType::Bool)?;
+        let c = Value::new_variable(Some(value), MoveValueType::Bool)?;
         Ok(c)
     }
 
@@ -1122,7 +1093,7 @@ impl<F: FieldExt> Value<F> {
             delta.invert().unwrap()
         };
 
-        let value = Value::new_variable(Some(delta_invert), None, a.ty())?;
+        let value = Value::new_variable(Some(delta_invert), a.ty())?;
         Ok(value)
     }
 
@@ -1132,7 +1103,7 @@ impl<F: FieldExt> Value<F> {
         let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
         let range_or_zero = if lhs < rhs { range } else { F::zero() };
         let diff = (lhs - rhs) + range_or_zero;
-        let value = Value::new_variable(Some(diff), None, a.ty())?;
+        let value = Value::new_variable(Some(diff), a.ty())?;
         Ok(value)
     }
 }
