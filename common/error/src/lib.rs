@@ -32,6 +32,8 @@ pub enum StatusCode {
     MissingData,
     ResourceAlreadyExists,
     InvalidValue,
+    WrongArgumentsNumber,
+    ArgumentsTypeMismatch,
 
     // Proof system error
     ProofSystemError(Error),

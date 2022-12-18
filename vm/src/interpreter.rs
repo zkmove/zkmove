@@ -10,7 +10,7 @@ use move_binary_format::file_format::StructDefinitionIndex;
 use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
-use movelang::argument::{convert_from, ScriptArguments};
+use movelang::argument::{argument_type, convert_from, ScriptArguments};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
@@ -57,27 +57,40 @@ impl<F: FieldExt> Interpreter<F> {
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        let arg_type_pairs: Vec<_> = match args {
-            Some(values) => values
-                .as_inner()
-                .iter()
-                .map(|v| Some(v.clone()))
-                .zip(arg_types)
-                .collect(),
-            None => std::iter::repeat(None).zip(arg_types).collect(),
-        };
-
-        for (i, (arg, ty)) in arg_type_pairs.into_iter().enumerate() {
-            let val = match arg {
-                Some(a) => {
-                    let value: F = convert_from(a)?;
-                    Some(value)
+        // check arguments numbers and types
+        match args {
+            Some(script_args) => {
+                let arg_num = script_args.as_inner().len();
+                if arg_types.len() != arg_num {
+                    return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
                 }
-                None => None,
-            };
-            locals.store(i, Value::new_variable(val, ty), call_index, rw_operations)?;
+                let arguments = script_args.into_inner();
+                for i in 0..arg_num {
+                    let expect_type = &arg_types[i];
+                    let arg = &arguments[i];
+                    let arg_type = &argument_type(arg)?;
+                    if arg_type != expect_type {
+                        return Err(RuntimeError::new(StatusCode::ArgumentsTypeMismatch)
+                            .with_message(format!(
+                                "script argument type {:?}, expect type {:?}",
+                                arg_type, expect_type
+                            )));
+                    }
+                    let arg_value = convert_from(arg.clone())?;
+                    locals.store(
+                        i,
+                        Value::new_variable(arg_value, expect_type.clone())?,
+                        call_index,
+                        rw_operations,
+                    )?;
+                }
+            }
+            None => {
+                if !arg_types.is_empty() {
+                    return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
+                }
+            }
         }
-
         Ok(())
     }
 

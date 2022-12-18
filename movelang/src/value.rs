@@ -891,9 +891,9 @@ impl<F: FieldExt> Add for Value<F> {
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
             ),
-            (MoveValueType::U128, MoveValueType::U128) => F::from_u128(
-                u128::checked_add(lhs, rhs).expect("arithmetic error found"),
-            ),
+            (MoveValueType::U128, MoveValueType::U128) => {
+                F::from_u128(u128::checked_add(lhs, rhs).expect("arithmetic error found"))
+            }
             (_, _) => unimplemented!(),
         };
         let c = Value::new_variable(value, self.ty())?;
@@ -916,9 +916,9 @@ impl<F: FieldExt> Sub for Value<F> {
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
             ),
-            (MoveValueType::U128, MoveValueType::U128) => F::from_u128(
-                u128::checked_sub(lhs, rhs).expect("arithmetic error found"),
-            ),
+            (MoveValueType::U128, MoveValueType::U128) => {
+                F::from_u128(u128::checked_sub(lhs, rhs).expect("arithmetic error found"))
+            }
             (_, _) => unimplemented!(),
         };
         let c = Value::new_variable(value, self.ty())?;
@@ -941,9 +941,9 @@ impl<F: FieldExt> Mul for Value<F> {
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
             ),
-            (MoveValueType::U128, MoveValueType::U128) => F::from_u128(
-                u128::checked_mul(lhs, rhs).expect("arithmetic error found"),
-            ),
+            (MoveValueType::U128, MoveValueType::U128) => {
+                F::from_u128(u128::checked_mul(lhs, rhs).expect("arithmetic error found"))
+            }
             (_, _) => unimplemented!(),
         };
         let c = Value::new_variable(value, self.ty())?;
@@ -1003,7 +1003,11 @@ impl<F: FieldExt> Value<F> {
     pub fn eq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = match (a.value(), b.value()) {
             (Some(a), Some(b)) => {
-                if a == b { F::one() } else { F::zero() }
+                if a == b {
+                    F::one()
+                } else {
+                    F::zero()
+                }
             }
             _ => F::zero(),
         };
