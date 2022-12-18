@@ -75,7 +75,7 @@ impl<F: FieldExt> Interpreter<F> {
                 }
                 None => None,
             };
-            locals.store(i, Value::new_variable(val, ty)?, call_index, rw_operations)?;
+            locals.store(i, Value::new_variable(val, ty), call_index, rw_operations)?;
         }
 
         Ok(())
@@ -173,8 +173,8 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Call(index, mut execution_step) => {
                     let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
-                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64)?);
-                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64)?);
+                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
+                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
                     let module_index = execution_step.module_index;

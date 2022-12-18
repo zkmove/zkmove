@@ -157,37 +157,37 @@ fn test_execution_step() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
@@ -351,44 +351,44 @@ fn test_nop_step() -> VmResult<()> {
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         call_index: 0,
         index: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 6,
     });
@@ -532,37 +532,37 @@ fn test_nop_steps() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });

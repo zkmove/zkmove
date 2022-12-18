@@ -92,17 +92,17 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_variable(Some(constant), MoveValueType::U8)?;
+                        let value = Value::new_variable(constant, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU64(v) => {
                         let constant = F::from_u128(*v as u128);
-                        let value = Value::new_variable(Some(constant), MoveValueType::U64)?;
+                        let value = Value::new_variable(constant, MoveValueType::U64)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU128(v) => {
                         let constant = F::from_u128(*v);
-                        let value = Value::new_variable(Some(constant), MoveValueType::U128)?;
+                        let value = Value::new_variable(constant, MoveValueType::U128)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Pop => {
@@ -210,8 +210,8 @@ impl<F: FieldExt> Frame<F> {
                             let ref_call_index = reference.call_index();
                             let index = reference.index();
                             execution_step.locals_index = index;
-                            execution_step.auxiliary_1 = Some(Value::bool(false)?); // is not global
-                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64)?);
+                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64));
 
                             let (locals_value, locals_index) = match reference.clone() {
                                 Reference::ContainerRef(_) => (value.clone(), index),
@@ -236,11 +236,11 @@ impl<F: FieldExt> Frame<F> {
                             };
                             rw_operations.push(RWOperation::LocalsOp(locals_op));
                         } else {
-                            execution_step.auxiliary_1 = Some(Value::bool(true)?); // is global
+                            execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128)?);
+                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
@@ -262,8 +262,8 @@ impl<F: FieldExt> Frame<F> {
                             let ref_call_index = reference.call_index();
                             let index = reference.index();
                             execution_step.locals_index = index;
-                            execution_step.auxiliary_1 = Some(Value::bool(false)?); // is not global
-                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64)?);
+                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64));
 
                             let (locals_value, locals_index) = match reference.clone() {
                                 Reference::ContainerRef(_) => (value_copy, index),
@@ -289,11 +289,11 @@ impl<F: FieldExt> Frame<F> {
                             };
                             rw_operations.push(RWOperation::LocalsOp(locals_op));
                         } else {
-                            execution_step.auxiliary_1 = Some(Value::bool(true)?); // is global
+                            execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128)?);
+                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
@@ -312,7 +312,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
-                        execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
                         let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
                         let field_offset = resolver.field_offset(*fh_idx);
                         let field_ref = reference.borrow_element(field_offset)?;
@@ -320,16 +320,16 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
-                        let value = Value::new_variable(Some(constant), MoveValueType::Bool)?;
+                        let value = Value::new_variable(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
                         let constant = F::zero();
-                        let value = Value::new_variable(Some(constant), MoveValueType::Bool)?;
+                        let value = Value::new_variable(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
-                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64));
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
@@ -344,7 +344,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::BrFalse(offset) => {
-                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64));
                         let cond =
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
@@ -359,7 +359,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Branch(offset) => {
-                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(*offset as u64));
                         trace!("step #{}, {:?}", interp.step, execution_step);
                         exec_steps.push(execution_step);
                         interp.step += 1;
@@ -433,8 +433,8 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::CastU128 => interp.unary_op(Value::castu128, rw_operations),
                     Bytecode::Pack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
-                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64)?);
-                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
                         interp
                             .stack
@@ -442,8 +442,8 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
-                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64)?);
-                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64)?);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let struct_ = interp.stack.pop_as_struct(rw_operations)?;
                         for value in struct_.unpack()? {
                             interp.stack.push(value, rw_operations)?;
@@ -454,7 +454,7 @@ impl<F: FieldExt> Frame<F> {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;
                         let ty = resolver.get_struct_type(*sd_idx);
                         let exists = interp.exists(data_store, loader, addr, &ty)?;
-                        interp.stack.push(Value::bool(exists)?, rw_operations)
+                        interp.stack.push(Value::bool(exists), rw_operations)
                     }
                     Bytecode::MoveFrom(sd_idx) => {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;

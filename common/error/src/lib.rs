@@ -31,6 +31,7 @@ pub enum StatusCode {
     UnknownInvariantViolationError,
     MissingData,
     ResourceAlreadyExists,
+    InvalidValue,
 
     // Proof system error
     ProofSystemError(Error),
