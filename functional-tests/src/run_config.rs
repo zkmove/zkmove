@@ -1,16 +1,17 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::{anyhow, Error, Result};
-use movelang::argument::ScriptArguments;
+use movelang::argument::{ScriptArguments, Signer};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
 
 // directives can be added to move source files to tell vm how to run the test.
-// currently we support three kinds of directives: mods, args and circuit. For example,
+// currently we support several directives. For example,
 //
 // //! mods: arith.move - import a module
+// //! signer: 0x1      - only for test, set signer as 0x1
 // //! args: 0, 1       - pass arguments to the script, multiple args should separate with comma
 // //! circuit: vm      - specify which circuit to use (vm or fast, default to support both)
 // //! steps_num        - fix the number of execution steps
@@ -25,6 +26,7 @@ pub enum Circuit {
 
 #[derive(Debug)]
 pub struct RunConfig {
+    pub signer: Option<Signer>,
     pub args: Option<ScriptArguments>,
     pub modules: Vec<String>,
     pub circuit: Option<Circuit>,
@@ -36,6 +38,7 @@ pub struct RunConfig {
 impl RunConfig {
     pub fn new(script_file: &Path) -> Result<RunConfig> {
         let mut config = RunConfig {
+            signer: None,
             args: None,
             modules: vec![],
             circuit: None,
@@ -52,6 +55,9 @@ impl RunConfig {
 
         for line in buffer.lines() {
             let s = line.split_whitespace().collect::<String>();
+            if let Some(s) = s.strip_prefix("//!signer:") {
+                config.signer = Some(s.parse::<Signer>()?);
+            }
             if let Some(s) = s.strip_prefix("//!args:") {
                 config.args = Some(s.parse::<ScriptArguments>()?);
             }

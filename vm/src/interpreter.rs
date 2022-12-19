@@ -10,7 +10,7 @@ use move_binary_format::file_format::StructDefinitionIndex;
 use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
-use movelang::argument::{argument_type, convert_from, ScriptArguments};
+use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
@@ -52,45 +52,52 @@ impl<F: FieldExt> Interpreter<F> {
     fn process_arguments(
         &mut self,
         locals: &mut Locals<F>,
+        signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        // check arguments numbers and types
-        match args {
-            Some(script_args) => {
-                let arg_num = script_args.as_inner().len();
-                if arg_types.len() != arg_num {
-                    return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
-                }
-                let arguments = script_args.into_inner();
-                for i in 0..arg_num {
-                    let expect_type = &arg_types[i];
-                    let arg = &arguments[i];
-                    let arg_type = &argument_type(arg)?;
-                    if arg_type != expect_type {
-                        return Err(RuntimeError::new(StatusCode::ArgumentsTypeMismatch)
-                            .with_message(format!(
-                                "script argument type {:?}, expect type {:?}",
-                                arg_type, expect_type
-                            )));
-                    }
-                    let arg_value = convert_from(arg.clone())?;
-                    locals.store(
-                        i,
-                        Value::new_variable(arg_value, expect_type.clone())?,
-                        call_index,
-                        rw_operations,
-                    )?;
-                }
-            }
-            None => {
-                if !arg_types.is_empty() {
-                    return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
-                }
-            }
+        // check arguments numbers
+        let mut signer_and_args = Vec::new();
+        if let Some(s) = signer {
+            signer_and_args.push(s.into_inner());
         }
+        if let Some(args) = args {
+            signer_and_args.append(&mut args.into_inner());
+        }
+        if arg_types.len() != signer_and_args.len() {
+            return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
+        }
+
+        // check arguments types and store locals
+        for i in 0..signer_and_args.len() {
+            let expect_type = &arg_types[i];
+            let arg = &signer_and_args[i];
+            let arg_type = argument_type(arg)?;
+
+            if arg_type != *expect_type {
+                if *expect_type == MoveValueType::Signer && arg_type == MoveValueType::Address {
+                    // it's signer's address, do nothing
+                } else {
+                    return Err(
+                        RuntimeError::new(StatusCode::ArgumentsTypeMismatch).with_message(format!(
+                            "script argument type {:?}, expect type {:?}",
+                            arg_type, expect_type
+                        )),
+                    );
+                }
+            }
+
+            let arg_value = convert_from(arg.clone())?;
+            locals.store(
+                i,
+                Value::new_variable(arg_value, expect_type.clone())?,
+                call_index,
+                rw_operations,
+            )?;
+        }
+
         Ok(())
     }
 
@@ -117,6 +124,7 @@ impl<F: FieldExt> Interpreter<F> {
     pub fn run_script(
         &mut self,
         entry: Arc<Function>,
+        signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
@@ -128,7 +136,7 @@ impl<F: FieldExt> Interpreter<F> {
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
-        self.process_arguments(&mut locals, args, arg_types, 0, rw_operations)?;
+        self.process_arguments(&mut locals, signer, args, arg_types, 0, rw_operations)?;
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();

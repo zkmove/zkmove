@@ -16,7 +16,7 @@ use halo2_proofs::{
 use logger::prelude::*;
 use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;
-use movelang::argument::ScriptArguments;
+use movelang::argument::{ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use plotters::prelude::*;
@@ -57,6 +57,7 @@ impl<F: FieldExt> Runtime<F> {
         &self,
         script: CompiledScript,
         modules: Vec<CompiledModule>,
+        signer: Option<Signer>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore<F>,
         circuit_config: CircuitConfig,
@@ -80,6 +81,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut arith_operations = Vec::new();
         interp.run_script(
             entry,
+            signer,
             args,
             arg_types,
             self.loader(),

@@ -35,6 +35,23 @@ impl FromStr for ScriptArguments {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Signer(ScriptArgument);
+
+impl FromStr for Signer {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self> {
+        Ok(Signer(parse_transaction_argument(input)?))
+    }
+}
+
+impl Signer {
+    pub fn into_inner(self) -> ScriptArgument {
+        self.0
+    }
+}
+
 pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
     match arg {
         ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
