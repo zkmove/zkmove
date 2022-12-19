@@ -116,44 +116,44 @@ fn test_fake_rw_operation() -> VmResult<()> {
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         call_index: 0,
         index: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 6,
     });
@@ -286,37 +286,37 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
 
     let rw_op_0 = StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     };
     let rw_op_1 = StackOp {
         address: 1,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 1,
     };
     let rw_op_2 = StackOp {
         address: 1,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 2,
     };
     let rw_op_3 = StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     };
     let rw_op_4 = StackOp {
         address: 0,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 4,
     };
     let rw_op_5 = StackOp {
         address: 0,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 5,
     };

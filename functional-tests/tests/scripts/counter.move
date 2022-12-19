@@ -1,5 +1,6 @@
 //! mods: counter.move
-//! args: 0x1, 0x1
+//! signer: 0x1
+//! args: 0x1
 script {
     use 0x1::Counter;
 
@@ -11,8 +12,8 @@ script {
         let is_exist = Counter::check(addr);
         assert!(is_exist, 101);
         Counter::incr(addr);
-//        let value = Counter::value(addr);
-//        assert!(value == 1, 102);
+        let value = Counter::value(addr);
+        assert!(value == 1, 102);
         Counter::delete(addr);
     }
 }

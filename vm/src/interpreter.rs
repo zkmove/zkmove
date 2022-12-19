@@ -10,7 +10,7 @@ use move_binary_format::file_format::StructDefinitionIndex;
 use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
-use movelang::argument::{convert_from, ScriptArguments};
+use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
@@ -52,32 +52,47 @@ impl<F: FieldExt> Interpreter<F> {
     fn process_arguments(
         &mut self,
         locals: &mut Locals<F>,
+        signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        let arg_type_pairs: Vec<_> = match args {
-            Some(values) => values
-                .as_inner()
-                .iter()
-                .map(|v| Some(v.clone()))
-                .zip(arg_types)
-                .collect(),
-            None => std::iter::repeat(None).zip(arg_types).collect(),
-        };
+        // check arguments numbers
+        let mut signer_and_args = Vec::new();
+        if let Some(s) = signer {
+            signer_and_args.push(s.into_inner());
+        }
+        if let Some(args) = args {
+            signer_and_args.append(&mut args.into_inner());
+        }
+        if arg_types.len() != signer_and_args.len() {
+            return Err(RuntimeError::new(StatusCode::WrongArgumentsNumber));
+        }
 
-        for (i, (arg, ty)) in arg_type_pairs.into_iter().enumerate() {
-            let val = match arg {
-                Some(a) => {
-                    let value: F = convert_from(a)?;
-                    Some(value)
+        // check arguments types and store locals
+        for i in 0..signer_and_args.len() {
+            let expect_type = &arg_types[i];
+            let arg = &signer_and_args[i];
+            let arg_type = argument_type(arg)?;
+
+            if arg_type != *expect_type {
+                if *expect_type == MoveValueType::Signer && arg_type == MoveValueType::Address {
+                    // it's signer's address, do nothing
+                } else {
+                    return Err(
+                        RuntimeError::new(StatusCode::ArgumentsTypeMismatch).with_message(format!(
+                            "script argument type {:?}, expect type {:?}",
+                            arg_type, expect_type
+                        )),
+                    );
                 }
-                None => None,
-            };
+            }
+
+            let arg_value = convert_from(arg.clone())?;
             locals.store(
                 i,
-                Value::new_variable(val, None, ty)?,
+                Value::new(arg_value, expect_type.clone())?,
                 call_index,
                 rw_operations,
             )?;
@@ -109,6 +124,7 @@ impl<F: FieldExt> Interpreter<F> {
     pub fn run_script(
         &mut self,
         entry: Arc<Function>,
+        signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
@@ -120,7 +136,7 @@ impl<F: FieldExt> Interpreter<F> {
     ) -> VmResult<()> {
         let mut locals = Locals::new(entry.local_count());
 
-        self.process_arguments(&mut locals, args, arg_types, 0, rw_operations)?;
+        self.process_arguments(&mut locals, signer, args, arg_types, 0, rw_operations)?;
 
         let mut frame = Frame::new(entry, locals);
         frame.print_frame();
@@ -178,8 +194,8 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Call(index, mut execution_step) => {
                     let call_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
-                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64, None)?);
-                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64, None)?);
+                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
+                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.call_index = call_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
                     let module_index = execution_step.module_index;

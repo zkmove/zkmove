@@ -53,6 +53,7 @@ fn test_execution_step() -> VmResult<()> {
         .run_script(
             entry,
             None,
+            None,
             arg_types,
             runtime.loader(),
             &mut data_store,
@@ -157,37 +158,37 @@ fn test_execution_step() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
@@ -351,44 +352,44 @@ fn test_nop_step() -> VmResult<()> {
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         call_index: 0,
         index: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 6,
     });
@@ -432,7 +433,8 @@ fn test_nop_steps() -> VmResult<()> {
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default().steps_num(Some(8));
-    let witness = runtime.execute_script(script, vec![], None, &mut data_store, circuit_config)?;
+    let witness =
+        runtime.execute_script(script, vec![], None, None, &mut data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
@@ -532,37 +534,37 @@ fn test_nop_steps() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        value: Value::u64(2, None).unwrap(),
+        value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(1, None).unwrap(),
+        value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        value: Value::u64(3, None).unwrap(),
+        value: Value::u64(3),
         rw: READ,
         gc: 5,
     });
@@ -601,7 +603,8 @@ fn test_empty_ops() -> VmResult<()> {
     let circuit_config = CircuitConfig::default()
         .stack_ops_num(Some(20))
         .locals_ops_num(Some(20));
-    let witness = runtime.execute_script(script, vec![], None, &mut data_store, circuit_config)?;
+    let witness =
+        runtime.execute_script(script, vec![], None, None, &mut data_store, circuit_config)?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
