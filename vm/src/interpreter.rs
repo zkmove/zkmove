@@ -92,7 +92,7 @@ impl<F: FieldExt> Interpreter<F> {
             let arg_value = convert_from(arg.clone())?;
             locals.store(
                 i,
-                Value::new_variable(arg_value, expect_type.clone())?,
+                Value::new(arg_value, expect_type.clone())?,
                 call_index,
                 rw_operations,
             )?;
