@@ -71,10 +71,10 @@ impl<F: FieldExt> EvalStack<F> {
 
         for (i, value) in values.iter().enumerate() {
             let stack_op = StackOp {
-                address: self.0.len() - values.len() + 1 + i,
+                address: remaining_stack_size + 1 + i,
                 value: value.clone(),
                 rw: RW::READ,
-                gc: rw_operations.len() + i,
+                gc: rw_operations.len(),
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
         }
