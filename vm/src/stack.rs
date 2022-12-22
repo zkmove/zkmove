@@ -71,7 +71,7 @@ impl<F: FieldExt> EvalStack<F> {
 
         for (i, value) in values.iter().enumerate() {
             let stack_op = StackOp {
-                address: remaining_stack_size + 1 + i,
+                address: remaining_stack_size + i,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
