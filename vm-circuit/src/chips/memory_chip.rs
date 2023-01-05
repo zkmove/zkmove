@@ -3,6 +3,7 @@
 use crate::chips::memory_chip::global_op_chip::{GlobalOpChip, GlobalOpChipConfig};
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::{CircuitConfig, Witness};
+use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
@@ -360,12 +361,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_stack",
                         self.config.advices[0],
                         0,
-                        || {
-                            let value_ref = assigned_last_stack_counter
-                                .value()
-                                .ok_or(Error::Synthesis)?;
-                            Ok(*value_ref)
-                        },
+                        || assigned_last_stack_counter.value().copied(),
                     )?;
                     region.constrain_equal(
                         assigned_last_stack_counter.cell(),
@@ -376,7 +372,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_stack",
                         self.config.advices[0],
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
                 }
 
@@ -385,12 +381,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_locals",
                         self.config.advices[1],
                         0,
-                        || {
-                            let value_ref = assigned_last_locals_counter
-                                .value()
-                                .ok_or(Error::Synthesis)?;
-                            Ok(*value_ref)
-                        },
+                        || assigned_last_locals_counter.value().copied(),
                     )?;
                     region.constrain_equal(
                         assigned_last_locals_counter.cell(),
@@ -401,7 +392,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_locals",
                         self.config.advices[1],
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
                 }
 
@@ -410,12 +401,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_global",
                         self.config.advices[2],
                         0,
-                        || {
-                            let value_ref = assigned_last_global_counter
-                                .value()
-                                .ok_or(Error::Synthesis)?;
-                            Ok(*value_ref)
-                        },
+                        || assigned_last_global_counter.value().copied(),
                     )?;
                     region.constrain_equal(
                         assigned_last_global_counter.cell(),
@@ -426,7 +412,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_global",
                         self.config.advices[2],
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
                 }
 
@@ -459,7 +445,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "gc_table[0]".to_string(),
                         self.config.gc_table,
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
                 } else {
                     (0..=last_step_gc)
@@ -468,7 +454,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 || format!("gc_table[{}]", i),
                                 self.config.gc_table,
                                 i,
-                                || Ok(F::from_u128(i as u128)),
+                                || CircuitValue::known(F::from_u128(i as u128)),
                             )
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))?;
@@ -483,7 +469,7 @@ impl<F: FieldExt> MemoryChip<F> {
                                 || format!("gc_table[{}]", i),
                                 self.config.gc_table,
                                 i,
-                                || Ok(F::from_u128(i as u128)),
+                                || CircuitValue::known(F::from_u128(i as u128)),
                             )
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))?;
@@ -502,7 +488,7 @@ impl<F: FieldExt> MemoryChip<F> {
                             || format!("call_index_table[{}]", i),
                             self.config.call_index_table,
                             i,
-                            || Ok(F::from_u128(i as u128)),
+                            || CircuitValue::known(F::from_u128(i as u128)),
                         )
                     })
                     .fold(Ok(()), |acc, res| acc.and(res))
@@ -518,7 +504,7 @@ impl<F: FieldExt> MemoryChip<F> {
                             || format!("locals_index_table[{}]", i),
                             self.config.locals_index_table,
                             i,
-                            || Ok(F::from_u128(i as u128)),
+                            || CircuitValue::known(F::from_u128(i as u128)),
                         )
                     })
                     .fold(Ok(()), |acc, res| acc.and(res))

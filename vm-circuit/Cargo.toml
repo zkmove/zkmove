@@ -10,7 +10,7 @@ logger = { path = "../common/logger" }
 movelang = { path = "../movelang"}
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "4e8d09188f056bf7a5daba4095c6c9bdcc51b74f" }
-halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "e5c022414e62154b66b9fbef463912768c15556a" }
+halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
 #halo2_proofs = { path = "../../halo2/halo2_proofs"}
 
 [dev-dependencies]
