@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
-#halo2_proofs = { path = "../../../halo2/halo2_proofs"}
 halo2_gadgets = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
 pasta_curves = "0.4"
 anyhow = "1.0.41"
