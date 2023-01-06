@@ -6,6 +6,7 @@ use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -1105,6 +1106,15 @@ impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
                 Some(value)
             }
             None => None,
+        }
+    }
+}
+
+impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
+    fn from(value: Value<F>) -> CircuitValue<F> {
+        match value.value() {
+            Some(v) => CircuitValue::known(v),
+            None => CircuitValue::unknown(),
         }
     }
 }

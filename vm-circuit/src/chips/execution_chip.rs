@@ -5,6 +5,7 @@ use crate::chips::execution_chip::lookup_tables::{
 };
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
+use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -130,7 +131,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                         || format!("rw_table[{}][0]", column_idx),
                         column,
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
 
                     // assign stack operations
@@ -218,7 +219,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     || format!("rw_table[{}][{}]", column_idx, offset + i + 1),
                     column,
                     offset + i + 1,
-                    || Ok(field),
+                    || CircuitValue::known(field),
                 )?;
                 op.assign_cell(column_idx, Some(cell)).map_err(|e| {
                     error!("assign cell failed: {:?}", e);
@@ -243,7 +244,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                         || format!("{:?}[{}][0]", table_name, column_idx),
                         column,
                         0,
-                        || Ok(F::zero()),
+                        || CircuitValue::known(F::zero()),
                     )?;
                     (0..values.len())
                         .map(|i| {
@@ -251,11 +252,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                                 || format!("{:?}[{}][{}]", table_name, column_idx, i + 1),
                                 column,
                                 i + 1,
-                                || {
-                                    // let op: Vec<F> = values[i];
-                                    // Ok(op[column_idx])
-                                    Ok(values[i][column_idx])
-                                },
+                                || CircuitValue::known(values[i][column_idx]),
                             )
                         })
                         .fold(Ok(()), |acc, res| acc.and(res))
