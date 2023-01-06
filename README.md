@@ -12,7 +12,7 @@ zkMove is a zero-knowledge proof friendly Move language runtime environment. We 
 
 **A zero-knowledge proof-friendly bytecode virtual machine**, to improve programmability and composability of zk-proof application.
 
-**Powered by Move language and Halo2**. As a new generation of programming language for digital assets, Move guarantees secutiry of assets at the language level. Halo2 uses Plonkish arithmetization, fitable for constructing complicated ciruit. No trusted setup required
+**Powered by Move language and Halo2**. As a new generation of programming language for digital assets, Move guarantees security of assets at the language level. Halo2 uses Plonkish arithmetization, fitable for constructing complicated circuits. No trusted setup required
 
 **No compromise on performance while pursuing Turing completeness**. Two types of circuits are combined: VM circuits to handle conditional branches and loops, and Move circuits, which directly compiled from bytecodes, offer smaller proof size and shorter proving time. 
 
