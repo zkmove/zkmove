@@ -16,19 +16,19 @@ pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct U8<F: FieldExt>(F);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct U64<F: FieldExt>(F);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct U128<F: FieldExt>(F);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Bool<F: FieldExt>(F);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Address<F: FieldExt>(AccountAddress<F>);
 
 impl<F: FieldExt> Address<F> {
@@ -102,7 +102,7 @@ impl<F: FieldExt> ContainerRef<F> {
     }
 
     fn read_ref(&self) -> VmResult<Value<F>> {
-        Ok(Value::Container(self.container().copy_value()?))
+        Ok(Value::Container(self.container().copy_value()))
     }
 
     fn borrow_global_value_element(&self, element_idx: usize) -> VmResult<Value<F>> {
@@ -187,7 +187,7 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
-            Container::Locals(r) | Container::Struct(r) => r.borrow()[self.idx].copy_value()?,
+            Container::Locals(r) | Container::Struct(r) => r.borrow()[self.idx].copy_value(),
         };
         Ok(value)
     }
@@ -277,8 +277,8 @@ impl<F: FieldExt> IndexedStructRef<F> {
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
-            Container::Locals(r) => r.borrow()[self.idx].copy_value()?,
-            Container::Struct(r) => r.borrow()[self.element_idx].copy_value()?,
+            Container::Locals(r) => r.borrow()[self.idx].copy_value(),
+            Container::Struct(r) => r.borrow()[self.element_idx].copy_value(),
         };
         Ok(value)
     }
@@ -336,7 +336,7 @@ impl<F: FieldExt> IndexedGlobalRef<F> {
     fn read_ref(&self) -> VmResult<Value<F>> {
         let value = match &*self.container_ref.container() {
             Container::Locals(_) => unreachable!("IndexedGlobalRef should point to a struct"),
-            Container::Struct(r) => r.borrow()[self.element_idx].copy_value()?,
+            Container::Struct(r) => r.borrow()[self.element_idx].copy_value(),
         };
         Ok(value)
     }
@@ -1120,31 +1120,32 @@ impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
 }
 
 impl<F: FieldExt> Value<F> {
-    pub fn copy_value(&self) -> VmResult<Self> {
-        Ok(match self {
-            Value::Invalid => Value::Invalid,
-            Value::Container(c) => Value::Container(c.copy_value()?),
-            Value::ContainerRef(r) => Value::ContainerRef(r.copy_value()),
-            Value::IndexedRef(r) => Value::IndexedRef(r.copy_value()),
-            v => v.clone(), // directly clone() for U8, U64, U128, Bool
-        })
+    pub fn copy_value(&self) -> Self {
+        match self {
+            Self::Invalid => Self::Invalid,
+            Self::U8(v) => Self::U8(*v),
+            Self::U64(v) => Self::U64(*v),
+            Self::U128(v) => Self::U128(*v),
+            Self::Bool(v) => Self::Bool(*v),
+            Self::Address(addr) => Self::Address(*addr),
+            Self::Container(c) => Self::Container(c.copy_value()),
+            Self::ContainerRef(r) => Self::ContainerRef(r.copy_value()),
+            Self::IndexedRef(r) => Self::IndexedRef(r.copy_value()),
+        }
     }
 }
-
 impl<F: FieldExt> Container<F> {
-    pub fn copy_value(&self) -> VmResult<Self> {
-        Ok(match self {
+    pub fn copy_value(&self) -> Self {
+        match self {
             Self::Struct(r) => {
                 let struct_ = Rc::new(RefCell::new(
-                    r.borrow()
-                        .iter()
-                        .map(|v| v.copy_value())
-                        .collect::<VmResult<_>>()?,
+                    r.borrow().iter().map(|v| v.copy_value()).collect(),
                 ));
                 Self::Struct(struct_)
             }
-            Self::Locals(l) => Self::Locals(l.clone()),
-        })
+            // locals is copied by ref
+            Self::Locals(l) => Self::Locals(Rc::clone(l)),
+        }
     }
 
     pub fn copy_by_ref(&self) -> Self {
