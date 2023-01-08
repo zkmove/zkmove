@@ -1120,6 +1120,12 @@ impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
 }
 
 impl<F: FieldExt> Value<F> {
+    /// We have two methods to "copy" a value - copy_value() and clone(). copy_value() is
+    /// a "shallow" copy, only the stack data is copied; clone() is a "deep" copy, not only
+    /// the stack data but also the referenced data in locals is copied.
+    ///
+    /// For example, copy_value() of ContainerRef returns a ref pointing to the original
+    /// container, but clone() of ContainerRef returns a ref pointing to a copied container.
     pub fn copy_value(&self) -> Self {
         match self {
             Self::Invalid => Self::Invalid,
@@ -1135,6 +1141,7 @@ impl<F: FieldExt> Value<F> {
     }
 }
 impl<F: FieldExt> Container<F> {
+    /// A "shallow" copy, only the stack data is copied.
     pub fn copy_value(&self) -> Self {
         match self {
             Self::Struct(r) => {
@@ -1156,10 +1163,24 @@ impl<F: FieldExt> Container<F> {
     }
 }
 
+/// A "deep" copy, not only the stack data but also the referenced data in locals is copied.
+// note -
 impl<F: FieldExt> Clone for Container<F> {
     fn clone(&self) -> Self {
-        self.copy_value()
-            .expect("Container copy_value() should succeed")
+        match self {
+            Self::Struct(r) => {
+                let struct_ = Rc::new(RefCell::new(
+                    r.borrow().iter().map(|v| v.copy_value()).collect(),
+                ));
+                Self::Struct(struct_)
+            }
+            Self::Locals(l) => {
+                let locals = Rc::new(RefCell::new(
+                    l.borrow().iter().map(|v| v.copy_value()).collect(),
+                ));
+                Self::Locals(locals)
+            }
+        }
     }
 }
 

@@ -40,12 +40,13 @@ impl<F: FieldExt> Locals<F> {
     }
 
     pub fn store(
-        &mut self,
+        &self,
         index: usize,
         value: Value<F>,
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
+        let value_copy = value.clone();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(v) => {
@@ -62,7 +63,7 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     call_index,
                     index,
-                    value: value.clone(),
+                    value: value_copy,
                     rw: RW::WRITE,
                     gc: rw_operations.len(),
                 };
@@ -80,6 +81,7 @@ impl<F: FieldExt> Locals<F> {
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
+        let value_copy = self.0.borrow().get(index).cloned();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
@@ -87,7 +89,7 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op_1 = LocalsOp {
                     call_index,
                     index,
-                    value: v.clone(),
+                    value: value_copy.unwrap(),
                     rw: RW::READ,
                     gc: rw_operations.len(),
                 };
@@ -241,6 +243,7 @@ impl<F: FieldExt> Locals<F> {
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
+        let value_copy = value.clone();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
@@ -248,7 +251,7 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     call_index,
                     index,
-                    value: value.clone(),
+                    value: value_copy,
                     rw: RW::WRITE,
                     gc: rw_operations.len(),
                 };
