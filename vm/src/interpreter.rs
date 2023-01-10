@@ -107,7 +107,7 @@ impl<F: FieldExt> Interpreter<F> {
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Frame<F>> {
-        let mut locals = Locals::new(func.local_count());
+        let locals = Locals::new(func.local_count());
         let arg_count = func.arg_count();
         for i in 0..arg_count {
             locals.store(

@@ -221,7 +221,7 @@ impl<F: FieldExt> Frame<F> {
                                         // if we come here, the value should be a member of a struct
                                         // we should return the struct instead of the member
                                         Container::Struct(_) => (
-                                            Value::Container(r.container().copy_value()?),
+                                            Value::Container(r.container().copy_value()),
                                             r.index(),
                                         ),
                                     }
@@ -273,7 +273,7 @@ impl<F: FieldExt> Frame<F> {
                                         // if we come here, the value should be a member of a struct
                                         // we should return the struct instead of the member
                                         Container::Struct(_) => (
-                                            Value::Container(r.container().copy_value()?),
+                                            Value::Container(r.container().copy_value()),
                                             r.index(),
                                         ),
                                     }
@@ -500,7 +500,7 @@ impl<F: FieldExt> Frame<F> {
                         let value = interp.borrow_global(data_store, loader, addr, &ty, *sd_idx)?;
 
                         let global_value =
-                            value.copy_value()?.as_reference()?.copy_global_value()?;
+                            value.copy_value().as_reference()?.copy_global_value()?;
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
