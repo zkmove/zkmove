@@ -4,6 +4,7 @@
 use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
+use crypto::poseidon::PoseidonAdapter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
@@ -78,7 +79,14 @@ impl<F: FieldExt> Container<F> {
     pub fn value(&self) -> F {
         match self {
             Self::Locals(_r) => F::from_u128(FakeContainerValue::LOCALS as u128),
-            Self::Struct(_r) => F::from_u128(FakeContainerValue::STRUCT as u128),
+            Self::Struct(r) => {
+                let fields = r
+                    .borrow()
+                    .iter()
+                    .map(|v| v.value().unwrap())
+                    .collect::<Vec<F>>();
+                PoseidonAdapter::hash(fields).expect("hash should not fail")
+            }
         }
     }
 

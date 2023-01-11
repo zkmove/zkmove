@@ -1,8 +1,9 @@
 // Copyright (c) zkMove Authors
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Spec};
 use halo2_proofs::arithmetic::FieldExt;
+use std::convert::TryInto;
 use std::marker::PhantomData;
 
 /// The same Poseidon specification as poseidon::P128Pow5T3
@@ -69,6 +70,33 @@ where
 impl<F: FieldExt, const L: usize> Default for Poseidon<F, L> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// An adapter to handle variable input length. Maximum input length is 16.
+pub struct PoseidonAdapter<F: FieldExt>(PhantomData<F>);
+
+impl<F: FieldExt> PoseidonAdapter<F> {
+    pub fn hash(inputs: Vec<F>) -> Result<F> {
+        match inputs.len() {
+            1 => Poseidon::<F, 1>::new().hash(inputs.try_into().unwrap()),
+            2 => Poseidon::<F, 2>::new().hash(inputs.try_into().unwrap()),
+            3 => Poseidon::<F, 3>::new().hash(inputs.try_into().unwrap()),
+            4 => Poseidon::<F, 4>::new().hash(inputs.try_into().unwrap()),
+            5 => Poseidon::<F, 5>::new().hash(inputs.try_into().unwrap()),
+            6 => Poseidon::<F, 6>::new().hash(inputs.try_into().unwrap()),
+            7 => Poseidon::<F, 7>::new().hash(inputs.try_into().unwrap()),
+            8 => Poseidon::<F, 8>::new().hash(inputs.try_into().unwrap()),
+            9 => Poseidon::<F, 9>::new().hash(inputs.try_into().unwrap()),
+            10 => Poseidon::<F, 10>::new().hash(inputs.try_into().unwrap()),
+            11 => Poseidon::<F, 11>::new().hash(inputs.try_into().unwrap()),
+            12 => Poseidon::<F, 12>::new().hash(inputs.try_into().unwrap()),
+            13 => Poseidon::<F, 13>::new().hash(inputs.try_into().unwrap()),
+            14 => Poseidon::<F, 14>::new().hash(inputs.try_into().unwrap()),
+            15 => Poseidon::<F, 15>::new().hash(inputs.try_into().unwrap()),
+            16 => Poseidon::<F, 16>::new().hash(inputs.try_into().unwrap()),
+            _ => Err(anyhow!("input length out of range")),
+        }
     }
 }
 
