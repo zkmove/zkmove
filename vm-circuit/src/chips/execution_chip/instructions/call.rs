@@ -6,9 +6,7 @@ use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{
-    StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
-};
+use crate::chips::execution_chip::step_chip::{StepChipCells, NUM_OF_BYTES};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
@@ -50,22 +48,22 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             ("Call gc", cond.clone() * gc_expr),
         ]);
 
-        for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+        for i in 0..NUM_OF_BYTES {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64 * 2).expr(),
                 cells.call_index.expression.clone() + 1.expr(),
                 arg_num.clone() - (i as u64 + 1).expr(),
                 cells.stack_size.expression.clone() - (i as u64).expr(),
-                cells.args_or_fields[i].expression.clone(),
+                cells.bytes[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
                 read,
-                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.bytes_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 write,
-                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.bytes_mask[i].expression.clone()),
             ));
         }
 
@@ -123,12 +121,12 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 .get(step.gc + i * 2)
                 .ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.bytes[i].assign(region, offset, op.value().value())?;
+            cells.bytes_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in arg_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
+        for i in arg_num..NUM_OF_BYTES {
+            cells.bytes_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {

@@ -6,9 +6,7 @@ use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{
-    StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
-};
+use crate::chips::execution_chip::step_chip::{StepChipCells, NUM_OF_BYTES};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -54,7 +52,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+        for i in 0..NUM_OF_BYTES {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
@@ -63,10 +61,10 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                     call_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - field_num.clone()
                         + (i as u64).expr(),
-                    value: cells.args_or_fields[i].expression.clone(),
+                    value: cells.bytes[i].expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.bytes_mask[i].expression.clone()),
             ));
         }
         lookups.rw_lookups.push((
@@ -110,16 +108,16 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             })?
             .get_lower_128() as usize;
 
-        // fixme: field_num may be large than MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS
+        // fixme: field_num may be large than NUM_OF_BYTES
         for i in 0..field_num {
             let op = rw_operations.0.get(step.gc + i).ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.bytes[i].assign(region, offset, op.value().value())?;
+            cells.bytes_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in field_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
+        for i in field_num..NUM_OF_BYTES {
+            cells.bytes_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         let op = rw_operations

@@ -12,7 +12,6 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
-use movelang::value::NUM_OF_BYTES_U128;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
@@ -20,8 +19,7 @@ pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 10; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
-pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
-                                                             //todo: dynamic configure according to the real argument number and struct fields
+pub const NUM_OF_BYTES: usize = 16; //max(#method_arguments, #struct_fields, NUM_OF_BYTES_U128)
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -43,10 +41,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
 
-    pub args_or_fields: Vec<Cell<F>>,
-    pub args_or_fields_mask: Vec<Cell<F>>,
-
     pub bytes: Vec<Cell<F>>,
+    pub bytes_mask: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -106,11 +102,8 @@ impl<F: FieldExt> StepChip<F> {
         arith_op_table: &ArithOpLookupTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
-        let cell_amount = NUM_OF_STEP_STATE
-            + MAX_OPERANDS_PER_STEP
-            + Opcode::total_numbers()
-            + MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS * 2
-            + NUM_OF_BYTES_U128;
+        let cell_amount =
+            NUM_OF_STEP_STATE + MAX_OPERANDS_PER_STEP + Opcode::total_numbers() + NUM_OF_BYTES * 2;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -147,14 +140,8 @@ impl<F: FieldExt> StepChip<F> {
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
 
-            args_or_fields: cells
-                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
-                .collect(),
-            args_or_fields_mask: cells
-                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
-                .collect(),
-
-            bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
+            bytes: cells.drain(0..NUM_OF_BYTES).collect(),
+            bytes_mask: cells.drain(0..NUM_OF_BYTES).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
