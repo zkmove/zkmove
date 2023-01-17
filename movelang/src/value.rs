@@ -187,24 +187,53 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
         match &*self.container_ref.container() {
+            //
             Container::Locals(r) => Ok(r.borrow()[self.idx].copy_value()),
             Container::Struct(_) => self.container_ref.read_ref(),
         }
     }
     fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
         match &x {
-            Value::IndexedRef(_)
-            | Value::ContainerRef(_)
-            | Value::Invalid
-            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message("should not come here".to_string())),
-            _ => (),
+            Value::IndexedRef(_) | Value::ContainerRef(_) | Value::Invalid => {
+                return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message("should not come here".to_string()))
+            }
+            _ => {}
         }
 
-        match (self.container_ref.container(), &x) {
-            (Container::Locals(r), _) | (Container::Struct(r), _) => {
+        match self.container_ref.container() {
+            Container::Locals(r) => {
+                match x {
+                    Value::U8(_)
+                    | Value::U64(_)
+                    | Value::U128(_)
+                    | Value::Bool(_)
+                    | Value::Address(_) => {}
+                    _ => {
+                        return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                            .with_message("container type mismatch".to_string()))
+                    }
+                }
                 let mut v = r.borrow_mut();
                 v[self.idx] = x;
             }
+            Container::Struct(r) => match x {
+                Value::Container(Container::Struct(struct_)) => {
+                    debug_assert_eq!(Rc::strong_count(&struct_), 1);
+                    let fields = match Rc::try_unwrap(struct_) {
+                        Ok(cell) => Ok(cell.into_inner()),
+                        Err(v) => Err(RuntimeError::new(
+                            StatusCode::UnknownInvariantViolationError,
+                        )
+                        .with_message(format!("moving value {:?} with dangling references", v))),
+                    };
+                    *r.borrow_mut() = fields?;
+                }
+                _ => {
+                    return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                        .with_message("container type mismatch".to_string()))
+                }
+            },
         }
         Ok(())
     }
