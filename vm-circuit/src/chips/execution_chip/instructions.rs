@@ -12,6 +12,8 @@ pub mod _mod;
 pub mod abort;
 pub mod add;
 pub mod and;
+pub mod bit_and;
+pub mod bit_or;
 pub mod br_false;
 pub mod br_true;
 pub mod branch;
@@ -57,6 +59,7 @@ pub mod stop;
 pub mod sub;
 pub mod unpack;
 pub mod write_ref;
+pub mod xor;
 
 pub trait Instructions<F: FieldExt> {
     fn configure(

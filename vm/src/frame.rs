@@ -419,6 +419,18 @@ impl<F: FieldExt> Frame<F> {
                         rw_operations,
                         &mut execution_step,
                     ),
+                    Bytecode::BitAnd => {
+                        interp.binary_op(Value::bit_and, rw_operations)?;
+                        Ok(())
+                    }
+                    Bytecode::BitOr => {
+                        interp.binary_op(Value::bit_or, rw_operations)?;
+                        Ok(())
+                    }
+                    Bytecode::Xor => {
+                        interp.binary_op(Value::xor, rw_operations)?;
+                        Ok(())
+                    }
                     Bytecode::And => {
                         interp.binary_op(Value::and, rw_operations)?;
                         Ok(())
