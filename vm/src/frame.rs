@@ -186,10 +186,19 @@ impl<F: FieldExt> Frame<F> {
                             rw_operations,
                         )
                     }
-                    Bytecode::MutBorrowLoc(v) | Bytecode::ImmBorrowLoc(v) => {
+                    Bytecode::MutBorrowLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         interp.stack.push(
-                            self.locals.borrow(*v as usize, call_index, rw_operations)?,
+                            self.locals
+                                .mut_borrow(*v as usize, call_index, rw_operations)?,
+                            rw_operations,
+                        )
+                    }
+                    Bytecode::ImmBorrowLoc(v) => {
+                        execution_step.locals_index = *v as usize;
+                        interp.stack.push(
+                            self.locals
+                                .imm_borrow(*v as usize, call_index, rw_operations)?,
                             rw_operations,
                         )
                     }

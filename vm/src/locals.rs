@@ -108,7 +108,7 @@ impl<F: FieldExt> Locals<F> {
         }
     }
 
-    pub fn borrow(
+    pub fn mut_borrow(
         &self,
         index: usize,
         call_index: usize,
@@ -116,7 +116,59 @@ impl<F: FieldExt> Locals<F> {
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
+            Some(v) => match v {
+                Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
+                    let locals_op = LocalsOp {
+                        call_index,
+                        index,
+                        value: v.clone(),
+                        rw: RW::READ,
+                        gc: rw_operations.len(),
+                    };
+                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(Container::Locals(Rc::clone(
+                                &self.0,
+                            ))),
+                        },
+                    )))
+                }
+                Value::Container(c) => {
+                    let locals_op = LocalsOp {
+                        call_index,
+                        index,
+                        value: v.clone(),
+                        rw: RW::READ,
+                        gc: rw_operations.len(),
+                    };
+                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
+                        IndexedLocalsRef {
+                            call_index,
+                            idx: index,
+                            container_ref: ContainerRef::Local(c.copy_by_ref()),
+                        },
+                    )))
+                }
+                _ => unimplemented!(),
+            },
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn imm_borrow(
+        &self,
+        index: usize,
+        call_index: usize,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<Value<F>> {
+        let values = self.0.borrow();
+        match values.get(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => match v {
                 Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
                     let locals_op = LocalsOp {
@@ -168,7 +220,7 @@ impl<F: FieldExt> Locals<F> {
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
         match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => {
                 let locals_op = LocalsOp {
                     call_index,
@@ -194,7 +246,7 @@ impl<F: FieldExt> Locals<F> {
         let value_copy = value.clone();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::BorrowLocalError)),
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(_v) => {
                 let locals_op = LocalsOp {
                     call_index,
