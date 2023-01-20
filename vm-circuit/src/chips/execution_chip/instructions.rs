@@ -12,6 +12,7 @@ pub mod _mod;
 pub mod abort;
 pub mod add;
 pub mod and;
+pub mod bit_and;
 pub mod br_false;
 pub mod br_true;
 pub mod branch;
