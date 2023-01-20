@@ -186,17 +186,17 @@ impl<F: FieldExt> IndexedLocalsRef<F> {
         &self.container_ref
     }
     fn read_ref(&self) -> VmResult<Value<F>> {
-        match &*self.container_ref.container() {
-            Container::Locals(r) => Ok(r.borrow()[self.idx].copy_value()),
-            Container::Struct(_) => self.container_ref.read_ref(),
-        }
+        let value = match &*self.container_ref.container() {
+            Container::Locals(r) | Container::Struct(r) => r.borrow()[self.idx].copy_value(),
+        };
+        Ok(value)
     }
     fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
         match &x {
             Value::IndexedRef(_)
             | Value::ContainerRef(_)
             | Value::Invalid
-            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message("should not come here".to_string())),
+            | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
             _ => (),
         }
 
