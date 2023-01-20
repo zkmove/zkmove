@@ -1091,6 +1091,32 @@ impl<F: FieldExt> Value<F> {
         Ok(value)
     }
 
+    pub fn bit_or(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        // Bitwise OR the 2 u64
+        if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
+            return Err(RuntimeError::new(StatusCode::UnsupportedMoveType)
+                .with_message("the value should be u64".to_string()));
+        }
+        let lhs = a.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128();
+        let value = F::from_u128(lhs | rhs);
+        let value = Value::new(value, a.ty())?;
+        Ok(value)
+    }
+
+    pub fn xor(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        // Bitwise XOR the 2 u64
+        if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
+            return Err(RuntimeError::new(StatusCode::UnsupportedMoveType)
+                .with_message("the value should be u64".to_string()));
+        }
+        let lhs = a.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128();
+        let value = F::from_u128(lhs ^ rhs);
+        let value = Value::new(value, a.ty())?;
+        Ok(value)
+    }
+
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() || b.is_zero() {
             F::zero()

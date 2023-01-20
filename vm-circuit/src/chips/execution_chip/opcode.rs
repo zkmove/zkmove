@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
-    _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, br_false::BrFalse,
+    _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr, br_false::BrFalse,
     br_true::BrTrue, branch::Branch, call::Call, castu128::CastU128, castu64::CastU64,
     castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq, exists::Exists, freeze_ref::FreezeRef,
     ge::Ge, gt::Gt, imm_borrow_field::ImmBorrowField, imm_borrow_global::ImmBorrowGlobal,
@@ -9,7 +9,7 @@ use crate::chips::execution_chip::instructions::{
     mut_borrow_field::MutBorrowField, mut_borrow_global::MutBorrowGlobal,
     mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop,
     read_ref::ReadRef, ret::Ret, st_loc::StLoc, stop::Stop, sub::Sub, unpack::Unpack,
-    write_ref::WriteRef,
+    write_ref::WriteRef, xor::Xor,
 };
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -42,6 +42,8 @@ pub enum Opcode {
     Eq,
     Neq,
     BitAnd,
+    BitOr,
+    Xor,
     And,
     Or,
     Not,
@@ -100,6 +102,8 @@ impl Opcode {
             Self::Eq,
             Self::Neq,
             Self::BitAnd,
+            Self::BitOr,
+            Self::Xor,
             Self::And,
             Self::Or,
             Self::Not,
@@ -165,6 +169,8 @@ impl Opcode {
             Opcode::Eq => Eq::configure(cells, constraints, lookups),
             Opcode::Neq => Neq::configure(cells, constraints, lookups),
             Opcode::BitAnd => BitAnd::configure(cells, constraints, lookups),
+            Opcode::BitOr => BitOr::configure(cells, constraints, lookups),
+            Opcode::Xor => Xor::configure(cells, constraints, lookups),
             Opcode::And => And::configure(cells, constraints, lookups),
             Opcode::Or => Or::configure(cells, constraints, lookups),
             Opcode::Not => Not::configure(cells, constraints, lookups),
@@ -227,6 +233,8 @@ impl Opcode {
             Opcode::Neq => Neq::assign(region, offset, step, rw_operations, cells)?,
 
             Opcode::BitAnd => BitAnd::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::BitOr => BitOr::assign(region, offset, step, rw_operations, cells)?,
+            Opcode::Xor => Xor::assign(region, offset, step, rw_operations, cells)?,
             Opcode::And => And::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Or => Or::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Not => Not::assign(region, offset, step, rw_operations, cells)?,
@@ -296,6 +304,8 @@ impl From<Bytecode> for Opcode {
             Bytecode::Eq => Opcode::Eq,
             Bytecode::Neq => Opcode::Neq,
             Bytecode::BitAnd => Opcode::BitAnd,
+            Bytecode::BitOr => Opcode::BitOr,
+            Bytecode::Xor => Opcode::Xor,
             Bytecode::And => Opcode::And,
             Bytecode::Or => Opcode::Or,
             Bytecode::Not => Opcode::Not,
