@@ -37,7 +37,7 @@ impl<F: FieldExt> Instructions<F> for BitAnd<F> {
         BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::Add,
+            Opcode::BitAnd,
             0.expr(),
             &mut lookups.bytecode_lookups,
             cond,
