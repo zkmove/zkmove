@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::lookup_tables::{
-    arith_op_lookup_table::ArithOpLookup, bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
+    arith_op_lookup_table::ArithOpLookup, bitwise_lookup_table::BitwiseLookup,
+    bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -369,5 +370,28 @@ impl<F: FieldExt> ArithOverflow<F> {
         cells.auxiliary_4.assign(region, offset, delta_inverse_16)?;
 
         Ok(())
+    }
+}
+
+pub struct LookupBitwise<F: FieldExt> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> LookupBitwise<F> {
+    pub fn lookup_bitwise(
+        cells: &StepChipCells<F>,
+        opcode: Opcode,
+        bitwise_lookups: &mut Vec<(BitwiseLookup<F>, Expression<F>)>,
+        cond: Expression<F>,
+    ) {
+        bitwise_lookups.push((
+            BitwiseLookup {
+                opcode: (opcode.index() as u64).expr(),
+                value_1: cells.value_a.expression.clone(),
+                value_2: cells.value_b.expression.clone(),
+                result: cells.value_c.expression.clone(),
+            },
+            cond,
+        ));
     }
 }

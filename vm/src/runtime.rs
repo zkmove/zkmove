@@ -150,6 +150,7 @@ impl<F: FieldExt> Runtime<F> {
         instance: Vec<Vec<F>>,
         k: u32,
     ) -> VmResult<()> {
+        debug!("mock_prove_circuit, {:?}", k);
         let prover = MockProver::run(k, circuit, instance).map_err(|e| {
             debug!("Prover Error: {:?}", e);
             RuntimeError::new(StatusCode::ProofSystemError(e))
