@@ -216,7 +216,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     F::from_u128(Opcode::BitOr.index() as u128),
                     F::from_u128(value_1 as u128),
                     F::from_u128(value_2 as u128),
-                    F::from_u128((value_1 & value_2) as u128),
+                    F::from_u128((value_1 | value_2) as u128),
                 ];
                 bitwise_values.push(field_values);
             }
@@ -227,7 +227,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     F::from_u128(Opcode::Xor.index() as u128),
                     F::from_u128(value_1 as u128),
                     F::from_u128(value_2 as u128),
-                    F::from_u128((value_1 & value_2) as u128),
+                    F::from_u128((value_1 ^ value_2) as u128),
                 ];
                 bitwise_values.push(field_values);
             }
