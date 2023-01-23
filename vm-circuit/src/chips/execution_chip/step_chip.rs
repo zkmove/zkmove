@@ -13,6 +13,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
+// use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
@@ -48,6 +49,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub args_or_fields_mask: Vec<Cell<F>>,
 
     pub bytes: Vec<Cell<F>>,
+    pub bytes_operand_1: Vec<Cell<F>>,
+    pub bytes_operand_2: Vec<Cell<F>>,
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
@@ -112,7 +115,7 @@ impl<F: FieldExt> StepChip<F> {
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
             + MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS * 2
-            + NUM_OF_BYTES_U128;
+            + NUM_OF_BYTES_U128 * 3;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
             for i in 0..cell_amount {
@@ -157,6 +160,8 @@ impl<F: FieldExt> StepChip<F> {
                 .collect(),
 
             bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
+            bytes_operand_1: cells.drain(0..NUM_OF_BYTES_U128).collect(),
+            bytes_operand_2: cells.drain(0..NUM_OF_BYTES_U128).collect(),
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
@@ -309,6 +314,9 @@ impl<F: FieldExt> StepChip<F> {
             });
         }
 
+        // for (i, item) in lookups.bitwise_lookups.iter().enumerate() {
+        //      debug!("bitwise lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in lookups.bitwise_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);

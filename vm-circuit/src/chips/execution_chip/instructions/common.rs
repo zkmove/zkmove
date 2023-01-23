@@ -10,6 +10,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use itertools::izip;
 use logger::prelude::*;
 use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
 use std::convert::TryInto;
@@ -384,14 +385,18 @@ impl<F: FieldExt> LookupBitwise<F> {
         bitwise_lookups: &mut Vec<(BitwiseLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
-        bitwise_lookups.push((
-            BitwiseLookup {
-                opcode: (opcode.index() as u64).expr(),
-                value_1: cells.value_a.expression.clone(),
-                value_2: cells.value_b.expression.clone(),
-                result: cells.value_c.expression.clone(),
-            },
-            cond,
-        ));
+        for (operand_1, operand_2, result_value) in
+            izip!(&cells.bytes_operand_1, &cells.bytes_operand_2, &cells.bytes)
+        {
+            bitwise_lookups.push((
+                BitwiseLookup {
+                    opcode: (opcode.index() as u64).expr(),
+                    value_1: operand_1.expression.clone(),
+                    value_2: operand_2.expression.clone(),
+                    result: result_value.expression.clone(),
+                },
+                cond.clone(),
+            ));
+        }
     }
 }

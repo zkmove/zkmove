@@ -30,6 +30,7 @@ impl BitwiseLookupTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BitwiseLookup<F: FieldExt> {
     pub opcode: Expression<F>,
     pub value_1: Expression<F>,

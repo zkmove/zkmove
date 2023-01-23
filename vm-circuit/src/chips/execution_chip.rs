@@ -197,11 +197,34 @@ impl<F: FieldExt> ExecutionChip<F> {
         )?;
 
         // bitwise table
+        // only 4 bits bitwised every time. so table size is 16*16
         let mut bitwise_values = Vec::new();
-        for value_1 in 0..=255 {
-            for value_2 in 0..=255 {
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
                 let field_values = vec![
                     F::from_u128(Opcode::BitAnd.index() as u128),
+                    F::from_u128(value_1 as u128),
+                    F::from_u128(value_2 as u128),
+                    F::from_u128((value_1 & value_2) as u128),
+                ];
+                bitwise_values.push(field_values);
+            }
+        }
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
+                let field_values = vec![
+                    F::from_u128(Opcode::BitOr.index() as u128),
+                    F::from_u128(value_1 as u128),
+                    F::from_u128(value_2 as u128),
+                    F::from_u128((value_1 & value_2) as u128),
+                ];
+                bitwise_values.push(field_values);
+            }
+        }
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
+                let field_values = vec![
+                    F::from_u128(Opcode::Xor.index() as u128),
                     F::from_u128(value_1 as u128),
                     F::from_u128(value_2 as u128),
                     F::from_u128((value_1 & value_2) as u128),
