@@ -119,6 +119,112 @@ impl<F: FieldExt> BinaryOp<F> {
 
         Ok(())
     }
+
+    pub fn assign_bitwise_op(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        // store operand 1 at bytes_operand_1 cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc + 1)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes_operand_1.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+
+        // store operand 2 at bytes_operand_2 cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes_operand_2.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+
+        // store result at bytes cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc + 2)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub struct UnaryOp<F: FieldExt> {
