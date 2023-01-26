@@ -2,8 +2,7 @@
 
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use movelang::value::{Container, ContainerRef, IndexedRef};
-use movelang::value::{IndexedLocalsRef, Value};
+use movelang::value::{CallIndex, Container, ContainerRef, Index, IndexedRef, Value, ValueAddress};
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
@@ -46,6 +45,10 @@ impl<F: FieldExt> Locals<F> {
         call_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
+        let value = Value::fill_address_if_needed(
+            value,
+            ValueAddress::Local(CallIndex(call_index), Index(index)),
+        );
         let value_copy = value.clone();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
@@ -127,15 +130,13 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
-                        IndexedLocalsRef {
-                            call_index,
-                            idx: index,
-                            container_ref: ContainerRef::Local(Container::Locals(Rc::clone(
-                                &self.0,
-                            ))),
-                        },
-                    )))
+                    Ok(Value::IndexedRef(IndexedRef {
+                        index,
+                        container_ref: ContainerRef::Local(Container::Locals(
+                            CallIndex(call_index),
+                            Rc::clone(&self.0),
+                        )),
+                    }))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
@@ -146,13 +147,7 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
-                        IndexedLocalsRef {
-                            call_index,
-                            idx: index,
-                            container_ref: ContainerRef::Local(c.copy_by_ref()),
-                        },
-                    )))
+                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
             },
@@ -179,15 +174,13 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
-                        IndexedLocalsRef {
-                            call_index,
-                            idx: index,
-                            container_ref: ContainerRef::Local(Container::Locals(Rc::clone(
-                                &self.0,
-                            ))),
-                        },
-                    )))
+                    Ok(Value::IndexedRef(IndexedRef {
+                        index,
+                        container_ref: ContainerRef::Local(Container::Locals(
+                            CallIndex(call_index),
+                            Rc::clone(&self.0),
+                        )),
+                    }))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
@@ -198,13 +191,7 @@ impl<F: FieldExt> Locals<F> {
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op));
-                    Ok(Value::IndexedRef(IndexedRef::IndexedLocalsRef(
-                        IndexedLocalsRef {
-                            call_index,
-                            idx: index,
-                            container_ref: ContainerRef::Local(c.copy_by_ref()),
-                        },
-                    )))
+                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
             },
