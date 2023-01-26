@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
-//use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBitwise, LookupBytecode};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
-//use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-//use crate::chips::utilities::Expr;
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -19,19 +19,41 @@ pub struct BitAnd<F: FieldExt> {
 
 impl<F: FieldExt> Instructions<F> for BitAnd<F> {
     fn configure(
-        _cells: &StepChipCells<F>,
-        _constraints: &mut Vec<(&str, Expression<F>)>,
-        _lookups: &mut LookupsWithCondition<F>,
+        cells: &StepChipCells<F>,
+        constraints: &mut Vec<(&str, Expression<F>)>,
+        lookups: &mut LookupsWithCondition<F>,
     ) {
+        //bit and
+        let cond = cells.conditions[Opcode::BitAnd.index()].expression.clone();
+
+        LookupBitwise::lookup_bitwise(
+            cells,
+            Opcode::BitAnd,
+            &mut lookups.bitwise_lookups,
+            cond.clone(),
+        );
+
+        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
+        BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        LookupBytecode::lookup_bytecode(
+            cells,
+            Opcode::BitAnd,
+            0.expr(),
+            &mut lookups.bytecode_lookups,
+            cond,
+        );
     }
 
     fn assign(
-        _region: &mut Region<'_, F>,
-        _offset: usize,
-        _step: &ExecutionStep<F>,
-        _rw_operations: &RWOperations<F>,
-        _cells: &StepChipCells<F>,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)?;
+        BinaryOp::assign_bitwise_op(region, offset, step, rw_operations, cells)?;
+
         Ok(())
     }
 }

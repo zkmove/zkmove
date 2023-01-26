@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::lookup_tables::{
-    arith_op_lookup_table::ArithOpLookup, bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
+    arith_op_lookup_table::ArithOpLookup, bitwise_lookup_table::BitwiseLookup,
+    bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -9,6 +10,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use itertools::izip;
 use logger::prelude::*;
 use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
 use std::convert::TryInto;
@@ -114,6 +116,112 @@ impl<F: FieldExt> BinaryOp<F> {
         cells
             .auxiliary_1
             .assign(region, offset, aux_value.value())?;
+
+        Ok(())
+    }
+
+    pub fn assign_bitwise_op(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        // store operand 1 at bytes_operand_1 cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc + 1)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes_operand_1.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+
+        // store operand 2 at bytes_operand_2 cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes_operand_2.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+
+        // store result at bytes cell.
+        // every 4 bits within one cell and cost 16 cells.
+        let result = rw_operations
+            .0
+            .get(step.gc + 2)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in cells.bytes.iter().take(16).enumerate() {
+            // seperate one byte into 2 fields
+            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -369,5 +477,32 @@ impl<F: FieldExt> ArithOverflow<F> {
         cells.auxiliary_4.assign(region, offset, delta_inverse_16)?;
 
         Ok(())
+    }
+}
+
+pub struct LookupBitwise<F: FieldExt> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> LookupBitwise<F> {
+    pub fn lookup_bitwise(
+        cells: &StepChipCells<F>,
+        opcode: Opcode,
+        bitwise_lookups: &mut Vec<(BitwiseLookup<F>, Expression<F>)>,
+        cond: Expression<F>,
+    ) {
+        for (operand_1, operand_2, result_value) in
+            izip!(&cells.bytes_operand_1, &cells.bytes_operand_2, &cells.bytes)
+        {
+            bitwise_lookups.push((
+                BitwiseLookup {
+                    opcode: (opcode.index() as u64).expr(),
+                    value_1: operand_1.expression.clone(),
+                    value_2: operand_2.expression.clone(),
+                    result: result_value.expression.clone(),
+                },
+                cond.clone(),
+            ));
+        }
     }
 }

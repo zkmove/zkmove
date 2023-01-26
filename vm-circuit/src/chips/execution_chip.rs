@@ -3,6 +3,7 @@
 use crate::chips::execution_chip::lookup_tables::{
     arith_op_lookup_table::ArithOpLookupTable, call_lookup_table::CallLookupTable,
 };
+use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::Witness;
 use halo2_proofs::circuit::Value as CircuitValue;
@@ -13,7 +14,10 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, TableColumn},
 };
 use logger::prelude::*;
-use lookup_tables::{bytecode_lookup_table::BytecodeLookupTable, rw_table::RWTable};
+use lookup_tables::{
+    bitwise_lookup_table::BitwiseLookupTable, bytecode_lookup_table::BytecodeLookupTable,
+    rw_table::RWTable,
+};
 use step_chip::{StepChip, StepConfig};
 use step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 
@@ -29,6 +33,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     bytecode_table: BytecodeLookupTable,
     call_table: CallLookupTable,
     arith_op_table: ArithOpLookupTable,
+    bitwise_table: BitwiseLookupTable,
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +69,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let call_table = CallLookupTable::construct(meta);
         let arith_op_table = ArithOpLookupTable::construct(meta);
+        let bitwise_table = BitwiseLookupTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
         let step_config = StepChip::configure(
             meta,
@@ -72,6 +78,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             &bytecode_table,
             &call_table,
             &arith_op_table,
+            &bitwise_table,
         );
 
         ExecutionChipConfig {
@@ -80,6 +87,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             bytecode_table,
             call_table,
             arith_op_table,
+            bitwise_table,
         }
     }
 
@@ -186,6 +194,50 @@ impl<F: FieldExt> ExecutionChip<F> {
             arith_op_table_columns,
             arith_ops,
             "arith_op_table",
+        )?;
+
+        // bitwise table
+        // only 4 bits bitwised every time. so table size is 16*16
+        let mut bitwise_values = Vec::new();
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
+                let field_values = vec![
+                    F::from_u128(Opcode::BitAnd.index() as u128),
+                    F::from_u128(value_1 as u128),
+                    F::from_u128(value_2 as u128),
+                    F::from_u128((value_1 & value_2) as u128),
+                ];
+                bitwise_values.push(field_values);
+            }
+        }
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
+                let field_values = vec![
+                    F::from_u128(Opcode::BitOr.index() as u128),
+                    F::from_u128(value_1 as u128),
+                    F::from_u128(value_2 as u128),
+                    F::from_u128((value_1 | value_2) as u128),
+                ];
+                bitwise_values.push(field_values);
+            }
+        }
+        for value_1 in 0..16 {
+            for value_2 in 0..16 {
+                let field_values = vec![
+                    F::from_u128(Opcode::Xor.index() as u128),
+                    F::from_u128(value_1 as u128),
+                    F::from_u128(value_2 as u128),
+                    F::from_u128((value_1 ^ value_2) as u128),
+                ];
+                bitwise_values.push(field_values);
+            }
+        }
+        let bitwise_table_columns = self.config.bitwise_table.columns();
+        self.assign_table(
+            layouter,
+            bitwise_table_columns,
+            &bitwise_values,
+            "bitwise_table",
         )?;
 
         Ok((
