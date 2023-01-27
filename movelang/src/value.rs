@@ -155,6 +155,43 @@ impl<F: FieldExt> ContainerRef<F> {
         Ok(Value::Container(self.container().copy_value()))
     }
 
+    fn write_ref(&mut self, value: Value<F>) -> VmResult<()> {
+        match value {
+            Value::Container(c) => match self.container() {
+                Container::Struct(_, struct_) => {
+                    let r = match c {
+                        Container::Struct(_, v) => v,
+                        _ => {
+                            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                                .with_message("failed to write ref".to_string()))
+                        }
+                    };
+
+                    debug_assert_eq!(Rc::strong_count(&r), 1);
+                    let fields = match Rc::try_unwrap(r) {
+                        Ok(cell) => Ok(cell.into_inner()),
+                        Err(v) => Err(RuntimeError::new(
+                            StatusCode::UnknownInvariantViolationError,
+                        )
+                        .with_message(format!("moving value {:?} with dangling references", v))),
+                    };
+                    *struct_.borrow_mut() = fields?;
+                    Ok(())
+                }
+                Container::Locals(_, _) => {
+                    return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                        .with_message("cannot change Container::Locals".to_string()))
+                }
+            },
+            v => Err(
+                RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
+                    "cannot write value {:?} to container ref {:?}",
+                    v, self
+                )),
+            ),
+        }
+    }
+
     pub fn borrow_element(&self, element_idx: usize) -> VmResult<Value<F>> {
         let res = match self.container() {
             Container::Locals(_, _) => {
@@ -221,6 +258,14 @@ impl<F: FieldExt> ContainerRef<F> {
             Err(RuntimeError::new(StatusCode::TypeMismatch)
                 .with_message("The value doesn't contain global value".to_string()))
         }
+    }
+
+    fn container_index(&self) -> usize {
+        self.container().index()
+    }
+
+    fn container_frame_index(&self) -> usize {
+        self.container().frame_index()
     }
 }
 
@@ -344,19 +389,19 @@ impl<F: FieldExt> Reference<F> {
     }
     pub fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
         match self {
-            Self::ContainerRef(_) => unimplemented!(),
+            Self::ContainerRef(r) => r.write_ref(x),
             Self::IndexedRef(r) => r.write_ref(x),
         }
     }
     pub fn index(&self) -> usize {
         match self {
-            Self::ContainerRef(_) => unimplemented!(),
+            Self::ContainerRef(r) => r.container_index(),
             Self::IndexedRef(r) => r.index(),
         }
     }
     pub fn container_frame_index(&self) -> usize {
         match self {
-            Self::ContainerRef(_) => unimplemented!(),
+            Self::ContainerRef(r) => r.container_frame_index(),
             Self::IndexedRef(r) => r.container_frame_index(),
         }
     }
