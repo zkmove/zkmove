@@ -13,14 +13,13 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
-// use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 14; //todo: calculate step height automatically
-pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, call_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
+pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
 pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
                                                              //todo: dynamic configure according to the real argument number and struct fields
@@ -29,7 +28,7 @@ pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_argume
 pub struct StepChipCells<F: FieldExt> {
     pub pc: Cell<F>,
     pub stack_size: Cell<F>,
-    pub call_index: Cell<F>,
+    pub frame_index: Cell<F>,
     pub locals_index: Cell<F>,
     pub gc: Cell<F>,
     pub module_index: Cell<F>,
@@ -54,7 +53,7 @@ pub struct StepChipCells<F: FieldExt> {
 
     pub next_pc: Cell<F>,
     pub next_stack_size: Cell<F>,
-    pub next_call_index: Cell<F>,
+    pub next_frame_index: Cell<F>,
     pub next_locals_index: Cell<F>,
     pub next_gc: Cell<F>,
     pub next_module_index: Cell<F>,
@@ -136,7 +135,7 @@ impl<F: FieldExt> StepChip<F> {
         let cells = StepChipCells {
             pc: cells.pop_front().unwrap(),
             stack_size: cells.pop_front().unwrap(),
-            call_index: cells.pop_front().unwrap(),
+            frame_index: cells.pop_front().unwrap(),
             locals_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             module_index: cells.pop_front().unwrap(),
@@ -165,7 +164,7 @@ impl<F: FieldExt> StepChip<F> {
 
             next_pc: cells.pop_front().unwrap(),
             next_stack_size: cells.pop_front().unwrap(),
-            next_call_index: cells.pop_front().unwrap(),
+            next_frame_index: cells.pop_front().unwrap(),
             next_locals_index: cells.pop_front().unwrap(),
             next_gc: cells.pop_front().unwrap(),
             next_module_index: cells.pop_front().unwrap(),
@@ -214,8 +213,8 @@ impl<F: FieldExt> StepChip<F> {
                         meta.query_advice(rw_table.rw_column, Rotation::cur()),
                     ),
                     (
-                        s_step.clone() * lookup.call_index * cond.clone(),
-                        meta.query_advice(rw_table.call_index_column, Rotation::cur()),
+                        s_step.clone() * lookup.frame_index * cond.clone(),
+                        meta.query_advice(rw_table.frame_index_column, Rotation::cur()),
                     ),
                     (
                         s_step.clone() * lookup.address * cond.clone(),
@@ -391,10 +390,10 @@ impl<F: FieldExt> StepChip<F> {
             offset,
             Some(F::from(step.stack_size as u64)),
         )?;
-        self.config.cells.call_index.assign(
+        self.config.cells.frame_index.assign(
             region,
             offset,
-            Some(F::from(step.call_index as u64)),
+            Some(F::from(step.frame_index as u64)),
         )?;
         self.config.cells.locals_index.assign(
             region,

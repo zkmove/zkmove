@@ -55,7 +55,7 @@ impl<F: FieldExt> Interpreter<F> {
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         // check arguments numbers
@@ -93,7 +93,7 @@ impl<F: FieldExt> Interpreter<F> {
             locals.store(
                 i,
                 Value::new(arg_value, expect_type.clone())?,
-                call_index,
+                frame_index,
                 rw_operations,
             )?;
         }
@@ -104,7 +104,7 @@ impl<F: FieldExt> Interpreter<F> {
     fn make_frame(
         &mut self,
         func: Arc<Function>,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Frame<F>> {
         let locals = Locals::new(func.local_count());
@@ -113,7 +113,7 @@ impl<F: FieldExt> Interpreter<F> {
             locals.store(
                 arg_count - i - 1,
                 self.stack.pop(rw_operations)?,
-                call_index,
+                frame_index,
                 rw_operations,
             )?;
         }
@@ -177,7 +177,7 @@ impl<F: FieldExt> Interpreter<F> {
                             opcode: Opcode::Stop,
                             pc: step_current.pc,
                             stack_size: step_current.stack_size,
-                            call_index: step_current.call_index,
+                            frame_index: step_current.frame_index,
                             locals_index: step_current.locals_index,
                             gc: step_current.gc,
                             module_index: step_current.module_index,
@@ -192,11 +192,11 @@ impl<F: FieldExt> Interpreter<F> {
                     }
                 }
                 ExitStatus::Call(index, mut execution_step) => {
-                    let call_index = self.frames.size();
+                    let frame_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
-                    execution_step.call_index = call_index;
+                    execution_step.frame_index = frame_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
                     let module_index = execution_step.module_index;
                     let function_index = execution_step.function_index;
@@ -204,7 +204,7 @@ impl<F: FieldExt> Interpreter<F> {
                     exec_steps.push(execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
-                    let callee_frame = self.make_frame(func, call_index + 1, rw_operations)?;
+                    let callee_frame = self.make_frame(func, frame_index + 1, rw_operations)?;
 
                     // record function call
                     let next_module_index = callee_frame

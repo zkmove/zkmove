@@ -36,8 +36,8 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             - cells.next_stack_size.expression.clone()
             + field_num.clone()
             - 1.expr();
-        let call_index_expr =
-            cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
+        let frame_index_expr =
+            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let gc_expr =
             cells.gc.expression.clone() - cells.next_gc.expression.clone() + field_num + 1.expr();
         let module_index =
@@ -47,7 +47,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
-            ("call index", cond.clone() * call_index_expr),
+            ("frame index", cond.clone() * frame_index_expr),
             ("gc", cond.clone() * gc_expr),
             ("module index", cond.clone() * module_index),
             ("function index", cond.clone() * func_index),
@@ -68,7 +68,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
                     gc: cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
-                    call_index: 0.expr(),
+                    frame_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - 1.expr() + (i as u64).expr(),
                     value: cells.args_or_fields[i].expression.clone(),
                     sd_index: 0.expr(),

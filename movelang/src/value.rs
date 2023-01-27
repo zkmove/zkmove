@@ -43,7 +43,7 @@ impl<F: FieldExt> Address<F> {
 
 /// Index of a frame
 #[derive(Clone, Debug)]
-pub struct CallIndex(pub usize);
+pub struct FrameIndex(pub usize);
 
 /// Index of a value in locals, or index of a member in the struct
 #[derive(Clone, Debug)]
@@ -53,8 +53,8 @@ pub struct Index(pub usize);
 #[derive(Clone, Debug)]
 pub enum ValueAddress<F: FieldExt> {
     /// If the value lives in the locals of a frame, the address will be the
-    /// combination of call_index and the index of the value in locals.
-    Local(CallIndex, Index),
+    /// combination of frame_index and the index of the value in locals.
+    Local(FrameIndex, Index),
     /// If the value lives in the global storage, the address will be the
     /// AccountAddress/StructDefinitionIndex of the value.
     Global(AccountAddress<F>, StructDefinitionIndex),
@@ -67,7 +67,7 @@ pub enum ValueAddress<F: FieldExt> {
 
 #[derive(Debug)]
 pub enum Container<F: FieldExt> {
-    Locals(CallIndex, Rc<RefCell<Vec<Value<F>>>>),
+    Locals(FrameIndex, Rc<RefCell<Vec<Value<F>>>>),
     Struct(ValueAddress<F>, Rc<RefCell<Vec<Value<F>>>>),
 }
 
@@ -114,11 +114,11 @@ impl<F: FieldExt> Container<F> {
         )
     }
 
-    pub fn call_index(&self) -> usize {
+    pub fn frame_index(&self) -> usize {
         match self {
-            Self::Locals(call_index, _) => call_index.0,
+            Self::Locals(frame_index, _) => frame_index.0,
             Self::Struct(address, _) => match address {
-                ValueAddress::Local(call_index, _index) => call_index.0,
+                ValueAddress::Local(frame_index, _index) => frame_index.0,
                 _ => unreachable!(),
             },
         }
@@ -128,7 +128,7 @@ impl<F: FieldExt> Container<F> {
         match self {
             Self::Locals(_, _) => unreachable!(),
             Self::Struct(address, _) => match address {
-                ValueAddress::Local(_call_index, index) => index.0,
+                ValueAddress::Local(_frame_index, index) => index.0,
                 _ => unreachable!(),
             },
         }
@@ -266,8 +266,8 @@ impl<F: FieldExt> IndexedRef<F> {
     pub fn index(&self) -> usize {
         self.index
     }
-    fn container_call_index(&self) -> usize {
-        self.container().call_index()
+    fn container_frame_index(&self) -> usize {
+        self.container().frame_index()
     }
     fn copy_value(&self) -> Self {
         Self {
@@ -354,10 +354,10 @@ impl<F: FieldExt> Reference<F> {
             Self::IndexedRef(r) => r.index(),
         }
     }
-    pub fn container_call_index(&self) -> usize {
+    pub fn container_frame_index(&self) -> usize {
         match self {
             Self::ContainerRef(_) => unimplemented!(),
-            Self::IndexedRef(r) => r.container_call_index(),
+            Self::IndexedRef(r) => r.container_frame_index(),
         }
     }
 
@@ -1073,14 +1073,14 @@ impl<F: FieldExt> Container<F> {
                 Self::Struct(address.clone(), struct_)
             }
             // locals is copied by ref
-            Self::Locals(call_index, l) => Self::Locals(call_index.clone(), Rc::clone(l)),
+            Self::Locals(frame_index, l) => Self::Locals(frame_index.clone(), Rc::clone(l)),
         }
     }
 
     pub fn copy_by_ref(&self) -> Self {
         match self {
             Self::Struct(address, r) => Self::Struct(address.clone(), Rc::clone(r)),
-            Self::Locals(call_index, r) => Self::Locals(call_index.clone(), Rc::clone(r)),
+            Self::Locals(frame_index, r) => Self::Locals(frame_index.clone(), Rc::clone(r)),
         }
     }
 }
@@ -1095,11 +1095,11 @@ impl<F: FieldExt> Clone for Container<F> {
                 ));
                 Self::Struct(address.clone(), struct_)
             }
-            Self::Locals(call_index, l) => {
+            Self::Locals(frame_index, l) => {
                 let locals = Rc::new(RefCell::new(
                     l.borrow().iter().map(|v| v.copy_value()).collect(),
                 ));
-                Self::Locals(call_index.clone(), locals)
+                Self::Locals(frame_index.clone(), locals)
             }
         }
     }

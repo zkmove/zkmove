@@ -2,7 +2,9 @@
 
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use movelang::value::{CallIndex, Container, ContainerRef, Index, IndexedRef, Value, ValueAddress};
+use movelang::value::{
+    Container, ContainerRef, FrameIndex, Index, IndexedRef, Value, ValueAddress,
+};
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
@@ -17,7 +19,7 @@ impl<F: FieldExt> Locals<F> {
     pub fn copy(
         &self,
         index: usize,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
@@ -25,7 +27,7 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::CopyLocalError)),
             Some(v) => {
                 let locals_op = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: v.clone(),
                     rw: RW::READ,
@@ -42,12 +44,12 @@ impl<F: FieldExt> Locals<F> {
         &self,
         index: usize,
         value: Value<F>,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let value = Value::fill_address_if_needed(
             value,
-            ValueAddress::Local(CallIndex(call_index), Index(index)),
+            ValueAddress::Local(FrameIndex(frame_index), Index(index)),
         );
         let value_copy = value.clone();
         let mut values = self.0.borrow_mut();
@@ -64,7 +66,7 @@ impl<F: FieldExt> Locals<F> {
                     }
                 }
                 let locals_op = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: value_copy,
                     rw: RW::WRITE,
@@ -81,7 +83,7 @@ impl<F: FieldExt> Locals<F> {
     pub fn move_(
         &self,
         index: usize,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
         let value_copy = self.0.borrow().get(index).cloned();
@@ -90,7 +92,7 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
             Some(v) => {
                 let locals_op_1 = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: value_copy.unwrap(),
                     rw: RW::READ,
@@ -98,7 +100,7 @@ impl<F: FieldExt> Locals<F> {
                 };
                 rw_operations.push(RWOperation::LocalsOp(locals_op_1));
                 let locals_op_2 = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: Value::Invalid,
                     rw: RW::WRITE,
@@ -114,7 +116,7 @@ impl<F: FieldExt> Locals<F> {
     pub fn mut_borrow(
         &self,
         index: usize,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
@@ -123,7 +125,7 @@ impl<F: FieldExt> Locals<F> {
             Some(v) => match v {
                 Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
                     let locals_op = LocalsOp {
-                        call_index,
+                        frame_index,
                         index,
                         value: v.clone(),
                         rw: RW::READ,
@@ -133,14 +135,14 @@ impl<F: FieldExt> Locals<F> {
                     Ok(Value::IndexedRef(IndexedRef {
                         index,
                         container_ref: ContainerRef::Local(Container::Locals(
-                            CallIndex(call_index),
+                            FrameIndex(frame_index),
                             Rc::clone(&self.0),
                         )),
                     }))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
-                        call_index,
+                        frame_index,
                         index,
                         value: v.clone(),
                         rw: RW::READ,
@@ -158,7 +160,7 @@ impl<F: FieldExt> Locals<F> {
     pub fn imm_borrow(
         &self,
         index: usize,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
@@ -167,7 +169,7 @@ impl<F: FieldExt> Locals<F> {
             Some(v) => match v {
                 Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
                     let locals_op = LocalsOp {
-                        call_index,
+                        frame_index,
                         index,
                         value: v.clone(),
                         rw: RW::READ,
@@ -177,14 +179,14 @@ impl<F: FieldExt> Locals<F> {
                     Ok(Value::IndexedRef(IndexedRef {
                         index,
                         container_ref: ContainerRef::Local(Container::Locals(
-                            CallIndex(call_index),
+                            FrameIndex(frame_index),
                             Rc::clone(&self.0),
                         )),
                     }))
                 }
                 Value::Container(c) => {
                     let locals_op = LocalsOp {
-                        call_index,
+                        frame_index,
                         index,
                         value: v.clone(),
                         rw: RW::READ,
@@ -202,7 +204,7 @@ impl<F: FieldExt> Locals<F> {
     pub fn read_ref(
         &self,
         index: usize,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
         let values = self.0.borrow();
@@ -210,7 +212,7 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => {
                 let locals_op = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: v.clone(),
                     rw: RW::READ,
@@ -227,7 +229,7 @@ impl<F: FieldExt> Locals<F> {
         &self,
         index: usize,
         value: Value<F>,
-        call_index: usize,
+        frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         let value_copy = value.clone();
@@ -236,7 +238,7 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(_v) => {
                 let locals_op = LocalsOp {
-                    call_index,
+                    frame_index,
                     index,
                     value: value_copy,
                     rw: RW::WRITE,
