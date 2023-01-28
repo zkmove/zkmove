@@ -178,10 +178,8 @@ impl<F: FieldExt> ContainerRef<F> {
                     *struct_.borrow_mut() = fields?;
                     Ok(())
                 }
-                Container::Locals(_, _) => {
-                    return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                        .with_message("cannot change Container::Locals".to_string()))
-                }
+                Container::Locals(_, _) => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message("cannot change Container::Locals".to_string())),
             },
             v => Err(
                 RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
