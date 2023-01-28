@@ -17,7 +17,7 @@ pub mod execution_steps;
 pub mod function_calls;
 pub mod rw_operations;
 
-pub const DEFAULT_MAX_CALL_INDEX: usize = 16;
+pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 
 #[derive(Clone, Debug)]
@@ -26,7 +26,7 @@ pub struct CircuitConfig {
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
     pub global_ops_num: Option<usize>,
-    pub max_call_index: usize,
+    pub max_frame_index: usize,
     pub max_locals_size: usize,
 }
 
@@ -37,7 +37,7 @@ impl Default for CircuitConfig {
             stack_ops_num: None,
             locals_ops_num: None,
             global_ops_num: None,
-            max_call_index: DEFAULT_MAX_CALL_INDEX,
+            max_frame_index: DEFAULT_MAX_FRAME_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
         }
     }
@@ -64,8 +64,8 @@ impl CircuitConfig {
         self
     }
 
-    pub fn max_call_index(mut self, max_call_index: usize) -> Self {
-        self.max_call_index = max_call_index;
+    pub fn max_frame_index(mut self, max_frame_index: usize) -> Self {
+        self.max_frame_index = max_frame_index;
         self
     }
 
@@ -119,7 +119,7 @@ impl<F: FieldExt> Witness<F> {
                 opcode: Opcode::Nop,
                 pc: last.pc,
                 stack_size: last.stack_size,
-                call_index: last.call_index,
+                frame_index: last.frame_index,
                 locals_index: last.locals_index,
                 gc: last.gc,
                 module_index: last.module_index,

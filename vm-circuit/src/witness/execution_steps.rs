@@ -9,7 +9,7 @@ pub struct ExecutionStep<F: FieldExt> {
     pub opcode: Opcode,
     pub pc: u16,
     pub stack_size: usize,
-    pub call_index: usize,
+    pub frame_index: usize,
     pub locals_index: usize,
     pub gc: usize, // global counter for stack, locals, state accesses
     pub module_index: u16,

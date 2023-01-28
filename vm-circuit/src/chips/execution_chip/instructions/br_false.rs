@@ -37,8 +37,8 @@ impl<F: FieldExt> Instructions<F> for BrFalse<F> {
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
             - 1.expr();
-        let call_index_expr =
-            cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
+        let frame_index_expr =
+            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -48,7 +48,7 @@ impl<F: FieldExt> Instructions<F> for BrFalse<F> {
         constraints.append(&mut vec![
             ("BrFalse pc", cond.clone() * pc_expr),
             ("BrFalse stack size", cond.clone() * stack_size_expr),
-            ("BrFalse call index", cond.clone() * call_index_expr),
+            ("BrFalse frame index", cond.clone() * frame_index_expr),
             ("BrFalse gc", cond.clone() * gc_expr),
             ("BrFalse module index", cond.clone() * module_index),
             ("BrFalse function index", cond.clone() * func_index),

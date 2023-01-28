@@ -28,8 +28,8 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         let pc_expr = cells.auxiliary_1.expression.clone() - cells.next_pc.expression.clone();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
-        let call_index_expr =
-            cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
+        let frame_index_expr =
+            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -38,7 +38,7 @@ impl<F: FieldExt> Instructions<F> for Branch<F> {
         constraints.append(&mut vec![
             ("branch pc", cond.clone() * pc_expr),
             ("branch stack size", cond.clone() * stack_size_expr),
-            ("branch call index", cond.clone() * call_index_expr),
+            ("branch frame index", cond.clone() * frame_index_expr),
             ("branch gc", cond.clone() * gc_expr),
             ("branch module index", cond.clone() * module_index),
             ("branch function index", cond.clone() * func_index),

@@ -36,9 +36,9 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
             - arg_num.clone();
-        // call index increase 1
-        let call_index_expr = cells.call_index.expression.clone()
-            - cells.next_call_index.expression.clone()
+        // frame index increase 1
+        let frame_index_expr = cells.frame_index.expression.clone()
+            - cells.next_frame_index.expression.clone()
             + 1.expr();
         // each argument has 2 rw operations
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
@@ -46,14 +46,14 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         constraints.append(&mut vec![
             ("Call pc", cond.clone() * pc_expr),
             ("Call stack_size", cond.clone() * stack_size_expr),
-            ("Call call_index", cond.clone() * call_index_expr),
+            ("Call frame_index", cond.clone() * frame_index_expr),
             ("Call gc", cond.clone() * gc_expr),
         ]);
 
         for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64 * 2).expr(),
-                cells.call_index.expression.clone() + 1.expr(),
+                cells.frame_index.expression.clone() + 1.expr(),
                 arg_num.clone() - (i as u64 + 1).expr(),
                 cells.stack_size.expression.clone() - (i as u64).expr(),
                 cells.args_or_fields[i].expression.clone(),

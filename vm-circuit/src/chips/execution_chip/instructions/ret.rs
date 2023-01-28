@@ -27,28 +27,28 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
-        let call_index = cells.call_index.expression.clone();
+        let frame_index = cells.frame_index.expression.clone();
         let inverse = cells.auxiliary_1.expression.clone();
 
-        // constrain the inverse, if call_index != 0, call_index * inverse(call_index) == 1
-        let call_index_expr =
-            call_index.clone() * (call_index.clone() * inverse.clone() - 1.expr());
+        // constrain the inverse, if frame_index != 0, frame_index * inverse(frame_index) == 1
+        let frame_index_expr =
+            frame_index.clone() * (frame_index.clone() * inverse.clone() - 1.expr());
 
-        // if call_index == 0, the next step will be 'Nop' or 'Stop', we have
-        // call_index * inverse(call_index) != 1
+        // if frame_index == 0, the next step will be 'Nop' or 'Stop', we have
+        // frame_index * inverse(frame_index) != 1
         // next_pc == pc
-        let pc_expr = (call_index.clone() * inverse.clone() - 1.expr())
+        let pc_expr = (frame_index.clone() * inverse.clone() - 1.expr())
             * (cells.next_pc.expression.clone() - cells.pc.expression.clone());
 
         // gc should not change
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
         constraints.append(&mut vec![
-            ("call_index", cond.clone() * call_index_expr),
+            ("frame_index", cond.clone() * frame_index_expr),
             ("pc", cond.clone() * pc_expr),
             ("gc", cond.clone() * gc_expr),
         ]);
 
-        // if call_index != 0, the next step will be a normal bytecode,
+        // if frame_index != 0, the next step will be a normal bytecode,
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in calls table.
         lookups.call_lookups.push((
@@ -61,7 +61,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
                 next_function_index: cells.next_function_index.expression.clone(),
                 next_pc: cells.next_pc.expression.clone(),
             },
-            call_index * inverse * cond.clone(), // only take effect when call_index != 0
+            frame_index * inverse * cond.clone(), // only take effect when frame_index != 0
         ));
 
         LookupBytecode::lookup_bytecode(
@@ -82,7 +82,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
     ) -> Result<(), Error> {
         cells
             .auxiliary_1
-            .assign(region, offset, (step.call_index as usize).sub_invert(0))?;
+            .assign(region, offset, (step.frame_index as usize).sub_invert(0))?;
 
         Ok(())
     }

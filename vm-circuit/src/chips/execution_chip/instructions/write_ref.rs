@@ -32,8 +32,8 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
             - 2.expr();
-        let call_index_expr =
-            cells.call_index.expression.clone() - cells.next_call_index.expression.clone();
+        let frame_index_expr =
+            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -42,7 +42,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         constraints.append(&mut vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
-            ("call index", cond.clone() * call_index_expr),
+            ("frame index", cond.clone() * frame_index_expr),
             ("gc", cond.clone() * gc_expr),
             ("module index", cond.clone() * module_index),
             ("function index", cond.clone() * func_index),
@@ -68,7 +68,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
         let write = RWLookup::locals_write_ref(
             cells.gc.expression.clone() + 2.expr(),
-            cells.auxiliary_2.expression.clone(), // call_index of indexed ref
+            cells.auxiliary_2.expression.clone(), // frame_index of indexed ref
             cells.locals_index.expression.clone(),
             cells.value_c.expression.clone(),
         );
@@ -118,7 +118,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             .assign(region, offset, is_global.value())?;
 
         if is_global.value() == Some(F::zero()) {
-            // assign the call_index of the frame we refer to
+            // assign the frame_index of the frame we refer to
             let aux_value = step.auxiliary_2.as_ref().ok_or_else(|| {
                 error!("auxiliary_2 is None");
                 Error::Synthesis

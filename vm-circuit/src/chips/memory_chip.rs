@@ -43,7 +43,7 @@ pub struct MemoryChipConfig<F: FieldExt> {
     global_op_config: GlobalOpChipConfig<F>,
     s_add_counters: Selector,
     gc_table: TableColumn,
-    call_index_table: TableColumn,
+    frame_index_table: TableColumn,
     locals_index_table: TableColumn,
 }
 
@@ -78,14 +78,14 @@ impl<F: FieldExt> MemoryChip<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let advices = [(); MEM_CHIP_WIDTH].map(|_| meta.advice_column());
         let gc_table = meta.lookup_table_column();
-        let call_index_table = meta.lookup_table_column();
+        let frame_index_table = meta.lookup_table_column();
         let locals_index_table = meta.lookup_table_column();
         let stack_op_config = StackOpChip::configure(meta, advices, &gc_table);
         let locals_op_config = LocalsOpChip::configure(
             meta,
             advices,
             &gc_table,
-            &call_index_table,
+            &frame_index_table,
             &locals_index_table,
         );
         let global_op_config = GlobalOpChip::configure(meta, advices, &gc_table);
@@ -115,7 +115,7 @@ impl<F: FieldExt> MemoryChip<F> {
             global_op_config,
             s_add_counters,
             gc_table,
-            call_index_table,
+            frame_index_table,
             locals_index_table,
         }
     }
@@ -480,13 +480,13 @@ impl<F: FieldExt> MemoryChip<F> {
         )?;
 
         layouter.assign_table(
-            || "call_index_table",
+            || "frame_index_table",
             |mut table_column| {
-                (0..=circuit_config.max_call_index)
+                (0..=circuit_config.max_frame_index)
                     .map(|i| {
                         table_column.assign_cell(
-                            || format!("call_index_table[{}]", i),
-                            self.config.call_index_table,
+                            || format!("frame_index_table[{}]", i),
+                            self.config.frame_index_table,
                             i,
                             || CircuitValue::known(F::from_u128(i as u128)),
                         )

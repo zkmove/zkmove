@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
-use movelang::value::{Container, ContainerRef, IndexedRef, Reference, Struct, StructRef, Value};
+use movelang::value::{Container, Reference, Struct, StructRef, Value};
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
@@ -100,7 +100,7 @@ impl<F: FieldExt> EvalStack<F> {
             rw_operations.push(RWOperation::StackOp(stack_op));
 
             match value {
-                Value::Container(Container::Struct(struct_)) => {
+                Value::Container(Container::Struct(_, struct_)) => {
                     debug_assert_eq!(Rc::strong_count(&struct_), 1);
                     let fields = match Rc::try_unwrap(struct_) {
                         Ok(cell) => Ok(cell.into_inner()),
@@ -161,17 +161,7 @@ impl<F: FieldExt> EvalStack<F> {
             rw_operations.push(RWOperation::StackOp(stack_op));
 
             match value {
-                Value::IndexedRef(r) => match r {
-                    IndexedRef::IndexedLocalsRef(r) => Ok(StructRef::LocalStructRef(r)),
-                    _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
-                },
-                Value::ContainerRef(r) => match r {
-                    ContainerRef::Global(addr, sd_index, c) => Ok(StructRef::GlobalStructRef(
-                        ContainerRef::Global(addr, sd_index, c),
-                    )),
-                    v => Err(RuntimeError::new(StatusCode::TypeMismatch)
-                        .with_message(format!("cannot pop {:?} as struct_ref", v))),
-                },
+                Value::ContainerRef(r) => Ok(StructRef(r)),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct_ref", v))),
             }

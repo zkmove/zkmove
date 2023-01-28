@@ -1,7 +1,7 @@
 address 0x1 {
 module Token {
 
-    struct Coin {
+    struct Coin has copy, drop {
         value: u64,
     }
 

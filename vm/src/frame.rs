@@ -10,7 +10,7 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{Container, IntegerType, Reference, Struct, Value};
+use movelang::value::{Container, IntegerType, Reference, Struct, Value, ValueAddress};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
@@ -66,7 +66,7 @@ impl<F: FieldExt> Frame<F> {
         arith_operations: &mut Vec<ArithOperation>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
-        let call_index = interp.frames.size();
+        let frame_index = interp.frames.size();
         let module_index = self
             .module_index(data_store)
             .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
@@ -78,7 +78,7 @@ impl<F: FieldExt> Frame<F> {
                     opcode: instruction.clone().into(),
                     pc: self.pc,
                     stack_size: interp.stack.size(),
-                    call_index,
+                    frame_index,
                     locals_index: 0, // will be filled in CopyLoc, StLoc, MoveLoc
                     gc: rw_operations.len(),
                     module_index,
@@ -166,7 +166,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::CopyLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         interp.stack.push(
-                            self.locals.copy(*v as usize, call_index, rw_operations)?,
+                            self.locals.copy(*v as usize, frame_index, rw_operations)?,
                             rw_operations,
                         )
                     }
@@ -175,14 +175,14 @@ impl<F: FieldExt> Frame<F> {
                         self.locals.store(
                             *v as usize,
                             interp.stack.pop(rw_operations)?,
-                            call_index,
+                            frame_index,
                             rw_operations,
                         )
                     }
                     Bytecode::MoveLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         interp.stack.push(
-                            self.locals.move_(*v as usize, call_index, rw_operations)?,
+                            self.locals.move_(*v as usize, frame_index, rw_operations)?,
                             rw_operations,
                         )
                     }
@@ -190,7 +190,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.locals_index = *v as usize;
                         interp.stack.push(
                             self.locals
-                                .mut_borrow(*v as usize, call_index, rw_operations)?,
+                                .mut_borrow(*v as usize, frame_index, rw_operations)?,
                             rw_operations,
                         )
                     }
@@ -198,7 +198,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.locals_index = *v as usize;
                         interp.stack.push(
                             self.locals
-                                .imm_borrow(*v as usize, call_index, rw_operations)?,
+                                .imm_borrow(*v as usize, frame_index, rw_operations)?,
                             rw_operations,
                         )
                     }
@@ -207,28 +207,31 @@ impl<F: FieldExt> Frame<F> {
                         let value = reference.read_ref()?;
 
                         if !reference.is_global() {
-                            let ref_call_index = reference.call_index();
+                            let container_frame_index = reference.container_frame_index();
                             let index = reference.index();
-                            execution_step.locals_index = index;
-                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
-                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64));
 
                             let (locals_value, locals_index) = match reference.clone() {
                                 Reference::ContainerRef(_) => (value.clone(), index),
                                 Reference::IndexedRef(r) => {
                                     match r.container() {
-                                        Container::Locals(_) => (value.clone(), index),
+                                        Container::Locals(_, _) => (value.clone(), index),
                                         // if we come here, the value should be a member of a struct
                                         // we should return the struct instead of the member
-                                        Container::Struct(_) => (
+                                        Container::Struct(_, _) => (
                                             Value::Container(r.container().copy_value()),
-                                            r.index(),
+                                            r.container().index(),
                                         ),
                                     }
                                 }
                             };
+
+                            execution_step.locals_index = locals_index;
+                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                            execution_step.auxiliary_2 =
+                                Some(Value::u64(container_frame_index as u64));
+
                             let locals_op = LocalsOp {
-                                call_index: ref_call_index,
+                                frame_index: container_frame_index,
                                 index: locals_index,
                                 value: locals_value,
                                 rw: RW::READ,
@@ -259,29 +262,31 @@ impl<F: FieldExt> Frame<F> {
                         reference.write_ref(value)?; // must write ref first, then record local_op
 
                         if !reference.is_global() {
-                            let ref_call_index = reference.call_index();
+                            let container_frame_index = reference.container_frame_index();
                             let index = reference.index();
-                            execution_step.locals_index = index;
-                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
-                            execution_step.auxiliary_2 = Some(Value::u64(ref_call_index as u64));
 
                             let (locals_value, locals_index) = match reference.clone() {
                                 Reference::ContainerRef(_) => (value_copy, index),
                                 Reference::IndexedRef(r) => {
                                     match r.container() {
-                                        Container::Locals(_) => (value_copy, index),
+                                        Container::Locals(_, _) => (value_copy, index),
                                         // if we come here, the value should be a member of a struct
                                         // we should return the struct instead of the member
-                                        Container::Struct(_) => (
+                                        Container::Struct(_, _) => (
                                             Value::Container(r.container().copy_value()),
-                                            r.index(),
+                                            r.container().index(),
                                         ),
                                     }
                                 }
                             };
 
+                            execution_step.locals_index = locals_index;
+                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                            execution_step.auxiliary_2 =
+                                Some(Value::u64(container_frame_index as u64));
+
                             let locals_op = LocalsOp {
-                                call_index: ref_call_index,
+                                frame_index: container_frame_index,
                                 index: locals_index,
                                 value: locals_value,
                                 rw: RW::WRITE,
@@ -448,9 +453,10 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
-                        interp
-                            .stack
-                            .push(Value::struct_(Struct::pack(args)), rw_operations)
+                        interp.stack.push(
+                            Value::struct_(Struct::pack(args), ValueAddress::Unknown),
+                            rw_operations,
+                        )
                     }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
