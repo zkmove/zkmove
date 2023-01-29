@@ -233,6 +233,8 @@ impl<F: FieldExt> Frame<F> {
                             let locals_op = LocalsOp {
                                 frame_index: container_frame_index,
                                 index: locals_index,
+                                nested_address_0: 0,
+                                nested_address_1: 0,
                                 value: locals_value,
                                 rw: RW::READ,
                                 gc: rw_operations.len(),
@@ -247,6 +249,8 @@ impl<F: FieldExt> Frame<F> {
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
+                                nested_address_0: 0,
+                                nested_address_1: 0,
                                 value: global_value,
                                 rw: RW::READ,
                                 gc: rw_operations.len(),
@@ -288,6 +292,8 @@ impl<F: FieldExt> Frame<F> {
                             let locals_op = LocalsOp {
                                 frame_index: container_frame_index,
                                 index: locals_index,
+                                nested_address_0: 0,
+                                nested_address_1: 0,
                                 value: locals_value,
                                 rw: RW::WRITE,
                                 gc: rw_operations.len(),
@@ -302,6 +308,8 @@ impl<F: FieldExt> Frame<F> {
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
+                                nested_address_0: 0,
+                                nested_address_1: 0,
                                 value: global_value,
                                 rw: RW::WRITE,
                                 gc: rw_operations.len(),
@@ -491,6 +499,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            nested_address_0: 0,
+                            nested_address_1: 0,
                             value: value.clone(),
                             rw: RW::READ,
                             gc: rw_operations.len(),
@@ -513,6 +523,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            nested_address_0: 0,
+                            nested_address_1: 0,
                             value: resource.clone(),
                             rw: RW::WRITE,
                             gc: rw_operations.len(),
@@ -531,6 +543,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            nested_address_0: 0,
+                            nested_address_1: 0,
                             value: global_value,
                             rw: RW::READ,
                             gc: rw_operations.len(),

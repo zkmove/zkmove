@@ -57,6 +57,8 @@ impl<F: FieldExt> BinaryOp<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_b.expression.clone(),
             ),
             cond.clone(),
@@ -65,6 +67,8 @@ impl<F: FieldExt> BinaryOp<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),
@@ -73,6 +77,8 @@ impl<F: FieldExt> BinaryOp<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond,
@@ -267,6 +273,8 @@ impl<F: FieldExt> UnaryOp<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),
@@ -275,6 +283,8 @@ impl<F: FieldExt> UnaryOp<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond,
@@ -340,6 +350,8 @@ impl<F: FieldExt> LoadOp<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond,

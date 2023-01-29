@@ -26,6 +26,8 @@ impl<F: FieldExt> EvalStack<F> {
         if self.0.len() < EVAL_STACK_SIZE {
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::WRITE,
                 gc: rw_operations.len(),
@@ -47,6 +49,8 @@ impl<F: FieldExt> EvalStack<F> {
 
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
@@ -72,6 +76,8 @@ impl<F: FieldExt> EvalStack<F> {
         for (i, value) in values.iter().enumerate() {
             let stack_op = StackOp {
                 address: remaining_stack_size + i,
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
@@ -93,6 +99,8 @@ impl<F: FieldExt> EvalStack<F> {
 
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
@@ -128,6 +136,8 @@ impl<F: FieldExt> EvalStack<F> {
 
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
@@ -154,6 +164,8 @@ impl<F: FieldExt> EvalStack<F> {
 
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),
@@ -179,6 +191,8 @@ impl<F: FieldExt> EvalStack<F> {
 
             let stack_op = StackOp {
                 address: self.0.len(),
+                nested_address_0: 0,
+                nested_address_1: 0,
                 value: value.clone(),
                 rw: RW::READ,
                 gc: rw_operations.len(),

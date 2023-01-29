@@ -52,6 +52,8 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             cells.frame_index.expression.clone(),
             cells.locals_index.expression.clone(),
             cells.stack_size.expression.clone(),
+            0.expr(),
+            0.expr(),
             cells.value_a.expression.clone(),
             cells.value_c.expression.clone(),
         );

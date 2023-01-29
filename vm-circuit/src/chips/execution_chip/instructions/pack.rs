@@ -63,6 +63,8 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                     frame_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - field_num.clone()
                         + (i as u64).expr(),
+                    nested_address_0: 0.expr(),
+                    nested_address_1: 0.expr(),
                     value: cells.args_or_fields[i].expression.clone(),
                     sd_index: 0.expr(),
                 },
@@ -73,6 +75,8 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + field_num.clone(),
                 cells.stack_size.expression.clone() - field_num,
+                0.expr(),
+                0.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond.clone(),

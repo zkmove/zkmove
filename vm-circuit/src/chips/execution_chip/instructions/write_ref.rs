@@ -52,6 +52,8 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),
@@ -60,6 +62,8 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_b.expression.clone(),
             ),
             cond.clone(),
@@ -70,6 +74,8 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             cells.gc.expression.clone() + 2.expr(),
             cells.auxiliary_2.expression.clone(), // frame_index of indexed ref
             cells.locals_index.expression.clone(),
+            0.expr(),
+            0.expr(),
             cells.value_c.expression.clone(),
         );
         lookups.rw_lookups.push((write, cond.clone() * is_locals));
@@ -80,6 +86,8 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             cells.auxiliary_2.expression.clone(), //address
             cells.value_c.expression.clone(),
             cells.auxiliary_3.expression.clone(), //sd_index
+            0.expr(),
+            0.expr(),
         );
         lookups.rw_lookups.push((write, cond.clone() * is_global));
 

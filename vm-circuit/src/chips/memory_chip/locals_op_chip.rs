@@ -14,13 +14,15 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 9;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of locals operations
     pub frame_index: Cell<F>,
     pub index: Cell<F>,
+    pub nested_address_0: Cell<F>,
+    pub nested_address_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -33,6 +35,8 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub prev_counter: Cell<F>,
     pub prev_frame_index: Cell<F>,
     pub prev_index: Cell<F>,
+    pub prev_nested_index_0: Cell<F>,
+    pub prev_nested_index_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -107,6 +111,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             counter: cells.pop_front().unwrap(),
             frame_index: cells.pop_front().unwrap(),
             index: cells.pop_front().unwrap(),
+            nested_address_0: cells.pop_front().unwrap(),
+            nested_address_1: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
@@ -117,6 +123,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             prev_counter: cells.pop_front().unwrap(),
             prev_frame_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
+            prev_nested_index_0: cells.pop_front().unwrap(),
+            prev_nested_index_1: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
@@ -204,6 +212,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 vec![(selector * lookup, *locals_index_table)]
             });
         }
+
+        // todo: lookup nested_address_0, nested_address_1 for range check
     }
 
     fn constrain_locals_op(
@@ -250,13 +260,14 @@ impl<F: FieldExt> LocalsOpChip<F> {
             ));
 
             // if index != prev_index then rw == Write
-            let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
-            constraints.push((
-                "index",
-                cond.clone()
-                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * delt_index.clone(),
-            ));
+            // todo: take nested_address_0 nested_address_1 into consideration
+            // let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
+            // constraints.push((
+            //     "index",
+            //     cond.clone()
+            //         * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+            //         * delt_index.clone(),
+            // ));
 
             // rw == 0 || rw == 1
             constraints.push((
@@ -266,33 +277,35 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     * (cells.rw.expression.clone() - 1.expr()),
             ));
 
+            //todo: take nested_address_0 nested_address_1 into consideration
+
             // for ops with same frame_index/index, gc must be great than prev_gc
             // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
             // 2.lookup gc_table when frame_index/index is same with previous
             let delt_frame_index =
                 cells.frame_index.expression.clone() - cells.prev_frame_index.expression.clone();
-            constraints.push((
-                "delt_invert_frame_index",
-                cond.clone()
-                    * delt_frame_index.clone()
-                    * (delt_frame_index.clone()
-                        * cells.delta_invert_frame_index.expression.clone()
-                        - 1.expr()),
-            ));
-            constraints.push((
-                "delt_invert_index",
-                cond.clone()
-                    * delt_index.clone()
-                    * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
-            ));
-            gc_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_frame_index.clone()
-                            * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
-                    * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
-            );
+            // constraints.push((
+            //     "delt_invert_frame_index",
+            //     cond.clone()
+            //         * delt_frame_index.clone()
+            //         * (delt_frame_index.clone()
+            //             * cells.delta_invert_frame_index.expression.clone()
+            //             - 1.expr()),
+            // ));
+            // constraints.push((
+            //     "delt_invert_index",
+            //     cond.clone()
+            //         * delt_index.clone()
+            //         * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
+            // ));
+            // gc_lookups.push(
+            //     cond.clone()
+            //         * (1.expr()
+            //             - delt_frame_index.clone()
+            //                 * cells.delta_invert_frame_index.expression.clone())
+            //         * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
+            //         * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
+            // );
 
             // frame_index must be less than max_frame_index
             frame_index_lookups.push(cond.clone() * cells.frame_index.expression.clone());
@@ -351,6 +364,18 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .index
                 .assign(region, offset, Some(op.address.0))?;
 
+            self.config.cells.nested_address_0.assign(
+                region,
+                offset,
+                Some(op.nested_address_0.0),
+            )?;
+
+            self.config.cells.nested_address_1.assign(
+                region,
+                offset,
+                Some(op.nested_address_1.0),
+            )?;
+
             self.config.cells.value.assign(region, offset, op.value.0)?;
         } else {
             self.config.cells.gc.assign_equality(
@@ -391,6 +416,26 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     Error::Synthesis
                 })?,
                 "address",
+            )?;
+
+            self.config.cells.nested_address_0.assign_equality(
+                region,
+                offset,
+                op.nested_address_0.1.clone().ok_or_else(|| {
+                    error!("nested_address_0 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "nested_address_0",
+            )?;
+
+            self.config.cells.nested_address_1.assign_equality(
+                region,
+                offset,
+                op.nested_address_1.1.clone().ok_or_else(|| {
+                    error!("nested_address_1 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "nested_address_1",
             )?;
 
             self.config.cells.value.assign_equality(

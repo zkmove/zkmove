@@ -49,6 +49,8 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(), //global value
             ),
             cond.clone(),
@@ -58,6 +60,8 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_b.expression.clone(), //signer
             ),
             cond.clone(),
@@ -69,6 +73,8 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
                 cells.value_c.expression.clone(), //address
                 cells.value_a.expression.clone(),
                 cells.auxiliary_1.expression.clone(), //sd_index
+                0.expr(),
+                0.expr(),
             ),
             cond.clone(),
         ));

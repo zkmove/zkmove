@@ -51,6 +51,8 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),
@@ -62,6 +64,8 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowField<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond.clone(),

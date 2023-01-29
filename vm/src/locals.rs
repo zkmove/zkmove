@@ -29,6 +29,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: v.clone(),
                     rw: RW::READ,
                     gc: rw_operations.len(),
@@ -68,6 +70,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: value_copy,
                     rw: RW::WRITE,
                     gc: rw_operations.len(),
@@ -94,6 +98,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op_1 = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: value_copy.unwrap(),
                     rw: RW::READ,
                     gc: rw_operations.len(),
@@ -102,6 +108,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op_2 = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: Value::Invalid,
                     rw: RW::WRITE,
                     gc: rw_operations.len(),
@@ -127,6 +135,8 @@ impl<F: FieldExt> Locals<F> {
                     let locals_op = LocalsOp {
                         frame_index,
                         index,
+                        nested_address_0: 0,
+                        nested_address_1: 0,
                         value: v.clone(),
                         rw: RW::READ,
                         gc: rw_operations.len(),
@@ -144,6 +154,8 @@ impl<F: FieldExt> Locals<F> {
                     let locals_op = LocalsOp {
                         frame_index,
                         index,
+                        nested_address_0: 0,
+                        nested_address_1: 0,
                         value: v.clone(),
                         rw: RW::READ,
                         gc: rw_operations.len(),
@@ -171,6 +183,8 @@ impl<F: FieldExt> Locals<F> {
                     let locals_op = LocalsOp {
                         frame_index,
                         index,
+                        nested_address_0: 0,
+                        nested_address_1: 0,
                         value: v.clone(),
                         rw: RW::READ,
                         gc: rw_operations.len(),
@@ -188,6 +202,8 @@ impl<F: FieldExt> Locals<F> {
                     let locals_op = LocalsOp {
                         frame_index,
                         index,
+                        nested_address_0: 0,
+                        nested_address_1: 0,
                         value: v.clone(),
                         rw: RW::READ,
                         gc: rw_operations.len(),
@@ -214,6 +230,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: v.clone(),
                     rw: RW::READ,
                     gc: rw_operations.len(),
@@ -240,6 +258,8 @@ impl<F: FieldExt> Locals<F> {
                 let locals_op = LocalsOp {
                     frame_index,
                     index,
+                    nested_address_0: 0,
+                    nested_address_1: 0,
                     value: value_copy,
                     rw: RW::WRITE,
                     gc: rw_operations.len(),

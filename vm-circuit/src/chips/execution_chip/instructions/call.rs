@@ -56,6 +56,8 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 cells.frame_index.expression.clone() + 1.expr(),
                 arg_num.clone() - (i as u64 + 1).expr(),
                 cells.stack_size.expression.clone() - (i as u64).expr(),
+                0.expr(),
+                0.expr(),
                 cells.args_or_fields[i].expression.clone(),
             );
 

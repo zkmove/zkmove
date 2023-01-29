@@ -57,6 +57,8 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),
@@ -70,6 +72,8 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: 0.expr(),
                     address: cells.stack_size.expression.clone() - 1.expr() + (i as u64).expr(),
+                    nested_address_0: 0.expr(),
+                    nested_address_1: 0.expr(),
                     value: cells.args_or_fields[i].expression.clone(),
                     sd_index: 0.expr(),
                 },

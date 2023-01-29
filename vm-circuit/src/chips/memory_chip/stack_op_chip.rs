@@ -13,12 +13,14 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 6;
+pub const STACK_OP_CHIP_WIDTH: usize = 8;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of stack operations
     pub address: Cell<F>,
+    pub nested_address_0: Cell<F>,
+    pub nested_address_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -26,6 +28,8 @@ pub struct StackOpCells<F: FieldExt> {
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
+    pub prev_nested_address_0: Cell<F>,
+    pub prev_nested_address_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -97,12 +101,16 @@ impl<F: FieldExt> StackOpChip<F> {
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
+            nested_address_0: cells.pop_front().unwrap(),
+            nested_address_1: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             prev_counter: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
+            prev_nested_address_0: cells.pop_front().unwrap(),
+            prev_nested_address_1: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
             prev_is_empty: cells.pop_front().unwrap(),
         };
@@ -145,6 +153,8 @@ impl<F: FieldExt> StackOpChip<F> {
                 vec![(selector * lookup, *gc_table)]
             });
         }
+
+        // todo: lookup nested_address_0, nested_address_1 for range check
     }
 
     fn constrain_stack_op(
@@ -190,6 +200,8 @@ impl<F: FieldExt> StackOpChip<F> {
                 cond.clone() * (delt_addr.clone() * (delt_addr.clone() - 1.expr())),
             ));
 
+            //todo: nested_address monotonic increment
+
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
@@ -200,6 +212,7 @@ impl<F: FieldExt> StackOpChip<F> {
             ));
 
             // if address != prev_address then rw == Write
+            // todo: take nested_address into consideration, and the first nested_address must be a Write
             constraints.push((
                 "address ",
                 cond.clone()
@@ -217,7 +230,7 @@ impl<F: FieldExt> StackOpChip<F> {
 
             // todo: address must be less than EVAL_STACK_SIZE
 
-            // for ops with same address, gc must be great than prev_gc
+            // for ops with same address, gc must be greater than prev_gc
             gc_lookups.push(
                 cond * (1.expr() - delt_addr)
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
@@ -257,6 +270,18 @@ impl<F: FieldExt> StackOpChip<F> {
                 .address
                 .assign(region, offset, Some(op.address.0))?;
 
+            self.config.cells.nested_address_0.assign(
+                region,
+                offset,
+                Some(op.nested_address_0.0),
+            )?;
+
+            self.config.cells.nested_address_1.assign(
+                region,
+                offset,
+                Some(op.nested_address_1.0),
+            )?;
+
             self.config.cells.value.assign(region, offset, op.value.0)?;
 
             self.config
@@ -292,6 +317,26 @@ impl<F: FieldExt> StackOpChip<F> {
                     Error::Synthesis
                 })?,
                 "address",
+            )?;
+
+            self.config.cells.nested_address_0.assign_equality(
+                region,
+                offset,
+                op.nested_address_0.1.clone().ok_or_else(|| {
+                    error!("nested_address_0 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "nested_address_0",
+            )?;
+
+            self.config.cells.nested_address_1.assign_equality(
+                region,
+                offset,
+                op.nested_address_1.1.clone().ok_or_else(|| {
+                    error!("nested_address_1 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "nested_address_1",
             )?;
 
             self.config.cells.value.assign_equality(
