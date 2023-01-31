@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2FixedTable;
 use crate::chips::execution_chip::lookup_tables::{
     arith_op_lookup_table::ArithOpLookupTable, bitwise_lookup_table::BitwiseLookupTable,
     bytecode_lookup_table::BytecodeLookupTable, call_lookup_table::CallLookupTable,
@@ -108,6 +109,7 @@ impl<F: FieldExt> StepChip<F> {
         calls_table: &CallLookupTable,
         arith_op_table: &ArithOpLookupTable,
         bitwise_table: &BitwiseLookupTable,
+        pow2_table: &Pow2FixedTable,
     ) -> <Self as Chip<F>>::Config {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
@@ -335,6 +337,21 @@ impl<F: FieldExt> StepChip<F> {
                     (
                         s_step * lookup.result * cond.clone(),
                         bitwise_table.result_column,
+                    ),
+                ]
+            });
+        }
+        for (lookup, cond) in lookups.pow2_lookups {
+            meta.lookup(|vcells| {
+                let s_step = vcells.query_selector(s_step);
+                vec![
+                    (
+                        s_step.clone() * lookup.pow * cond.clone(),
+                        pow2_table.pow_column,
+                    ),
+                    (
+                        s_step.clone() * lookup.pow_result * cond.clone(),
+                        pow2_table.pow_result_column,
                     ),
                 ]
             });

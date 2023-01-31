@@ -975,6 +975,37 @@ impl<F: FieldExt> Value<F> {
         Ok(c)
     }
 
+    pub fn shl(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        // NOTICE: check type of a and b is not necessary here, as bytecode verifier already check that.
+        // but we still do it due to the lack of verifier currently.
+        if !a.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
+        }
+        if b.ty() != MoveValueType::U8 {
+            return Err(RuntimeError::new(StatusCode::InvalidValue)
+                .with_message("expect value of u8 type".to_string()));
+        }
+        let lhs = a.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128() as u8;
+        let result = F::from_u128(lhs << rhs);
+        Ok(Value::new(result, a.ty())?)
+    }
+    pub fn shr(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        if !a.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
+        }
+        if b.ty() != MoveValueType::U8 {
+            return Err(RuntimeError::new(StatusCode::InvalidValue)
+                .with_message("expect value of u8 type".to_string()));
+        }
+        let lhs = a.value().unwrap().get_lower_128();
+        let rhs = b.value().unwrap().get_lower_128() as u8;
+        let result = F::from_u128(lhs >> rhs);
+        Ok(Value::new(result, a.ty())?)
+    }
+
     pub fn bit_and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         // Bitwise AND the 2 u64
         if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {

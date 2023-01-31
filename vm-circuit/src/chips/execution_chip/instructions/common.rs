@@ -8,8 +8,9 @@ use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::circuit::Value as CircuitValue;
+use halo2_proofs::circuit::{Layouter, Region};
+use halo2_proofs::plonk::{Error, Expression, TableColumn};
 use itertools::izip;
 use logger::prelude::*;
 use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
@@ -370,6 +371,12 @@ impl<F: FieldExt> LookupBytecode<F> {
         ));
     }
 }
+// pub struct LookupPow2<F: FieldExt> {
+//     _marker: PhantomData<F>
+// }
+// impl <F: FieldExt> LookupPow2<F> {
+//     pub fn lookup_pow2(cell)
+// }
 
 pub struct ArithOverflow<F: FieldExt> {
     _marker: PhantomData<F>,
@@ -505,4 +512,36 @@ impl<F: FieldExt> LookupBitwise<F> {
             ));
         }
     }
+}
+
+pub(crate) fn assign_table<F: FieldExt>(
+    layouter: &mut impl Layouter<F>,
+    table_columns: Vec<TableColumn>,
+    values: &Vec<Vec<F>>,
+    table_name: &str,
+) -> Result<(), Error> {
+    for (column_idx, column) in table_columns.into_iter().enumerate() {
+        layouter.assign_table(
+            || format!("{:?}[{}]", table_name, column_idx),
+            |mut table_column| {
+                table_column.assign_cell(
+                    || format!("{:?}[{}][0]", table_name, column_idx),
+                    column,
+                    0,
+                    || CircuitValue::known(F::zero()),
+                )?;
+                (0..values.len())
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("{:?}[{}][{}]", table_name, column_idx, i + 1),
+                            column,
+                            i + 1,
+                            || CircuitValue::known(values[i][column_idx]),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
+            },
+        )?;
+    }
+    Ok(())
 }
