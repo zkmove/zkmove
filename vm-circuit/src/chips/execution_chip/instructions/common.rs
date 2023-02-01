@@ -371,12 +371,6 @@ impl<F: FieldExt> LookupBytecode<F> {
         ));
     }
 }
-// pub struct LookupPow2<F: FieldExt> {
-//     _marker: PhantomData<F>
-// }
-// impl <F: FieldExt> LookupPow2<F> {
-//     pub fn lookup_pow2(cell)
-// }
 
 pub struct ArithOverflow<F: FieldExt> {
     _marker: PhantomData<F>,

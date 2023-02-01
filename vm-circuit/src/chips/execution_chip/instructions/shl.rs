@@ -82,34 +82,6 @@ impl<F: FieldExt> Instructions<F> for Shl<F> {
         let pow2_of_b = F::from_u128(2).pow(&[b.value().unwrap().get_lower_32() as u64, 0, 0, 0]);
         cells.auxiliary_1.assign(region, offset, Some(pow2_of_b))?;
 
-        // let type_bit = match a.ty() {
-        //     MoveValueType::U128 => 128,
-        //     MoveValueType::U64 => 64,
-        //     MoveValueType::U8 => 8,
-        //     _ => unreachable!(),
-        // };
-        // let reminder  = if rhs >= type_bit {
-        //     a.clone()
-        // } else {
-        //     let two_power_rhs = Value::new(
-        //         F::from_u128(2).pow(&[rhs as u64, 0, 0, 0]),
-        //         a.ty(),
-        //     )?;
-        //     a / two_power_rhs
-        // };
-        // cells.auxiliary_2.assign(
-        //     region,
-        //     offset,
-        //     step.auxiliary_1
-        //         .as_ref()
-        //         .ok_or_else(|| {
-        //             error!("shl: auxiliary_1 is empty");
-        //             Error::Synthesis
-        //         })?
-        //         .value()
-        //         .unwrap(),
-        // )?;
-
         Ok(())
     }
 }
