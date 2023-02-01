@@ -10,8 +10,6 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use movelang::utility::MoveValueType;
-use movelang::value::Value;
 use std::marker::PhantomData;
 
 pub struct Shl<F: FieldExt> {
@@ -35,7 +33,7 @@ impl<F: FieldExt> Instructions<F> for Shl<F> {
         // quotient * divisor + remainder = dividend
         constraints.push((
             "shl: lhs * pow(2, rhs) = result",
-            cond.clone() * (lhs * divisor.clone() - dividend.clone()),
+            cond.clone() * (lhs * divisor.clone() - dividend),
         ));
 
         BinaryOp::constrain_binary_op(cells, constraints, cond.clone());

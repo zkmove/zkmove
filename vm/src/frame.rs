@@ -437,34 +437,12 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Shl => {
-                        interp.binary_op(Value::shl_checked, rw_operations)?;
+                        interp.binary_op(Value::shl, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::Shr => {
                         // auxiliary is the reminder = a % (2^b)
-                        interp.binary_op_auxiliary(
-                            Value::shr,
-                            |a, b| {
-                                let type_bit = match a.ty() {
-                                    MoveValueType::U128 => 128,
-                                    MoveValueType::U64 => 64,
-                                    MoveValueType::U8 => 8,
-                                    _ => unreachable!(),
-                                };
-                                let rhs = b.value().unwrap().get_lower_128() as u8;
-                                if rhs >= type_bit {
-                                    Ok(a)
-                                } else {
-                                    let two_power_rhs = Value::new(
-                                        F::from_u128(2).pow(&[rhs as u64, 0, 0, 0]),
-                                        a.ty(),
-                                    )?;
-                                    a / two_power_rhs
-                                }
-                            },
-                            rw_operations,
-                            &mut execution_step,
-                        )?;
+                        interp.binary_op(Value::shr, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::And => {

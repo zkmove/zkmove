@@ -9,7 +9,6 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
-use std::intrinsics::unreachable;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
@@ -997,14 +996,14 @@ impl<F: FieldExt> Value<F> {
         };
         if n_bits >= max_bits {
             return Err(RuntimeError::new(StatusCode::ArithmeticError)
-                .with_message(format!("max shift bits is {}", max_bits - 1)));
+                .with_message("exceed max shift bits".to_string()));
         }
         let shift_value = if shift_left {
             lhs << n_bits
         } else {
             lhs >> n_bits
         };
-        Ok(Value::new(F::from_u128(shift_value), a.ty())?)
+        Value::new(F::from_u128(shift_value), a.ty())
     }
 
     pub fn shl(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {

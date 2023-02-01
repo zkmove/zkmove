@@ -350,7 +350,7 @@ impl<F: FieldExt> StepChip<F> {
                         pow2_table.pow_column,
                     ),
                     (
-                        s_step.clone() * lookup.pow_result * cond.clone(),
+                        s_step * lookup.pow_result * cond.clone(),
                         pow2_table.pow_result_column,
                     ),
                 ]
