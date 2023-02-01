@@ -1006,10 +1006,10 @@ impl<F: FieldExt> Value<F> {
         Value::new(F::from_u128(shift_value), a.ty())
     }
 
-    pub fn shl(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+    pub fn shl_checked(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         Self::shift_checked(a, b, true)
     }
-    pub fn shr(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+    pub fn shr_checked(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         Self::shift_checked(a, b, false)
     }
 

@@ -437,12 +437,12 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Shl => {
-                        interp.binary_op(Value::shl, rw_operations)?;
+                        interp.binary_op(Value::shl_checked, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::Shr => {
                         // auxiliary is the reminder = a % (2^b)
-                        interp.binary_op(Value::shr, rw_operations)?;
+                        interp.binary_op(Value::shr_checked, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::And => {

@@ -12,7 +12,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use movelang::value::Value;
 use std::marker::PhantomData;
-use std::ops::{Rem};
+use std::ops::Rem;
 
 pub struct Shr<F: FieldExt> {
     _marker: PhantomData<F>,
@@ -36,8 +36,7 @@ impl<F: FieldExt> Instructions<F> for Shr<F> {
         // quotient * divisor + remainder = dividend
         constraints.push((
             "shr: quotient * divisor + remainder = dividend",
-            cond.clone()
-                * (quotient * divisor.clone() + reminder - dividend),
+            cond.clone() * (quotient * divisor.clone() + reminder - dividend),
         ));
 
         // TODO: reminder < divisor

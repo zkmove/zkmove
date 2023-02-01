@@ -101,6 +101,7 @@ impl<F: FieldExt> StepChip<F> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
