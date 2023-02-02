@@ -54,13 +54,14 @@ pub mod pack;
 pub mod pop;
 pub mod read_ref;
 pub mod ret;
+pub mod shl;
+pub mod shr;
 pub mod st_loc;
 pub mod stop;
 pub mod sub;
 pub mod unpack;
 pub mod write_ref;
 pub mod xor;
-
 pub trait Instructions<F: FieldExt> {
     fn configure(
         cells: &StepChipCells<F>,

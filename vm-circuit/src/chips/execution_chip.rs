@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2FixedTable;
 use crate::chips::execution_chip::lookup_tables::{
     arith_op_lookup_table::ArithOpLookupTable, call_lookup_table::CallLookupTable,
 };
@@ -34,6 +35,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     call_table: CallLookupTable,
     arith_op_table: ArithOpLookupTable,
     bitwise_table: BitwiseLookupTable,
+    pow2_table: Pow2FixedTable,
 }
 
 #[derive(Clone, Debug)]
@@ -70,6 +72,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         let call_table = CallLookupTable::construct(meta);
         let arith_op_table = ArithOpLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
+        let pow2_table = Pow2FixedTable::construct(meta);
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
         let step_config = StepChip::configure(
             meta,
@@ -79,6 +82,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             &call_table,
             &arith_op_table,
             &bitwise_table,
+            &pow2_table,
         );
 
         ExecutionChipConfig {
@@ -88,6 +92,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             call_table,
             arith_op_table,
             bitwise_table,
+            pow2_table,
         }
     }
 
@@ -224,6 +229,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             &bitwise_values,
             "bitwise_table",
         )?;
+        self.config.pow2_table.assign_table(layouter)?;
 
         Ok((
             last_step_gc_cell,

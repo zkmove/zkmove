@@ -66,6 +66,8 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
         Bytecode::Lt => (F::from_u128(Opcode::Lt.index() as u128), F::zero()),
         Bytecode::Ge => (F::from_u128(Opcode::Ge.index() as u128), F::zero()),
         Bytecode::Gt => (F::from_u128(Opcode::Gt.index() as u128), F::zero()),
+        Bytecode::Shl => (F::from_u128(Opcode::Shl.index() as u128), F::zero()),
+        Bytecode::Shr => (F::from_u128(Opcode::Shr.index() as u128), F::zero()),
         Bytecode::BitAnd => (F::from_u128(Opcode::BitAnd.index() as u128), F::zero()),
         Bytecode::BitOr => (F::from_u128(Opcode::BitOr.index() as u128), F::zero()),
         Bytecode::Xor => (F::from_u128(Opcode::Xor.index() as u128), F::zero()),

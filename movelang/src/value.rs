@@ -975,6 +975,44 @@ impl<F: FieldExt> Value<F> {
         Ok(c)
     }
 
+    pub fn shift_checked(a: Value<F>, b: Value<F>, shift_left: bool) -> VmResult<Value<F>> {
+        // NOTICE: check type of a and b is not necessary here, as bytecode verifier already check that.
+        // but we still do it due to the lack of verifier currently.
+        if !a.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
+        }
+        if b.ty() != MoveValueType::U8 {
+            return Err(RuntimeError::new(StatusCode::InvalidValue)
+                .with_message("expect value of u8 type".to_string()));
+        }
+        let lhs = a.value().unwrap().get_lower_128();
+        let n_bits = b.value().unwrap().get_lower_128() as u8;
+        let max_bits = match a.ty() {
+            MoveValueType::U8 => 8,
+            MoveValueType::U64 => 64,
+            MoveValueType::U128 => 128,
+            _ => unreachable!(),
+        };
+        if n_bits >= max_bits {
+            return Err(RuntimeError::new(StatusCode::ArithmeticError)
+                .with_message("exceed max shift bits".to_string()));
+        }
+        let shift_value = if shift_left {
+            lhs << n_bits
+        } else {
+            lhs >> n_bits
+        };
+        Value::new(F::from_u128(shift_value), a.ty())
+    }
+
+    pub fn shl_checked(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        Self::shift_checked(a, b, true)
+    }
+    pub fn shr_checked(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
+        Self::shift_checked(a, b, false)
+    }
+
     pub fn bit_and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         // Bitwise AND the 2 u64
         if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
