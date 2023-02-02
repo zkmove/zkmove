@@ -6,7 +6,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
