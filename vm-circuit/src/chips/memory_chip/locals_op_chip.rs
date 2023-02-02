@@ -3,8 +3,10 @@
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
+use crate::witness::CircuitConfig;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_proofs::circuit::Value as CircuitValue;
+use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
@@ -43,6 +45,8 @@ pub struct LocalsOpChipConfig<F: FieldExt> {
     pub cells: LocalsOpCells<F>,
     pub s_first_locals_op: Selector,
     pub s_locals_op: Selector,
+    frame_index_table: TableColumn,
+    locals_index_table: TableColumn,
 }
 
 pub struct LocalsOpChip<F: FieldExt> {
@@ -78,9 +82,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
         meta: &mut ConstraintSystem<F>,
         advices: [Column<Advice>; MEM_CHIP_WIDTH],
         gc_table: &TableColumn,
-        frame_index_table: &TableColumn,
-        locals_index_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
+        let frame_index_table = meta.lookup_table_column();
+        let locals_index_table = meta.lookup_table_column();
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
             for i in 0..LOCALS_OP_CHIP_WIDTH {
@@ -126,8 +130,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             &cells,
             true,
             gc_table,
-            frame_index_table,
-            locals_index_table,
+            &frame_index_table,
+            &locals_index_table,
         );
 
         let s_locals_op = meta.complex_selector();
@@ -137,8 +141,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             &cells,
             false,
             gc_table,
-            frame_index_table,
-            locals_index_table,
+            &frame_index_table,
+            &locals_index_table,
         );
 
         LocalsOpChipConfig {
@@ -146,6 +150,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             cells,
             s_first_locals_op,
             s_locals_op,
+            frame_index_table,
+            locals_index_table,
         }
     }
 
@@ -315,7 +321,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
     }
 
     // assign each cell of the locals operation, return assigned cell for counter
-    pub fn assign(
+    fn assign_cell(
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
@@ -420,5 +426,112 @@ impl<F: FieldExt> LocalsOpChip<F> {
             .assign(region, offset, Some(is_empty))?;
 
         Ok(assigned)
+    }
+
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        circuit_config: &CircuitConfig,
+        locals_ops: Vec<ConvertedRWOperation<F>>,
+        locals_ops_num: usize,
+    ) -> Option<AssignedCell<F, F>> {
+        let mut last_locals_counter: Option<AssignedCell<F, F>> = None;
+
+        if !locals_ops.is_empty() || locals_ops_num > 0 {
+            layouter
+                .assign_region(
+                    || "locals operations",
+                    |mut region: Region<'_, F>| {
+                        let mut prev_op = None;
+                        let mut counter = 0;
+                        for (index, op) in locals_ops.iter().enumerate() {
+                            counter = index + 1;
+                            let assigned_counter = if index == 0 {
+                                self.config.s_first_locals_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, None, false)?
+                            } else {
+                                self.config.s_locals_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, prev_op, false)?
+                            };
+                            if counter == locals_ops.len() {
+                                last_locals_counter = Some(assigned_counter);
+                            }
+                            prev_op = Some(op.clone());
+                        }
+
+                        // If the number of locals ops is less than locals_ops_num set by user, fill with
+                        // empty locals op.
+                        if locals_ops.len() < locals_ops_num {
+                            for index in locals_ops.len()..locals_ops_num {
+                                let assigned_counter = if index == 0 {
+                                    self.config.s_first_locals_op.enable(&mut region, index)?;
+                                    self.assign_cell(
+                                        &mut region,
+                                        index,
+                                        &ConvertedRWOperation::empty(),
+                                        counter,
+                                        None,
+                                        true,
+                                    )?
+                                } else {
+                                    self.config.s_locals_op.enable(&mut region, index)?;
+                                    self.assign_cell(
+                                        &mut region,
+                                        index,
+                                        &ConvertedRWOperation::empty(),
+                                        counter,
+                                        prev_op,
+                                        true,
+                                    )?
+                                };
+
+                                last_locals_counter = Some(assigned_counter);
+                                prev_op = Some(ConvertedRWOperation::empty());
+                            }
+                        }
+
+                        Ok(())
+                    },
+                )
+                .ok()?;
+        }
+
+        layouter
+            .assign_table(
+                || "frame_index_table",
+                |mut table_column| {
+                    (0..=circuit_config.max_frame_index)
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("frame_index_table[{}]", i),
+                                self.config.frame_index_table,
+                                i,
+                                || CircuitValue::known(F::from_u128(i as u128)),
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )
+            .ok()?;
+
+        layouter
+            .assign_table(
+                || "locals_index_table",
+                |mut table_column| {
+                    (0..=circuit_config.max_locals_size)
+                        .map(|i| {
+                            table_column.assign_cell(
+                                || format!("locals_index_table[{}]", i),
+                                self.config.locals_index_table,
+                                i,
+                                || CircuitValue::known(F::from_u128(i as u128)),
+                            )
+                        })
+                        .fold(Ok(()), |acc, res| acc.and(res))
+                },
+            )
+            .ok()?;
+
+        last_locals_counter
     }
 }

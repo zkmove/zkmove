@@ -3,8 +3,9 @@
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
+use crate::witness::CircuitConfig;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
@@ -248,7 +249,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
     }
 
     // assign each cell of the global rw operation, return assigned cell for counter
-    pub fn assign(
+    fn assign_cell(
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
@@ -353,5 +354,75 @@ impl<F: FieldExt> GlobalOpChip<F> {
             .assign(region, offset, Some(is_empty))?;
 
         Ok(assigned)
+    }
+
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        _circuit_config: &CircuitConfig,
+        global_ops: Vec<ConvertedRWOperation<F>>,
+        global_ops_num: usize,
+    ) -> Option<AssignedCell<F, F>> {
+        let mut last_global_counter: Option<AssignedCell<F, F>> = None;
+
+        if !global_ops.is_empty() || global_ops_num > 0 {
+            layouter
+                .assign_region(
+                    || "global operations",
+                    |mut region: Region<'_, F>| {
+                        let mut prev_op = None;
+                        let mut counter = 0;
+                        for (index, op) in global_ops.iter().enumerate() {
+                            counter = index + 1;
+                            let assigned_counter = if index == 0 {
+                                self.config.s_first_global_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, None, false)?
+                            } else {
+                                self.config.s_global_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, prev_op, false)?
+                            };
+                            if counter == global_ops.len() {
+                                last_global_counter = Some(assigned_counter);
+                            }
+                            prev_op = Some(op.clone());
+                        }
+
+                        // If the number of global ops is less than global_ops_num set by user, fill with
+                        // empty locals op.
+                        if global_ops.len() < global_ops_num {
+                            for index in global_ops.len()..global_ops_num {
+                                let assigned_counter = if index == 0 {
+                                    self.config.s_first_global_op.enable(&mut region, index)?;
+                                    self.assign_cell(
+                                        &mut region,
+                                        index,
+                                        &ConvertedRWOperation::empty(),
+                                        counter,
+                                        None,
+                                        true,
+                                    )?
+                                } else {
+                                    self.config.s_global_op.enable(&mut region, index)?;
+                                    self.assign_cell(
+                                        &mut region,
+                                        index,
+                                        &ConvertedRWOperation::empty(),
+                                        counter,
+                                        prev_op,
+                                        true,
+                                    )?
+                                };
+
+                                last_global_counter = Some(assigned_counter);
+                                prev_op = Some(ConvertedRWOperation::empty());
+                            }
+                        }
+
+                        Ok(())
+                    },
+                )
+                .ok()?;
+        }
+        last_global_counter
     }
 }
