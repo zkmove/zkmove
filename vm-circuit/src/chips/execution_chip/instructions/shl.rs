@@ -6,7 +6,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::{RWOperations};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -62,22 +62,9 @@ impl<F: FieldExt> Instructions<F> for Shl<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        debug_assert!(
-            step.gc + 2 < rw_operations.0.len(),
-            "expect 3 rw operations"
-        );
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)?;
+        // It's ok to slice here, as BinaryOp::assign_binary_op already check the range.
         let ops = &rw_operations.0[step.gc..=step.gc + 2];
-        debug_assert_eq!(
-            ops.iter().map(|op| op.rw()).collect::<Vec<_>>(),
-            vec![RW::READ, RW::READ, RW::WRITE]
-        );
-        for (op, cell) in ops
-            .iter()
-            .zip([&cells.value_b, &cells.value_a, &cells.value_c])
-        {
-            cell.assign(region, offset, op.value().value())?;
-        }
-        // let a = &ops[1].value();
         let b = &ops[0].value();
         let pow2_of_b = F::from_u128(2).pow(&[b.value().unwrap().get_lower_32() as u64, 0, 0, 0]);
         cells.auxiliary_1.assign(region, offset, Some(pow2_of_b))?;
