@@ -15,6 +15,8 @@ pub mod bytecode_lookup_table;
 pub mod call_lookup_table;
 pub mod pow2_fixed_table;
 pub mod rw_table;
+pub mod utils;
+
 pub struct LookupsWithCondition<F: FieldExt> {
     pub rw_lookups: Vec<(RWLookup<F>, /*condition*/ Expression<F>)>,
     pub bytecode_lookups: Vec<(BytecodeLookup<F>, /*condition*/ Expression<F>)>,

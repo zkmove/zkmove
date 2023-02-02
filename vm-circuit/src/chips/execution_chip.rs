@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2FixedTable;
+use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::lookup_tables::{
     arith_op_lookup_table::ArithOpLookupTable, call_lookup_table::CallLookupTable,
 };
@@ -12,7 +13,7 @@ use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
-    plonk::{Advice, Column, ConstraintSystem, Error, TableColumn},
+    plonk::{Advice, Column, ConstraintSystem, Error},
 };
 use logger::prelude::*;
 use lookup_tables::{
@@ -171,7 +172,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         let bytecodes: Vec<Vec<F>> = (&self.witness.bytecode_table).into();
         let bytecode_table_columns = self.config.bytecode_table.columns();
-        self.assign_table(
+        assign_table(
             layouter,
             bytecode_table_columns,
             &bytecodes,
@@ -185,7 +186,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             .map(|call| call.into())
             .collect();
         let call_table_columns = self.config.call_table.columns();
-        self.assign_table(layouter, call_table_columns, func_calls, "call_table")?;
+        assign_table(layouter, call_table_columns, func_calls, "call_table")?;
 
         let arith_ops = &self
             .witness
@@ -194,7 +195,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             .map(|op| op.into())
             .collect();
         let arith_op_table_columns = self.config.arith_op_table.columns();
-        self.assign_table(
+        assign_table(
             layouter,
             arith_op_table_columns,
             arith_ops,
@@ -223,7 +224,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             }
         }
         let bitwise_table_columns = self.config.bitwise_table.columns();
-        self.assign_table(
+        assign_table(
             layouter,
             bitwise_table_columns,
             &bitwise_values,
@@ -270,38 +271,5 @@ impl<F: FieldExt> ExecutionChip<F> {
                 })
             })
             .fold(Ok(()), |acc, res| acc.and(res))
-    }
-
-    fn assign_table(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        table_columns: Vec<TableColumn>,
-        values: &Vec<Vec<F>>,
-        table_name: &str,
-    ) -> Result<(), Error> {
-        for (column_idx, column) in table_columns.into_iter().enumerate() {
-            layouter.assign_table(
-                || format!("{:?}[{}]", table_name, column_idx),
-                |mut table_column| {
-                    table_column.assign_cell(
-                        || format!("{:?}[{}][0]", table_name, column_idx),
-                        column,
-                        0,
-                        || CircuitValue::known(F::zero()),
-                    )?;
-                    (0..values.len())
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("{:?}[{}][{}]", table_name, column_idx, i + 1),
-                                column,
-                                i + 1,
-                                || CircuitValue::known(values[i][column_idx]),
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )?;
-        }
-        Ok(())
     }
 }
