@@ -3,7 +3,7 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
-    Container, ContainerRef, FrameIndex, Index, IndexedRef, Value, ValueAddress,
+    AddressPath, Container, ContainerRef, FrameIndex, Index, IndexedRef, Value, ValueAddress,
 };
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
@@ -16,6 +16,33 @@ impl<F: FieldExt> Locals<F> {
         Self(Rc::new(RefCell::new(vec![Value::Invalid; size])))
     }
 
+    pub fn emit_locals_ops_for_flattened_value(
+        flattened: Vec<(AddressPath, Value<F>)>,
+        rw: RW,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) {
+        for (address_path, val) in flattened {
+            let locals_op = LocalsOp {
+                frame_index: *address_path
+                    .0
+                    .get(0)
+                    .expect("frame_index should not be None"),
+                index: *address_path.0.get(1).expect("index should not be None"),
+                nested_address_0: *address_path
+                    .0
+                    .get(2)
+                    .expect("nested_address_0 should not be None"),
+                nested_address_1: *address_path
+                    .0
+                    .get(3)
+                    .expect("nested_address_1 should not be None"),
+                value: val,
+                rw: rw.clone(),
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::LocalsOp(locals_op));
+        }
+    }
     pub fn copy(
         &self,
         index: usize,
@@ -26,16 +53,9 @@ impl<F: FieldExt> Locals<F> {
         match values.get(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::CopyLocalError)),
             Some(v) => {
-                let locals_op = LocalsOp {
-                    frame_index,
-                    index,
-                    nested_address_0: 0,
-                    nested_address_1: 0,
-                    value: v.clone(),
-                    rw: RW::READ,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                let flattened =
+                    v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                 Ok(v.copy_value())
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
@@ -49,11 +69,13 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        let value = Value::fill_address_if_needed(
+        let value = Value::update_address(
             value,
-            ValueAddress::Local(FrameIndex(frame_index), Index(index)),
+            ValueAddress::Locals(FrameIndex(frame_index), Index(index)),
         );
-        let value_copy = value.clone();
+        let flattened =
+            value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(v) => {
@@ -67,16 +89,9 @@ impl<F: FieldExt> Locals<F> {
                         );
                     }
                 }
-                let locals_op = LocalsOp {
-                    frame_index,
-                    index,
-                    nested_address_0: 0,
-                    nested_address_1: 0,
-                    value: value_copy,
-                    rw: RW::WRITE,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op));
+
+                Self::emit_locals_ops_for_flattened_value(flattened, RW::WRITE, rw_operations);
+
                 values[index] = value;
                 Ok(())
             }
@@ -90,21 +105,14 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
-        let value_copy = self.0.borrow().get(index).cloned();
+        let value_copy = self.0.borrow().get(index).cloned().unwrap();
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
             Some(v) => {
-                let locals_op_1 = LocalsOp {
-                    frame_index,
-                    index,
-                    nested_address_0: 0,
-                    nested_address_1: 0,
-                    value: value_copy.unwrap(),
-                    rw: RW::READ,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op_1));
+                let flattened = value_copy
+                    .flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                 let locals_op_2 = LocalsOp {
                     frame_index,
                     index,
@@ -132,16 +140,9 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
             Some(v) => match v {
                 Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
-                    let locals_op = LocalsOp {
-                        frame_index,
-                        index,
-                        nested_address_0: 0,
-                        nested_address_1: 0,
-                        value: v.clone(),
-                        rw: RW::READ,
-                        gc: rw_operations.len(),
-                    };
-                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    let flattened =
+                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                    Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                     Ok(Value::IndexedRef(IndexedRef {
                         index,
                         container_ref: ContainerRef::Local(Container::Locals(
@@ -180,16 +181,9 @@ impl<F: FieldExt> Locals<F> {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => match v {
                 Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
-                    let locals_op = LocalsOp {
-                        frame_index,
-                        index,
-                        nested_address_0: 0,
-                        nested_address_1: 0,
-                        value: v.clone(),
-                        rw: RW::READ,
-                        gc: rw_operations.len(),
-                    };
-                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    let flattened =
+                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                    Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                     Ok(Value::IndexedRef(IndexedRef {
                         index,
                         container_ref: ContainerRef::Local(Container::Locals(
@@ -227,16 +221,9 @@ impl<F: FieldExt> Locals<F> {
         match values.get(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(v) => {
-                let locals_op = LocalsOp {
-                    frame_index,
-                    index,
-                    nested_address_0: 0,
-                    nested_address_1: 0,
-                    value: v.clone(),
-                    rw: RW::READ,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                let flattened =
+                    v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                 Ok(v.clone())
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
@@ -250,21 +237,13 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        let value_copy = value.clone();
+        let flattened =
+            value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
         let mut values = self.0.borrow_mut();
         match values.get_mut(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             Some(_v) => {
-                let locals_op = LocalsOp {
-                    frame_index,
-                    index,
-                    nested_address_0: 0,
-                    nested_address_1: 0,
-                    value: value_copy,
-                    rw: RW::WRITE,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op));
+                Self::emit_locals_ops_for_flattened_value(flattened, RW::WRITE, rw_operations);
                 values[index] = value;
                 Ok(())
             }

@@ -52,17 +52,51 @@ pub struct Index(pub usize);
 /// An address of a zkMove value
 #[derive(Clone, Debug)]
 pub enum ValueAddress<F: FieldExt> {
+    /// If the value lives in the eval stack, the address will be the
+    /// index of the value in stack.
+    Stack(Index),
     /// If the value lives in the locals of a frame, the address will be the
     /// combination of frame_index and the index of the value in locals.
-    Local(FrameIndex, Index),
+    Locals(FrameIndex, Index),
     /// If the value lives in the global storage, the address will be the
     /// AccountAddress/StructDefinitionIndex of the value.
     Global(AccountAddress<F>, StructDefinitionIndex),
-    /// If the value is a member of a struct, the address will be the
-    /// index of the member in the struct.
-    Indexed(Index),
+    /// If the value is a member of a Local or Global value, the address will be
+    /// the index of the member, and the address of parent value.
+    Member {
+        index: Index,
+        parent: Box<ValueAddress<F>>,
+    },
     /// The value was just created and has not been stored yet.
     Unknown,
+}
+
+#[derive(Clone, Debug)]
+pub struct AddressPath(pub Vec<usize>);
+
+impl AddressPath {
+    pub fn into_inner(self) -> Vec<usize> {
+        self.0
+    }
+    pub fn extend(self, leaf: usize) -> Self {
+        let mut path = self.into_inner();
+        path.push(leaf);
+        AddressPath(path)
+    }
+}
+
+impl<F: FieldExt> ValueAddress<F> {
+    pub fn address_path(&self) -> VmResult<AddressPath> {
+        match self {
+            Self::Stack(index) => Ok(AddressPath(vec![0, index.0])),
+            Self::Locals(frame_index, index) => Ok(AddressPath(vec![frame_index.0, index.0])),
+            Self::Member { index, parent } => {
+                let path = parent.address_path()?;
+                Ok(path.extend(index.0))
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -118,7 +152,7 @@ impl<F: FieldExt> Container<F> {
         match self {
             Self::Locals(frame_index, _) => frame_index.0,
             Self::Struct(address, _) => match address {
-                ValueAddress::Local(frame_index, _index) => frame_index.0,
+                ValueAddress::Locals(frame_index, _index) => frame_index.0,
                 _ => unreachable!(),
             },
         }
@@ -128,10 +162,41 @@ impl<F: FieldExt> Container<F> {
         match self {
             Self::Locals(_, _) => unreachable!(),
             Self::Struct(address, _) => match address {
-                ValueAddress::Local(_frame_index, index) => index.0,
+                ValueAddress::Locals(_frame_index, index) => index.0,
                 _ => unreachable!(),
             },
         }
+    }
+
+    pub fn flatten(&self) -> VmResult<Vec<(AddressPath, Value<F>)>> {
+        let mut result = Vec::new();
+        match self {
+            Self::Struct(address, value) => {
+                let base_path = address.address_path()?;
+                for (i, val) in value.borrow().iter().map(|v| v.copy_value()).enumerate() {
+                    let base_path = base_path.clone().extend(i);
+                    match val {
+                        Value::U8(_)
+                        | Value::U64(_)
+                        | Value::U128(_)
+                        | Value::Bool(_)
+                        | Value::Address(_) => {
+                            result.push((base_path.extend(0), val));
+                        }
+                        Value::Container(Container::Struct(_, value)) => {
+                            for (i, val) in
+                                value.borrow().iter().map(|v| v.copy_value()).enumerate()
+                            {
+                                result.push((base_path.clone().extend(i), val));
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            Self::Locals(_, _) => unreachable!(),
+        }
+        Ok(result)
     }
 }
 
@@ -619,10 +684,20 @@ impl<F: FieldExt> Value<F> {
 
     /// The address of an value may be unknown at the moment when the value is created.
     /// Can be filled by calling this function when the address is known.
-    pub fn fill_address_if_needed(self, address: ValueAddress<F>) -> Value<F> {
+    // pub fn update_unknown_address(self, address: ValueAddress<F>) -> Value<F> {
+    //     match self {
+    //         // only struct container need filling address
+    //         Value::Container(Container::Struct(ValueAddress::Unknown, struct_)) => {
+    //             Value::Container(Container::Struct(address, struct_))
+    //         }
+    //         v => v,
+    //     }
+    // }
+
+    pub fn update_address(self, address: ValueAddress<F>) -> Value<F> {
         match self {
             // only struct container need filling address
-            Value::Container(Container::Struct(ValueAddress::Unknown, struct_)) => {
+            Value::Container(Container::Struct(_, struct_)) => {
                 Value::Container(Container::Struct(address, struct_))
             }
             v => v,
@@ -638,7 +713,12 @@ impl<F: FieldExt> Value<F> {
             Self::Bool(v) => Some(v.0),
             Self::Address(addr) => Some(addr.value()),
             Self::Container(c) => Some(c.value()),
-            Self::IndexedRef(r) => Some(r.container().value()),
+            Self::IndexedRef(r) => {
+                // todo: define a better representation for Ref
+                Some(F::from_u128(
+                    ((r.container_frame_index() << 16) + r.index()) as u128,
+                ))
+            }
             Self::ContainerRef(r) => Some(r.container().value()),
         }
     }
@@ -653,6 +733,29 @@ impl<F: FieldExt> Value<F> {
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
             _ => unimplemented!(),
+        }
+    }
+
+    pub fn flatten(&self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath, Value<F>)>> {
+        match self {
+            Self::U8(_)
+            | Self::U64(_)
+            | Self::U128(_)
+            | Self::Bool(_)
+            | Self::Address(_)
+            | Self::Invalid
+            | Self::IndexedRef(_) => match address {
+                ValueAddress::Stack(index) => {
+                    Ok(vec![(AddressPath(vec![0, index.0, 0, 0]), self.clone())])
+                }
+                ValueAddress::Locals(frame_index, index) => Ok(vec![(
+                    AddressPath(vec![frame_index.0, index.0, 0, 0]),
+                    self.clone(),
+                )]),
+                _ => unreachable!(),
+            },
+            Self::Container(c) => c.flatten(),
+            Self::ContainerRef(_) => unimplemented!(),
         }
     }
 

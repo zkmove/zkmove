@@ -4,7 +4,9 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
-use movelang::value::{Container, Reference, Struct, StructRef, Value};
+use movelang::value::{
+    AddressPath, Container, Index, Reference, Struct, StructRef, Value, ValueAddress,
+};
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
@@ -18,23 +20,41 @@ impl<F: FieldExt> EvalStack<F> {
         EvalStack(vec![])
     }
 
+    pub fn emit_stack_ops_for_flattened_value(
+        flattened: Vec<(AddressPath, Value<F>)>,
+        rw: RW,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) {
+        for (address_path, val) in flattened {
+            let stack_op = StackOp {
+                address: *address_path.0.get(1).expect("address should not be None"),
+                nested_address_0: *address_path
+                    .0
+                    .get(2)
+                    .expect("nested_address_0 should not be None"),
+                nested_address_1: *address_path
+                    .0
+                    .get(3)
+                    .expect("nested_address_1 should not be None"),
+                value: val,
+                rw: rw.clone(),
+                gc: rw_operations.len(),
+            };
+            rw_operations.push(RWOperation::StackOp(stack_op));
+        }
+    }
+
     pub fn push(
         &mut self,
         value: Value<F>,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::WRITE,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
-            self.0.push(value);
+            // let value = Value::update_unknown_address(value, ValueAddress::Stack(Index(self.0.len())));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::WRITE, rw_operations);
 
+            self.0.push(value);
             Ok(())
         } else {
             Err(RuntimeError::new(StatusCode::StackOverflow))
@@ -47,15 +67,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             Ok(value)
         }
@@ -74,15 +87,8 @@ impl<F: FieldExt> EvalStack<F> {
         let values = self.0.split_off(remaining_stack_size);
 
         for (i, value) in values.iter().enumerate() {
-            let stack_op = StackOp {
-                address: remaining_stack_size + i,
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(remaining_stack_size + i)))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
         }
 
         Ok(values)
@@ -97,15 +103,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             match value {
                 Value::Container(Container::Struct(_, struct_)) => {
@@ -134,15 +133,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             match value {
                 Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
@@ -162,15 +154,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             match value {
                 Value::ContainerRef(r) => Ok(StructRef(r)),
@@ -189,15 +174,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let stack_op = StackOp {
-                address: self.0.len(),
-                nested_address_0: 0,
-                nested_address_1: 0,
-                value: value.clone(),
-                rw: RW::READ,
-                gc: rw_operations.len(),
-            };
-            rw_operations.push(RWOperation::StackOp(stack_op));
+            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             match value {
                 Value::Address(addr) => Ok(addr.account_address()),

@@ -10,7 +10,7 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{Container, IntegerType, Reference, Struct, Value, ValueAddress};
+use movelang::value::{Container, Index, IntegerType, Reference, Struct, Value, ValueAddress};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
@@ -471,7 +471,10 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
                         interp.stack.push(
-                            Value::struct_(Struct::pack(args), ValueAddress::Unknown),
+                            Value::struct_(
+                                Struct::pack(args),
+                                ValueAddress::Stack(Index(interp.stack.size())),
+                            ),
                             rw_operations,
                         )
                     }
