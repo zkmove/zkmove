@@ -1,14 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LookupBytecode;
+use crate::chips::execution_chip::instructions::common::{FlattenedValue, LookupBytecode};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{
-    StepChipCells, MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS,
-};
+use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -38,9 +36,10 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
+        let flattened_field_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
             + field_num.clone()
-            + 1.expr();
+            + flattened_field_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -54,7 +53,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
@@ -71,16 +70,18 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                 cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
             ));
         }
-        lookups.rw_lookups.push((
-            RWLookup::stack_push(
-                cells.gc.expression.clone() + field_num.clone(),
-                cells.stack_size.expression.clone() - field_num,
-                0.expr(),
-                0.expr(),
-                cells.value_c.expression.clone(),
-            ),
-            cond.clone(),
-        ));
+        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+            lookups.rw_lookups.push((
+                RWLookup::stack_push(
+                    cells.gc.expression.clone() + field_num.clone() + (i as u64).expr(),
+                    cells.stack_size.expression.clone() - field_num.clone(),
+                    cells.flattened_nested_addr_0[i].expression.clone(),
+                    cells.flattened_nested_addr_1[i].expression.clone(),
+                    cells.flattened[i].expression.clone(),
+                ),
+                cond.clone() * (1.expr() - cells.flattened_mask[i].expression.clone()),
+            ));
+        }
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -114,7 +115,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             })?
             .get_lower_128() as usize;
 
-        // fixme: field_num may be large than MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS
+        // fixme: field_num may be large than MAX_NUM_OF_FLATTENED_STRUCT_FIELDS
         for i in 0..field_num {
             let op = rw_operations.0.get(step.gc + i).ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
@@ -122,16 +123,21 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in field_num..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS {
+        for i in field_num..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
             cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
-        let op = rw_operations
-            .0
-            .get(step.gc + field_num)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        let flattened_field_num =
+            FlattenedValue::get_flattened_field_num(region, offset, step, cells)?;
+        FlattenedValue::assign_flattened_a(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + field_num,
+            flattened_field_num,
+        )?;
 
         let sd_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
             error!("auxiliary_2 is None");

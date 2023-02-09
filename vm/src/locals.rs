@@ -152,16 +152,9 @@ impl<F: FieldExt> Locals<F> {
                     }))
                 }
                 Value::Container(c) => {
-                    let locals_op = LocalsOp {
-                        frame_index,
-                        index,
-                        nested_address_0: 0,
-                        nested_address_1: 0,
-                        value: v.clone(),
-                        rw: RW::READ,
-                        gc: rw_operations.len(),
-                    };
-                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    let flattened =
+                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                    Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                     Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
@@ -193,16 +186,9 @@ impl<F: FieldExt> Locals<F> {
                     }))
                 }
                 Value::Container(c) => {
-                    let locals_op = LocalsOp {
-                        frame_index,
-                        index,
-                        nested_address_0: 0,
-                        nested_address_1: 0,
-                        value: v.clone(),
-                        rw: RW::READ,
-                        gc: rw_operations.len(),
-                    };
-                    rw_operations.push(RWOperation::LocalsOp(locals_op));
+                    let flattened =
+                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+                    Self::emit_locals_ops_for_flattened_value(flattened, RW::READ, rw_operations);
                     Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
                 }
                 _ => unimplemented!(),
@@ -247,6 +233,15 @@ impl<F: FieldExt> Locals<F> {
                 values[index] = value;
                 Ok(())
             }
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+        }
+    }
+
+    pub fn flattened_field_count(&self, index: usize) -> VmResult<usize> {
+        let values = self.0.borrow();
+        match values.get(index) {
+            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+            Some(v) => v.flattened_field_count(),
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }

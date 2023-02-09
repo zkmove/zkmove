@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LookupBytecode;
+use crate::chips::execution_chip::instructions::common::{FlattenedValue, LookupBytecode};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -31,7 +31,10 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let flattened_field_num = cells.auxiliary_3.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+            + 1.expr()
+            + 2.expr() * flattened_field_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -57,37 +60,55 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         ));
 
         let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
-        let read = RWLookup::locals_read_ref(
-            cells.gc.expression.clone() + 1.expr(),
-            cells.auxiliary_2.expression.clone(),
-            cells.locals_index.expression.clone(),
-            0.expr(),
-            0.expr(),
-            cells.value_b.expression.clone(),
-        );
-        lookups.rw_lookups.push((read, cond.clone() * is_locals));
+
+        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+            let read = RWLookup::locals_read_ref(
+                cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
+                cells.auxiliary_2.expression.clone(),
+                cells.locals_index.expression.clone(),
+                cells.flattened_nested_addr_0[i].expression.clone(),
+                cells.flattened_nested_addr_1[i].expression.clone(),
+                cells.flattened[i].expression.clone(),
+            );
+
+            lookups.rw_lookups.push((
+                read,
+                cond.clone()
+                    * is_locals.clone()
+                    * (1.expr() - cells.flattened_mask[i].expression.clone()),
+            ));
+        }
 
         let is_global = cells.auxiliary_1.expression.clone();
         let read = RWLookup::global_read(
             cells.gc.expression.clone() + 1.expr(),
             cells.auxiliary_2.expression.clone(), //address
             cells.value_b.expression.clone(),
-            cells.auxiliary_3.expression.clone(), //sd_index
+            cells.auxiliary_4.expression.clone(), //sd_index
             0.expr(),
             0.expr(),
         );
         lookups.rw_lookups.push((read, cond.clone() * is_global));
 
-        lookups.rw_lookups.push((
-            RWLookup::stack_push(
-                cells.gc.expression.clone() + 2.expr(),
+        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+            let write = RWLookup::stack_push(
+                cells.gc.expression.clone()
+                    + 1.expr()
+                    + flattened_field_num.clone()
+                    + (i as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
-                0.expr(),
-                cells.value_c.expression.clone(),
-            ),
-            cond.clone(),
-        ));
+                cells.args_or_fields_nested_addr_0[i].expression.clone(),
+                cells.args_or_fields_nested_addr_1[i].expression.clone(),
+                cells.args_or_fields[i].expression.clone(),
+            );
+
+            lookups.rw_lookups.push((
+                write,
+                cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
+            ));
+        }
+
+        // todo: constrain cells.args_or_fields == cells.flattened
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -108,12 +129,33 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        cells.value_b.assign(region, offset, op.value().value())?;
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        // let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        // debug_assert!(op.rw() == RW::READ);
+        // cells.value_b.assign(region, offset, op.value().value())?;
+        // let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
+        // debug_assert!(op.rw() == RW::WRITE);
+        // cells.value_c.assign(region, offset, op.value().value())?;
+
+        let flattened_field_num =
+            FlattenedValue::get_flattened_field_num(region, offset, step, cells)?;
+        FlattenedValue::assign_flattened_a(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + 1,
+            flattened_field_num,
+        )?;
+        FlattenedValue::assign_flattened_b(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + 1 + flattened_field_num,
+            flattened_field_num,
+        )?;
 
         let is_global = step.auxiliary_1.as_ref().ok_or_else(|| {
             error!("auxiliary_1 is None");
@@ -140,12 +182,12 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
             })?;
             cells.auxiliary_2.assign(region, offset, address.value())?;
 
-            // assign the sd_index to auxiliary_3
-            let sd_index = step.auxiliary_3.as_ref().ok_or_else(|| {
-                error!("auxiliary_3 is None");
+            // assign the sd_index to auxiliary_4
+            let sd_index = step.auxiliary_4.as_ref().ok_or_else(|| {
+                error!("auxiliary_4 is None");
                 Error::Synthesis
             })?;
-            cells.auxiliary_3.assign(region, offset, sd_index.value())?;
+            cells.auxiliary_4.assign(region, offset, sd_index.value())?;
         }
         Ok(())
     }

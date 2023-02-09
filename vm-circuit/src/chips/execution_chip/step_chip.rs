@@ -19,11 +19,10 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 14; //todo: calculate step height automatically
+pub const STEP_HEIGHT: usize = 25; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
-pub const MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS: usize = 10; //max(method_arguments#, struct_fields#)
-                                                             //todo: dynamic configure according to the real argument number and struct fields
+pub const MAX_NUM_OF_FLATTENED_STRUCT_FIELDS: usize = 16; //max(#method_arguments, #flattened_struct_fields)
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -45,8 +44,15 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
 
+    pub flattened: Vec<Cell<F>>,
+    pub flattened_mask: Vec<Cell<F>>,
+    pub flattened_nested_addr_0: Vec<Cell<F>>,
+    pub flattened_nested_addr_1: Vec<Cell<F>>,
+
     pub args_or_fields: Vec<Cell<F>>,
     pub args_or_fields_mask: Vec<Cell<F>>,
+    pub args_or_fields_nested_addr_0: Vec<Cell<F>>,
+    pub args_or_fields_nested_addr_1: Vec<Cell<F>>,
 
     pub bytes: Vec<Cell<F>>,
     pub bytes_operand_1: Vec<Cell<F>>,
@@ -116,7 +122,8 @@ impl<F: FieldExt> StepChip<F> {
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
-            + MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS * 2
+            + MAX_NUM_OF_FLATTENED_STRUCT_FIELDS * 4
+            + MAX_NUM_OF_FLATTENED_STRUCT_FIELDS * 4
             + NUM_OF_BYTES_U128 * 3;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
@@ -154,11 +161,18 @@ impl<F: FieldExt> StepChip<F> {
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
 
-            args_or_fields: cells
-                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+            flattened: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+            flattened_mask: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+            flattened_nested_addr_0: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+            flattened_nested_addr_1: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+
+            args_or_fields: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+            args_or_fields_mask: cells.drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS).collect(),
+            args_or_fields_nested_addr_0: cells
+                .drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS)
                 .collect(),
-            args_or_fields_mask: cells
-                .drain(0..MAX_NUM_OF_ARGUMENTS_OR_STRUCT_FIELDS)
+            args_or_fields_nested_addr_1: cells
+                .drain(0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS)
                 .collect(),
 
             bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),

@@ -744,7 +744,8 @@ impl<F: FieldExt> Value<F> {
             | Self::Bool(_)
             | Self::Address(_)
             | Self::Invalid
-            | Self::IndexedRef(_) => match address {
+            | Self::IndexedRef(_)
+            | Self::ContainerRef(_) => match address {
                 ValueAddress::Stack(index) => {
                     Ok(vec![(AddressPath(vec![0, index.0, 0, 0]), self.clone())])
                 }
@@ -752,10 +753,36 @@ impl<F: FieldExt> Value<F> {
                     AddressPath(vec![frame_index.0, index.0, 0, 0]),
                     self.clone(),
                 )]),
+                ValueAddress::Member {
+                    index: _,
+                    parent: _,
+                } => {
+                    let base_path = address.address_path()?;
+                    Ok(vec![(
+                        base_path.extend(0), // fill nested_address_1 with 0
+                        self.clone(),
+                    )])
+                }
                 _ => unreachable!(),
             },
             Self::Container(c) => c.flatten(),
-            Self::ContainerRef(_) => unimplemented!(),
+        }
+    }
+
+    pub fn flattened_field_count(&self) -> VmResult<usize> {
+        match self {
+            Self::U8(_)
+            | Self::U64(_)
+            | Self::U128(_)
+            | Self::Bool(_)
+            | Self::Address(_)
+            | Self::Invalid
+            | Self::IndexedRef(_)
+            | Self::ContainerRef(_) => Ok(1),
+            Self::Container(c) => {
+                let flattened = c.flatten()?;
+                Ok(flattened.len())
+            }
         }
     }
 

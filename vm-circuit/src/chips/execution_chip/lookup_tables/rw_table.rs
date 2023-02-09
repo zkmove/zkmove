@@ -128,6 +128,7 @@ impl<F: FieldExt> RWLookup<F> {
         nested_address_0: Expression<F>,
         nested_address_1: Expression<F>,
         value: Expression<F>,
+        flattened_field_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -142,7 +143,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + 1.expr(),
+                gc: gc + flattened_field_num.clone(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -155,7 +156,7 @@ impl<F: FieldExt> RWLookup<F> {
         )
     }
 
-    pub fn locals_move(
+    pub fn locals_move_without_flash(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
@@ -163,7 +164,8 @@ impl<F: FieldExt> RWLookup<F> {
         nested_address_0: Expression<F>,
         nested_address_1: Expression<F>,
         value: Expression<F>,
-    ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
+        flattened_field_num: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
                 gc: gc.clone(),
@@ -177,18 +179,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc.clone() + 1.expr(),
-                rw_target: (RWTarget::Locals as u64).expr(),
-                rw: (RW::WRITE as u64).expr(),
-                frame_index,
-                address: locals_index,
-                nested_address_0: nested_address_0.clone(),
-                nested_address_1: nested_address_1.clone(),
-                value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
-                sd_index: 0.expr(),
-            },
-            RWLookup {
-                gc: gc + 2.expr(),
+                gc: gc + flattened_field_num.clone() + 1.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -209,6 +200,7 @@ impl<F: FieldExt> RWLookup<F> {
         nested_address_0: Expression<F>,
         nested_address_1: Expression<F>,
         value: Expression<F>,
+        flattened_field_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -223,7 +215,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + 1.expr(),
+                gc: gc + flattened_field_num.clone(),
                 rw_target: (RWTarget::Locals as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index,
@@ -241,36 +233,21 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
-        stack_size: Expression<F>,
         nested_address_0: Expression<F>,
         nested_address_1: Expression<F>,
         value: Expression<F>,
-        reference_index: Expression<F>,
-    ) -> (RWLookup<F>, RWLookup<F>) {
-        (
-            RWLookup {
-                gc: gc.clone(),
-                rw_target: (RWTarget::Locals as u64).expr(),
-                rw: (RW::READ as u64).expr(),
-                frame_index,
-                address: locals_index,
-                nested_address_0: nested_address_0.clone(),
-                nested_address_1: nested_address_1.clone(),
-                value,
-                sd_index: 0.expr(),
-            },
-            RWLookup {
-                gc: gc + 1.expr(),
-                rw_target: (RWTarget::Stack as u64).expr(),
-                rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
-                address: stack_size,
-                nested_address_0,
-                nested_address_1,
-                value: reference_index,
-                sd_index: 0.expr(),
-            },
-        )
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc: gc.clone(),
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::READ as u64).expr(),
+            frame_index,
+            address: locals_index,
+            nested_address_0: nested_address_0.clone(),
+            nested_address_1: nested_address_1.clone(),
+            value,
+            sd_index: 0.expr(),
+        }
     }
 
     pub fn locals_read_ref(

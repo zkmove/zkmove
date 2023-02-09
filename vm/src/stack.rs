@@ -50,7 +50,8 @@ impl<F: FieldExt> EvalStack<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            // let value = Value::update_unknown_address(value, ValueAddress::Stack(Index(self.0.len())));
+            // Container in locals need to update address before bing pushed to stack
+            let value = Value::update_address(value, ValueAddress::Stack(Index(self.0.len())));
             let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
             Self::emit_stack_ops_for_flattened_value(flattened, RW::WRITE, rw_operations);
 
@@ -94,16 +95,18 @@ impl<F: FieldExt> EvalStack<F> {
         Ok(values)
     }
 
+    // return Struct and its flattened field count
     pub fn pop_as_struct(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Struct<F>> {
+    ) -> VmResult<(Struct<F>, usize)> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
 
             let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let flattened_field_count = flattened.len();
             Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
 
             match value {
@@ -116,7 +119,7 @@ impl<F: FieldExt> EvalStack<F> {
                         )
                         .with_message(format!("moving value {:?} with dangling references", v))),
                     };
-                    Ok(Struct::pack(fields?))
+                    Ok((Struct::pack(fields?), flattened_field_count))
                 }
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct", v))),

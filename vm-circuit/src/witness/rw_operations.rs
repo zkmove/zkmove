@@ -387,6 +387,22 @@ impl<F: FieldExt> RWOperation<F> {
             Self::GlobalOp(op) => op.address,
         }
     }
+
+    pub fn nested_address_0(&self) -> usize {
+        match self {
+            Self::StackOp(op) => op.nested_address_0,
+            Self::LocalsOp(op) => op.nested_address_0,
+            Self::GlobalOp(op) => op.nested_address_0,
+        }
+    }
+
+    pub fn nested_address_1(&self) -> usize {
+        match self {
+            Self::StackOp(op) => op.nested_address_1,
+            Self::LocalsOp(op) => op.nested_address_1,
+            Self::GlobalOp(op) => op.nested_address_1,
+        }
+    }
 }
 
 // convert RWOperation into a vector of field value
