@@ -3,7 +3,7 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
 use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -521,18 +521,18 @@ impl<F: FieldExt> LookupBitwise<F> {
     }
 }
 
-pub struct FlattenedValue<F: FieldExt> {
+pub struct Word<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> FlattenedValue<F> {
-    pub fn get_flattened_field_num(
+impl<F: FieldExt> Word<F> {
+    pub fn get_word_element_num(
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         cells: &StepChipCells<F>,
     ) -> VmResult<usize> {
-        let flattened_field_num = step.auxiliary_3.as_ref().ok_or_else(|| {
+        let word_element_num = step.auxiliary_3.as_ref().ok_or_else(|| {
             error!("auxiliary_3 is None");
             Error::Synthesis
         })?;
@@ -540,85 +540,83 @@ impl<F: FieldExt> FlattenedValue<F> {
         // assign to cells.auxiliary_3
         cells
             .auxiliary_3
-            .assign(region, offset, flattened_field_num.value())?;
+            .assign(region, offset, word_element_num.value())?;
 
-        // return flattened_field_num
-        Ok(flattened_field_num
+        // return word_element_num
+        Ok(word_element_num
             .value()
             .ok_or_else(|| {
-                error!("failed to get flattened_field_num");
+                error!("failed to get word_element_num");
                 Error::Synthesis
             })?
             .get_lower_128() as usize)
     }
 
-    pub fn assign_flattened_a(
+    pub fn assign_word_a(
         region: &mut Region<'_, F>,
         offset: usize,
         _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
         op_index: usize,
-        flattened_field_num: usize,
+        word_element_num: usize,
     ) -> Result<(), Error> {
-        // fixme: flattened_field_num may be large than MAX_NUM_OF_FLATTENED_STRUCT_FIELDS
-        for i in 0..flattened_field_num {
+        // fixme: word_element_num may be large than WORD_SIZE
+        for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            // debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.flattened[i].assign(region, offset, op.value().value())?;
-            cells.flattened_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.flattened_nested_addr_0[i].assign(
+            cells.word_a[i].assign(region, offset, op.value().value())?;
+            cells.word_a_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_a_addr_ext_0[i].assign(
                 region,
                 offset,
-                Some(F::from(op.nested_address_0() as u64)),
+                Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.flattened_nested_addr_1[i].assign(
+            cells.word_a_addr_ext_1[i].assign(
                 region,
                 offset,
-                Some(F::from(op.nested_address_1() as u64)),
+                Some(F::from(op.address_ext_1() as u64)),
             )?;
         }
 
-        for i in flattened_field_num..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
-            cells.flattened_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.flattened_nested_addr_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.flattened_nested_addr_1[i].assign(region, offset, Some(F::zero()))?;
+        for i in word_element_num..WORD_SIZE {
+            cells.word_a_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_a_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_a_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
     }
 
-    pub fn assign_flattened_b(
+    pub fn assign_word_b(
         region: &mut Region<'_, F>,
         offset: usize,
         _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
         op_index: usize,
-        flattened_field_num: usize,
+        word_element_num: usize,
     ) -> Result<(), Error> {
-        // fixme: flattened_field_num may be large than MAX_NUM_OF_FLATTENED_STRUCT_FIELDS
-        for i in 0..flattened_field_num {
+        // fixme: word_element_num may be large than WORD_SIZE
+        for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            // debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.args_or_fields_nested_addr_0[i].assign(
+            cells.word_b[i].assign(region, offset, op.value().value())?;
+            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_b_addr_ext_0[i].assign(
                 region,
                 offset,
-                Some(F::from(op.nested_address_0() as u64)),
+                Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.args_or_fields_nested_addr_1[i].assign(
+            cells.word_b_addr_ext_1[i].assign(
                 region,
                 offset,
-                Some(F::from(op.nested_address_1() as u64)),
+                Some(F::from(op.address_ext_1() as u64)),
             )?;
         }
 
-        for i in flattened_field_num..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.args_or_fields_nested_addr_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.args_or_fields_nested_addr_1[i].assign(region, offset, Some(F::zero()))?;
+        for i in word_element_num..WORD_SIZE {
+            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())

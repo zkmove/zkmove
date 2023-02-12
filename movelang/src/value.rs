@@ -759,7 +759,7 @@ impl<F: FieldExt> Value<F> {
                 } => {
                     let base_path = address.address_path()?;
                     Ok(vec![(
-                        base_path.extend(0), // fill nested_address_1 with 0
+                        base_path.extend(0), // fill address_ext_1 with 0
                         self.clone(),
                     )])
                 }
@@ -769,7 +769,7 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
-    pub fn flattened_field_count(&self) -> VmResult<usize> {
+    pub fn word_element_count(&self) -> VmResult<usize> {
         match self {
             Self::U8(_)
             | Self::U64(_)
@@ -780,8 +780,8 @@ impl<F: FieldExt> Value<F> {
             | Self::IndexedRef(_)
             | Self::ContainerRef(_) => Ok(1),
             Self::Container(c) => {
-                let flattened = c.flatten()?;
-                Ok(flattened.len())
+                let word = c.flatten()?;
+                Ok(word.len())
             }
         }
     }

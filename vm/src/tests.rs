@@ -117,7 +117,7 @@ fn test_execution_step() -> VmResult<()> {
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: None,
+        auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
     };
     let expected_step_4 = ExecutionStep {
@@ -158,48 +158,48 @@ fn test_execution_step() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: READ,
         gc: 5,
@@ -298,7 +298,7 @@ fn test_nop_step() -> VmResult<()> {
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: None,
+        auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
     };
     let step_4 = ExecutionStep::<Fp> {
@@ -364,48 +364,48 @@ fn test_nop_step() -> VmResult<()> {
 
     let rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: READ,
         gc: 5,
@@ -413,8 +413,8 @@ fn test_nop_step() -> VmResult<()> {
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         frame_index: 0,
         index: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: WRITE,
         gc: 6,
@@ -518,7 +518,7 @@ fn test_nop_steps() -> VmResult<()> {
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: None,
+        auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
     };
     let expected_step_4 = ExecutionStep {
@@ -560,48 +560,48 @@ fn test_nop_steps() -> VmResult<()> {
 
     let expected_rw_op_0 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: WRITE,
         gc: 1,
     });
     let expected_rw_op_2 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(2),
         rw: READ,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(1),
         rw: READ,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: WRITE,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
-        nested_address_0: 0,
-        nested_address_1: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
         value: Value::u64(3),
         rw: READ,
         gc: 5,

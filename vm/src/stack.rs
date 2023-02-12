@@ -20,22 +20,22 @@ impl<F: FieldExt> EvalStack<F> {
         EvalStack(vec![])
     }
 
-    pub fn emit_stack_ops_for_flattened_value(
-        flattened: Vec<(AddressPath, Value<F>)>,
+    pub fn emit_stack_ops_for_word(
+        word: Vec<(AddressPath, Value<F>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
-        for (address_path, val) in flattened {
+        for (address_path, val) in word {
             let stack_op = StackOp {
                 address: *address_path.0.get(1).expect("address should not be None"),
-                nested_address_0: *address_path
+                address_ext_0: *address_path
                     .0
                     .get(2)
-                    .expect("nested_address_0 should not be None"),
-                nested_address_1: *address_path
+                    .expect("address_ext_0 should not be None"),
+                address_ext_1: *address_path
                     .0
                     .get(3)
-                    .expect("nested_address_1 should not be None"),
+                    .expect("address_ext_1 should not be None"),
                 value: val,
                 rw: rw.clone(),
                 gc: rw_operations.len(),
@@ -52,8 +52,8 @@ impl<F: FieldExt> EvalStack<F> {
         if self.0.len() < EVAL_STACK_SIZE {
             // Container in locals need to update address before bing pushed to stack
             let value = Value::update_address(value, ValueAddress::Stack(Index(self.0.len())));
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::WRITE, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_word(word, RW::WRITE, rw_operations);
 
             self.0.push(value);
             Ok(())
@@ -68,8 +68,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             Ok(value)
         }
@@ -88,14 +88,14 @@ impl<F: FieldExt> EvalStack<F> {
         let values = self.0.split_off(remaining_stack_size);
 
         for (i, value) in values.iter().enumerate() {
-            let flattened = value.flatten(ValueAddress::Stack(Index(remaining_stack_size + i)))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(remaining_stack_size + i)))?;
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
         }
 
         Ok(values)
     }
 
-    // return Struct and its flattened field count
+    // return Struct and its word field count
     pub fn pop_as_struct(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
@@ -105,9 +105,9 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            let flattened_field_count = flattened.len();
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let word_element_count = word.len();
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
                 Value::Container(Container::Struct(_, struct_)) => {
@@ -119,7 +119,7 @@ impl<F: FieldExt> EvalStack<F> {
                         )
                         .with_message(format!("moving value {:?} with dangling references", v))),
                     };
-                    Ok((Struct::pack(fields?), flattened_field_count))
+                    Ok((Struct::pack(fields?), word_element_count))
                 }
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct", v))),
@@ -136,8 +136,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
                 Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
@@ -157,8 +157,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
                 Value::ContainerRef(r) => Ok(StructRef(r)),
@@ -177,8 +177,8 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_flattened_value(flattened, RW::READ, rw_operations);
+            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
                 Value::Address(addr) => Ok(addr.account_address()),

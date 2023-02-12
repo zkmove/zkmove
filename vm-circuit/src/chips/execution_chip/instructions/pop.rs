@@ -1,17 +1,16 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{FlattenedValue, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct Pop<F: FieldExt> {
@@ -32,9 +31,9 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let flattened_field_num = cells.auxiliary_3.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + flattened_field_num.clone();
+        let word_element_num = cells.auxiliary_3.expression.clone();
+        let gc_expr =
+            cells.gc.expression.clone() - cells.next_gc.expression.clone() + word_element_num;
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -48,16 +47,16 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+        for i in 0..WORD_SIZE {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
-                    cells.flattened_nested_addr_0[i].expression.clone(),
-                    cells.flattened_nested_addr_1[i].expression.clone(),
-                    cells.flattened[i].expression.clone(),
+                    cells.word_a_addr_ext_0[i].expression.clone(),
+                    cells.word_a_addr_ext_1[i].expression.clone(),
+                    cells.word_a[i].expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.flattened_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -77,16 +76,15 @@ impl<F: FieldExt> Instructions<F> for Pop<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let flattened_field_num =
-            FlattenedValue::get_flattened_field_num(region, offset, step, cells)?;
-        FlattenedValue::assign_flattened_a(
+        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        Word::assign_word_a(
             region,
             offset,
             step,
             rw_operations,
             cells,
             step.gc,
-            flattened_field_num,
+            word_element_num,
         )?;
         Ok(())
     }

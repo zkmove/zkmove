@@ -16,8 +16,8 @@ pub struct ConvertedRWOperation<F: FieldExt> {
     pub(crate) rw: (F, Option<AssignedCell<F, F>>),
     pub(crate) frame_index: (F, Option<AssignedCell<F, F>>),
     pub(crate) address: (F, Option<AssignedCell<F, F>>),
-    pub(crate) nested_address_0: (F, Option<AssignedCell<F, F>>),
-    pub(crate) nested_address_1: (F, Option<AssignedCell<F, F>>),
+    pub(crate) address_ext_0: (F, Option<AssignedCell<F, F>>),
+    pub(crate) address_ext_1: (F, Option<AssignedCell<F, F>>),
     pub(crate) value: (Option<F>, Option<AssignedCell<F, F>>),
     //struct definition index, only used by global ops
     pub(crate) sd_index: (F, Option<AssignedCell<F, F>>),
@@ -31,8 +31,8 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
             rw: (F::from_u128(0u128), None),
             frame_index: (F::from_u128(0u128), None),
             address: (F::from_u128(0u128), None),
-            nested_address_0: (F::from_u128(0u128), None),
-            nested_address_1: (F::from_u128(0u128), None),
+            address_ext_0: (F::from_u128(0u128), None),
+            address_ext_1: (F::from_u128(0u128), None),
             value: (Some(F::from_u128(0u128)), None),
             sd_index: (F::from_u128(0u128), None),
         }
@@ -44,8 +44,8 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
             2 => Ok(self.rw.0),
             3 => Ok(self.frame_index.0),
             4 => Ok(self.address.0),
-            5 => Ok(self.nested_address_0.0),
-            6 => Ok(self.nested_address_1.0),
+            5 => Ok(self.address_ext_0.0),
+            6 => Ok(self.address_ext_1.0),
             7 => self
                 .value
                 .0
@@ -77,11 +77,11 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
                 Ok(())
             }
             5 => {
-                self.nested_address_0 = (self.nested_address_0.0, cell);
+                self.address_ext_0 = (self.address_ext_0.0, cell);
                 Ok(())
             }
             6 => {
-                self.nested_address_1 = (self.nested_address_1.0, cell);
+                self.address_ext_1 = (self.address_ext_1.0, cell);
                 Ok(())
             }
             7 => {
@@ -107,8 +107,8 @@ pub enum RW {
 pub struct LocalsOp<F: FieldExt> {
     pub frame_index: usize, // locals ops will sorted by (frame_index, index, gc)
     pub index: usize,
-    pub nested_address_0: usize,
-    pub nested_address_1: usize,
+    pub address_ext_0: usize,
+    pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
     pub value: Value<F>,
@@ -119,8 +119,8 @@ impl<F: FieldExt> LocalsOp<F> {
         Self {
             frame_index: 0,
             index: 0,
-            nested_address_0: 0,
-            nested_address_1: 0,
+            address_ext_0: 0,
+            address_ext_1: 0,
             gc: 0,
             rw: RW::READ,
             value: Value::u64(0),
@@ -139,15 +139,15 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
         (
             &self.frame_index,
             &self.index,
-            &self.nested_address_0,
-            &self.nested_address_1,
+            &self.address_ext_0,
+            &self.address_ext_1,
             &self.gc,
         )
             .cmp(&(
                 &other.frame_index,
                 &other.index,
-                &other.nested_address_0,
-                &other.nested_address_1,
+                &other.address_ext_0,
+                &other.address_ext_1,
                 &other.gc,
             ))
     }
@@ -166,8 +166,8 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
             rw: (F::from_u128(rw_op.rw.clone() as u128), None),
             frame_index: (F::from_u128(rw_op.frame_index as u128), None),
             address: (F::from_u128(rw_op.index as u128), None),
-            nested_address_0: (F::from_u128(rw_op.nested_address_0 as u128), None),
-            nested_address_1: (F::from_u128(rw_op.nested_address_1 as u128), None),
+            address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
+            address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
             sd_index: (F::from_u128(0), None),
         }
@@ -177,8 +177,8 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackOp<F: FieldExt> {
     pub address: usize, // stack ops will be sorted by (address, gc)
-    pub nested_address_0: usize,
-    pub nested_address_1: usize,
+    pub address_ext_0: usize,
+    pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
     pub value: Value<F>,
@@ -188,8 +188,8 @@ impl<F: FieldExt> StackOp<F> {
     pub fn empty() -> Self {
         Self {
             address: 0,
-            nested_address_0: 0,
-            nested_address_1: 0,
+            address_ext_0: 0,
+            address_ext_1: 0,
             value: Value::u64(0),
             rw: RW::READ,
             gc: 0,
@@ -207,14 +207,14 @@ impl<F: FieldExt> Ord for StackOp<F> {
     fn cmp(&self, other: &Self) -> Ordering {
         (
             &self.address,
-            &self.nested_address_0,
-            &self.nested_address_1,
+            &self.address_ext_0,
+            &self.address_ext_1,
             &self.gc,
         )
             .cmp(&(
                 &other.address,
-                &other.nested_address_0,
-                &other.nested_address_1,
+                &other.address_ext_0,
+                &other.address_ext_1,
                 &other.gc,
             ))
     }
@@ -233,8 +233,8 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
             rw: (F::from_u128(rw_op.rw.clone() as u128), None),
             frame_index: (F::from_u128(0), None),
             address: (F::from_u128(rw_op.address as u128), None),
-            nested_address_0: (F::from_u128(rw_op.nested_address_0 as u128), None),
-            nested_address_1: (F::from_u128(rw_op.nested_address_1 as u128), None),
+            address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
+            address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
             sd_index: (F::from_u128(0), None),
         }
@@ -245,8 +245,8 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
 pub struct GlobalOp<F: FieldExt> {
     pub address: AccountAddress<F>, // global ops will be sorted by (address, sd_index, gc)
     pub sd_index: usize,            // struct definition index
-    pub nested_address_0: usize,
-    pub nested_address_1: usize,
+    pub address_ext_0: usize,
+    pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
     pub value: Value<F>,
@@ -257,8 +257,8 @@ impl<F: FieldExt> GlobalOp<F> {
         Self {
             address: AccountAddress::zero(),
             sd_index: 0,
-            nested_address_0: 0,
-            nested_address_1: 0,
+            address_ext_0: 0,
+            address_ext_1: 0,
             value: Value::u64(0),
             rw: RW::READ,
             gc: 0,
@@ -277,15 +277,15 @@ impl<F: FieldExt> Ord for GlobalOp<F> {
         (
             &self.address,
             &self.sd_index,
-            &self.nested_address_0,
-            &self.nested_address_1,
+            &self.address_ext_0,
+            &self.address_ext_1,
             &self.gc,
         )
             .cmp(&(
                 &other.address,
                 &other.sd_index,
-                &other.nested_address_0,
-                &other.nested_address_1,
+                &other.address_ext_0,
+                &other.address_ext_1,
                 &other.gc,
             ))
     }
@@ -304,8 +304,8 @@ impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
             rw: (F::from_u128(rw_op.rw.clone() as u128), None),
             frame_index: (F::from_u128(0), None),
             address: (rw_op.address.value(), None),
-            nested_address_0: (F::from_u128(rw_op.nested_address_0 as u128), None),
-            nested_address_1: (F::from_u128(rw_op.nested_address_1 as u128), None),
+            address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
+            address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
             sd_index: (F::from_u128(0), None),
         }
@@ -388,19 +388,19 @@ impl<F: FieldExt> RWOperation<F> {
         }
     }
 
-    pub fn nested_address_0(&self) -> usize {
+    pub fn address_ext_0(&self) -> usize {
         match self {
-            Self::StackOp(op) => op.nested_address_0,
-            Self::LocalsOp(op) => op.nested_address_0,
-            Self::GlobalOp(op) => op.nested_address_0,
+            Self::StackOp(op) => op.address_ext_0,
+            Self::LocalsOp(op) => op.address_ext_0,
+            Self::GlobalOp(op) => op.address_ext_0,
         }
     }
 
-    pub fn nested_address_1(&self) -> usize {
+    pub fn address_ext_1(&self) -> usize {
         match self {
-            Self::StackOp(op) => op.nested_address_1,
-            Self::LocalsOp(op) => op.nested_address_1,
-            Self::GlobalOp(op) => op.nested_address_1,
+            Self::StackOp(op) => op.address_ext_1,
+            Self::LocalsOp(op) => op.address_ext_1,
+            Self::GlobalOp(op) => op.address_ext_1,
         }
     }
 }
@@ -419,16 +419,16 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             RWOperation::GlobalOp(op) => op.address.value(),
         };
 
-        let nested_address_0_value = match rw_op {
-            RWOperation::StackOp(op) => F::from_u128(op.nested_address_0 as u128),
-            RWOperation::LocalsOp(op) => F::from_u128(op.nested_address_0 as u128),
-            RWOperation::GlobalOp(op) => F::from_u128(op.nested_address_0 as u128),
+        let address_ext_0_value = match rw_op {
+            RWOperation::StackOp(op) => F::from_u128(op.address_ext_0 as u128),
+            RWOperation::LocalsOp(op) => F::from_u128(op.address_ext_0 as u128),
+            RWOperation::GlobalOp(op) => F::from_u128(op.address_ext_0 as u128),
         };
 
-        let nested_address_1_value = match rw_op {
-            RWOperation::StackOp(op) => F::from_u128(op.nested_address_1 as u128),
-            RWOperation::LocalsOp(op) => F::from_u128(op.nested_address_1 as u128),
-            RWOperation::GlobalOp(op) => F::from_u128(op.nested_address_1 as u128),
+        let address_ext_1_value = match rw_op {
+            RWOperation::StackOp(op) => F::from_u128(op.address_ext_1 as u128),
+            RWOperation::LocalsOp(op) => F::from_u128(op.address_ext_1 as u128),
+            RWOperation::GlobalOp(op) => F::from_u128(op.address_ext_1 as u128),
         };
 
         ConvertedRWOperation {
@@ -437,8 +437,8 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             rw: (F::from_u128(rw_op.rw() as u128), None),
             frame_index: (F::from_u128(rw_op.frame_index() as u128), None),
             address: (address_value, None),
-            nested_address_0: (nested_address_0_value, None),
-            nested_address_1: (nested_address_1_value, None),
+            address_ext_0: (address_ext_0_value, None),
+            address_ext_1: (address_ext_1_value, None),
             value: (value, None),
             sd_index: (F::from_u128(rw_op.sd_index() as u128), None),
         }

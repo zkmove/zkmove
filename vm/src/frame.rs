@@ -18,7 +18,7 @@ use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::{GlobalOp, LocalsOp, RWOperation, RW};
+use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -109,8 +109,8 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Pop => {
                         let value = interp.stack.pop(rw_operations)?;
-                        let flattened_field_count = value.flattened_field_count()?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         Ok(())
                     }
                     Bytecode::Add => {
@@ -170,23 +170,23 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::CopyLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         let value = self.locals.copy(*v as usize, frame_index, rw_operations)?;
-                        let flattened_field_count = value.flattened_field_count()?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::StLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         let value = interp.stack.pop(rw_operations)?;
-                        let flattened_field_count = value.flattened_field_count()?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         self.locals
                             .store(*v as usize, value, frame_index, rw_operations)
                     }
                     Bytecode::MoveLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         let value = self.locals.move_(*v as usize, frame_index, rw_operations)?;
-                        let flattened_field_count = value.flattened_field_count()?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::MutBorrowLoc(v) => {
@@ -194,9 +194,8 @@ impl<F: FieldExt> Frame<F> {
                         let value =
                             self.locals
                                 .mut_borrow(*v as usize, frame_index, rw_operations)?;
-                        let flattened_field_count =
-                            self.locals.flattened_field_count(*v as usize)?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = self.locals.word_element_count(*v as usize)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::ImmBorrowLoc(v) => {
@@ -204,9 +203,8 @@ impl<F: FieldExt> Frame<F> {
                         let value =
                             self.locals
                                 .imm_borrow(*v as usize, frame_index, rw_operations)?;
-                        let flattened_field_count =
-                            self.locals.flattened_field_count(*v as usize)?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = self.locals.word_element_count(*v as usize)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::ReadRef => {
@@ -221,11 +219,11 @@ impl<F: FieldExt> Frame<F> {
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
 
-                            let flattened_field_count = value.flattened_field_count()?;
+                            let word_element_count = value.word_element_count()?;
                             execution_step.auxiliary_3 =
-                                Some(Value::u64(flattened_field_count as u64));
+                                Some(Value::u64(word_element_count as u64));
 
-                            let flattened = match reference.clone() {
+                            let word = match reference.clone() {
                                 Reference::ContainerRef(_) => {
                                     execution_step.locals_index = index;
                                     value.flatten(ValueAddress::Locals(
@@ -259,23 +257,19 @@ impl<F: FieldExt> Frame<F> {
                                 }
                             };
 
-                            Locals::emit_locals_ops_for_flattened_value(
-                                flattened,
-                                RW::READ,
-                                rw_operations,
-                            );
+                            Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                         } else {
                             execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            // todo: auxiliary_3 is occupied by flattened_field_count
+                            // todo: auxiliary_3 is occupied by word_element_count
                             execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
-                                nested_address_0: 0,
-                                nested_address_1: 0,
+                                address_ext_0: 0,
+                                address_ext_1: 0,
                                 value: global_value,
                                 rw: RW::READ,
                                 gc: rw_operations.len(),
@@ -297,11 +291,11 @@ impl<F: FieldExt> Frame<F> {
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
 
-                            let flattened_field_count = value_copy.flattened_field_count()?;
+                            let word_element_count = value_copy.word_element_count()?;
                             execution_step.auxiliary_3 =
-                                Some(Value::u64(flattened_field_count as u64));
+                                Some(Value::u64(word_element_count as u64));
 
-                            let flattened = match reference.clone() {
+                            let word = match reference.clone() {
                                 Reference::ContainerRef(_) => {
                                     execution_step.locals_index = index;
                                     let val = value_copy.update_address(ValueAddress::Locals(
@@ -339,24 +333,20 @@ impl<F: FieldExt> Frame<F> {
                                 }
                             };
 
-                            Locals::emit_locals_ops_for_flattened_value(
-                                flattened,
-                                RW::WRITE,
-                                rw_operations,
-                            );
+                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         } else {
                             execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            // todo: how to ensure auxiliary_3 is exclusive to flattened_field_count?
+                            // todo: how to ensure auxiliary_3 is exclusive to word_element_count?
                             // Allocate a cell 'field_count' specifically for it?
                             execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
-                                nested_address_0: 0,
-                                nested_address_1: 0,
+                                address_ext_0: 0,
+                                address_ext_1: 0,
                                 value: global_value,
                                 rw: RW::WRITE,
                                 gc: rw_operations.len(),
@@ -521,17 +511,17 @@ impl<F: FieldExt> Frame<F> {
                             Struct::pack(args),
                             ValueAddress::Stack(Index(interp.stack.size())),
                         );
-                        let flattened_field_count = value.flattened_field_count()?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
-                        let (struct_, flattened_field_count) =
+                        let (struct_, word_element_count) =
                             interp.stack.pop_as_struct(rw_operations)?;
-                        execution_step.auxiliary_3 = Some(Value::u64(flattened_field_count as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         for value in struct_.unpack()? {
                             interp.stack.push(value, rw_operations)?;
                         }
@@ -551,8 +541,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
-                            nested_address_0: 0,
-                            nested_address_1: 0,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: value.clone(),
                             rw: RW::READ,
                             gc: rw_operations.len(),
@@ -575,8 +565,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
-                            nested_address_0: 0,
-                            nested_address_1: 0,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: resource.clone(),
                             rw: RW::WRITE,
                             gc: rw_operations.len(),
@@ -595,8 +585,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
-                            nested_address_0: 0,
-                            nested_address_1: 0,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: global_value,
                             rw: RW::READ,
                             gc: rw_operations.len(),

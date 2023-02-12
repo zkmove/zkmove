@@ -3,10 +3,10 @@
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{
-    call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
+    call_lookup_table::CallLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
@@ -33,7 +33,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         let pc_expr = cells.next_pc.expression.clone();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
-            - arg_num.clone();
+            - arg_num;
         // frame index increase 1
         let frame_index_expr = cells.frame_index.expression.clone()
             - cells.next_frame_index.expression.clone()
@@ -51,26 +51,26 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         ]);
 
         // todo: take struct type arguments into consideration
-        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
-            // let (read, write) = RWLookup::locals_store(
-            //     cells.gc.expression.clone() + (i as u64 * 2).expr(),
-            //     cells.frame_index.expression.clone() + 1.expr(),
-            //     arg_num.clone() - (i as u64 + 1).expr(),
-            //     cells.stack_size.expression.clone() - (i as u64).expr(),
-            //     0.expr(),
-            //     0.expr(),
-            //     cells.args_or_fields[i].expression.clone(),
-            // );
-
-            // lookups.rw_lookups.push((
-            //     read,
-            //     cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
-            // ));
-            // lookups.rw_lookups.push((
-            //     write,
-            //     cond.clone() * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
-            // ));
-        }
+        // for i in 0..WORD_SIZE {
+        //     let (read, write) = RWLookup::locals_store(
+        //         cells.gc.expression.clone() + (i as u64 * 2).expr(),
+        //         cells.frame_index.expression.clone() + 1.expr(),
+        //         arg_num.clone() - (i as u64 + 1).expr(),
+        //         cells.stack_size.expression.clone() - (i as u64).expr(),
+        //         0.expr(),
+        //         0.expr(),
+        //         cells.word_b[i].expression.clone(),
+        //     );
+        //
+        //     lookups.rw_lookups.push((
+        //         read,
+        //         cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+        //     ));
+        //     lookups.rw_lookups.push((
+        //         write,
+        //         cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+        //     ));
+        // }
 
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in the calls table.
@@ -126,12 +126,12 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
                 .get(step.gc + i * 2)
                 .ok_or(Error::Synthesis)?;
             debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.args_or_fields[i].assign(region, offset, op.value().value())?;
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_b[i].assign(region, offset, op.value().value())?;
+            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in arg_num..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
-            cells.args_or_fields_mask[i].assign(region, offset, Some(F::one()))?;
+        for i in arg_num..WORD_SIZE {
+            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {

@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{FlattenedValue, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, MAX_NUM_OF_FLATTENED_STRUCT_FIELDS};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -34,10 +34,10 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             - 2.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let flattened_field_num = cells.auxiliary_3.expression.clone();
+        let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
             + 1.expr()
-            + 2.expr() * flattened_field_num.clone();
+            + 2.expr() * word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -62,44 +62,44 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             cond.clone(),
         ));
 
-        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+        for i in 0..WORD_SIZE {
             let write = RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                cells.flattened_nested_addr_0[i].expression.clone(),
-                cells.flattened_nested_addr_1[i].expression.clone(),
-                cells.flattened[i].expression.clone(),
+                cells.word_a_addr_ext_0[i].expression.clone(),
+                cells.word_a_addr_ext_1[i].expression.clone(),
+                cells.word_a[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
                 write,
-                cond.clone() * (1.expr() - cells.flattened_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
         }
         let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
 
-        for i in 0..MAX_NUM_OF_FLATTENED_STRUCT_FIELDS {
+        for i in 0..WORD_SIZE {
             let read = RWLookup::locals_write_ref(
                 cells.gc.expression.clone()
                     + 1.expr()
-                    + flattened_field_num.clone()
+                    + word_element_num.clone()
                     + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(),
                 cells.locals_index.expression.clone(),
-                cells.args_or_fields_nested_addr_0[i].expression.clone(),
-                cells.args_or_fields_nested_addr_1[i].expression.clone(),
-                cells.args_or_fields[i].expression.clone(),
+                cells.word_b_addr_ext_0[i].expression.clone(),
+                cells.word_b_addr_ext_1[i].expression.clone(),
+                cells.word_b[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
                 read,
                 cond.clone()
                     * is_locals.clone()
-                    * (1.expr() - cells.args_or_fields_mask[i].expression.clone()),
+                    * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
         }
 
-        // todo: constrain cells.args_or_fields == cells.flattened
+        // todo: constrain cells.word_b == cells.word_a
 
         let is_global = cells.auxiliary_1.expression.clone();
         let write = RWLookup::global_write(
@@ -138,25 +138,24 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         // debug_assert!(op.rw() == RW::WRITE);
         // cells.value_c.assign(region, offset, op.value().value())?;
 
-        let flattened_field_num =
-            FlattenedValue::get_flattened_field_num(region, offset, step, cells)?;
-        FlattenedValue::assign_flattened_a(
+        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        Word::assign_word_a(
             region,
             offset,
             step,
             rw_operations,
             cells,
             step.gc + 1,
-            flattened_field_num,
+            word_element_num,
         )?;
-        FlattenedValue::assign_flattened_b(
+        Word::assign_word_b(
             region,
             offset,
             step,
             rw_operations,
             cells,
-            step.gc + 1 + flattened_field_num,
-            flattened_field_num,
+            step.gc + 1 + word_element_num,
+            word_element_num,
         )?;
 
         let is_global = step.auxiliary_1.as_ref().ok_or_else(|| {
