@@ -1,5 +1,5 @@
 //! circuit: vm
-//! args: 20u64
+//! args: 8u64
 script {
     fun main(n: u64) {
         let value1 = 0u64;
