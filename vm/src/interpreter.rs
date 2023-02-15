@@ -201,10 +201,13 @@ impl<F: FieldExt> Interpreter<F> {
                     let module_index = execution_step.module_index;
                     let function_index = execution_step.function_index;
                     let pc = execution_step.pc;
-                    exec_steps.push(execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
+                    let rw_op_count = rw_operations.len();
                     let callee_frame = self.make_frame(func, frame_index + 1, rw_operations)?;
+                    let word_element_count = (rw_operations.len() - rw_op_count) / 2;
+                    execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                    exec_steps.push(execution_step);
 
                     // record function call
                     let next_module_index = callee_frame

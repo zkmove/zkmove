@@ -403,6 +403,14 @@ impl<F: FieldExt> RWOperation<F> {
             Self::GlobalOp(op) => op.address_ext_1,
         }
     }
+
+    pub fn address(&self) -> usize {
+        match self {
+            Self::StackOp(op) => op.address,
+            Self::LocalsOp(op) => op.index,
+            Self::GlobalOp(_) => unreachable!(),
+        }
+    }
 }
 
 // convert RWOperation into a vector of field value

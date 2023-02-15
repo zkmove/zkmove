@@ -15,6 +15,7 @@ use std::{cell::RefCell, rc::Rc};
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
+pub const DEPTH_OF_ADDRESS_PATH: usize = 4; // frame_index, index(address), address_ext_1, address_ext_1
 
 #[derive(Copy, Clone, Debug)]
 pub struct U8<F: FieldExt>(F);
@@ -78,10 +79,27 @@ impl AddressPath {
     pub fn into_inner(self) -> Vec<usize> {
         self.0
     }
+    pub fn as_inner(&self) -> &Vec<usize> {
+        &self.0
+    }
     pub fn extend(self, leaf: usize) -> Self {
         let mut path = self.into_inner();
         path.push(leaf);
         AddressPath(path)
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn fill_up(mut self) -> Self {
+        let mut length = self.len();
+        while length < DEPTH_OF_ADDRESS_PATH {
+            self = self.extend(0);
+            length = self.len();
+        }
+        self
     }
 }
 
@@ -96,6 +114,21 @@ impl<F: FieldExt> ValueAddress<F> {
             }
             _ => unimplemented!(),
         }
+    }
+
+    pub fn frame_index(&self) -> usize {
+        let path = self.address_path().expect("should not reach here");
+        let res = path
+            .as_inner()
+            .get(0)
+            .expect("frame index should not be None");
+        *res
+    }
+
+    pub fn address(&self) -> usize {
+        let path = self.address_path().expect("should not reach here");
+        let res = path.as_inner().get(1).expect("address should not be None");
+        *res
     }
 }
 
@@ -148,11 +181,19 @@ impl<F: FieldExt> Container<F> {
         )
     }
 
+    pub fn value_address(&self) -> ValueAddress<F> {
+        match self {
+            Self::Locals(_, _) => unreachable!(),
+            Self::Struct(address, _) => address.clone(),
+        }
+    }
+
     pub fn frame_index(&self) -> usize {
         match self {
             Self::Locals(frame_index, _) => frame_index.0,
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(frame_index, _index) => frame_index.0,
+                ValueAddress::Member { index: _, parent } => parent.frame_index(),
                 _ => unreachable!(),
             },
         }
@@ -174,21 +215,18 @@ impl<F: FieldExt> Container<F> {
             Self::Struct(address, value) => {
                 let base_path = address.address_path()?;
                 for (i, val) in value.borrow().iter().map(|v| v.copy_value()).enumerate() {
-                    let base_path = base_path.clone().extend(i);
+                    let path = base_path.clone().extend(i);
                     match val {
                         Value::U8(_)
                         | Value::U64(_)
                         | Value::U128(_)
                         | Value::Bool(_)
                         | Value::Address(_) => {
-                            result.push((base_path.extend(0), val));
+                            result.push((path.fill_up(), val));
                         }
-                        Value::Container(Container::Struct(_, value)) => {
-                            for (i, val) in
-                                value.borrow().iter().map(|v| v.copy_value()).enumerate()
-                            {
-                                result.push((base_path.clone().extend(i), val));
-                            }
+                        Value::Container(v) => {
+                            let mut flattened = v.flatten()?;
+                            result.append(&mut flattened);
                         }
                         _ => unreachable!(),
                     }
@@ -434,6 +472,18 @@ impl<F: FieldExt> IndexedRef<F> {
                 .with_message("The value doesn't contain global value".to_string()))
         }
     }
+
+    fn value_address(&self) -> ValueAddress<F> {
+        match self.container() {
+            Container::Locals(frame_index, _) => {
+                ValueAddress::Locals(FrameIndex(frame_index.0), Index(self.index))
+            }
+            Container::Struct(address, _) => ValueAddress::Member {
+                index: Index(self.index),
+                parent: Box::new(address.clone()),
+            },
+        }
+    }
 }
 
 /// A wrapper to support read_ref and write_ref.
@@ -489,6 +539,13 @@ impl<F: FieldExt> Reference<F> {
         match self {
             Self::ContainerRef(r) => r.copy_global_value(),
             Self::IndexedRef(r) => r.copy_global_value(),
+        }
+    }
+
+    pub fn value_address(&self) -> ValueAddress<F> {
+        match self {
+            Self::ContainerRef(r) => r.container().value_address(),
+            Self::IndexedRef(r) => r.value_address(),
         }
     }
 }
@@ -678,27 +735,37 @@ impl<F: FieldExt> Value<F> {
         Self::Container(Container::signer(x))
     }
 
-    pub fn struct_(s: Struct<F>, address: ValueAddress<F>) -> Self {
-        Self::Container(Container::Struct(address, Rc::new(RefCell::new(s.fields))))
-    }
+    pub fn struct_(values: Vec<Value<F>>, address: ValueAddress<F>) -> Self {
+        let mut new_values: Vec<Value<F>> = Vec::new();
+        for (i, value) in values.into_iter().enumerate() {
+            let val = value.update_address(ValueAddress::Member {
+                index: Index(i),
+                parent: Box::new(address.clone()),
+            });
+            new_values.push(val);
+        }
 
-    /// The address of an value may be unknown at the moment when the value is created.
-    /// Can be filled by calling this function when the address is known.
-    // pub fn update_unknown_address(self, address: ValueAddress<F>) -> Value<F> {
-    //     match self {
-    //         // only struct container need filling address
-    //         Value::Container(Container::Struct(ValueAddress::Unknown, struct_)) => {
-    //             Value::Container(Container::Struct(address, struct_))
-    //         }
-    //         v => v,
-    //     }
-    // }
+        Self::Container(Container::Struct(
+            address,
+            Rc::new(RefCell::new(new_values)),
+        ))
+    }
 
     pub fn update_address(self, address: ValueAddress<F>) -> Value<F> {
         match self {
             // only struct container need filling address
             Value::Container(Container::Struct(_, struct_)) => {
-                Value::Container(Container::Struct(address, struct_))
+                let mut values = Vec::new();
+                // todo: is it safe? what if there is a reference to this struct?
+                // todo: refactor to move address out of container
+                for (i, val) in struct_.borrow().iter().map(|v| v.copy_value()).enumerate() {
+                    values.push(val.update_address(ValueAddress::Member {
+                        index: Index(i),
+                        parent: Box::new(address.clone()),
+                    }));
+                }
+
+                Value::Container(Container::Struct(address, Rc::new(RefCell::new(values))))
             }
             v => v,
         }
@@ -719,7 +786,9 @@ impl<F: FieldExt> Value<F> {
                     ((r.container_frame_index() << 16) + r.index()) as u128,
                 ))
             }
-            Self::ContainerRef(r) => Some(r.container().value()),
+            Self::ContainerRef(r) => Some(F::from_u128(
+                ((r.container_frame_index() << 16) + r.container_index()) as u128,
+            )),
         }
     }
 
@@ -758,10 +827,7 @@ impl<F: FieldExt> Value<F> {
                     parent: _,
                 } => {
                     let base_path = address.address_path()?;
-                    Ok(vec![(
-                        base_path.extend(0), // fill address_ext_1 with 0
-                        self.clone(),
-                    )])
+                    Ok(vec![(base_path.fill_up(), self.clone())])
                 }
                 _ => unreachable!(),
             },

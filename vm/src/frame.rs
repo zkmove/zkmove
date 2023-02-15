@@ -10,9 +10,7 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{
-    Container, FrameIndex, Index, IntegerType, Reference, Struct, Value, ValueAddress,
-};
+use movelang::value::{Container, FrameIndex, Index, IntegerType, Reference, Value, ValueAddress};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
@@ -213,8 +211,10 @@ impl<F: FieldExt> Frame<F> {
 
                         if !reference.is_global() {
                             let value = value.clone();
-                            let container_frame_index = reference.container_frame_index();
-                            let index = reference.index();
+                            let value_addresses = reference.value_address();
+                            let container_frame_index = value_addresses.frame_index();
+                            let index = value_addresses.address();
+
                             execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
@@ -244,14 +244,17 @@ impl<F: FieldExt> Frame<F> {
                                         // we should replace the step's locals_index with the index
                                         // of the struct
                                         Container::Struct(_, _) => {
-                                            execution_step.locals_index = r.container().index();
-                                            value.flatten(ValueAddress::Member {
-                                                index: Index(index),
-                                                parent: Box::new(ValueAddress::Locals(
-                                                    FrameIndex(container_frame_index),
-                                                    Index(r.container().index()),
-                                                )),
-                                            })?
+                                            // execution_step.locals_index = r.container().index();
+                                            execution_step.locals_index = value_addresses.address();
+                                            // read the member address from the value
+                                            value.flatten(value_addresses.clone())?
+                                            // value.flatten(ValueAddress::Member {
+                                            //     index: Index(index),
+                                            //     parent: Box::new(ValueAddress::Locals(
+                                            //         FrameIndex(container_frame_index),
+                                            //         Index(r.container().index()),
+                                            //     )),
+                                            // })?
                                         }
                                     }
                                 }
@@ -507,10 +510,8 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
-                        let value = Value::struct_(
-                            Struct::pack(args),
-                            ValueAddress::Stack(Index(interp.stack.size())),
-                        );
+                        let value =
+                            Value::struct_(args, ValueAddress::Stack(Index(interp.stack.size())));
                         let word_element_count = value.word_element_count()?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)

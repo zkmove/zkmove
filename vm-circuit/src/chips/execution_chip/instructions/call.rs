@@ -1,12 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LookupBytecode;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{
-    call_lookup_table::CallLookup, rw_table::RWTarget, LookupsWithCondition,
+    call_lookup_table::CallLookup, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
+use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
@@ -40,9 +40,9 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             + 1.expr();
         // todo: take struct type arguments into consideration
         // each argument has 2 rw operations
-        // let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-        //     + arg_num.clone() * 2.expr();
-        let gc_expr = 0.expr();
+        let word_element_num = cells.auxiliary_3.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+            + word_element_num * 2.expr();
         constraints.append(&mut vec![
             ("Call pc", cond.clone() * pc_expr),
             ("Call stack_size", cond.clone() * stack_size_expr),
@@ -51,7 +51,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         ]);
 
         // todo: take struct type arguments into consideration
-        // for i in 0..WORD_SIZE {
+        // for i in 0..WORD_CAPACITY {
         //     let (read, write) = RWLookup::locals_store(
         //         cells.gc.expression.clone() + (i as u64 * 2).expr(),
         //         cells.frame_index.expression.clone() + 1.expr(),
@@ -112,27 +112,39 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             .auxiliary_1
             .assign(region, offset, aux_value.value())?;
 
-        let arg_num = aux_value
-            .value()
-            .ok_or_else(|| {
-                error!("failed to get arg_num");
-                Error::Synthesis
-            })?
-            .get_lower_128() as usize;
+        // let arg_num = aux_value
+        //     .value()
+        //     .ok_or_else(|| {
+        //         error!("failed to get arg_num");
+        //         Error::Synthesis
+        //     })?
+        //     .get_lower_128() as usize;
 
-        for i in 0..arg_num {
-            let op = rw_operations
-                .0
-                .get(step.gc + i * 2)
-                .ok_or(Error::Synthesis)?;
-            debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
-            cells.word_b[i].assign(region, offset, op.value().value())?;
-            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-        }
+        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        Word::assign_word_b_with_address_and_filter(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc,
+            word_element_num,
+            RW::READ,
+        )?;
 
-        for i in arg_num..WORD_SIZE {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-        }
+        // for i in 0..arg_num {
+        //     let op = rw_operations
+        //         .0
+        //         .get(step.gc + i * 2)
+        //         .ok_or(Error::Synthesis)?;
+        //     debug_assert!(op.rw() == RW::READ && op.rw_target() == RWTarget::Stack);
+        //     cells.word_b[i].assign(region, offset, op.value().value())?;
+        //     cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
+        // }
+        //
+        // for i in arg_num..WORD_CAPACITY {
+        //     cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
+        // }
 
         let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
             error!("auxiliary_2 is None");

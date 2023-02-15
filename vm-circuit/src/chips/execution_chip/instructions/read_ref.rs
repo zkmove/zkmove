@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -61,7 +61,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
 
         let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
 
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_CAPACITY {
             let read = RWLookup::locals_read_ref(
                 cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(),
@@ -90,7 +90,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         );
         lookups.rw_lookups.push((read, cond.clone() * is_global));
 
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_CAPACITY {
             let write = RWLookup::stack_push(
                 cells.gc.expression.clone()
                     + 1.expr()

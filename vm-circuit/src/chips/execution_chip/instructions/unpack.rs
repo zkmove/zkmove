@@ -6,7 +6,7 @@ use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -32,14 +32,13 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
-            + field_num.clone()
+            + field_num
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + field_num
-            + word_element_num.clone();
+            + word_element_num.clone() * 2.expr();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -53,7 +52,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_CAPACITY {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -66,7 +65,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ));
         }
 
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_CAPACITY {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
@@ -127,7 +126,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             })?
             .get_lower_128() as usize;
 
-        // fixme: field_num may be large than WORD_SIZE
+        // fixme: field_num may be large than WORD_CAPACITY
         for i in 0..field_num {
             let op = rw_operations
                 .0
@@ -138,7 +137,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in field_num..WORD_SIZE {
+        for i in field_num..WORD_CAPACITY {
             cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
         }
 

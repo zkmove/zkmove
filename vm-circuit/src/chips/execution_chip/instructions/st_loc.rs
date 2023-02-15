@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_SIZE};
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -47,7 +47,7 @@ impl<F: FieldExt> Instructions<F> for StLoc<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_CAPACITY {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),

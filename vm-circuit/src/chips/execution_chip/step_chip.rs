@@ -19,10 +19,10 @@ use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 25; //todo: calculate step height automatically
+pub const STEP_HEIGHT: usize = 26; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
-pub const WORD_SIZE: usize = 16; //max(#method_arguments, #flattened_struct_fields)
+pub const WORD_CAPACITY: usize = 16; //max(#method_arguments, #flattened_struct_fields)
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -53,6 +53,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub word_b_mask: Vec<Cell<F>>,
     pub word_b_addr_ext_0: Vec<Cell<F>>,
     pub word_b_addr_ext_1: Vec<Cell<F>>,
+
+    pub word_address: Vec<Cell<F>>,
 
     pub bytes: Vec<Cell<F>>,
     pub bytes_operand_1: Vec<Cell<F>>,
@@ -122,8 +124,9 @@ impl<F: FieldExt> StepChip<F> {
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
             + Opcode::total_numbers()
-            + WORD_SIZE * 4
-            + WORD_SIZE * 4
+            + WORD_CAPACITY * 4
+            + WORD_CAPACITY * 4
+            + WORD_CAPACITY
             + NUM_OF_BYTES_U128 * 3;
         let mut cells = VecDeque::with_capacity(cell_amount);
         meta.create_gate("step", |meta| {
@@ -161,15 +164,17 @@ impl<F: FieldExt> StepChip<F> {
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
 
-            word_a: cells.drain(0..WORD_SIZE).collect(),
-            word_a_mask: cells.drain(0..WORD_SIZE).collect(),
-            word_a_addr_ext_0: cells.drain(0..WORD_SIZE).collect(),
-            word_a_addr_ext_1: cells.drain(0..WORD_SIZE).collect(),
+            word_a: cells.drain(0..WORD_CAPACITY).collect(),
+            word_a_mask: cells.drain(0..WORD_CAPACITY).collect(),
+            word_a_addr_ext_0: cells.drain(0..WORD_CAPACITY).collect(),
+            word_a_addr_ext_1: cells.drain(0..WORD_CAPACITY).collect(),
 
-            word_b: cells.drain(0..WORD_SIZE).collect(),
-            word_b_mask: cells.drain(0..WORD_SIZE).collect(),
-            word_b_addr_ext_0: cells.drain(0..WORD_SIZE).collect(),
-            word_b_addr_ext_1: cells.drain(0..WORD_SIZE).collect(),
+            word_b: cells.drain(0..WORD_CAPACITY).collect(),
+            word_b_mask: cells.drain(0..WORD_CAPACITY).collect(),
+            word_b_addr_ext_0: cells.drain(0..WORD_CAPACITY).collect(),
+            word_b_addr_ext_1: cells.drain(0..WORD_CAPACITY).collect(),
+
+            word_address: cells.drain(0..WORD_CAPACITY).collect(),
 
             bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
             bytes_operand_1: cells.drain(0..NUM_OF_BYTES_U128).collect(),

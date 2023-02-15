@@ -20,7 +20,7 @@ pub mod rw_operations;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
-pub const DEFAULT_WORD_SIZE: usize = 16;
+pub const DEFAULT_WORD_CAPACITY: usize = 16;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
@@ -44,7 +44,7 @@ impl Default for CircuitConfig {
             max_frame_index: DEFAULT_MAX_FRAME_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
             max_stack_size: DEFAULT_MAX_STACK_SIZE,
-            word_size: DEFAULT_WORD_SIZE,
+            word_size: DEFAULT_WORD_CAPACITY,
         }
     }
 }
