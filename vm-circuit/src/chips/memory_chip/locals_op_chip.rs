@@ -14,13 +14,15 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 9;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 13;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of locals operations
     pub frame_index: Cell<F>,
     pub index: Cell<F>,
+    pub addr_ext_0: Cell<F>,
+    pub addr_ext_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -28,11 +30,15 @@ pub struct LocalsOpCells<F: FieldExt> {
     // delta_invert_xxx is used to constrain the strict monotonic
     // increment of gc for the same locals
     pub delta_invert_frame_index: Cell<F>,
-    pub delta_invert_index: Cell<F>,
+    pub delta_invert_idx: Cell<F>,
+    pub delta_invert_addr_ext_0: Cell<F>,
+    pub delta_invert_addr_ext_1: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_frame_index: Cell<F>,
     pub prev_index: Cell<F>,
+    pub prev_addr_ext_0: Cell<F>,
+    pub prev_addr_ext_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -47,6 +53,8 @@ pub struct LocalsOpChipConfig<F: FieldExt> {
     pub s_locals_op: Selector,
     frame_index_table: TableColumn,
     locals_index_table: TableColumn,
+    addr_ext_0_table: TableColumn,
+    addr_ext_1_table: TableColumn,
 }
 
 pub struct LocalsOpChip<F: FieldExt> {
@@ -85,6 +93,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
     ) -> <Self as Chip<F>>::Config {
         let frame_index_table = meta.lookup_table_column();
         let locals_index_table = meta.lookup_table_column();
+        let addr_ext_0_table = meta.lookup_table_column();
+        let addr_ext_1_table = meta.lookup_table_column();
+
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
             for i in 0..LOCALS_OP_CHIP_WIDTH {
@@ -94,7 +105,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             }
 
             // previous op, without delta_invert cells
-            for i in 0..(LOCALS_OP_CHIP_WIDTH - 2) {
+            for i in 0..(LOCALS_OP_CHIP_WIDTH - 4) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -107,16 +118,22 @@ impl<F: FieldExt> LocalsOpChip<F> {
             counter: cells.pop_front().unwrap(),
             frame_index: cells.pop_front().unwrap(),
             index: cells.pop_front().unwrap(),
+            addr_ext_0: cells.pop_front().unwrap(),
+            addr_ext_1: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             delta_invert_frame_index: cells.pop_front().unwrap(),
-            delta_invert_index: cells.pop_front().unwrap(),
+            delta_invert_idx: cells.pop_front().unwrap(),
+            delta_invert_addr_ext_0: cells.pop_front().unwrap(),
+            delta_invert_addr_ext_1: cells.pop_front().unwrap(),
 
             prev_counter: cells.pop_front().unwrap(),
             prev_frame_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
+            prev_addr_ext_0: cells.pop_front().unwrap(),
+            prev_addr_ext_1: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
@@ -132,6 +149,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc_table,
             &frame_index_table,
             &locals_index_table,
+            &addr_ext_0_table,
+            &addr_ext_1_table,
         );
 
         let s_locals_op = meta.complex_selector();
@@ -143,6 +162,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc_table,
             &frame_index_table,
             &locals_index_table,
+            &addr_ext_0_table,
+            &addr_ext_1_table,
         );
 
         LocalsOpChipConfig {
@@ -152,9 +173,12 @@ impl<F: FieldExt> LocalsOpChip<F> {
             s_locals_op,
             frame_index_table,
             locals_index_table,
+            addr_ext_0_table,
+            addr_ext_1_table,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn config_locals_op(
         meta: &mut ConstraintSystem<F>,
         selector: Selector,
@@ -163,11 +187,15 @@ impl<F: FieldExt> LocalsOpChip<F> {
         gc_table: &TableColumn,
         frame_index_table: &TableColumn,
         locals_index_table: &TableColumn,
+        addr_ext_0_table: &TableColumn,
+        addr_ext_1_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
         let mut frame_index_lookups = Vec::new();
         let mut locals_index_lookups = Vec::new();
+        let mut addr_ext_0_lookups = Vec::new();
+        let mut addr_ext_1_lookups = Vec::new();
         Self::constrain_locals_op(
             cells,
             &mut constraints,
@@ -175,6 +203,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             &mut gc_lookups,
             &mut frame_index_lookups,
             &mut locals_index_lookups,
+            &mut addr_ext_0_lookups,
+            &mut addr_ext_1_lookups,
         );
 
         meta.create_gate("constrain locals op", |meta| {
@@ -204,8 +234,23 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 vec![(selector * lookup, *locals_index_table)]
             });
         }
+
+        for lookup in addr_ext_0_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *addr_ext_0_table)]
+            });
+        }
+
+        for lookup in addr_ext_1_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *addr_ext_1_table)]
+            });
+        }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn constrain_locals_op(
         cells: &LocalsOpCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
@@ -213,6 +258,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
         gc_lookups: &mut Vec<Expression<F>>,
         frame_index_lookups: &mut Vec<Expression<F>>,
         locals_index_lookups: &mut Vec<Expression<F>>,
+        addr_ext_0_lookups: &mut Vec<Expression<F>>,
+        addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
             "is_empty is bool",
@@ -240,6 +287,14 @@ impl<F: FieldExt> LocalsOpChip<F> {
                         - cells.prev_counter.expression.clone()
                         - 1.expr()),
             ));
+
+            // rw == 0 || rw == 1
+            constraints.push((
+                "rw",
+                cond.clone()
+                    * cells.rw.expression.clone()
+                    * (cells.rw.expression.clone() - 1.expr()),
+            ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
@@ -249,26 +304,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     * is_read,
             ));
 
-            // if index != prev_index then rw == Write
-            let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
-            constraints.push((
-                "index",
-                cond.clone()
-                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * delt_index.clone(),
-            ));
-
-            // rw == 0 || rw == 1
-            constraints.push((
-                "rw",
-                cond.clone()
-                    * cells.rw.expression.clone()
-                    * (cells.rw.expression.clone() - 1.expr()),
-            ));
-
-            // for ops with same frame_index/index, gc must be great than prev_gc
-            // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
-            // 2.lookup gc_table when frame_index/index is same with previous
+            // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
             let delt_frame_index =
                 cells.frame_index.expression.clone() - cells.prev_frame_index.expression.clone();
             constraints.push((
@@ -279,36 +315,143 @@ impl<F: FieldExt> LocalsOpChip<F> {
                         * cells.delta_invert_frame_index.expression.clone()
                         - 1.expr()),
             ));
+            let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
             constraints.push((
                 "delt_invert_index",
                 cond.clone()
                     * delt_index.clone()
-                    * (delt_index.clone() * cells.delta_invert_index.expression.clone() - 1.expr()),
+                    * (delt_index.clone() * cells.delta_invert_idx.expression.clone() - 1.expr()),
             ));
+            let delt_addr_ext_0 =
+                cells.addr_ext_0.expression.clone() - cells.prev_addr_ext_0.expression.clone();
+            constraints.push((
+                "delt_invert_address_ext_0",
+                cond.clone()
+                    * delt_addr_ext_0.clone()
+                    * (delt_addr_ext_0.clone() * cells.delta_invert_addr_ext_0.expression.clone()
+                        - 1.expr()),
+            ));
+            let delt_addr_ext_1 =
+                cells.addr_ext_1.expression.clone() - cells.prev_addr_ext_1.expression.clone();
+            constraints.push((
+                "delt_invert_address_ext_1",
+                cond.clone()
+                    * delt_addr_ext_1.clone()
+                    * (delt_addr_ext_1.clone() * cells.delta_invert_addr_ext_1.expression.clone()
+                        - 1.expr()),
+            ));
+
+            // address change, then rw must be Write
+            // case A: if frame_index != prev_frame_index
+            //         then rw == Write
+            constraints.push((
+                "frame_index_change",
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * delt_frame_index.clone(),
+            ));
+            // case B: if frame_index == prev_frame_index  and
+            //            index != prev_index
+            //         then rw == Write
+            constraints.push((
+                "index_change",
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * delt_index.clone(),
+            ));
+            // case C: if frame_index == prev_frame_index  and
+            //            index == prev_index and
+            //            addr_ext_0 != prev_addr_ext_0
+            //         then rw == Write
+            constraints.push((
+                "addr_ext_0_change",
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * delt_addr_ext_0.clone(),
+            ));
+            // case D: if frame_index == prev_frame_index  and
+            //            index == prev_index and
+            //            addr_ext_0 == prev_addr_ext_0
+            //            addr_ext_1 != prev_addr_ext_1
+            //         then rw == Write
+            constraints.push((
+                "addr_ext_1_change",
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0.clone()
+                            * cells.delta_invert_addr_ext_0.expression.clone())
+                    * delt_addr_ext_1.clone(),
+            ));
+
+            // for ops with same address, gc must be great than prev_gc
+            // lookup gc_table when frame_index/index is same with previous
             gc_lookups.push(
                 cond.clone()
                     * (1.expr()
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index * cells.delta_invert_index.expression.clone())
+                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0.clone()
+                            * cells.delta_invert_addr_ext_0.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_1.clone()
+                            * cells.delta_invert_addr_ext_1.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
+            // address validation check
             // frame_index must be less than max_frame_index
             frame_index_lookups.push(cond.clone() * cells.frame_index.expression.clone());
             // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
-            // frame_index must be great than or equal to prev_frame_index
-            frame_index_lookups.push(
-                cond.clone()
-                    * (cells.frame_index.expression.clone()
-                        - cells.prev_frame_index.expression.clone()),
-            );
-            // for same frame_index, index must be great than or equal to prev_index
+            // address_ext_0 must be less than max_locals_size
+            addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_0.expression.clone());
+            // addr_ext_1 must be less than max_locals_size
+            addr_ext_1_lookups.push(cond.clone() * cells.addr_ext_1.expression.clone());
+
+            // address monotonic increment
+            // Case A: frame_index must be great than or equal to prev_frame_index
+            frame_index_lookups.push(cond.clone() * delt_frame_index.clone());
+            // Case B: if same frame_index, index must be great than or equal to prev_index
             locals_index_lookups.push(
+                cond.clone()
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * delt_index.clone(),
+            );
+            // Case C: if same frame_index/index,
+            //         addr_ext_0 must be great than or equal to prev_addr_ext_0
+            addr_ext_0_lookups.push(
+                cond.clone()
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * delt_addr_ext_0.clone(),
+            );
+            // Case D: if same frame_index/index/addr_ext_0,
+            //         addr_ext_1 must be great than or equal to prev_addr_ext_1
+            addr_ext_1_lookups.push(
                 cond * (1.expr()
                     - delt_frame_index * cells.delta_invert_frame_index.expression.clone())
-                    * (cells.index.expression.clone() - cells.prev_index.expression.clone()),
+                    * (1.expr() - delt_index * cells.delta_invert_idx.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
+                    * delt_addr_ext_1,
             );
 
             // empty op
@@ -351,6 +494,16 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .index
                 .assign(region, offset, Some(op.address.0))?;
 
+            self.config
+                .cells
+                .addr_ext_0
+                .assign(region, offset, Some(op.address_ext_0.0))?;
+
+            self.config
+                .cells
+                .addr_ext_1
+                .assign(region, offset, Some(op.address_ext_1.0))?;
+
             self.config.cells.value.assign(region, offset, op.value.0)?;
         } else {
             self.config.cells.gc.assign_equality(
@@ -387,10 +540,30 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 region,
                 offset,
                 op.address.1.clone().ok_or_else(|| {
-                    error!("address assigned cell is None");
+                    error!("index assigned cell is None");
                     Error::Synthesis
                 })?,
-                "address",
+                "index",
+            )?;
+
+            self.config.cells.addr_ext_0.assign_equality(
+                region,
+                offset,
+                op.address_ext_0.1.clone().ok_or_else(|| {
+                    error!("address_ext_0 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address_ext_0",
+            )?;
+
+            self.config.cells.addr_ext_1.assign_equality(
+                region,
+                offset,
+                op.address_ext_1.1.clone().ok_or_else(|| {
+                    error!("address_ext_1 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address_ext_1",
             )?;
 
             self.config.cells.value.assign_equality(
@@ -404,19 +577,34 @@ impl<F: FieldExt> LocalsOpChip<F> {
             )?;
         }
 
-        let (prev_frame_index, prev_index) = match prev_op {
-            None => (F::zero(), F::zero()),
-            Some(v) => (v.frame_index.0, v.address.0),
+        let (prev_frame_index, prev_index, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
+            None => (F::zero(), F::zero(), F::zero(), F::zero()),
+            Some(v) => (
+                v.frame_index.0,
+                v.address.0,
+                v.address_ext_0.0,
+                v.address_ext_1.0,
+            ),
         };
         self.config.cells.delta_invert_frame_index.assign(
             region,
             offset,
             op.frame_index.0.delta_invert(prev_frame_index),
         )?;
-        self.config.cells.delta_invert_index.assign(
+        self.config.cells.delta_invert_idx.assign(
             region,
             offset,
             op.address.0.delta_invert(prev_index),
+        )?;
+        self.config.cells.delta_invert_addr_ext_0.assign(
+            region,
+            offset,
+            op.address_ext_0.0.delta_invert(prev_addr_ext_0),
+        )?;
+        self.config.cells.delta_invert_addr_ext_1.assign(
+            region,
+            offset,
+            op.address_ext_1.0.delta_invert(pre_addr_ext_1),
         )?;
 
         let is_empty = if is_empty { F::one() } else { F::zero() };
@@ -496,42 +684,69 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .ok()?;
         }
 
-        layouter
-            .assign_table(
-                || "frame_index_table",
-                |mut table_column| {
-                    (0..=circuit_config.max_frame_index)
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("frame_index_table[{}]", i),
-                                self.config.frame_index_table,
-                                i,
-                                || CircuitValue::known(F::from_u128(i as u128)),
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )
-            .ok()?;
-
-        layouter
-            .assign_table(
-                || "locals_index_table",
-                |mut table_column| {
-                    (0..=circuit_config.max_locals_size)
-                        .map(|i| {
-                            table_column.assign_cell(
-                                || format!("locals_index_table[{}]", i),
-                                self.config.locals_index_table,
-                                i,
-                                || CircuitValue::known(F::from_u128(i as u128)),
-                            )
-                        })
-                        .fold(Ok(()), |acc, res| acc.and(res))
-                },
-            )
-            .ok()?;
+        self.assign_table(layouter, circuit_config).ok()?;
 
         last_locals_counter
+    }
+
+    // a special table with solo column and the value same as index.
+    // which is to garantuee value is among [0, max].
+    fn assign_index_table(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        table_name: &str,
+        column: TableColumn,
+        max_row: usize,
+    ) -> Result<(), Error> {
+        layouter.assign_table(
+            || format!("{:?}", table_name),
+            |mut table_column| {
+                (0..=max_row)
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("frame_index_table[{}]", i),
+                            column,
+                            i,
+                            || CircuitValue::known(F::from_u128(i as u128)),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
+            },
+        )?;
+        Ok(())
+    }
+
+    // assign tables of the locals varible
+    pub fn assign_table(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        circuit_config: &CircuitConfig,
+    ) -> Result<(), Error> {
+        self.assign_index_table(
+            layouter,
+            "frame_index_table",
+            self.config.frame_index_table,
+            circuit_config.max_frame_index,
+        )?;
+        self.assign_index_table(
+            layouter,
+            "locals_index_table",
+            self.config.locals_index_table,
+            circuit_config.max_locals_size,
+        )?;
+        self.assign_index_table(
+            layouter,
+            "addr_ext_0_table",
+            self.config.addr_ext_0_table,
+            circuit_config.word_size,
+        )?;
+        self.assign_index_table(
+            layouter,
+            "addr_ext_1_table",
+            self.config.addr_ext_1_table,
+            circuit_config.word_size,
+        )?;
+
+        Ok(())
     }
 }

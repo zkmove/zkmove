@@ -50,6 +50,8 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowGlobal<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(), //address
             ),
             cond.clone(),
@@ -61,6 +63,8 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowGlobal<F> {
                 cells.value_a.expression.clone(), //address
                 cells.value_b.expression.clone(),
                 cells.auxiliary_1.expression.clone(), //sd_index
+                0.expr(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -69,6 +73,8 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowGlobal<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
+                0.expr(),
+                0.expr(),
                 cells.value_c.expression.clone(),
             ),
             cond.clone(),

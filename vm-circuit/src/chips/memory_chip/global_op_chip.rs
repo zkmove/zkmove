@@ -13,12 +13,14 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const GLOBAL_OP_CHIP_WIDTH: usize = 9;
+pub const GLOBAL_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct GlobalOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of global rw operations
     pub address: Cell<F>,
+    pub address_ext_0: Cell<F>,
+    pub address_ext_1: Cell<F>,
     pub sd_index: Cell<F>, // struct definition index
     pub gc: Cell<F>,
     pub rw: Cell<F>,
@@ -32,6 +34,8 @@ pub struct GlobalOpCells<F: FieldExt> {
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
+    pub prev_address_ext_0: Cell<F>,
+    pub prev_address_ext_1: Cell<F>,
     pub prev_sd_index: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
@@ -102,6 +106,8 @@ impl<F: FieldExt> GlobalOpChip<F> {
         let cells = GlobalOpCells {
             counter: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
+            address_ext_0: cells.pop_front().unwrap(),
+            address_ext_1: cells.pop_front().unwrap(),
             sd_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
@@ -112,6 +118,8 @@ impl<F: FieldExt> GlobalOpChip<F> {
 
             prev_counter: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
+            prev_address_ext_0: cells.pop_front().unwrap(),
+            prev_address_ext_1: cells.pop_front().unwrap(),
             prev_sd_index: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
@@ -157,6 +165,8 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 vec![(selector * lookup, *gc_table)]
             });
         }
+
+        // todo: lookup address_ext_0, address_ext_1 for range check
     }
 
     fn constrain_global_op(
@@ -209,6 +219,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // for ops with same address/sd_index, gc must be great than prev_gc
             // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
             // 2.lookup gc_table when address/sd_index is same with previous
+            // todo: take address_ext into consideration
             let delt_address =
                 cells.address.expression.clone() - cells.prev_address.expression.clone();
             constraints.push((

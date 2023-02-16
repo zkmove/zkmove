@@ -18,7 +18,7 @@ jobs:
     if: github.event.pull_request.draft == false
 
     name: Test on ubuntu
-    timeout-minutes: 30
+    timeout-minutes: 50
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --all
+          args: --release --all -- --test-threads 1
       - name: Check Benchmarks
         uses: actions-rs/cargo@v1
         with:

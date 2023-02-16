@@ -5,6 +5,7 @@ use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
@@ -13,19 +14,28 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 6;
+pub const STACK_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of stack operations
     pub address: Cell<F>,
+    pub address_ext_0: Cell<F>,
+    pub address_ext_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
     pub is_empty: Cell<F>, // is empty op or not
+    // delta_invert_xxx is used to constrain the strict monotonic
+    // increment of gc for the same locals
+    pub delta_invert_address: Cell<F>,
+    pub delta_invert_addr_ext_0: Cell<F>,
+    pub delta_invert_addr_ext_1: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
+    pub prev_address_ext_0: Cell<F>,
+    pub prev_address_ext_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -38,6 +48,9 @@ pub struct StackOpChipConfig<F: FieldExt> {
     pub cells: StackOpCells<F>,
     pub s_first_stack_op: Selector,
     pub s_stack_op: Selector,
+    stack_address_table: TableColumn,
+    addr_ext_0_table: TableColumn,
+    addr_ext_1_table: TableColumn,
 }
 
 pub struct StackOpChip<F: FieldExt> {
@@ -74,6 +87,10 @@ impl<F: FieldExt> StackOpChip<F> {
         advices: [Column<Advice>; MEM_CHIP_WIDTH],
         gc_table: &TableColumn,
     ) -> <Self as Chip<F>>::Config {
+        let stack_address_table = meta.lookup_table_column();
+        let addr_ext_0_table = meta.lookup_table_column();
+        let addr_ext_1_table = meta.lookup_table_column();
+
         let mut cells = VecDeque::with_capacity(STACK_OP_CHIP_WIDTH * 2);
         meta.create_gate("stack op chip", |meta| {
             for i in 0..STACK_OP_CHIP_WIDTH {
@@ -82,8 +99,8 @@ impl<F: FieldExt> StackOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            // previous op
-            for i in 0..STACK_OP_CHIP_WIDTH {
+            // previous op, without delta_invert cells
+            for i in 0..(STACK_OP_CHIP_WIDTH - 3) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -97,40 +114,85 @@ impl<F: FieldExt> StackOpChip<F> {
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
+            address_ext_0: cells.pop_front().unwrap(),
+            address_ext_1: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
+            delta_invert_address: cells.pop_front().unwrap(),
+            delta_invert_addr_ext_0: cells.pop_front().unwrap(),
+            delta_invert_addr_ext_1: cells.pop_front().unwrap(),
+
             prev_counter: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
+            prev_address_ext_0: cells.pop_front().unwrap(),
+            prev_address_ext_1: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
             prev_is_empty: cells.pop_front().unwrap(),
         };
 
         let s_first_stack_op = meta.complex_selector();
-        Self::config_stack_op(meta, s_first_stack_op, &cells, true, gc_table);
+        Self::config_stack_op(
+            meta,
+            s_first_stack_op,
+            &cells,
+            true,
+            gc_table,
+            &stack_address_table,
+            &addr_ext_0_table,
+            &addr_ext_1_table,
+        );
 
         let s_stack_op = meta.complex_selector();
-        Self::config_stack_op(meta, s_stack_op, &cells, false, gc_table);
+        Self::config_stack_op(
+            meta,
+            s_stack_op,
+            &cells,
+            false,
+            gc_table,
+            &stack_address_table,
+            &addr_ext_0_table,
+            &addr_ext_1_table,
+        );
 
         StackOpChipConfig {
             advices,
             cells,
             s_first_stack_op,
             s_stack_op,
+            stack_address_table,
+            addr_ext_0_table,
+            addr_ext_1_table,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn config_stack_op(
         meta: &mut ConstraintSystem<F>,
         selector: Selector,
         cells: &StackOpCells<F>,
         is_first_op: bool,
         gc_table: &TableColumn,
+        stack_address_table: &TableColumn,
+        addr_ext_0_table: &TableColumn,
+        addr_ext_1_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
-        Self::constrain_stack_op(cells, &mut constraints, is_first_op, &mut gc_lookups);
+        let mut stack_address_lookups = Vec::new();
+        let mut addr_ext_0_lookups = Vec::new();
+        let mut addr_ext_1_lookups = Vec::new();
+
+        Self::constrain_stack_op(
+            cells,
+            &mut constraints,
+            is_first_op,
+            &mut gc_lookups,
+            &mut stack_address_lookups,
+            &mut addr_ext_0_lookups,
+            &mut addr_ext_1_lookups,
+        );
 
         meta.create_gate("constrain stack op", |meta| {
             let selector = meta.query_selector(selector);
@@ -145,6 +207,27 @@ impl<F: FieldExt> StackOpChip<F> {
                 vec![(selector * lookup, *gc_table)]
             });
         }
+
+        for lookup in stack_address_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *stack_address_table)]
+            });
+        }
+
+        for lookup in addr_ext_0_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *addr_ext_0_table)]
+            });
+        }
+
+        for lookup in addr_ext_1_lookups {
+            meta.lookup(|meta| {
+                let selector = meta.query_selector(selector);
+                vec![(selector * lookup, *addr_ext_1_table)]
+            });
+        }
     }
 
     fn constrain_stack_op(
@@ -152,6 +235,9 @@ impl<F: FieldExt> StackOpChip<F> {
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
         gc_lookups: &mut Vec<Expression<F>>,
+        stack_address_lookups: &mut Vec<Expression<F>>,
+        addr_ext_0_lookups: &mut Vec<Expression<F>>,
+        addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
             "is_empty is bool",
@@ -176,56 +262,142 @@ impl<F: FieldExt> StackOpChip<F> {
         } else {
             // counter == prev_counter + 1
             constraints.push((
-                "counter",
+                "stack counter",
                 cond.clone()
                     * (cells.counter.expression.clone()
                         - cells.prev_counter.expression.clone()
                         - 1.expr()),
             ));
-            // 'address == prev_address' or 'address == prev_address + 1'
-            let delt_addr =
-                cells.address.expression.clone() - cells.prev_address.expression.clone();
-            constraints.push((
-                "address",
-                cond.clone() * (delt_addr.clone() * (delt_addr.clone() - 1.expr())),
-            ));
 
+            // rw == 0 || rw == 1
+            constraints.push((
+                "stack rw",
+                cond.clone()
+                    * cells.rw.expression.clone()
+                    * (cells.rw.expression.clone() - 1.expr()),
+            ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
-                "read op",
+                "stack read op",
                 cond.clone()
                     * (cells.value.expression.clone() - cells.prev_value.expression.clone())
                     * is_read,
             ));
 
-            // if address != prev_address then rw == Write
+            // constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
+            let delt_address =
+                cells.address.expression.clone() - cells.prev_address.expression.clone();
             constraints.push((
-                "address ",
+                "stack_delt_invert_address",
+                cond.clone()
+                    * delt_address.clone()
+                    * (delt_address.clone() * cells.delta_invert_address.expression.clone()
+                        - 1.expr()),
+            ));
+            let delt_addr_ext_0 = cells.address_ext_0.expression.clone()
+                - cells.prev_address_ext_0.expression.clone();
+            constraints.push((
+                "stack_delt_invert_address_ext_0",
+                cond.clone()
+                    * delt_addr_ext_0.clone()
+                    * (delt_addr_ext_0.clone() * cells.delta_invert_addr_ext_0.expression.clone()
+                        - 1.expr()),
+            ));
+            let delt_addr_ext_1 = cells.address_ext_1.expression.clone()
+                - cells.prev_address_ext_1.expression.clone();
+            constraints.push((
+                "stack_delt_invert_address_ext_1",
+                cond.clone()
+                    * delt_addr_ext_1.clone()
+                    * (delt_addr_ext_1.clone() * cells.delta_invert_addr_ext_1.expression.clone()
+                        - 1.expr()),
+            ));
+
+            // address change, then rw must be Write
+            // Case A: if address != prev_address
+            //         then rw == Write
+            constraints.push((
+                "stack_address",
                 cond.clone()
                     * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * delt_addr.clone(),
+                    * delt_address.clone(),
             ));
-
-            // rw == 0 || rw == 1
+            // Case B: if address == prev_address and
+            //            address_ext_0 != prev_address_ext_0
+            //         then rw == Write
             constraints.push((
-                "rw",
+                "stack_addr_ext_0_change",
                 cond.clone()
-                    * cells.rw.expression.clone()
-                    * (cells.rw.expression.clone() - 1.expr()),
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * (1.expr()
+                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
+                    * delt_addr_ext_0.clone(),
+            ));
+            // Case C: if address == prev_address and
+            //            address_ext_0 == prev_address_ext_0
+            //            address_ext_1 != prev_address_ext_1
+            //         then rw == Write
+            constraints.push((
+                "stack_addr_ext_1_change",
+                cond.clone()
+                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
+                    * (1.expr()
+                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0.clone()
+                            * cells.delta_invert_addr_ext_0.expression.clone())
+                    * delt_addr_ext_1.clone(),
             ));
 
-            // todo: address must be less than EVAL_STACK_SIZE
-
-            // for ops with same address, gc must be great than prev_gc
+            // for ops with same address, gc must be greater than prev_gc
+            // lookup gc_table when address is same with previous
             gc_lookups.push(
-                cond * (1.expr() - delt_addr)
+                cond.clone()
+                    * (1.expr()
+                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0.clone()
+                            * cells.delta_invert_addr_ext_0.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_1.clone()
+                            * cells.delta_invert_addr_ext_1.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
+            );
+
+            // address validation check
+            // stack address index must be less than max_stack_size(EVAL_STACK_SIZE)
+            stack_address_lookups.push(cond.clone() * cells.address.expression.clone());
+            // address_ext_0 must be less than max_locals_size
+            addr_ext_0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
+            // addr_ext_1 must be less than max_locals_size
+            addr_ext_1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
+
+            // address monotonic increment
+            // Case A: address must be great than or equal to prev_address
+            stack_address_lookups.push(cond.clone() * delt_address.clone());
+
+            // Case B: if same address,
+            //            addr_ext_0 must be great than or equal to prev_addr_ext_0
+            addr_ext_0_lookups.push(
+                cond.clone()
+                    * (1.expr()
+                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
+                    * delt_addr_ext_0.clone(),
+            );
+
+            // Case C: if same address/addr_ext_0,
+            //            addr_ext_1 must be great than or equal to prev_addr_ext_1
+            addr_ext_1_lookups.push(
+                cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
+                    * (1.expr()
+                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
+                    * delt_addr_ext_1,
             );
 
             // empty op
             constraints.push((
-                "empty op counter",
+                "stack empty op counter",
                 cells.is_empty.expression.clone()
                     * (cells.counter.expression.clone() - cells.prev_counter.expression.clone()),
             ));
@@ -239,6 +411,7 @@ impl<F: FieldExt> StackOpChip<F> {
         offset: usize,
         op: &ConvertedRWOperation<F>,
         counter: usize,
+        prev_op: Option<ConvertedRWOperation<F>>,
         is_empty: bool,
     ) -> Result<AssignedCell<F, F>, Error> {
         let assigned =
@@ -256,6 +429,16 @@ impl<F: FieldExt> StackOpChip<F> {
                 .cells
                 .address
                 .assign(region, offset, Some(op.address.0))?;
+
+            self.config
+                .cells
+                .address_ext_0
+                .assign(region, offset, Some(op.address_ext_0.0))?;
+
+            self.config
+                .cells
+                .address_ext_1
+                .assign(region, offset, Some(op.address_ext_1.0))?;
 
             self.config.cells.value.assign(region, offset, op.value.0)?;
 
@@ -294,6 +477,26 @@ impl<F: FieldExt> StackOpChip<F> {
                 "address",
             )?;
 
+            self.config.cells.address_ext_0.assign_equality(
+                region,
+                offset,
+                op.address_ext_0.1.clone().ok_or_else(|| {
+                    error!("address_ext_0 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address_ext_0",
+            )?;
+
+            self.config.cells.address_ext_1.assign_equality(
+                region,
+                offset,
+                op.address_ext_1.1.clone().ok_or_else(|| {
+                    error!("address_ext_1 assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "address_ext_1",
+            )?;
+
             self.config.cells.value.assign_equality(
                 region,
                 offset,
@@ -302,6 +505,26 @@ impl<F: FieldExt> StackOpChip<F> {
                     Error::Synthesis
                 })?,
                 "value",
+            )?;
+
+            let (prev_address, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
+                None => (F::zero(), F::zero(), F::zero()),
+                Some(v) => (v.address.0, v.address_ext_0.0, v.address_ext_1.0),
+            };
+            self.config.cells.delta_invert_address.assign(
+                region,
+                offset,
+                op.address.0.delta_invert(prev_address),
+            )?;
+            self.config.cells.delta_invert_addr_ext_0.assign(
+                region,
+                offset,
+                op.address_ext_0.0.delta_invert(prev_addr_ext_0),
+            )?;
+            self.config.cells.delta_invert_addr_ext_1.assign(
+                region,
+                offset,
+                op.address_ext_1.0.delta_invert(pre_addr_ext_1),
             )?;
 
             self.config
@@ -316,7 +539,7 @@ impl<F: FieldExt> StackOpChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        _circuit_config: &CircuitConfig,
+        circuit_config: &CircuitConfig,
         stack_ops: Vec<ConvertedRWOperation<F>>,
         stack_ops_num: usize,
     ) -> Option<AssignedCell<F, F>> {
@@ -327,19 +550,21 @@ impl<F: FieldExt> StackOpChip<F> {
                 .assign_region(
                     || "stack operations",
                     |mut region: Region<'_, F>| {
+                        let mut prev_op = None;
                         let mut counter = 0;
                         for (index, op) in stack_ops.iter().enumerate() {
                             counter = index + 1;
                             let assigned_counter = if index == 0 {
                                 self.config.s_first_stack_op.enable(&mut region, index)?;
-                                self.assign_cell(&mut region, index, op, counter, false)?
+                                self.assign_cell(&mut region, index, op, counter, None, false)?
                             } else {
                                 self.config.s_stack_op.enable(&mut region, index)?;
-                                self.assign_cell(&mut region, index, op, counter, false)?
+                                self.assign_cell(&mut region, index, op, counter, prev_op, false)?
                             };
                             if counter == stack_ops.len() {
                                 last_stack_counter = Some(assigned_counter);
                             }
+                            prev_op = Some(op.clone());
                         }
 
                         // If the number of stack ops is less than stack_ops_num set by user, fill with
@@ -354,6 +579,7 @@ impl<F: FieldExt> StackOpChip<F> {
                                         index,
                                         &ConvertedRWOperation::empty(),
                                         counter,
+                                        None,
                                         true,
                                     )?
                                 } else {
@@ -363,10 +589,12 @@ impl<F: FieldExt> StackOpChip<F> {
                                         index,
                                         &ConvertedRWOperation::empty(),
                                         counter,
+                                        prev_op,
                                         true,
                                     )?
                                 };
                                 last_stack_counter = Some(assigned_counter);
+                                prev_op = Some(ConvertedRWOperation::empty());
                             }
                         }
                         Ok(())
@@ -374,6 +602,62 @@ impl<F: FieldExt> StackOpChip<F> {
                 )
                 .ok()?;
         }
+        self.assign_table(layouter, circuit_config).ok()?;
+
         last_stack_counter
+    }
+
+    // a special table with solo column and the value same as index.
+    // which is to garantuee value is among [0, max].
+    fn assign_index_table(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        table_name: &str,
+        column: TableColumn,
+        max_row: usize,
+    ) -> Result<(), Error> {
+        layouter.assign_table(
+            || format!("{:?}", table_name),
+            |mut table_column| {
+                (0..=max_row)
+                    .map(|i| {
+                        table_column.assign_cell(
+                            || format!("stack_index_table[{}]", i),
+                            column,
+                            i,
+                            || CircuitValue::known(F::from_u128(i as u128)),
+                        )
+                    })
+                    .fold(Ok(()), |acc, res| acc.and(res))
+            },
+        )?;
+        Ok(())
+    }
+
+    // assign tables of the locals varible
+    pub fn assign_table(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        circuit_config: &CircuitConfig,
+    ) -> Result<(), Error> {
+        self.assign_index_table(
+            layouter,
+            "stack_address_table",
+            self.config.stack_address_table,
+            circuit_config.max_stack_size,
+        )?;
+        self.assign_index_table(
+            layouter,
+            "addr_ext_0_table",
+            self.config.addr_ext_0_table,
+            circuit_config.word_size,
+        )?;
+        self.assign_index_table(
+            layouter,
+            "addr_ext_1_table",
+            self.config.addr_ext_1_table,
+            circuit_config.word_size,
+        )?;
+        Ok(())
     }
 }

@@ -19,6 +19,8 @@ pub mod rw_operations;
 
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
+pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
+pub const DEFAULT_WORD_CAPACITY: usize = 16;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
@@ -28,6 +30,8 @@ pub struct CircuitConfig {
     pub global_ops_num: Option<usize>,
     pub max_frame_index: usize,
     pub max_locals_size: usize,
+    pub max_stack_size: usize,
+    pub word_size: usize,
 }
 
 impl Default for CircuitConfig {
@@ -39,6 +43,8 @@ impl Default for CircuitConfig {
             global_ops_num: None,
             max_frame_index: DEFAULT_MAX_FRAME_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
+            max_stack_size: DEFAULT_MAX_STACK_SIZE,
+            word_size: DEFAULT_WORD_CAPACITY,
         }
     }
 }
@@ -71,6 +77,16 @@ impl CircuitConfig {
 
     pub fn max_locals_size(mut self, max_locals_size: usize) -> Self {
         self.max_locals_size = max_locals_size;
+        self
+    }
+
+    pub fn max_stack_size(mut self, max_stack_size: usize) -> Self {
+        self.max_stack_size = max_stack_size;
+        self
+    }
+
+    pub fn word_size(mut self, word_size: usize) -> Self {
+        self.word_size = word_size;
         self
     }
 }

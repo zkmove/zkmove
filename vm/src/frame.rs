@@ -10,13 +10,13 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{Container, IntegerType, Reference, Struct, Value, ValueAddress};
+use movelang::value::{Container, FrameIndex, Index, IntegerType, Reference, Value, ValueAddress};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::{GlobalOp, LocalsOp, RWOperation, RW};
+use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -106,7 +106,9 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Pop => {
-                        interp.stack.pop(rw_operations)?;
+                        let value = interp.stack.pop(rw_operations)?;
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         Ok(())
                     }
                     Bytecode::Add => {
@@ -165,88 +167,112 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::CopyLoc(v) => {
                         execution_step.locals_index = *v as usize;
-                        interp.stack.push(
-                            self.locals.copy(*v as usize, frame_index, rw_operations)?,
-                            rw_operations,
-                        )
+                        let value = self.locals.copy(*v as usize, frame_index, rw_operations)?;
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::StLoc(v) => {
                         execution_step.locals_index = *v as usize;
-                        self.locals.store(
-                            *v as usize,
-                            interp.stack.pop(rw_operations)?,
-                            frame_index,
-                            rw_operations,
-                        )
+                        let value = interp.stack.pop(rw_operations)?;
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        self.locals
+                            .store(*v as usize, value, frame_index, rw_operations)
                     }
                     Bytecode::MoveLoc(v) => {
                         execution_step.locals_index = *v as usize;
-                        interp.stack.push(
-                            self.locals.move_(*v as usize, frame_index, rw_operations)?,
-                            rw_operations,
-                        )
+                        let value = self.locals.move_(*v as usize, frame_index, rw_operations)?;
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::MutBorrowLoc(v) => {
                         execution_step.locals_index = *v as usize;
-                        interp.stack.push(
+                        let value =
                             self.locals
-                                .mut_borrow(*v as usize, frame_index, rw_operations)?,
-                            rw_operations,
-                        )
+                                .mut_borrow(*v as usize, frame_index, rw_operations)?;
+                        let word_element_count = self.locals.word_element_count(*v as usize)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::ImmBorrowLoc(v) => {
                         execution_step.locals_index = *v as usize;
-                        interp.stack.push(
+                        let value =
                             self.locals
-                                .imm_borrow(*v as usize, frame_index, rw_operations)?,
-                            rw_operations,
-                        )
+                                .imm_borrow(*v as usize, frame_index, rw_operations)?;
+                        let word_element_count = self.locals.word_element_count(*v as usize)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::ReadRef => {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
                         let value = reference.read_ref()?;
 
                         if !reference.is_global() {
-                            let container_frame_index = reference.container_frame_index();
-                            let index = reference.index();
+                            let value = value.clone();
+                            let value_addresses = reference.value_address();
+                            let container_frame_index = value_addresses.frame_index();
+                            let index = value_addresses.address();
 
-                            let (locals_value, locals_index) = match reference.clone() {
-                                Reference::ContainerRef(_) => (value.clone(), index),
-                                Reference::IndexedRef(r) => {
-                                    match r.container() {
-                                        Container::Locals(_, _) => (value.clone(), index),
-                                        // if we come here, the value should be a member of a struct
-                                        // we should return the struct instead of the member
-                                        Container::Struct(_, _) => (
-                                            Value::Container(r.container().copy_value()),
-                                            r.container().index(),
-                                        ),
-                                    }
-                                }
-                            };
-
-                            execution_step.locals_index = locals_index;
                             execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
 
-                            let locals_op = LocalsOp {
-                                frame_index: container_frame_index,
-                                index: locals_index,
-                                value: locals_value,
-                                rw: RW::READ,
-                                gc: rw_operations.len(),
+                            let word_element_count = value.word_element_count()?;
+                            execution_step.auxiliary_3 =
+                                Some(Value::u64(word_element_count as u64));
+
+                            let word = match reference.clone() {
+                                Reference::ContainerRef(_) => {
+                                    execution_step.locals_index = index;
+                                    value.flatten(ValueAddress::Locals(
+                                        FrameIndex(container_frame_index),
+                                        Index(index),
+                                    ))?
+                                }
+                                Reference::IndexedRef(r) => {
+                                    match r.container() {
+                                        Container::Locals(_, _) => {
+                                            execution_step.locals_index = index;
+                                            value.flatten(ValueAddress::Locals(
+                                                FrameIndex(container_frame_index),
+                                                Index(index),
+                                            ))?
+                                        }
+                                        // if we come here, the value should be a member of a struct
+                                        // we should replace the step's locals_index with the index
+                                        // of the struct
+                                        Container::Struct(_, _) => {
+                                            // execution_step.locals_index = r.container().index();
+                                            execution_step.locals_index = value_addresses.address();
+                                            // read the member address from the value
+                                            value.flatten(value_addresses.clone())?
+                                            // value.flatten(ValueAddress::Member {
+                                            //     index: Index(index),
+                                            //     parent: Box::new(ValueAddress::Locals(
+                                            //         FrameIndex(container_frame_index),
+                                            //         Index(r.container().index()),
+                                            //     )),
+                                            // })?
+                                        }
+                                    }
+                                }
                             };
-                            rw_operations.push(RWOperation::LocalsOp(locals_op));
+
+                            Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                         } else {
                             execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128));
+                            // todo: auxiliary_3 is occupied by word_element_count
+                            execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
+                                address_ext_0: 0,
+                                address_ext_1: 0,
                                 value: global_value,
                                 rw: RW::READ,
                                 gc: rw_operations.len(),
@@ -264,44 +290,66 @@ impl<F: FieldExt> Frame<F> {
                         if !reference.is_global() {
                             let container_frame_index = reference.container_frame_index();
                             let index = reference.index();
-
-                            let (locals_value, locals_index) = match reference.clone() {
-                                Reference::ContainerRef(_) => (value_copy, index),
-                                Reference::IndexedRef(r) => {
-                                    match r.container() {
-                                        Container::Locals(_, _) => (value_copy, index),
-                                        // if we come here, the value should be a member of a struct
-                                        // we should return the struct instead of the member
-                                        Container::Struct(_, _) => (
-                                            Value::Container(r.container().copy_value()),
-                                            r.container().index(),
-                                        ),
-                                    }
-                                }
-                            };
-
-                            execution_step.locals_index = locals_index;
                             execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
 
-                            let locals_op = LocalsOp {
-                                frame_index: container_frame_index,
-                                index: locals_index,
-                                value: locals_value,
-                                rw: RW::WRITE,
-                                gc: rw_operations.len(),
+                            let word_element_count = value_copy.word_element_count()?;
+                            execution_step.auxiliary_3 =
+                                Some(Value::u64(word_element_count as u64));
+
+                            let word = match reference.clone() {
+                                Reference::ContainerRef(_) => {
+                                    execution_step.locals_index = index;
+                                    let val = value_copy.update_address(ValueAddress::Locals(
+                                        FrameIndex(container_frame_index),
+                                        Index(index),
+                                    ));
+                                    val.flatten(ValueAddress::Locals(
+                                        FrameIndex(container_frame_index),
+                                        Index(index),
+                                    ))?
+                                }
+                                Reference::IndexedRef(r) => {
+                                    match r.container() {
+                                        Container::Locals(_, _) => {
+                                            execution_step.locals_index = index;
+                                            value_copy.flatten(ValueAddress::Locals(
+                                                FrameIndex(container_frame_index),
+                                                Index(index),
+                                            ))?
+                                        }
+                                        // if we come here, the value should be a member of a struct
+                                        // we should replace the step's locals_index with the index
+                                        // of the struct
+                                        Container::Struct(_, _) => {
+                                            execution_step.locals_index = r.container().index();
+                                            value_copy.flatten(ValueAddress::Member {
+                                                index: Index(index),
+                                                parent: Box::new(ValueAddress::Locals(
+                                                    FrameIndex(container_frame_index),
+                                                    Index(r.container().index()),
+                                                )),
+                                            })?
+                                        }
+                                    }
+                                }
                             };
-                            rw_operations.push(RWOperation::LocalsOp(locals_op));
+
+                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         } else {
                             execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                             let (addr, sd_idx) = reference.global_path();
                             let global_value = reference.copy_global_value()?;
                             execution_step.auxiliary_2 = Some(Value::address(addr));
-                            execution_step.auxiliary_3 = Some(Value::u128(sd_idx.0 as u128));
+                            // todo: how to ensure auxiliary_3 is exclusive to word_element_count?
+                            // Allocate a cell 'field_count' specifically for it?
+                            execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                             let global_op = GlobalOp {
                                 address: addr,
                                 sd_index: sd_idx.0 as usize,
+                                address_ext_0: 0,
+                                address_ext_1: 0,
                                 value: global_value,
                                 rw: RW::WRITE,
                                 gc: rw_operations.len(),
@@ -462,16 +510,19 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
-                        interp.stack.push(
-                            Value::struct_(Struct::pack(args), ValueAddress::Unknown),
-                            rw_operations,
-                        )
+                        let value =
+                            Value::struct_(args, ValueAddress::Stack(Index(interp.stack.size())));
+                        let word_element_count = value.word_element_count()?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
-                        let struct_ = interp.stack.pop_as_struct(rw_operations)?;
+                        let (struct_, word_element_count) =
+                            interp.stack.pop_as_struct(rw_operations)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         for value in struct_.unpack()? {
                             interp.stack.push(value, rw_operations)?;
                         }
@@ -491,6 +542,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: value.clone(),
                             rw: RW::READ,
                             gc: rw_operations.len(),
@@ -513,6 +566,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: resource.clone(),
                             rw: RW::WRITE,
                             gc: rw_operations.len(),
@@ -531,6 +586,8 @@ impl<F: FieldExt> Frame<F> {
                         let global_op = GlobalOp {
                             address: addr,
                             sd_index: sd_idx.0 as usize,
+                            address_ext_0: 0,
+                            address_ext_1: 0,
                             value: global_value,
                             rw: RW::READ,
                             gc: rw_operations.len(),

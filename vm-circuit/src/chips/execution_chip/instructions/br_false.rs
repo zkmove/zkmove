@@ -58,6 +58,8 @@ impl<F: FieldExt> Instructions<F> for BrFalse<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
+                0.expr(),
+                0.expr(),
                 cells.value_a.expression.clone(),
             ),
             cond.clone(),

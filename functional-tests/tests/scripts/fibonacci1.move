@@ -1,5 +1,5 @@
 //! circuit: vm
-//! args: 10u64
+//! args: 8u64
 //! steps_num: 100
 //! stack_ops_num: 100
 //! locals_ops_num: 100

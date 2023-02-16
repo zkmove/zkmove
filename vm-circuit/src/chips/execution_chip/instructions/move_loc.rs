@@ -1,10 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LookupBytecode;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -31,7 +32,10 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+        let word_element_num = cells.auxiliary_3.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+            + 2.expr() * word_element_num.clone()
+            + 1.expr();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -45,17 +49,41 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        let (read, write_locals, write_stack) = RWLookup::locals_move(
-            cells.gc.expression.clone(),
-            cells.frame_index.expression.clone(),
-            cells.locals_index.expression.clone(),
-            cells.stack_size.expression.clone(),
-            cells.value_a.expression.clone(),
-        );
+        for i in 0..WORD_CAPACITY {
+            let (read, write_stack) = RWLookup::locals_move_without_flash(
+                cells.gc.expression.clone() + (i as u64).expr(),
+                cells.frame_index.expression.clone(),
+                cells.locals_index.expression.clone(),
+                cells.stack_size.expression.clone(),
+                cells.word_a_addr_ext_0[i].expression.clone(),
+                cells.word_a_addr_ext_1[i].expression.clone(),
+                cells.word_a[i].expression.clone(),
+                word_element_num.clone(), // word_element_num
+            );
 
-        lookups.rw_lookups.push((read, cond.clone()));
+            lookups.rw_lookups.push((
+                read,
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+            ));
+            lookups.rw_lookups.push((
+                write_stack,
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+            ));
+        }
+        // do flash, happened between read and write_stack
+        let write_locals = RWLookup {
+            gc: cells.gc.expression.clone() + word_element_num,
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::WRITE as u64).expr(),
+            frame_index: cells.frame_index.expression.clone(),
+            address: cells.locals_index.expression.clone(),
+            address_ext_0: 0.expr(),
+            address_ext_1: 0.expr(),
+            value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
+            sd_index: 0.expr(),
+        };
         lookups.rw_lookups.push((write_locals, cond.clone()));
-        lookups.rw_lookups.push((write_stack, cond.clone()));
+
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::MoveLoc,
@@ -72,9 +100,17 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        Word::assign_word_a(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc,
+            word_element_num,
+        )?;
+
         Ok(())
     }
 }

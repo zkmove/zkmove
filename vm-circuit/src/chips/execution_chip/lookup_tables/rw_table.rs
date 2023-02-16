@@ -10,10 +10,12 @@ pub struct RWTable {
     pub rw_column: Column<Advice>,
     pub frame_index_column: Column<Advice>,
     pub address_column: Column<Advice>,
+    pub address_ext_0_column: Column<Advice>,
+    pub address_ext_1_column: Column<Advice>,
     pub value_column: Column<Advice>,
     pub sd_index_column: Column<Advice>,
 }
-pub const RW_LOOKUP_TABLE_WIDTH: usize = 7;
+pub const RW_LOOKUP_TABLE_WIDTH: usize = 9;
 
 impl RWTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
@@ -23,6 +25,8 @@ impl RWTable {
             rw_column: meta.advice_column(),
             frame_index_column: meta.advice_column(),
             address_column: meta.advice_column(),
+            address_ext_0_column: meta.advice_column(),
+            address_ext_1_column: meta.advice_column(),
             value_column: meta.advice_column(),
             sd_index_column: meta.advice_column(),
         };
@@ -33,6 +37,8 @@ impl RWTable {
         meta.enable_equality(rw_table.rw_column);
         meta.enable_equality(rw_table.frame_index_column);
         meta.enable_equality(rw_table.address_column);
+        meta.enable_equality(rw_table.address_ext_0_column);
+        meta.enable_equality(rw_table.address_ext_1_column);
         meta.enable_equality(rw_table.value_column);
         meta.enable_equality(rw_table.sd_index_column);
 
@@ -46,6 +52,8 @@ impl RWTable {
             self.rw_column,
             self.frame_index_column,
             self.address_column,
+            self.address_ext_0_column,
+            self.address_ext_1_column,
             self.value_column,
             self.sd_index_column,
         ]
@@ -65,6 +73,8 @@ pub struct RWLookup<F: FieldExt> {
     pub rw: Expression<F>,          // read or write
     pub frame_index: Expression<F>, // always zero for stack op
     pub address: Expression<F>,     // locals index, stack address, or global account address
+    pub address_ext_0: Expression<F>,
+    pub address_ext_1: Expression<F>,
     pub value: Expression<F>,
     pub sd_index: Expression<F>, // struct definition index used by global rw ops
 }
@@ -73,6 +83,8 @@ impl<F: FieldExt> RWLookup<F> {
     pub fn stack_push(
         gc: Expression<F>,
         stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
@@ -81,6 +93,8 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::WRITE as u64).expr(),
             frame_index: 0.expr(),
             address: stack_size,
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index: 0.expr(),
         }
@@ -89,6 +103,8 @@ impl<F: FieldExt> RWLookup<F> {
     pub fn stack_pop(
         gc: Expression<F>,
         stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
@@ -97,17 +113,23 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::READ as u64).expr(),
             frame_index: 0.expr(),
             address: stack_size - 1.expr(),
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index: 0.expr(),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn locals_copy(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
         stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
+        word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -116,65 +138,72 @@ impl<F: FieldExt> RWLookup<F> {
                 rw: (RW::READ as u64).expr(),
                 frame_index,
                 address: locals_index,
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + 1.expr(),
+                gc: gc + word_element_num,
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
                 address: stack_size,
+                address_ext_0,
+                address_ext_1,
                 value,
                 sd_index: 0.expr(),
             },
         )
     }
 
-    pub fn locals_move(
+    #[allow(clippy::too_many_arguments)]
+    pub fn locals_move_without_flash(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
         stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
-    ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
+        word_element_num: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
                 gc: gc.clone(),
                 rw_target: (RWTarget::Locals as u64).expr(),
                 rw: (RW::READ as u64).expr(),
-                frame_index: frame_index.clone(),
-                address: locals_index.clone(),
+                frame_index,
+                address: locals_index,
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc.clone() + 1.expr(),
-                rw_target: (RWTarget::Locals as u64).expr(),
-                rw: (RW::WRITE as u64).expr(),
-                frame_index,
-                address: locals_index,
-                value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
-                sd_index: 0.expr(),
-            },
-            RWLookup {
-                gc: gc + 2.expr(),
+                gc: gc + word_element_num + 1.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
                 address: stack_size,
+                address_ext_0,
+                address_ext_1,
                 value,
                 sd_index: 0.expr(),
             },
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn locals_store(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
         stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
+        word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -183,55 +212,32 @@ impl<F: FieldExt> RWLookup<F> {
                 rw: (RW::READ as u64).expr(),
                 frame_index: 0.expr(),
                 address: stack_size - 1.expr(),
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + 1.expr(),
+                gc: gc + word_element_num,
                 rw_target: (RWTarget::Locals as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index,
                 address: locals_index,
+                address_ext_0,
+                address_ext_1,
                 value,
                 sd_index: 0.expr(),
             },
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn locals_ref(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
-        stack_size: Expression<F>,
-        value: Expression<F>,
-        reference_index: Expression<F>,
-    ) -> (RWLookup<F>, RWLookup<F>) {
-        (
-            RWLookup {
-                gc: gc.clone(),
-                rw_target: (RWTarget::Locals as u64).expr(),
-                rw: (RW::READ as u64).expr(),
-                frame_index,
-                address: locals_index,
-                value,
-                sd_index: 0.expr(),
-            },
-            RWLookup {
-                gc: gc + 1.expr(),
-                rw_target: (RWTarget::Stack as u64).expr(),
-                rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
-                address: stack_size,
-                value: reference_index,
-                sd_index: 0.expr(),
-            },
-        )
-    }
-
-    pub fn locals_read_ref(
-        gc: Expression<F>,
-        frame_index: Expression<F>,
-        locals_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
@@ -240,6 +246,29 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::READ as u64).expr(),
             frame_index,
             address: locals_index,
+            address_ext_0,
+            address_ext_1,
+            value,
+            sd_index: 0.expr(),
+        }
+    }
+
+    pub fn locals_read_ref(
+        gc: Expression<F>,
+        frame_index: Expression<F>,
+        locals_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
+        value: Expression<F>,
+    ) -> RWLookup<F> {
+        RWLookup {
+            gc,
+            rw_target: (RWTarget::Locals as u64).expr(),
+            rw: (RW::READ as u64).expr(),
+            frame_index,
+            address: locals_index,
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index: 0.expr(),
         }
@@ -249,6 +278,8 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
         value: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
@@ -257,6 +288,8 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::WRITE as u64).expr(),
             frame_index,
             address: locals_index,
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index: 0.expr(),
         }
@@ -267,6 +300,8 @@ impl<F: FieldExt> RWLookup<F> {
         address: Expression<F>,
         value: Expression<F>,
         sd_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -274,6 +309,8 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::WRITE as u64).expr(),
             frame_index: 0.expr(),
             address,
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index,
         }
@@ -284,6 +321,8 @@ impl<F: FieldExt> RWLookup<F> {
         address: Expression<F>,
         value: Expression<F>,
         sd_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -291,6 +330,8 @@ impl<F: FieldExt> RWLookup<F> {
             rw: (RW::READ as u64).expr(),
             frame_index: 0.expr(),
             address,
+            address_ext_0,
+            address_ext_1,
             value,
             sd_index,
         }
