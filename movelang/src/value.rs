@@ -204,6 +204,14 @@ impl<F: FieldExt> Container<F> {
             Self::Locals(_, _) => unreachable!(),
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(_frame_index, index) => index.0,
+                ValueAddress::Member {
+                    index: _,
+                    parent: _,
+                } => {
+                    let address_path = address.address_path().expect("should not be error");
+                    let index = address_path.as_inner().get(1).expect("should not be None");
+                    *index
+                }
                 _ => unreachable!(),
             },
         }
