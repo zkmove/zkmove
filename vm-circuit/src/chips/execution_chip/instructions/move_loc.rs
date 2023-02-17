@@ -2,13 +2,12 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -34,8 +33,7 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + 2.expr() * word_element_num.clone()
-            + 1.expr();
+            + 3.expr() * word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -50,7 +48,7 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
         ]);
 
         for i in 0..WORD_CAPACITY {
-            let (read, write_stack) = RWLookup::locals_move_without_flash(
+            let (read, write_locals, write_stack) = RWLookup::locals_move(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
                 cells.locals_index.expression.clone(),
@@ -66,23 +64,14 @@ impl<F: FieldExt> Instructions<F> for MoveLoc<F> {
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                write_locals,
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+            ));
+            lookups.rw_lookups.push((
                 write_stack,
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
         }
-        // do flash, happened between read and write_stack
-        let write_locals = RWLookup {
-            gc: cells.gc.expression.clone() + word_element_num,
-            rw_target: (RWTarget::Locals as u64).expr(),
-            rw: (RW::WRITE as u64).expr(),
-            frame_index: cells.frame_index.expression.clone(),
-            address: cells.locals_index.expression.clone(),
-            address_ext_0: 0.expr(),
-            address_ext_1: 0.expr(),
-            value: 0.expr(), // todo: is it ok to use 0 for Value::Invalid?
-            sd_index: 0.expr(),
-        };
-        lookups.rw_lookups.push((write_locals, cond.clone()));
 
         LookupBytecode::lookup_bytecode(
             cells,
