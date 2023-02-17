@@ -52,20 +52,23 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..WORD_CAPACITY {
+        // same vlaue lookup to constrain cells.word_b == cells.word_a
+        let value = cells.word_a.clone();
+
+        for (i, item) in value.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     cells.word_a_addr_ext_0[i].expression.clone(),
                     cells.word_a_addr_ext_1[i].expression.clone(),
-                    cells.word_a[i].expression.clone(),
+                    item.expression.clone(),
                 ),
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
         }
 
-        for i in 0..WORD_CAPACITY {
+        for (i, item) in value.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
@@ -75,7 +78,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
                     address: cells.stack_size.expression.clone() - 1.expr() + (i as u64).expr(),
                     address_ext_0: 0.expr(),
                     address_ext_1: 0.expr(),
-                    value: cells.word_b[i].expression.clone(),
+                    value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
