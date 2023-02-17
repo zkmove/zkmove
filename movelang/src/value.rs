@@ -138,13 +138,6 @@ pub enum Container<F: FieldExt> {
     Struct(ValueAddress<F>, Rc<RefCell<Vec<Value<F>>>>),
 }
 
-//todo: As a workaround, we temporarily use 0 and 1 to represent the container.
-// It should be replaced by a value that truly represents the container.
-pub enum FakeContainerValue {
-    LOCALS,
-    STRUCT,
-}
-
 impl<F: FieldExt> Container<F> {
     pub fn len(&self) -> usize {
         match self {
@@ -167,12 +160,13 @@ impl<F: FieldExt> Container<F> {
         }
     }
 
-    pub fn value(&self) -> F {
-        match self {
-            Self::Locals(_, _) => F::from_u128(FakeContainerValue::LOCALS as u128),
-            Self::Struct(_, _) => F::from_u128(FakeContainerValue::STRUCT as u128),
-        }
-    }
+    // value of Container is recorded by RW_Ops.
+    // pub fn value(&self) -> F {
+    //     match self {
+    //         Self::Locals(_, _) => F::from_u128(FakeContainerValue::LOCALS as u128),
+    //         Self::Struct(_, _) => F::from_u128(FakeContainerValue::STRUCT as u128),
+    //     }
+    // }
 
     pub fn signer(x: AccountAddress<F>) -> Self {
         Container::Struct(
@@ -204,14 +198,7 @@ impl<F: FieldExt> Container<F> {
             Self::Locals(_, _) => unreachable!(),
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(_frame_index, index) => index.0,
-                ValueAddress::Member {
-                    index: _,
-                    parent: _,
-                } => {
-                    let address_path = address.address_path().expect("should not be error");
-                    let index = address_path.as_inner().get(1).expect("should not be None");
-                    *index
-                }
+                ValueAddress::Member { index: _, parent } => parent.address(),
                 _ => unreachable!(),
             },
         }
@@ -787,7 +774,6 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => Some(v.0),
             Self::Bool(v) => Some(v.0),
             Self::Address(addr) => Some(addr.value()),
-            Self::Container(c) => Some(c.value()),
             Self::IndexedRef(r) => {
                 // todo: define a better representation for Ref
                 Some(F::from_u128(
@@ -797,6 +783,7 @@ impl<F: FieldExt> Value<F> {
             Self::ContainerRef(r) => Some(F::from_u128(
                 ((r.container_frame_index() << 16) + r.container_index()) as u128,
             )),
+            Self::Container(_c) => unimplemented!(),
         }
     }
 
