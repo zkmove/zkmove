@@ -61,17 +61,14 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
 
         let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
 
-        // same vlaue lookup to constrain cells.word_b == cells.word_a
-        let value = cells.word_a.clone();
-
-        for (i, item) in value.iter().enumerate().take(WORD_CAPACITY) {
+        for i in 0..WORD_CAPACITY {
             let read = RWLookup::locals_read_ref(
                 cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(),
                 cells.locals_index.expression.clone(),
                 cells.word_a_addr_ext_0[i].expression.clone(),
                 cells.word_a_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
+                cells.word_a[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
@@ -93,7 +90,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         );
         lookups.rw_lookups.push((read, cond.clone() * is_global));
 
-        for (i, item) in value.iter().enumerate().take(WORD_CAPACITY) {
+        for i in 0..WORD_CAPACITY {
             let write = RWLookup::stack_push(
                 cells.gc.expression.clone()
                     + 1.expr()
@@ -102,7 +99,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
                 cells.stack_size.expression.clone() - 1.expr(),
                 cells.word_b_addr_ext_0[i].expression.clone(),
                 cells.word_b_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
+                cells.word_b[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
@@ -110,6 +107,8 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
                 cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
         }
+
+        // todo: constrain cells.word_b == cells.word_a
 
         LookupBytecode::lookup_bytecode(
             cells,

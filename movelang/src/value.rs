@@ -783,7 +783,7 @@ impl<F: FieldExt> Value<F> {
             Self::ContainerRef(r) => Some(F::from_u128(
                 ((r.container_frame_index() << 16) + r.container_index()) as u128,
             )),
-            Self::Container(_c) => unreachable!(),
+            Self::Container(_c) => unimplemented!(),
         }
     }
 
