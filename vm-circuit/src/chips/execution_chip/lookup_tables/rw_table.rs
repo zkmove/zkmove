@@ -326,6 +326,79 @@ impl<F: FieldExt> RWLookup<F> {
             sd_index,
         }
     }
+    #[allow(clippy::too_many_arguments)]
+    pub fn move_from_global_to_stack(
+        gc: Expression<F>,
+        global_address: Expression<F>,
+        sd_index: Expression<F>,
+        stack_size: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
+        value: Expression<F>,
+        word_element_num: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
+        (
+            RWLookup {
+                gc: gc.clone(),
+                rw_target: (RWTarget::Global as u64).expr(),
+                rw: (RW::READ as u64).expr(),
+                frame_index: 0.expr(),
+                address: global_address,
+                sd_index,
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
+                value: value.clone(),
+            },
+            RWLookup {
+                gc: gc + word_element_num,
+                rw_target: (RWTarget::Stack as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                frame_index: 0.expr(),
+                address: stack_size - 1.expr(),
+                address_ext_0,
+                address_ext_1,
+                value,
+                sd_index: 0.expr(),
+            },
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn move_to_global(
+        gc: Expression<F>,
+        stack_size: Expression<F>,
+        global_address: Expression<F>,
+        sd_index: Expression<F>,
+        address_ext_0: Expression<F>,
+        address_ext_1: Expression<F>,
+        value: Expression<F>,
+        word_elem_num: Expression<F>,
+    ) -> (RWLookup<F>, RWLookup<F>) {
+        (
+            RWLookup {
+                gc: gc.clone(),
+                rw_target: (RWTarget::Stack as u64).expr(),
+                rw: (RW::READ as u64).expr(),
+                frame_index: 0.expr(),
+                address: stack_size - 1.expr(),
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
+                value: value.clone(),
+                sd_index: 0.expr(),
+            },
+            RWLookup {
+                gc: gc + 1.expr() + word_elem_num, // +1 because, in the middle, a signer reference is popped.
+                rw_target: (RWTarget::Global as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                frame_index: 0.expr(),
+                address: global_address,
+                sd_index,
+                address_ext_0,
+                address_ext_1,
+                value,
+            },
+        )
+    }
 
     pub fn global_read(
         gc: Expression<F>,

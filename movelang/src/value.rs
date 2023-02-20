@@ -112,6 +112,11 @@ impl<F: FieldExt> ValueAddress<F> {
                 let path = parent.address_path()?;
                 Ok(path.extend(index.0))
             }
+            Self::Global(addr, sd_index) => Ok(AddressPath(vec![
+                // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
+                addr.value().get_lower_128() as usize,
+                sd_index.0 as usize,
+            ])),
             _ => unimplemented!(),
         }
     }
