@@ -111,18 +111,34 @@ impl<F: FieldExt> Locals<F> {
             Some(v) => {
                 let word = value_copy
                     .flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                let locals_op_2 = LocalsOp {
-                    frame_index,
-                    index,
-                    address_ext_0: 0,
-                    address_ext_1: 0,
-                    value: Value::Invalid,
-                    rw: RW::WRITE,
-                    gc: rw_operations.len(),
-                };
-                rw_operations.push(RWOperation::LocalsOp(locals_op_2));
-                Ok(std::mem::replace(v, Value::Invalid))
+                // LocalsOP Read
+                Self::emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
+                // Invalid value
+                let ret = std::mem::replace(v, Value::Invalid);
+                // LocalsOP Write
+                for (address_path, _) in word {
+                    let locals_op_2 = LocalsOp {
+                        frame_index: *address_path
+                            .0
+                            .get(0)
+                            .expect("frame_index should not be None"),
+                        index: *address_path.0.get(1).expect("index should not be None"),
+                        address_ext_0: *address_path
+                            .0
+                            .get(2)
+                            .expect("address_ext_0 should not be None"),
+                        address_ext_1: *address_path
+                            .0
+                            .get(3)
+                            .expect("address_ext_1 should not be None"),
+                        value: Value::Invalid,
+                        rw: RW::WRITE,
+                        gc: rw_operations.len(),
+                    };
+                    rw_operations.push(RWOperation::LocalsOp(locals_op_2));
+                }
+
+                Ok(ret)
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
