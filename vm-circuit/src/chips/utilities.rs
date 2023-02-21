@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Region};
-use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
+use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
+use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
 use halo2_proofs::poly::Rotation;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
@@ -135,4 +135,30 @@ impl<F: FieldExt> DeltaInvert<F> for F {
             delta.invert().into()
         }
     }
+}
+
+// a special table with solo column and the value same as index.
+// which is to garantuee value is among [0, max].
+pub(crate) fn assign_index_table<F: FieldExt>(
+    layouter: &mut impl Layouter<F>,
+    table_name: &str,
+    column: TableColumn,
+    max_row: usize,
+) -> Result<(), Error> {
+    layouter.assign_table(
+        || format!("{:?}", table_name),
+        |mut table_column| {
+            (0..=max_row)
+                .map(|i| {
+                    table_column.assign_cell(
+                        || format!("{}[{}]", table_name, i),
+                        column,
+                        i,
+                        || CircuitValue::known(F::from_u128(i as u128)),
+                    )
+                })
+                .fold(Ok(()), |acc, res| acc.and(res))
+        },
+    )?;
+    Ok(())
 }

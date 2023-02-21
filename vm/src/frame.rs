@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::globals;
 use crate::interpreter::Interpreter;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -538,18 +539,18 @@ impl<F: FieldExt> Frame<F> {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;
                         let ty = resolver.get_struct_type(*sd_idx);
                         let value = interp.move_from(data_store, loader, addr, &ty)?;
-
-                        let global_op = GlobalOp {
-                            address: addr,
-                            sd_index: sd_idx.0 as usize,
-                            address_ext_0: 0,
-                            address_ext_1: 0,
-                            value: value.clone(),
-                            rw: RW::READ,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::GlobalOp(global_op));
-
+                        // in fact, after move_from, user cannot call move_from again, as the struct is already gone.
+                        // If this limit is constrained by bytecode verifier, then circuit doesn't need to worry about this.
+                        // But if not, we should write a Invalid to the global struct.
+                        // For now, we take a progressive action.
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            *sd_idx,
+                            value.clone(),
+                            RW::READ,
+                            rw_operations,
+                        )?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::MoveTo(sd_idx) => {
@@ -561,19 +562,16 @@ impl<F: FieldExt> Frame<F> {
                             .read_ref()?
                             .as_account_address()
                             .expect("address should not be None");
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            *sd_idx,
+                            resource.clone(),
+                            RW::WRITE,
+                            rw_operations,
+                        )?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+
                         let ty = resolver.get_struct_type(*sd_idx);
-
-                        let global_op = GlobalOp {
-                            address: addr,
-                            sd_index: sd_idx.0 as usize,
-                            address_ext_0: 0,
-                            address_ext_1: 0,
-                            value: resource.clone(),
-                            rw: RW::WRITE,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::GlobalOp(global_op));
-
                         interp.move_to(data_store, loader, addr, &ty, resource)
                     }
                     Bytecode::ImmBorrowGlobal(sd_idx) | Bytecode::MutBorrowGlobal(sd_idx) => {
