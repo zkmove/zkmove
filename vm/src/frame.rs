@@ -548,6 +548,7 @@ impl<F: FieldExt> Frame<F> {
                             *sd_idx,
                             value.clone(),
                             RW::READ,
+                            true,
                             rw_operations,
                         )?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
@@ -567,6 +568,7 @@ impl<F: FieldExt> Frame<F> {
                             *sd_idx,
                             resource.clone(),
                             RW::WRITE,
+                            false,
                             rw_operations,
                         )?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
@@ -581,16 +583,15 @@ impl<F: FieldExt> Frame<F> {
 
                         let global_value =
                             value.copy_value().as_reference()?.copy_global_value()?;
-                        let global_op = GlobalOp {
-                            address: addr,
-                            sd_index: sd_idx.0 as usize,
-                            address_ext_0: 0,
-                            address_ext_1: 0,
-                            value: global_value,
-                            rw: RW::READ,
-                            gc: rw_operations.len(),
-                        };
-                        rw_operations.push(RWOperation::GlobalOp(global_op));
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            *sd_idx,
+                            global_value.clone(),
+                            RW::READ,
+                            false,
+                            rw_operations,
+                        )?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         interp.stack.push(value, rw_operations)
                     }

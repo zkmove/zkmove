@@ -10,6 +10,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     sd_index: StructDefinitionIndex,
     resource_value: Value<F>,
     rw: RW,
+    write_invalid: bool,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) -> VmResult<usize> {
     let value_addr = ValueAddress::Global(addr, sd_index);
@@ -35,7 +36,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         rw_operations.push(RWOperation::GlobalOp(op));
     }
     // if this is move_from, we need to write an invalid back.
-    if rw == RW::READ {
+    if write_invalid {
         for (address_path, _) in word {
             let op = GlobalOp {
                 address: addr,
