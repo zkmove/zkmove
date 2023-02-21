@@ -659,7 +659,7 @@ impl<F: FieldExt> Word<F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn assign_word_b_with_address_and_filter(
+    pub fn assign_word_b_with_address_and_gc(
         region: &mut Region<'_, F>,
         offset: usize,
         _step: &ExecutionStep<F>,
@@ -667,13 +667,13 @@ impl<F: FieldExt> Word<F> {
         cells: &StepChipCells<F>,
         op_index: usize,
         word_element_num: usize,
-        filter: RW,
     ) -> Result<(), Error> {
-        let mut op_index = op_index;
-        let mut op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+        let mut index = op_index;
+        let mut op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         let mut i = 0;
+        // setup the data for stack. only scan the Ops for Stack READ
         while i < word_element_num {
-            if op.rw() == filter {
+            if op.rw() == RW::READ {
                 cells.word_b[i].assign(region, offset, op.value().value())?;
                 cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
                 cells.word_b_addr_ext_0[i].assign(
@@ -686,13 +686,29 @@ impl<F: FieldExt> Word<F> {
                     offset,
                     Some(F::from(op.address_ext_1() as u64)),
                 )?;
-                cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
+                // assign gc of Stack READ to bytes_operand_1
+                cells.bytes_operand_1[i].assign(region, offset, Some(F::from(op.gc() as u64)))?;
 
                 i += 1;
             }
+            index += 1;
+            op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
+        }
+        // setup the data for new frame locals. only scan the Ops for Locals WRITE
+        index = op_index;
+        op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
+        i = 0;
+        while i < word_element_num {
+            if op.rw() == RW::WRITE {
+                // assign frame index of Locals to word_address
+                cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
+                // assign gc of Locals write to bytes_operand_2
+                cells.bytes_operand_2[i].assign(region, offset, Some(F::from(op.gc() as u64)))?;
 
-            op_index += 1;
-            op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+                i += 1;
+            }
+            index += 1;
+            op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         }
 
         for i in word_element_num..WORD_CAPACITY {
@@ -700,6 +716,8 @@ impl<F: FieldExt> Word<F> {
             cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             cells.word_address[i].assign(region, offset, Some(F::zero()))?;
+            cells.bytes_operand_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.bytes_operand_2[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
