@@ -34,7 +34,7 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + word_elem_num.clone() * 2.expr() // one for global read resource, one for stack push value
+            + word_elem_num.clone() * 3.expr() // two for global read resource, one for stack push value
             + 1.expr(); // stack pop account_address
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -62,21 +62,25 @@ impl<F: FieldExt> Instructions<F> for MoveFrom<F> {
         ));
 
         for i in 0..WORD_CAPACITY {
-            let (read_global, write_stack) = RWLookup::move_from_global_to_stack(
-                cells.gc.expression.clone() + (i as u64 + 1).expr(),
-                account_address_expr.clone(),
-                sd_index_expr.clone(),
-                cells.stack_size.expression.clone(),
-                cells.word_a_addr_ext_0[i].expression.clone(),
-                cells.word_a_addr_ext_1[i].expression.clone(),
-                cells.word_a[i].expression.clone(),
-                word_elem_num.clone(),
-            );
+            let (read_global, write_invalid_to_global, write_stack) =
+                RWLookup::move_from_global_to_stack(
+                    cells.gc.expression.clone() + (i as u64 + 1).expr(),
+                    account_address_expr.clone(),
+                    sd_index_expr.clone(),
+                    cells.stack_size.expression.clone(),
+                    cells.word_a_addr_ext_0[i].expression.clone(),
+                    cells.word_a_addr_ext_1[i].expression.clone(),
+                    cells.word_a[i].expression.clone(),
+                    word_elem_num.clone(),
+                );
             lookups.rw_lookups.push((
                 read_global,
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
-
+            lookups.rw_lookups.push((
+                write_invalid_to_global,
+                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+            ));
             lookups.rw_lookups.push((
                 write_stack,
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),

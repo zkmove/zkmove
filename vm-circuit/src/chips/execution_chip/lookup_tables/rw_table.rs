@@ -336,21 +336,32 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_1: Expression<F>,
         value: Expression<F>,
         word_element_num: Expression<F>,
-    ) -> (RWLookup<F>, RWLookup<F>) {
+    ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
                 gc: gc.clone(),
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::READ as u64).expr(),
                 frame_index: 0.expr(),
-                address: global_address,
-                sd_index,
+                address: global_address.clone(),
+                sd_index: sd_index.clone(),
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
             },
             RWLookup {
-                gc: gc + word_element_num,
+                gc: gc.clone() + word_element_num.clone(),
+                rw_target: (RWTarget::Global as u64).expr(),
+                rw: (RW::WRITE as u64).expr(),
+                frame_index: 0.expr(),
+                address: global_address,
+                sd_index,
+                address_ext_0: address_ext_0.clone(),
+                address_ext_1: address_ext_1.clone(),
+                value: 0.expr(),
+            },
+            RWLookup {
+                gc: gc + word_element_num * F::from_u128(2),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
