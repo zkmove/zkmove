@@ -361,7 +361,7 @@ impl<F: FieldExt> RWLookup<F> {
                 value: 0.expr(),
             },
             RWLookup {
-                gc: gc + word_element_num * F::from_u128(2),
+                gc: gc + word_element_num * 2.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
