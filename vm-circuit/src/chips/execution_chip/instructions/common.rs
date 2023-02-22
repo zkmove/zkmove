@@ -687,7 +687,7 @@ impl<F: FieldExt> Word<F> {
                     offset,
                     Some(F::from(op.address_ext_1() as u64)),
                 )?;
-                // assign frame index of Locals to word_address
+                // assign index of Locals to word_address
                 cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
 
                 i += 1;
