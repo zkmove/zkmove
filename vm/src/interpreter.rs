@@ -109,13 +109,12 @@ impl<F: FieldExt> Interpreter<F> {
     ) -> VmResult<Frame<F>> {
         let locals = Locals::new(func.local_count());
         let arg_count = func.arg_count();
-        for i in 0..arg_count {
-            locals.store(
-                arg_count - i - 1,
-                self.stack.pop(rw_operations)?,
-                frame_index,
-                rw_operations,
-            )?;
+        let mut value = Vec::new();
+        for _i in 0..arg_count {
+            value.push(self.stack.pop(rw_operations)?);
+        }
+        for (i, item) in value.into_iter().enumerate() {
+            locals.store(arg_count - i - 1, item, frame_index, rw_operations)?;
         }
         Ok(Frame::new(func, locals))
     }

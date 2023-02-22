@@ -669,9 +669,10 @@ impl<F: FieldExt> Word<F> {
         word_element_num: usize,
         filter: RW,
     ) -> Result<(), Error> {
-        let mut op_index = op_index;
-        let mut op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+        let mut index = op_index;
+        let mut op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         let mut i = 0;
+
         while i < word_element_num {
             if op.rw() == filter {
                 cells.word_b[i].assign(region, offset, op.value().value())?;
@@ -686,13 +687,13 @@ impl<F: FieldExt> Word<F> {
                     offset,
                     Some(F::from(op.address_ext_1() as u64)),
                 )?;
+                // assign index of Locals to word_address
                 cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
 
                 i += 1;
             }
-
-            op_index += 1;
-            op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+            index += 1;
+            op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         }
 
         for i in word_element_num..WORD_CAPACITY {
