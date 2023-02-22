@@ -41,7 +41,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         // each argument has 2 rw operations
         let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + word_element_num * 2.expr();
+            + word_element_num.clone() * 2.expr();
         constraints.append(&mut vec![
             ("Call pc", cond.clone() * pc_expr),
             ("Call stack_size", cond.clone() * stack_size_expr),
@@ -52,8 +52,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
-                    // bytes_operand_1 to record gc of stack read
-                    cells.bytes_operand_1[i].expression.clone(),
+                    cells.gc.expression.clone() + (i as u64).expr(),
                     cells.word_address[i].expression.clone() + 1.expr(),
                     cells.word_b_addr_ext_0[i].expression.clone(),
                     cells.word_b_addr_ext_1[i].expression.clone(),
@@ -63,8 +62,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             ));
             lookups.rw_lookups.push((
                 RWLookup {
-                    // bytes_operand_2 to record gc of locals write
-                    gc: cells.bytes_operand_2[i].expression.clone(),
+                    gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     rw_target: (RWTarget::Locals as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
@@ -127,7 +125,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             .assign(region, offset, func_handle_idx.value())?;
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        Word::assign_word_b_with_address_and_gc(
+        Word::assign_word_b_with_address_and_filter(
             region,
             offset,
             step,
@@ -135,6 +133,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             cells,
             step.gc,
             word_element_num,
+            RW::WRITE,
         )?;
 
         Ok(())
