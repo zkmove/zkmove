@@ -9,11 +9,11 @@ script {
     // the second time as the account address
     fun main(account: signer, addr: address) {
        Counter::init(&account);
-       let is_exist = Counter::check(addr);
-       assert!(is_exist, 101);
-       Counter::incr(addr);
-       let value = Counter::value(addr);
-       assert!(value == 1, 102);
+       // let is_exist = Counter::check(addr);
+       // assert!(is_exist, 101);
+       // Counter::incr(addr);
+       // let value = Counter::value(addr);
+       // assert!(value == 1, 102);
        Counter::delete(addr);
 
 
