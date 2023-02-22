@@ -193,6 +193,8 @@ impl<F: FieldExt> Container<F> {
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(frame_index, _index) => frame_index.0,
                 ValueAddress::Member { index: _, parent } => parent.frame_index(),
+                // FIXME: this is a temporary solution, we need to refactor the value address and reference.
+                ValueAddress::Global(addr, _) => addr.value().get_lower_128() as usize,
                 _ => unreachable!(),
             },
         }
@@ -204,6 +206,7 @@ impl<F: FieldExt> Container<F> {
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(_frame_index, index) => index.0,
                 ValueAddress::Member { index: _, parent } => parent.address(),
+                ValueAddress::Global(_, sd_index) => sd_index.0 as usize,
                 _ => unreachable!(),
             },
         }
