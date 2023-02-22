@@ -316,6 +316,7 @@ impl<F: FieldExt> ContainerRef<F> {
                     Value::Container(container) => {
                         let r = match self {
                             Self::Local(_) => Self::Local(container.copy_by_ref()),
+                            // TODO: when we have a nested borrow, like &global_value.field_a.field_b,
                             Self::Global(_) => unimplemented!(),
                         };
                         Value::ContainerRef(r)
