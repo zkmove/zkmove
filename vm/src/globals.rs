@@ -2,9 +2,35 @@ use error::VmResult;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::StructDefinitionIndex;
 use movelang::account_address::AccountAddress;
-use movelang::value::{Value, ValueAddress};
+use movelang::value::{AddressPath, Value, ValueAddress};
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
+pub fn emit_global_ops_for_word<F: FieldExt>(
+    word: Vec<(AddressPath, Value<F>)>,
+    addr: AccountAddress<F>,
+    sd_index: StructDefinitionIndex,
+    rw: RW,
+    rw_operations: &mut Vec<RWOperation<F>>,
+) {
+    for (address_path, val) in word {
+        let op = GlobalOp {
+            address: addr,
+            sd_index: sd_index.0 as usize,
+            address_ext_0: *address_path
+                .0
+                .get(2)
+                .expect("address_ext_0 should not be None"),
+            address_ext_1: *address_path
+                .0
+                .get(3)
+                .expect("address_ext_1 should not be None"),
+            value: val,
+            rw: rw.clone(),
+            gc: rw_operations.len(),
+        };
+        rw_operations.push(RWOperation::GlobalOp(op));
+    }
+}
 pub fn emit_ops_for_global_value<F: FieldExt>(
     addr: AccountAddress<F>,
     sd_index: StructDefinitionIndex,

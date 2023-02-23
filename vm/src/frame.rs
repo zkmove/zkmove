@@ -11,7 +11,10 @@ use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{Container, FrameIndex, Index, IntegerType, Reference, Value, ValueAddress};
+use movelang::value::{
+    Container, ContainerRef, FrameIndex, Index, IndexedRef, IntegerType, Reference, Value,
+    ValueAddress,
+};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
@@ -207,79 +210,52 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::ReadRef => {
+                        // | instr | u8/bool/address | container |
+                        // | --- | --- | --- |
+                        // | borrow_loc | IndexedRef(idx, ContainerRef::Local(Container::Locals)) | ContainerRef::Local(Container::Struct) |
+                        // | borrow_global | unreachable! | ContainerRef::Global(Container::Struct) |
+                        // | borrow_field (of ContainerRef::Local) | IndexedRef(idx,[Outer]ContainerRef::Local)  | ContainerRef::Local([Inner]Container::Struct) |
+                        // | borrow_field (of ContainerRef::Global) | IndexedRef(idx,[Outer]ContainerRef::Global)  | ContainerRef::Global([Inner]Container::Struct)  |
+
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
                         let value = reference.read_ref()?;
+                        let value_address = reference.value_address();
+                        match &reference {
+                            Reference::ContainerRef(ContainerRef::Local(container))
+                            | Reference::IndexedRef(IndexedRef {
+                                index: _,
+                                container_ref: ContainerRef::Local(container),
+                            }) => {
+                                let frame_index = container.frame_index();
+                                let index = value_address.address();
+                                execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                                execution_step.auxiliary_2 = Some(Value::u64(frame_index as u64));
+                                execution_step.locals_index = index;
+                                let word = value.flatten(value_address.clone())?;
+                                execution_step.auxiliary_3 = Some(Value::u64(word.len() as u64)); // word_elem_count
+                                Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                            }
+                            Reference::ContainerRef(ContainerRef::Global(_))
+                            | Reference::IndexedRef(IndexedRef {
+                                index: _,
+                                container_ref: ContainerRef::Global(_),
+                            }) => {
+                                let (account_addr, sd_index) = reference.global_path();
+                                execution_step.auxiliary_1 = Some(Value::bool(true)); // global
+                                execution_step.auxiliary_2 = Some(Value::address(account_addr));
+                                execution_step.auxiliary_4 = Some(Value::u128(sd_index.0 as u128));
+                                let word = value.flatten(value_address.clone())?;
+                                execution_step.auxiliary_3 = Some(Value::u64(word.len() as u64)); // word_elem_count
+                                globals::emit_global_ops_for_word(
+                                    word.clone(),
+                                    account_addr,
+                                    *sd_index,
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            }
+                        };
 
-                        if !reference.is_global() {
-                            let value = value.clone();
-                            let value_addresses = reference.value_address();
-                            let container_frame_index = value_addresses.frame_index();
-                            let index = value_addresses.address();
-
-                            execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
-                            execution_step.auxiliary_2 =
-                                Some(Value::u64(container_frame_index as u64));
-
-                            let word_element_count = value.word_element_count()?;
-                            execution_step.auxiliary_3 =
-                                Some(Value::u64(word_element_count as u64));
-
-                            let word = match reference.clone() {
-                                Reference::ContainerRef(_) => {
-                                    execution_step.locals_index = index;
-                                    value.flatten(ValueAddress::Locals(
-                                        FrameIndex(container_frame_index),
-                                        Index(index),
-                                    ))?
-                                }
-                                Reference::IndexedRef(r) => {
-                                    match r.container() {
-                                        Container::Locals(_, _) => {
-                                            execution_step.locals_index = index;
-                                            value.flatten(ValueAddress::Locals(
-                                                FrameIndex(container_frame_index),
-                                                Index(index),
-                                            ))?
-                                        }
-                                        // if we come here, the value should be a member of a struct
-                                        // we should replace the step's locals_index with the index
-                                        // of the struct
-                                        Container::Struct(_, _) => {
-                                            // execution_step.locals_index = r.container().index();
-                                            execution_step.locals_index = value_addresses.address();
-                                            // read the member address from the value
-                                            value.flatten(value_addresses.clone())?
-                                            // value.flatten(ValueAddress::Member {
-                                            //     index: Index(index),
-                                            //     parent: Box::new(ValueAddress::Locals(
-                                            //         FrameIndex(container_frame_index),
-                                            //         Index(r.container().index()),
-                                            //     )),
-                                            // })?
-                                        }
-                                    }
-                                }
-                            };
-
-                            Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                        } else {
-                            execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
-                            let (addr, sd_idx) = reference.global_path();
-                            let global_value = reference.copy_global_value()?;
-                            execution_step.auxiliary_2 = Some(Value::address(addr));
-                            // todo: auxiliary_3 is occupied by word_element_count
-                            execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
-                            let global_op = GlobalOp {
-                                address: addr,
-                                sd_index: sd_idx.0 as usize,
-                                address_ext_0: 0,
-                                address_ext_1: 0,
-                                value: global_value,
-                                rw: RW::READ,
-                                gc: rw_operations.len(),
-                            };
-                            rw_operations.push(RWOperation::GlobalOp(global_op));
-                        }
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::WriteRef => {

@@ -15,6 +15,10 @@ module Globals {
     public fun borrow_g(addr: address) acquires G {
         let _ = borrow_global<G>(addr);
     }
+    public fun read_g(addr: address): u64 acquires G {
+        let g = borrow_global<G>(addr);
+        g.value
+    }
     public fun borrow_mut_g(addr: address) acquires G {
         let _ = borrow_global_mut<G>(addr);
     }
