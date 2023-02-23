@@ -3,6 +3,6 @@
 script {
     use 0x1::M;
     fun main(x: u8, y: u8) {
-        3u8 + M::add(&mut x, &y);
+        M::add(&mut x, &y);
     }
 }
