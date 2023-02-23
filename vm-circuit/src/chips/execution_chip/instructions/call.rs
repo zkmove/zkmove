@@ -33,7 +33,7 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
         let pc_expr = cells.next_pc.expression.clone();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cells.next_stack_size.expression.clone()
-            - arg_num;
+            - arg_num.clone();
         // frame index increase 1
         let frame_index_expr = cells.frame_index.expression.clone()
             - cells.next_frame_index.expression.clone()
@@ -49,11 +49,13 @@ impl<F: FieldExt> Instructions<F> for Call<F> {
             ("Call gc", cond.clone() * gc_expr),
         ]);
 
+        // stack address of first argument, which is used to offset between stack and locals address
+        let offset = cells.stack_size.expression.clone() - arg_num;
         for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
-                    cells.word_address[i].expression.clone() + 1.expr(),
+                    cells.word_address[i].expression.clone() + offset.clone() + 1.expr(),
                     cells.word_b_addr_ext_0[i].expression.clone(),
                     cells.word_b_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
