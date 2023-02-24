@@ -266,8 +266,7 @@ impl<F: FieldExt> Frame<F> {
 
                         if !reference.is_global() {
                             let container_frame_index = value_address.frame_index();
-                            let _index = value_address.address();
-
+                            execution_step.locals_index = value_address.address();
                             execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
