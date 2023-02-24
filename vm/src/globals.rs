@@ -6,7 +6,7 @@ use movelang::value::{AddressPath, Value, ValueAddress};
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(AddressPath, Value<F>)>,
+    word: Vec<(AddressPath<F>, Value<F>)>,
     addr: AccountAddress<F>,
     sd_index: StructDefinitionIndex,
     rw: RW,

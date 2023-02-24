@@ -11,6 +11,7 @@ use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
+use std::marker::PhantomData;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
@@ -73,9 +74,10 @@ pub enum ValueAddress<F: FieldExt> {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddressPath(pub Vec<usize>);
+//todo: use 'Field' instead of 'usize'?
+pub struct AddressPath<F: FieldExt>(pub Vec<usize>, PhantomData<F>);
 
-impl AddressPath {
+impl<F: FieldExt> AddressPath<F> {
     pub fn into_inner(self) -> Vec<usize> {
         self.0
     }
@@ -85,7 +87,7 @@ impl AddressPath {
     pub fn extend(self, leaf: usize) -> Self {
         let mut path = self.into_inner();
         path.push(leaf);
-        AddressPath(path)
+        AddressPath(path, PhantomData)
     }
     pub fn len(&self) -> usize {
         self.0.len()
@@ -101,13 +103,21 @@ impl AddressPath {
         }
         self
     }
+    pub fn flatten(self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath<F>, Value<F>)>> {
+        let values = self.into_inner().iter().map(|v| Value::u64(*v as u64)).collect();
+        let struct_ = Container::Struct(
+            address.clone(),
+            Rc::new(RefCell::new(values)),
+        );
+        struct_.flatten()
+    }
 }
 
 impl<F: FieldExt> ValueAddress<F> {
-    pub fn address_path(&self) -> VmResult<AddressPath> {
+    pub fn address_path(&self) -> VmResult<AddressPath<F>> {
         match self {
-            Self::Stack(index) => Ok(AddressPath(vec![0, index.0])),
-            Self::Locals(frame_index, index) => Ok(AddressPath(vec![frame_index.0, index.0])),
+            Self::Stack(index) => Ok(AddressPath(vec![0, index.0], PhantomData)),
+            Self::Locals(frame_index, index) => Ok(AddressPath(vec![frame_index.0, index.0], PhantomData)),
             Self::Member { index, parent } => {
                 let path = parent.address_path()?;
                 Ok(path.extend(index.0))
@@ -116,7 +126,7 @@ impl<F: FieldExt> ValueAddress<F> {
                 // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
                 addr.value().get_lower_128() as usize,
                 sd_index.0 as usize,
-            ])),
+            ], PhantomData)),
             _ => unimplemented!(),
         }
     }
@@ -217,7 +227,7 @@ impl<F: FieldExt> Container<F> {
         }
     }
 
-    pub fn flatten(&self) -> VmResult<Vec<(AddressPath, Value<F>)>> {
+    pub fn flatten(&self) -> VmResult<Vec<(AddressPath<F>, Value<F>)>> {
         let mut result = Vec::new();
         match self {
             Self::Struct(address, value) => {
@@ -374,6 +384,10 @@ impl<F: FieldExt> ContainerRef<F> {
 
     fn container_frame_index(&self) -> usize {
         self.container().frame_index()
+    }
+
+    fn value_address(&self) -> ValueAddress<F> {
+        self.container().value_address()
     }
 }
 
@@ -829,21 +843,19 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
-    pub fn flatten(&self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath, Value<F>)>> {
+    pub fn flatten(&self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath<F>, Value<F>)>> {
         match self {
             Self::U8(_)
             | Self::U64(_)
             | Self::U128(_)
             | Self::Bool(_)
             | Self::Address(_)
-            | Self::Invalid
-            | Self::IndexedRef(_)
-            | Self::ContainerRef(_) => match address {
+            | Self::Invalid => match address {
                 ValueAddress::Stack(index) => {
-                    Ok(vec![(AddressPath(vec![0, index.0, 0, 0]), self.clone())])
+                    Ok(vec![(AddressPath(vec![0, index.0, 0, 0], PhantomData), self.clone())])
                 }
                 ValueAddress::Locals(frame_index, index) => Ok(vec![(
-                    AddressPath(vec![frame_index.0, index.0, 0, 0]),
+                    AddressPath(vec![frame_index.0, index.0, 0, 0], PhantomData),
                     self.clone(),
                 )]),
                 ValueAddress::Member {
@@ -855,6 +867,14 @@ impl<F: FieldExt> Value<F> {
                 }
                 _ => unreachable!(),
             },
+            Self::IndexedRef(r)=> {
+                let address_path = r.value_address().address_path()?;
+                address_path.flatten(address)
+            }
+            Self::ContainerRef(r) => {
+                let address_path = r.value_address().address_path()?;
+                address_path.flatten(address)
+            }
             Self::Container(c) => c.flatten(),
         }
     }
