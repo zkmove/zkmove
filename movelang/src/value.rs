@@ -137,7 +137,7 @@ impl<F: FieldExt> ValueAddress<F> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Container<F: FieldExt> {
     Locals(FrameIndex, Rc<RefCell<Vec<Value<F>>>>),
     Struct(ValueAddress<F>, Rc<RefCell<Vec<Value<F>>>>),
@@ -487,7 +487,7 @@ impl<F: FieldExt> IndexedRef<F> {
 }
 
 /// A wrapper to support read_ref and write_ref.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum Reference<F: FieldExt> {
     IndexedRef(IndexedRef<F>),
     ContainerRef(ContainerRef<F>),
@@ -551,7 +551,7 @@ impl<F: FieldExt> Reference<F> {
 }
 
 /// A wrapper to support borrow_element
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct StructRef<F: FieldExt>(pub ContainerRef<F>);
 
 impl<F: FieldExt> StructRef<F> {
@@ -815,19 +815,20 @@ impl<F: FieldExt> Value<F> {
             | Self::Invalid
             | Self::IndexedRef(_)
             | Self::ContainerRef(_) => match address {
-                ValueAddress::Stack(index) => {
-                    Ok(vec![(AddressPath(vec![0, index.0, 0, 0]), self.clone())])
-                }
+                ValueAddress::Stack(index) => Ok(vec![(
+                    AddressPath(vec![0, index.0, 0, 0]),
+                    self.deep_copy(),
+                )]),
                 ValueAddress::Locals(frame_index, index) => Ok(vec![(
                     AddressPath(vec![frame_index.0, index.0, 0, 0]),
-                    self.clone(),
+                    self.deep_copy(),
                 )]),
                 ValueAddress::Member {
                     index: _,
                     parent: _,
                 } => {
                     let base_path = address.address_path()?;
-                    Ok(vec![(base_path.fill_up(), self.clone())])
+                    Ok(vec![(base_path.fill_up(), self.deep_copy())])
                 }
                 _ => unreachable!(),
             },
@@ -971,7 +972,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn div_rem(&self, other: Value<F>) -> VmResult<(Value<F>, Value<F>)> {
-        let l_move: Option<MoveValue> = self.clone().into();
+        let l_move: Option<MoveValue> = self.deep_copy().into();
         let r_move: Option<MoveValue> = other.into();
         match (l_move, r_move) {
             (Some(l), Some(r)) => {
@@ -1076,7 +1077,7 @@ impl<F: FieldExt> Div for Value<F> {
     type Output = VmResult<Self>;
 
     fn div(self, b: Value<F>) -> Self::Output {
-        let l_move: Option<MoveValue> = self.clone().into();
+        let l_move: Option<MoveValue> = self.deep_copy().into();
         let r_move: Option<MoveValue> = b.into();
         match (l_move, r_move) {
             (Some(l), Some(r)) => {
@@ -1095,7 +1096,7 @@ impl<F: FieldExt> Rem for Value<F> {
     type Output = VmResult<Self>;
 
     fn rem(self, b: Value<F>) -> Self::Output {
-        let l_move: Option<MoveValue> = self.clone().into();
+        let l_move: Option<MoveValue> = self.deep_copy().into();
         let r_move: Option<MoveValue> = b.into();
         match (l_move, r_move) {
             (Some(l), Some(r)) => {
@@ -1338,7 +1339,22 @@ impl<F: FieldExt> Value<F> {
             Self::IndexedRef(r) => Self::IndexedRef(r.copy_value()),
         }
     }
+
+    pub fn deep_copy(&self) -> Self {
+        match self {
+            Self::Invalid => Self::Invalid,
+            Self::U8(v) => Self::U8(*v),
+            Self::U64(v) => Self::U64(*v),
+            Self::U128(v) => Self::U128(*v),
+            Self::Bool(v) => Self::Bool(*v),
+            Self::Address(addr) => Self::Address(*addr),
+            Self::Container(c) => Self::Container(c.deep_copy()),
+            Self::ContainerRef(r) => Self::ContainerRef(r.copy_value()),
+            Self::IndexedRef(r) => Self::IndexedRef(r.copy_value()),
+        }
+    }
 }
+
 impl<F: FieldExt> Container<F> {
     /// A "shallow" copy, only the stack data is copied.
     pub fn copy_value(&self) -> Self {
@@ -1360,11 +1376,9 @@ impl<F: FieldExt> Container<F> {
             Self::Locals(frame_index, r) => Self::Locals(frame_index.clone(), Rc::clone(r)),
         }
     }
-}
 
-impl<F: FieldExt> Clone for Container<F> {
     /// A "deep" copy, not only the stack data but also the referenced data in locals is copied.
-    fn clone(&self) -> Self {
+    fn deep_copy(&self) -> Self {
         match self {
             Self::Struct(address, r) => {
                 let struct_ = Rc::new(RefCell::new(
