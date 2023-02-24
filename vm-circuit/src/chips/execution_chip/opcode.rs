@@ -1,15 +1,14 @@
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
-    _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr, br_false::BrFalse,
-    br_true::BrTrue, branch::Branch, call::Call, castu128::CastU128, castu64::CastU64,
-    castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq, exists::Exists, freeze_ref::FreezeRef,
-    ge::Ge, gt::Gt, imm_borrow_field::ImmBorrowField, imm_borrow_global::ImmBorrowGlobal,
+    _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr,
+    borrow_global::BorrowGlobal, br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call,
+    castu128::CastU128, castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq,
+    exists::Exists, freeze_ref::FreezeRef, ge::Ge, gt::Gt, imm_borrow_field::ImmBorrowField,
     imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64,
     ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom, move_loc::MoveLoc, move_to::MoveTo, mul::Mul,
-    mut_borrow_field::MutBorrowField, mut_borrow_global::MutBorrowGlobal,
-    mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop,
-    read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
-    unpack::Unpack, write_ref::WriteRef, xor::Xor,
+    mut_borrow_field::MutBorrowField, mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not,
+    or::Or, pack::Pack, pop::Pop, read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc,
+    stop::Stop, sub::Sub, unpack::Unpack, write_ref::WriteRef, xor::Xor,
 };
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -203,8 +202,12 @@ impl Opcode {
             Opcode::MoveFrom => MoveFrom::configure(cells, constraints, lookups),
             Opcode::MoveTo => MoveTo::configure(cells, constraints, lookups),
             Opcode::Exists => Exists::configure(cells, constraints, lookups),
-            Opcode::ImmBorrowGlobal => ImmBorrowGlobal::configure(cells, constraints, lookups),
-            Opcode::MutBorrowGlobal => MutBorrowGlobal::configure(cells, constraints, lookups),
+            Opcode::ImmBorrowGlobal => {
+                BorrowGlobal::<false, _>::configure(cells, constraints, lookups)
+            }
+            Opcode::MutBorrowGlobal => {
+                BorrowGlobal::<true, _>::configure(cells, constraints, lookups)
+            }
             Opcode::Stop => Stop::configure(cells, constraints, lookups),
             Opcode::Nop => Nop::configure(cells, constraints, lookups),
         }
@@ -277,10 +280,10 @@ impl Opcode {
             Opcode::MoveTo => MoveTo::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Exists => Exists::assign(region, offset, step, rw_operations, cells)?,
             Opcode::ImmBorrowGlobal => {
-                ImmBorrowGlobal::assign(region, offset, step, rw_operations, cells)?
+                BorrowGlobal::<false, _>::assign(region, offset, step, rw_operations, cells)?
             }
             Opcode::MutBorrowGlobal => {
-                MutBorrowGlobal::assign(region, offset, step, rw_operations, cells)?
+                BorrowGlobal::<true, _>::assign(region, offset, step, rw_operations, cells)?
             }
             Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,

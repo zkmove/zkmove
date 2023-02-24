@@ -135,6 +135,13 @@ impl<F: FieldExt> ValueAddress<F> {
         let res = path.as_inner().get(1).expect("address should not be None");
         *res
     }
+    pub fn global_path(&self) -> Option<(AccountAddress<F>, StructDefinitionIndex)> {
+        match self {
+            Self::Global(addr, idx) => Some((*addr, *idx)),
+            Self::Member { parent, .. } => parent.global_path(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -204,6 +211,7 @@ impl<F: FieldExt> Container<F> {
             Self::Struct(address, _) => match address {
                 ValueAddress::Locals(_frame_index, index) => index.0,
                 ValueAddress::Member { index: _, parent } => parent.address(),
+
                 _ => unreachable!(),
             },
         }
@@ -313,7 +321,7 @@ impl<F: FieldExt> ContainerRef<F> {
                     Value::Container(container) => {
                         let r = match self {
                             Self::Local(_) => Self::Local(container.copy_by_ref()),
-                            Self::Global(_) => unimplemented!(),
+                            Self::Global(_) => Self::Global(container.copy_by_ref()),
                         };
                         Value::ContainerRef(r)
                     }
@@ -339,15 +347,14 @@ impl<F: FieldExt> ContainerRef<F> {
         matches!(self, Self::Global(_)) // container holds global value
     }
 
-    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         match self {
             Self::Local(_) => unreachable!(),
             Self::Global(c) => match c {
                 Container::Locals(_, _) => unreachable!(),
-                Container::Struct(addr, _) => match addr {
-                    ValueAddress::Global(address, sd_index) => (address.copy(), sd_index),
-                    _ => unreachable!(),
-                },
+                Container::Struct(addr, _) => addr
+                    .global_path()
+                    .expect("expect global or member of global"),
             },
         }
     }
@@ -460,7 +467,7 @@ impl<F: FieldExt> IndexedRef<F> {
         self.container_ref().is_global()
     }
 
-    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         self.container_ref.global_path()
     }
 
@@ -526,7 +533,7 @@ impl<F: FieldExt> Reference<F> {
         }
     }
 
-    pub fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    pub fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         match self {
             Self::ContainerRef(r) => r.global_path(),
             Self::IndexedRef(r) => r.global_path(),
@@ -781,13 +788,30 @@ impl<F: FieldExt> Value<F> {
             Self::Address(addr) => Some(addr.value()),
             Self::IndexedRef(r) => {
                 // todo: define a better representation for Ref
-                Some(F::from_u128(
-                    ((r.container_frame_index() << 16) + r.index()) as u128,
-                ))
+                match r.container_ref() {
+                    ContainerRef::Local(_) => Some(F::from_u128(
+                        ((r.container_frame_index() << 16) + r.index()) as u128,
+                    )),
+                    // FIXME: in fact this is buggy.
+                    // the global may just a field of the bigger global struct.
+                    ContainerRef::Global(_) => {
+                        let (addr, sd_idx) = r.global_path();
+                        Some(
+                            addr.value()
+                                + F::from_u128(((sd_idx.0 as u128) << 16) + r.index() as u128),
+                        )
+                    }
+                }
             }
-            Self::ContainerRef(r) => Some(F::from_u128(
-                ((r.container_frame_index() << 16) + r.container_index()) as u128,
-            )),
+            Self::ContainerRef(r) => match r {
+                ContainerRef::Local(_) => Some(F::from_u128(
+                    ((r.container_frame_index() << 16) + r.container_index()) as u128,
+                )),
+                ContainerRef::Global(_) => {
+                    let (addr, sd_idx) = r.global_path();
+                    Some(addr.value() + F::from_u128(sd_idx.0 as u128))
+                }
+            },
             Self::Container(_c) => unreachable!(),
         }
     }

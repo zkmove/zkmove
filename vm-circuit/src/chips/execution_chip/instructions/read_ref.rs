@@ -80,15 +80,22 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         }
 
         let is_global = cells.auxiliary_1.expression.clone();
-        let read = RWLookup::global_read(
-            cells.gc.expression.clone() + 1.expr(),
-            cells.auxiliary_2.expression.clone(), //address
-            cells.value_b.expression.clone(),
-            cells.auxiliary_4.expression.clone(), //sd_index
-            0.expr(),
-            0.expr(),
-        );
-        lookups.rw_lookups.push((read, cond.clone() * is_global));
+        for i in 0..WORD_CAPACITY {
+            let read = RWLookup::global_read(
+                cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
+                cells.auxiliary_2.expression.clone(), //address
+                cells.word_a[i].expression.clone(),
+                cells.auxiliary_4.expression.clone(), //sd_index
+                cells.word_a_addr_ext_0[i].expression.clone(),
+                cells.word_a_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                read,
+                cond.clone()
+                    * is_global.clone()
+                    * (1.expr() - cells.word_a_mask[i].expression.clone()),
+            ));
+        }
 
         for i in 0..WORD_CAPACITY {
             let write = RWLookup::stack_push(

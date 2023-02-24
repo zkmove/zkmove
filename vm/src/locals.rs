@@ -154,7 +154,11 @@ impl<F: FieldExt> Locals<F> {
         match values.get(index) {
             Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
             Some(v) => match v {
-                Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
+                Value::U8(_)
+                | Value::U64(_)
+                | Value::U128(_)
+                | Value::Bool(_)
+                | Value::Address(_) => {
                     let word =
                         v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
                     Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);

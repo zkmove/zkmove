@@ -99,18 +99,28 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ));
         }
 
-        // todo: constrain cells.word_b == cells.word_a
-
         let is_global = cells.auxiliary_1.expression.clone();
-        let write = RWLookup::global_write(
-            cells.gc.expression.clone() + 2.expr(),
-            cells.auxiliary_2.expression.clone(), //address
-            cells.value_c.expression.clone(),
-            cells.auxiliary_4.expression.clone(), //sd_index
-            0.expr(),
-            0.expr(),
-        );
-        lookups.rw_lookups.push((write, cond.clone() * is_global));
+        for i in 0..WORD_CAPACITY {
+            let read = RWLookup::global_write(
+                cells.gc.expression.clone()
+                    + 1.expr()
+                    + word_element_num.clone()
+                    + (i as u64).expr(),
+                cells.auxiliary_2.expression.clone(), //address
+                cells.word_b[i].expression.clone(),
+                cells.auxiliary_4.expression.clone(), //sd_index
+                cells.word_b_addr_ext_0[i].expression.clone(),
+                cells.word_b_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                read,
+                cond.clone()
+                    * is_global.clone()
+                    * (1.expr() - cells.word_b_mask[i].expression.clone()),
+            ));
+        }
+
+        // todo: constrain cells.word_b == cells.word_a
 
         LookupBytecode::lookup_bytecode(
             cells,
