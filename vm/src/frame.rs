@@ -12,15 +12,14 @@ use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
-    Container, ContainerRef, FrameIndex, Index, IndexedRef, IntegerType, Reference, Value,
-    ValueAddress,
+    ContainerRef, Index, IndexedRef, IntegerType, Reference, Value, ValueAddress,
 };
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
+use vm_circuit::witness::rw_operations::{RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
     pc: u16,
@@ -249,7 +248,7 @@ impl<F: FieldExt> Frame<F> {
                                 globals::emit_global_ops_for_word(
                                     word.clone(),
                                     account_addr,
-                                    *sd_index,
+                                    sd_index,
                                     RW::READ,
                                     rw_operations,
                                 );
@@ -261,77 +260,37 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::WriteRef => {
                         let mut reference = interp.stack.pop_as_reference(rw_operations)?;
                         let value = interp.stack.pop(rw_operations)?;
-                        let value_copy = value.clone();
                         reference.write_ref(value)?; // must write ref first, then record local_op
+                        let value = reference.read_ref()?; // read back
+                        let value_address = reference.value_address();
 
                         if !reference.is_global() {
-                            let container_frame_index = reference.container_frame_index();
-                            let index = reference.index();
+                            let container_frame_index = value_address.frame_index();
+                            let _index = value_address.address();
+
                             execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                             execution_step.auxiliary_2 =
                                 Some(Value::u64(container_frame_index as u64));
-
-                            let word_element_count = value_copy.word_element_count()?;
+                            let word_element_count = value.word_element_count()?;
                             execution_step.auxiliary_3 =
                                 Some(Value::u64(word_element_count as u64));
-
-                            let word = match reference.clone() {
-                                Reference::ContainerRef(_) => {
-                                    execution_step.locals_index = index;
-                                    let val = value_copy.update_address(ValueAddress::Locals(
-                                        FrameIndex(container_frame_index),
-                                        Index(index),
-                                    ));
-                                    val.flatten(ValueAddress::Locals(
-                                        FrameIndex(container_frame_index),
-                                        Index(index),
-                                    ))?
-                                }
-                                Reference::IndexedRef(r) => {
-                                    match r.container() {
-                                        Container::Locals(_, _) => {
-                                            execution_step.locals_index = index;
-                                            value_copy.flatten(ValueAddress::Locals(
-                                                FrameIndex(container_frame_index),
-                                                Index(index),
-                                            ))?
-                                        }
-                                        // if we come here, the value should be a member of a struct
-                                        // we should replace the step's locals_index with the index
-                                        // of the struct
-                                        Container::Struct(_, _) => {
-                                            execution_step.locals_index = r.container().index();
-                                            value_copy.flatten(ValueAddress::Member {
-                                                index: Index(index),
-                                                parent: Box::new(ValueAddress::Locals(
-                                                    FrameIndex(container_frame_index),
-                                                    Index(r.container().index()),
-                                                )),
-                                            })?
-                                        }
-                                    }
-                                }
-                            };
-
+                            let word = value.flatten(value_address.clone())?;
                             Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         } else {
                             execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
-                            let (addr, sd_idx) = reference.global_path();
-                            let global_value = reference.copy_global_value()?;
-                            execution_step.auxiliary_2 = Some(Value::address(addr));
-                            // todo: how to ensure auxiliary_3 is exclusive to word_element_count?
-                            // Allocate a cell 'field_count' specifically for it?
+                            let (account_addr, sd_idx) = reference.global_path();
+                            let _global_value = reference.copy_global_value()?;
+                            execution_step.auxiliary_2 = Some(Value::address(account_addr));
+                            let word = value.flatten(value_address.clone())?;
+                            execution_step.auxiliary_3 = Some(Value::u64(word.len() as u64)); // word_elem_count
                             execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
-                            let global_op = GlobalOp {
-                                address: addr,
-                                sd_index: sd_idx.0 as usize,
-                                address_ext_0: 0,
-                                address_ext_1: 0,
-                                value: global_value,
-                                rw: RW::WRITE,
-                                gc: rw_operations.len(),
-                            };
-                            rw_operations.push(RWOperation::GlobalOp(global_op));
+                            globals::emit_global_ops_for_word(
+                                word.clone(),
+                                account_addr,
+                                sd_idx,
+                                RW::WRITE,
+                                rw_operations,
+                            );
                         }
                         Ok(())
                     }
@@ -550,6 +509,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         let ty = resolver.get_struct_type(*sd_idx);
+                        let resource = resource.update_address(ValueAddress::Global(addr, *sd_idx));
                         interp.move_to(data_store, loader, addr, &ty, resource)
                     }
                     Bytecode::ImmBorrowGlobal(sd_idx) | Bytecode::MutBorrowGlobal(sd_idx) => {
@@ -567,6 +527,7 @@ impl<F: FieldExt> Frame<F> {
                             false,
                             rw_operations,
                         )?;
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         interp.stack.push(value, rw_operations)

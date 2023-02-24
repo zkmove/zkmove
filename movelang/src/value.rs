@@ -135,6 +135,13 @@ impl<F: FieldExt> ValueAddress<F> {
         let res = path.as_inner().get(1).expect("address should not be None");
         *res
     }
+    pub fn global_path(&self) -> Option<(AccountAddress<F>, StructDefinitionIndex)> {
+        match self {
+            Self::Global(addr, idx) => Some((*addr, *idx)),
+            Self::Member { parent, .. } => parent.global_path(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -340,15 +347,14 @@ impl<F: FieldExt> ContainerRef<F> {
         matches!(self, Self::Global(_)) // container holds global value
     }
 
-    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         match self {
             Self::Local(_) => unreachable!(),
             Self::Global(c) => match c {
                 Container::Locals(_, _) => unreachable!(),
-                Container::Struct(addr, _) => match addr {
-                    ValueAddress::Global(address, sd_index) => (address.copy(), sd_index),
-                    _ => unreachable!(),
-                },
+                Container::Struct(addr, _) => addr
+                    .global_path()
+                    .expect("expect global or member of global"),
             },
         }
     }
@@ -461,7 +467,7 @@ impl<F: FieldExt> IndexedRef<F> {
         self.container_ref().is_global()
     }
 
-    fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         self.container_ref.global_path()
     }
 
@@ -527,7 +533,7 @@ impl<F: FieldExt> Reference<F> {
         }
     }
 
-    pub fn global_path(&self) -> (AccountAddress<F>, &StructDefinitionIndex) {
+    pub fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
         match self {
             Self::ContainerRef(r) => r.global_path(),
             Self::IndexedRef(r) => r.global_path(),
@@ -792,7 +798,7 @@ impl<F: FieldExt> Value<F> {
                         let (addr, sd_idx) = r.global_path();
                         Some(
                             addr.value()
-                                + F::from_u128((sd_idx.0 as u128) << 16 + r.index() as u128),
+                                + F::from_u128(((sd_idx.0 as u128) << 16) + r.index() as u128),
                         )
                     }
                 }

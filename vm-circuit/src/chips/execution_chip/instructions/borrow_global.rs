@@ -113,9 +113,14 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
         debug_assert!(op.rw() == RW::READ);
         cells.value_a.assign(region, offset, op.value().value())?;
 
-        cells
-            .auxiliary_1
-            .assign(region, offset, Some(F::from_u128(op.sd_index() as u128)))?;
+        cells.auxiliary_1.assign(
+            region,
+            offset,
+            step.auxiliary_1
+                .as_ref()
+                .expect("sd_index should not be None")
+                .value(),
+        )?;
 
         let word_elem_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_a(

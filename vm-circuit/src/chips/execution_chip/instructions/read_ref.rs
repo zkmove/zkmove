@@ -82,7 +82,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         let is_global = cells.auxiliary_1.expression.clone();
         for i in 0..WORD_CAPACITY {
             let read = RWLookup::global_read(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), //address
                 cells.word_a[i].expression.clone(),
                 cells.auxiliary_4.expression.clone(), //sd_index
