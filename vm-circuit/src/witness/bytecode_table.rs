@@ -4,6 +4,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
 use std::convert::From;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct BytecodeInfo {
@@ -174,11 +175,22 @@ impl BytecodeTable {
     pub fn new(bytecodes: Vec<BytecodeInfo>) -> Self {
         Self(bytecodes)
     }
-    pub fn as_inner(&self) -> &Vec<BytecodeInfo> {
-        &self.0
-    }
+
     pub fn into_inner(self) -> Vec<BytecodeInfo> {
         self.0
+    }
+}
+
+impl Deref for BytecodeTable {
+    type Target = Vec<BytecodeInfo>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for BytecodeTable {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -244,11 +256,11 @@ impl From<Vec<CompiledModule>> for BytecodeTable {
 
 impl From<(CompiledScript, Vec<CompiledModule>)> for BytecodeTable {
     fn from((script, modules): (CompiledScript, Vec<CompiledModule>)) -> BytecodeTable {
-        let script_bytecodes = BytecodeTable::from(script);
-        let modules_bytecodes = BytecodeTable::from(modules);
+        let mut script_bytecodes = BytecodeTable::from(script);
+        let mut modules_bytecodes = BytecodeTable::from(modules);
         let mut bytecodes = Vec::new();
-        bytecodes.append(&mut script_bytecodes.into_inner());
-        bytecodes.append(&mut modules_bytecodes.into_inner());
+        bytecodes.append(&mut *script_bytecodes);
+        bytecodes.append(&mut *modules_bytecodes);
         BytecodeTable(bytecodes)
     }
 }
