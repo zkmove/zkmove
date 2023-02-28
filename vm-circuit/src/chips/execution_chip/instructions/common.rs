@@ -14,7 +14,9 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
+use movelang::value::{
+    Value, DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -703,6 +705,21 @@ impl<F: FieldExt> Word<F> {
             cells.word_address[i].assign(region, offset, Some(F::zero()))?;
         }
 
+        Ok(())
+    }
+
+    pub fn assign_ref_val(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        _step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
+        op_index: usize,
+    ) -> Result<(), Error> {
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
+            cells.ref_val[i].assign(region, offset, op.value().value())?;
+        }
         Ok(())
     }
 }

@@ -11,6 +11,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
 pub struct BorrowGlobal<const MUTABLE: bool, F: FieldExt> {
@@ -36,8 +37,10 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_elem_num_expr = cells.auxiliary_3.expression.clone();
+        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + 2.expr()
+            + 1.expr()
+            + depth_of_addr_path_expr
             + word_elem_num_expr.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -79,16 +82,20 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
             ));
         }
 
-        lookups.rw_lookups.push((
-            RWLookup::stack_push(
-                cells.gc.expression.clone() + 1.expr() + word_elem_num_expr,
-                cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
-                0.expr(),
-                cells.value_c.expression.clone(),
-            ),
-            cond.clone(),
-        ));
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            lookups.rw_lookups.push((
+                RWLookup::stack_push(
+                    cells.gc.expression.clone()
+                        + word_elem_num_expr.clone()
+                        + (i as u64 + 1).expr(),
+                    cells.stack_size.expression.clone() - 1.expr(),
+                    (i as u64).expr(),
+                    0.expr(),
+                    cells.ref_val[i].expression.clone(),
+                ),
+                cond.clone(),
+            ));
+        }
 
         // TODO: constraint reference(cells.value_c) with account_address/sd_index
         // see issue https://github.com/young-rocks/zkmove-vm/issues/78
@@ -133,13 +140,14 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
             word_elem_num,
         )?;
 
-        // reference written to stack
-        let op = rw_operations
-            .0
-            .get(step.gc + 1 + word_elem_num)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        Word::assign_ref_val(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + 1 + word_elem_num,
+        )?;
         Ok(())
     }
 }

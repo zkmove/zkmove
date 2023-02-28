@@ -14,14 +14,14 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
 use halo2_proofs::poly::Rotation;
-use movelang::value::NUM_OF_BYTES_U128;
+use movelang::value::{DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 10;
 pub const STEP_HEIGHT: usize = 26; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
-pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c
+pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c, val_0~val_3
 pub const WORD_CAPACITY: usize = 16; //max(#method_arguments, #flattened_struct_fields)
 
 #[derive(Clone, Debug)]
@@ -43,6 +43,8 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_a: Cell<F>,
     pub value_b: Cell<F>,
     pub value_c: Cell<F>,
+
+    pub ref_val: Vec<Cell<F>>,
 
     pub word_a: Vec<Cell<F>>,
     pub word_a_mask: Vec<Cell<F>>,
@@ -123,6 +125,7 @@ impl<F: FieldExt> StepChip<F> {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
+            + DEPTH_OF_ADDRESS_PATH
             + Opcode::total_numbers()
             + WORD_CAPACITY * 4
             + WORD_CAPACITY * 4
@@ -163,6 +166,8 @@ impl<F: FieldExt> StepChip<F> {
             value_a: cells.pop_front().unwrap(),
             value_b: cells.pop_front().unwrap(),
             value_c: cells.pop_front().unwrap(),
+
+            ref_val: cells.drain(0..DEPTH_OF_ADDRESS_PATH).collect(),
 
             word_a: cells.drain(0..WORD_CAPACITY).collect(),
             word_a_mask: cells.drain(0..WORD_CAPACITY).collect(),

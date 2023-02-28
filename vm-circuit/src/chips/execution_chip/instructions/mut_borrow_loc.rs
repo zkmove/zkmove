@@ -2,16 +2,16 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
-use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
 pub struct MutBorrowLoc<F: FieldExt> {
@@ -37,7 +37,7 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
         let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
             + word_element_num.clone()
-            + 1.expr();
+            + (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -67,18 +67,18 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             ));
         }
 
-        let write = RWLookup {
-            gc: cells.gc.expression.clone() + word_element_num,
-            rw_target: (RWTarget::Stack as u64).expr(),
-            rw: (RW::WRITE as u64).expr(),
-            frame_index: 0.expr(),
-            address: cells.stack_size.expression.clone(),
-            address_ext_0: 0.expr(),
-            address_ext_1: 0.expr(),
-            value: cells.value_c.expression.clone(),
-            sd_index: 0.expr(),
-        };
-        lookups.rw_lookups.push((write, cond.clone()));
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            lookups.rw_lookups.push((
+                RWLookup::stack_push(
+                    cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
+                    cells.stack_size.expression.clone(),
+                    (i as u64).expr(),
+                    0.expr(),
+                    cells.ref_val[i].expression.clone(),
+                ),
+                cond.clone(),
+            ));
+        }
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -106,12 +106,14 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             step.gc,
             word_element_num,
         )?;
-        let op = rw_operations
-            .0
-            .get(step.gc + word_element_num)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        Word::assign_ref_val(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + word_element_num,
+        )?;
         Ok(())
     }
 }

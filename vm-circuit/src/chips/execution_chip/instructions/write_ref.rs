@@ -7,11 +7,12 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::prelude::*;
+use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
 pub struct WriteRef<F: FieldExt> {
@@ -35,8 +36,9 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_element_num = cells.auxiliary_3.expression.clone();
+        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
-            + 1.expr()
+            + depth_of_addr_path_expr.clone()
             + 2.expr() * word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
@@ -51,20 +53,22 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        lookups.rw_lookups.push((
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                0.expr(),
-                cells.value_a.expression.clone(),
-            ),
-            cond.clone(),
-        ));
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            lookups.rw_lookups.push((
+                RWLookup::stack_pop(
+                    cells.gc.expression.clone() + (i as u64).expr(),
+                    cells.stack_size.expression.clone(),
+                    (i as u64).expr(),
+                    0.expr(),
+                    cells.ref_val[i].expression.clone(),
+                ),
+                cond.clone(),
+            ));
+        }
 
         for i in 0..WORD_CAPACITY {
             let write = RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
+                cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 cells.word_a_addr_ext_0[i].expression.clone(),
                 cells.word_a_addr_ext_1[i].expression.clone(),
@@ -81,7 +85,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         for i in 0..WORD_CAPACITY {
             let read = RWLookup::locals_write_ref(
                 cells.gc.expression.clone()
-                    + 1.expr()
+                    + depth_of_addr_path_expr.clone()
                     + word_element_num.clone()
                     + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(),
@@ -103,7 +107,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         for i in 0..WORD_CAPACITY {
             let read = RWLookup::global_write(
                 cells.gc.expression.clone()
-                    + 1.expr()
+                    + depth_of_addr_path_expr.clone()
                     + word_element_num.clone()
                     + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), //address
@@ -138,15 +142,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
-        // let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        // debug_assert!(op.rw() == RW::READ);
-        // cells.value_b.assign(region, offset, op.value().value())?;
-        // let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
-        // debug_assert!(op.rw() == RW::WRITE);
-        // cells.value_c.assign(region, offset, op.value().value())?;
+        Word::assign_ref_val(region, offset, step, rw_operations, cells, step.gc)?;
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_a(
@@ -155,7 +151,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             step,
             rw_operations,
             cells,
-            step.gc + 1,
+            step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num,
         )?;
         Word::assign_word_b(
@@ -164,7 +160,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             step,
             rw_operations,
             cells,
-            step.gc + 1 + word_element_num,
+            step.gc + DEPTH_OF_ADDRESS_PATH + word_element_num,
             word_element_num,
         )?;
 

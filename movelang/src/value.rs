@@ -9,9 +9,9 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
+use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
-use std::marker::PhantomData;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
@@ -104,11 +104,12 @@ impl<F: FieldExt> AddressPath<F> {
         self
     }
     pub fn flatten(self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath<F>, Value<F>)>> {
-        let values = self.into_inner().iter().map(|v| Value::u64(*v as u64)).collect();
-        let struct_ = Container::Struct(
-            address.clone(),
-            Rc::new(RefCell::new(values)),
-        );
+        let values = self
+            .into_inner()
+            .iter()
+            .map(|v| Value::u64(*v as u64))
+            .collect();
+        let struct_ = Container::Struct(address, Rc::new(RefCell::new(values)));
         struct_.flatten()
     }
 }
@@ -117,16 +118,21 @@ impl<F: FieldExt> ValueAddress<F> {
     pub fn address_path(&self) -> VmResult<AddressPath<F>> {
         match self {
             Self::Stack(index) => Ok(AddressPath(vec![0, index.0], PhantomData)),
-            Self::Locals(frame_index, index) => Ok(AddressPath(vec![frame_index.0, index.0], PhantomData)),
+            Self::Locals(frame_index, index) => {
+                Ok(AddressPath(vec![frame_index.0, index.0], PhantomData))
+            }
             Self::Member { index, parent } => {
                 let path = parent.address_path()?;
                 Ok(path.extend(index.0))
             }
-            Self::Global(addr, sd_index) => Ok(AddressPath(vec![
-                // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
-                addr.value().get_lower_128() as usize,
-                sd_index.0 as usize,
-            ], PhantomData)),
+            Self::Global(addr, sd_index) => Ok(AddressPath(
+                vec![
+                    // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
+                    addr.value().get_lower_128() as usize,
+                    sd_index.0 as usize,
+                ],
+                PhantomData,
+            )),
             _ => unimplemented!(),
         }
     }
@@ -778,7 +784,6 @@ impl<F: FieldExt> Value<F> {
             Value::Container(Container::Struct(_, struct_)) => {
                 let mut values = Vec::new();
                 // todo: is it safe? what if there is a reference to this struct?
-                // todo: refactor to move address out of container
                 for (i, val) in struct_.borrow().iter().map(|v| v.copy_value()).enumerate() {
                     values.push(val.update_address(ValueAddress::Member {
                         index: Index(i),
@@ -800,33 +805,7 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => Some(v.0),
             Self::Bool(v) => Some(v.0),
             Self::Address(addr) => Some(addr.value()),
-            Self::IndexedRef(r) => {
-                // todo: define a better representation for Ref
-                match r.container_ref() {
-                    ContainerRef::Local(_) => Some(F::from_u128(
-                        ((r.container_frame_index() << 16) + r.index()) as u128,
-                    )),
-                    // FIXME: in fact this is buggy.
-                    // the global may just a field of the bigger global struct.
-                    ContainerRef::Global(_) => {
-                        let (addr, sd_idx) = r.global_path();
-                        Some(
-                            addr.value()
-                                + F::from_u128(((sd_idx.0 as u128) << 16) + r.index() as u128),
-                        )
-                    }
-                }
-            }
-            Self::ContainerRef(r) => match r {
-                ContainerRef::Local(_) => Some(F::from_u128(
-                    ((r.container_frame_index() << 16) + r.container_index()) as u128,
-                )),
-                ContainerRef::Global(_) => {
-                    let (addr, sd_idx) = r.global_path();
-                    Some(addr.value() + F::from_u128(sd_idx.0 as u128))
-                }
-            },
-            Self::Container(_c) => unreachable!(),
+            Self::IndexedRef(_) | Self::ContainerRef(_) | Self::Container(_) => unreachable!(),
         }
     }
 
@@ -851,9 +830,10 @@ impl<F: FieldExt> Value<F> {
             | Self::Bool(_)
             | Self::Address(_)
             | Self::Invalid => match address {
-                ValueAddress::Stack(index) => {
-                    Ok(vec![(AddressPath(vec![0, index.0, 0, 0], PhantomData), self.clone())])
-                }
+                ValueAddress::Stack(index) => Ok(vec![(
+                    AddressPath(vec![0, index.0, 0, 0], PhantomData),
+                    self.clone(),
+                )]),
                 ValueAddress::Locals(frame_index, index) => Ok(vec![(
                     AddressPath(vec![frame_index.0, index.0, 0, 0], PhantomData),
                     self.clone(),
@@ -867,13 +847,13 @@ impl<F: FieldExt> Value<F> {
                 }
                 _ => unreachable!(),
             },
-            Self::IndexedRef(r)=> {
+            Self::IndexedRef(r) => {
                 let address_path = r.value_address().address_path()?;
-                address_path.flatten(address)
+                address_path.fill_up().flatten(address)
             }
             Self::ContainerRef(r) => {
                 let address_path = r.value_address().address_path()?;
-                address_path.flatten(address)
+                address_path.fill_up().flatten(address)
             }
             Self::Container(c) => c.flatten(),
         }
@@ -886,9 +866,8 @@ impl<F: FieldExt> Value<F> {
             | Self::U128(_)
             | Self::Bool(_)
             | Self::Address(_)
-            | Self::Invalid
-            | Self::IndexedRef(_)
-            | Self::ContainerRef(_) => Ok(1),
+            | Self::Invalid => Ok(1),
+            Self::IndexedRef(_) | Self::ContainerRef(_) => Ok(DEPTH_OF_ADDRESS_PATH),
             Self::Container(c) => {
                 let word = c.flatten()?;
                 Ok(word.len())
