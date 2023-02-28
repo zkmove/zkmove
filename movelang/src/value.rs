@@ -9,7 +9,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::StructDefinitionIndex;
 use std::convert::TryFrom;
-use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
 pub const NUM_OF_BYTES_U8: usize = 1;
@@ -76,16 +76,10 @@ pub enum ValueAddress<F: FieldExt> {
 pub struct AddressPath(pub Vec<usize>);
 
 impl AddressPath {
-    pub fn into_inner(self) -> Vec<usize> {
-        self.0
-    }
-    pub fn as_inner(&self) -> &Vec<usize> {
-        &self.0
-    }
     pub fn extend(self, leaf: usize) -> Self {
-        let mut path = self.into_inner();
+        let mut path = self;
         path.push(leaf);
-        AddressPath(path)
+        AddressPath(path.to_vec())
     }
     pub fn len(&self) -> usize {
         self.0.len()
@@ -100,6 +94,18 @@ impl AddressPath {
             length = self.len();
         }
         self
+    }
+}
+
+impl Deref for AddressPath {
+    type Target = Vec<usize>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for AddressPath {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -123,16 +129,13 @@ impl<F: FieldExt> ValueAddress<F> {
 
     pub fn frame_index(&self) -> usize {
         let path = self.address_path().expect("should not reach here");
-        let res = path
-            .as_inner()
-            .get(0)
-            .expect("frame index should not be None");
+        let res = path.get(0).expect("frame index should not be None");
         *res
     }
 
     pub fn address(&self) -> usize {
         let path = self.address_path().expect("should not reach here");
-        let res = path.as_inner().get(1).expect("address should not be None");
+        let res = path.get(1).expect("address should not be None");
         *res
     }
     pub fn global_path(&self) -> Option<(AccountAddress<F>, StructDefinitionIndex)> {
@@ -694,7 +697,7 @@ impl<F: FieldExt> GlobalValue<F> {
 }
 
 #[derive(Clone, Debug)]
-pub enum Value<F: FieldExt> {
+pub enum Value<F: FieldExt + Clone> {
     Invalid,
     U8(U8<F>),
     U64(U64<F>),

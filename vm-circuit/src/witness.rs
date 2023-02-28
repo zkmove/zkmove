@@ -185,7 +185,7 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         });
         writeln!(f)?;
         writeln!(f, "Bytecode table:")?;
-        self.bytecode_table.as_inner().iter().for_each(|bytecode| {
+        self.bytecode_table.iter().for_each(|bytecode| {
             writeln!(f, "{:?}", bytecode).unwrap();
         });
         writeln!(f)?;

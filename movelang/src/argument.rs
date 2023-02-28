@@ -4,6 +4,7 @@ use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::parser::parse_transaction_arguments;
+use std::ops::Deref;
 use std::str::FromStr;
 
 use crate::account_address::AccountAddress;
@@ -18,11 +19,15 @@ impl ScriptArguments {
     pub fn new(args: Vec<ScriptArgument>) -> Self {
         Self(args)
     }
-    pub fn as_inner(&self) -> &Vec<ScriptArgument> {
-        &self.0
-    }
     pub fn into_inner(self) -> Vec<ScriptArgument> {
         self.0
+    }
+}
+impl Deref for ScriptArguments {
+    type Target = Vec<ScriptArgument>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
