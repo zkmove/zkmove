@@ -18,8 +18,8 @@ use movelang::value::{DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STEP_CHIP_WIDTH: usize = 10;
-pub const STEP_HEIGHT: usize = 26; //todo: calculate step height automatically
+pub const STEP_CHIP_WIDTH: usize = 16;
+pub const STEP_HEIGHT: usize = 17; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c, val_0~val_3
 pub const WORD_CAPACITY: usize = 16; //max(#method_arguments, #flattened_struct_fields)
