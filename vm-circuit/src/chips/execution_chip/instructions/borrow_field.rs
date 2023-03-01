@@ -15,19 +15,22 @@ use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
-pub struct MutBorrowField<F: FieldExt> {
+pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
+impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::MutBorrowField.index()]
-            .expression
-            .clone();
+        let opcode = if MUTABLE {
+            Opcode::MutBorrowField
+        } else {
+            Opcode::ImmBorrowField
+        };
+        let cond = cells.conditions[opcode.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -50,22 +53,24 @@ impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
+        for (i, item) in cells
+            .word_b
+            .clone()
+            .iter()
+            .enumerate()
+            .take(DEPTH_OF_ADDRESS_PATH)
+        {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     (i as u64).expr(),
                     0.expr(),
-                    cells.ref_val[i].expression.clone(),
+                    item.expression.clone(),
                 ),
-                cond.clone(),
+                cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
-        }
 
-        // todo: constrain that the pushed value is what we read from the struct field
-
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
@@ -74,15 +79,21 @@ impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
                     cells.stack_size.expression.clone() - 1.expr(),
                     cells.word_b_addr_ext_0[i].expression.clone(),
                     cells.word_b_addr_ext_1[i].expression.clone(),
-                    cells.word_b[i].expression.clone(),
+                    item.expression.clone(),
                 ),
                 cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
         }
 
+        // field_offset is pushed into the last element of word
+        let field_offset = cells.auxiliary_2.expression.clone();
+        let last_element_of_word = cells.auxiliary_4.expression.clone();
+        let constraint = cond.clone() * (field_offset - last_element_of_word);
+        constraints.push(("borrow_field_offset", constraint));
+
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::MutBorrowField,
+            opcode,
             cells.auxiliary_1.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,
@@ -98,6 +109,7 @@ impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
     ) -> Result<(), Error> {
         Word::assign_ref_val(region, offset, step, rw_operations, cells, step.gc)?;
 
+        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_b(
             region,
             offset,
@@ -105,8 +117,16 @@ impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
             rw_operations,
             cells,
             step.gc + DEPTH_OF_ADDRESS_PATH,
-            DEPTH_OF_ADDRESS_PATH,
+            word_element_num,
         )?;
+        // the last element of word
+        let last_element_word = rw_operations
+            .0
+            .get(step.gc + DEPTH_OF_ADDRESS_PATH + word_element_num)
+            .ok_or(Error::Synthesis)?;
+        cells
+            .auxiliary_4
+            .assign(region, offset, last_element_word.value().value())?;
 
         // assign the fh_idx
         let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
@@ -116,6 +136,15 @@ impl<F: FieldExt> Instructions<F> for MutBorrowField<F> {
         cells
             .auxiliary_1
             .assign(region, offset, aux_value.value())?;
+
+        // field_offset
+        let field_offset = step.auxiliary_2.as_ref().ok_or_else(|| {
+            error!("auxiliary_2 is None");
+            Error::Synthesis
+        })?;
+        cells
+            .auxiliary_2
+            .assign(region, offset, field_offset.value())?;
 
         Ok(())
     }
