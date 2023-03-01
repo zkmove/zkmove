@@ -30,6 +30,9 @@ module Wallet {
     public fun value(wallet: &Wallet): u64 {
         wallet.token.value
     }
+    public fun value_1(wallet: &Wallet): u64 {
+        wallet.token_2.value_1
+    }
 
     public fun destroy(wallet: Wallet) {
         let Wallet { token: token, token_2: token_2 } = wallet;
