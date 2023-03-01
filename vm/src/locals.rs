@@ -17,7 +17,7 @@ impl<F: FieldExt> Locals<F> {
     }
 
     pub fn emit_locals_ops_for_word(
-        word: Vec<(AddressPath, Value<F>)>,
+        word: Vec<(AddressPath<F>, Value<F>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {

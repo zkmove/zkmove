@@ -11,6 +11,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
 pub struct MoveTo<F: FieldExt> {
@@ -32,9 +33,10 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
         let frame_index_expr =
             cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
+        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
             + 2.expr() * word_elem_num
-            + 1.expr();
+            + depth_of_addr_path_expr.clone();
         let module_index =
             cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
         let func_index =
@@ -60,6 +62,7 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
                 cells.word_a_addr_ext_1[i].expression.clone(),
                 cells.word_a[i].expression.clone(),
                 word_elem_num.clone(),
+                depth_of_addr_path_expr.clone(),
             );
             lookups.rw_lookups.push((
                 read_stack,
@@ -71,16 +74,19 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             ));
         }
 
-        lookups.rw_lookups.push((
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + word_elem_num,
-                cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
-                0.expr(),
-                cells.value_b.expression.clone(),
-            ),
-            cond.clone(),
-        ));
+        // lookup the signer reference is popped
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            lookups.rw_lookups.push((
+                RWLookup::stack_pop(
+                    cells.gc.expression.clone() + word_elem_num.clone() + (i as u64).expr(),
+                    cells.stack_size.expression.clone() - 1.expr(),
+                    (i as u64).expr(),
+                    0.expr(),
+                    cells.ref_val[i].expression.clone(),
+                ),
+                cond.clone(),
+            ));
+        }
 
         // todo: constrain the relationship between value_b (signer reference) and value_c (address)
 
@@ -112,18 +118,20 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             word_element_num,
         )?;
 
-        // value_b is the signer reference
-        let op = rw_operations
-            .0
-            .get(step.gc + word_element_num)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        cells.value_b.assign(region, offset, op.value().value())?;
+        // assign the signer reference
+        Word::assign_ref_val(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc + word_element_num,
+        )?;
 
         // value c is the global address
         let op = rw_operations
             .0
-            .get(step.gc + word_element_num + 1)
+            .get(step.gc + word_element_num + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         cells

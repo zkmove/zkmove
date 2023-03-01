@@ -384,6 +384,7 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_1: Expression<F>,
         value: Expression<F>,
         word_elem_num: Expression<F>,
+        depth_of_addr_path: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -398,7 +399,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + 1.expr() + word_elem_num, // +1 because, in the middle, a signer reference is popped.
+                gc: gc + depth_of_addr_path + word_elem_num, // + depth_of_addr_path, because, in the middle, a signer reference is popped.
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
