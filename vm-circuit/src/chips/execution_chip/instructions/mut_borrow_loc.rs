@@ -113,6 +113,7 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             rw_operations,
             cells,
             step.gc + word_element_num,
+            DEPTH_OF_ADDRESS_PATH,
         )?;
         Ok(())
     }

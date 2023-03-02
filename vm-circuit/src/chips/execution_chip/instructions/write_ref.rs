@@ -142,7 +142,15 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        Word::assign_ref_val(region, offset, step, rw_operations, cells, step.gc)?;
+        Word::assign_ref_val(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc,
+            DEPTH_OF_ADDRESS_PATH,
+        )?;
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_a(

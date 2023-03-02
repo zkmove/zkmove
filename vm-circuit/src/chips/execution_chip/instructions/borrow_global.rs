@@ -147,6 +147,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
             rw_operations,
             cells,
             step.gc + 1 + word_elem_num,
+            DEPTH_OF_ADDRESS_PATH,
         )?;
         Ok(())
     }

@@ -68,7 +68,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - cells.ref_val_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
@@ -87,12 +87,13 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
 
         // field_offset is pushed into the last element of word
         let field_offset = cells.auxiliary_2.expression.clone();
-        let last_element_of_word = cells.auxiliary_4.expression.clone();
-        let constraint = cond.clone() * (field_offset - last_element_of_word);
-        constraints.push(("borrow_field_offset", constraint));
-
-        // Todo. field_offset need to be recorded at fixed columns to prevent manipulation.
-        // for example, it's in bytecod table.
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            let constraint = cond.clone()
+                * cells.ref_val_mask[i].expression.clone()
+                * (1.expr() - cells.word_b_mask[i].expression.clone())
+                * (field_offset.clone() - cells.word_b[i].expression.clone());
+            constraints.push(("borrow_field_offset_eq", constraint));
+        }
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -110,9 +111,17 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        Word::assign_ref_val(region, offset, step, rw_operations, cells, step.gc)?;
-
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        Word::assign_ref_val(
+            region,
+            offset,
+            step,
+            rw_operations,
+            cells,
+            step.gc,
+            word_element_num,
+        )?;
+
         Word::assign_word_b(
             region,
             offset,
@@ -120,16 +129,8 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
             rw_operations,
             cells,
             step.gc + DEPTH_OF_ADDRESS_PATH,
-            word_element_num,
+            word_element_num + 1, // the last element is field_offset
         )?;
-        // the last element of word
-        let last_element_word = rw_operations
-            .0
-            .get(step.gc + DEPTH_OF_ADDRESS_PATH + word_element_num)
-            .ok_or(Error::Synthesis)?;
-        cells
-            .auxiliary_4
-            .assign(region, offset, last_element_word.value().value())?;
 
         // assign the fh_idx
         let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
