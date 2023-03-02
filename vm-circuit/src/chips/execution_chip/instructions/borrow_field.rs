@@ -91,6 +91,9 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         let constraint = cond.clone() * (field_offset - last_element_of_word);
         constraints.push(("borrow_field_offset", constraint));
 
+        // Todo. field_offset need to be recorded at fixed columns to prevent manipulation.
+        // for example, it's in bytecod table.
+
         LookupBytecode::lookup_bytecode(
             cells,
             opcode,
