@@ -45,6 +45,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub value_c: Cell<F>,
 
     pub ref_val: Vec<Cell<F>>,
+    pub ref_val_mask: Vec<Cell<F>>,
 
     pub word_a: Vec<Cell<F>>,
     pub word_a_mask: Vec<Cell<F>>,
@@ -125,7 +126,7 @@ impl<F: FieldExt> StepChip<F> {
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
-            + DEPTH_OF_ADDRESS_PATH
+            + DEPTH_OF_ADDRESS_PATH * 2
             + Opcode::total_numbers()
             + WORD_CAPACITY * 4
             + WORD_CAPACITY * 4
@@ -168,6 +169,7 @@ impl<F: FieldExt> StepChip<F> {
             value_c: cells.pop_front().unwrap(),
 
             ref_val: cells.drain(0..DEPTH_OF_ADDRESS_PATH).collect(),
+            ref_val_mask: cells.drain(0..DEPTH_OF_ADDRESS_PATH).collect(),
 
             word_a: cells.drain(0..WORD_CAPACITY).collect(),
             word_a_mask: cells.drain(0..WORD_CAPACITY).collect(),

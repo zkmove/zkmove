@@ -302,8 +302,11 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
                         execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
                         let reference = interp.stack.pop_as_struct_ref(rw_operations)?;
+                        let word_element_count = reference.value_address().address_path()?.len();
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         let field_offset = resolver.field_offset(*fh_idx);
                         let field_ref = reference.borrow_element(field_offset)?;
+                        execution_step.auxiliary_2 = Some(Value::u64(field_offset as u64));
                         interp.stack.push(field_ref, rw_operations)
                     }
                     Bytecode::LdTrue => {

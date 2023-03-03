@@ -126,6 +126,7 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             rw_operations,
             cells,
             step.gc + word_element_num,
+            DEPTH_OF_ADDRESS_PATH,
         )?;
 
         // value c is the global address

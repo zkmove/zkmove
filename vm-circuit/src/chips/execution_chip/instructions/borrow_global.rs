@@ -25,9 +25,9 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let opcode = if MUTABLE {
-            Opcode::ImmBorrowGlobal
-        } else {
             Opcode::MutBorrowGlobal
+        } else {
+            Opcode::ImmBorrowGlobal
         };
         let cond = cells.conditions[opcode.index()].expression.clone();
 
@@ -147,6 +147,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
             rw_operations,
             cells,
             step.gc + 1 + word_elem_num,
+            DEPTH_OF_ADDRESS_PATH,
         )?;
         Ok(())
     }

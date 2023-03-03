@@ -585,6 +585,10 @@ impl<F: FieldExt> StructRef<F> {
     pub fn borrow_element(&self, field_idx: usize) -> VmResult<Value<F>> {
         self.0.borrow_element(field_idx)
     }
+
+    pub fn value_address(&self) -> ValueAddress<F> {
+        self.0.value_address()
+    }
 }
 
 #[derive(Debug)]

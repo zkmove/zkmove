@@ -715,11 +715,19 @@ impl<F: FieldExt> Word<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
         op_index: usize,
+        word_element_num: usize,
     ) -> Result<(), Error> {
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
+        // fixme: word_element_num may be large than DEPTH_OF_ADDRESS_PATH
+        for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.ref_val[i].assign(region, offset, op.value().value())?;
+            cells.ref_val_mask[i].assign(region, offset, Some(F::zero()))?;
         }
+
+        for i in word_element_num..DEPTH_OF_ADDRESS_PATH {
+            cells.ref_val_mask[i].assign(region, offset, Some(F::one()))?;
+        }
+
         Ok(())
     }
 }
