@@ -741,7 +741,7 @@ impl<F: FieldExt> Word<F> {
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
 
-        // todo, it's assumed that address path length is WORD_CAPACITY
+        // FIXME, it's assumed that address path length is WORD_CAPACITY
         if op.is_locals_op() {
             cells.bytes[0].assign(region, offset, Some(F::from(op.frame_index() as u64)))?;
             cells.bytes[1].assign(region, offset, Some(F::from(op.address() as u64)))?;

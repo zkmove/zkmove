@@ -55,7 +55,7 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         ]);
 
         // cells.ref_val is equel to cells.bytes
-        // for cells.bytes is address of target
+        // for cells.bytes is stored as address of target
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
                 * cells.ref_val_mask[i].expression.clone()
