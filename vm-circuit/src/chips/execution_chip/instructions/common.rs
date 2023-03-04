@@ -730,4 +730,28 @@ impl<F: FieldExt> Word<F> {
 
         Ok(())
     }
+
+    pub fn assign_bytes_with_address_path(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        _step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
+        op_index: usize,
+    ) -> Result<(), Error> {
+        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+
+        // todo, it's assumed that address path length is WORD_CAPACITY
+        if op.is_locals_op() {
+            cells.bytes[0].assign(region, offset, Some(F::from(op.frame_index() as u64)))?;
+            cells.bytes[1].assign(region, offset, Some(F::from(op.address() as u64)))?;
+        } else if op.is_global_op() {
+            cells.bytes[0].assign(region, offset, Some(op.account_address().value()))?;
+            cells.bytes[1].assign(region, offset, Some(F::from(op.sd_index() as u64)))?;
+        }
+        cells.bytes[2].assign(region, offset, Some(F::from(op.address_ext_0() as u64)))?;
+        cells.bytes[3].assign(region, offset, Some(F::from(op.address_ext_1() as u64)))?;
+
+        Ok(())
+    }
 }
