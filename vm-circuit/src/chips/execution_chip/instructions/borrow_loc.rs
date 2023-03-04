@@ -14,19 +14,23 @@ use halo2_proofs::plonk::{Error, Expression};
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
-pub struct ImmBorrowLoc<F: FieldExt> {
+pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for ImmBorrowLoc<F> {
+impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowLoc<MUTABLE, F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::ImmBorrowLoc.index()]
-            .expression
-            .clone();
+        let opcode = if MUTABLE {
+            Opcode::MutBorrowLoc
+        } else {
+            Opcode::ImmBorrowLoc
+        };
+
+        let cond = cells.conditions[opcode.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -50,6 +54,15 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowLoc<F> {
             ("module index", cond.clone() * module_index),
             ("function index", cond.clone() * func_index),
         ]);
+
+        // cells.ref_val is equel to cells.bytes
+        // for cells.bytes is stored as address of target
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            let constraint = cond.clone()
+                * cells.ref_val_mask[i].expression.clone()
+                * (cells.ref_val[i].expression.clone() - cells.bytes[i].expression.clone());
+            constraints.push(("borrow_locals_ref_eq", constraint));
+        }
 
         for i in 0..WORD_CAPACITY {
             let read = RWLookup::locals_ref(
@@ -82,7 +95,7 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowLoc<F> {
 
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::ImmBorrowLoc,
+            opcode,
             cells.locals_index.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,
@@ -96,6 +109,9 @@ impl<F: FieldExt> Instructions<F> for ImmBorrowLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
+        // store base address of *refernce at cells.bytes
+        Word::assign_bytes_with_address_path(region, offset, step, rw_operations, cells, step.gc)?;
+
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_a(
             region,

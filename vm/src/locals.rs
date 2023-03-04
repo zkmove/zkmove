@@ -144,7 +144,7 @@ impl<F: FieldExt> Locals<F> {
         }
     }
 
-    pub fn mut_borrow(
+    pub fn borrow_locals(
         &self,
         index: usize,
         frame_index: usize,
@@ -159,40 +159,6 @@ impl<F: FieldExt> Locals<F> {
                 | Value::U128(_)
                 | Value::Bool(_)
                 | Value::Address(_) => {
-                    let word =
-                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                    Ok(Value::IndexedRef(IndexedRef {
-                        index,
-                        container_ref: ContainerRef::Local(Container::Locals(
-                            FrameIndex(frame_index),
-                            Rc::clone(&self.0),
-                        )),
-                    }))
-                }
-                Value::Container(c) => {
-                    let word =
-                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
-                }
-                _ => unimplemented!(),
-            },
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-        }
-    }
-
-    pub fn imm_borrow(
-        &self,
-        index: usize,
-        frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Value<F>> {
-        let values = self.0.borrow();
-        match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-            Some(v) => match v {
-                Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) => {
                     let word =
                         v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
                     Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
