@@ -69,14 +69,6 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
                 cond.clone(),
             ));
         }
-        // cells.ref_val is equel to cells.bytes
-        // for cells.bytes is stored as address of target
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
-            let constraint = cond.clone()
-                * cells.ref_val_mask[i].expression.clone()
-                * (cells.ref_val[i].expression.clone() - cells.bytes[i].expression.clone());
-            constraints.push(("write_ref_eq", constraint));
-        }
 
         let is_global = cells.auxiliary_1.expression.clone();
         for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
@@ -131,6 +123,28 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ));
         }
 
+        // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
+        let mut constraint = cond.clone()
+            * (cells.ref_val[0].expression.clone() - cells.auxiliary_2.expression.clone());
+        constraints.push(("write_ref_eq_0", constraint));
+        // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
+        constraint = cond.clone()
+            * (1.expr() - is_global.clone())
+            * (cells.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+        constraints.push(("write_ref_eq_1", constraint));
+        constraint = cond.clone()
+            * is_global
+            * (cells.ref_val[1].expression.clone() - cells.auxiliary_4.expression.clone());
+        constraints.push(("write_ref_eq_1", constraint));
+        // cells.ref_val[2] equel to addr_ext_0
+        constraint = cond.clone()
+            * (cells.ref_val[2].expression.clone() - cells.word_b_addr_ext_0[0].expression.clone());
+        constraints.push(("write_ref_eq_2", constraint));
+        // cells.ref_val[3] equel to addr_ext_1
+        constraint = cond.clone()
+            * (cells.ref_val[3].expression.clone() - cells.word_b_addr_ext_1[0].expression.clone());
+        constraints.push(("write_ref_eq_3", constraint));
+
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::WriteRef,
@@ -166,16 +180,6 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             cells,
             step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num,
-        )?;
-
-        // store base address of *refernce at cells.bytes
-        Word::assign_bytes_with_address_path(
-            region,
-            offset,
-            step,
-            rw_operations,
-            cells,
-            step.gc + DEPTH_OF_ADDRESS_PATH + word_element_num,
         )?;
 
         Word::assign_word_b(

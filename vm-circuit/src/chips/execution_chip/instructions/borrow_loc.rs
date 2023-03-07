@@ -55,15 +55,6 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowLoc<MUTABLE, F>
             ("function index", cond.clone() * func_index),
         ]);
 
-        // cells.ref_val is equel to cells.bytes
-        // for cells.bytes is stored as address of target
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
-            let constraint = cond.clone()
-                * cells.ref_val_mask[i].expression.clone()
-                * (cells.ref_val[i].expression.clone() - cells.bytes[i].expression.clone());
-            constraints.push(("borrow_locals_ref_eq", constraint));
-        }
-
         for i in 0..WORD_CAPACITY {
             let read = RWLookup::locals_ref(
                 cells.gc.expression.clone() + (i as u64).expr(),
@@ -93,6 +84,14 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowLoc<MUTABLE, F>
             ));
         }
 
+        // ref_val[0] == frame_index && ref_val[1] == locals_index;
+        let mut constraint = cond.clone()
+            * (cells.ref_val[0].expression.clone() - cells.frame_index.expression.clone());
+        constraints.push(("borrow_locals_ref_eq", constraint));
+        constraint = cond.clone()
+            * (cells.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+        constraints.push(("borrow_locals_ref_eq", constraint));
+
         LookupBytecode::lookup_bytecode(
             cells,
             opcode,
@@ -109,9 +108,6 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowLoc<MUTABLE, F>
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // store base address of *refernce at cells.bytes
-        Word::assign_bytes_with_address_path(region, offset, step, rw_operations, cells, step.gc)?;
-
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         Word::assign_word_a(
             region,

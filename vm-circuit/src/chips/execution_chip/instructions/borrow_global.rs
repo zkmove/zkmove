@@ -97,8 +97,12 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
             ));
         }
 
-        // TODO: constraint reference(cells.value_c) with account_address/sd_index
-        // see issue https://github.com/young-rocks/zkmove-vm/issues/78
+        // ref_val[0] == account_address && ref_val[1] == sd_index;
+        let mut constraint =
+            cond.clone() * (cells.ref_val[0].expression.clone() - account_address_expr);
+        constraints.push(("borrow_global_ref_eq", constraint));
+        constraint = cond.clone() * (cells.ref_val[1].expression.clone() - sd_index_expr.clone());
+        constraints.push(("borrow_global_ref_eq", constraint));
 
         LookupBytecode::lookup_bytecode(
             cells,
