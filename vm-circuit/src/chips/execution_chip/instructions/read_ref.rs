@@ -117,7 +117,9 @@ impl<F: FieldExt> Instructions<F> for ReadRef<F> {
         }
 
         // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
+        // Todo. account address is changed into u128 at function `address_path` for global
         let mut constraint = cond.clone()
+            * (1.expr() - is_global.clone())
             * (cells.ref_val[0].expression.clone() - cells.auxiliary_2.expression.clone());
         constraints.push(("read_ref_eq_0", constraint));
         // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
