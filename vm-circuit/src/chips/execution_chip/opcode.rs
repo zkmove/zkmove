@@ -1,12 +1,12 @@
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
     _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr,
-    borrow_field::BorrowField, borrow_global::BorrowGlobal, br_false::BrFalse, br_true::BrTrue,
-    branch::Branch, call::Call, castu128::CastU128, castu64::CastU64, castu8::CastU8,
-    copy_loc::CopyLoc, div::Div, eq::Eq, exists::Exists, freeze_ref::FreezeRef, ge::Ge, gt::Gt,
-    imm_borrow_loc::ImmBorrowLoc, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128, ldu64::LdU64,
-    ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom, move_loc::MoveLoc, move_to::MoveTo, mul::Mul,
-    mut_borrow_loc::MutBorrowLoc, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop,
+    borrow_field::BorrowField, borrow_global::BorrowGlobal, borrow_loc::BorrowLoc,
+    br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call, castu128::CastU128,
+    castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq, exists::Exists,
+    freeze_ref::FreezeRef, ge::Ge, gt::Gt, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128,
+    ldu64::LdU64, ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom, move_loc::MoveLoc,
+    move_to::MoveTo, mul::Mul, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop,
     read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
     unpack::Unpack, write_ref::WriteRef, xor::Xor,
 };
@@ -192,8 +192,8 @@ impl Opcode {
             Opcode::Gt => Gt::configure(cells, constraints, lookups),
             Opcode::Pack => Pack::configure(cells, constraints, lookups),
             Opcode::Unpack => Unpack::configure(cells, constraints, lookups),
-            Opcode::MutBorrowLoc => MutBorrowLoc::configure(cells, constraints, lookups),
-            Opcode::ImmBorrowLoc => ImmBorrowLoc::configure(cells, constraints, lookups),
+            Opcode::ImmBorrowLoc => BorrowLoc::<false, _>::configure(cells, constraints, lookups),
+            Opcode::MutBorrowLoc => BorrowLoc::<true, _>::configure(cells, constraints, lookups),
             Opcode::ReadRef => ReadRef::configure(cells, constraints, lookups),
             Opcode::WriteRef => WriteRef::configure(cells, constraints, lookups),
             Opcode::FreezeRef => FreezeRef::configure(cells, constraints, lookups),
@@ -265,11 +265,11 @@ impl Opcode {
             Opcode::Gt => Gt::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Pack => Pack::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Unpack => Unpack::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::MutBorrowLoc => {
-                MutBorrowLoc::assign(region, offset, step, rw_operations, cells)?
-            }
             Opcode::ImmBorrowLoc => {
-                ImmBorrowLoc::assign(region, offset, step, rw_operations, cells)?
+                BorrowLoc::<false, _>::assign(region, offset, step, rw_operations, cells)?
+            }
+            Opcode::MutBorrowLoc => {
+                BorrowLoc::<true, _>::assign(region, offset, step, rw_operations, cells)?
             }
             Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
             Opcode::WriteRef => WriteRef::assign(region, offset, step, rw_operations, cells)?,

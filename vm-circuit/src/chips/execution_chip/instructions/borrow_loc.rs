@@ -14,19 +14,23 @@ use halo2_proofs::plonk::{Error, Expression};
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 use std::marker::PhantomData;
 
-pub struct MutBorrowLoc<F: FieldExt> {
+pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
+impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowLoc<MUTABLE, F> {
     fn configure(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::MutBorrowLoc.index()]
-            .expression
-            .clone();
+        let opcode = if MUTABLE {
+            Opcode::MutBorrowLoc
+        } else {
+            Opcode::ImmBorrowLoc
+        };
+
+        let cond = cells.conditions[opcode.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -80,9 +84,17 @@ impl<F: FieldExt> Instructions<F> for MutBorrowLoc<F> {
             ));
         }
 
+        // ref_val[0] == frame_index && ref_val[1] == locals_index;
+        let mut constraint = cond.clone()
+            * (cells.ref_val[0].expression.clone() - cells.frame_index.expression.clone());
+        constraints.push(("borrow_locals_ref_eq", constraint));
+        constraint = cond.clone()
+            * (cells.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+        constraints.push(("borrow_locals_ref_eq", constraint));
+
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::MutBorrowLoc,
+            opcode,
             cells.locals_index.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,

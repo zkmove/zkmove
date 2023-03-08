@@ -25,6 +25,10 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
         constraints: &mut Vec<(&str, Expression<F>)>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
+        // for instruction readref, there are 3 pipeline stages here:
+        // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
+        // 2. read value into stack. [gc+DEPTH_OF_ADDRESS_PATH, word_element_num]
+        // 3. write value to lobals or global. [gc+DEPTH_OF_ADDRESS_PATH+word_element_num, word_element_num]
         let cond = cells.conditions[Opcode::WriteRef.index()]
             .expression
             .clone();
@@ -66,24 +70,23 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             ));
         }
 
-        for i in 0..WORD_CAPACITY {
-            let write = RWLookup::stack_pop(
+        let is_global = cells.auxiliary_1.expression.clone();
+        for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
+            // stack read
+            let read = RWLookup::stack_pop(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 cells.word_a_addr_ext_0[i].expression.clone(),
                 cells.word_a_addr_ext_1[i].expression.clone(),
-                cells.word_a[i].expression.clone(),
+                item.expression.clone(),
             );
-
             lookups.rw_lookups.push((
-                write,
+                read,
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
-        }
-        let is_locals = 1.expr() - cells.auxiliary_1.expression.clone();
 
-        for i in 0..WORD_CAPACITY {
-            let read = RWLookup::locals_write_ref(
+            // locals write or global write
+            let write = RWLookup::locals_write_ref(
                 cells.gc.expression.clone()
                     + depth_of_addr_path_expr.clone()
                     + word_element_num.clone()
@@ -92,20 +95,16 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
                 cells.locals_index.expression.clone(),
                 cells.word_b_addr_ext_0[i].expression.clone(),
                 cells.word_b_addr_ext_1[i].expression.clone(),
-                cells.word_b[i].expression.clone(),
+                item.expression.clone(),
             );
-
             lookups.rw_lookups.push((
-                read,
+                write,
                 cond.clone()
-                    * is_locals.clone()
+                    * (1.expr() - is_global.clone())
                     * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
-        }
 
-        let is_global = cells.auxiliary_1.expression.clone();
-        for i in 0..WORD_CAPACITY {
-            let read = RWLookup::global_write(
+            let write = RWLookup::global_write(
                 cells.gc.expression.clone()
                     + depth_of_addr_path_expr.clone()
                     + word_element_num.clone()
@@ -117,14 +116,36 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
                 cells.word_b_addr_ext_1[i].expression.clone(),
             );
             lookups.rw_lookups.push((
-                read,
+                write,
                 cond.clone()
                     * is_global.clone()
                     * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
         }
 
-        // todo: constrain cells.word_b == cells.word_a
+        // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
+        // Todo. account address is changed into u128 at function `address_path` for global
+        let mut constraint = cond.clone()
+            * (1.expr() - is_global.clone())
+            * (cells.ref_val[0].expression.clone() - cells.auxiliary_2.expression.clone());
+        constraints.push(("write_ref_eq_0", constraint));
+        // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
+        constraint = cond.clone()
+            * (1.expr() - is_global.clone())
+            * (cells.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+        constraints.push(("write_ref_eq_1", constraint));
+        constraint = cond.clone()
+            * is_global
+            * (cells.ref_val[1].expression.clone() - cells.auxiliary_4.expression.clone());
+        constraints.push(("write_ref_eq_1", constraint));
+        // cells.ref_val[2] equel to addr_ext_0
+        constraint = cond.clone()
+            * (cells.ref_val[2].expression.clone() - cells.word_b_addr_ext_0[0].expression.clone());
+        constraints.push(("write_ref_eq_2", constraint));
+        // cells.ref_val[3] equel to addr_ext_1
+        constraint = cond.clone()
+            * (cells.ref_val[3].expression.clone() - cells.word_b_addr_ext_1[0].expression.clone());
+        constraints.push(("write_ref_eq_3", constraint));
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -162,6 +183,7 @@ impl<F: FieldExt> Instructions<F> for WriteRef<F> {
             step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num,
         )?;
+
         Word::assign_word_b(
             region,
             offset,

@@ -190,20 +190,11 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
-                    Bytecode::MutBorrowLoc(v) => {
+                    Bytecode::ImmBorrowLoc(v) | Bytecode::MutBorrowLoc(v) => {
                         execution_step.locals_index = *v as usize;
                         let value =
                             self.locals
-                                .mut_borrow(*v as usize, frame_index, rw_operations)?;
-                        let word_element_count = self.locals.word_element_count(*v as usize)?;
-                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::ImmBorrowLoc(v) => {
-                        execution_step.locals_index = *v as usize;
-                        let value =
-                            self.locals
-                                .imm_borrow(*v as usize, frame_index, rw_operations)?;
+                                .borrow_locals(*v as usize, frame_index, rw_operations)?;
                         let word_element_count = self.locals.word_element_count(*v as usize)?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
