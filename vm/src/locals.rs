@@ -3,21 +3,27 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
-    AddressPath, Container, ContainerRef, FrameIndex, Index, IndexedRef, Value, ValueAddress,
+    AddressPath, FrameIndex, LocalLocation, LocalRef, SimpleValue, Value, ValueLocation,
 };
+use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
-pub struct Locals<F: FieldExt>(Rc<RefCell<Vec<Value<F>>>>);
+pub struct Locals<F: FieldExt>(Vec<Rc<RefCell<Value<F>>>>);
 
 impl<F: FieldExt> Locals<F> {
     pub fn new(size: usize) -> Self {
-        Self(Rc::new(RefCell::new(vec![Value::Invalid; size])))
+        Self(
+            vec![Value::Invalid; size]
+                .into_iter()
+                .map(|v| Rc::new(RefCell::new(v)))
+                .collect(),
+        )
     }
 
     pub fn emit_locals_ops_for_word(
-        word: Vec<(AddressPath<F>, Value<F>)>,
+        word: Vec<(AddressPath<F>, SimpleValue<F>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
@@ -36,7 +42,7 @@ impl<F: FieldExt> Locals<F> {
                     .0
                     .get(3)
                     .expect("address_ext_1 should not be None"),
-                value: val,
+                value: Some(val),
                 rw: rw.clone(),
                 gc: rw_operations.len(),
             };
@@ -49,14 +55,20 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
-        let values = self.0.borrow();
-        match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::CopyLocalError)),
+        match self.0.get(index) {
             Some(v) => {
-                let word =
-                    v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                Ok(v.copy_value())
+                if matches!(&*v.borrow(), Value::Invalid) {
+                    Err(RuntimeError::new(StatusCode::CopyLocalError))
+                } else {
+                    let copied_value = v.borrow().copy_value();
+                    let word = copied_value.flatten(ValueLocation::Local(LocalLocation {
+                        frame_index: FrameIndex(frame_index),
+                        index: index as u64,
+                    }));
+
+                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                    Ok(copied_value)
+                }
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
@@ -69,16 +81,9 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
-        let value = Value::update_address(
-            value,
-            ValueAddress::Locals(FrameIndex(frame_index), Index(index)),
-        );
-        let word = value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-
-        let mut values = self.0.borrow_mut();
-        match values.get_mut(index) {
+        match self.0.get(index) {
             Some(v) => {
-                if let Value::Container(c) = v {
+                if let Value::Container(c) = &*v.borrow() {
                     if c.rc_count() > 1 {
                         return Err(
                             RuntimeError::new(StatusCode::UnknownInvariantViolationError)
@@ -88,10 +93,12 @@ impl<F: FieldExt> Locals<F> {
                         );
                     }
                 }
-
+                let word = value.flatten(ValueLocation::Local(LocalLocation {
+                    frame_index: FrameIndex(frame_index),
+                    index: index as u64,
+                }));
                 Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
-
-                values[index] = value;
+                *v.borrow_mut() = value;
                 Ok(())
             }
             None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
@@ -104,17 +111,20 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
-        let value_copy = self.0.borrow().get(index).cloned().unwrap();
-        let mut values = self.0.borrow_mut();
-        match values.get_mut(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MoveLocalError)),
-            Some(v) => {
-                let word = value_copy
-                    .flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+        let value_cell = self
+            .0
+            .get(index)
+            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+        let old_value = value_cell.replace(Value::Invalid); // Invalidate Local
+        match old_value {
+            Value::Invalid => Err(RuntimeError::new(StatusCode::MoveLocalError)),
+            v => {
+                let word = v.flatten(ValueLocation::Local(LocalLocation {
+                    frame_index: FrameIndex(frame_index),
+                    index: index as u64,
+                }));
                 // LocalsOP Read
                 Self::emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
-                // Invalid value
-                let ret = std::mem::replace(v, Value::Invalid);
                 // LocalsOP Write
                 for (address_path, _) in word {
                     let locals_op_2 = LocalsOp {
@@ -131,16 +141,15 @@ impl<F: FieldExt> Locals<F> {
                             .0
                             .get(3)
                             .expect("address_ext_1 should not be None"),
-                        value: Value::Invalid,
+                        value: None,
                         rw: RW::WRITE,
                         gc: rw_operations.len(),
                     };
                     rw_operations.push(RWOperation::LocalsOp(locals_op_2));
                 }
 
-                Ok(ret)
+                Ok(v)
             }
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
 
@@ -149,36 +158,33 @@ impl<F: FieldExt> Locals<F> {
         index: usize,
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Value<F>> {
-        let values = self.0.borrow();
-        match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
-            Some(v) => match v {
-                Value::U8(_)
-                | Value::U64(_)
-                | Value::U128(_)
-                | Value::Bool(_)
-                | Value::Address(_) => {
-                    let word =
-                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                    Ok(Value::IndexedRef(IndexedRef {
-                        index,
-                        container_ref: ContainerRef::Local(Container::Locals(
-                            FrameIndex(frame_index),
-                            Rc::clone(&self.0),
-                        )),
-                    }))
-                }
-                Value::Container(c) => {
-                    let word =
-                        v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                    Ok(Value::ContainerRef(ContainerRef::Local(c.copy_by_ref())))
-                }
-                _ => unimplemented!(),
-            },
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+    ) -> VmResult<LocalRef<F>> {
+        let value_cell = self
+            .0
+            .get(index)
+            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+        let value_ref = value_cell.borrow();
+        let v = value_ref.deref();
+        match v {
+            Value::Invalid => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
+            Value::U8(_)
+            | Value::U64(_)
+            | Value::U128(_)
+            | Value::Bool(_)
+            | Value::Address(_)
+            | Value::Container(_) => {
+                let loc = LocalLocation {
+                    frame_index: FrameIndex(frame_index),
+                    index: index as u64,
+                };
+                let word = v.flatten(ValueLocation::Local(loc));
+                Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                Ok(LocalRef {
+                    loc,
+                    refer: value_cell.clone(),
+                })
+            }
+            _ => unimplemented!(),
         }
     }
 
@@ -188,55 +194,51 @@ impl<F: FieldExt> Locals<F> {
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Value<F>> {
-        let values = self.0.borrow();
-        match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-            Some(v) => {
-                let word =
-                    v.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+        let value_cell = self
+            .0
+            .get(index)
+            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+        let loc = LocalLocation {
+            frame_index: FrameIndex(frame_index),
+            index: index as u64,
+        };
+        match &*value_cell.borrow() {
+            Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+            v => {
+                let word = v.flatten(ValueLocation::Local(loc));
                 Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
-                Ok(v.clone())
+                Ok(v.copy_value())
             }
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
 
-    pub fn write_ref(
-        &self,
-        index: usize,
-        value: Value<F>,
-        frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<()> {
-        let word = value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-        let mut values = self.0.borrow_mut();
-        match values.get_mut(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-            Some(_v) => {
-                Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
-                values[index] = value;
-                Ok(())
-            }
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-        }
-    }
-
-    pub fn word_element_count(&self, index: usize) -> VmResult<usize> {
-        let values = self.0.borrow();
-        match values.get(index) {
-            Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-            Some(v) => v.word_element_count(),
-            None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-        }
-    }
+    // pub fn write_ref(
+    //     &self,
+    //     index: usize,
+    //     value: Value<F>,
+    //     frame_index: usize,
+    //     rw_operations: &mut Vec<RWOperation<F>>,
+    // ) -> VmResult<()> {
+    //     let word = value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
+    //     let mut values = self.0.borrow_mut();
+    //     match values.get_mut(index) {
+    //         Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
+    //         Some(_v) => {
+    //             Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+    //             values[index] = value;
+    //             Ok(())
+    //         }
+    //         None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
+    //     }
+    // }
 }
 
 impl<F: FieldExt> Locals<F> {
     pub fn len(&self) -> usize {
-        self.0.borrow().len()
+        self.0.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.borrow().is_empty()
+        self.0.is_empty()
     }
 }

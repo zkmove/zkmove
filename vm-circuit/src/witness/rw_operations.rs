@@ -5,7 +5,7 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use movelang::account_address::AccountAddress;
-use movelang::value::Value;
+use movelang::value::{SimpleValue, Value};
 use std::cmp::Ordering;
 use std::convert::From;
 
@@ -111,7 +111,7 @@ pub struct LocalsOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Value<F>,
+    pub value: Option<SimpleValue<F>>,
 }
 
 impl<F: FieldExt> LocalsOp<F> {
@@ -123,7 +123,7 @@ impl<F: FieldExt> LocalsOp<F> {
             address_ext_1: 0,
             gc: 0,
             rw: RW::READ,
-            value: Value::u64(0),
+            value: Some(SimpleValue::u64(0)),
         }
     }
 }
@@ -157,8 +157,8 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
 impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &LocalsOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value.value(),
+            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            Some(v) => v.value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -181,7 +181,7 @@ pub struct StackOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Value<F>,
+    pub value: Option<SimpleValue<F>>,
 }
 
 impl<F: FieldExt> StackOp<F> {
@@ -190,7 +190,7 @@ impl<F: FieldExt> StackOp<F> {
             address: 0,
             address_ext_0: 0,
             address_ext_1: 0,
-            value: Value::u64(0),
+            value: Some(SimpleValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
@@ -224,8 +224,8 @@ impl<F: FieldExt> Ord for StackOp<F> {
 impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &StackOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value.value(),
+            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            Some(v) => v.value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -249,7 +249,7 @@ pub struct GlobalOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Value<F>,
+    pub value: Option<SimpleValue<F>>,
 }
 
 impl<F: FieldExt> GlobalOp<F> {
@@ -259,7 +259,7 @@ impl<F: FieldExt> GlobalOp<F> {
             sd_index: 0,
             address_ext_0: 0,
             address_ext_1: 0,
-            value: Value::u64(0),
+            value: Some(SimpleValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
@@ -295,8 +295,8 @@ impl<F: FieldExt> Ord for GlobalOp<F> {
 impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &GlobalOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value.value(),
+            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            Some(v) => v.value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -365,11 +365,12 @@ impl<F: FieldExt> RWOperation<F> {
     }
 
     pub fn value(&self) -> Value<F> {
-        match self {
-            Self::StackOp(op) => op.value.clone(),
-            Self::LocalsOp(op) => op.value.clone(),
-            Self::GlobalOp(op) => op.value.clone(),
-        }
+        let v = match self {
+            Self::StackOp(op) => op.value,
+            Self::LocalsOp(op) => op.value,
+            Self::GlobalOp(op) => op.value,
+        };
+        v.map(Into::into).unwrap_or_else(|| Value::Invalid)
     }
 
     pub fn sd_index(&self) -> usize {
