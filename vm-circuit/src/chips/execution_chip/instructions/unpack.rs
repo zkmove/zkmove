@@ -52,6 +52,7 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
+        // word_a used for struct and word_b used for unpacked fields.
         for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
@@ -70,9 +71,9 @@ impl<F: FieldExt> Instructions<F> for Unpack<F> {
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: 0.expr(),
-                    address: cells.stack_size.expression.clone() - 1.expr() + (i as u64).expr(),
-                    address_ext_0: 0.expr(),
-                    address_ext_1: 0.expr(),
+                    address: cells.word_address[i].expression.clone(),
+                    address_ext_0: cells.word_b_addr_ext_0[i].expression.clone(),
+                    address_ext_1: cells.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
