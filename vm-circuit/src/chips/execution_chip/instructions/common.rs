@@ -730,5 +730,4 @@ impl<F: FieldExt> Word<F> {
 
         Ok(())
     }
-
 }

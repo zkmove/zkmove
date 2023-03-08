@@ -102,7 +102,8 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowGlobal<MUTABLE,
         // let mut constraint =
         //     cond.clone() * (cells.ref_val[0].expression.clone() - account_address_expr);
         // constraints.push(("borrow_global_ref_eq", constraint));
-        let constraint = cond.clone() * (cells.ref_val[1].expression.clone() - sd_index_expr.clone());
+        let constraint =
+            cond.clone() * (cells.ref_val[1].expression.clone() - sd_index_expr.clone());
         constraints.push(("borrow_global_ref_eq", constraint));
 
         LookupBytecode::lookup_bytecode(
