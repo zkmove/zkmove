@@ -52,7 +52,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..WORD_CAPACITY {
+        for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
@@ -62,26 +62,37 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
                     address: cells.word_address[i].expression.clone(),
                     address_ext_0: cells.word_b_addr_ext_0[i].expression.clone(),
                     address_ext_1: cells.word_b_addr_ext_1[i].expression.clone(),
-                    value: cells.word_b[i].expression.clone(),
+                    value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
             ));
-        }
 
-        // todo: need constrain cells.word_address?
-
-        for i in 0..WORD_CAPACITY {
             lookups.rw_lookups.push((
                 RWLookup::stack_push(
                     cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - field_num.clone(),
                     cells.word_a_addr_ext_0[i].expression.clone(),
                     cells.word_a_addr_ext_1[i].expression.clone(),
-                    cells.word_a[i].expression.clone(),
+                    item.expression.clone(),
                 ),
                 cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
             ));
+        }
+
+        // word_b.address is equal to word_a.address_ext_0
+        // word_b.address_ext_0 is equal to word_a.address_ext_1
+        for i in 0..WORD_CAPACITY {
+            let constraint = cond.clone()
+                * cells.word_a_mask[i].expression.clone()
+                * (cells.word_address[i].expression.clone()
+                    - cells.word_a_addr_ext_0[i].expression.clone());
+            constraints.push(("pack_address_eq", constraint));
+            let constraint = cond.clone()
+                * cells.word_a_mask[i].expression.clone()
+                * (cells.word_b_addr_ext_0[i].expression.clone()
+                    - cells.word_a_addr_ext_1[i].expression.clone());
+            constraints.push(("pack_address_ext_0_eq", constraint));
         }
 
         LookupBytecode::lookup_bytecode(
