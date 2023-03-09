@@ -8,7 +8,7 @@ then build the circuit and setup the proving/verifying key, and then generate a 
 finally verify the proof with the verifying key.
 
 ```bash
-bin/zkmove run -s examples/scripts/add.move
+zkmove run -s examples/scripts/add.move
 ```
 
 ### Import modules
@@ -29,7 +29,7 @@ script {
 And we need tell vm where to load the module with option '-m':
 
 ```bash
-bin/zkmove run -s examples/scripts/call_u8.move -m examples/modules/
+zkmove run -s examples/scripts/call_u8.move -m examples/modules/
 ```
 ### Pass arguments
 As you may have noticed, directive 'args' is used to pass arguments to scripts. There is also a command 
@@ -40,27 +40,20 @@ proving/verifying keys. Then, the script is run with the new arguments and the z
 keys. For example,
 
 ```rust
-/// add_u8.move
+/// call_u8.move
 
-//! args: 1u8
+//! mods: arith.move
+//! args: 1u8, 2u8
 script {
-    fun main(x: u8) {
-        x + 2u8;
+    use 0x1::M;
+    fun main(x: u8, y: u8) {
+        M::add_u8(x, y);
     }
 }
 ```
 
 ```bash
-bin/zkmove run -s examples/scripts/add_u8.move --new-args 2u8
-```
-
-### Enable fast circuit
-zkMove supports two types of circuits: the move circuit and the vm circuit. By default the move circuit is used. 
-Move circuit is ~40 times faster than vm circuit, but it's not Turing-complete. The vm circuit is Turing complete but slow. 
-We can enable the vm circuit via the command option "--vm-circuit" or use directive 'circuit: vm'.
-
-```bash
-bin/zkmove run -s examples/scripts/add.move --vm-circuit
+zkmove run -s examples/scripts/call_u8.move -m examples/modules/ --new-args 3u8 4u8
 ```
 
 ### Handle loops and conditional branch
@@ -95,14 +88,5 @@ script {
 }
 ```
 ```bash
-bin/zkmove run -s examples/scripts/fibonacci.move
-```
-
-### Enable fast circuit
-zkMove supports two types of circuits: the vm circuit and the move circuit. By default the vm circuit is used, 
-which is Turing complete but slow. Move circuit is 100 times faster than vm circuit, but it's not Turing-complete. 
-We can enable the move circuit via the command option "--fast-mode".
-
-```bash
-bin/zkmove run -s examples/scripts/add.move -f
+zkmove run -s examples/scripts/fibonacci.move
 ```
