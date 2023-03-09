@@ -31,19 +31,6 @@ pub struct U128<F: FieldExt>(pub F);
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Bool<F: FieldExt>(pub F);
 
-// /// A wrapper for account address
-// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-// pub struct Address<F: FieldExt>(AccountAddress<F>);
-//
-// impl<F: FieldExt> Address<F> {
-//     pub fn account_address(self) -> AccountAddress<F> {
-//         self.0
-//     }
-//     pub fn value(&self) -> F {
-//         self.0.value()
-//     }
-// }
-
 /// Index of a frame
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FrameIndex(pub usize);
@@ -51,28 +38,6 @@ pub struct FrameIndex(pub usize);
 /// Index of a value in locals, or index of a member in the struct
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Index(pub usize);
-
-// /// An address of a zkMove value
-// #[derive(Clone, Debug)]
-// pub enum ValueAddress<F: FieldExt> {
-//     /// If the value lives in the eval stack, the address will be the
-//     /// index of the value in stack.
-//     Stack(Index),
-//     /// If the value lives in the locals of a frame, the address will be the
-//     /// combination of frame_index and the index of the value in locals.
-//     Locals(FrameIndex, Index),
-//     /// If the value lives in the global storage, the address will be the
-//     /// AccountAddress/StructDefinitionIndex of the value.
-//     Global(AccountAddress<F>, StructDefinitionIndex),
-//     /// If the value is a member of a Local or Global value, the address will be
-//     /// the index of the member, and the address of parent value.
-//     Member {
-//         index: Index,
-//         parent: Box<ValueAddress<F>>,
-//     },
-//     /// The value was just created and has not been stored yet.
-//     Unknown,
-// }
 
 #[derive(Clone, Debug)]
 //todo: use 'Field' instead of 'usize'?
@@ -112,516 +77,6 @@ impl<F: FieldExt> AddressPath<F> {
             length = self.len();
         }
         self
-    }
-    // pub fn flatten(self, address: ValueAddress<F>) -> VmResult<Vec<(AddressPath<F>, Value<F>)>> {
-    //     let values = self
-    //         .into_inner()
-    //         .iter()
-    //         .map(|v| Value::u64(*v as u64))
-    //         .collect();
-    //     let struct_ = Container::Struct(address, Rc::new(RefCell::new(values)));
-    //     struct_.flatten()
-    // }
-}
-
-// impl<F: FieldExt> ValueAddress<F> {
-//     pub fn address_path(&self) -> VmResult<AddressPath<F>> {
-//         match self {
-//             Self::Stack(index) => Ok(AddressPath(vec![0, index.0], PhantomData)),
-//             Self::Locals(frame_index, index) => {
-//                 Ok(AddressPath(vec![frame_index.0, index.0], PhantomData))
-//             }
-//             Self::Member { index, parent } => {
-//                 let path = parent.address_path()?;
-//                 Ok(path.extend(index.0))
-//             }
-//             Self::Global(addr, sd_index) => Ok(AddressPath(
-//                 vec![
-//                     // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
-//                     addr.value().get_lower_128() as usize,
-//                     sd_index.0 as usize,
-//                 ],
-//                 PhantomData,
-//             )),
-//             _ => unimplemented!(),
-//         }
-//     }
-//
-//     pub fn frame_index(&self) -> usize {
-//         let path = self.address_path().expect("should not reach here");
-//         let res = path
-//             .as_inner()
-//             .get(0)
-//             .expect("frame index should not be None");
-//         *res
-//     }
-//
-//     pub fn address(&self) -> usize {
-//         let path = self.address_path().expect("should not reach here");
-//         let res = path.as_inner().get(1).expect("address should not be None");
-//         *res
-//     }
-//     pub fn global_path(&self) -> Option<(AccountAddress<F>, StructDefinitionIndex)> {
-//         match self {
-//             Self::Global(addr, idx) => Some((*addr, *idx)),
-//             Self::Member { parent, .. } => parent.global_path(),
-//             _ => None,
-//         }
-//     }
-// }
-
-// /// A ContainerRef is a reference to a container, which could live either
-// /// in the frame or in global storage.
-// #[derive(Clone, Debug)]
-// pub enum ContainerRef<F: FieldExt> {
-//     Local(Container<F>),
-//     Global(Container<F>),
-// }
-
-// impl<F: FieldExt> ContainerRef<F> {
-//     fn container(&self) -> &Container<F> {
-//         match self {
-//             Self::Local(container) => container,
-//             Self::Global(container) => container,
-//         }
-//     }
-//
-//     fn read_ref(&self) -> VmResult<Value<F>> {
-//         Ok(Value::Container(self.container().copy_value()))
-//     }
-//
-//     fn write_ref(&mut self, value: Value<F>) -> VmResult<()> {
-//         match value {
-//             Value::Container(c) => match self.container() {
-//                 Container::Struct(_, struct_) => {
-//                     let r = match c {
-//                         Container::Struct(_, v) => v,
-//                         _ => {
-//                             return Err(RuntimeError::new(StatusCode::TypeMismatch)
-//                                 .with_message("failed to write ref".to_string()))
-//                         }
-//                     };
-//
-//                     debug_assert_eq!(Rc::strong_count(&r), 1);
-//                     let fields = match Rc::try_unwrap(r) {
-//                         Ok(cell) => Ok(cell.into_inner()),
-//                         Err(v) => Err(RuntimeError::new(
-//                             StatusCode::UnknownInvariantViolationError,
-//                         )
-//                         .with_message(format!("moving value {:?} with dangling references", v))),
-//                     };
-//                     *struct_.borrow_mut() = fields?;
-//                     Ok(())
-//                 }
-//                 Container::Locals(_, _) => Err(RuntimeError::new(StatusCode::TypeMismatch)
-//                     .with_message("cannot change Container::Locals".to_string())),
-//             },
-//             v => Err(
-//                 RuntimeError::new(StatusCode::TypeMismatch).with_message(format!(
-//                     "cannot write value {:?} to container ref {:?}",
-//                     v, self
-//                 )),
-//             ),
-//         }
-//     }
-//
-//     pub fn borrow_element(&self, element_idx: usize) -> VmResult<Value<F>> {
-//         let res = match self.container() {
-//             Container::Locals(_, _) => {
-//                 unreachable!("should not come here.")
-//             }
-//             Container::Struct(_, r) => {
-//                 let len = r.borrow().len();
-//                 if element_idx >= len {
-//                     return Err(
-//                         RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
-//                             "index out of bounds when borrowing container element: index: {}, length: {}",
-//                             element_idx, len
-//                         )),
-//                     );
-//                 }
-//                 let v = r.borrow();
-//                 match &v[element_idx] {
-//                     Value::Container(container) => {
-//                         let r = match self {
-//                             Self::Local(_) => Self::Local(container.copy_by_ref()),
-//                             Self::Global(_) => Self::Global(container.copy_by_ref()),
-//                         };
-//                         Value::ContainerRef(r)
-//                     }
-//                     _ => Value::IndexedRef(IndexedRef {
-//                         index: element_idx,
-//                         container_ref: self.copy_value(),
-//                     }),
-//                 }
-//             }
-//         };
-//
-//         Ok(res)
-//     }
-//
-//     fn copy_value(&self) -> Self {
-//         match self {
-//             Self::Local(container) => Self::Local(container.copy_by_ref()),
-//             Self::Global(container) => Self::Global(container.copy_by_ref()),
-//         }
-//     }
-//
-//     fn is_global(&self) -> bool {
-//         matches!(self, Self::Global(_)) // container holds global value
-//     }
-//
-//     fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
-//         match self {
-//             Self::Local(_) => unreachable!(),
-//             Self::Global(c) => match c {
-//                 Container::Locals(_, _) => unreachable!(),
-//                 Container::Struct(addr, _) => addr
-//                     .global_path()
-//                     .expect("expect global or member of global"),
-//             },
-//         }
-//     }
-//
-//     fn copy_global_value(&self) -> VmResult<Value<F>> {
-//         if self.is_global() {
-//             self.read_ref()
-//         } else {
-//             Err(RuntimeError::new(StatusCode::TypeMismatch)
-//                 .with_message("The value doesn't contain global value".to_string()))
-//         }
-//     }
-//
-//     fn container_index(&self) -> usize {
-//         self.container().index()
-//     }
-//
-//     fn container_frame_index(&self) -> usize {
-//         self.container().frame_index()
-//     }
-//
-//     fn value_address(&self) -> ValueAddress<F> {
-//         self.container().value_address()
-//     }
-// }
-
-// /// A reference pointing to an element in a container.
-// #[derive(Clone, Debug)]
-// pub struct IndexedRef<F: FieldExt> {
-//     pub index: usize,
-//     pub container_ref: ContainerRef<F>,
-// }
-//
-// impl<F: FieldExt> IndexedRef<F> {
-//     pub fn container(&self) -> &Container<F> {
-//         self.container_ref.container()
-//     }
-//     pub fn container_ref(&self) -> &ContainerRef<F> {
-//         &self.container_ref
-//     }
-//     fn read_ref(&self) -> VmResult<Value<F>> {
-//         let value = match &*self.container_ref.container() {
-//             Container::Locals(_, r) | Container::Struct(_, r) => {
-//                 r.borrow()[self.index].copy_value()
-//             }
-//         };
-//         Ok(value)
-//     }
-//     fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
-//         match &x {
-//             Value::IndexedRef(_)
-//             | Value::ContainerRef(_)
-//             | Value::Invalid
-//             | Value::Container(_) => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
-//             _ => (),
-//         }
-//
-//         match (self.container_ref.container(), &x) {
-//             (Container::Locals(_, r), _) | (Container::Struct(_, r), _) => {
-//                 let mut v = r.borrow_mut();
-//                 v[self.index] = x;
-//             }
-//         }
-//         Ok(())
-//     }
-//     pub fn index(&self) -> usize {
-//         self.index
-//     }
-//     fn container_frame_index(&self) -> usize {
-//         self.container().frame_index()
-//     }
-//     fn copy_value(&self) -> Self {
-//         Self {
-//             index: self.index,
-//             container_ref: self.container_ref.copy_value(),
-//         }
-//     }
-//     pub fn borrow_element(&self, element_idx: usize) -> VmResult<Value<F>> {
-//         let res = match self.container() {
-//             Container::Locals(_, _) => {
-//                 unreachable!("should not come here.")
-//             }
-//             Container::Struct(_, r) => {
-//                 let len = r.borrow().len();
-//                 if element_idx >= len {
-//                     return Err(
-//                         RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
-//                             "index out of bounds when borrowing container element: index: {}, length: {}",
-//                             element_idx, len
-//                         )),
-//                     );
-//                 }
-//                 let v = r.borrow();
-//                 match &v[element_idx] {
-//                     Value::Container(container) => {
-//                         let r = match self.container_ref {
-//                             ContainerRef::Local(_) => ContainerRef::Local(container.copy_by_ref()),
-//                             ContainerRef::Global(_) => unreachable!(),
-//                         };
-//                         Value::ContainerRef(r)
-//                     }
-//                     _ => Value::IndexedRef(IndexedRef {
-//                         index: self.index,
-//                         container_ref: self.container_ref.copy_value(),
-//                     }),
-//                 }
-//             }
-//         };
-//
-//         Ok(res)
-//     }
-//
-//     fn is_global(&self) -> bool {
-//         self.container_ref().is_global()
-//     }
-//
-//     fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
-//         self.container_ref.global_path()
-//     }
-//
-//     fn copy_global_value(&self) -> VmResult<Value<F>> {
-//         if self.is_global() {
-//             self.container_ref().read_ref()
-//         } else {
-//             Err(RuntimeError::new(StatusCode::TypeMismatch)
-//                 .with_message("The value doesn't contain global value".to_string()))
-//         }
-//     }
-//
-//     fn value_address(&self) -> ValueAddress<F> {
-//         match self.container() {
-//             Container::Locals(frame_index, _) => {
-//                 ValueAddress::Locals(FrameIndex(frame_index.0), Index(self.index))
-//             }
-//             Container::Struct(address, _) => ValueAddress::Member {
-//                 index: Index(self.index),
-//                 parent: Box::new(address.clone()),
-//             },
-//         }
-//     }
-// }
-//
-// /// A wrapper to support read_ref and write_ref.
-// #[derive(Debug, Clone)]
-// pub enum Reference<F: FieldExt> {
-//     IndexedRef(IndexedRef<F>),
-//     ContainerRef(ContainerRef<F>),
-// }
-//
-// impl<F: FieldExt> Reference<F> {
-//     pub fn read_ref(&self) -> VmResult<Value<F>> {
-//         match self {
-//             Self::ContainerRef(r) => r.read_ref(),
-//             Self::IndexedRef(r) => r.read_ref(),
-//         }
-//     }
-//     pub fn write_ref(&mut self, x: Value<F>) -> VmResult<()> {
-//         match self {
-//             Self::ContainerRef(r) => r.write_ref(x),
-//             Self::IndexedRef(r) => r.write_ref(x),
-//         }
-//     }
-//     pub fn index(&self) -> usize {
-//         match self {
-//             Self::ContainerRef(r) => r.container_index(),
-//             Self::IndexedRef(r) => r.index(),
-//         }
-//     }
-//     pub fn container_frame_index(&self) -> usize {
-//         match self {
-//             Self::ContainerRef(r) => r.container_frame_index(),
-//             Self::IndexedRef(r) => r.container_frame_index(),
-//         }
-//     }
-//
-//     pub fn is_global(&self) -> bool {
-//         match self {
-//             Self::ContainerRef(r) => r.is_global(),
-//             Self::IndexedRef(r) => r.is_global(),
-//         }
-//     }
-//
-//     pub fn global_path(&self) -> (AccountAddress<F>, StructDefinitionIndex) {
-//         match self {
-//             Self::ContainerRef(r) => r.global_path(),
-//             Self::IndexedRef(r) => r.global_path(),
-//         }
-//     }
-//
-//     // For a reference pointing to a global value, return the global value
-//     // For a reference pointing to an element of a global value, return the global value
-//     pub fn copy_global_value(&self) -> VmResult<Value<F>> {
-//         match self {
-//             Self::ContainerRef(r) => r.copy_global_value(),
-//             Self::IndexedRef(r) => r.copy_global_value(),
-//         }
-//     }
-//
-//     pub fn value_address(&self) -> ValueAddress<F> {
-//         match self {
-//             Self::ContainerRef(r) => r.container().value_address(),
-//             Self::IndexedRef(r) => r.value_address(),
-//         }
-//     }
-// }
-//
-// /// A wrapper to support borrow_element
-// #[derive(Debug, Clone)]
-// pub struct StructRef<F: FieldExt>(pub ContainerRef<F>);
-//
-// impl<F: FieldExt> StructRef<F> {
-//     pub fn borrow_element(&self, field_idx: usize) -> VmResult<Value<F>> {
-//         self.0.borrow_element(field_idx)
-//     }
-//
-//     pub fn value_address(&self) -> ValueAddress<F> {
-//         self.0.value_address()
-//     }
-// }
-
-#[derive(Debug)]
-pub struct Struct<F: FieldExt> {
-    fields: Vec<Value<F>>,
-}
-
-impl<F: FieldExt> Struct<F> {
-    pub fn pack(values: Vec<Value<F>>) -> Self {
-        Self { fields: values }
-    }
-
-    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
-        Ok(self.fields)
-    }
-}
-
-// Clean - the value was only read.
-// Dirty - the value was possibly modified.
-#[derive(Debug, Clone, Copy)]
-pub enum GlobalDataStatus {
-    Clean,
-    Dirty,
-}
-
-#[derive(Debug, Clone)]
-pub enum GlobalValue<F: FieldExt> {
-    /// No resource resides in this slot or in storage.
-    None,
-    /// A resource has been published to this slot and it did not previously exist in storage.
-    Fresh { fields: Rc<RefCell<Vec<Value<F>>>> },
-    /// A resource resides in this slot and also in storage. The status flag indicates whether
-    /// it has potentially been altered.
-    Cached {
-        fields: Rc<RefCell<Vec<Value<F>>>>,
-        status: Rc<RefCell<GlobalDataStatus>>,
-    },
-    /// A resource used to exist in storage but has been deleted by the current transaction.
-    Deleted,
-}
-
-impl<F: FieldExt> GlobalValue<F> {
-    pub fn none() -> Self {
-        GlobalValue::None
-    }
-
-    fn fresh(val: Value<F>) -> VmResult<Self> {
-        match val {
-            Value::Container(Container(fields)) => Ok(Self::Fresh { fields }),
-            _ => Err(
-                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
-                    .with_message("not a resource type".to_string()),
-            ),
-        }
-    }
-
-    fn cached(val: Value<F>, status: GlobalDataStatus) -> VmResult<Self> {
-        match val {
-            Value::Container(Container(fields)) => {
-                let status = Rc::new(RefCell::new(status));
-                Ok(Self::Cached { fields, status })
-            }
-            _ => Err(
-                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
-                    .with_message("not a resource type".to_string()),
-            ),
-        }
-    }
-
-    pub fn move_from(&mut self) -> VmResult<Value<F>> {
-        let fields = match self {
-            Self::None | Self::Deleted => return Err(RuntimeError::new(StatusCode::MissingData)),
-            Self::Fresh { .. } => match std::mem::replace(self, Self::None) {
-                Self::Fresh { fields } => fields,
-                _ => unreachable!(),
-            },
-            Self::Cached { .. } => match std::mem::replace(self, Self::Deleted) {
-                Self::Cached { fields, .. } => fields,
-                _ => unreachable!(),
-            },
-        };
-        if Rc::strong_count(&fields) != 1 {
-            return Err(
-                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
-                    .with_message("moving global resource with dangling reference".to_string()),
-            );
-        }
-        Ok(Value::Container(Container(fields)))
-    }
-
-    pub fn move_to(&mut self, val: Value<F>) -> VmResult<()> {
-        match self {
-            Self::Fresh { .. } | Self::Cached { .. } => {
-                return Err(RuntimeError::new(StatusCode::ResourceAlreadyExists))
-            }
-            Self::None => *self = Self::fresh(val)?,
-            Self::Deleted => *self = Self::cached(val, GlobalDataStatus::Dirty)?,
-        }
-        Ok(())
-    }
-
-    pub fn exists(&self) -> VmResult<bool> {
-        match self {
-            Self::Fresh { .. } | Self::Cached { .. } => Ok(true),
-            Self::None | Self::Deleted => Ok(false),
-        }
-    }
-
-    pub fn borrow_global(
-        &self,
-        address: AccountAddress<F>,
-        sd_index: StructDefinitionIndex,
-    ) -> VmResult<GlobalRef<F>> {
-        match self {
-            Self::None | Self::Deleted => Err(RuntimeError::new(StatusCode::MissingData)),
-            Self::Fresh { fields } => Ok(GlobalRef {
-                loc: GlobalLocation { address, sd_index },
-                refer: Container(Rc::clone(fields)),
-            }),
-
-            Self::Cached { fields, status: _ } => Ok(GlobalRef {
-                loc: GlobalLocation { address, sd_index },
-                refer: Container(Rc::clone(fields)),
-            }),
-        }
     }
 }
 
@@ -672,6 +127,72 @@ pub enum Value<F: FieldExt> {
 /// Container is just a wrapper of vec contains its fields.
 #[derive(Clone, Debug)]
 pub struct Container<F: FieldExt>(pub Rc<RefCell<Vec<Value<F>>>>);
+
+/// Location of global struct.
+#[derive(Clone, Copy, Debug)]
+pub struct GlobalLocation<F: FieldExt> {
+    pub address: AccountAddress<F>,
+    pub sd_index: StructDefinitionIndex,
+}
+
+/// Location of local values(simple values or containers)
+#[derive(Clone, Copy, Debug)]
+pub struct LocalLocation {
+    pub frame_index: FrameIndex,
+    pub index: u64,
+}
+
+/// Location of stack values (simple values or containers)
+#[derive(Clone, Copy, Debug)]
+pub struct StackLocation {
+    pub stack_index: usize,
+}
+
+/// Location of value stored in sub-fields of a container(in local or global, even in stack)
+/// IndexedValue doesn't actually fit in our value locations.
+/// we fake it as a location just to make value flatten easier.
+#[derive(Clone, Debug)]
+pub struct IndexedLocation<F: FieldExt> {
+    pub sub_indexes: Vec<usize>,
+    pub value_loc: ValueLocation<F>,
+}
+impl<F: FieldExt> IndexedLocation<F> {
+    pub fn new(root_location: ValueLocation<F>, sub_indexes: Vec<usize>) -> Self {
+        IndexedLocation {
+            sub_indexes,
+            value_loc: root_location,
+        }
+    }
+
+    /// keep it private so it cannot be abused
+    fn to_address_path(&self) -> AddressPath<F> {
+        self.value_loc
+            .to_address_path()
+            .with_subpath(self.sub_indexes.clone())
+    }
+}
+
+/// Location of value when it move/copy from one place to another place.
+#[derive(Clone, Debug)]
+pub enum ValueLocation<F: FieldExt> {
+    Stack(StackLocation),
+    Local(LocalLocation),
+    Global(GlobalLocation<F>),
+}
+impl<F: FieldExt> ValueLocation<F> {
+    fn to_address_path(&self) -> AddressPath<F> {
+        let indexes = match self {
+            ValueLocation::Stack(loc) => vec![0, loc.stack_index],
+            ValueLocation::Local(loc) => vec![loc.frame_index.0, loc.index as usize],
+            ValueLocation::Global(loc) => vec![
+                // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
+                loc.address.value().get_lower_128() as usize,
+                loc.sd_index.0 as usize,
+            ],
+        };
+        indexes.into()
+    }
+}
 impl<F: FieldExt> Container<F> {
     pub fn len(&self) -> usize {
         self.0.borrow().len()
@@ -688,9 +209,6 @@ impl<F: FieldExt> Container<F> {
     pub fn signer(x: AccountAddress<F>) -> Self {
         Container(Rc::new(RefCell::new(vec![Value::Address(x)])))
     }
-}
-
-impl<F: FieldExt> Container<F> {
     /// read_field return a deep_copy of the field.
     fn read_field(&self, element_idx: usize) -> VmResult<Value<F>> {
         let len = self.0.borrow().len();
@@ -722,7 +240,9 @@ impl<F: FieldExt> Container<F> {
         Ok(())
     }
 
-    pub(self) fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
+    /// cast_simples return a flattened vec contains all the simple values of the container
+    /// keep it private so it cannot be abused
+    fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
@@ -846,12 +366,11 @@ impl<F: FieldExt> GlobalRef<F> {
         let c = match v {
             Value::Container(c) => c,
             _ => {
-                return Err(
-                    RuntimeError::new(StatusCode::UnknownInvariantViolationError)
-                        .with_message("failed to write_ref: container type mismatch".to_string()),
-                )
+                return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                    .with_message("failed to write_ref: container type mismatch".to_string()))
             }
         };
+        debug_assert_eq!(Rc::strong_count(&c.0), 1);
         *self.refer.0.borrow_mut() = c.0.take();
         Ok(())
     }
@@ -880,10 +399,10 @@ pub struct LocalRef<F: FieldExt> {
 }
 
 impl<F: FieldExt> LocalRef<F> {
-    pub fn read_ref(&self) -> VmResult<Value<F>> {
+    fn read_ref(&self) -> VmResult<Value<F>> {
         Ok(self.refer.borrow().copy_value())
     }
-    pub fn write_ref(&self, v: Value<F>) -> VmResult<()> {
+    fn write_ref(&self, v: Value<F>) -> VmResult<()> {
         let mut this_value = self.refer.borrow_mut();
         match (this_value.deref_mut(), v) {
             (Value::Bool(t), Value::Bool(v)) => {
@@ -1018,69 +537,6 @@ impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
         }
     }
 }
-/// Location of global struct.
-#[derive(Clone, Copy, Debug)]
-pub struct GlobalLocation<F: FieldExt> {
-    pub address: AccountAddress<F>,
-    pub sd_index: StructDefinitionIndex,
-}
-
-/// Location of local values(simple values or containers)
-#[derive(Clone, Copy, Debug)]
-pub struct LocalLocation {
-    pub frame_index: FrameIndex,
-    pub index: u64,
-}
-
-/// Location of stack values (simple values or containers)
-#[derive(Clone, Copy, Debug)]
-pub struct StackLocation {
-    pub stack_index: usize,
-}
-
-/// Location of value stored in sub-fields of a container(in local or global, even in stack)
-/// IndexedValue doesn't actually fit in our value locations.
-/// we fake it as a location just to make value flatten easier.
-#[derive(Clone, Debug)]
-pub struct IndexedLocation<F: FieldExt> {
-    pub sub_indexes: Vec<usize>,
-    pub value_loc: ValueLocation<F>,
-}
-impl<F: FieldExt> IndexedLocation<F> {
-    pub fn new(root_location: ValueLocation<F>, sub_indexes: Vec<usize>) -> Self {
-        IndexedLocation {
-            sub_indexes,
-            value_loc: root_location,
-        }
-    }
-    pub(self) fn to_address_path(&self) -> AddressPath<F> {
-        self.value_loc
-            .to_address_path()
-            .with_subpath(self.sub_indexes.clone())
-    }
-}
-
-/// Location of value when it move/copy from one place to another place.
-#[derive(Clone, Debug)]
-pub enum ValueLocation<F: FieldExt> {
-    Stack(StackLocation),
-    Local(LocalLocation),
-    Global(GlobalLocation<F>),
-}
-impl<F: FieldExt> ValueLocation<F> {
-    pub(self) fn to_address_path(&self) -> AddressPath<F> {
-        let indexes = match self {
-            ValueLocation::Stack(loc) => vec![0, loc.stack_index],
-            ValueLocation::Local(loc) => vec![loc.frame_index.0, loc.index as usize],
-            ValueLocation::Global(loc) => vec![
-                // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
-                loc.address.value().get_lower_128() as usize,
-                loc.sd_index.0 as usize,
-            ],
-        };
-        indexes.into()
-    }
-}
 
 impl<F: FieldExt> SimpleValue<F> {
     pub fn bool(x: bool) -> Self {
@@ -1209,7 +665,7 @@ impl<F: FieldExt> Value<F> {
 
     /// Cast the value into simple value if it's simple
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    pub(self) fn cast_simple(&self) -> Option<SimpleValue<F>> {
+    fn cast_simple(&self) -> Option<SimpleValue<F>> {
         Some(match self {
             Value::U8(v) => SimpleValue::U8(*v),
             Value::U64(v) => SimpleValue::U64(*v),
@@ -1224,7 +680,7 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    pub(self) fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
             return vec![(vec![], simple_value)];
@@ -1277,9 +733,15 @@ impl<F: FieldExt> Value<F> {
             _ => unreachable!(),
         }
     }
-    pub fn flatten(&self, loc: ValueLocation<F>) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
-        let v_loc = loc.to_address_path().into_inner();
-        let mut values = self.cast_simples();
+}
+/// A located value
+#[derive(Debug)]
+pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
+
+impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
+        let v_loc = self.0.to_address_path().into_inner();
+        let mut values = self.1.cast_simples();
         values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
@@ -1293,30 +755,7 @@ impl<F: FieldExt> Value<F> {
     }
 }
 
-// /// A located value
-// #[derive(Debug)]
-// pub struct LocatedValue<F: FieldExt, V>(ValueLocation<F>, V);
-//
-// impl<F: FieldExt> LocatedValue<F, Value<F>> {
-//     pub fn flatten(&self) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
-//         let v_loc = self.0.to_address_path().into_inner();
-//         let mut values = self.1.cast_simples();
-//         values.iter_mut().for_each(|(p, _)| {
-//             let mut new_loc = v_loc.clone();
-//             new_loc.append(p);
-//             *p = new_loc;
-//         });
-//         values.into_iter().map(|(p, v)| (p.into(), v)).collect()
-//     }
-// }
-
-/// A indexed value is an inner value node of some outer struct.
-/// TODO: should we merge IndexedLocation into ValueLocation and merge this into LocatedValue.
-/// I keep it seperated to make things clear.
-#[derive(Debug)]
-pub struct IndexedValue<F: FieldExt, V>(pub IndexedLocation<F>, pub V);
-
-impl<F: FieldExt> IndexedValue<F, Value<F>> {
+impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
     pub fn flatten(&self) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
@@ -1823,6 +1262,132 @@ impl<F: FieldExt> Value<F> {
             Value::Address(address) => Ok(address),
             _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as AccountAddress".to_string())),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Struct<F: FieldExt> {
+    fields: Vec<Value<F>>,
+}
+
+impl<F: FieldExt> Struct<F> {
+    pub fn pack(values: Vec<Value<F>>) -> Self {
+        Self { fields: values }
+    }
+
+    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
+        Ok(self.fields)
+    }
+}
+
+// Clean - the value was only read.
+// Dirty - the value was possibly modified.
+#[derive(Debug, Clone, Copy)]
+pub enum GlobalDataStatus {
+    Clean,
+    Dirty,
+}
+
+#[derive(Debug, Clone)]
+pub enum GlobalValue<F: FieldExt> {
+    /// No resource resides in this slot or in storage.
+    None,
+    /// A resource has been published to this slot and it did not previously exist in storage.
+    Fresh { fields: Rc<RefCell<Vec<Value<F>>>> },
+    /// A resource resides in this slot and also in storage. The status flag indicates whether
+    /// it has potentially been altered.
+    Cached {
+        fields: Rc<RefCell<Vec<Value<F>>>>,
+        status: Rc<RefCell<GlobalDataStatus>>,
+    },
+    /// A resource used to exist in storage but has been deleted by the current transaction.
+    Deleted,
+}
+
+impl<F: FieldExt> GlobalValue<F> {
+    pub fn none() -> Self {
+        GlobalValue::None
+    }
+
+    fn fresh(val: Value<F>) -> VmResult<Self> {
+        match val {
+            Value::Container(Container(fields)) => Ok(Self::Fresh { fields }),
+            _ => Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("not a resource type".to_string()),
+            ),
+        }
+    }
+
+    fn cached(val: Value<F>, status: GlobalDataStatus) -> VmResult<Self> {
+        match val {
+            Value::Container(Container(fields)) => {
+                let status = Rc::new(RefCell::new(status));
+                Ok(Self::Cached { fields, status })
+            }
+            _ => Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("not a resource type".to_string()),
+            ),
+        }
+    }
+
+    pub fn move_from(&mut self) -> VmResult<Value<F>> {
+        let fields = match self {
+            Self::None | Self::Deleted => return Err(RuntimeError::new(StatusCode::MissingData)),
+            Self::Fresh { .. } => match std::mem::replace(self, Self::None) {
+                Self::Fresh { fields } => fields,
+                _ => unreachable!(),
+            },
+            Self::Cached { .. } => match std::mem::replace(self, Self::Deleted) {
+                Self::Cached { fields, .. } => fields,
+                _ => unreachable!(),
+            },
+        };
+        if Rc::strong_count(&fields) != 1 {
+            return Err(
+                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    .with_message("moving global resource with dangling reference".to_string()),
+            );
+        }
+        Ok(Value::Container(Container(fields)))
+    }
+
+    pub fn move_to(&mut self, val: Value<F>) -> VmResult<()> {
+        match self {
+            Self::Fresh { .. } | Self::Cached { .. } => {
+                return Err(RuntimeError::new(StatusCode::ResourceAlreadyExists))
+            }
+            Self::None => *self = Self::fresh(val)?,
+            Self::Deleted => *self = Self::cached(val, GlobalDataStatus::Dirty)?,
+        }
+        Ok(())
+    }
+
+    pub fn exists(&self) -> VmResult<bool> {
+        match self {
+            Self::Fresh { .. } | Self::Cached { .. } => Ok(true),
+            Self::None | Self::Deleted => Ok(false),
+        }
+    }
+
+    pub fn borrow_global(
+        &self,
+        address: AccountAddress<F>,
+        sd_index: StructDefinitionIndex,
+    ) -> VmResult<GlobalRef<F>> {
+        match self {
+            Self::None | Self::Deleted => Err(RuntimeError::new(StatusCode::MissingData)),
+            Self::Fresh { fields } => Ok(GlobalRef {
+                loc: GlobalLocation { address, sd_index },
+                refer: Container(Rc::clone(fields)),
+            }),
+
+            Self::Cached { fields, status: _ } => Ok(GlobalRef {
+                loc: GlobalLocation { address, sd_index },
+                refer: Container(Rc::clone(fields)),
+            }),
         }
     }
 }

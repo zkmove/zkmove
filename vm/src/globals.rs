@@ -2,7 +2,9 @@ use error::VmResult;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::StructDefinitionIndex;
 use movelang::account_address::AccountAddress;
-use movelang::value::{AddressPath, GlobalLocation, SimpleValue, Value, ValueLocation};
+use movelang::value::{
+    AddressPath, GlobalLocation, LocatedValue, SimpleValue, Value, ValueLocation,
+};
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_ops_for_word<F: FieldExt>(
@@ -43,7 +45,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         address: addr,
         sd_index,
     };
-    let word = resource_value.flatten(ValueLocation::Global(value_addr));
+    let word = LocatedValue(ValueLocation::Global(value_addr), &resource_value).flatten();
     let word_len = word.len();
     for (address_path, val) in word.clone() {
         let op = GlobalOp {

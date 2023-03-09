@@ -12,7 +12,7 @@ use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
-    ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IndexedValue, IntegerType, LocalRef,
+    ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
     Reference, Value, ValueLocation,
 };
 use std::convert::TryFrom;
@@ -214,7 +214,8 @@ impl<F: FieldExt> Frame<F> {
                         match reference {
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_index) = (loc.address, loc.sd_index);
-                                let word = value.flatten(ValueLocation::Global(loc));
+                                let word =
+                                    LocatedValue(ValueLocation::Global(loc), &value).flatten();
                                 let word_element_count = word.len();
                                 execution_step.auxiliary_1 = Some(Value::bool(true)); // global
                                 execution_step.auxiliary_2 = Some(Value::Address(account_addr));
@@ -232,7 +233,8 @@ impl<F: FieldExt> Frame<F> {
                             Reference::LocalRef(LocalRef { loc, .. }) => {
                                 let frame_index = loc.frame_index;
                                 let index = loc.index;
-                                let word = value.flatten(ValueLocation::Local(loc));
+                                let word =
+                                    LocatedValue(ValueLocation::Local(loc), &value).flatten();
                                 let word_element_count = word.len();
                                 execution_step.locals_index = index as usize;
                                 execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
@@ -249,12 +251,12 @@ impl<F: FieldExt> Frame<F> {
                                     ContainerRef::Global(vloc, _) => {
                                         let (account_addr, sd_index) =
                                             (vloc.address, vloc.sd_index);
-                                        let indexed_value = IndexedValue(
+                                        let indexed_value = LocatedValue(
                                             IndexedLocation {
                                                 sub_indexes,
                                                 value_loc: ValueLocation::Global(vloc),
                                             },
-                                            value.clone(), // clone is ok, it's a one-time usage.
+                                            &value,
                                         );
                                         let word = indexed_value.flatten();
                                         let word_element_count = word.len();
@@ -276,12 +278,12 @@ impl<F: FieldExt> Frame<F> {
                                     ContainerRef::Local(vloc, _) => {
                                         let frame_index = vloc.frame_index;
                                         let index = vloc.index;
-                                        let indexed_value = IndexedValue(
+                                        let indexed_value = LocatedValue(
                                             IndexedLocation {
                                                 sub_indexes,
                                                 value_loc: ValueLocation::Local(vloc),
                                             },
-                                            value.clone(), // clone is ok, it's a one-time usage.
+                                            &value,
                                         );
                                         let word = indexed_value.flatten();
                                         let word_element_count = word.len();
@@ -311,7 +313,8 @@ impl<F: FieldExt> Frame<F> {
 
                         match reference {
                             Reference::LocalRef(LocalRef { loc, .. }) => {
-                                let word = value.flatten(ValueLocation::Local(loc));
+                                let word =
+                                    LocatedValue(ValueLocation::Local(loc), &value).flatten();
                                 let word_element_count = value.word_element_count();
                                 execution_step.locals_index = loc.index as usize;
                                 execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
@@ -323,7 +326,8 @@ impl<F: FieldExt> Frame<F> {
                             }
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_idx) = (loc.address, loc.sd_index);
-                                let word = value.flatten(ValueLocation::Global(loc));
+                                let word =
+                                    LocatedValue(ValueLocation::Global(loc), &value).flatten();
 
                                 execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                                 execution_step.auxiliary_2 = Some(Value::address(account_addr));
@@ -343,12 +347,12 @@ impl<F: FieldExt> Frame<F> {
                             }) => {
                                 match container_ref {
                                     ContainerRef::Local(vloc, _) => {
-                                        let word = IndexedValue(
+                                        let word = LocatedValue(
                                             IndexedLocation {
                                                 sub_indexes,
                                                 value_loc: ValueLocation::Local(vloc),
                                             },
-                                            value.clone(), // clone is ok, it's a one-time usage.
+                                            &value,
                                         )
                                         .flatten();
                                         let word_element_count = value.word_element_count();
@@ -366,12 +370,12 @@ impl<F: FieldExt> Frame<F> {
                                     }
                                     ContainerRef::Global(vloc, _) => {
                                         let (account_addr, sd_idx) = (vloc.address, vloc.sd_index);
-                                        let word = IndexedValue(
+                                        let word = LocatedValue(
                                             IndexedLocation {
                                                 sub_indexes,
                                                 value_loc: ValueLocation::Global(vloc),
                                             },
-                                            value.clone(), // clone is ok, it's a one-time usage.
+                                            &value,
                                         )
                                         .flatten();
 

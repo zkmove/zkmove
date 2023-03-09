@@ -3,7 +3,8 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
-    AddressPath, FrameIndex, LocalLocation, LocalRef, SimpleValue, Value, ValueLocation,
+    AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, SimpleValue, Value,
+    ValueLocation,
 };
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
@@ -61,10 +62,14 @@ impl<F: FieldExt> Locals<F> {
                     Err(RuntimeError::new(StatusCode::CopyLocalError))
                 } else {
                     let copied_value = v.borrow().copy_value();
-                    let word = copied_value.flatten(ValueLocation::Local(LocalLocation {
-                        frame_index: FrameIndex(frame_index),
-                        index: index as u64,
-                    }));
+                    let word = LocatedValue(
+                        ValueLocation::Local(LocalLocation {
+                            frame_index: FrameIndex(frame_index),
+                            index: index as u64,
+                        }),
+                        &copied_value,
+                    )
+                    .flatten();
 
                     Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                     Ok(copied_value)
@@ -93,10 +98,14 @@ impl<F: FieldExt> Locals<F> {
                         );
                     }
                 }
-                let word = value.flatten(ValueLocation::Local(LocalLocation {
-                    frame_index: FrameIndex(frame_index),
-                    index: index as u64,
-                }));
+                let word = LocatedValue(
+                    ValueLocation::Local(LocalLocation {
+                        frame_index: FrameIndex(frame_index),
+                        index: index as u64,
+                    }),
+                    &value,
+                )
+                .flatten();
                 Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                 *v.borrow_mut() = value;
                 Ok(())
@@ -119,10 +128,14 @@ impl<F: FieldExt> Locals<F> {
         match old_value {
             Value::Invalid => Err(RuntimeError::new(StatusCode::MoveLocalError)),
             v => {
-                let word = v.flatten(ValueLocation::Local(LocalLocation {
-                    frame_index: FrameIndex(frame_index),
-                    index: index as u64,
-                }));
+                let word = LocatedValue(
+                    ValueLocation::Local(LocalLocation {
+                        frame_index: FrameIndex(frame_index),
+                        index: index as u64,
+                    }),
+                    &v,
+                )
+                .flatten();
                 // LocalsOP Read
                 Self::emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
                 // LocalsOP Write
@@ -177,7 +190,7 @@ impl<F: FieldExt> Locals<F> {
                     frame_index: FrameIndex(frame_index),
                     index: index as u64,
                 };
-                let word = v.flatten(ValueLocation::Local(loc));
+                let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
                 Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                 Ok(LocalRef {
                     loc,
@@ -205,7 +218,7 @@ impl<F: FieldExt> Locals<F> {
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             v => {
-                let word = v.flatten(ValueLocation::Local(loc));
+                let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
                 Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                 Ok(v.copy_value())
             }
