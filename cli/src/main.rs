@@ -1,5 +1,5 @@
 use error::VmResult;
-use functional_tests::run_config::{Circuit, RunConfig};
+use functional_tests::run_config::RunConfig;
 use halo2_proofs::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
@@ -41,20 +41,9 @@ pub enum Command {
         )]
         modules: Option<PathBuf>,
 
-        #[structopt(long = "vm-circuit", help = "use vm circuit")]
-        vm_circuit: bool,
-
         #[structopt(short = "d", long = "debug", help = "debug with mock prover")]
         use_mock: bool,
 
-        // #[structopt(long = "steps-num", help = "fix the number of execution steps")]
-        // steps_num: Option<usize>,
-        //
-        // #[structopt(long = "stack-ops-num", help = "fix the number of stack ops")]
-        // stack_ops_num: Option<usize>,
-        //
-        // #[structopt(long = "locals-ops-num", help = "fix the number of locals ops")]
-        // locals_ops_num: Option<usize>,
         #[structopt(
             long = "new-args",
             help = "run with new arguments, still use the old proving/verifying keys, multiple args should separate with space",
@@ -76,11 +65,7 @@ impl Arguments {
         &self,
         script: &Path,
         module_dir: &Option<PathBuf>,
-        vm_circuit: bool,
         use_mock: bool,
-        // steps_num: Option<usize>,
-        // stack_ops_num: Option<usize>,
-        // locals_ops_num: Option<usize>,
         new_args: &Option<Vec<ScriptArgument>>,
         verbose: bool,
         print_layout: bool,
@@ -113,73 +98,57 @@ impl Arguments {
             state.add_module(module);
         }
 
-        let (use_move_circuit, mut use_vm_circuit) = match config.circuit {
-            Some(Circuit::FastCircuit) => (true, false),
-            Some(Circuit::VmCircuit) => (false, true),
-            None => (true, false), // by default use move circuit
-        };
+        info!("generate execution trace...");
+        let circuit_config = CircuitConfig::default()
+            .steps_num(config.steps_num)
+            .stack_ops_num(config.stack_ops_num)
+            .locals_ops_num(config.locals_ops_num);
+        let witness = runtime.execute_script(
+            script.clone(),
+            compiled_modules.clone(),
+            config.signer.clone(),
+            config.args,
+            &mut state,
+            circuit_config.clone(),
+        )?;
+        let vm_circuit = VmCircuit { witness };
+        info!("find the best k...");
+        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        info!("k = {}", k);
 
-        if vm_circuit {
-            use_vm_circuit = true;
+        if use_mock {
+            info!("run with mock prover...");
+            runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
         }
 
-        if use_move_circuit {
-            info!("use move circuit, please run with zkmove-lite...do nothing");
+        if print_layout {
+            info!("print circuit layout into layout.svg ...");
+            runtime.print_circuit_layout(k, &vm_circuit);
         }
 
-        if use_vm_circuit {
-            info!("generate execution trace...");
-            let circuit_config = CircuitConfig::default()
-                .steps_num(config.steps_num)
-                .stack_ops_num(config.stack_ops_num)
-                .locals_ops_num(config.locals_ops_num);
-            let witness = runtime.execute_script(
-                script.clone(),
-                compiled_modules.clone(),
-                config.signer.clone(),
-                config.args,
+        info!("setup vm circuit...");
+        let params: Params<EqAffine> = Params::new(k);
+        let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
+
+        info!("prove vm circuit...");
+        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
+
+        if let Some(new_args) = new_args {
+            info!("execute script with new arguments");
+            let arguments = Some(ScriptArguments::new(new_args.clone()));
+            let new_witness = runtime.execute_script(
+                script,
+                compiled_modules,
+                config.signer,
+                arguments,
                 &mut state,
-                circuit_config.clone(),
+                circuit_config,
             )?;
-            let vm_circuit = VmCircuit { witness };
-            info!("find the best k...");
-            let k = runtime.find_best_k(&vm_circuit, vec![])?;
-            info!("k = {}", k);
-
-            if use_mock {
-                info!("run with mock prover...");
-                runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
-            }
-
-            if print_layout {
-                info!("print circuit layout into layout.svg ...");
-                runtime.print_circuit_layout(k, &vm_circuit);
-            }
-
-            info!("setup vm circuit...");
-            let params: Params<EqAffine> = Params::new(k);
-            let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
-
-            info!("prove vm circuit...");
-            runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
-
-            if let Some(new_args) = new_args {
-                info!("execute script with new arguments");
-                let arguments = Some(ScriptArguments::new(new_args.clone()));
-                let new_witness = runtime.execute_script(
-                    script,
-                    compiled_modules,
-                    config.signer,
-                    arguments,
-                    &mut state,
-                    circuit_config,
-                )?;
-                let new_vm_circuit = VmCircuit {
-                    witness: new_witness,
-                };
-                info!("prove the new execution with old proving key...");
-                runtime.prove_vm_circuit(new_vm_circuit, &[], &params, pk)?;
-            }
+            let new_vm_circuit = VmCircuit {
+                witness: new_witness,
+            };
+            info!("prove the new execution with old proving key...");
+            runtime.prove_vm_circuit(new_vm_circuit, &[], &params, pk)?;
         }
 
         Ok(())
@@ -193,22 +162,14 @@ fn main() {
         Command::Run {
             ref script,
             ref modules,
-            vm_circuit,
             use_mock,
-            // steps_num,
-            // stack_ops_num,
-            // locals_ops_num,
             ref new_args,
             verbose,
             print_layout,
         } => args.run(
             script.as_path(),
             modules,
-            vm_circuit,
             use_mock,
-            // steps_num,
-            // stack_ops_num,
-            // locals_ops_num,
             new_args,
             verbose,
             print_layout,
