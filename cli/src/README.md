@@ -40,27 +40,20 @@ proving/verifying keys. Then, the script is run with the new arguments and the z
 keys. For example,
 
 ```rust
-/// add_u8.move
+/// call_u8.move
 
-//! args: 1u8
+//! mods: arith.move
+//! args: 1u8, 2u8
 script {
-    fun main(x: u8) {
-        x + 2u8;
+    use 0x1::M;
+    fun main(x: u8, y: u8) {
+        M::add_u8(x, y);
     }
 }
 ```
 
 ```bash
-zkmove run -s examples/scripts/add_u8.move --new-args 2u8
-```
-
-### Enable fast circuit
-zkMove supports two types of circuits: the move circuit and the vm circuit. By default the move circuit is used. 
-Move circuit is ~40 times faster than vm circuit, but it's not Turing-complete. The vm circuit is Turing complete but slow. 
-We can enable the vm circuit via the command option "--vm-circuit" or use directive 'circuit: vm'.
-
-```bash
-zkmove run -s examples/scripts/add.move --vm-circuit
+zkmove run -s examples/scripts/call_u8.move -m examples/modules/ --new-args 3u8 4u8
 ```
 
 ### Handle loops and conditional branch
