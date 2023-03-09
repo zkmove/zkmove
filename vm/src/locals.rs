@@ -224,26 +224,6 @@ impl<F: FieldExt> Locals<F> {
             }
         }
     }
-
-    // pub fn write_ref(
-    //     &self,
-    //     index: usize,
-    //     value: Value<F>,
-    //     frame_index: usize,
-    //     rw_operations: &mut Vec<RWOperation<F>>,
-    // ) -> VmResult<()> {
-    //     let word = value.flatten(ValueAddress::Locals(FrameIndex(frame_index), Index(index)))?;
-    //     let mut values = self.0.borrow_mut();
-    //     match values.get_mut(index) {
-    //         Some(Value::Invalid) => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
-    //         Some(_v) => {
-    //             Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
-    //             values[index] = value;
-    //             Ok(())
-    //         }
-    //         None => Err(RuntimeError::new(StatusCode::OutOfBounds)),
-    //     }
-    // }
 }
 
 impl<F: FieldExt> Locals<F> {
