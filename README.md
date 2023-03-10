@@ -18,7 +18,7 @@ A zero-knowledge Move language runtime environment. Safe, Efficient, and Privacy
 
 ### Example
 
-We have prepared a [demo](./demo/README.md) with some examples to demonstrate the functionality of the zkMove virtual machine [v0.1.0](). 
+We have prepared a [demo](./demo/README.md) with some examples to demonstrate the functionality of the zkMove virtual machine v0.1.0. 
 
 For example, the following command will first compile add.move into bytecode, execute the bytecode to generate an execution trace, then build the circuit and setup the proving/verifying key, and then generate a zkp for the execution with the proving key and finally verify the proof with the verifying key.
 
