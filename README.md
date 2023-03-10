@@ -23,7 +23,7 @@ We have prepared a [demo](./demo/README.md) with some examples to demonstrate th
 For example, the following command will first compile add.move into bytecode, execute the bytecode to generate an execution trace, then build the circuit and setup the proving/verifying key, and then generate a zkp for the execution with the proving key and finally verify the proof with the verifying key.
 
 ```bash
-bin/zkmove run -s examples/scripts/add.move
+zkmove run -s examples/scripts/add.move
 ```
 
 ### Source code
