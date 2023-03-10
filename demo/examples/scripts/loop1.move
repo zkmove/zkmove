@@ -1,8 +1,8 @@
 //! circuit: vm
-//! steps_num: 1000
-//! stack_ops_num: 1000
-//! locals_ops_num: 1000
-//! args: 10u64
+//! steps_num: 50
+//! stack_ops_num: 50
+//! locals_ops_num: 50
+//! args: 5u64
 script {
     fun main(n: u64) {
         let i = 0u64;

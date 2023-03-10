@@ -4,6 +4,6 @@ script {
     fun main() {
         let x = 1u8;
         let y = 2u8;
-        M::add(x, y);
+        3u8 + M::add(x, y);
     }
 }
