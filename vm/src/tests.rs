@@ -9,7 +9,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::state::StateStore;
-use movelang::value::{SimpleValue, Value};
+use movelang::value::{PrimitiveValue, Value};
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::execution_steps::ExecutionStep;
@@ -160,7 +160,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: WRITE,
         gc: 0,
     });
@@ -168,7 +168,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: WRITE,
         gc: 1,
     });
@@ -176,7 +176,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: READ,
         gc: 2,
     });
@@ -184,7 +184,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: READ,
         gc: 3,
     });
@@ -192,7 +192,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: WRITE,
         gc: 4,
     });
@@ -200,7 +200,7 @@ fn test_execution_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: READ,
         gc: 5,
     });
@@ -366,7 +366,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: WRITE,
         gc: 0,
     });
@@ -374,7 +374,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: WRITE,
         gc: 1,
     });
@@ -382,7 +382,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: READ,
         gc: 2,
     });
@@ -390,7 +390,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: READ,
         gc: 3,
     });
@@ -398,7 +398,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: WRITE,
         gc: 4,
     });
@@ -406,7 +406,7 @@ fn test_nop_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: READ,
         gc: 5,
     });
@@ -415,7 +415,7 @@ fn test_nop_step() -> VmResult<()> {
         index: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: WRITE,
         gc: 6,
     });
@@ -562,7 +562,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: WRITE,
         gc: 0,
     });
@@ -570,7 +570,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: WRITE,
         gc: 1,
     });
@@ -578,7 +578,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(2)),
+        value: Some(PrimitiveValue::u64(2)),
         rw: READ,
         gc: 2,
     });
@@ -586,7 +586,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(1)),
+        value: Some(PrimitiveValue::u64(1)),
         rw: READ,
         gc: 3,
     });
@@ -594,7 +594,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: WRITE,
         gc: 4,
     });
@@ -602,7 +602,7 @@ fn test_nop_steps() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(SimpleValue::u64(3)),
+        value: Some(PrimitiveValue::u64(3)),
         rw: READ,
         gc: 5,
     });

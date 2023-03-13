@@ -3,12 +3,12 @@ use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::StructDefinitionIndex;
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, GlobalLocation, LocatedValue, SimpleValue, Value, ValueLocation,
+    AddressPath, GlobalLocation, LocatedValue, PrimitiveValue, Value, ValueLocation,
 };
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(AddressPath<F>, SimpleValue<F>)>,
+    word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
     addr: AccountAddress<F>,
     sd_index: StructDefinitionIndex,
     rw: RW,

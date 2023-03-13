@@ -5,7 +5,7 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, Container, LocatedValue, Reference, SimpleValue, StackLocation, Struct, Value,
+    AddressPath, Container, LocatedValue, PrimitiveValue, Reference, StackLocation, Struct, Value,
     ValueLocation,
 };
 use std::rc::Rc;
@@ -22,7 +22,7 @@ impl<F: FieldExt> EvalStack<F> {
     }
 
     pub fn emit_stack_ops_for_word(
-        word: Vec<(AddressPath<F>, SimpleValue<F>)>,
+        word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {

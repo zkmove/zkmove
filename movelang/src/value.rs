@@ -81,7 +81,7 @@ impl<F: FieldExt> AddressPath<F> {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SimpleValue<F: FieldExt> {
+pub enum PrimitiveValue<F: FieldExt> {
     U8(U8<F>),
     U64(U64<F>),
     U128(U128<F>),
@@ -89,14 +89,14 @@ pub enum SimpleValue<F: FieldExt> {
     Address(AccountAddress<F>),
 }
 
-impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
-    fn from(value: SimpleValue<F>) -> MoveValue {
+impl<F: FieldExt> From<PrimitiveValue<F>> for MoveValue {
+    fn from(value: PrimitiveValue<F>) -> MoveValue {
         match value {
-            SimpleValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
-            SimpleValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
-            SimpleValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
-            SimpleValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
-            SimpleValue::Address(field) => {
+            PrimitiveValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
+            PrimitiveValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
+            PrimitiveValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
+            PrimitiveValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
+            PrimitiveValue::Address(field) => {
                 // FIXME: f -> bytes for address
                 let mut bytes = 0u128.to_be_bytes().to_vec();
                 bytes.append(&mut field.value().get_lower_128().to_be_bytes().to_vec());
@@ -242,7 +242,7 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
-    fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<usize>, PrimitiveValue<F>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
@@ -526,19 +526,19 @@ impl<F: FieldExt> IndexedRef<F> {
     }
 }
 
-impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
-    fn from(simple: SimpleValue<F>) -> Self {
+impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
+    fn from(simple: PrimitiveValue<F>) -> Self {
         match simple {
-            SimpleValue::U8(v) => Value::U8(v),
-            SimpleValue::U64(v) => Value::U64(v),
-            SimpleValue::U128(v) => Value::U128(v),
-            SimpleValue::Bool(v) => Value::Bool(v),
-            SimpleValue::Address(v) => Value::Address(v),
+            PrimitiveValue::U8(v) => Value::U8(v),
+            PrimitiveValue::U64(v) => Value::U64(v),
+            PrimitiveValue::U128(v) => Value::U128(v),
+            PrimitiveValue::Bool(v) => Value::Bool(v),
+            PrimitiveValue::Address(v) => Value::Address(v),
         }
     }
 }
 
-impl<F: FieldExt> SimpleValue<F> {
+impl<F: FieldExt> PrimitiveValue<F> {
     pub fn bool(x: bool) -> Self {
         let value = if x { F::one() } else { F::zero() };
         Self::Bool(Bool(value))
@@ -665,13 +665,13 @@ impl<F: FieldExt> Value<F> {
 
     /// Cast the value into simple value if it's simple
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    fn cast_simple(&self) -> Option<SimpleValue<F>> {
+    fn cast_simple(&self) -> Option<PrimitiveValue<F>> {
         Some(match self {
-            Value::U8(v) => SimpleValue::U8(*v),
-            Value::U64(v) => SimpleValue::U64(*v),
-            Value::U128(v) => SimpleValue::U128(*v),
-            Value::Bool(v) => SimpleValue::Bool(*v),
-            Value::Address(v) => SimpleValue::Address(*v),
+            Value::U8(v) => PrimitiveValue::U8(*v),
+            Value::U64(v) => PrimitiveValue::U64(*v),
+            Value::U128(v) => PrimitiveValue::U128(*v),
+            Value::Bool(v) => PrimitiveValue::Bool(*v),
+            Value::Address(v) => PrimitiveValue::Address(*v),
             _ => return None,
         })
     }
@@ -680,7 +680,7 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    fn cast_simples(&self) -> Vec<(Vec<usize>, SimpleValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<usize>, PrimitiveValue<F>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
             return vec![(vec![], simple_value)];
@@ -697,7 +697,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], SimpleValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -709,7 +709,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], SimpleValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
@@ -727,7 +727,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], SimpleValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
                     .collect()
             }
             _ => unreachable!(),
@@ -739,7 +739,7 @@ impl<F: FieldExt> Value<F> {
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
         values.iter_mut().for_each(|(p, _)| {
@@ -756,7 +756,7 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
 }
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, SimpleValue<F>)> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
         values.iter_mut().for_each(|(p, _)| {
@@ -1225,7 +1225,7 @@ impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
 }
 
 impl<F: FieldExt> Value<F> {
-    /// A deep copy.
+    /// copy value
     /// - For simple value, it copy the value.
     /// - For reference, it copy the pointer, and ref the container.
     /// - For container, it does a deep copy of all the underlying values.
@@ -1248,7 +1248,6 @@ impl<F: FieldExt> Value<F> {
 }
 
 impl<F: FieldExt> Container<F> {
-    /// A deep copy
     pub fn copy_value(&self) -> Self {
         Self(Rc::new(RefCell::new(
             self.0.borrow().iter().map(|v| v.copy_value()).collect(),

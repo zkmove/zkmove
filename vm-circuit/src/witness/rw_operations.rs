@@ -5,7 +5,7 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use movelang::account_address::AccountAddress;
-use movelang::value::{SimpleValue, Value};
+use movelang::value::{PrimitiveValue, Value};
 use std::cmp::Ordering;
 use std::convert::From;
 
@@ -111,7 +111,7 @@ pub struct LocalsOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> LocalsOp<F> {
@@ -123,7 +123,7 @@ impl<F: FieldExt> LocalsOp<F> {
             address_ext_1: 0,
             gc: 0,
             rw: RW::READ,
-            value: Some(SimpleValue::u64(0)),
+            value: Some(PrimitiveValue::u64(0)),
         }
     }
 }
@@ -181,7 +181,7 @@ pub struct StackOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> StackOp<F> {
@@ -190,7 +190,7 @@ impl<F: FieldExt> StackOp<F> {
             address: 0,
             address_ext_0: 0,
             address_ext_1: 0,
-            value: Some(SimpleValue::u64(0)),
+            value: Some(PrimitiveValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
@@ -249,7 +249,7 @@ pub struct GlobalOp<F: FieldExt> {
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> GlobalOp<F> {
@@ -259,7 +259,7 @@ impl<F: FieldExt> GlobalOp<F> {
             sd_index: 0,
             address_ext_0: 0,
             address_ext_1: 0,
-            value: Some(SimpleValue::u64(0)),
+            value: Some(PrimitiveValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
