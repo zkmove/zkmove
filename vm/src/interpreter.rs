@@ -14,7 +14,7 @@ use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{GlobalValue, Value};
+use movelang::value::{GlobalRef, GlobalValue, Value};
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::arith_operations::ArithOperation;
@@ -334,7 +334,7 @@ impl<F: FieldExt> Interpreter<F> {
         addr: AccountAddress<F>,
         ty: &Type,
         sd_index: StructDefinitionIndex,
-    ) -> VmResult<Value<F>> {
+    ) -> VmResult<GlobalRef<F>> {
         Self::load_resource(data_store, loader, addr, ty)?.borrow_global(addr, sd_index)
     }
 }

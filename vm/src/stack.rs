@@ -5,7 +5,8 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, Container, Index, Reference, Struct, StructRef, Value, ValueAddress,
+    AddressPath, Container, LocatedValue, PrimitiveValue, Reference, StackLocation, Struct, Value,
+    ValueLocation,
 };
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
@@ -21,7 +22,7 @@ impl<F: FieldExt> EvalStack<F> {
     }
 
     pub fn emit_stack_ops_for_word(
-        word: Vec<(AddressPath<F>, Value<F>)>,
+        word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
@@ -36,7 +37,7 @@ impl<F: FieldExt> EvalStack<F> {
                     .0
                     .get(3)
                     .expect("address_ext_1 should not be None"),
-                value: val,
+                value: Some(val),
                 rw: rw.clone(),
                 gc: rw_operations.len(),
             };
@@ -50,9 +51,13 @@ impl<F: FieldExt> EvalStack<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            // Container in locals need to update address before bing pushed to stack
-            let value = Value::update_address(value, ValueAddress::Stack(Index(self.0.len())));
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let word = LocatedValue(
+                ValueLocation::Stack(StackLocation {
+                    stack_index: self.0.len(),
+                }),
+                &value,
+            )
+            .flatten();
             Self::emit_stack_ops_for_word(word, RW::WRITE, rw_operations);
 
             self.0.push(value);
@@ -67,8 +72,13 @@ impl<F: FieldExt> EvalStack<F> {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
-
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let word = LocatedValue(
+                ValueLocation::Stack(StackLocation {
+                    stack_index: self.0.len(),
+                }),
+                &value,
+            )
+            .flatten();
             Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             Ok(value)
@@ -88,7 +98,13 @@ impl<F: FieldExt> EvalStack<F> {
         let values = self.0.split_off(remaining_stack_size);
 
         for (i, value) in values.iter().enumerate() {
-            let word = value.flatten(ValueAddress::Stack(Index(remaining_stack_size + i)))?;
+            let word = LocatedValue(
+                ValueLocation::Stack(StackLocation {
+                    stack_index: (remaining_stack_size + i),
+                }),
+                value,
+            )
+            .flatten();
             Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
         }
 
@@ -104,13 +120,15 @@ impl<F: FieldExt> EvalStack<F> {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
-
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let loc = StackLocation {
+                stack_index: self.0.len(),
+            };
+            let word = LocatedValue(ValueLocation::Stack(loc), &value).flatten();
             let word_element_count = word.len();
             Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
-                Value::Container(Container::Struct(_, struct_)) => {
+                Value::Container(Container(struct_)) => {
                     debug_assert_eq!(Rc::strong_count(&struct_), 1);
                     let fields = match Rc::try_unwrap(struct_) {
                         Ok(cell) => Ok(cell.into_inner()),
@@ -136,11 +154,18 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let word = LocatedValue(
+                ValueLocation::Stack(StackLocation {
+                    stack_index: self.0.len(),
+                }),
+                &value,
+            )
+            .flatten();
             Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
-                Value::ContainerRef(r) => Ok(Reference::ContainerRef(r)),
+                Value::GlobalRef(r) => Ok(Reference::GlobalRef(r)),
+                Value::LocalRef(r) => Ok(Reference::LocalRef(r)),
                 Value::IndexedRef(r) => Ok(Reference::IndexedRef(r)),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as reference", v))),
@@ -148,25 +173,27 @@ impl<F: FieldExt> EvalStack<F> {
         }
     }
 
-    pub fn pop_as_struct_ref(
-        &mut self,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<StructRef<F>> {
-        if self.0.is_empty() {
-            Err(RuntimeError::new(StatusCode::StackUnderflow))
-        } else {
-            let value = self.0.pop().unwrap();
-
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
-
-            match value {
-                Value::ContainerRef(r) => Ok(StructRef(r)),
-                v => Err(RuntimeError::new(StatusCode::TypeMismatch)
-                    .with_message(format!("cannot pop {:?} as struct_ref", v))),
-            }
-        }
-    }
+    // pub fn pop_as_struct_ref(
+    //     &mut self,
+    //     rw_operations: &mut Vec<RWOperation<F>>,
+    // ) -> VmResult<StructRef<F>> {
+    //     if self.0.is_empty() {
+    //         Err(RuntimeError::new(StatusCode::StackUnderflow))
+    //     } else {
+    //         let value = self.0.pop().unwrap();
+    //
+    //         let word = value.flatten(ValueLocation::Stack(StackLocation {
+    //             stack_index: self.0.len() as u64,
+    //         }));
+    //         Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+    //
+    //         match value {
+    //             Value::ContainerRef(r) => Ok(StructRef(r)),
+    //             v => Err(RuntimeError::new(StatusCode::TypeMismatch)
+    //                 .with_message(format!("cannot pop {:?} as struct_ref", v))),
+    //         }
+    //     }
+    // }
 
     pub fn pop_as_account_address(
         &mut self,
@@ -176,12 +203,14 @@ impl<F: FieldExt> EvalStack<F> {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
-
-            let word = value.flatten(ValueAddress::Stack(Index(self.0.len())))?;
+            let v_loc = StackLocation {
+                stack_index: self.0.len(),
+            };
+            let word = LocatedValue(ValueLocation::Stack(v_loc), &value).flatten();
             Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
 
             match value {
-                Value::Address(addr) => Ok(addr.account_address()),
+                Value::Address(addr) => Ok(addr),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as account address", v))),
             }
