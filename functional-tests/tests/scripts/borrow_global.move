@@ -1,6 +1,6 @@
 //! mods: globals.move
-//! signer: 0x1
-//! args: 0x1
+//! signer: 0x78560000000000000000000000000000
+//! args: 0x78560000000000000000000000000000
 script {
     use 0x1::Globals;
 

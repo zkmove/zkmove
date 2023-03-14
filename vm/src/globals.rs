@@ -21,11 +21,11 @@ pub fn emit_global_ops_for_word<F: FieldExt>(
             address_ext_0: *address_path
                 .0
                 .get(2)
-                .expect("address_ext_0 should not be None"),
+                .expect("address_ext_0 should not be None") as usize,
             address_ext_1: *address_path
                 .0
                 .get(3)
-                .expect("address_ext_1 should not be None"),
+                .expect("address_ext_1 should not be None") as usize,
             value: Some(val),
             rw: rw.clone(),
             gc: rw_operations.len(),
@@ -54,11 +54,11 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
             address_ext_0: *address_path
                 .0
                 .get(2)
-                .expect("address_ext_0 should not be None"),
+                .expect("address_ext_0 should not be None") as usize,
             address_ext_1: *address_path
                 .0
                 .get(3)
-                .expect("address_ext_1 should not be None"),
+                .expect("address_ext_1 should not be None") as usize,
             value: Some(val),
             rw: rw.clone(),
             gc: rw_operations.len(),
@@ -74,11 +74,13 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
                 address_ext_0: *address_path
                     .0
                     .get(2)
-                    .expect("address_ext_0 should not be None"),
+                    .expect("address_ext_0 should not be None")
+                    as usize,
                 address_ext_1: *address_path
                     .0
                     .get(3)
-                    .expect("address_ext_1 should not be None"),
+                    .expect("address_ext_1 should not be None")
+                    as usize,
                 value: None,
                 rw: RW::WRITE,
                 gc: rw_operations.len(),
