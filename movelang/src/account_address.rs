@@ -28,12 +28,12 @@ impl<F: FieldExt> AccountAddress<F> {
 
 impl<F: FieldExt> From<MoveAccountAddress> for AccountAddress<F> {
     fn from(addr: MoveAccountAddress) -> AccountAddress<F> {
-        Self(F::from_u128(u128::from_le_bytes(addr.into_bytes())))
+        Self(F::from_u128(u128::from_be_bytes(addr.into_bytes())))
     }
 }
 
 impl<F: FieldExt> From<AccountAddress<F>> for MoveAccountAddress {
     fn from(addr: AccountAddress<F>) -> MoveAccountAddress {
-        addr.value().get_lower_128().to_le_bytes().into()
+        addr.value().get_lower_128().to_be_bytes().into()
     }
 }
