@@ -697,7 +697,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i], PrimitiveValue::U128(U128(F::from_u128(v as u128)))))
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -709,7 +709,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i], PrimitiveValue::U128(U128(F::from_u128(v as u128)))))
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
