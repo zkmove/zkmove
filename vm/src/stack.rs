@@ -28,15 +28,17 @@ impl<F: FieldExt> EvalStack<F> {
     ) {
         for (address_path, val) in word {
             let stack_op = StackOp {
-                address: *address_path.0.get(1).expect("address should not be None"),
+                address: *address_path.0.get(1).expect("address should not be None") as usize,
                 address_ext_0: *address_path
                     .0
                     .get(2)
-                    .expect("address_ext_0 should not be None"),
+                    .expect("address_ext_0 should not be None")
+                    as usize,
                 address_ext_1: *address_path
                     .0
                     .get(3)
-                    .expect("address_ext_1 should not be None"),
+                    .expect("address_ext_1 should not be None")
+                    as usize,
                 value: Some(val),
                 rw: rw.clone(),
                 gc: rw_operations.len(),

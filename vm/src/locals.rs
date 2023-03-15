@@ -33,16 +33,18 @@ impl<F: FieldExt> Locals<F> {
                 frame_index: *address_path
                     .0
                     .get(0)
-                    .expect("frame_index should not be None"),
-                index: *address_path.0.get(1).expect("index should not be None"),
+                    .expect("frame_index should not be None") as usize,
+                index: *address_path.0.get(1).expect("index should not be None") as usize,
                 address_ext_0: *address_path
                     .0
                     .get(2)
-                    .expect("address_ext_0 should not be None"),
+                    .expect("address_ext_0 should not be None")
+                    as usize,
                 address_ext_1: *address_path
                     .0
                     .get(3)
-                    .expect("address_ext_1 should not be None"),
+                    .expect("address_ext_1 should not be None")
+                    as usize,
                 value: Some(val),
                 rw: rw.clone(),
                 gc: rw_operations.len(),
@@ -65,7 +67,7 @@ impl<F: FieldExt> Locals<F> {
                     let word = LocatedValue(
                         ValueLocation::Local(LocalLocation {
                             frame_index: FrameIndex(frame_index),
-                            index: index as u64,
+                            index,
                         }),
                         &copied_value,
                     )
@@ -101,7 +103,7 @@ impl<F: FieldExt> Locals<F> {
                 let word = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
-                        index: index as u64,
+                        index,
                     }),
                     &value,
                 )
@@ -131,7 +133,7 @@ impl<F: FieldExt> Locals<F> {
                 let word = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
-                        index: index as u64,
+                        index,
                     }),
                     &v,
                 )
@@ -144,16 +146,19 @@ impl<F: FieldExt> Locals<F> {
                         frame_index: *address_path
                             .0
                             .get(0)
-                            .expect("frame_index should not be None"),
-                        index: *address_path.0.get(1).expect("index should not be None"),
+                            .expect("frame_index should not be None")
+                            as usize,
+                        index: *address_path.0.get(1).expect("index should not be None") as usize,
                         address_ext_0: *address_path
                             .0
                             .get(2)
-                            .expect("address_ext_0 should not be None"),
+                            .expect("address_ext_0 should not be None")
+                            as usize,
                         address_ext_1: *address_path
                             .0
                             .get(3)
-                            .expect("address_ext_1 should not be None"),
+                            .expect("address_ext_1 should not be None")
+                            as usize,
                         value: None,
                         rw: RW::WRITE,
                         gc: rw_operations.len(),
@@ -188,7 +193,7 @@ impl<F: FieldExt> Locals<F> {
             | Value::Container(_) => {
                 let loc = LocalLocation {
                     frame_index: FrameIndex(frame_index),
-                    index: index as u64,
+                    index,
                 };
                 let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
                 Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
@@ -213,7 +218,7 @@ impl<F: FieldExt> Locals<F> {
             .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
         let loc = LocalLocation {
             frame_index: FrameIndex(frame_index),
-            index: index as u64,
+            index,
         };
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),

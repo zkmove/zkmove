@@ -40,27 +40,27 @@ pub struct FrameIndex(pub usize);
 pub struct Index(pub usize);
 
 #[derive(Clone, Debug)]
-//todo: use 'Field' instead of 'usize'?
-pub struct AddressPath<F: FieldExt>(pub Vec<usize>, PhantomData<F>);
-impl<F: FieldExt> From<Vec<usize>> for AddressPath<F> {
-    fn from(indexes: Vec<usize>) -> Self {
+//todo: use 'Field' instead of 'u128'?
+pub struct AddressPath<F: FieldExt>(pub Vec<u128>, PhantomData<F>);
+impl<F: FieldExt> From<Vec<u128>> for AddressPath<F> {
+    fn from(indexes: Vec<u128>) -> Self {
         AddressPath(indexes, PhantomData)
     }
 }
 
 impl<F: FieldExt> AddressPath<F> {
-    pub fn into_inner(self) -> Vec<usize> {
+    pub fn into_inner(self) -> Vec<u128> {
         self.0
     }
-    pub fn as_inner(&self) -> &Vec<usize> {
+    pub fn as_inner(&self) -> &Vec<u128> {
         &self.0
     }
-    pub fn extend(self, leaf: usize) -> Self {
+    pub fn extend(self, leaf: u128) -> Self {
         let mut path = self.into_inner();
         path.push(leaf);
         AddressPath(path, PhantomData)
     }
-    pub fn with_subpath(mut self, mut subpath: Vec<usize>) -> Self {
+    pub fn with_subpath(mut self, mut subpath: Vec<u128>) -> Self {
         self.0.append(&mut subpath);
         self
     }
@@ -139,7 +139,7 @@ pub struct GlobalLocation<F: FieldExt> {
 #[derive(Clone, Copy, Debug)]
 pub struct LocalLocation {
     pub frame_index: FrameIndex,
-    pub index: u64,
+    pub index: usize,
 }
 
 /// Location of stack values (simple values or containers)
@@ -168,7 +168,7 @@ impl<F: FieldExt> IndexedLocation<F> {
     fn to_address_path(&self) -> AddressPath<F> {
         self.value_loc
             .to_address_path()
-            .with_subpath(self.sub_indexes.clone())
+            .with_subpath(self.sub_indexes.iter().map(|v| *v as u128).collect())
     }
 }
 
@@ -182,12 +182,12 @@ pub enum ValueLocation<F: FieldExt> {
 impl<F: FieldExt> ValueLocation<F> {
     fn to_address_path(&self) -> AddressPath<F> {
         let indexes = match self {
-            ValueLocation::Stack(loc) => vec![0, loc.stack_index],
-            ValueLocation::Local(loc) => vec![loc.frame_index.0, loc.index as usize],
+            ValueLocation::Stack(loc) => vec![0_u128, loc.stack_index as u128],
+            ValueLocation::Local(loc) => vec![loc.frame_index.0 as u128, loc.index as u128],
             ValueLocation::Global(loc) => vec![
                 // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
-                loc.address.value().get_lower_128() as usize,
-                loc.sd_index.0 as usize,
+                loc.address.value().get_lower_128(),
+                loc.sd_index.0 as u128,
             ],
         };
         indexes.into()
@@ -242,13 +242,13 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
-    fn cast_simples(&self) -> Vec<(Vec<usize>, PrimitiveValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
             sub_values.iter_mut().for_each(|(v, _)| {
                 // prepend value idx to the sub-struct
-                v.insert(0, idx);
+                v.insert(0, idx as u128);
             });
             simples.append(&mut sub_values);
         }
@@ -680,7 +680,7 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    fn cast_simples(&self) -> Vec<(Vec<usize>, PrimitiveValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
             return vec![(vec![], simple_value)];
@@ -697,7 +697,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -709,7 +709,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
@@ -727,7 +727,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i], PrimitiveValue::U64(U64(F::from_u128(v as u128)))))
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             _ => unreachable!(),
