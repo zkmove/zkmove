@@ -496,13 +496,13 @@ impl<F: FieldExt> IndexedRef<F> {
         debug_assert_ne!(self.sub_indexes.len(), 0);
         let (last, prev) = self.sub_indexes.split_last().unwrap();
         for idx in prev {
-            let field = cur_value.read_field(*idx as usize)?;
+            let field = cur_value.read_field(*idx)?;
             match field {
                 Value::Container(c) => cur_value = c,
                 _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
             }
         }
-        cur_value.read_field(*last as usize)
+        cur_value.read_field(*last)
     }
 
     fn write_ref(&self, v: Value<F>) -> VmResult<()> {
@@ -513,7 +513,7 @@ impl<F: FieldExt> IndexedRef<F> {
             cur_value = {
                 let v = cur_value.0.borrow();
                 let v = v
-                    .get(*idx as usize)
+                    .get(*idx)
                     .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
 
                 match v {
@@ -522,7 +522,7 @@ impl<F: FieldExt> IndexedRef<F> {
                 }
             };
         }
-        cur_value.write_field(*last as usize, v)
+        cur_value.write_field(*last, v)
     }
 }
 
