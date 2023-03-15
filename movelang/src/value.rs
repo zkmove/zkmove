@@ -139,7 +139,7 @@ pub struct GlobalLocation<F: FieldExt> {
 #[derive(Clone, Copy, Debug)]
 pub struct LocalLocation {
     pub frame_index: FrameIndex,
-    pub index: u128,
+    pub index: usize,
 }
 
 /// Location of stack values (simple values or containers)

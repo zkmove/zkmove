@@ -67,7 +67,7 @@ impl<F: FieldExt> Locals<F> {
                     let word = LocatedValue(
                         ValueLocation::Local(LocalLocation {
                             frame_index: FrameIndex(frame_index),
-                            index: index as u128,
+                            index,
                         }),
                         &copied_value,
                     )
@@ -103,7 +103,7 @@ impl<F: FieldExt> Locals<F> {
                 let word = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
-                        index: index as u128,
+                        index,
                     }),
                     &value,
                 )
@@ -133,7 +133,7 @@ impl<F: FieldExt> Locals<F> {
                 let word = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
-                        index: index as u128,
+                        index,
                     }),
                     &v,
                 )
@@ -193,7 +193,7 @@ impl<F: FieldExt> Locals<F> {
             | Value::Container(_) => {
                 let loc = LocalLocation {
                     frame_index: FrameIndex(frame_index),
-                    index: index as u128,
+                    index,
                 };
                 let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
                 Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
@@ -218,7 +218,7 @@ impl<F: FieldExt> Locals<F> {
             .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
         let loc = LocalLocation {
             frame_index: FrameIndex(frame_index),
-            index: index as u128,
+            index,
         };
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
