@@ -153,11 +153,11 @@ pub struct StackLocation {
 /// we fake it as a location just to make value flatten easier.
 #[derive(Clone, Debug)]
 pub struct IndexedLocation<F: FieldExt> {
-    pub sub_indexes: Vec<u128>,
+    pub sub_indexes: Vec<usize>,
     pub value_loc: ValueLocation<F>,
 }
 impl<F: FieldExt> IndexedLocation<F> {
-    pub fn new(root_location: ValueLocation<F>, sub_indexes: Vec<u128>) -> Self {
+    pub fn new(root_location: ValueLocation<F>, sub_indexes: Vec<usize>) -> Self {
         IndexedLocation {
             sub_indexes,
             value_loc: root_location,
@@ -168,7 +168,7 @@ impl<F: FieldExt> IndexedLocation<F> {
     fn to_address_path(&self) -> AddressPath<F> {
         self.value_loc
             .to_address_path()
-            .with_subpath(self.sub_indexes.clone())
+            .with_subpath(self.sub_indexes.iter().map(|v| *v as u128).collect())
     }
 }
 
@@ -386,7 +386,7 @@ impl<F: FieldExt> GlobalRef<F> {
             );
         }
         Ok(IndexedRef {
-            sub_indexes: vec![element_idx as u128],
+            sub_indexes: vec![element_idx],
             container_ref: ContainerRef::Global(self.loc, self.refer.clone()),
         })
     }
@@ -443,7 +443,7 @@ impl<F: FieldExt> LocalRef<F> {
                     );
                 }
                 Ok(IndexedRef {
-                    sub_indexes: vec![element_idx as u128],
+                    sub_indexes: vec![element_idx],
                     container_ref: ContainerRef::Local(self.loc, c.clone()),
                 })
             }
@@ -456,7 +456,7 @@ impl<F: FieldExt> LocalRef<F> {
 
 #[derive(Clone, Debug)]
 pub struct IndexedRef<F: FieldExt> {
-    pub sub_indexes: Vec<u128>,
+    pub sub_indexes: Vec<usize>,
     pub container_ref: ContainerRef<F>,
 }
 
@@ -478,7 +478,7 @@ impl<F: FieldExt> IndexedRef<F> {
                 Ok(IndexedRef {
                     sub_indexes: {
                         let mut idxes = self.sub_indexes.clone();
-                        idxes.push(element_idx as u128);
+                        idxes.push(element_idx);
                         idxes
                     },
                     container_ref: self.container_ref.clone(),
