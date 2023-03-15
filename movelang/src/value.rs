@@ -343,7 +343,7 @@ impl<F: FieldExt> Reference<F> {
         }
     }
     /// try_borrow_field will trait reference as a struct ref, and try to borrow it's field.
-    pub fn try_borrow_field(&self, element_idx: u128) -> VmResult<IndexedRef<F>> {
+    pub fn try_borrow_field(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         match self {
             Reference::GlobalRef(g) => g.try_borrow_field(element_idx),
             Reference::LocalRef(l) => l.try_borrow_field(element_idx),
@@ -375,9 +375,9 @@ impl<F: FieldExt> GlobalRef<F> {
         Ok(())
     }
 
-    fn try_borrow_field(&self, element_idx: u128) -> VmResult<IndexedRef<F>> {
+    fn try_borrow_field(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         let len = self.refer.0.borrow().len();
-        if element_idx >= len as u128 {
+        if element_idx >= len {
             return Err(
                 RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
                     "index out of bounds when borrowing container element: index: {}, length: {}",
@@ -386,7 +386,7 @@ impl<F: FieldExt> GlobalRef<F> {
             );
         }
         Ok(IndexedRef {
-            sub_indexes: vec![element_idx],
+            sub_indexes: vec![element_idx as u128],
             container_ref: ContainerRef::Global(self.loc, self.refer.clone()),
         })
     }
@@ -429,12 +429,12 @@ impl<F: FieldExt> LocalRef<F> {
         Ok(())
     }
 
-    fn try_borrow_field(&self, element_idx: u128) -> VmResult<IndexedRef<F>> {
+    fn try_borrow_field(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         let v = self.refer.borrow();
         match v.deref() {
             Value::Container(c) => {
                 let len = c.0.borrow().len();
-                if element_idx >= len as u128 {
+                if element_idx >= len {
                     return Err(
                         RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
                             "index out of bounds when borrowing container element: index: {}, length: {}",
@@ -443,7 +443,7 @@ impl<F: FieldExt> LocalRef<F> {
                     );
                 }
                 Ok(IndexedRef {
-                    sub_indexes: vec![element_idx],
+                    sub_indexes: vec![element_idx as u128],
                     container_ref: ContainerRef::Local(self.loc, c.clone()),
                 })
             }
@@ -461,13 +461,13 @@ pub struct IndexedRef<F: FieldExt> {
 }
 
 impl<F: FieldExt> IndexedRef<F> {
-    fn try_borrow_field(&self, element_idx: u128) -> VmResult<IndexedRef<F>> {
+    fn try_borrow_field(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         let this_value = self.read_ref()?;
 
         match this_value {
             Value::Container(c) => {
                 let len = c.0.borrow().len();
-                if element_idx >= len as u128 {
+                if element_idx >= len {
                     return Err(
                         RuntimeError::new(StatusCode::OutOfBounds).with_message(format!(
                             "index out of bounds when borrowing container element: index: {}, length: {}",
@@ -478,7 +478,7 @@ impl<F: FieldExt> IndexedRef<F> {
                 Ok(IndexedRef {
                     sub_indexes: {
                         let mut idxes = self.sub_indexes.clone();
-                        idxes.push(element_idx);
+                        idxes.push(element_idx as u128);
                         idxes
                     },
                     container_ref: self.container_ref.clone(),

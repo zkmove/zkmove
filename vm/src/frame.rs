@@ -409,7 +409,7 @@ impl<F: FieldExt> Frame<F> {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
                         let word_element_count = reference.value_address_path().len();
                         let field_offset = resolver.field_offset(*fh_idx);
-                        let field_ref = reference.try_borrow_field(field_offset as u128)?;
+                        let field_ref = reference.try_borrow_field(field_offset)?;
                         execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(field_offset as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
