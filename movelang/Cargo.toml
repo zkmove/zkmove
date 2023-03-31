@@ -18,3 +18,4 @@ move-vm-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" 
 halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
 
 anyhow = "1.0.38"
+petgraph = "0.6"
