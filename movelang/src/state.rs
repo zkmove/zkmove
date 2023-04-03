@@ -20,6 +20,7 @@ use crate::value::GlobalValue;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
+use move_core_types::gas_algebra::NumBytes;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::value::MoveTypeLayout;
 pub use move_vm_types::data_store::DataStore;
@@ -129,7 +130,7 @@ impl<F: FieldExt> DataStore for StateStore<F> {
         &mut self,
         _addr: MoveAccountAddress,
         _ty: &Type,
-    ) -> PartialVMResult<&mut MoveGlobalValue> {
+    ) -> PartialVMResult<(&mut MoveGlobalValue, Option<Option<NumBytes>>)> {
         unimplemented!()
     }
 
@@ -146,7 +147,12 @@ impl<F: FieldExt> DataStore for StateStore<F> {
         Ok(module.clone())
     }
 
-    fn publish_module(&mut self, module_id: &ModuleId, blob: Vec<u8>) -> VMResult<()> {
+    fn publish_module(
+        &mut self,
+        module_id: &ModuleId,
+        blob: Vec<u8>,
+        _is_republishing: bool,
+    ) -> VMResult<()> {
         self.modules
             .borrow_mut()
             .insert(module_id.clone(), blob)
