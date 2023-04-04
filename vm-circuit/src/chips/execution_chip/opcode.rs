@@ -2,12 +2,12 @@ use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::instructions::{
     _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr,
     borrow_field::BorrowField, borrow_global::BorrowGlobal, borrow_loc::BorrowLoc,
-    br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call, castu128::CastU128,
-    castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq, exists::Exists,
-    freeze_ref::FreezeRef, ge::Ge, gt::Gt, ld_false::LdFalse, ld_true::LdTrue, ldu128::LdU128,
-    ldu64::LdU64, ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom, move_loc::MoveLoc,
-    move_to::MoveTo, mul::Mul, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack, pop::Pop,
-    read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
+    br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call, call_generic::CallGeneric,
+    castu128::CastU128, castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq,
+    exists::Exists, freeze_ref::FreezeRef, ge::Ge, gt::Gt, ld_false::LdFalse, ld_true::LdTrue,
+    ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom,
+    move_loc::MoveLoc, move_to::MoveTo, mul::Mul, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack,
+    pop::Pop, read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
     unpack::Unpack, write_ref::WriteRef, xor::Xor,
 };
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
@@ -73,6 +73,7 @@ pub enum Opcode {
     Exists,
     ImmBorrowGlobal,
     MutBorrowGlobal,
+    CallGeneric,
     Stop,
     Nop,
 }
@@ -135,6 +136,7 @@ impl Opcode {
             Self::Exists,
             Self::ImmBorrowGlobal,
             Self::MutBorrowGlobal,
+            Self::CallGeneric,
             Self::Stop,
             Self::Nop,
         ]
@@ -212,6 +214,7 @@ impl Opcode {
             Opcode::MutBorrowGlobal => {
                 BorrowGlobal::<true, _>::configure(cells, constraints, lookups)
             }
+            Opcode::CallGeneric => CallGeneric::configure(cells, constraints, lookups),
             Opcode::Stop => Stop::configure(cells, constraints, lookups),
             Opcode::Nop => Nop::configure(cells, constraints, lookups),
         }
@@ -289,6 +292,7 @@ impl Opcode {
             Opcode::MutBorrowGlobal => {
                 BorrowGlobal::<true, _>::assign(region, offset, step, rw_operations, cells)?
             }
+            Opcode::CallGeneric => CallGeneric::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
         }
@@ -350,7 +354,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Exists(_) => Opcode::Exists,
             Bytecode::ImmBorrowGlobal(_) => Opcode::ImmBorrowGlobal,
             Bytecode::MutBorrowGlobal(_) => Opcode::MutBorrowGlobal,
-
+            Bytecode::CallGeneric(_) => Opcode::CallGeneric,
             _ => unimplemented!(),
         }
     }

@@ -146,6 +146,10 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::MutBorrowGlobal.index() as u128),
             F::from_u128(sd_idx.0 as u128),
         ),
+        Bytecode::CallGeneric(idx) => (
+            F::from_u128(Opcode::CallGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

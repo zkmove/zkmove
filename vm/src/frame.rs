@@ -6,7 +6,7 @@ use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
-use move_binary_format::file_format::{Bytecode, FunctionHandleIndex};
+use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
@@ -26,17 +26,27 @@ pub struct Frame<F: FieldExt> {
     pc: u16,
     locals: Locals<F>,
     function: Arc<Function>,
+    #[allow(dead_code)]
+    ty_args: Vec<MoveValueType>,
 }
 
 impl<F: FieldExt> Frame<F> {
-    pub fn new(function: Arc<Function>, locals: Locals<F>) -> Self {
+    pub fn new(
+        function: Arc<Function>,
+        type_arguments: Vec<MoveValueType>,
+        locals: Locals<F>,
+    ) -> Self {
         Frame {
             pc: 0,
             locals,
             function,
+            ty_args: type_arguments,
         }
     }
 
+    pub fn ty_args(&self) -> &[MoveValueType] {
+        &self.ty_args
+    }
     pub fn locals(&mut self) -> &mut Locals<F> {
         &mut self.locals
     }
@@ -168,6 +178,9 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Call(index) => {
                         return Ok(ExitStatus::Call(*index, execution_step));
+                    }
+                    Bytecode::CallGeneric(index) => {
+                        return Ok(ExitStatus::CallGeneric(*index, execution_step));
                     }
                     Bytecode::CopyLoc(v) => {
                         execution_step.locals_index = *v as usize;
@@ -662,4 +675,5 @@ impl<F: FieldExt> Frame<F> {
 pub enum ExitStatus<F: FieldExt> {
     Return,
     Call(FunctionHandleIndex, ExecutionStep<F>),
+    CallGeneric(FunctionInstantiationIndex, ExecutionStep<F>),
 }

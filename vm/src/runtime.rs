@@ -14,11 +14,13 @@ use halo2_proofs::{
     pasta::Fp,
 };
 use logger::prelude::*;
+use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;
 use movelang::argument::{ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
+use movelang::value::TypeTag;
 use plotters::prelude::*;
 use rand_core::OsRng;
 use std::marker::PhantomData;
@@ -53,10 +55,12 @@ impl<F: FieldExt> Runtime<F> {
         &self.loader
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn execute_script(
         &self,
         script: CompiledScript,
         modules: Vec<CompiledModule>,
+        ty_args: Vec<TypeTag>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore<F>,
@@ -66,21 +70,29 @@ impl<F: FieldExt> Runtime<F> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        let (entry, arg_types) = self
+        let (entry, type_arguments, arg_types) = self
             .loader()
-            .load_script(&script_bytes, data_store)
+            .load_script(&script_bytes, &ty_args, data_store)
             .map_err(|e| {
                 error!("load script failed: {:?}", e);
                 RuntimeError::new(StatusCode::ScriptLoadingError)
             })?;
         trace!("script entry {:?}", entry.name());
-
+        let arg_types = arg_types
+            .into_iter()
+            .map(|ty| ty.subst(&type_arguments))
+            .collect::<PartialVMResult<Vec<_>>>()
+            .map_err(|e| {
+                error!("arg_types unification fail. {:?}", e);
+                RuntimeError::new(StatusCode::TypeMismatch)
+            })?;
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
         let mut func_calls = Vec::new();
         let mut arith_operations = Vec::new();
         interp.run_script(
             entry,
+            type_arguments,
             signer,
             args,
             arg_types,

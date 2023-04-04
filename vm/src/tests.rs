@@ -36,9 +36,9 @@ fn test_execution_step() -> VmResult<()> {
     let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
 
-    let (entry, arg_types) = runtime
+    let (entry, ty_arguments, arg_types) = runtime
         .loader()
-        .load_script(&blob, &data_store)
+        .load_script(&blob, &[], &data_store)
         .map_err(|e| {
             error!("load script failed: {:?}", e);
             RuntimeError::new(StatusCode::ScriptLoadingError)
@@ -52,6 +52,7 @@ fn test_execution_step() -> VmResult<()> {
     interp
         .run_script(
             entry,
+            ty_arguments,
             None,
             None,
             arg_types,
@@ -459,8 +460,15 @@ fn test_nop_steps() -> VmResult<()> {
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default().steps_num(Some(8));
-    let witness =
-        runtime.execute_script(script, vec![], None, None, &mut data_store, circuit_config)?;
+    let witness = runtime.execute_script(
+        script,
+        vec![],
+        vec![],
+        None,
+        None,
+        &mut data_store,
+        circuit_config,
+    )?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
@@ -641,8 +649,15 @@ fn test_empty_ops() -> VmResult<()> {
     let circuit_config = CircuitConfig::default()
         .stack_ops_num(Some(20))
         .locals_ops_num(Some(20));
-    let witness =
-        runtime.execute_script(script, vec![], None, None, &mut data_store, circuit_config)?;
+    let witness = runtime.execute_script(
+        script,
+        vec![],
+        vec![],
+        None,
+        None,
+        &mut data_store,
+        circuit_config,
+    )?;
 
     let vm_circuit = VmCircuit { witness };
     let k = runtime.find_best_k(&vm_circuit, vec![])?;

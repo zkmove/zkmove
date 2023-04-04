@@ -14,6 +14,8 @@ use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
+pub use move_core_types::language_storage::TypeTag;
+
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;

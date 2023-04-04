@@ -58,6 +58,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let witness = runtime.execute_script(
             script,
             compiled_modules,
+            config.ty_args,
             config.signer,
             config.args,
             &mut state,

@@ -106,6 +106,7 @@ impl Arguments {
         let witness = runtime.execute_script(
             script.clone(),
             compiled_modules.clone(),
+            config.ty_args.clone(),
             config.signer.clone(),
             config.args,
             &mut state,
@@ -139,6 +140,7 @@ impl Arguments {
             let new_witness = runtime.execute_script(
                 script,
                 compiled_modules,
+                config.ty_args,
                 config.signer,
                 arguments,
                 &mut state,

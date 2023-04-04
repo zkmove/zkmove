@@ -104,6 +104,7 @@ impl<F: FieldExt> Interpreter<F> {
     fn make_frame(
         &mut self,
         func: Arc<Function>,
+        type_arguments: Vec<MoveValueType>,
         frame_index: usize,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<Frame<F>> {
@@ -116,13 +117,14 @@ impl<F: FieldExt> Interpreter<F> {
         for (i, item) in value.into_iter().enumerate() {
             locals.store(arg_count - i - 1, item, frame_index, rw_operations)?;
         }
-        Ok(Frame::new(func, locals))
+        Ok(Frame::new(func, type_arguments, locals))
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn run_script(
         &mut self,
         entry: Arc<Function>,
+        type_arguments: Vec<MoveValueType>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
@@ -137,7 +139,7 @@ impl<F: FieldExt> Interpreter<F> {
 
         self.process_arguments(&mut locals, signer, args, arg_types, 0, rw_operations)?;
 
-        let mut frame = Frame::new(entry, locals);
+        let mut frame = Frame::new(entry, type_arguments, locals);
         frame.print_frame();
         loop {
             let status = frame.execute(
@@ -203,7 +205,53 @@ impl<F: FieldExt> Interpreter<F> {
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
-                    let callee_frame = self.make_frame(func, frame_index + 1, rw_operations)?;
+                    let callee_frame =
+                        self.make_frame(func, vec![], frame_index + 1, rw_operations)?;
+                    let word_element_count = (rw_operations.len() - rw_op_count) / 2;
+                    execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                    exec_steps.push(execution_step);
+
+                    // record function call
+                    let next_module_index = callee_frame
+                        .module_index(data_store)
+                        .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
+                    let next_function_index = callee_frame.func().index().0;
+                    func_calls.push(FunctionCall {
+                        type_: EntryType::CALL,
+                        module_index,
+                        function_index,
+                        pc,
+                        next_module_index,
+                        next_function_index,
+                        next_pc: 0,
+                    });
+
+                    callee_frame.print_frame();
+                    self.frames.push(frame)?;
+                    frame = callee_frame;
+                }
+                ExitStatus::CallGeneric(index, mut execution_step) => {
+                    let frame_index = self.frames.size();
+                    let resolver = frame.func().get_resolver(loader.inner());
+                    let ty_args = resolver.instantiate_generic_function(index, frame.ty_args()).map_err(|e| {
+                        error!("fail to resolver.instantiate_generic_function, index: {}, ty_args: {:?}, error: {:?}", index, frame.ty_args(), e);
+                        RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                    })?;
+
+                    let func = resolver.function_from_instantiation(index);
+
+                    execution_step.frame_index = frame_index;
+                    execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
+                    execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
+                    trace!("step #{}, {:?}", self.step, execution_step);
+                    let module_index = execution_step.module_index;
+                    let function_index = execution_step.function_index;
+                    let pc = execution_step.pc;
+                    self.step += 1;
+                    trace!("Call into function: {:?}", func.name());
+                    let rw_op_count = rw_operations.len();
+                    let callee_frame =
+                        self.make_frame(func, ty_args, frame_index + 1, rw_operations)?;
                     let word_element_count = (rw_operations.len() - rw_op_count) / 2;
                     execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                     exec_steps.push(execution_step);
