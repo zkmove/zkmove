@@ -20,7 +20,7 @@ use move_binary_format::CompiledModule;
 use movelang::argument::{ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
-use movelang::TypeTag;
+use movelang::value::TypeTag;
 use plotters::prelude::*;
 use rand_core::OsRng;
 use std::marker::PhantomData;
@@ -70,7 +70,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        let (entry, type_arguments_, arg_types) = self
+        let (entry, type_arguments, arg_types) = self
             .loader()
             .load_script(&script_bytes, &ty_args, data_store)
             .map_err(|e| {
@@ -80,7 +80,7 @@ impl<F: FieldExt> Runtime<F> {
         trace!("script entry {:?}", entry.name());
         let arg_types = arg_types
             .into_iter()
-            .map(|ty| ty.subst(&type_arguments_))
+            .map(|ty| ty.subst(&type_arguments))
             .collect::<PartialVMResult<Vec<_>>>()
             .map_err(|e| {
                 error!("arg_types unification fail. {:?}", e);
@@ -92,7 +92,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut arith_operations = Vec::new();
         interp.run_script(
             entry,
-            type_arguments_,
+            type_arguments,
             signer,
             args,
             arg_types,

@@ -9,6 +9,7 @@ use std::str::FromStr;
 use crate::account_address::AccountAddress;
 use crate::utility::MoveValueType;
 pub use move_core_types::parser::parse_transaction_argument;
+pub use move_core_types::parser::parse_type_tags;
 pub use move_core_types::transaction_argument::TransactionArgument as ScriptArgument;
 
 #[derive(Debug, Clone)]

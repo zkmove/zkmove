@@ -103,11 +103,10 @@ impl Arguments {
             .steps_num(config.steps_num)
             .stack_ops_num(config.stack_ops_num)
             .locals_ops_num(config.locals_ops_num);
-        let ty_args = vec![];
         let witness = runtime.execute_script(
             script.clone(),
             compiled_modules.clone(),
-            ty_args.clone(),
+            config.ty_args.clone(),
             config.signer.clone(),
             config.args,
             &mut state,
@@ -141,7 +140,7 @@ impl Arguments {
             let new_witness = runtime.execute_script(
                 script,
                 compiled_modules,
-                ty_args,
+                config.ty_args,
                 config.signer,
                 arguments,
                 &mut state,

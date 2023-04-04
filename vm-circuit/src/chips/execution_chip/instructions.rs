@@ -21,6 +21,7 @@ pub mod br_false;
 pub mod br_true;
 pub mod branch;
 pub mod call;
+pub mod call_generic;
 pub mod castu128;
 pub mod castu64;
 pub mod castu8;

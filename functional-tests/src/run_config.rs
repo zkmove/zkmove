@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::{anyhow, Error, Result};
-use movelang::argument::{ScriptArguments, Signer};
+use movelang::argument::{parse_type_tags, ScriptArguments, Signer};
+use movelang::value::TypeTag;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -28,6 +29,7 @@ pub enum Circuit {
 pub struct RunConfig {
     pub signer: Option<Signer>,
     pub args: Option<ScriptArguments>,
+    pub ty_args: Vec<TypeTag>,
     pub modules: Vec<String>,
     pub circuit: Option<Circuit>,
     pub steps_num: Option<usize>,
@@ -40,6 +42,7 @@ impl RunConfig {
         let mut config = RunConfig {
             signer: None,
             args: None,
+            ty_args: vec![],
             modules: vec![],
             circuit: None,
             steps_num: None,
@@ -60,6 +63,9 @@ impl RunConfig {
             }
             if let Some(s) = s.strip_prefix("//!args:") {
                 config.args = Some(s.parse::<ScriptArguments>()?);
+            }
+            if let Some(s) = s.strip_prefix("//!ty_args:") {
+                config.ty_args = parse_type_tags(s)?;
             }
             if let Some(s) = s.strip_prefix("//!mods:") {
                 config.modules.push(s.to_string()); //todo: support multiple modules
