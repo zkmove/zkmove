@@ -73,6 +73,7 @@ pub enum Opcode {
     Exists,
     ImmBorrowGlobal,
     MutBorrowGlobal,
+    CallGeneric,
     Stop,
     Nop,
 }
@@ -135,6 +136,7 @@ impl Opcode {
             Self::Exists,
             Self::ImmBorrowGlobal,
             Self::MutBorrowGlobal,
+            Self::CallGeneric,
             Self::Stop,
             Self::Nop,
         ]
@@ -211,6 +213,9 @@ impl Opcode {
             }
             Opcode::MutBorrowGlobal => {
                 BorrowGlobal::<true, _>::configure(cells, constraints, lookups)
+            }
+            Opcode::CallGeneric => {
+                // todo: impl me
             }
             Opcode::Stop => Stop::configure(cells, constraints, lookups),
             Opcode::Nop => Nop::configure(cells, constraints, lookups),
@@ -289,6 +294,9 @@ impl Opcode {
             Opcode::MutBorrowGlobal => {
                 BorrowGlobal::<true, _>::assign(region, offset, step, rw_operations, cells)?
             }
+            Opcode::CallGeneric => {
+                // TODO: impl me
+            }
             Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
             Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
         }
@@ -350,7 +358,7 @@ impl From<Bytecode> for Opcode {
             Bytecode::Exists(_) => Opcode::Exists,
             Bytecode::ImmBorrowGlobal(_) => Opcode::ImmBorrowGlobal,
             Bytecode::MutBorrowGlobal(_) => Opcode::MutBorrowGlobal,
-
+            Bytecode::CallGeneric(_) => Opcode::CallGeneric,
             _ => unimplemented!(),
         }
     }

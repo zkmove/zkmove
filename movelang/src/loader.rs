@@ -2,6 +2,7 @@
 
 use move_binary_format::errors::VMResult;
 use move_binary_format::file_format::FunctionHandleIndex;
+use move_core_types::language_storage::TypeTag;
 use move_vm_runtime::config::VMConfig;
 use move_vm_runtime::loader::{Function, Loader};
 use move_vm_runtime::native_functions::NativeFunctions;
@@ -29,17 +30,18 @@ impl MoveLoader {
     pub fn load_script(
         &self,
         script_blob: &[u8],
+        ty_args: &[TypeTag],
         data_store: &impl DataStore,
-    ) -> VMResult<(Arc<Function>, Vec<Type>)> {
+    ) -> VMResult<(Arc<Function>, Vec<Type>, Vec<Type>)> {
         let (
             main,
             LoadedFunctionInstantiation {
-                type_arguments: _,
+                type_arguments,
                 parameters: arg_types,
                 return_: _,
             },
-        ) = self.loader.load_script(script_blob, &[], data_store)?;
-        Ok((main, arg_types))
+        ) = self.loader.load_script(script_blob, ty_args, data_store)?;
+        Ok((main, type_arguments, arg_types))
     }
 
     pub fn function_from_handle(
