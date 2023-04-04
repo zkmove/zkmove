@@ -284,6 +284,7 @@ mod tests {
         m.function_defs.push(FunctionDefinition {
             function: FunctionHandleIndex(0),
             visibility: Visibility::Private,
+            is_entry: false,
             acquires_global_resources: vec![],
             code: Some(CodeUnit {
                 locals: SignatureIndex(0),
