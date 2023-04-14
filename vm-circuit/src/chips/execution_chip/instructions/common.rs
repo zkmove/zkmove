@@ -3,7 +3,8 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
+use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};

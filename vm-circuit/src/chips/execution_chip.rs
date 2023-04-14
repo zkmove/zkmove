@@ -26,6 +26,7 @@ use step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 pub mod instructions;
 pub mod lookup_tables;
 pub mod opcode;
+pub mod param;
 pub mod step_chip;
 
 #[derive(Clone, Debug)]

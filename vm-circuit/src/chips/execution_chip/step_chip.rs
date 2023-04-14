@@ -7,6 +7,7 @@ use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWTable, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -22,7 +23,6 @@ pub const STEP_CHIP_WIDTH: usize = 16;
 pub const STEP_HEIGHT: usize = 17; //todo: calculate step height automatically
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c, val_0~val_3
-pub const WORD_CAPACITY: usize = 16; //max(#method_arguments, #flattened_struct_fields)
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -78,7 +78,6 @@ pub struct StepChipCells<F: FieldExt> {
 
 #[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
-    pub advices: [Column<Advice>; STEP_CHIP_WIDTH],
     pub cells: StepChipCells<F>,
     pub s_step: Selector,
 }
@@ -379,11 +378,7 @@ impl<F: FieldExt> StepChip<F> {
                 ]
             });
         }
-        StepConfig {
-            advices,
-            cells,
-            s_step,
-        }
+        StepConfig { cells, s_step }
     }
 
     // step condition must be 1 or 0, and sum of all conditions must be 1

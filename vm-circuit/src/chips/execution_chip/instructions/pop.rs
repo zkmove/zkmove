@@ -4,8 +4,9 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
-use crate::chips::utilities::*;
+use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -14,6 +15,10 @@ use halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
 pub struct Pop<F: FieldExt> {
+    _word_a: [Cell<F>; WORD_CAPACITY],
+    _word_a_mask: [Cell<F>; WORD_CAPACITY],
+    _word_a_addr_ext_0: [Cell<F>; WORD_CAPACITY],
+    _word_a_addr_ext_1: [Cell<F>; WORD_CAPACITY],
     _marker: PhantomData<F>,
 }
 

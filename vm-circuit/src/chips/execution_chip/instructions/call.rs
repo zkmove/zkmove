@@ -6,8 +6,9 @@ use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
-use crate::chips::utilities::Expr;
+use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
@@ -18,6 +19,11 @@ use logger::prelude::*;
 use std::marker::PhantomData;
 
 pub struct Call<F: FieldExt> {
+    _word_b: [Cell<F>; WORD_CAPACITY],
+    _word_b_mask: [Cell<F>; WORD_CAPACITY],
+    _word_b_addr_ext_0: [Cell<F>; WORD_CAPACITY],
+    _word_b_addr_ext_1: [Cell<F>; WORD_CAPACITY],
+    _word_addres: [Cell<F>; WORD_CAPACITY],
     _marker: PhantomData<F>,
 }
 

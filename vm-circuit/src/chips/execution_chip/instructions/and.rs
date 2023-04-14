@@ -5,7 +5,7 @@ use crate::chips::execution_chip::instructions::Instructions;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::Expr;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -14,6 +14,9 @@ use halo2_proofs::plonk::{Error, Expression};
 use std::marker::PhantomData;
 
 pub struct And<F: FieldExt> {
+    _value_a: Cell<F>,
+    _value_b: Cell<F>,
+    _value_c: Cell<F>,
     _marker: PhantomData<F>,
 }
 
