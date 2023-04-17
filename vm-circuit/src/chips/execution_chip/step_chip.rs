@@ -8,6 +8,7 @@ use crate::chips::execution_chip::lookup_tables::{
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::utils::CellManager;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -21,6 +22,7 @@ use std::marker::PhantomData;
 
 pub const STEP_CHIP_WIDTH: usize = 16;
 pub const STEP_HEIGHT: usize = 17; //todo: calculate step height automatically
+pub const STEP_STATE_HEIGHT: usize = 1;
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c, val_0~val_3
 
@@ -79,6 +81,7 @@ pub struct StepChipCells<F: FieldExt> {
 #[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
     pub cells: StepChipCells<F>,
+    pub cell_manager: CellManager<F>,
     pub s_step: Selector,
 }
 
@@ -101,6 +104,14 @@ impl<F: FieldExt> Chip<F> for StepChip<F> {
 }
 
 impl<F: FieldExt> StepChip<F> {
+
+    pub(crate) fn execution_state_selector(
+        &self,
+        execution_states: Opcode,
+    ) -> Expression<F> {
+        self.config.cells.conditions[execution_states.index()].expression.clone()
+    }
+
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -209,6 +220,15 @@ impl<F: FieldExt> StepChip<F> {
         Opcode::iter().for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut lookups));
 
         let s_step = meta.complex_selector();
+         
+        let is_next = true;
+        let offset = 0;
+        let height = if is_next {
+            STEP_STATE_HEIGHT // Query only the state of the next step.
+        } else {
+            STEP_HEIGHT // Query the entire current step.
+        };
+        let cell_manager = CellManager::new(meta, height, &advices, offset);
 
         // for (i, constraint) in constraints.iter().enumerate() {
         //     debug!("constraint {}, {:?}", i, constraint);
@@ -378,7 +398,7 @@ impl<F: FieldExt> StepChip<F> {
                 ]
             });
         }
-        StepConfig { cells, s_step }
+        StepConfig { cells, cell_manager, s_step }
     }
 
     // step condition must be 1 or 0, and sum of all conditions must be 1

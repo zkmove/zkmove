@@ -23,6 +23,7 @@ use lookup_tables::{
 use step_chip::{StepChip, StepConfig};
 use step_chip::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 
+pub mod utils;
 pub mod instructions;
 pub mod lookup_tables;
 pub mod opcode;
