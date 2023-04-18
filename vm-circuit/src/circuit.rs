@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
-
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
+use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
 use halo2_proofs::{
@@ -13,6 +13,7 @@ use logger::prelude::*;
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
     execution_chip_config: ExecutionChipConfig<F>,
+    lookup_table: LookupTableConfig<F>,
     memory_chip_config: MemoryChipConfig<F>,
 }
 
@@ -30,8 +31,11 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let execution_chip_config = ExecutionChip::configure(meta);
+        let lookup_table = LookupTableConfig::configure(meta, execution_chip_config.step_config.s_step);
         VmCircuitConfig {
-            execution_chip_config: ExecutionChip::configure(meta),
+            execution_chip_config,
+            lookup_table,
             memory_chip_config: MemoryChip::configure(meta),
         }
     }
@@ -43,8 +47,10 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     ) -> Result<(), Error> {
         let execution_chip =
             ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
-        let (last_step_gc_cell_opt, stack_operations, locals_operations, global_operations) =
-            execution_chip.assign(&mut layouter)?;
+        let last_step_gc_cell_opt = execution_chip.assign(&mut layouter)?;
+
+        let (stack_operations, locals_operations, global_operations) =
+            LookupTableConfig::assign(&mut layouter, &execution_chip, &config.lookup_table)?;
         let last_step_gc_cell = last_step_gc_cell_opt.ok_or_else(|| {
             error!("last step gc cell is None");
             Error::Synthesis

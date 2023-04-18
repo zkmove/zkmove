@@ -281,7 +281,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
     /// expressions, height used).
     #[allow(clippy::type_complexity)]
     pub(crate) fn build(self) -> (Vec<(&'static str, Expression<F>)>, usize) {
-        let exec_state_sel = self.curr.execution_state_selector(self.opcode);
+        let exec_state_sel = self.curr.conditions_selector(self.opcode);
         let mul_exec_state_sel = |c: Vec<(&'static str, Expression<F>)>| {
             c.into_iter()
                 .map(|(name, constraint)| (name, exec_state_sel.clone() * constraint))

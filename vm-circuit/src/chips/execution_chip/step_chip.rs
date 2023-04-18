@@ -1,11 +1,5 @@
 // Copyright (c) zkMove Authors
-
-use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2FixedTable;
-use crate::chips::execution_chip::lookup_tables::{
-    arith_op_lookup_table::ArithOpLookupTable, bitwise_lookup_table::BitwiseLookupTable,
-    bytecode_lookup_table::BytecodeLookupTable, call_lookup_table::CallLookupTable,
-    rw_table::RWTable, LookupsWithCondition,
-};
+use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::utils::CellManager;
@@ -14,8 +8,7 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector};
-use halo2_proofs::poly::Rotation;
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector};
 use movelang::value::{DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
@@ -105,11 +98,11 @@ impl<F: FieldExt> Chip<F> for StepChip<F> {
 
 impl<F: FieldExt> StepChip<F> {
 
-    pub(crate) fn execution_state_selector(
+    pub(crate) fn conditions_selector(
         &self,
-        execution_states: Opcode,
+        opcode: Opcode,
     ) -> Expression<F> {
-        self.config.cells.conditions[execution_states.index()].expression.clone()
+        self.config.cells.conditions[opcode.index()].expression.clone()
     }
 
     pub fn construct(
@@ -125,14 +118,10 @@ impl<F: FieldExt> StepChip<F> {
     #[allow(clippy::too_many_arguments)]
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        advices: [Column<Advice>; STEP_CHIP_WIDTH],
-        rw_table: &RWTable,
-        bytecode_table: &BytecodeLookupTable,
-        calls_table: &CallLookupTable,
-        arith_op_table: &ArithOpLookupTable,
-        bitwise_table: &BitwiseLookupTable,
-        pow2_table: &Pow2FixedTable,
+    //    advices: [Column<Advice>; STEP_CHIP_WIDTH],
     ) -> <Self as Chip<F>>::Config {
+
+        let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
         // query advice for each state of the step
         let cell_amount = NUM_OF_STEP_STATE
             + MAX_OPERANDS_PER_STEP
@@ -220,15 +209,6 @@ impl<F: FieldExt> StepChip<F> {
         Opcode::iter().for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut lookups));
 
         let s_step = meta.complex_selector();
-         
-        let is_next = true;
-        let offset = 0;
-        let height = if is_next {
-            STEP_STATE_HEIGHT // Query only the state of the next step.
-        } else {
-            STEP_HEIGHT // Query the entire current step.
-        };
-        let cell_manager = CellManager::new(meta, height, &advices, offset);
 
         // for (i, constraint) in constraints.iter().enumerate() {
         //     debug!("constraint {}, {:?}", i, constraint);
@@ -240,164 +220,15 @@ impl<F: FieldExt> StepChip<F> {
                 .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
 
-        for (lookup, cond) in lookups.rw_lookups {
-            meta.lookup_any(|meta| {
-                let s_step = meta.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.gc * cond.clone(),
-                        meta.query_advice(rw_table.gc_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.rw_target * cond.clone(),
-                        meta.query_advice(rw_table.rw_target_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.rw * cond.clone(),
-                        meta.query_advice(rw_table.rw_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.frame_index * cond.clone(),
-                        meta.query_advice(rw_table.frame_index_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.address * cond.clone(),
-                        meta.query_advice(rw_table.address_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step * lookup.value * cond,
-                        meta.query_advice(rw_table.value_column, Rotation::cur()),
-                    ),
-                ]
-            });
-        }
+        let is_next = false;
+        let offset = 0;
+        let height = if is_next {
+            STEP_STATE_HEIGHT // Query only the state of the next step.
+        } else {
+            STEP_HEIGHT // Query the entire current step.
+        };
+        let cell_manager = CellManager::new(meta, height, &advices, offset);
 
-        for (lookup, cond) in lookups.bytecode_lookups {
-            meta.lookup(|meta| {
-                let s_step = meta.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.module_index * cond.clone(),
-                        bytecode_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index * cond.clone(),
-                        bytecode_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc * cond.clone(),
-                        bytecode_table.pc_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.opcode * cond.clone(),
-                        bytecode_table.opcode_column,
-                    ),
-                    (
-                        s_step * lookup.operand * cond.clone(),
-                        bytecode_table.operand_column,
-                    ),
-                ]
-            });
-        }
-
-        for (lookup, cond) in lookups.call_lookups {
-            meta.lookup(|meta| {
-                let s_step = meta.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.type_ * cond.clone(),
-                        calls_table.type_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.module_index * cond.clone(),
-                        calls_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index * cond.clone(),
-                        calls_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc * cond.clone(),
-                        calls_table.pc_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.next_module_index * cond.clone(),
-                        calls_table.callee_module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.next_function_index * cond.clone(),
-                        calls_table.callee_function_index_column,
-                    ),
-                    (s_step * lookup.next_pc * cond, calls_table.next_pc_column),
-                ]
-            });
-        }
-
-        for (lookup, cond) in lookups.arith_op_lookups {
-            meta.lookup(|meta| {
-                let s_step = meta.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.module_index * cond.clone(),
-                        arith_op_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index * cond.clone(),
-                        arith_op_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc * cond.clone(),
-                        arith_op_table.pc_column,
-                    ),
-                    (
-                        s_step * lookup.num_of_bytes * cond,
-                        arith_op_table.num_of_bytes_column,
-                    ),
-                ]
-            });
-        }
-
-        // for (i, item) in lookups.bitwise_lookups.iter().enumerate() {
-        //      debug!("bitwise lookup {}, {:?}", i, item);
-        // }
-        for (lookup, cond) in lookups.bitwise_lookups {
-            meta.lookup(|meta| {
-                let s_step = meta.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.opcode * cond.clone(),
-                        bitwise_table.opcode_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.value_1 * cond.clone(),
-                        bitwise_table.value_1_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.value_2 * cond.clone(),
-                        bitwise_table.value_2_column,
-                    ),
-                    (
-                        s_step * lookup.result * cond.clone(),
-                        bitwise_table.result_column,
-                    ),
-                ]
-            });
-        }
-        for (lookup, cond) in lookups.pow2_lookups {
-            meta.lookup(|vcells| {
-                let s_step = vcells.query_selector(s_step);
-                vec![
-                    (
-                        s_step.clone() * lookup.pow * cond.clone(),
-                        pow2_table.pow_column,
-                    ),
-                    (
-                        s_step * lookup.pow_result * cond.clone(),
-                        pow2_table.pow_result_column,
-                    ),
-                ]
-            });
-        }
         StepConfig { cells, cell_manager, s_step }
     }
 
