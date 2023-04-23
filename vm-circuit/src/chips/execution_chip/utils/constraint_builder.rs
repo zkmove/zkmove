@@ -1,24 +1,22 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::StepChip;
+use crate::chips::execution_chip::step_chip::StepConfig;
 use crate::chips::execution_chip::utils::CellType;
-use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::Expression,
-};
+use crate::chips::utilities::Cell;
+use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 
 // Max degree allowed in all expressions passing through the ConstraintBuilder.
 // It aims to cap `extended_k` to 2, which allows constraint degree to 2^2+1,
-// but each ExecutionGadget has implicit selector degree 3, so here it only
+// but each InstructionGadget has implicit selector degree 3, so here it only
 // allows 2^2+1-3 = 2.
-const MAX_DEGREE: usize = 5;
-const IMPLICIT_DEGREE: usize = 3;
+//const MAX_DEGREE: usize = 5;
+//const IMPLICIT_DEGREE: usize = 3;
 
+/*
 pub(crate) enum Transition<T> {
     Same,
     Delta(T),
-    To(T),
-    Any,
+    // To(T),
+    // Any,
 }
 
 impl<F> Default for Transition<F> {
@@ -26,7 +24,6 @@ impl<F> Default for Transition<F> {
         Self::Same
     }
 }
-/*
 #[derive(Default)]
 pub(crate) struct StepStateTransition<F: Field> {
     pub(crate) rw_counter: Transition<Expression<F>>,
@@ -69,63 +66,6 @@ impl<F: Field> StepStateTransition<F> {
     }
 }
 
-/// ReversionInfo counts `rw_counter` of reversion for gadgets, by tracking how
-/// many reversions that have been used. Gadgets should call
-/// [`ConstraintBuilder::reversion_info`] to get [`ReversionInfo`] with
-/// `reversible_write_counter` initialized at current tracking one if no
-/// `call_id` is specified, then pass it as mutable reference when doing state
-/// write.
-#[derive(Clone, Debug)]
-pub(crate) struct ReversionInfo<F> {
-    /// Field [`CallContextFieldTag::RwCounterEndOfReversion`] read from call
-    /// context.
-    rw_counter_end_of_reversion: Cell<F>,
-    /// Field [`CallContextFieldTag::IsPersistent`] read from call context.
-    is_persistent: Cell<F>,
-    /// Current cumulative reversible_write_counter.
-    reversible_write_counter: Expression<F>,
-}
-
-impl<F: Field> ReversionInfo<F> {
-    pub(crate) fn rw_counter_end_of_reversion(&self) -> Expression<F> {
-        self.rw_counter_end_of_reversion.expr()
-    }
-
-    pub(crate) fn is_persistent(&self) -> Expression<F> {
-        self.is_persistent.expr()
-    }
-
-    /// Returns `rw_counter_end_of_reversion - reversible_write_counter` and
-    /// increases `reversible_write_counter` by `1`.
-    pub(crate) fn rw_counter_of_reversion(&mut self) -> Expression<F> {
-        let rw_counter_of_reversion =
-            self.rw_counter_end_of_reversion.expr() - self.reversible_write_counter.expr();
-        self.reversible_write_counter = self.reversible_write_counter.clone() + 1.expr();
-        rw_counter_of_reversion
-    }
-
-    pub(crate) fn assign(
-        &self,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
-        rw_counter_end_of_reversion: usize,
-        is_persistent: bool,
-    ) -> Result<(), Error> {
-        self.rw_counter_end_of_reversion.assign(
-            region,
-            offset,
-            Value::known(F::from(rw_counter_end_of_reversion as u64)),
-        )?;
-        self.is_persistent
-            .assign(region, offset, Value::known(F::from(is_persistent as u64)))?;
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-pub struct BaseConstraintBuilder<F> {
-    pub constraints: Vec<(&'static str, Expression<F>)>,
-    pub max_degree: usize,
     pub condition: Option<Expression<F>>,
 }
 
@@ -223,55 +163,30 @@ impl<F: Field> BaseConstraintBuilder<F> {
     }
 }
 
-/// Internal type to select the location where the constraints are enabled
-#[derive(Debug, PartialEq)]
-enum ConstraintLocation {
-    Step,
-    StepFirst,
-    StepLast,
-    NotStepLast,
-}
-
-/// Collection of constraints grouped by which selectors will enable them
-pub(crate) struct Constraints<F> {
-    /// Enabled with q_step
-    pub(crate) step: Vec<(&'static str, Expression<F>)>,
-    /// Enabled with q_step_first
-    pub(crate) step_first: Vec<(&'static str, Expression<F>)>,
-    /// Enabled with q_step * q_step_last
-    pub(crate) step_last: Vec<(&'static str, Expression<F>)>,
-    /// Enabled with q_step * not(q_step_last)
-    pub(crate) not_step_last: Vec<(&'static str, Expression<F>)>,
-}
 */
 
 pub(crate) struct ConstraintBuilder<F: FieldExt> {
-//    pub max_degree: usize,
-    pub(crate) curr: StepChip<F>,
-    pub(crate) next: StepChip<F>,
-//    power_of_randomness: &'a [Expression<F>; 31],
-    opcode: Opcode,
+    // pub max_degree: usize,
+    // pub(crate) step_config: &StepConfig<F>,
+    pub(crate) curr: StepConfig<F>,
+    pub(crate) next: StepConfig<F>,
+    // power_of_randomness: &'a [Expression<F>; 31],
     constraints: Vec<(&'static str, Expression<F>)>,
-//    rw_counter_offset: Expression<F>,
-//    program_counter_offset: usize,
-//    stack_pointer_offset: Expression<F>,
-//    log_id_offset: usize,
+    // rw_counter_offset: Expression<F>,
+    // program_counter_offset: usize,
+    // stack_pointer_offset: Expression<F>,
+    // log_id_offset: usize,
     in_next_step: bool,
-//    condition: Option<Expression<F>>,
-//    constraints_location: ConstraintLocation,
-//    stored_expressions: Vec<StoredExpression<F>>,
+    // condition: Option<Expression<F>>,
+    // constraints_location: ConstraintLocation,
+    // stored_expressions: Vec<StoredExpression<F>>,
 }
 
 impl<'a, F: FieldExt> ConstraintBuilder<F> {
-    pub(crate) fn new(
-        curr: StepChip<F>,
-        next: StepChip<F>,
-        opcode: Opcode,
-    ) -> Self {
+    pub(crate) fn new(curr: StepConfig<F>, next: StepConfig<F>, _opcode: Opcode) -> Self {
         Self {
             curr,
             next,
-            opcode,
             constraints: Vec::new(),
             in_next_step: false,
         }
@@ -281,18 +196,20 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
     /// expressions, height used).
     #[allow(clippy::type_complexity)]
     pub(crate) fn build(self) -> (Vec<(&'static str, Expression<F>)>, usize) {
-        let exec_state_sel = self.curr.conditions_selector(self.opcode);
-        let mul_exec_state_sel = |c: Vec<(&'static str, Expression<F>)>| {
-            c.into_iter()
-                .map(|(name, constraint)| (name, exec_state_sel.clone() * constraint))
-                .collect()
-        };
+        // let exec_state_sel = self.step_config.conditions_selector(self.opcode);
+        // let mul_exec_state_sel = |c: Vec<(&'static str, Expression<F>)>| {
+        //     c.into_iter()
+        //         .map(|(name, constraint)| (name, exec_state_sel.clone() * constraint))
+        //         .collect()
+        // };
         (
-            mul_exec_state_sel(self.constraints),
-            self.curr.config.cell_manager.get_height(),
+            //mul_exec_state_sel(self.constraints),
+            self.constraints,
+            self.curr.cell_manager.get_height(),
         )
     }
 
+    /*
     pub(crate) fn opcode_get(&self) -> Opcode {
         self.opcode
     }
@@ -310,31 +227,19 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         self.require_boolean("Constrain cell to be a bool", cell.expression.clone());
         cell
     }
-/*
-    pub(crate) fn query_byte(&mut self) -> Cell<F> {
-        self.query_cell_with_type(CellType::Lookup(Table::Byte))
-    }
-
-    pub(crate) fn query_word(&mut self) -> Word<F> {
-        self.query_rlc()
-    }
-    pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
-        self.query_bytes_dyn(N).try_into().unwrap()
-    }
-
-    pub(crate) fn query_bytes_dyn(&mut self, count: usize) -> Vec<Cell<F>> {
-        self.query_cells(CellType::Lookup(Table::Byte), count)
-    }
-
-*/
+    */
     pub(crate) fn query_cell(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::CustomGate)
     }
-/* 
+
+    pub(crate) fn query_n_cells(&mut self, count: usize) -> Vec<Cell<F>> {
+        self.query_cells(CellType::CustomGate, count)
+    }
+    /*
     pub(crate) fn query_copy_cell(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::StoragePermutation)
     }
-*/
+    */
     pub(crate) fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
         self.query_cells(cell_type, 1).first().unwrap().clone()
     }
@@ -345,13 +250,13 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         } else {
             &mut self.curr
         }
-        .config
         .cell_manager
         .query_cells(cell_type, count)
     }
 
     // Common
 
+    /*
     pub(crate) fn require_zero(&mut self, name: &'static str, constraint: Expression<F>) {
         self.add_constraint(name, constraint);
     }
@@ -382,7 +287,6 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         );
     }
 
-/* 
     pub(crate) fn require_next_state(&mut self, opcode: Opcode) {
         let next_state = self.next.execution_state_selector(opcode);
         self.add_constraint(
@@ -536,50 +440,6 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         };
     }
 
-    fn reversible_write(
-        &mut self,
-        name: &'static str,
-        tag: RwTableTag,
-        values: RwValues<F>,
-        reversion_info: Option<&mut ReversionInfo<F>>,
-    ) {
-        debug_assert!(
-            tag.is_reversible(),
-            "Reversible write requires reversible tag"
-        );
-
-        self.rw_lookup(name, true.expr(), tag, values.clone());
-
-        // Revert if is_persistent is 0
-        if let Some(reversion_info) = reversion_info {
-            // To allow conditional reversible writes, we extract the pre-existing condition
-            // here if it exists, and then reset it afterwards.
-            let condition = self.condition.clone();
-            self.condition = None;
-            self.condition(
-                and::expr(&[
-                    condition.clone().unwrap_or_else(|| 1.expr()),
-                    not::expr(reversion_info.is_persistent()),
-                ]),
-                |cb| {
-                    let name = format!("{} with reversion", name);
-                    cb.rw_lookup_with_counter(
-                        &name,
-                        reversion_info.rw_counter_of_reversion(),
-                        true.expr(),
-                        tag,
-                        RwValues {
-                            value_prev: values.value,
-                            value: values.value_prev,
-                            ..values
-                        },
-                    )
-                },
-            );
-            self.condition = condition;
-        }
-    }
-
     // Stack
 
     pub(crate) fn stack_pop(&mut self, value: Expression<F>) {
@@ -640,9 +500,9 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
             ),
         );
     }
-*/
+
     // General
-/* 
+
     pub(crate) fn condition<R>(
         &mut self,
         condition: Expression<F>,
@@ -683,7 +543,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         self.in_next_step = false;
         ret
     }
-*/
+    */
     pub(crate) fn add_constraints(&mut self, constraints: Vec<(&'static str, Expression<F>)>) {
         for (name, constraint) in constraints {
             self.add_constraint(name, constraint);
@@ -691,13 +551,13 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
     }
 
     pub(crate) fn add_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
-        /* 
+        /*
         let constraint = self.split_expression(
             name,
             constraint * self.condition_expr(),
             MAX_DEGREE - IMPLICIT_DEGREE,
         );
-*/
+        */
         self.push_constraint(name, constraint);
     }
 
@@ -705,7 +565,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
     fn push_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
         self.constraints.push((name, constraint));
     }
-/* 
+    /*
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
         let lookup = match &self.condition {
             Some(condition) => lookup.conditional(condition.clone()),
@@ -720,109 +580,11 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         self.store_expression(name, compressed_expr, CellType::Lookup(lookup.table()));
     }
 
-    pub(crate) fn store_expression(
-        &mut self,
-        name: &str,
-        expr: Expression<F>,
-        cell_type: CellType,
-    ) -> Expression<F> {
-        // Check if we already stored the expression somewhere
-        let stored_expression = self.find_stored_expression(expr.clone(), cell_type);
-        match stored_expression {
-            Some(stored_expression) => {
-                debug_assert!(
-                    !matches!(cell_type, CellType::Lookup(_)),
-                    "The same lookup is done multiple times",
-                );
-                stored_expression.cell.expr()
-            }
-            None => {
-                // Even if we're building expressions for the next step,
-                // these intermediate values need to be stored in the current step.
-                let in_next_step = self.in_next_step;
-                self.in_next_step = false;
-                let cell = self.query_cell_with_type(cell_type);
-                self.in_next_step = in_next_step;
-
-                // Require the stored value to equal the value of the expression
-                let name = format!("{} (stored expression)", name);
-                self.push_constraint(
-                    Box::leak(name.clone().into_boxed_str()),
-                    cell.expr() - expr.clone(),
-                );
-
-                self.stored_expressions.push(StoredExpression {
-                    name,
-                    cell: cell.clone(),
-                    cell_type,
-                    expr_id: expr.identifier(),
-                    expr,
-                });
-                cell.expr()
-            }
-        }
-    }
-
-    pub(crate) fn find_stored_expression(
-        &self,
-        expr: Expression<F>,
-        cell_type: CellType,
-    ) -> Option<&StoredExpression<F>> {
-        let expr_id = expr.identifier();
-        self.stored_expressions
-            .iter()
-            .find(|&e| e.cell_type == cell_type && e.expr_id == expr_id)
-    }
-
-    fn split_expression(
-        &mut self,
-        name: &'static str,
-        expr: Expression<F>,
-        max_degree: usize,
-    ) -> Expression<F> {
-        if expr.degree() > max_degree {
-            match expr {
-                Expression::Negated(poly) => {
-                    Expression::Negated(Box::new(self.split_expression(name, *poly, max_degree)))
-                }
-                Expression::Scaled(poly, v) => {
-                    Expression::Scaled(Box::new(self.split_expression(name, *poly, max_degree)), v)
-                }
-                Expression::Sum(a, b) => {
-                    let a = self.split_expression(name, *a, max_degree);
-                    let b = self.split_expression(name, *b, max_degree);
-                    a + b
-                }
-                Expression::Product(a, b) => {
-                    let (mut a, mut b) = (*a, *b);
-                    while a.degree() + b.degree() > max_degree {
-                        let mut split = |expr: Expression<F>| {
-                            if expr.degree() > max_degree {
-                                self.split_expression(name, expr, max_degree)
-                            } else {
-                                self.store_expression(name, expr, CellType::Storage)
-                            }
-                        };
-                        if a.degree() >= b.degree() {
-                            a = split(a);
-                        } else {
-                            b = split(b);
-                        }
-                    }
-                    a * b
-                }
-                _ => expr.clone(),
-            }
-        } else {
-            expr.clone()
-        }
-    }
-
     fn condition_expr(&self) -> Expression<F> {
         match &self.condition {
             Some(condition) => condition.clone(),
             None => 1.expr(),
         }
     }
-*/
+    */
 }

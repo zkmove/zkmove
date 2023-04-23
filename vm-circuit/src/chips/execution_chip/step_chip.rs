@@ -1,19 +1,15 @@
 // Copyright (c) zkMove Authors
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
-use crate::chips::execution_chip::utils::CellManager;
+use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector};
-use movelang::value::{DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128};
-use std::collections::VecDeque;
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 
-pub const STEP_CHIP_WIDTH: usize = 16;
+pub const STEP_CHIP_WIDTH: usize = 80;
 pub const STEP_HEIGHT: usize = 17; //todo: calculate step height automatically
 pub const STEP_STATE_HEIGHT: usize = 1;
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
@@ -34,50 +30,15 @@ pub struct StepChipCells<F: FieldExt> {
     pub auxiliary_4: Cell<F>,
 
     pub conditions: Vec<Cell<F>>,
-
-    pub value_a: Cell<F>,
-    pub value_b: Cell<F>,
-    pub value_c: Cell<F>,
-
-    pub ref_val: Vec<Cell<F>>,
-    pub ref_val_mask: Vec<Cell<F>>,
-
-    pub word_a: Vec<Cell<F>>,
-    pub word_a_mask: Vec<Cell<F>>,
-    pub word_a_addr_ext_0: Vec<Cell<F>>,
-    pub word_a_addr_ext_1: Vec<Cell<F>>,
-
-    pub word_b: Vec<Cell<F>>,
-    pub word_b_mask: Vec<Cell<F>>,
-    pub word_b_addr_ext_0: Vec<Cell<F>>,
-    pub word_b_addr_ext_1: Vec<Cell<F>>,
-
-    pub word_address: Vec<Cell<F>>,
-
-    pub bytes: Vec<Cell<F>>,
-    pub bytes_operand_1: Vec<Cell<F>>,
-    pub bytes_operand_2: Vec<Cell<F>>,
-
-    pub next_pc: Cell<F>,
-    pub next_stack_size: Cell<F>,
-    pub next_frame_index: Cell<F>,
-    pub next_locals_index: Cell<F>,
-    pub next_gc: Cell<F>,
-    pub next_module_index: Cell<F>,
-    pub next_function_index: Cell<F>,
-    pub next_auxiliary_1: Cell<F>,
-    pub next_auxiliary_2: Cell<F>,
-    pub next_auxiliary_3: Cell<F>,
-    pub next_auxiliary_4: Cell<F>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
     pub cells: StepChipCells<F>,
     pub cell_manager: CellManager<F>,
-    pub s_step: Selector,
 }
 
+#[derive(Debug, Clone)]
 pub struct StepChip<F: FieldExt> {
     pub config: StepConfig<F>,
     _marker: PhantomData<F>,
@@ -98,12 +59,12 @@ impl<F: FieldExt> Chip<F> for StepChip<F> {
 
 impl<F: FieldExt> StepChip<F> {
 
-    pub(crate) fn conditions_selector(
-        &self,
-        opcode: Opcode,
-    ) -> Expression<F> {
-        self.config.cells.conditions[opcode.index()].expression.clone()
-    }
+    // pub(crate) fn conditions_selector(
+    //     &self,
+    //     opcode: Opcode,
+    // ) -> Expression<F> {
+    //     self.config.cells.conditions[opcode.index()].expression.clone()
+    // }
 
     pub fn construct(
         config: <Self as Chip<F>>::Config,
@@ -115,125 +76,48 @@ impl<F: FieldExt> StepChip<F> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-    //    advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        offset: usize,
+        is_next: bool,
     ) -> <Self as Chip<F>>::Config {
-
-        let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
-        // query advice for each state of the step
-        let cell_amount = NUM_OF_STEP_STATE
-            + MAX_OPERANDS_PER_STEP
-            + DEPTH_OF_ADDRESS_PATH * 2
-            + Opcode::total_numbers()
-            + WORD_CAPACITY * 4
-            + WORD_CAPACITY * 4
-            + WORD_CAPACITY
-            + NUM_OF_BYTES_U128 * 3;
-        let mut cells = VecDeque::with_capacity(cell_amount);
-        meta.create_gate("step", |meta| {
-            for i in 0..cell_amount {
-                let column_index = i % STEP_CHIP_WIDTH;
-                let rotation = i / STEP_CHIP_WIDTH;
-                cells.push_back(Cell::new(meta, advices[column_index], rotation as i32))
-            }
-
-            // remember cells of the states of the next step
-            for i in 0..NUM_OF_STEP_STATE {
-                let column_index = i % STEP_CHIP_WIDTH;
-                let rotation = i / STEP_CHIP_WIDTH + STEP_HEIGHT;
-                cells.push_back(Cell::new(meta, advices[column_index], rotation as i32))
-            }
-            vec![Expression::Constant(F::zero())]
-        });
-
-        let cells = StepChipCells {
-            pc: cells.pop_front().unwrap(),
-            stack_size: cells.pop_front().unwrap(),
-            frame_index: cells.pop_front().unwrap(),
-            locals_index: cells.pop_front().unwrap(),
-            gc: cells.pop_front().unwrap(),
-            module_index: cells.pop_front().unwrap(),
-            function_index: cells.pop_front().unwrap(),
-            auxiliary_1: cells.pop_front().unwrap(),
-            auxiliary_2: cells.pop_front().unwrap(),
-            auxiliary_3: cells.pop_front().unwrap(),
-            auxiliary_4: cells.pop_front().unwrap(),
-
-            conditions: cells.drain(0..Opcode::total_numbers()).collect(),
-
-            value_a: cells.pop_front().unwrap(),
-            value_b: cells.pop_front().unwrap(),
-            value_c: cells.pop_front().unwrap(),
-
-            ref_val: cells.drain(0..DEPTH_OF_ADDRESS_PATH).collect(),
-            ref_val_mask: cells.drain(0..DEPTH_OF_ADDRESS_PATH).collect(),
-
-            word_a: cells.drain(0..WORD_CAPACITY).collect(),
-            word_a_mask: cells.drain(0..WORD_CAPACITY).collect(),
-            word_a_addr_ext_0: cells.drain(0..WORD_CAPACITY).collect(),
-            word_a_addr_ext_1: cells.drain(0..WORD_CAPACITY).collect(),
-
-            word_b: cells.drain(0..WORD_CAPACITY).collect(),
-            word_b_mask: cells.drain(0..WORD_CAPACITY).collect(),
-            word_b_addr_ext_0: cells.drain(0..WORD_CAPACITY).collect(),
-            word_b_addr_ext_1: cells.drain(0..WORD_CAPACITY).collect(),
-
-            word_address: cells.drain(0..WORD_CAPACITY).collect(),
-
-            bytes: cells.drain(0..NUM_OF_BYTES_U128).collect(),
-            bytes_operand_1: cells.drain(0..NUM_OF_BYTES_U128).collect(),
-            bytes_operand_2: cells.drain(0..NUM_OF_BYTES_U128).collect(),
-
-            next_pc: cells.pop_front().unwrap(),
-            next_stack_size: cells.pop_front().unwrap(),
-            next_frame_index: cells.pop_front().unwrap(),
-            next_locals_index: cells.pop_front().unwrap(),
-            next_gc: cells.pop_front().unwrap(),
-            next_module_index: cells.pop_front().unwrap(),
-            next_function_index: cells.pop_front().unwrap(),
-            next_auxiliary_1: cells.pop_front().unwrap(),
-            next_auxiliary_2: cells.pop_front().unwrap(),
-            next_auxiliary_3: cells.pop_front().unwrap(),
-            next_auxiliary_4: cells.pop_front().unwrap(),
-        };
-
-        // enable equality for gc column, because we will copy last gc cell to memory chip.
-        meta.enable_equality(cells.gc.column);
-
-        // config each execution path of the step
-        let mut constraints = Vec::new();
-        let mut lookups = LookupsWithCondition::new();
-        StepChip::constrain_step_conditions(&cells, &mut constraints);
-        Opcode::iter().for_each(|opcode| opcode.configure(&cells, &mut constraints, &mut lookups));
-
-        let s_step = meta.complex_selector();
-
-        // for (i, constraint) in constraints.iter().enumerate() {
-        //     debug!("constraint {}, {:?}", i, constraint);
-        // }
-        meta.create_gate("constrain step", |meta| {
-            let s_step = meta.query_selector(s_step);
-            constraints
-                .into_iter()
-                .map(move |(name, constraint)| (name, s_step.clone() * constraint))
-        });
-
-        let is_next = false;
-        let offset = 0;
+        // dynamic alloc cells with CellManager for opcode
         let height = if is_next {
             STEP_STATE_HEIGHT // Query only the state of the next step.
         } else {
             STEP_HEIGHT // Query the entire current step.
         };
-        let cell_manager = CellManager::new(meta, height, &advices, offset);
+        let mut cell_manager = CellManager::new(meta, height, &advices, offset);
+        let cells = {
+            StepChipCells {
+                pc: cell_manager.query_cell(CellType::CustomGate),
+                stack_size: cell_manager.query_cell(CellType::CustomGate),
+                frame_index: cell_manager.query_cell(CellType::CustomGate),
+                locals_index: cell_manager.query_cell(CellType::CustomGate),
+                gc: cell_manager.query_cell(CellType::CustomGate),
+                module_index: cell_manager.query_cell(CellType::CustomGate),
+                function_index: cell_manager.query_cell(CellType::CustomGate),
+                auxiliary_1: cell_manager.query_cell(CellType::CustomGate),
+                auxiliary_2: cell_manager.query_cell(CellType::CustomGate),
+                auxiliary_3: cell_manager.query_cell(CellType::CustomGate),
+                auxiliary_4: cell_manager.query_cell(CellType::CustomGate),
 
-        StepConfig { cells, cell_manager, s_step }
+                conditions: cell_manager.query_cells(CellType::CustomGate, Opcode::total_numbers()),
+            }
+        };
+
+        // enable equality for gc column, because we will copy last gc cell to memory chip.
+        meta.enable_equality(cells.gc.column);
+
+        StepConfig {
+            cells,
+            cell_manager,
+        }
     }
 
     // step condition must be 1 or 0, and sum of all conditions must be 1
-    fn constrain_step_conditions(
+    pub(crate) fn constrain_step_conditions(
         cells: &StepChipCells<F>,
         constraints: &mut Vec<(&str, Expression<F>)>,
     ) {
@@ -264,7 +148,7 @@ impl<F: FieldExt> StepChip<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        _rw_operations: &RWOperations<F>,
     ) -> Result<Option<AssignedCell<F, F>>, Error> {
         // assign step states
         self.config
@@ -318,8 +202,8 @@ impl<F: FieldExt> StepChip<F> {
             });
 
         // assign other cells for the step
-        step.opcode
-            .assign(region, offset, step, rw_operations, &self.config.cells)?;
+        // step.opcode
+        //    .assign(region, offset, step, rw_operations, &self.config.cells)?;
 
         Ok(Some(gc_assigned_cell))
     }

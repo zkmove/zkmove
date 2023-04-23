@@ -1,28 +1,30 @@
-use crate::chips::execution_chip::instructions::Instructions;
+// Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::{
-    _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr,
-    borrow_field::BorrowField, borrow_global::BorrowGlobal, borrow_loc::BorrowLoc,
-    br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call, call_generic::CallGeneric,
-    castu128::CastU128, castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq,
-    exists::Exists, freeze_ref::FreezeRef, ge::Ge, gt::Gt, ld_false::LdFalse, ld_true::LdTrue,
-    ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom,
-    move_loc::MoveLoc, move_to::MoveTo, mul::Mul, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack,
-    pop::Pop, read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
-    unpack::Unpack, write_ref::WriteRef, xor::Xor,
-};
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
-use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+//use crate::chips::execution_chip::instructions::InstructionGadget;
+// use crate::chips::execution_chip::instructions::{
+//     _mod::Mod, abort::Abort, add::Add, and::And, bit_and::BitAnd, bit_or::BitOr,
+//     borrow_field::BorrowField, borrow_global::BorrowGlobal, borrow_loc::BorrowLoc,
+//     br_false::BrFalse, br_true::BrTrue, branch::Branch, call::Call, call_generic::CallGeneric,
+//     castu128::CastU128, castu64::CastU64, castu8::CastU8, copy_loc::CopyLoc, div::Div, eq::Eq,
+//     exists::Exists, freeze_ref::FreezeRef, ge::Ge, gt::Gt, ld_false::LdFalse, ld_true::LdTrue,
+//     ldu128::LdU128, ldu64::LdU64, ldu8::LdU8, le::Le, lt::Lt, move_from::MoveFrom,
+//     move_loc::MoveLoc, move_to::MoveTo, mul::Mul, neq::Neq, nop::Nop, not::Not, or::Or, pack::Pack,
+//     pop::Pop, read_ref::ReadRef, ret::Ret, shl::Shl, shr::Shr, st_loc::StLoc, stop::Stop, sub::Sub,
+//     unpack::Unpack, write_ref::WriteRef, xor::Xor,
+// };
+// use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+// use crate::chips::execution_chip::step_chip::StepChipCells;
+// use crate::witness::execution_steps::ExecutionStep;
+// use crate::witness::rw_operations::RWOperations;
+// use halo2_proofs::arithmetic::FieldExt;
+// use halo2_proofs::circuit::Region;
+// use halo2_proofs::plonk::{Error, Expression};
+use crate::chips::execution_chip::param::STEP_SLOT_HEIGHT_MAP;
 use move_binary_format::file_format::Bytecode;
+use std::fmt::Display;
 
 // supported opcode
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Opcode {
     LdU8 = 0,
     LdU64,
@@ -78,6 +80,18 @@ pub enum Opcode {
     CallGeneric,
     Stop,
     Nop,
+}
+
+impl Default for Opcode {
+    fn default() -> Self {
+        Self::Nop
+    }
+}
+
+impl Display for Opcode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Opcode {
@@ -146,405 +160,233 @@ impl Opcode {
         .copied()
     }
 
+    // pub(crate) const fn as_u64(&self) -> u64 {
+    //     *self as u64
+    // }
+
     pub fn total_numbers() -> usize {
         Self::iter().count()
     }
 
-    pub fn configure<F: FieldExt>(
-        &self,
-        cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        match self {
-            Opcode::LdU8 => LdU8::configure(cells, constraints, lookups),
-            Opcode::LdU64 => LdU64::configure(cells, constraints, lookups),
-            Opcode::LdU128 => LdU128::configure(cells, constraints, lookups),
-            Opcode::CastU8 => CastU8::configure(cells, constraints, lookups),
-            Opcode::CastU64 => CastU64::configure(cells, constraints, lookups),
-            Opcode::CastU128 => CastU128::configure(cells, constraints, lookups),
-            Opcode::Pop => Pop::configure(cells, constraints, lookups),
-            Opcode::Ret => Ret::configure(cells, constraints, lookups),
-            Opcode::Add => Add::configure(cells, constraints, lookups),
-            Opcode::Mul => Mul::configure(cells, constraints, lookups),
-            Opcode::CopyLoc => CopyLoc::configure(cells, constraints, lookups),
-            Opcode::Sub => Sub::configure(cells, constraints, lookups),
-            Opcode::Div => Div::configure(cells, constraints, lookups),
-            Opcode::Mod => Mod::configure(cells, constraints, lookups),
-            Opcode::LdTrue => LdTrue::configure(cells, constraints, lookups),
-            Opcode::LdFalse => LdFalse::configure(cells, constraints, lookups),
-            Opcode::Eq => Eq::configure(cells, constraints, lookups),
-            Opcode::Neq => Neq::configure(cells, constraints, lookups),
-            Opcode::Shl => Shl::configure(cells, constraints, lookups),
-            Opcode::Shr => Shr::configure(cells, constraints, lookups),
-            Opcode::BitAnd => BitAnd::configure(cells, constraints, lookups),
-            Opcode::BitOr => BitOr::configure(cells, constraints, lookups),
-            Opcode::Xor => Xor::configure(cells, constraints, lookups),
-            Opcode::And => And::configure(cells, constraints, lookups),
-            Opcode::Or => Or::configure(cells, constraints, lookups),
-            Opcode::Not => Not::configure(cells, constraints, lookups),
-            Opcode::MoveLoc => MoveLoc::configure(cells, constraints, lookups),
-            Opcode::StLoc => StLoc::configure(cells, constraints, lookups),
-            Opcode::Branch => Branch::configure(cells, constraints, lookups),
-            Opcode::BrTrue => BrTrue::configure(cells, constraints, lookups),
-            Opcode::BrFalse => BrFalse::configure(cells, constraints, lookups),
-            Opcode::Call => Call::configure(cells, constraints, lookups),
-            Opcode::Abort => Abort::configure(cells, constraints, lookups),
-            Opcode::Le => Le::configure(cells, constraints, lookups),
-            Opcode::Lt => Lt::configure(cells, constraints, lookups),
-            Opcode::Ge => Ge::configure(cells, constraints, lookups),
-            Opcode::Gt => Gt::configure(cells, constraints, lookups),
-            Opcode::Pack => Pack::configure(cells, constraints, lookups),
-            Opcode::Unpack => Unpack::configure(cells, constraints, lookups),
-            Opcode::ImmBorrowLoc => BorrowLoc::<false, _>::configure(cells, constraints, lookups),
-            Opcode::MutBorrowLoc => BorrowLoc::<true, _>::configure(cells, constraints, lookups),
-            Opcode::ReadRef => ReadRef::configure(cells, constraints, lookups),
-            Opcode::WriteRef => WriteRef::configure(cells, constraints, lookups),
-            Opcode::FreezeRef => FreezeRef::configure(cells, constraints, lookups),
-            Opcode::ImmBorrowField => {
-                BorrowField::<false, _>::configure(cells, constraints, lookups)
-            }
-            Opcode::MutBorrowField => {
-                BorrowField::<true, _>::configure(cells, constraints, lookups)
-            }
-            Opcode::MoveFrom => MoveFrom::configure(cells, constraints, lookups),
-            Opcode::MoveTo => MoveTo::configure(cells, constraints, lookups),
-            Opcode::Exists => Exists::configure(cells, constraints, lookups),
-            Opcode::ImmBorrowGlobal => {
-                BorrowGlobal::<false, _>::configure(cells, constraints, lookups)
-            }
-            Opcode::MutBorrowGlobal => {
-                BorrowGlobal::<true, _>::configure(cells, constraints, lookups)
-            }
-            Opcode::CallGeneric => CallGeneric::configure(cells, constraints, lookups),
-            Opcode::Stop => Stop::configure(cells, constraints, lookups),
-            Opcode::Nop => Nop::configure(cells, constraints, lookups),
-        }
+    pub fn get_step_height_option(&self) -> Option<usize> {
+        STEP_SLOT_HEIGHT_MAP.get(self).copied()
     }
 
-    pub fn assign<F: FieldExt>(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
-    ) -> Result<(), Error> {
-        match self {
-            Opcode::LdU8 => LdU8::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::LdU64 => LdU64::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::LdU128 => LdU128::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::CastU8 => CastU8::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::CastU64 => CastU64::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::CastU128 => CastU128::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Pop => Pop::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Ret => Ret::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Add => Add::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Mul => Mul::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Sub => Sub::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Div => Div::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Mod => Mod::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Eq => Eq::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Neq => Neq::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Shl => Shl::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Shr => Shr::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::BitAnd => BitAnd::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::BitOr => BitOr::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Xor => Xor::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::And => And::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Or => Or::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Not => Not::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::StLoc => StLoc::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Branch => Branch::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::BrTrue => BrTrue::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Le => Le::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Lt => Lt::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Ge => Ge::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Gt => Gt::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Pack => Pack::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Unpack => Unpack::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::ImmBorrowLoc => {
-                BorrowLoc::<false, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::MutBorrowLoc => {
-                BorrowLoc::<true, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::WriteRef => WriteRef::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::FreezeRef => FreezeRef::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::ImmBorrowField => {
-                BorrowField::<false, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::MutBorrowField => {
-                BorrowField::<true, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::MoveFrom => MoveFrom::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::MoveTo => MoveTo::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Exists => Exists::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::ImmBorrowGlobal => {
-                BorrowGlobal::<false, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::MutBorrowGlobal => {
-                BorrowGlobal::<true, _>::assign(region, offset, step, rw_operations, cells)?
-            }
-            Opcode::CallGeneric => CallGeneric::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
-            Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
-        }
-        Ok(())
+    pub fn get_step_height(&self) -> usize {
+        self.get_step_height_option()
+            .unwrap_or_else(|| panic!("Execution state unknown: {:?}", self))
     }
+
+    // pub fn configure<F: FieldExt>(
+    //     &self,
+    //     cells: &StepChipCells<F>,
+    //     constraints: &mut Vec<(&str, Expression<F>)>,
+    //     lookups: &mut LookupsWithCondition<F>,
+    // ) {
+    //     match self {
+    //         Opcode::LdU8 => LdU8::configure(cells, constraints, lookups),
+    //         Opcode::LdU64 => LdU64::configure(cells, constraints, lookups),
+    //         Opcode::LdU128 => LdU128::configure(cells, constraints, lookups),
+    //         Opcode::CastU8 => CastU8::configure(cells, constraints, lookups),
+    //         Opcode::CastU64 => CastU64::configure(cells, constraints, lookups),
+    //         Opcode::CastU128 => CastU128::configure(cells, constraints, lookups),
+    //         Opcode::Pop => Pop::configure(cells, constraints, lookups),
+    //         Opcode::Ret => Ret::configure(cells, constraints, lookups),
+    //         Opcode::Add => Add::configure(cells, constraints, lookups),
+    //         Opcode::Mul => Mul::configure(cells, constraints, lookups),
+    //         Opcode::CopyLoc => CopyLoc::configure(cells, constraints, lookups),
+    //         Opcode::Sub => Sub::configure(cells, constraints, lookups),
+    //         Opcode::Div => Div::configure(cells, constraints, lookups),
+    //         Opcode::Mod => Mod::configure(cells, constraints, lookups),
+    //         Opcode::LdTrue => LdTrue::configure(cells, constraints, lookups),
+    //         Opcode::LdFalse => LdFalse::configure(cells, constraints, lookups),
+    //         Opcode::Eq => Eq::configure(cells, constraints, lookups),
+    //         Opcode::Neq => Neq::configure(cells, constraints, lookups),
+    //         Opcode::Shl => Shl::configure(cells, constraints, lookups),
+    //         Opcode::Shr => Shr::configure(cells, constraints, lookups),
+    //         Opcode::BitAnd => BitAnd::configure(cells, constraints, lookups),
+    //         Opcode::BitOr => BitOr::configure(cells, constraints, lookups),
+    //         Opcode::Xor => Xor::configure(cells, constraints, lookups),
+    //         Opcode::And => And::configure(cells, constraints, lookups),
+    //         Opcode::Or => Or::configure(cells, constraints, lookups),
+    //         Opcode::Not => Not::configure(cells, constraints, lookups),
+    //         Opcode::MoveLoc => MoveLoc::configure(cells, constraints, lookups),
+    //         Opcode::StLoc => StLoc::configure(cells, constraints, lookups),
+    //         Opcode::Branch => Branch::configure(cells, constraints, lookups),
+    //         Opcode::BrTrue => BrTrue::configure(cells, constraints, lookups),
+    //         Opcode::BrFalse => BrFalse::configure(cells, constraints, lookups),
+    //         Opcode::Call => Call::configure(cells, constraints, lookups),
+    //         Opcode::Abort => Abort::configure(cells, constraints, lookups),
+    //         Opcode::Le => Le::configure(cells, constraints, lookups),
+    //         Opcode::Lt => Lt::configure(cells, constraints, lookups),
+    //         Opcode::Ge => Ge::configure(cells, constraints, lookups),
+    //         Opcode::Gt => Gt::configure(cells, constraints, lookups),
+    //         Opcode::Pack => Pack::configure(cells, constraints, lookups),
+    //         Opcode::Unpack => Unpack::configure(cells, constraints, lookups),
+    //         Opcode::ImmBorrowLoc => BorrowLoc::<false, _>::configure(cells, constraints, lookups),
+    //         Opcode::MutBorrowLoc => BorrowLoc::<true, _>::configure(cells, constraints, lookups),
+    //         Opcode::ReadRef => ReadRef::configure(cells, constraints, lookups),
+    //         Opcode::WriteRef => WriteRef::configure(cells, constraints, lookups),
+    //         Opcode::FreezeRef => FreezeRef::configure(cells, constraints, lookups),
+    //         Opcode::ImmBorrowField => {
+    //             BorrowField::<false, _>::configure(cells, constraints, lookups)
+    //         }
+    //         Opcode::MutBorrowField => {
+    //             BorrowField::<true, _>::configure(cells, constraints, lookups)
+    //         }
+    //         Opcode::MoveFrom => MoveFrom::configure(cells, constraints, lookups),
+    //         Opcode::MoveTo => MoveTo::configure(cells, constraints, lookups),
+    //         Opcode::Exists => Exists::configure(cells, constraints, lookups),
+    //         Opcode::ImmBorrowGlobal => {
+    //             BorrowGlobal::<false, _>::configure(cells, constraints, lookups)
+    //         }
+    //         Opcode::MutBorrowGlobal => {
+    //             BorrowGlobal::<true, _>::configure(cells, constraints, lookups)
+    //         }
+    //         Opcode::CallGeneric => CallGeneric::configure(cells, constraints, lookups),
+    //         Opcode::Stop => Stop::configure(cells, constraints, lookups),
+    //         Opcode::Nop => Nop::configure(cells, constraints, lookups),
+    //     }
+    // }
+
+    // pub fn assign<F: FieldExt>(
+    //     &self,
+    //     region: &mut Region<'_, F>,
+    //     offset: usize,
+    //     step: &ExecutionStep<F>,
+    //     rw_operations: &RWOperations<F>,
+    //     cells: &StepChipCells<F>,
+    // ) -> Result<(), Error> {
+    //     match self {
+    //         Opcode::LdU8 => LdU8::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::LdU64 => LdU64::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::LdU128 => LdU128::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::CastU8 => CastU8::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::CastU64 => CastU64::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::CastU128 => CastU128::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Pop => Pop::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Ret => Ret::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Add => Add::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Mul => Mul::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::CopyLoc => CopyLoc::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Sub => Sub::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Div => Div::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Mod => Mod::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::LdTrue => LdTrue::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::LdFalse => LdFalse::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Eq => Eq::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Neq => Neq::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Shl => Shl::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Shr => Shr::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::BitAnd => BitAnd::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::BitOr => BitOr::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Xor => Xor::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::And => And::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Or => Or::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Not => Not::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::MoveLoc => MoveLoc::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::StLoc => StLoc::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Branch => Branch::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::BrTrue => BrTrue::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::BrFalse => BrFalse::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Call => Call::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Abort => Abort::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Le => Le::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Lt => Lt::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Ge => Ge::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Gt => Gt::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Pack => Pack::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Unpack => Unpack::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::ImmBorrowLoc => {
+    //             BorrowLoc::<false, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::MutBorrowLoc => {
+    //             BorrowLoc::<true, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::ReadRef => ReadRef::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::WriteRef => WriteRef::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::FreezeRef => FreezeRef::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::ImmBorrowField => {
+    //             BorrowField::<false, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::MutBorrowField => {
+    //             BorrowField::<true, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::MoveFrom => MoveFrom::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::MoveTo => MoveTo::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Exists => Exists::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::ImmBorrowGlobal => {
+    //             BorrowGlobal::<false, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::MutBorrowGlobal => {
+    //             BorrowGlobal::<true, _>::assign(region, offset, step, rw_operations, cells)?
+    //         }
+    //         Opcode::CallGeneric => CallGeneric::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Stop => Stop::assign(region, offset, step, rw_operations, cells)?,
+    //         Opcode::Nop => Nop::assign(region, offset, step, rw_operations, cells)?,
+    //     }
+    //     Ok(())
+    // }
 }
 
 impl From<Bytecode> for Opcode {
     fn from(bytecode: Bytecode) -> Opcode {
         match bytecode {
             Bytecode::LdU8(_) => Opcode::LdU8,
-            Bytecode::LdU64(_) => Opcode::LdU64,
-            Bytecode::LdU128(_) => Opcode::LdU128,
-            Bytecode::CastU8 => Opcode::CastU8,
-            Bytecode::CastU64 => Opcode::CastU64,
-            Bytecode::CastU128 => Opcode::CastU128,
+            // Bytecode::LdU64(_) => Opcode::LdU64,
+            // Bytecode::LdU128(_) => Opcode::LdU128,
+            // Bytecode::CastU8 => Opcode::CastU8,
+            // Bytecode::CastU64 => Opcode::CastU64,
+            // Bytecode::CastU128 => Opcode::CastU128,
             Bytecode::Pop => Opcode::Pop,
             Bytecode::Ret => Opcode::Ret,
             Bytecode::Add => Opcode::Add,
-            Bytecode::Mul => Opcode::Mul,
-            Bytecode::CopyLoc(_) => Opcode::CopyLoc,
-            Bytecode::Sub => Opcode::Sub,
-            Bytecode::Div => Opcode::Div,
-            Bytecode::Mod => Opcode::Mod,
-            Bytecode::LdTrue => Opcode::LdTrue,
-            Bytecode::LdFalse => Opcode::LdFalse,
-            Bytecode::Eq => Opcode::Eq,
-            Bytecode::Neq => Opcode::Neq,
-            Bytecode::Shl => Opcode::Shl,
-            Bytecode::Shr => Opcode::Shr,
-            Bytecode::BitAnd => Opcode::BitAnd,
-            Bytecode::BitOr => Opcode::BitOr,
-            Bytecode::Xor => Opcode::Xor,
-            Bytecode::And => Opcode::And,
-            Bytecode::Or => Opcode::Or,
-            Bytecode::Not => Opcode::Not,
-            Bytecode::MoveLoc(_) => Opcode::MoveLoc,
-            Bytecode::StLoc(_) => Opcode::StLoc,
-            Bytecode::Branch(_) => Opcode::Branch,
-            Bytecode::BrTrue(_) => Opcode::BrTrue,
-            Bytecode::BrFalse(_) => Opcode::BrFalse,
-            Bytecode::Call(_) => Opcode::Call,
-            Bytecode::Abort => Opcode::Abort,
-            Bytecode::Le => Opcode::Le,
-            Bytecode::Lt => Opcode::Lt,
-            Bytecode::Ge => Opcode::Ge,
-            Bytecode::Gt => Opcode::Gt,
-            Bytecode::Pack(_) => Opcode::Pack,
-            Bytecode::Unpack(_) => Opcode::Unpack,
-            Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,
-            Bytecode::ImmBorrowLoc(_) => Opcode::ImmBorrowLoc,
-            Bytecode::ReadRef => Opcode::ReadRef,
-            Bytecode::WriteRef => Opcode::WriteRef,
-            Bytecode::FreezeRef => Opcode::FreezeRef,
-            Bytecode::ImmBorrowField(_) => Opcode::ImmBorrowField,
-            Bytecode::MutBorrowField(_) => Opcode::MutBorrowField,
-            Bytecode::MoveFrom(_) => Opcode::MoveFrom,
-            Bytecode::MoveTo(_) => Opcode::MoveTo,
-            Bytecode::Exists(_) => Opcode::Exists,
-            Bytecode::ImmBorrowGlobal(_) => Opcode::ImmBorrowGlobal,
-            Bytecode::MutBorrowGlobal(_) => Opcode::MutBorrowGlobal,
-            Bytecode::CallGeneric(_) => Opcode::CallGeneric,
-            _ => unimplemented!(),
+            // Bytecode::Mul => Opcode::Mul,
+            // Bytecode::CopyLoc(_) => Opcode::CopyLoc,
+            // Bytecode::Sub => Opcode::Sub,
+            // Bytecode::Div => Opcode::Div,
+            // Bytecode::Mod => Opcode::Mod,
+            // Bytecode::LdTrue => Opcode::LdTrue,
+            // Bytecode::LdFalse => Opcode::LdFalse,
+            // Bytecode::Eq => Opcode::Eq,
+            // Bytecode::Neq => Opcode::Neq,
+            // Bytecode::Shl => Opcode::Shl,
+            // Bytecode::Shr => Opcode::Shr,
+            // Bytecode::BitAnd => Opcode::BitAnd,
+            // Bytecode::BitOr => Opcode::BitOr,
+            // Bytecode::Xor => Opcode::Xor,
+            // Bytecode::And => Opcode::And,
+            // Bytecode::Or => Opcode::Or,
+            // Bytecode::Not => Opcode::Not,
+            // Bytecode::MoveLoc(_) => Opcode::MoveLoc,
+            // Bytecode::StLoc(_) => Opcode::StLoc,
+            // Bytecode::Branch(_) => Opcode::Branch,
+            // Bytecode::BrTrue(_) => Opcode::BrTrue,
+            // Bytecode::BrFalse(_) => Opcode::BrFalse,
+            // Bytecode::Call(_) => Opcode::Call,
+            // Bytecode::Abort => Opcode::Abort,
+            // Bytecode::Le => Opcode::Le,
+            // Bytecode::Lt => Opcode::Lt,
+            // Bytecode::Ge => Opcode::Ge,
+            // Bytecode::Gt => Opcode::Gt,
+            // Bytecode::Pack(_) => Opcode::Pack,
+            // Bytecode::Unpack(_) => Opcode::Unpack,
+            // Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,
+            // Bytecode::ImmBorrowLoc(_) => Opcode::ImmBorrowLoc,
+            // Bytecode::ReadRef => Opcode::ReadRef,
+            // Bytecode::WriteRef => Opcode::WriteRef,
+            // Bytecode::FreezeRef => Opcode::FreezeRef,
+            // Bytecode::ImmBorrowField(_) => Opcode::ImmBorrowField,
+            // Bytecode::MutBorrowField(_) => Opcode::MutBorrowField,
+            // Bytecode::MoveFrom(_) => Opcode::MoveFrom,
+            // Bytecode::MoveTo(_) => Opcode::MoveTo,
+            // Bytecode::Exists(_) => Opcode::Exists,
+            // Bytecode::ImmBorrowGlobal(_) => Opcode::ImmBorrowGlobal,
+            // Bytecode::MutBorrowGlobal(_) => Opcode::MutBorrowGlobal,
+            // Bytecode::CallGeneric(_) => Opcode::CallGeneric,
+            // Bytecode::Stop(_) => Opcode::Stop,
+            Bytecode::Nop => Opcode::Nop,
+            _ => todo!(),
         }
     }
 }
-
-pub(crate) trait ExecutionGadget<F: FieldExt> {
-    const NAME: &'static str;
-
-    const EXECUTION_STATE: Opcode;
-
-    fn configure(
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) -> Self;
-
-    fn assign(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
-    ) -> Result<(), Error>;
-}
-/* 
-#[derive(Clone, Debug)]
-pub struct OpcodeConfig<F: FieldExt> {
-    op_ldu8: Box<LdU8<F>>,
-    op_ld64: Box<LdU64<F>>,
-    op_ldu128: Box<LdU128<F>>,
-    op_castu8: Box<CastU8<F>>,
-    op_castu64: Box<CastU64<F>>,
-    op_castu128: Box<CastU128<F>>,
-    op_pop: Box<Pop<F>>,
-    op_ret: Box<Ret<F>>,
-    op_add: Box<Add<F>>,
-    op_mul: Box<Mul<F>>,
-    op_copy_loc: Box<CopyLoc<F>>,
-    op_sub: Box<Sub<F>>,
-    op_div: Box<Div<F>>,
-    op_mod: Box<Mod<F>>,
-    op_ld_true: Box<LdTrue<F>>,
-    op_ld_false: Box<LdFalse<F>>,
-    op_eq: Box<Eq<F>>,
-    op_neq: Box<Neq<F>>,
-    op_shl: Box<Shl<F>>,
-    op_shr: Box<Shr<F>>,
-    op_bit_and: Box<BitAnd<F>>,
-    op_bit_or: Box<BitOr<F>>,
-    op_xor: Box<Xor<F>>,
-    op_and: Box<And<F>>,
-    op_or: Box<Or<F>>,
-    op_not: Box<Not<F>>,
-    op_move_loc: Box<MoveLoc<F>>,
-    op_st_loc: Box<StLoc<F>>,
-    op_branch: Box<Branch<F>>,
-    op_br_true: Box<BrTrue<F>>,
-    op_br_false: Box<BrFalse<F>>,
-    op_call: Box<Call<F>>,
-    op_abort: Box<Abort<F>>,
-    op_le: Box<Le<F>>,
-    op_lt: Box<Lt<F>>,
-    op_ge: Box<Ge<F>>,
-    op_gt: Box<Gt<F>>,
-    op_pack: Box<Pack<F>>,
-    op_unpack: Box<Unpack<F>>,
-    op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
-    op_imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    op_read_ref: Box<ReadRef<F>>,
-    op_write_ref: Box<WriteRef<F>>,
-    op_freeze_ref: Box<FreezeRef<F>>,
-    op_imm_borrow_field: Box<BorrowField<false, F>>,
-    op_mut_borrow_field: Box<BorrowField<true, F>>,
-    op_move_from: Box<MoveFrom<F>>,
-    op_move_to: Box<MoveTo<F>>,
-    op_exists: Box<Exists<F>>,
-    op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
-    op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
-    op_call_generic: Box<CallGeneric<F>>,
-    op_stop: Box<Stop<F>>,
-    op_nop: Box<Nop<F>>,
-}
-
-impl<F: FieldExt> OpcodeConfig<F> {
-    fn configure_gadget<G: ExecutionGadget<F>>(
-        cells: &StepChipCells<F>,
-        step_curr: &Step<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) -> G {
-        // Configure the gadget with the max height first so we can find out the actual
-        // height
-        let height = {
-            let dummy_step_next = Step::new(meta, advices, MAX_STEP_HEIGHT, true);
-            let mut cb = ConstraintBuilder::new(
-                step_curr.clone(),
-                dummy_step_next,
-                G::EXECUTION_STATE,
-            );
-            G::configure(cells, cb, lookups);
-            let (_, _, height) = cb.build();
-            height
-        };
-
-        // Now actually configure the gadget with the correct minimal height
-        let step_next = &Step::new(meta, advices, height, true);
-        let mut cb = ConstraintBuilder::new(
-            step_curr.clone(),
-            step_next.clone(),
-            G::EXECUTION_STATE,
-        );
-
-        let gadget = G::configure(cells, cb, lookups);
-
-        gadget
-    }
-
-    pub fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
-
-        let step_curr = Step::new(meta, advices, 0, false);
-        macro_rules! configure_gadget {
-            () => {
-                (|| {Box::new(Self::configure_gadget(cells, step_curr, cb, lookups))})()
-            };
-        }
-
-        {
-            op_ldu8:    configure_gadget!(),
-            op_ld64:    configure_gadget!(),
-            op_ldu128:  configure_gadget!(),
-            op_castu8:  configure_gadget!(),
-            op_castu64: configure_gadget!(),
-            op_castu128:configure_gadget!(),
-            op_pop:     configure_gadget!(),
-            op_ret:     configure_gadget!(),
-            op_add:     configure_gadget!(),
-            op_mul:     configure_gadget!(),
-            op_copy_loc:configure_gadget!(),
-            op_sub:     configure_gadget!(),
-            op_div:     configure_gadget!(),
-            op_mod:     configure_gadget!(),
-            op_ld_true: configure_gadget!(),
-            op_ld_false:configure_gadget!(),
-            op_eq:      configure_gadget!(),
-            op_neq:     configure_gadget!(),
-            op_shl:     configure_gadget!(),
-            op_shr:     configure_gadget!(),
-            op_bit_and: configure_gadget!(),
-            op_bit_or:  configure_gadget!(),
-            op_xor:     configure_gadget!(),
-            op_and:     configure_gadget!(),
-            op_or:      configure_gadget!(),
-            op_not:     configure_gadget!(),
-            op_move_loc:configure_gadget!(),
-            op_st_loc:  configure_gadget!(),
-            op_branch:  configure_gadget!(),
-            op_br_true: configure_gadget!(),
-            op_br_false:configure_gadget!(),
-            op_call:    configure_gadget!(),
-            op_abort:   configure_gadget!(),
-            op_le:      configure_gadget!(),
-            op_lt:      configure_gadget!(),
-            op_ge:      configure_gadget!(),
-            op_gt:      configure_gadget!(),
-            op_pack:    configure_gadget!(),
-            op_unpack:  configure_gadget!(),
-            op_mut_borrow_loc: configure_gadget!(),
-            op_imm_borrow_loc: configure_gadget!(),
-            op_read_ref:       configure_gadget!(),
-            op_write_ref:      configure_gadget!(),
-            op_freeze_ref:     configure_gadget!(),
-            op_imm_borrow_field: configure_gadget!(),
-            op_mut_borrow_field: configure_gadget!(),
-            op_move_from:        configure_gadget!(),
-            op_move_to:          configure_gadget!(),
-            op_exists:           configure_gadget!(),
-            op_imm_borrow_global: configure_gadget!(),
-            op_mut_borrow_global: configure_gadget!(),
-            op_call_generic:      configure_gadget!(),
-            op_stop:              configure_gadget!(),
-            op_nop:               configure_gadget!(),
-        }
-    }
-}
-*/

@@ -1,51 +1,61 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{ArithOverflow, BinaryOp, LookupBytecode};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
-use std::marker::PhantomData;
+use halo2_proofs::plonk::Error;
 
+#[derive(Clone, Debug)]
 pub struct Add<F: FieldExt> {
-    _value_a: Cell<F>,
-    _value_b: Cell<F>,
-    _value_c: Cell<F>,
-    _bytes: [Cell<F>; BYTES_NUM],
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
+    value_b: Cell<F>,
+    value_c: Cell<F>,
+    bytes: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> Instructions<F> for Add<F> {
+impl<F: FieldExt> InstructionGadget<F> for Add<F> {
+    const NAME: &'static str = "ADD";
+
+    const OPCODE: Opcode = Opcode::Add;
+
     fn configure(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         //Add
         let cond = cells.conditions[Opcode::Add.index()].expression.clone();
 
-        let lhs = cells.value_a.expression.clone();
-        let rhs = cells.value_b.expression.clone();
-        let out = cells.value_c.expression.clone();
-        let constraint = cond.clone() * (lhs + rhs - out.clone());
-        constraints.push(("add", constraint));
+        // alloc cell
+        let op = BinaryOp {
+            value_a: cb.query_cell(),
+            value_b: cb.query_cell(),
+            value_c: cb.query_cell(),
+        };
 
-        ArithOverflow::constrain_range_check(cells, constraints, cond.clone(), out);
+        let lhs = op.value_a.expression.clone();
+        let rhs = op.value_b.expression.clone();
+        let out = op.value_c.expression.clone();
+        let constraint = cond.clone() * (lhs + rhs - out.clone());
+        cb.add_constraint("add constraint", constraint);
+
+        let bytes = ArithOverflow::constrain_range_check(cells, cb, cond.clone(), out);
         ArithOverflow::lookup_arith_op(
             cells,
             &mut lookups.arith_op_lookups,
             cond.clone(),
             cells.auxiliary_1.expression.clone(),
         );
-        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
+        BinaryOp::lookup_binary_op(cells, &op, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::Add,
@@ -53,20 +63,33 @@ impl<F: FieldExt> Instructions<F> for Add<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
+
+        Self {
+            value_a: op.value_a,
+            value_b: op.value_b,
+            value_c: op.value_c,
+            bytes,
+        }
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)?;
+        let op = BinaryOp {
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
+        };
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, op)?;
 
         let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         let value = op.value();
-        ArithOverflow::assign_num_of_bytes(region, offset, cells, value)?;
+        ArithOverflow::assign_num_of_bytes(region, offset, cells, self.bytes.clone(), value)?;
 
         Ok(())
     }

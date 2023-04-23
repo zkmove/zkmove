@@ -1,13 +1,12 @@
+// Copyright (c) zkMove Authors
 
 use crate::chips::utilities::{Cell, Expr};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
-use std::{
-    collections::BTreeMap,
-    hash::Hash,
-};
+use std::hash::Hash;
+use logger::prelude::*;
 
 pub mod constraint_builder;
 
@@ -26,12 +25,12 @@ pub(crate) fn query_expression<F: FieldExt, T>(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum CellType {
     CustomGate,
-    Permutation,
-    Lookup,
+    //    Permutation,
+    //    Lookup,
 }
 
 impl CellType {
-/*     
+    /*
     // The phase that given `Expression` becomes evaluateable.
     fn expr_phase<F: FieldExt>(expr: &Expression<F>) -> u8 {
         use Expression::*;
@@ -76,7 +75,7 @@ impl<F: FieldExt> Expr<F> for CellColumn<F> {
 
 #[derive(Clone, Debug)]
 pub struct CellManager<F: FieldExt> {
-    width: usize,
+    //width: usize,
     height: usize,
     cells: Vec<Cell<F>>,
     columns: Vec<CellColumn<F>>,
@@ -108,7 +107,7 @@ impl<F: FieldExt> CellManager<F> {
         });
 
         Self {
-            width,
+            // width,
             height,
             cells,
             columns,
@@ -139,6 +138,7 @@ impl<F: FieldExt> CellManager<F> {
                 best_height = column.height;
             }
         }
+
         match best_index {
             Some(index) => index,
             // If we reach this case, it means that all the columns of cell_type have assignments
@@ -154,7 +154,7 @@ impl<F: FieldExt> CellManager<F> {
             .max()
             .unwrap()
     }
-
+    /*
     /// Returns a map of CellType -> (width, height, num_cells)
     pub(crate) fn get_stats(&self) -> BTreeMap<CellType, (usize, usize, usize)> {
         let mut data = BTreeMap::new();
@@ -172,4 +172,5 @@ impl<F: FieldExt> CellManager<F> {
     pub(crate) fn columns(&self) -> &[CellColumn<F>] {
         &self.columns
     }
+    */
 }

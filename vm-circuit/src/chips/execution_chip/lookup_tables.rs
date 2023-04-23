@@ -1,13 +1,19 @@
 // Copyright (c) zkMove Authors
-use crate::chips::execution_chip::ExecutionChip;
-use crate::chips::execution_chip::lookup_tables::arith_op_lookup_table::{ArithOpLookup, ArithOpLookupTable};
-use crate::chips::execution_chip::lookup_tables::bitwise_lookup_table::{BitwiseLookup, BitwiseLookupTable};
-use crate::chips::execution_chip::lookup_tables::bytecode_lookup_table::{BytecodeLookup, BytecodeLookupTable};
+use crate::chips::execution_chip::lookup_tables::arith_op_lookup_table::{
+    ArithOpLookup, ArithOpLookupTable,
+};
+use crate::chips::execution_chip::lookup_tables::bitwise_lookup_table::{
+    BitwiseLookup, BitwiseLookupTable,
+};
+use crate::chips::execution_chip::lookup_tables::bytecode_lookup_table::{
+    BytecodeLookup, BytecodeLookupTable,
+};
 use crate::chips::execution_chip::lookup_tables::call_lookup_table::{CallLookup, CallLookupTable};
 use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::{Pow2FixedTable, Pow2Lookup};
 use crate::chips::execution_chip::lookup_tables::rw_table::{RWLookup, RWTable};
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::circuit::Value as CircuitValue;
@@ -87,123 +93,128 @@ impl<F: FieldExt> LookupTableConfig<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
+        lookups: &LookupsWithCondition<F>,
         s_step: Selector,
-    //    lookup_table: & LookupTableConfig<F>,
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
-        let lookups = LookupsWithCondition::new();
-         
-        for (lookup, cond) in lookups.rw_lookups {
+
+        for (lookup, cond) in &lookups.rw_lookups {
             meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.gc * cond.clone(),
+                        s_step.clone() * lookup.gc.clone() * cond.clone(),
                         meta.query_advice(lookup_table.rw_table.gc_column, Rotation::cur()),
                     ),
                     (
-                        s_step.clone() * lookup.rw_target * cond.clone(),
+                        s_step.clone() * lookup.rw_target.clone() * cond.clone(),
                         meta.query_advice(lookup_table.rw_table.rw_target_column, Rotation::cur()),
                     ),
                     (
-                        s_step.clone() * lookup.rw * cond.clone(),
+                        s_step.clone() * lookup.rw.clone() * cond.clone(),
                         meta.query_advice(lookup_table.rw_table.rw_column, Rotation::cur()),
                     ),
                     (
-                        s_step.clone() * lookup.frame_index * cond.clone(),
-                        meta.query_advice(lookup_table.rw_table.frame_index_column, Rotation::cur()),
+                        s_step.clone() * lookup.frame_index.clone() * cond.clone(),
+                        meta.query_advice(
+                            lookup_table.rw_table.frame_index_column,
+                            Rotation::cur(),
+                        ),
                     ),
                     (
-                        s_step.clone() * lookup.address * cond.clone(),
+                        s_step.clone() * lookup.address.clone() * cond.clone(),
                         meta.query_advice(lookup_table.rw_table.address_column, Rotation::cur()),
                     ),
                     (
-                        s_step * lookup.value * cond,
+                        s_step * lookup.value.clone() * cond.clone(),
                         meta.query_advice(lookup_table.rw_table.value_column, Rotation::cur()),
                     ),
                 ]
             });
         }
 
-        for (lookup, cond) in lookups.bytecode_lookups {
+        for (lookup, cond) in &lookups.bytecode_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.module_index * cond.clone(),
+                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
                         lookup_table.bytecode_table.module_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.function_index * cond.clone(),
+                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
                         lookup_table.bytecode_table.function_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.pc * cond.clone(),
+                        s_step.clone() * lookup.pc.clone() * cond.clone(),
                         lookup_table.bytecode_table.pc_column,
                     ),
                     (
-                        s_step.clone() * lookup.opcode * cond.clone(),
+                        s_step.clone() * lookup.opcode.clone() * cond.clone(),
                         lookup_table.bytecode_table.opcode_column,
                     ),
                     (
-                        s_step * lookup.operand * cond.clone(),
+                        s_step * lookup.operand.clone() * cond.clone(),
                         lookup_table.bytecode_table.operand_column,
                     ),
                 ]
             });
         }
 
-        for (lookup, cond) in lookups.call_lookups {
+        for (lookup, cond) in &lookups.call_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.type_ * cond.clone(),
+                        s_step.clone() * lookup.type_.clone() * cond.clone(),
                         lookup_table.calls_table.type_column,
                     ),
                     (
-                        s_step.clone() * lookup.module_index * cond.clone(),
+                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
                         lookup_table.calls_table.module_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.function_index * cond.clone(),
+                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
                         lookup_table.calls_table.function_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.pc * cond.clone(),
+                        s_step.clone() * lookup.pc.clone() * cond.clone(),
                         lookup_table.calls_table.pc_column,
                     ),
                     (
-                        s_step.clone() * lookup.next_module_index * cond.clone(),
+                        s_step.clone() * lookup.next_module_index.clone() * cond.clone(),
                         lookup_table.calls_table.callee_module_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.next_function_index * cond.clone(),
+                        s_step.clone() * lookup.next_function_index.clone() * cond.clone(),
                         lookup_table.calls_table.callee_function_index_column,
                     ),
-                    (s_step * lookup.next_pc * cond, lookup_table.calls_table.next_pc_column),
+                    (
+                        s_step * lookup.next_pc.clone() * cond.clone(),
+                        lookup_table.calls_table.next_pc_column,
+                    ),
                 ]
             });
         }
 
-        for (lookup, cond) in lookups.arith_op_lookups {
+        for (lookup, cond) in &lookups.arith_op_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.module_index * cond.clone(),
+                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
                         lookup_table.arith_op_table.module_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.function_index * cond.clone(),
+                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
                         lookup_table.arith_op_table.function_index_column,
                     ),
                     (
-                        s_step.clone() * lookup.pc * cond.clone(),
+                        s_step.clone() * lookup.pc.clone() * cond.clone(),
                         lookup_table.arith_op_table.pc_column,
                     ),
                     (
-                        s_step * lookup.num_of_bytes * cond,
+                        s_step * lookup.num_of_bytes.clone() * cond.clone(),
                         lookup_table.arith_op_table.num_of_bytes_column,
                     ),
                 ]
@@ -213,39 +224,39 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.bitwise_lookups.iter().enumerate() {
         //      debug!("bitwise lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in lookups.bitwise_lookups {
+        for (lookup, cond) in &lookups.bitwise_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.opcode * cond.clone(),
+                        s_step.clone() * lookup.opcode.clone() * cond.clone(),
                         lookup_table.bitwise_table.opcode_column,
                     ),
                     (
-                        s_step.clone() * lookup.value_1 * cond.clone(),
+                        s_step.clone() * lookup.value_1.clone() * cond.clone(),
                         lookup_table.bitwise_table.value_1_column,
                     ),
                     (
-                        s_step.clone() * lookup.value_2 * cond.clone(),
+                        s_step.clone() * lookup.value_2.clone() * cond.clone(),
                         lookup_table.bitwise_table.value_2_column,
                     ),
                     (
-                        s_step * lookup.result * cond.clone(),
+                        s_step * lookup.result.clone() * cond.clone(),
                         lookup_table.bitwise_table.result_column,
                     ),
                 ]
             });
         }
-        for (lookup, cond) in lookups.pow2_lookups {
+        for (lookup, cond) in &lookups.pow2_lookups {
             meta.lookup(|vcells| {
                 let s_step = vcells.query_selector(s_step);
                 vec![
                     (
-                        s_step.clone() * lookup.pow * cond.clone(),
+                        s_step.clone() * lookup.pow.clone() * cond.clone(),
                         lookup_table.pow2_table.pow_column,
                     ),
                     (
-                        s_step * lookup.pow_result * cond.clone(),
+                        s_step * lookup.pow_result.clone() * cond.clone(),
                         lookup_table.pow2_table.pow_result_column,
                     ),
                 ]
@@ -255,9 +266,10 @@ impl<F: FieldExt> LookupTableConfig<F> {
         lookup_table
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn assign(
         layouter: &mut impl Layouter<F>,
-        execution_chip: & ExecutionChip<F>,
+        execution_chip: &ExecutionChip<F>,
         lookup_table: &LookupTableConfig<F>,
     ) -> Result<
         (
@@ -268,7 +280,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         Error,
     > {
         let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
-        execution_chip.witness.rw_operations.clone().into();
+            execution_chip.witness.rw_operations.clone().into();
         let mut stack_operations: Vec<ConvertedRWOperation<F>> = (&sorted_stack_ops).into();
         let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
         let mut global_operations: Vec<ConvertedRWOperation<F>> = (&sorted_global_ops).into();
@@ -368,11 +380,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         )?;
         lookup_table.pow2_table.assign_table(layouter)?;
 
-        Ok((
-            stack_operations,
-            locals_operations,
-            global_operations,
-        ))
+        Ok((stack_operations, locals_operations, global_operations))
     }
 
     pub(crate) fn assign_rw_ops(

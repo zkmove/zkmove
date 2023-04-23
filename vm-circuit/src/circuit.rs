@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
+use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, LookupsWithCondition};
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
-use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
 use halo2_proofs::{
@@ -12,7 +12,7 @@ use logger::prelude::*;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
-    execution_chip_config: ExecutionChipConfig<F>,
+    pub execution_chip_config: ExecutionChipConfig<F>,
     lookup_table: LookupTableConfig<F>,
     memory_chip_config: MemoryChipConfig<F>,
 }
@@ -31,8 +31,10 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let execution_chip_config = ExecutionChip::configure(meta);
-        let lookup_table = LookupTableConfig::configure(meta, execution_chip_config.step_config.s_step);
+        let mut lookups = LookupsWithCondition::new();
+        let execution_chip_config = ExecutionChip::configure(meta, &mut lookups);
+        let s_step = execution_chip_config.s_step;
+        let lookup_table = LookupTableConfig::configure(meta, &lookups, s_step);
         VmCircuitConfig {
             execution_chip_config,
             lookup_table,
