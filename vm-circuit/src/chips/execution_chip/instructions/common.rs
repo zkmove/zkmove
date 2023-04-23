@@ -251,8 +251,8 @@ impl<F: FieldExt> BinaryOp<F> {
 }
 
 pub struct UnaryOp<F: FieldExt> {
-    value_a: Cell<F>,
-    value_c: Cell<F>,
+    pub value_a: Cell<F>,
+    pub value_c: Cell<F>,
 }
 
 impl<F: FieldExt> UnaryOp<F> {

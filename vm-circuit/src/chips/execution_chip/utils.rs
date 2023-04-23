@@ -6,7 +6,6 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
 use std::hash::Hash;
-use logger::prelude::*;
 
 pub mod constraint_builder;
 

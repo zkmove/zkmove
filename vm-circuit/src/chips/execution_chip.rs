@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 use crate::chips::execution_chip::instructions::add::Add;
+use crate::chips::execution_chip::instructions::castu8::CastU8;
 use crate::chips::execution_chip::instructions::ldu8::LdU8;
+use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
 use crate::chips::execution_chip::instructions::nop::Nop;
 use crate::chips::execution_chip::instructions::pop::Pop;
 use crate::chips::execution_chip::instructions::ret::Ret;
@@ -39,7 +41,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_ldu8: Box<LdU8<F>>,
     // op_ld64: Box<LdU64<F>>,
     // op_ldu128: Box<LdU128<F>>,
-    // op_castu8: Box<CastU8<F>>,
+    op_castu8: Box<CastU8<F>>,
     // op_castu64: Box<CastU64<F>>,
     // op_castu128: Box<CastU128<F>>,
     op_pop: Box<Pop<F>>,
@@ -62,7 +64,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     // op_and: Box<And<F>>,
     // op_or: Box<Or<F>>,
     // op_not: Box<Not<F>>,
-    // op_move_loc: Box<MoveLoc<F>>,
+    op_move_loc: Box<MoveLoc<F>>,
     // op_st_loc: Box<StLoc<F>>,
     // op_branch: Box<Branch<F>>,
     // op_br_true: Box<BrTrue<F>>,
@@ -151,7 +153,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_ldu8: configure_gadget!(),
             // op_ld64:    configure_gadget!(),
             // op_ldu128:  configure_gadget!(),
-            // op_castu8:  configure_gadget!(),
+            op_castu8: configure_gadget!(),
             // op_castu64: configure_gadget!(),
             // op_castu128:configure_gadget!(),
             op_pop: configure_gadget!(),
@@ -174,11 +176,11 @@ impl<F: FieldExt> ExecutionChip<F> {
             // op_and:     configure_gadget!(),
             // op_or:      configure_gadget!(),
             // op_not:     configure_gadget!(),
-            // op_move_loc:configure_gadget!(),
+            op_move_loc: configure_gadget!(),
             // op_st_loc:  configure_gadget!(),
             // op_branch:  configure_gadget!(),
             // op_br_true: configure_gadget!(),
-            // op_br_false:configure_gadget!(),
+            // op_br_false: configure_gadget!(),
             // op_call:    configure_gadget!(),
             // op_abort:   configure_gadget!(),
             // op_le:      configure_gadget!(),
@@ -387,9 +389,11 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         match step.opcode {
             Opcode::LdU8 => assign_exec_step!(self.config.op_ldu8),
+            Opcode::CastU8 => assign_exec_step!(self.config.op_castu8),
             Opcode::Pop => assign_exec_step!(self.config.op_pop),
             Opcode::Ret => assign_exec_step!(self.config.op_ret),
             Opcode::Add => assign_exec_step!(self.config.op_add),
+            Opcode::MoveLoc => assign_exec_step!(self.config.op_move_loc),
             Opcode::Nop => assign_exec_step!(self.config.op_nop),
             _ => todo!(),
         }

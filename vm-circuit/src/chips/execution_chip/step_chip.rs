@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
@@ -9,8 +10,6 @@ use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 
-pub const STEP_CHIP_WIDTH: usize = 80;
-pub const STEP_HEIGHT: usize = 17; //todo: calculate step height automatically
 pub const STEP_STATE_HEIGHT: usize = 1;
 pub const NUM_OF_STEP_STATE: usize = 11; //pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
 pub const MAX_OPERANDS_PER_STEP: usize = 3; //value_a, value_b, value_c, val_0~val_3
@@ -58,7 +57,6 @@ impl<F: FieldExt> Chip<F> for StepChip<F> {
 }
 
 impl<F: FieldExt> StepChip<F> {
-
     // pub(crate) fn conditions_selector(
     //     &self,
     //     opcode: Opcode,
