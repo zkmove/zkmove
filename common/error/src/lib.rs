@@ -34,6 +34,8 @@ pub enum StatusCode {
     InvalidValue,
     WrongArgumentsNumber,
     ArgumentsTypeMismatch,
+    VecUnpackParityMismatch,
+    InstantiateTypeFailed,
 
     // Proof system error
     ProofSystemError(Error),

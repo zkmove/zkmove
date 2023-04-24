@@ -354,6 +354,99 @@ impl<F: FieldExt> Reference<F> {
     }
 }
 
+#[derive(Debug)]
+pub enum VectorRef<F: FieldExt> {
+    /// vector in locals
+    LocalRef(LocalRef<F>),
+    /// vector as a field of a container
+    IndexedRef(IndexedRef<F>),
+}
+
+impl<F: FieldExt> VectorRef<F> {
+    /// read_ref returns a deep_copyed value
+    pub fn read_ref(&self) -> VmResult<Value<F>> {
+        Ok(match self {
+            VectorRef::LocalRef(l) => l.read_ref()?,
+            VectorRef::IndexedRef(i) => i.read_ref()?,
+        })
+    }
+
+    pub fn container(&self) -> VmResult<Container<F>> {
+        match self {
+            VectorRef::LocalRef(l) => {
+                let mut ref_val = l.refer.borrow_mut();
+                match ref_val.deref_mut() {
+                    Value::Container(c) => Ok(c.clone()),
+                    _ => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                        .with_message("cannot get length for a non container value".to_string())),
+                }
+            }
+            VectorRef::IndexedRef(i) => {
+                let mut cur_value = i.container_ref.container();
+                for idx in &i.sub_indexes {
+                    cur_value = {
+                        let mut val = cur_value.0.borrow_mut();
+                        let sub_val = val
+                            .get_mut(*idx)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+
+                        match sub_val {
+                            Value::Container(c) => c.clone(),
+                            _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                        }
+                    };
+                }
+                Ok(cur_value)
+            }
+        }
+    }
+
+    pub fn try_borrow_elem(
+        &self,
+        element_idx: usize,
+    ) -> VmResult<IndexedRef<F>> {
+        match self {
+            VectorRef::LocalRef(l) => l.try_borrow_field(element_idx),
+            VectorRef::IndexedRef(l) => l.try_borrow_field(element_idx),
+        }
+    }
+
+    pub fn length(&self) -> VmResult<usize> {
+        let ref_val = self.read_ref()?;
+        match ref_val {
+            Value::Container(c) => Ok(c.0.borrow().len()),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("cannot get length for a non container value".to_string())),
+        }
+    }
+
+    pub fn push_back(&self, elem: Value<F>) -> VmResult<()> {
+        self.container()?.0.borrow_mut().push(elem);
+        Ok(())
+    }
+
+    pub fn pop(&self) -> VmResult<Value<F>> {
+        let c = self.container()?;
+        let mut values = c.0.borrow_mut();
+        match values.pop() {
+            Some(v) => Ok(v),
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)
+                .with_message("index out of bounds when get container element".to_string())),
+        }
+    }
+
+    pub fn swap(&self, idx1: usize, idx2: usize) -> VmResult<()> {
+        let c = self.container()?;
+        let mut v = c.0.borrow_mut();
+        if idx1 >= v.len() || idx2 >= v.len() {
+            return Err(RuntimeError::new(StatusCode::OutOfBounds)
+                .with_message("index out of bounds".to_string()));
+        }
+        v.swap(idx1, idx2);
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GlobalRef<F: FieldExt> {
     pub loc: GlobalLocation<F>,
@@ -528,6 +621,17 @@ impl<F: FieldExt> IndexedRef<F> {
     }
 }
 
+impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>)> {
+    fn from(indexed_ref: IndexedRef<F>) -> Self {
+        let val = indexed_ref.read_ref()?;
+        let loc = IndexedLocation {
+            sub_indexes: indexed_ref.sub_indexes,
+            value_loc: indexed_ref.container_ref.location(),
+        };
+        Ok((loc, val))
+    }
+}
+
 impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
     fn from(simple: PrimitiveValue<F>) -> Self {
         match simple {
@@ -617,8 +721,8 @@ impl<F: FieldExt> Value<F> {
     pub fn signer(x: AccountAddress<F>) -> Self {
         Self::Container(Container::signer(x))
     }
-    pub fn struct_(values: Vec<Value<F>>) -> Self {
-        Self::Container(Container(Rc::new(RefCell::new(values))))
+    pub fn container(elements: Vec<Value<F>>) -> Self {
+        Self::Container(Container(Rc::new(RefCell::new(elements))))
     }
 
     pub fn value(&self) -> Option<F> {
@@ -1268,17 +1372,15 @@ impl<F: FieldExt> Value<F> {
 }
 
 #[derive(Debug)]
-pub struct Struct<F: FieldExt> {
-    fields: Vec<Value<F>>,
-}
+pub struct ContainerValue<F: FieldExt>(Vec<Value<F>>);
 
-impl<F: FieldExt> Struct<F> {
+impl<F: FieldExt> ContainerValue<F> {
     pub fn pack(values: Vec<Value<F>>) -> Self {
-        Self { fields: values }
+        Self(values)
     }
 
-    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
-        Ok(self.fields)
+    pub fn unpack(self) -> Vec<Value<F>> {
+        self.0
     }
 }
 

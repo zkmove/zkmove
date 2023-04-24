@@ -567,7 +567,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
-                        let value = Value::struct_(args);
+                        let value = Value::container(args);
                         let word_element_count = value.word_element_count();
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
@@ -577,9 +577,9 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let (struct_, word_element_count) =
-                            interp.stack.pop_as_struct(rw_operations)?;
+                            interp.stack.pop_as_container(rw_operations)?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        for value in struct_.unpack()? {
+                        for value in struct_.unpack() {
                             interp.stack.push(value, rw_operations)?;
                         }
                         Ok(())
@@ -651,6 +651,135 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         interp.stack.push(global_ref.into(), rw_operations)
+                    }
+                    Bytecode::VecPack(si, num) => {
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let elements = interp.stack.popn(*num as u16, rw_operations)?;
+                        let value = Value::container(elements);
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::VecLen(si) => {
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let value = vec_ref.length()?;
+                        interp.stack.push(Value::u64(value as u64), rw_operations)
+                    }
+                    Bytecode::VecImmBorrow(si) | Bytecode::VecMutBorrow(si) => {
+                        let idx = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let res = vec_ref.try_borrow_elem(idx)?;
+                        interp.stack.push(res.into(), rw_operations)
+                    }
+                    Bytecode::VecPushBack(si) => {
+                        let elem = interp.stack.pop(rw_operations)?;
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        vec_ref.push_back(elem)?;
+
+                        // emit rw operations
+                        let elem_idx = vec_ref.length()? - 1;
+                        let elem_ref = vec_ref.try_borrow_elem(elem_idx)?;
+                        let (elem_loc, elem) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_ref)?;
+                        let word = LocatedValue(elem_loc, &elem).flatten();
+                        Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                        Ok(())
+                    }
+                    Bytecode::VecPopBack(si) => {
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let res = vec_ref.pop()?;
+                        interp.stack.push(res, rw_operations)
+                    }
+                    Bytecode::VecUnpack(si, num) => {
+                        let (vec, _word_element_count) =
+                            interp.stack.pop_as_container(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        let elements = vec.unpack();
+                        for value in elements {
+                            interp.stack.push(value, rw_operations)?;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::VecSwap(si) => {
+                        let idx2 = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let idx1 = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+
+                        // emit rw operations
+                        let elem_1_ref = vec_ref.try_borrow_elem(idx1)?;
+                        let elem_2_ref = vec_ref.try_borrow_elem(idx2)?;
+                        let (elem_1_loc, elem_1) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_1_ref)?;
+                        let (elem_2_loc, elem_2) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_2_ref)?;
+                        Locals::emit_locals_ops_for_word(
+                            LocatedValue(elem_1_loc.clone(), &elem_1).flatten(),
+                            RW::READ,
+                            rw_operations,
+                        );
+                        Locals::emit_locals_ops_for_word(
+                            LocatedValue(elem_2_loc.clone(), &elem_2).flatten(),
+                            RW::READ,
+                            rw_operations,
+                        );
+                        Locals::emit_locals_ops_for_word(
+                            LocatedValue(elem_2_loc, &elem_1).flatten(),
+                            RW::WRITE,
+                            rw_operations,
+                        );
+                        Locals::emit_locals_ops_for_word(
+                            LocatedValue(elem_1_loc, &elem_2).flatten(),
+                            RW::WRITE,
+                            rw_operations,
+                        );
+
+                        vec_ref.swap(idx1, idx2)
                     }
                     _ => unreachable!(),
                 }?;

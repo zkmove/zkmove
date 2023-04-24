@@ -150,6 +150,40 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::CallGeneric.index() as u128),
             F::from_u128(idx.0 as u128),
         ),
+        Bytecode::VecImmBorrow(idx) => (
+            F::from_u128(Opcode::VecImmBorrow.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecMutBorrow(idx) => (
+            F::from_u128(Opcode::VecMutBorrow.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecLen(idx) => (
+            F::from_u128(Opcode::VecLen.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        // todo: handle the second operand
+        Bytecode::VecPack(idx, _) => (
+            F::from_u128(Opcode::VecPack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecPopBack(idx) => (
+            F::from_u128(Opcode::VecPopBack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecPushBack(idx) => (
+            F::from_u128(Opcode::VecPushBack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecSwap(idx) => (
+            F::from_u128(Opcode::VecSwap.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        // todo: handle the second operand
+        Bytecode::VecUnpack(idx, _) => (
+            F::from_u128(Opcode::VecUnpack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
         _ => unimplemented!("{:?}", bytecode),
     }
 }

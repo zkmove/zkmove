@@ -1,0 +1,12 @@
+//! mods: vector.move
+script {
+    use 0x1::vector;
+    fun main() {
+        let v = vector::empty();
+        vector::push_back(&mut v, 5);
+        assert!(vector::length(&v) == 1, 101);
+        assert!(*vector::borrow(&v, 0) == 5, 102);
+        vector::pop_back(&mut v);
+        vector::destroy_empty(v);
+    }
+}
