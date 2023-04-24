@@ -51,8 +51,8 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             + 3.expr() * word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cb.next.cells.function_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
@@ -95,7 +95,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        
+
         Self {
             word_a,
             word_a_mask,

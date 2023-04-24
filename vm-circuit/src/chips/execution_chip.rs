@@ -6,6 +6,7 @@ use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
 use crate::chips::execution_chip::instructions::nop::Nop;
 use crate::chips::execution_chip::instructions::pop::Pop;
 use crate::chips::execution_chip::instructions::ret::Ret;
+use crate::chips::execution_chip::instructions::stop::Stop;
 
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
@@ -90,7 +91,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     // op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
     // op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
     // op_call_generic: Box<CallGeneric<F>>,
-    // op_stop: Box<Stop<F>>,
+    op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
 }
 
@@ -149,7 +150,6 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         ExecutionChipConfig {
             s_step,
-            height_map: height_map.clone(),
             op_ldu8: configure_gadget!(),
             // op_ld64:    configure_gadget!(),
             // op_ldu128:  configure_gadget!(),
@@ -202,9 +202,10 @@ impl<F: FieldExt> ExecutionChip<F> {
             // op_imm_borrow_global: configure_gadget!(),
             // op_mut_borrow_global: configure_gadget!(),
             // op_call_generic:      configure_gadget!(),
-            // op_stop:              configure_gadget!(),
+            op_stop: configure_gadget!(),
             op_nop: configure_gadget!(),
             step: step_curr,
+            height_map,
         }
     }
 
@@ -394,6 +395,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::Ret => assign_exec_step!(self.config.op_ret),
             Opcode::Add => assign_exec_step!(self.config.op_add),
             Opcode::MoveLoc => assign_exec_step!(self.config.op_move_loc),
+            Opcode::Stop => assign_exec_step!(self.config.op_stop),
             Opcode::Nop => assign_exec_step!(self.config.op_nop),
             _ => todo!(),
         }

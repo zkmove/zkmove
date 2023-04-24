@@ -57,7 +57,7 @@ pub mod ret;
 // pub mod shl;
 // pub mod shr;
 // pub mod st_loc;
-// pub mod stop;
+pub mod stop;
 // pub mod sub;
 // pub mod unpack;
 // pub mod write_ref;
