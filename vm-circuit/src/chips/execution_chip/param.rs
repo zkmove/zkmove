@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 pub const BYTES_NUM: usize = 16;
 
-pub const STEP_CHIP_WIDTH: usize = 80;
+pub const STEP_CHIP_WIDTH: usize = 32;
 
 pub const STEP_HEIGHT: usize = 17; // default max step height
 
@@ -17,9 +17,9 @@ pub const WORD_CAPACITY: usize = 16; // max(#method_arguments, #flattened_struct
 
 lazy_static::lazy_static! {
     // Step slot height in evm circuit
-    pub(crate) static ref STEP_SLOT_HEIGHT_MAP : HashMap<Opcode, usize> = get_step_height_map();
+    pub(crate) static ref STEP_HEIGHT_MAP : HashMap<Opcode, usize> = step_height_map();
 }
-fn get_step_height_map() -> HashMap<Opcode, usize> {
+fn step_height_map() -> HashMap<Opcode, usize> {
     let mut meta = ConstraintSystem::<Fp>::default();
     let circuit = VmCircuit::configure(&mut meta);
 

@@ -81,12 +81,12 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
         rw_operations: &RWOperations<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = UnaryOp {
+        let unary_op = UnaryOp {
             value_a: self.value_a.clone(),
             value_c: self.value_c.clone(),
         };
 
-        UnaryOp::assign_unary_op(region, offset, step, rw_operations, &op)?;
+        UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         let cast_result = op.value().value().ok_or_else(|| {

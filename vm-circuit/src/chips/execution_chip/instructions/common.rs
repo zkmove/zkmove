@@ -99,7 +99,7 @@ impl<F: FieldExt> BinaryOp<F> {
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        binary_op: BinaryOp<F>,
+        binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
@@ -128,7 +128,7 @@ impl<F: FieldExt> BinaryOp<F> {
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
-        binary_op: BinaryOp<F>,
+        binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
         Self::assign_binary_op(region, offset, step, rw_operations, binary_op)?;
 
@@ -148,7 +148,7 @@ impl<F: FieldExt> BinaryOp<F> {
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        bytes_op: LookupBitwise<F>,
+        lookup_bitwise: &LookupBitwise<F>,
     ) -> Result<(), Error> {
         // store operand 1 at bytes_operand_1 cell.
         // every 4 bits within one cell and cost 16 cells.
@@ -164,7 +164,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in bytes_op.bytes_operand_1.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
@@ -196,7 +196,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in bytes_op.bytes_operand_2.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
@@ -228,7 +228,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in bytes_op.bytes.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {

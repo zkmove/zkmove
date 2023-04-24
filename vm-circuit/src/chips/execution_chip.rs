@@ -1,12 +1,33 @@
 // Copyright (c) zkMove Authors
+use crate::chips::execution_chip::instructions::_mod::Mod;
+use crate::chips::execution_chip::instructions::abort::Abort;
 use crate::chips::execution_chip::instructions::add::Add;
+use crate::chips::execution_chip::instructions::and::And;
+use crate::chips::execution_chip::instructions::bit_and::BitAnd;
+use crate::chips::execution_chip::instructions::bit_or::BitOr;
+use crate::chips::execution_chip::instructions::castu128::CastU128;
+use crate::chips::execution_chip::instructions::castu64::CastU64;
 use crate::chips::execution_chip::instructions::castu8::CastU8;
+use crate::chips::execution_chip::instructions::div::Div;
+use crate::chips::execution_chip::instructions::eq::Eq;
+use crate::chips::execution_chip::instructions::ge::Ge;
+use crate::chips::execution_chip::instructions::gt::Gt;
+use crate::chips::execution_chip::instructions::ldu128::LdU128;
+use crate::chips::execution_chip::instructions::ldu64::LdU64;
 use crate::chips::execution_chip::instructions::ldu8::LdU8;
+use crate::chips::execution_chip::instructions::le::Le;
+use crate::chips::execution_chip::instructions::lt::Lt;
 use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
+use crate::chips::execution_chip::instructions::mul::Mul;
+use crate::chips::execution_chip::instructions::neq::Neq;
 use crate::chips::execution_chip::instructions::nop::Nop;
+use crate::chips::execution_chip::instructions::not::Not;
+use crate::chips::execution_chip::instructions::or::Or;
 use crate::chips::execution_chip::instructions::pop::Pop;
 use crate::chips::execution_chip::instructions::ret::Ret;
 use crate::chips::execution_chip::instructions::stop::Stop;
+use crate::chips::execution_chip::instructions::sub::Sub;
+use crate::chips::execution_chip::instructions::xor::Xor;
 
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
@@ -40,42 +61,42 @@ pub struct ExecutionChipConfig<F: FieldExt> {
 
     // opcode gadget
     op_ldu8: Box<LdU8<F>>,
-    // op_ld64: Box<LdU64<F>>,
-    // op_ldu128: Box<LdU128<F>>,
+    op_ldu64: Box<LdU64<F>>,
+    op_ldu128: Box<LdU128<F>>,
     op_castu8: Box<CastU8<F>>,
-    // op_castu64: Box<CastU64<F>>,
-    // op_castu128: Box<CastU128<F>>,
+    op_castu64: Box<CastU64<F>>,
+    op_castu128: Box<CastU128<F>>,
     op_pop: Box<Pop<F>>,
     op_ret: Box<Ret<F>>,
     op_add: Box<Add<F>>,
-    // op_mul: Box<Mul<F>>,
+    op_mul: Box<Mul<F>>,
     // op_copy_loc: Box<CopyLoc<F>>,
-    // op_sub: Box<Sub<F>>,
-    // op_div: Box<Div<F>>,
-    // op_mod: Box<Mod<F>>,
+    op_sub: Box<Sub<F>>,
+    op_div: Box<Div<F>>,
+    op_mod: Box<Mod<F>>,
     // op_ld_true: Box<LdTrue<F>>,
     // op_ld_false: Box<LdFalse<F>>,
-    // op_eq: Box<Eq<F>>,
-    // op_neq: Box<Neq<F>>,
+    op_eq: Box<Eq<F>>,
+    op_neq: Box<Neq<F>>,
     // op_shl: Box<Shl<F>>,
     // op_shr: Box<Shr<F>>,
-    // op_bit_and: Box<BitAnd<F>>,
-    // op_bit_or: Box<BitOr<F>>,
-    // op_xor: Box<Xor<F>>,
-    // op_and: Box<And<F>>,
-    // op_or: Box<Or<F>>,
-    // op_not: Box<Not<F>>,
+    op_bit_and: Box<BitAnd<F>>,
+    op_bit_or: Box<BitOr<F>>,
+    op_xor: Box<Xor<F>>,
+    op_and: Box<And<F>>,
+    op_or: Box<Or<F>>,
+    op_not: Box<Not<F>>,
     op_move_loc: Box<MoveLoc<F>>,
     // op_st_loc: Box<StLoc<F>>,
     // op_branch: Box<Branch<F>>,
     // op_br_true: Box<BrTrue<F>>,
     // op_br_false: Box<BrFalse<F>>,
     // op_call: Box<Call<F>>,
-    // op_abort: Box<Abort<F>>,
-    // op_le: Box<Le<F>>,
-    // op_lt: Box<Lt<F>>,
-    // op_ge: Box<Ge<F>>,
-    // op_gt: Box<Gt<F>>,
+    op_abort: Box<Abort<F>>,
+    op_le: Box<Le<F>>,
+    op_lt: Box<Lt<F>>,
+    op_ge: Box<Ge<F>>,
+    op_gt: Box<Gt<F>>,
     // op_pack: Box<Pack<F>>,
     // op_unpack: Box<Unpack<F>>,
     // op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
@@ -135,9 +156,9 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         let mut height_map = HashMap::new();
 
-        macro_rules! configure_gadget {
+        macro_rules! configure_opcode_gadget {
             () => {
-                Box::new(Self::configure_gadget(
+                Box::new(Self::configure_opcode_gadget(
                     meta,
                     lookups,
                     advices,
@@ -150,66 +171,66 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         ExecutionChipConfig {
             s_step,
-            op_ldu8: configure_gadget!(),
-            // op_ld64:    configure_gadget!(),
-            // op_ldu128:  configure_gadget!(),
-            op_castu8: configure_gadget!(),
-            // op_castu64: configure_gadget!(),
-            // op_castu128:configure_gadget!(),
-            op_pop: configure_gadget!(),
-            op_ret: configure_gadget!(),
-            op_add: configure_gadget!(),
-            // op_mul:     configure_gadget!(),
-            // op_copy_loc:configure_gadget!(),
-            // op_sub:     configure_gadget!(),
-            // op_div:     configure_gadget!(),
-            // op_mod:     configure_gadget!(),
-            // op_ld_true: configure_gadget!(),
-            // op_ld_false:configure_gadget!(),
-            // op_eq:      configure_gadget!(),
-            // op_neq:     configure_gadget!(),
-            // op_shl:     configure_gadget!(),
-            // op_shr:     configure_gadget!(),
-            // op_bit_and: configure_gadget!(),
-            // op_bit_or:  configure_gadget!(),
-            // op_xor:     configure_gadget!(),
-            // op_and:     configure_gadget!(),
-            // op_or:      configure_gadget!(),
-            // op_not:     configure_gadget!(),
-            op_move_loc: configure_gadget!(),
-            // op_st_loc:  configure_gadget!(),
-            // op_branch:  configure_gadget!(),
-            // op_br_true: configure_gadget!(),
-            // op_br_false: configure_gadget!(),
-            // op_call:    configure_gadget!(),
-            // op_abort:   configure_gadget!(),
-            // op_le:      configure_gadget!(),
-            // op_lt:      configure_gadget!(),
-            // op_ge:      configure_gadget!(),
-            // op_gt:      configure_gadget!(),
-            // op_pack:    configure_gadget!(),
-            // op_unpack:  configure_gadget!(),
-            // op_mut_borrow_loc: configure_gadget!(),
-            // op_imm_borrow_loc: configure_gadget!(),
-            // op_read_ref:       configure_gadget!(),
-            // op_write_ref:      configure_gadget!(),
-            // op_freeze_ref:     configure_gadget!(),
-            // op_imm_borrow_field: configure_gadget!(),
-            // op_mut_borrow_field: configure_gadget!(),
-            // op_move_from:        configure_gadget!(),
-            // op_move_to:          configure_gadget!(),
-            // op_exists:           configure_gadget!(),
-            // op_imm_borrow_global: configure_gadget!(),
-            // op_mut_borrow_global: configure_gadget!(),
-            // op_call_generic:      configure_gadget!(),
-            op_stop: configure_gadget!(),
-            op_nop: configure_gadget!(),
+            op_ldu8: configure_opcode_gadget!(),
+            op_ldu64: configure_opcode_gadget!(),
+            op_ldu128: configure_opcode_gadget!(),
+            op_castu8: configure_opcode_gadget!(),
+            op_castu64: configure_opcode_gadget!(),
+            op_castu128: configure_opcode_gadget!(),
+            op_pop: configure_opcode_gadget!(),
+            op_ret: configure_opcode_gadget!(),
+            op_add: configure_opcode_gadget!(),
+            op_mul: configure_opcode_gadget!(),
+            // op_copy_loc: configure_opcode_gadget!(),
+            op_sub: configure_opcode_gadget!(),
+            op_div: configure_opcode_gadget!(),
+            op_mod: configure_opcode_gadget!(),
+            // op_ld_true: configure_opcode_gadget!(),
+            // op_ld_false: configure_opcode_gadget!(),
+            op_eq: configure_opcode_gadget!(),
+            op_neq: configure_opcode_gadget!(),
+            // op_shl: configure_opcode_gadget!(),
+            // op_shr: configure_opcode_gadget!(),
+            op_bit_and: configure_opcode_gadget!(),
+            op_bit_or: configure_opcode_gadget!(),
+            op_xor: configure_opcode_gadget!(),
+            op_and: configure_opcode_gadget!(),
+            op_or: configure_opcode_gadget!(),
+            op_not: configure_opcode_gadget!(),
+            op_move_loc: configure_opcode_gadget!(),
+            // op_st_loc: configure_opcode_gadget!(),
+            // op_branch: configure_opcode_gadget!(),
+            // op_br_true: configure_opcode_gadget!(),
+            // op_br_false: configure_opcode_gadget!(),
+            // op_call: configure_opcode_gadget!(),
+            op_abort: configure_opcode_gadget!(),
+            op_le: configure_opcode_gadget!(),
+            op_lt: configure_opcode_gadget!(),
+            op_ge: configure_opcode_gadget!(),
+            op_gt: configure_opcode_gadget!(),
+            // op_pack: configure_opcode_gadget!(),
+            // op_unpack: configure_opcode_gadget!(),
+            // op_mut_borrow_loc: configure_opcode_gadget!(),
+            // op_imm_borrow_loc: configure_opcode_gadget!(),
+            // op_read_ref: configure_opcode_gadget!(),
+            // op_write_ref: configure_opcode_gadget!(),
+            // op_freeze_ref: configure_opcode_gadget!(),
+            // op_imm_borrow_field: configure_opcode_gadget!(),
+            // op_mut_borrow_field: configure_opcode_gadget!(),
+            // op_move_from: configure_opcode_gadget!(),
+            // op_move_to: configure_opcode_gadget!(),
+            // op_exists: configure_opcode_gadget!(),
+            // op_imm_borrow_global: configure_opcode_gadget!(),
+            // op_mut_borrow_global: configure_opcode_gadget!(),
+            // op_call_generic: configure_opcode_gadget!(),
+            op_stop: configure_opcode_gadget!(),
+            op_nop: configure_opcode_gadget!(),
             step: step_curr,
             height_map,
         }
     }
 
-    fn configure_gadget<G: InstructionGadget<F>>(
+    fn configure_opcode_gadget<G: InstructionGadget<F>>(
         meta: &mut ConstraintSystem<F>,
         lookups: &mut LookupsWithCondition<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
@@ -233,7 +254,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         let gadget = G::configure(&step_curr.cells, &mut cb, lookups);
 
-        Self::configure_gadget_impl(
+        Self::configure_opcode_gadget_impl(
             meta,
             s_step,
             step_curr,
@@ -248,7 +269,7 @@ impl<F: FieldExt> ExecutionChip<F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn configure_gadget_impl(
+    fn configure_opcode_gadget_impl(
         meta: &mut ConstraintSystem<F>,
         s_step: Selector,
         step_curr: &StepConfig<F>,
@@ -382,21 +403,42 @@ impl<F: FieldExt> ExecutionChip<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        macro_rules! assign_exec_step {
+        macro_rules! assign_opcode_gadget {
             ($gadget:expr) => {
                 $gadget.assign(region, offset, step, rw_operations, cells)?
             };
         }
 
         match step.opcode {
-            Opcode::LdU8 => assign_exec_step!(self.config.op_ldu8),
-            Opcode::CastU8 => assign_exec_step!(self.config.op_castu8),
-            Opcode::Pop => assign_exec_step!(self.config.op_pop),
-            Opcode::Ret => assign_exec_step!(self.config.op_ret),
-            Opcode::Add => assign_exec_step!(self.config.op_add),
-            Opcode::MoveLoc => assign_exec_step!(self.config.op_move_loc),
-            Opcode::Stop => assign_exec_step!(self.config.op_stop),
-            Opcode::Nop => assign_exec_step!(self.config.op_nop),
+            Opcode::LdU8 => assign_opcode_gadget!(self.config.op_ldu8),
+            Opcode::LdU64 => assign_opcode_gadget!(self.config.op_ldu64),
+            Opcode::LdU128 => assign_opcode_gadget!(self.config.op_ldu128),
+            Opcode::CastU8 => assign_opcode_gadget!(self.config.op_castu8),
+            Opcode::CastU64 => assign_opcode_gadget!(self.config.op_castu64),
+            Opcode::CastU128 => assign_opcode_gadget!(self.config.op_castu128),
+            Opcode::Pop => assign_opcode_gadget!(self.config.op_pop),
+            Opcode::Ret => assign_opcode_gadget!(self.config.op_ret),
+            Opcode::Xor => assign_opcode_gadget!(self.config.op_xor),
+            Opcode::Add => assign_opcode_gadget!(self.config.op_add),
+            Opcode::Mul => assign_opcode_gadget!(self.config.op_mul),
+            Opcode::Sub => assign_opcode_gadget!(self.config.op_sub),
+            Opcode::Div => assign_opcode_gadget!(self.config.op_div),
+            Opcode::Mod => assign_opcode_gadget!(self.config.op_mod),
+            Opcode::Eq => assign_opcode_gadget!(self.config.op_eq),
+            Opcode::Neq => assign_opcode_gadget!(self.config.op_neq),
+            Opcode::BitAnd => assign_opcode_gadget!(self.config.op_bit_and),
+            Opcode::BitOr => assign_opcode_gadget!(self.config.op_bit_or),
+            Opcode::And => assign_opcode_gadget!(self.config.op_and),
+            Opcode::Or => assign_opcode_gadget!(self.config.op_or),
+            Opcode::Not => assign_opcode_gadget!(self.config.op_not),
+            Opcode::MoveLoc => assign_opcode_gadget!(self.config.op_move_loc),
+            Opcode::Abort => assign_opcode_gadget!(self.config.op_abort),
+            Opcode::Le => assign_opcode_gadget!(self.config.op_le),
+            Opcode::Lt => assign_opcode_gadget!(self.config.op_lt),
+            Opcode::Ge => assign_opcode_gadget!(self.config.op_ge),
+            Opcode::Gt => assign_opcode_gadget!(self.config.op_gt),
+            Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
+            Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
             _ => todo!(),
         }
 

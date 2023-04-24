@@ -73,14 +73,14 @@ impl<F: FieldExt> Expr<F> for CellColumn<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CellManager<F: FieldExt> {
+pub struct CellAllocator<F: FieldExt> {
     //width: usize,
     height: usize,
     cells: Vec<Cell<F>>,
     columns: Vec<CellColumn<F>>,
 }
 
-impl<F: FieldExt> CellManager<F> {
+impl<F: FieldExt> CellAllocator<F> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
         height: usize,

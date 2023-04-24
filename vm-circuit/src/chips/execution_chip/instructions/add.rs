@@ -35,15 +35,13 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         let cond = cells.conditions[Opcode::Add.index()].expression.clone();
 
         // alloc cell
-        let op = BinaryOp {
-            value_a: cb.query_cell(),
-            value_b: cb.query_cell(),
-            value_c: cb.query_cell(),
-        };
+        let value_a = cb.query_cell();
+        let value_b = cb.query_cell();
+        let value_c = cb.query_cell();
 
-        let lhs = op.value_a.expression.clone();
-        let rhs = op.value_b.expression.clone();
-        let out = op.value_c.expression.clone();
+        let lhs = value_a.expression.clone();
+        let rhs = value_b.expression.clone();
+        let out = value_c.expression.clone();
         let constraint = cond.clone() * (lhs + rhs - out.clone());
         cb.add_constraint("add constraint", constraint);
 
@@ -54,8 +52,14 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
             cond.clone(),
             cells.auxiliary_1.expression.clone(),
         );
+
+        let binary_op = BinaryOp {
+            value_a: value_a.clone(),
+            value_b: value_b.clone(),
+            value_c: value_c.clone(),
+        };
         BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &op, &mut lookups.rw_lookups, cond.clone());
+        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::Add,
@@ -65,9 +69,9 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         );
 
         Self {
-            value_a: op.value_a,
-            value_b: op.value_b,
-            value_c: op.value_c,
+            value_a,
+            value_b,
+            value_c,
             bytes,
         }
     }
@@ -80,12 +84,12 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = BinaryOp {
+        let binary_op = BinaryOp {
             value_a: self.value_a.clone(),
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::assign_binary_op(region, offset, step, rw_operations, op)?;
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         let value = op.value();

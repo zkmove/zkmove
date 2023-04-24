@@ -205,7 +205,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         (
             //mul_exec_state_sel(self.constraints),
             self.constraints,
-            self.curr.cell_manager.get_height(),
+            self.curr.cell_allocator.get_height(),
         )
     }
 
@@ -250,7 +250,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         } else {
             &mut self.curr
         }
-        .cell_manager
+        .cell_allocator
         .query_cells(cell_type, count)
     }
 

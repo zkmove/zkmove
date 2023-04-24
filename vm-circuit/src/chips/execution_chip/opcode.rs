@@ -19,7 +19,7 @@
 // use halo2_proofs::arithmetic::FieldExt;
 // use halo2_proofs::circuit::Region;
 // use halo2_proofs::plonk::{Error, Expression};
-use crate::chips::execution_chip::param::STEP_SLOT_HEIGHT_MAP;
+use crate::chips::execution_chip::param::STEP_HEIGHT_MAP;
 use move_binary_format::file_format::Bytecode;
 use std::fmt::Display;
 
@@ -169,7 +169,7 @@ impl Opcode {
     }
 
     pub fn get_step_height_option(&self) -> Option<usize> {
-        STEP_SLOT_HEIGHT_MAP.get(self).copied()
+        STEP_HEIGHT_MAP.get(self).copied()
     }
 
     pub fn get_step_height(&self) -> usize {
@@ -333,42 +333,42 @@ impl From<Bytecode> for Opcode {
     fn from(bytecode: Bytecode) -> Opcode {
         match bytecode {
             Bytecode::LdU8(_) => Opcode::LdU8,
-            // Bytecode::LdU64(_) => Opcode::LdU64,
-            // Bytecode::LdU128(_) => Opcode::LdU128,
+            Bytecode::LdU64(_) => Opcode::LdU64,
+            Bytecode::LdU128(_) => Opcode::LdU128,
             Bytecode::CastU8 => Opcode::CastU8,
-            // Bytecode::CastU64 => Opcode::CastU64,
-            // Bytecode::CastU128 => Opcode::CastU128,
+            Bytecode::CastU64 => Opcode::CastU64,
+            Bytecode::CastU128 => Opcode::CastU128,
             Bytecode::Pop => Opcode::Pop,
             Bytecode::Ret => Opcode::Ret,
             Bytecode::Add => Opcode::Add,
-            // Bytecode::Mul => Opcode::Mul,
+            Bytecode::Mul => Opcode::Mul,
             // Bytecode::CopyLoc(_) => Opcode::CopyLoc,
-            // Bytecode::Sub => Opcode::Sub,
-            // Bytecode::Div => Opcode::Div,
+            Bytecode::Sub => Opcode::Sub,
+            Bytecode::Div => Opcode::Div,
             // Bytecode::Mod => Opcode::Mod,
             // Bytecode::LdTrue => Opcode::LdTrue,
             // Bytecode::LdFalse => Opcode::LdFalse,
-            // Bytecode::Eq => Opcode::Eq,
-            // Bytecode::Neq => Opcode::Neq,
+            Bytecode::Eq => Opcode::Eq,
+            Bytecode::Neq => Opcode::Neq,
             // Bytecode::Shl => Opcode::Shl,
             // Bytecode::Shr => Opcode::Shr,
-            // Bytecode::BitAnd => Opcode::BitAnd,
-            // Bytecode::BitOr => Opcode::BitOr,
-            // Bytecode::Xor => Opcode::Xor,
-            // Bytecode::And => Opcode::And,
-            // Bytecode::Or => Opcode::Or,
-            // Bytecode::Not => Opcode::Not,
+            Bytecode::BitAnd => Opcode::BitAnd,
+            Bytecode::BitOr => Opcode::BitOr,
+            Bytecode::Xor => Opcode::Xor,
+            Bytecode::And => Opcode::And,
+            Bytecode::Or => Opcode::Or,
+            Bytecode::Not => Opcode::Not,
             Bytecode::MoveLoc(_) => Opcode::MoveLoc,
             // Bytecode::StLoc(_) => Opcode::StLoc,
             // Bytecode::Branch(_) => Opcode::Branch,
             // Bytecode::BrTrue(_) => Opcode::BrTrue,
             // Bytecode::BrFalse(_) => Opcode::BrFalse,
             // Bytecode::Call(_) => Opcode::Call,
-            // Bytecode::Abort => Opcode::Abort,
-            // Bytecode::Le => Opcode::Le,
-            // Bytecode::Lt => Opcode::Lt,
-            // Bytecode::Ge => Opcode::Ge,
-            // Bytecode::Gt => Opcode::Gt,
+            Bytecode::Abort => Opcode::Abort,
+            Bytecode::Le => Opcode::Le,
+            Bytecode::Lt => Opcode::Lt,
+            Bytecode::Ge => Opcode::Ge,
+            Bytecode::Gt => Opcode::Gt,
             // Bytecode::Pack(_) => Opcode::Pack,
             // Bytecode::Unpack(_) => Opcode::Unpack,
             // Bytecode::MutBorrowLoc(_) => Opcode::MutBorrowLoc,

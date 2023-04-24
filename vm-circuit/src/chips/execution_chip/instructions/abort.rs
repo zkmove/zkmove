@@ -1,28 +1,33 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct Abort<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for Abort<F> {
+impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
+    const NAME: &'static str = "ABORT";
+
+    const OPCODE: Opcode = Opcode::Abort;
     fn configure(
         cells: &StepChipCells<F>,
-        _constraints: &mut Vec<(&str, Expression<F>)>,
+        _cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         let cond = cells.conditions[Opcode::Abort.index()].expression.clone();
         LookupBytecode::lookup_bytecode(
             cells,
@@ -31,9 +36,13 @@ impl<F: FieldExt> Instructions<F> for Abort<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
+        Self {
+            _marker: PhantomData,
+        }
     }
 
     fn assign(
+        &self,
         _region: &mut Region<'_, F>,
         _offset: usize,
         _step: &ExecutionStep<F>,
