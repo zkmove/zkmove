@@ -401,10 +401,7 @@ impl<F: FieldExt> VectorRef<F> {
         }
     }
 
-    pub fn try_borrow_elem(
-        &self,
-        element_idx: usize,
-    ) -> VmResult<IndexedRef<F>> {
+    pub fn try_borrow_elem(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         match self {
             VectorRef::LocalRef(l) => l.try_borrow_field(element_idx),
             VectorRef::IndexedRef(l) => l.try_borrow_field(element_idx),
