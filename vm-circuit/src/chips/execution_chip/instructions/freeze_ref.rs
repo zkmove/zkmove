@@ -1,43 +1,49 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct FreezeRef<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for FreezeRef<F> {
+impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
+    const NAME: &'static str = "FREEZEREF";
+
+    const OPCODE: Opcode = Opcode::FreezeRef;
+
     fn configure(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         let cond = cells.conditions[Opcode::FreezeRef.index()]
             .expression
             .clone();
 
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
-            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
+            cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -53,9 +59,13 @@ impl<F: FieldExt> Instructions<F> for FreezeRef<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
+        Self {
+            _marker: PhantomData,
+        }
     }
 
     fn assign(
+        &self,
         _region: &mut Region<'_, F>,
         _offset: usize,
         _step: &ExecutionStep<F>,

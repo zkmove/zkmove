@@ -5,28 +5,49 @@ use crate::chips::execution_chip::instructions::add::Add;
 use crate::chips::execution_chip::instructions::and::And;
 use crate::chips::execution_chip::instructions::bit_and::BitAnd;
 use crate::chips::execution_chip::instructions::bit_or::BitOr;
+use crate::chips::execution_chip::instructions::borrow_field::BorrowField;
+use crate::chips::execution_chip::instructions::borrow_global::BorrowGlobal;
+use crate::chips::execution_chip::instructions::borrow_loc::BorrowLoc;
+use crate::chips::execution_chip::instructions::br_false::BrFalse;
+use crate::chips::execution_chip::instructions::br_true::BrTrue;
+use crate::chips::execution_chip::instructions::branch::Branch;
+use crate::chips::execution_chip::instructions::call::Call;
+use crate::chips::execution_chip::instructions::call_generic::CallGeneric;
 use crate::chips::execution_chip::instructions::castu128::CastU128;
 use crate::chips::execution_chip::instructions::castu64::CastU64;
 use crate::chips::execution_chip::instructions::castu8::CastU8;
+use crate::chips::execution_chip::instructions::copy_loc::CopyLoc;
 use crate::chips::execution_chip::instructions::div::Div;
 use crate::chips::execution_chip::instructions::eq::Eq;
+use crate::chips::execution_chip::instructions::exists::Exists;
+use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
 use crate::chips::execution_chip::instructions::gt::Gt;
+use crate::chips::execution_chip::instructions::ld_false::LdFalse;
+use crate::chips::execution_chip::instructions::ld_true::LdTrue;
 use crate::chips::execution_chip::instructions::ldu128::LdU128;
 use crate::chips::execution_chip::instructions::ldu64::LdU64;
 use crate::chips::execution_chip::instructions::ldu8::LdU8;
 use crate::chips::execution_chip::instructions::le::Le;
 use crate::chips::execution_chip::instructions::lt::Lt;
+use crate::chips::execution_chip::instructions::move_from::MoveFrom;
 use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
 use crate::chips::execution_chip::instructions::mul::Mul;
 use crate::chips::execution_chip::instructions::neq::Neq;
 use crate::chips::execution_chip::instructions::nop::Nop;
 use crate::chips::execution_chip::instructions::not::Not;
 use crate::chips::execution_chip::instructions::or::Or;
+use crate::chips::execution_chip::instructions::pack::Pack;
 use crate::chips::execution_chip::instructions::pop::Pop;
+use crate::chips::execution_chip::instructions::read_ref::ReadRef;
 use crate::chips::execution_chip::instructions::ret::Ret;
+use crate::chips::execution_chip::instructions::shl::Shl;
+use crate::chips::execution_chip::instructions::shr::Shr;
+use crate::chips::execution_chip::instructions::st_loc::StLoc;
 use crate::chips::execution_chip::instructions::stop::Stop;
 use crate::chips::execution_chip::instructions::sub::Sub;
+use crate::chips::execution_chip::instructions::unpack::Unpack;
+use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 
 use crate::chips::execution_chip::instructions::InstructionGadget;
@@ -70,16 +91,16 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_ret: Box<Ret<F>>,
     op_add: Box<Add<F>>,
     op_mul: Box<Mul<F>>,
-    // op_copy_loc: Box<CopyLoc<F>>,
+    op_copy_loc: Box<CopyLoc<F>>,
     op_sub: Box<Sub<F>>,
     op_div: Box<Div<F>>,
     op_mod: Box<Mod<F>>,
-    // op_ld_true: Box<LdTrue<F>>,
-    // op_ld_false: Box<LdFalse<F>>,
+    op_ld_true: Box<LdTrue<F>>,
+    op_ld_false: Box<LdFalse<F>>,
     op_eq: Box<Eq<F>>,
     op_neq: Box<Neq<F>>,
-    // op_shl: Box<Shl<F>>,
-    // op_shr: Box<Shr<F>>,
+    op_shl: Box<Shl<F>>,
+    op_shr: Box<Shr<F>>,
     op_bit_and: Box<BitAnd<F>>,
     op_bit_or: Box<BitOr<F>>,
     op_xor: Box<Xor<F>>,
@@ -87,31 +108,31 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_or: Box<Or<F>>,
     op_not: Box<Not<F>>,
     op_move_loc: Box<MoveLoc<F>>,
-    // op_st_loc: Box<StLoc<F>>,
-    // op_branch: Box<Branch<F>>,
-    // op_br_true: Box<BrTrue<F>>,
-    // op_br_false: Box<BrFalse<F>>,
-    // op_call: Box<Call<F>>,
+    op_st_loc: Box<StLoc<F>>,
+    op_branch: Box<Branch<F>>,
+    op_br_true: Box<BrTrue<F>>,
+    op_br_false: Box<BrFalse<F>>,
+    op_call: Box<Call<F>>,
     op_abort: Box<Abort<F>>,
     op_le: Box<Le<F>>,
     op_lt: Box<Lt<F>>,
     op_ge: Box<Ge<F>>,
     op_gt: Box<Gt<F>>,
-    // op_pack: Box<Pack<F>>,
-    // op_unpack: Box<Unpack<F>>,
-    // op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
-    // op_imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    // op_read_ref: Box<ReadRef<F>>,
-    // op_write_ref: Box<WriteRef<F>>,
-    // op_freeze_ref: Box<FreezeRef<F>>,
-    // op_imm_borrow_field: Box<BorrowField<false, F>>,
-    // op_mut_borrow_field: Box<BorrowField<true, F>>,
-    // op_move_from: Box<MoveFrom<F>>,
+    op_pack: Box<Pack<F>>,
+    op_unpack: Box<Unpack<F>>,
+    op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
+    op_imm_borrow_loc: Box<BorrowLoc<false, F>>,
+    op_read_ref: Box<ReadRef<F>>,
+    op_write_ref: Box<WriteRef<F>>,
+    op_freeze_ref: Box<FreezeRef<F>>,
+    op_imm_borrow_field: Box<BorrowField<false, F>>,
+    op_mut_borrow_field: Box<BorrowField<true, F>>,
+    op_move_from: Box<MoveFrom<F>>,
     // op_move_to: Box<MoveTo<F>>,
-    // op_exists: Box<Exists<F>>,
-    // op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
-    // op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
-    // op_call_generic: Box<CallGeneric<F>>,
+    op_exists: Box<Exists<F>>,
+    op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
+    op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
+    op_call_generic: Box<CallGeneric<F>>,
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
 }
@@ -181,16 +202,16 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_ret: configure_opcode_gadget!(),
             op_add: configure_opcode_gadget!(),
             op_mul: configure_opcode_gadget!(),
-            // op_copy_loc: configure_opcode_gadget!(),
+            op_copy_loc: configure_opcode_gadget!(),
             op_sub: configure_opcode_gadget!(),
             op_div: configure_opcode_gadget!(),
             op_mod: configure_opcode_gadget!(),
-            // op_ld_true: configure_opcode_gadget!(),
-            // op_ld_false: configure_opcode_gadget!(),
+            op_ld_true: configure_opcode_gadget!(),
+            op_ld_false: configure_opcode_gadget!(),
             op_eq: configure_opcode_gadget!(),
             op_neq: configure_opcode_gadget!(),
-            // op_shl: configure_opcode_gadget!(),
-            // op_shr: configure_opcode_gadget!(),
+            op_shl: configure_opcode_gadget!(),
+            op_shr: configure_opcode_gadget!(),
             op_bit_and: configure_opcode_gadget!(),
             op_bit_or: configure_opcode_gadget!(),
             op_xor: configure_opcode_gadget!(),
@@ -198,31 +219,31 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_or: configure_opcode_gadget!(),
             op_not: configure_opcode_gadget!(),
             op_move_loc: configure_opcode_gadget!(),
-            // op_st_loc: configure_opcode_gadget!(),
-            // op_branch: configure_opcode_gadget!(),
-            // op_br_true: configure_opcode_gadget!(),
-            // op_br_false: configure_opcode_gadget!(),
-            // op_call: configure_opcode_gadget!(),
+            op_st_loc: configure_opcode_gadget!(),
+            op_branch: configure_opcode_gadget!(),
+            op_br_true: configure_opcode_gadget!(),
+            op_br_false: configure_opcode_gadget!(),
+            op_call: configure_opcode_gadget!(),
             op_abort: configure_opcode_gadget!(),
             op_le: configure_opcode_gadget!(),
             op_lt: configure_opcode_gadget!(),
             op_ge: configure_opcode_gadget!(),
             op_gt: configure_opcode_gadget!(),
-            // op_pack: configure_opcode_gadget!(),
-            // op_unpack: configure_opcode_gadget!(),
-            // op_mut_borrow_loc: configure_opcode_gadget!(),
-            // op_imm_borrow_loc: configure_opcode_gadget!(),
-            // op_read_ref: configure_opcode_gadget!(),
-            // op_write_ref: configure_opcode_gadget!(),
-            // op_freeze_ref: configure_opcode_gadget!(),
-            // op_imm_borrow_field: configure_opcode_gadget!(),
-            // op_mut_borrow_field: configure_opcode_gadget!(),
-            // op_move_from: configure_opcode_gadget!(),
+            op_pack: configure_opcode_gadget!(),
+            op_unpack: configure_opcode_gadget!(),
+            op_mut_borrow_loc: configure_opcode_gadget!(),
+            op_imm_borrow_loc: configure_opcode_gadget!(),
+            op_read_ref: configure_opcode_gadget!(),
+            op_write_ref: configure_opcode_gadget!(),
+            op_freeze_ref: configure_opcode_gadget!(),
+            op_imm_borrow_field: configure_opcode_gadget!(),
+            op_mut_borrow_field: configure_opcode_gadget!(),
+            op_move_from: configure_opcode_gadget!(),
             // op_move_to: configure_opcode_gadget!(),
-            // op_exists: configure_opcode_gadget!(),
-            // op_imm_borrow_global: configure_opcode_gadget!(),
-            // op_mut_borrow_global: configure_opcode_gadget!(),
-            // op_call_generic: configure_opcode_gadget!(),
+            op_exists: configure_opcode_gadget!(),
+            op_imm_borrow_global: configure_opcode_gadget!(),
+            op_mut_borrow_global: configure_opcode_gadget!(),
+            op_call_generic: configure_opcode_gadget!(),
             op_stop: configure_opcode_gadget!(),
             op_nop: configure_opcode_gadget!(),
             step: step_curr,
@@ -421,22 +442,46 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::Xor => assign_opcode_gadget!(self.config.op_xor),
             Opcode::Add => assign_opcode_gadget!(self.config.op_add),
             Opcode::Mul => assign_opcode_gadget!(self.config.op_mul),
+            Opcode::CopyLoc => assign_opcode_gadget!(self.config.op_copy_loc),
             Opcode::Sub => assign_opcode_gadget!(self.config.op_sub),
             Opcode::Div => assign_opcode_gadget!(self.config.op_div),
             Opcode::Mod => assign_opcode_gadget!(self.config.op_mod),
+            Opcode::LdFalse => assign_opcode_gadget!(self.config.op_ld_false),
+            Opcode::LdTrue => assign_opcode_gadget!(self.config.op_ld_true),
             Opcode::Eq => assign_opcode_gadget!(self.config.op_eq),
             Opcode::Neq => assign_opcode_gadget!(self.config.op_neq),
+            Opcode::Shl => assign_opcode_gadget!(self.config.op_shl),
+            Opcode::Shr => assign_opcode_gadget!(self.config.op_shr),
             Opcode::BitAnd => assign_opcode_gadget!(self.config.op_bit_and),
             Opcode::BitOr => assign_opcode_gadget!(self.config.op_bit_or),
             Opcode::And => assign_opcode_gadget!(self.config.op_and),
             Opcode::Or => assign_opcode_gadget!(self.config.op_or),
             Opcode::Not => assign_opcode_gadget!(self.config.op_not),
             Opcode::MoveLoc => assign_opcode_gadget!(self.config.op_move_loc),
+            Opcode::StLoc => assign_opcode_gadget!(self.config.op_st_loc),
+            Opcode::Branch => assign_opcode_gadget!(self.config.op_branch),
+            Opcode::BrTrue => assign_opcode_gadget!(self.config.op_br_true),
+            Opcode::BrFalse => assign_opcode_gadget!(self.config.op_br_false),
+            Opcode::Call => assign_opcode_gadget!(self.config.op_call),
             Opcode::Abort => assign_opcode_gadget!(self.config.op_abort),
             Opcode::Le => assign_opcode_gadget!(self.config.op_le),
             Opcode::Lt => assign_opcode_gadget!(self.config.op_lt),
             Opcode::Ge => assign_opcode_gadget!(self.config.op_ge),
             Opcode::Gt => assign_opcode_gadget!(self.config.op_gt),
+            Opcode::Pack => assign_opcode_gadget!(self.config.op_pack),
+            Opcode::Unpack => assign_opcode_gadget!(self.config.op_unpack),
+            Opcode::MutBorrowLoc => assign_opcode_gadget!(self.config.op_mut_borrow_loc),
+            Opcode::ImmBorrowLoc => assign_opcode_gadget!(self.config.op_imm_borrow_loc),
+            Opcode::ReadRef => assign_opcode_gadget!(self.config.op_read_ref),
+            Opcode::WriteRef => assign_opcode_gadget!(self.config.op_write_ref),
+            Opcode::FreezeRef => assign_opcode_gadget!(self.config.op_freeze_ref),
+            Opcode::ImmBorrowField => assign_opcode_gadget!(self.config.op_imm_borrow_field),
+            Opcode::MutBorrowField => assign_opcode_gadget!(self.config.op_mut_borrow_field),
+            Opcode::MoveFrom => assign_opcode_gadget!(self.config.op_move_from),
+            Opcode::Exists => assign_opcode_gadget!(self.config.op_exists),
+            Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
+            Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
+            Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
             _ => todo!(),

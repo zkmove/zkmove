@@ -1,34 +1,45 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word, WordB};
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
-    _word_b: [Cell<F>; WORD_CAPACITY],
-    _word_b_mask: [Cell<F>; WORD_CAPACITY],
-    _ref_val_mask: [Cell<F>; DEPTH_OF_ADDRESS_PATH],
-    _marker: PhantomData<F>,
+    word_b: Vec<Cell<F>>,
+    word_b_mask: Vec<Cell<F>>,
+    word_b_addr_ext_0: Vec<Cell<F>>,
+    word_b_addr_ext_1: Vec<Cell<F>>,
+    ref_val: Vec<Cell<F>>,
+    ref_val_mask: Vec<Cell<F>>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, F> {
+impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTABLE, F> {
+    const NAME: &'static str = "BORROWFIELD";
+
+    const OPCODE: Opcode = if MUTABLE {
+        Opcode::MutBorrowField
+    } else {
+        Opcode::ImmBorrowField
+    };
+
     fn configure(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         let opcode = if MUTABLE {
             Opcode::MutBorrowField
         } else {
@@ -36,19 +47,27 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         };
         let cond = cells.conditions[opcode.index()].expression.clone();
 
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        // alloc cell
+        let word_b = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let ref_val = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val_mask = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
-            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
+            cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr() * depth_of_addr_path_expr.clone();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -57,13 +76,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in cells
-            .word_b
-            .clone()
-            .iter()
-            .enumerate()
-            .take(DEPTH_OF_ADDRESS_PATH)
-        {
+        for (i, item) in word_b.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -72,7 +85,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.ref_val_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - ref_val_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
@@ -85,7 +98,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - word_b_mask[i].expression.clone()),
             ));
         }
 
@@ -93,10 +106,10 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         let field_offset = cells.auxiliary_2.expression.clone();
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
-                * cells.ref_val_mask[i].expression.clone()
-                * (1.expr() - cells.word_b_mask[i].expression.clone())
-                * (field_offset.clone() - cells.word_b[i].expression.clone());
-            constraints.push(("borrow_field_offset_eq", constraint));
+                * ref_val_mask[i].expression.clone()
+                * (1.expr() - word_b_mask[i].expression.clone())
+                * (field_offset.clone() - word_b[i].expression.clone());
+            cb.add_constraint("borrow_field_offset_eq", constraint);
         }
 
         LookupBytecode::lookup_bytecode(
@@ -106,9 +119,18 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
             &mut lookups.bytecode_lookups,
             cond,
         );
+        Self {
+            word_b,
+            word_b_mask,
+            word_b_addr_ext_0,
+            word_b_addr_ext_1,
+            ref_val,
+            ref_val_mask,
+        }
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -116,22 +138,32 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let ref_val = RefVal {
+            ref_val: self.ref_val.clone(),
+            ref_val_mask: self.ref_val_mask.clone(),
+        };
         Word::assign_ref_val(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &ref_val,
             step.gc,
             word_element_num,
         )?;
 
+        let word_b = WordB {
+            word_b: self.word_b.clone(),
+            word_b_mask: self.word_b_mask.clone(),
+            word_b_addr_ext_0: self.word_b_addr_ext_0.clone(),
+            word_b_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        };
         Word::assign_word_b(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &word_b,
             step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num + 1, // the last element is field_offset
         )?;

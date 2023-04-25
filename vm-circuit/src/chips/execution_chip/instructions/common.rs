@@ -675,7 +675,7 @@ impl<F: FieldExt> Word<F> {
         // _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &WordB<F>,
-        word_address: Vec<Cell<F>>,
+        word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
@@ -720,7 +720,7 @@ impl<F: FieldExt> Word<F> {
         // _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &WordB<F>,
-        word_address: Vec<Cell<F>>,
+        word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
         filter: RW,

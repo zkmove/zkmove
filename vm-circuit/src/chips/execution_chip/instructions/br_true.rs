@@ -1,52 +1,61 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct BrTrue<F: FieldExt> {
-    _value_a: Cell<F>,
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for BrTrue<F> {
+impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
+    const NAME: &'static str = "BRTRUE";
+
+    const OPCODE: Opcode = Opcode::BrTrue;
+
     fn configure(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         let cond = cells.conditions[Opcode::BrTrue.index()].expression.clone();
+
+        // alloc cell
+        let value_a = cb.query_cell();
 
         // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
         let aux = cells.auxiliary_1.expression.clone();
-        let value_a = cells.value_a.expression.clone();
+        //let value_a = value_a.expression.clone();
         let pc = cells.pc.expression.clone();
-        let next_pc = cells.next_pc.expression.clone();
+        let next_pc = cb.next.cells.pc.expression.clone();
         // auxiliary_1 * value_a + (pc + 1) * (1 - value_a) - next_pc = 0
-        let pc_expr = aux * value_a.clone() + (pc + 1.expr()) * (1.expr() - value_a) - next_pc;
+        let pc_expr = aux * value_a.expression.clone()
+            + (pc + 1.expr()) * (1.expr() - value_a.expression.clone())
+            - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
+            - cb.next.cells.stack_size.expression.clone()
             - 1.expr();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 1.expr();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
 
-        constraints.append(&mut vec![
+        cb.add_constraints(vec![
             ("BrTrue pc", cond.clone() * pc_expr),
             ("BrTrue stack size", cond.clone() * stack_size_expr),
             ("BrTrue frame index", cond.clone() * frame_index_expr),
@@ -61,7 +70,7 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                cells.value_a.expression.clone(),
+                value_a.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -73,9 +82,11 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
+        Self { value_a }
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -93,7 +104,7 @@ impl<F: FieldExt> Instructions<F> for BrTrue<F> {
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        self.value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
 }
