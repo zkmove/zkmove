@@ -337,7 +337,6 @@ impl<F: FieldExt> ExecutionChip<F> {
                     .map(move |(name, constraint)| (name, s_step.clone() * constraint))
             });
         }
-
     }
 
     #[allow(clippy::type_complexity)]
