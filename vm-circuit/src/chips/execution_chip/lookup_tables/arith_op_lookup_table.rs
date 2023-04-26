@@ -30,6 +30,7 @@ impl ArithOpLookupTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ArithOpLookup<F: FieldExt> {
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,

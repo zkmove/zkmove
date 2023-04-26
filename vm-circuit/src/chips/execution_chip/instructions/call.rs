@@ -173,4 +173,21 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
 
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_b = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let word_address = cb.query_n_cells(WORD_CAPACITY);
+
+        Self {
+            word_b,
+            word_b_mask,
+            word_b_addr_ext_0,
+            word_b_addr_ext_1,
+            word_address,
+        }
+    }
 }

@@ -188,4 +188,23 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
 
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_b = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let ref_val = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val_mask = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+
+        Self {
+            word_b,
+            word_b_mask,
+            word_b_addr_ext_0,
+            word_b_addr_ext_1,
+            ref_val,
+            ref_val_mask,
+        }
+    }
 }

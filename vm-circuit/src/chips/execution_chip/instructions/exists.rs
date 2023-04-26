@@ -41,4 +41,10 @@ impl<F: FieldExt> InstructionGadget<F> for Exists<F> {
     ) -> Result<(), Error> {
         Ok(())
     }
+
+    fn probe(_cb: &mut ConstraintBuilder<F>) -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
 }

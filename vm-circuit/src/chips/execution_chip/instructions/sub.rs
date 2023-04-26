@@ -4,6 +4,7 @@ use crate::chips::execution_chip::instructions::common::{ArithOverflow, BinaryOp
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -37,6 +38,7 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         let value_a = cb.query_cell();
         let value_b = cb.query_cell();
         let value_c = cb.query_cell();
+        let bytes = cb.query_n_cells(BYTES_NUM);
 
         let lhs = value_a.expression.clone();
         let rhs = value_b.expression.clone();
@@ -44,7 +46,7 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         let constraint = cond.clone() * (lhs - rhs - out.clone());
         cb.add_constraint("Sub", constraint);
 
-        let bytes = ArithOverflow::constrain_range_check(cells, cb, cond.clone(), out);
+        ArithOverflow::constrain_range_check(cells, bytes.clone(), cb, cond.clone(), out);
         ArithOverflow::lookup_arith_op(
             cells,
             &mut lookups.arith_op_lookups,
@@ -95,5 +97,20 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         ArithOverflow::assign_num_of_bytes(region, offset, cells, self.bytes.clone(), value)?;
 
         Ok(())
+    }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.query_cell();
+        let value_b = cb.query_cell();
+        let value_c = cb.query_cell();
+        let bytes = cb.query_n_cells(BYTES_NUM);
+
+        Self {
+            value_a,
+            value_b,
+            value_c,
+            bytes,
+        }
     }
 }

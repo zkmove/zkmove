@@ -3,7 +3,7 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::{BYTES_NUM, WORD_CAPACITY};
+use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
@@ -414,20 +414,18 @@ pub struct ArithOverflow<F: FieldExt> {
 impl<F: FieldExt> ArithOverflow<F> {
     pub(crate) fn constrain_range_check(
         cells: &StepChipCells<F>,
+        bytes: Vec<Cell<F>>,
         cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
         out: Expression<F>,
-    ) -> Vec<Cell<F>> {
-        // alloc cell
-        let bytes = cb.query_n_cells(BYTES_NUM);
-
+    ) {
         // arithmetic overflow check
         // if bytes_len = NUM_OF_BYTES_U8, then bytes_1 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
         let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
         let bytes_8 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
-        let bytes_16 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U128);
+        let bytes_16 = FieldBytes::from(bytes).expr_with_n(NUM_OF_BYTES_U128);
 
         let num_of_bytes = cells.auxiliary_1.expression.clone();
         let delta_inverse_1 = cells.auxiliary_2.expression.clone();
@@ -449,8 +447,6 @@ impl<F: FieldExt> ArithOverflow<F> {
         cb.add_constraint("range check 8", constraint_8);
         let constraint_16 = cond_16 * (bytes_16 - out);
         cb.add_constraint("range check 16", constraint_16);
-
-        bytes
     }
 
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.

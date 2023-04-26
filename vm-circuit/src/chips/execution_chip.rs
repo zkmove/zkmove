@@ -247,6 +247,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_call_generic: configure_opcode_gadget!(),
             op_stop: configure_opcode_gadget!(),
             op_nop: configure_opcode_gadget!(),
+
             step: step_curr,
             height_map,
         }
@@ -264,9 +265,10 @@ impl<F: FieldExt> ExecutionChip<F> {
         // height
         let height = {
             let dummy_step_next = StepChip::configure(meta, advices, STEP_HEIGHT, true);
-            let mut cb = ConstraintBuilder::new(step_curr.clone(), dummy_step_next, G::OPCODE);
-            G::configure(&step_curr.cells, &mut cb, lookups);
-            let (_, height) = cb.build();
+            let mut dummy_cb =
+                ConstraintBuilder::new(step_curr.clone(), dummy_step_next, G::OPCODE);
+            G::probe(&mut dummy_cb);
+            let (_, height) = dummy_cb.build();
             height
         };
 
@@ -315,17 +317,6 @@ impl<F: FieldExt> ExecutionChip<F> {
                 .map(move |(name, constraint)| (name, s_step.clone() * constraint))
         });
 
-        // // Enforce the step height for this opcode
-        // let num_rows_until_next_step_next = query_expression(meta, |meta| {
-        //     meta.query_advice(num_rows_until_next_step, Rotation::next())
-        // });
-        // cb.require_equal(
-        //     "num_rows_until_next_step_next := height - 1",
-        //     num_rows_until_next_step_next,
-        //     (height - 1).expr(),
-        // );
-        // instrument.on_gadget_built(execution_state, &cb);
-
         // insert height into hash table
         debug_assert!(
             !height_map.contains_key(&opcode),
@@ -347,33 +338,6 @@ impl<F: FieldExt> ExecutionChip<F> {
             });
         }
 
-        // // Enforce the logic for this opcode
-        // let sel_step: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> =
-        //     &|meta| meta.query_advice(q_step, Rotation::cur());
-        // let sel_step_first: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> =
-        //     &|meta| meta.query_selector(q_step_first);
-        // let sel_step_last: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> =
-        //     &|meta| meta.query_selector(q_step_last);
-        // let sel_not_step_last: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
-        //     meta.query_advice(q_step, Rotation::cur()) * not::expr(meta.query_selector(q_step_last))
-        // };
-
-        // for (selector, constraints) in [
-        //     (sel_step, constraints.step),
-        //     (sel_step_first, constraints.step_first),
-        //     (sel_step_last, constraints.step_last),
-        //     (sel_not_step_last, constraints.not_step_last),
-        // ] {
-        //     if !constraints.is_empty() {
-        //         meta.create_gate(name, |meta| {
-        //             let q_usable = meta.query_selector(q_usable);
-        //             let selector = selector(meta);
-        //             constraints.into_iter().map(move |(name, constraint)| {
-        //                 (name, q_usable.clone() * selector.clone() * constraint)
-        //             })
-        //         });
-        //     }
-        // }
     }
 
     #[allow(clippy::type_complexity)]
@@ -405,7 +369,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                         &self.config.step.cells,
                     )?;
 
-                    let step_height = step.opcode.get_step_height();
+                    let step_height = self.step_height_get(&step.opcode);
                     offset += step_height;
                 }
                 Ok(())
@@ -414,6 +378,14 @@ impl<F: FieldExt> ExecutionChip<F> {
         let last_step_gc_cell = gc_cell;
 
         Ok(last_step_gc_cell)
+    }
+
+    fn step_height_get(&self, opcode: &Opcode) -> usize {
+        self.config
+            .height_map
+            .get(opcode)
+            .copied()
+            .unwrap_or_else(|| panic!("Execution state unknown: {:?}", self))
     }
 
     #[allow(clippy::too_many_arguments)]

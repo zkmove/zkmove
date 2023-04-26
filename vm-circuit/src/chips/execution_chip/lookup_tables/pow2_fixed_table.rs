@@ -31,6 +31,7 @@ impl Pow2FixedTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Pow2Lookup<F: FieldExt> {
     pub pow: Expression<F>,
     pub pow_result: Expression<F>,

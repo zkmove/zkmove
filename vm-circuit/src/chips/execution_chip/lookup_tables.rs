@@ -98,6 +98,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
 
+        // for (i, item) in lookups.rw_lookups.iter().enumerate() {
+        //     debug!("rw lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in &lookups.rw_lookups {
             meta.lookup_any(|meta| {
                 let s_step = meta.query_selector(s_step);
@@ -133,6 +136,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
             });
         }
 
+        // for (i, item) in lookups.bytecode_lookups.iter().enumerate() {
+        //     debug!("bytecode lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in &lookups.bytecode_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
@@ -161,6 +167,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
             });
         }
 
+        // for (i, item) in lookups.call_lookups.iter().enumerate() {
+        //     debug!("call lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in &lookups.call_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
@@ -197,6 +206,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
             });
         }
 
+        // for (i, item) in lookups.arith_op_lookups.iter().enumerate() {
+        //     debug!("arith lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in &lookups.arith_op_lookups {
             meta.lookup(|meta| {
                 let s_step = meta.query_selector(s_step);
@@ -247,6 +259,10 @@ impl<F: FieldExt> LookupTableConfig<F> {
                 ]
             });
         }
+
+        // for (i, item) in lookups.pow2_lookups.iter().enumerate() {
+        //      debug!("pow2 lookup {}, {:?}", i, item);
+        // }
         for (lookup, cond) in &lookups.pow2_lookups {
             meta.lookup(|vcells| {
                 let s_step = vcells.query_selector(s_step);

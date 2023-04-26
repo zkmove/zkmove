@@ -80,4 +80,10 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
             .assign(region, offset, aux_value.value())?;
         Ok(())
     }
+
+    fn probe(_cb: &mut ConstraintBuilder<F>) -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
 }

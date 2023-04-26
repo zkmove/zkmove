@@ -173,4 +173,23 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         )?;
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_a = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let ref_val = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val_mask = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+
+        Self {
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
+            ref_val,
+            ref_val_mask,
+        }
+    }
 }

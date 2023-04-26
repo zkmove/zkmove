@@ -105,4 +105,17 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
 
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.query_cell();
+        let value_c = cb.query_cell();
+        let bytes = cb.query_n_cells(BYTES_NUM);
+
+        Self {
+            value_a,
+            value_c,
+            bytes,
+        }
+    }
 }

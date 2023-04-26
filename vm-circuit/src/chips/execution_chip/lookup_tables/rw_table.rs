@@ -67,6 +67,7 @@ pub enum RWTarget {
     Global,
 }
 
+#[derive(Clone, Debug)]
 pub struct RWLookup<F: FieldExt> {
     pub gc: Expression<F>,          // global counter
     pub rw_target: Expression<F>,   // RWTarget

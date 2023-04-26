@@ -59,4 +59,11 @@ impl<F: FieldExt> InstructionGadget<F> for LdU64<F> {
         value_a.assign(region, offset, op.value().value())?;
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.query_cell();
+
+        Self { value_a }
+    }
 }

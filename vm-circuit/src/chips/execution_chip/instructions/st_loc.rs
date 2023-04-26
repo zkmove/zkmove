@@ -127,4 +127,19 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
 
         Ok(())
     }
+
+    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_a = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+
+        Self {
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
+        }
+    }
 }
