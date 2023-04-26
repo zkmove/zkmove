@@ -1,54 +1,68 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word, WordA};
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct MoveTo<F: FieldExt> {
-    _value_c: Cell<F>,
-    _word_a: [Cell<F>; WORD_CAPACITY],
-    _word_a_mask: [Cell<F>; WORD_CAPACITY],
-    _word_a_addr_ext_0: [Cell<F>; WORD_CAPACITY],
-    _word_a_addr_ext_1: [Cell<F>; WORD_CAPACITY],
-    _ref_val: [Cell<F>; DEPTH_OF_ADDRESS_PATH],
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
+    word_a: Vec<Cell<F>>,
+    word_a_mask: Vec<Cell<F>>,
+    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext_1: Vec<Cell<F>>,
+    ref_val: Vec<Cell<F>>,
+    ref_val_mask: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> Instructions<F> for MoveTo<F> {
+impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
+    const NAME: &'static str = "MOVETO";
+
+    const OPCODE: Opcode = Opcode::MoveTo;
+
     fn configure(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) {
+    ) -> Self {
         let cond = cells.conditions[Opcode::MoveTo.index()].expression.clone();
 
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        // alloc cell
+        let value_a = cb.query_cell();
+        let word_a = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let ref_val = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val_mask = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
+
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
+            - cb.next.cells.stack_size.expression.clone()
             - 2.expr();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr() * word_elem_num
             + depth_of_addr_path_expr.clone();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -56,7 +70,7 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             ("module index", cond.clone() * module_index),
             ("function index", cond.clone() * func_index),
         ]);
-        let global_address = cells.value_c.expression.clone();
+        let global_address = value_a.expression.clone();
         let sd_index = cells.auxiliary_1.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
         for i in 0..WORD_CAPACITY {
@@ -65,31 +79,32 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
                 cells.stack_size.expression.clone(),
                 global_address.clone(),
                 sd_index.clone(),
-                cells.word_a_addr_ext_0[i].expression.clone(),
-                cells.word_a_addr_ext_1[i].expression.clone(),
-                cells.word_a[i].expression.clone(),
+                word_a_addr_ext_0[i].expression.clone(),
+                word_a_addr_ext_1[i].expression.clone(),
+                word_a[i].expression.clone(),
                 word_elem_num.clone(),
                 depth_of_addr_path_expr.clone(),
             );
             lookups.rw_lookups.push((
                 read_stack,
-                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 write_global,
-                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
             ));
         }
 
         // lookup the signer reference is popped
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
+        for (i, item) in ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+            // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + word_elem_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
                     0.expr(),
-                    cells.ref_val[i].expression.clone(),
+                    item.expression.clone(),
                 ),
                 cond.clone(),
             ));
@@ -104,9 +119,19 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
+        Self {
+            value_a,
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
+            ref_val,
+            ref_val_mask,
+        }
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -115,23 +140,33 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
     ) -> Result<(), Error> {
         // word_a is resource on stack
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_a = WordA {
+            word_a: self.word_a.clone(),
+            word_a_mask: self.word_a_mask.clone(),
+            word_a_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_a_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        };
         Word::assign_word_a(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &word_a,
             step.gc,
             word_element_num,
         )?;
 
         // assign the signer reference
+        let ref_val = RefVal {
+            ref_val: self.ref_val.clone(),
+            ref_val_mask: self.ref_val_mask.clone(),
+        };
         Word::assign_ref_val(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &ref_val,
             step.gc + word_element_num,
             DEPTH_OF_ADDRESS_PATH,
         )?;
@@ -142,8 +177,7 @@ impl<F: FieldExt> Instructions<F> for MoveTo<F> {
             .get(step.gc + word_element_num + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells
-            .value_c
+        self.value_a
             .assign(region, offset, Some(op.account_address().value()))?;
         cells
             .auxiliary_1

@@ -44,7 +44,7 @@ pub mod le;
 pub mod lt;
 pub mod move_from;
 pub mod move_loc;
-// pub mod move_to;
+pub mod move_to;
 pub mod mul;
 pub mod neq;
 pub mod nop;

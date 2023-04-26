@@ -32,6 +32,7 @@ use crate::chips::execution_chip::instructions::le::Le;
 use crate::chips::execution_chip::instructions::lt::Lt;
 use crate::chips::execution_chip::instructions::move_from::MoveFrom;
 use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
+use crate::chips::execution_chip::instructions::move_to::MoveTo;
 use crate::chips::execution_chip::instructions::mul::Mul;
 use crate::chips::execution_chip::instructions::neq::Neq;
 use crate::chips::execution_chip::instructions::nop::Nop;
@@ -128,7 +129,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_imm_borrow_field: Box<BorrowField<false, F>>,
     op_mut_borrow_field: Box<BorrowField<true, F>>,
     op_move_from: Box<MoveFrom<F>>,
-    // op_move_to: Box<MoveTo<F>>,
+    op_move_to: Box<MoveTo<F>>,
     op_exists: Box<Exists<F>>,
     op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
     op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
@@ -239,7 +240,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_imm_borrow_field: configure_opcode_gadget!(),
             op_mut_borrow_field: configure_opcode_gadget!(),
             op_move_from: configure_opcode_gadget!(),
-            // op_move_to: configure_opcode_gadget!(),
+            op_move_to: configure_opcode_gadget!(),
             op_exists: configure_opcode_gadget!(),
             op_imm_borrow_global: configure_opcode_gadget!(),
             op_mut_borrow_global: configure_opcode_gadget!(),
@@ -478,13 +479,13 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::ImmBorrowField => assign_opcode_gadget!(self.config.op_imm_borrow_field),
             Opcode::MutBorrowField => assign_opcode_gadget!(self.config.op_mut_borrow_field),
             Opcode::MoveFrom => assign_opcode_gadget!(self.config.op_move_from),
+            Opcode::MoveTo => assign_opcode_gadget!(self.config.op_move_to),
             Opcode::Exists => assign_opcode_gadget!(self.config.op_exists),
             Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
             Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
             Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
-            _ => todo!(),
         }
 
         Ok(())
