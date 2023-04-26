@@ -1,0 +1,334 @@
+use crate::witness::call_trace_table::{pos_to_id, FunctionName, NameToIdxMapping};
+
+use move_binary_format::file_format::{
+    Bytecode, CompiledScript, FunctionHandleIndex, FunctionInstantiationIndex, StructHandleIndex,
+};
+use move_binary_format::normalized::Type;
+
+use move_binary_format::CompiledModule;
+
+use move_binary_format::access::ModuleAccess;
+use move_core_types::language_storage::ModuleId;
+use movelang::generic_call_graph::{
+    generate_for_script, GenericCallGraph, NodeInternal, RemoteStore,
+};
+use petgraph::prelude::{EdgeRef, NodeIndex};
+use petgraph::Direction;
+use std::collections::{BTreeSet, HashSet};
+
+#[derive(Clone, Default, PartialEq, Debug, Eq)]
+pub struct FuncInstantiationTableData(pub(crate) Vec<FuncInstantiation>);
+
+#[derive(Clone, Default, PartialEq, Debug, Eq)]
+pub struct FuncInstantiation {
+    pub(crate) caller_module: u64,
+    pub(crate) caller_function: u16,
+    pub(crate) function_instantiation_index: u16,
+    pub(crate) callee_pc: u64,
+    pub(crate) callee_module: u64,
+    pub(crate) callee_function: u16,
+
+    /// start from 1, 0 means no reference to ty parameter.
+    pub(crate) refered_ty_idx: u16, // TODO: check if it possible for two different refered index while other infos are the same.
+    pub(crate) ty_pos: u128, // type pos in little endian, such as: 1/2 -> 2 * 256+1
+    pub(crate) ty_module: u64, // module index
+    pub(crate) ty_name: u16, // struct handle index in the module
+}
+
+impl From<(CompiledScript, Vec<CompiledModule>)> for FuncInstantiationTableData {
+    fn from((script, deps): (CompiledScript, Vec<CompiledModule>)) -> Self {
+        FuncInstantiationTableData(generate(&script, &deps))
+    }
+}
+impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for FuncInstantiationTableData {
+    fn from((script, deps): (&'a CompiledScript, &'a [CompiledModule])) -> Self {
+        FuncInstantiationTableData(generate(script, deps))
+    }
+}
+
+fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstantiation> {
+    let mut store = RemoteStore::default();
+    deps.iter().for_each(|dep| store.add_module(dep));
+    let trace_graph = generate_for_script(script, &store);
+    let name_mapping = NameToIdxMapping::build(deps);
+    let resolver = FuncInstantiationResolver { script, deps };
+    FuncInstantiationBuilder::default()
+        .build(&trace_graph)
+        .into_iter()
+        .flat_map(|fi_info| {
+            let (m, f) =
+                name_mapping.map_fn_name(fi_info.callee_module.as_ref(), &fi_info.callee_function);
+            let (caller_m, caller_f) = name_mapping
+                .map_fn_name(fi_info.caller_module_id.as_ref(), &fi_info.caller_function);
+            let pc = fi_info.callee_pc;
+            let function_instantiation_index =
+                resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize);
+            let name_mapping = &name_mapping;
+            fi_info
+                .ty_params
+                .into_iter()
+                .enumerate()
+                .flat_map(|(idx, t)| flatten_type(&t, vec![idx as u8 + 1]))
+                .map(move |t| {
+                    let (ty_module, ty_name) = t
+                        .data
+                        .map(|t| map_type_name(name_mapping, &t))
+                        .unwrap_or((0, StructHandleIndex(0)));
+                    FuncInstantiation {
+                        caller_module: caller_m,
+                        caller_function: caller_f.0,
+                        function_instantiation_index: function_instantiation_index
+                            .map(|t| t.0)
+                            .unwrap_or(0),
+                        callee_module: m,
+                        callee_function: f.0,
+                        callee_pc: pc,
+                        refered_ty_idx: t.refered_ty_idx.unwrap_or(0),
+                        ty_pos: pos_to_id(&t.pos),
+                        ty_module,
+                        ty_name: ty_name.0,
+                    }
+                })
+        })
+        .collect()
+}
+
+pub struct FuncInstantiationResolver<'a> {
+    script: &'a CompiledScript,
+    deps: &'a [CompiledModule],
+}
+
+impl<'a> FuncInstantiationResolver<'a> {
+    fn resolve(
+        &self,
+        module_id: Option<&ModuleId>,
+        function_handle_index: FunctionHandleIndex,
+        pc: usize,
+    ) -> Option<FunctionInstantiationIndex> {
+        let codes = match module_id {
+            Some(id) => {
+                let m = self.deps.iter().find(|m| &m.self_id() == id)?;
+                let fd = m
+                    .function_defs()
+                    .iter()
+                    .find(|fd| fd.function == function_handle_index)?;
+                &fd.code.as_ref()?.code
+            }
+            None => &self.script.code.code,
+        };
+        if let Bytecode::CallGeneric(t) = codes.get(pc)? {
+            Some(*t)
+        } else {
+            None
+        }
+    }
+}
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+struct FuncInstantiationInfo {
+    caller_module_id: Option<ModuleId>,
+    caller_function: FunctionName,
+
+    callee_module: Option<ModuleId>,
+    callee_function: FunctionName,
+    callee_pc: u64,
+    ty_params: Vec<Type>,
+}
+#[derive(Default, Debug)]
+pub(crate) struct FuncInstantiationBuilder {
+    traces: BTreeSet<FuncInstantiationInfo>,
+}
+
+impl FuncInstantiationBuilder {
+    fn build(mut self, graph: &GenericCallGraph) -> Vec<FuncInstantiationInfo> {
+        let mut visited_node_indexes: HashSet<NodeIndex> = HashSet::default();
+        self.generate(graph, &mut visited_node_indexes, graph.head);
+        self.traces.into_iter().collect()
+    }
+    fn generate(
+        &mut self,
+        graph: &GenericCallGraph,
+        visited_node_indexes: &mut HashSet<NodeIndex>,
+        caller_node_index: NodeIndex,
+    ) {
+        if visited_node_indexes.contains(&caller_node_index) {
+            return;
+        }
+        visited_node_indexes.insert(caller_node_index);
+
+        let caller_node = graph.graph.node_weight(caller_node_index).unwrap();
+        for edge in graph
+            .graph
+            .edges_directed(caller_node_index, Direction::Outgoing)
+        {
+            let target = edge.target();
+            let target_node = graph.graph.node_weight(target).unwrap();
+            if let NodeInternal::CallGeneric(caller) = caller_node.data() {
+                match target_node.data() {
+                    NodeInternal::CallGeneric(callee) => {
+                        let inst = FuncInstantiationInfo {
+                            caller_module_id: caller.module_id.clone(),
+                            caller_function: caller.fn_name.clone().into(),
+                            callee_pc: edge.weight().pc() as u64,
+                            callee_module: callee.module_id.clone(),
+                            callee_function: callee.fn_name.clone().into(),
+                            ty_params: callee.fn_inst_type_parameters.clone(),
+                        };
+                        self.traces.insert(inst);
+                        self.generate(graph, visited_node_indexes, target);
+                    }
+                    NodeInternal::StorageOp(callee) => {
+                        let inst = FuncInstantiationInfo {
+                            caller_module_id: caller.module_id.clone(),
+                            caller_function: caller.fn_name.clone().into(),
+                            callee_pc: edge.weight().pc() as u64,
+                            callee_module: None,
+                            callee_function: callee.op.clone().into(),
+                            ty_params: vec![callee.inst_struct_type.clone()],
+                        };
+                        self.traces.insert(inst);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TypeElement {
+    pos: Vec<u8>,
+    refered_ty_idx: Option<u16>,
+    data: Option<TypeElem>,
+}
+fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
+    fn flatten_inner(result: &mut Vec<TypeElement>, ty: &Type, mut pos: Vec<u8>) {
+        match ty {
+            Type::Struct {
+                address,
+                module,
+                name,
+                type_arguments,
+            } => {
+                result.push(TypeElement {
+                    pos: pos.clone(),
+                    refered_ty_idx: None,
+                    data: Some(TypeElem::Struct {
+                        module_id: ModuleId::new(*address, module.clone()),
+                        name: name.to_string(),
+                    }),
+                });
+                for (idx, sub_type) in type_arguments.iter().enumerate() {
+                    flatten_inner(result, sub_type, {
+                        let mut pos = pos.clone();
+                        pos.push(idx as u8 + 1);
+                        pos
+                    });
+                }
+            }
+            Type::TypeParameter(idx) => result.push(TypeElement {
+                pos: pos.clone(),
+                refered_ty_idx: Some(*idx + 1), // type index start from 1
+                data: None,
+            }),
+            Type::Vector(inner) => {
+                result.push(TypeElement {
+                    pos: pos.clone(),
+                    refered_ty_idx: None,
+                    data: Some(TypeElem::Vector),
+                });
+                flatten_inner(result, inner, {
+                    pos.push(1);
+                    pos
+                });
+            }
+            _ => {
+                let data = match ty {
+                    Type::Bool => TypeElem::Bool,
+                    Type::U8 => TypeElem::U8,
+                    Type::U64 => TypeElem::U64,
+                    Type::U128 => TypeElem::U128,
+                    Type::Address => TypeElem::Address,
+                    Type::Signer => TypeElem::Signer,
+                    _ => unreachable!(),
+                };
+                result.push(TypeElement {
+                    pos: pos.to_vec(),
+                    refered_ty_idx: None,
+                    data: Some(data),
+                });
+            }
+        };
+    }
+    let mut result = vec![];
+    flatten_inner(&mut result, ty, pos);
+    result
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TypeElem {
+    Bool,
+    U8,
+    U64,
+    U128,
+    Address,
+    Signer,
+    Struct { module_id: ModuleId, name: String },
+    Vector,
+}
+pub fn map_type_name(mapping: &NameToIdxMapping, type_elem: &TypeElem) -> (u64, StructHandleIndex) {
+    match type_elem {
+        TypeElem::Bool => (0, StructHandleIndex(1)),
+        TypeElem::U8 => (0, StructHandleIndex(2)),
+        TypeElem::U64 => (0, StructHandleIndex(3)),
+        TypeElem::U128 => (0, StructHandleIndex(4)),
+        TypeElem::Address => (0, StructHandleIndex(5)),
+        TypeElem::Signer => (0, StructHandleIndex(6)),
+        TypeElem::Vector => (0, StructHandleIndex(7)),
+        TypeElem::Struct { module_id, name } => mapping.map_struct_name(module_id, name),
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MaterializedTypeElement {
+    pub materialized_pos: Vec<u8>,
+    pub data: TypeElem,
+    pub instantiation_pos: Vec<u8>,
+    pub refered_ty_idx: Option<u16>,
+}
+
+/// caller must ensure, first type is materialized from the second.
+pub fn flatten_materialized_type(
+    pos: Vec<u8>,
+    actual: &Type,
+    inst: &Type,
+) -> Vec<MaterializedTypeElement> {
+    let materialized_type_elems = flatten_type(actual, pos.clone());
+    let instantiation_type_elems = flatten_type(inst, pos);
+    let mut i = 0;
+    let mut results = vec![];
+    for inst_type_elem in instantiation_type_elems {
+        if let Some(refer) = inst_type_elem.refered_ty_idx {
+            while materialized_type_elems
+                .get(i)
+                .filter(|e| e.pos.starts_with(&inst_type_elem.pos))
+                .is_some()
+            {
+                results.push(MaterializedTypeElement {
+                    materialized_pos: materialized_type_elems[i].pos.clone(),
+                    data: materialized_type_elems[i].data.clone().unwrap(),
+                    instantiation_pos: inst_type_elem.pos.clone(),
+                    refered_ty_idx: Some(refer),
+                });
+                i += 1;
+            }
+        } else {
+            debug_assert_eq!(&materialized_type_elems[i], &inst_type_elem);
+            results.push(MaterializedTypeElement {
+                materialized_pos: materialized_type_elems[i].pos.clone(),
+                data: materialized_type_elems[i].data.clone().unwrap(),
+                instantiation_pos: inst_type_elem.pos,
+                refered_ty_idx: None,
+            });
+            i += 1;
+        }
+    }
+    results
+}

@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
+use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
@@ -10,7 +11,7 @@ use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
@@ -19,18 +20,23 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 
 #[derive(Clone, Debug)]
-pub struct Call<F: FieldExt> {
+pub struct Call<const GENERIC: bool, F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
     word_a_addr_ext_0: Vec<Cell<F>>,
     word_a_addr_ext_1: Vec<Cell<F>>,
     word_address: Vec<Cell<F>>,
+    type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Call<F> {
-    const NAME: &'static str = "CALL";
+impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F> {
+    const NAME: &'static str = if GENERIC { "CALL_GENERIC" } else { "CALL" };
 
-    const OPCODE: Opcode = Opcode::Call;
+    const OPCODE: Opcode = if GENERIC {
+        Opcode::CallGeneric
+    } else {
+        Opcode::Call
+    };
 
     fn configure(
         &self,
@@ -38,7 +44,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Call.index()].expression.clone();
+        let cond = cells.conditions[Self::OPCODE.index()].expr();
 
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0
@@ -109,14 +115,21 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
             },
             cond.clone(),
         ));
-
+        let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::Call,
-            cells.auxiliary_2.expression.clone(),
+            Self::OPCODE,
+            function_instantiation_index,
             &mut lookups.bytecode_lookups,
-            cond,
+            cond.clone(),
         );
+        if GENERIC {
+            // configure generic gadget
+            self.type_cells
+                .as_ref()
+                .unwrap()
+                .configure(cells, cb, lookups, cond);
+        }
     }
 
     fn assign(
@@ -162,7 +175,30 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
             word_element_num,
             RW::WRITE,
         )?;
-
+        if GENERIC {
+            cells.auxiliary_4.assign(
+                region,
+                offset,
+                step.auxiliary_4
+                    .as_ref()
+                    .ok_or_else(|| {
+                        error!("auxiliary_4 is None");
+                        Error::Synthesis
+                    })?
+                    .value(),
+            )?;
+            if let Some(ExecutionData::CallGeneric(data)) = &step.data {
+                self.type_cells.as_ref().unwrap().assign(
+                    region,
+                    offset,
+                    step.frame_index,
+                    data.clone(),
+                )?;
+            } else {
+                error!("expect execution data in {} gadget", Self::NAME);
+                return Err(Error::Synthesis);
+            }
+        }
         Ok(())
     }
 
@@ -174,12 +210,32 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
         let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let word_address = cb.alloc_n_cells(WORD_CAPACITY);
 
+        let type_cells = if GENERIC {
+            let callee_id = cb.next.cells.context_id.expr();
+            let callee_module = cb.next.cells.module_index.expr();
+            let callee_function = cb.next.cells.function_index.expr();
+            let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
+            let caller_pc = cb.curr.cells.auxiliary_4.expr();
+            let type_cells = GenericTypeGadget::construct(
+                Self::NAME,
+                cb,
+                caller_pc,
+                callee_id,
+                callee_module,
+                callee_function,
+                function_instantiation_index,
+            );
+            Some(type_cells)
+        } else {
+            None
+        };
         Self {
             word_a,
             word_a_mask,
             word_a_addr_ext_0,
             word_a_addr_ext_1,
             word_address,
+            type_cells,
         }
     }
 }

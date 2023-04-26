@@ -6,20 +6,26 @@ use crate::stack::{CallStack, EvalStack};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
-use move_binary_format::file_format::StructDefinitionIndex;
+use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
 use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
+use movelang::generic_call_graph::{generate_for_script, Edge, Node, NodeInternal};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
-use movelang::value::{GlobalRef, GlobalValue, Value};
+use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
+use petgraph::prelude::NodeIndex;
+use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::arith_operations::ArithOperation;
+use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
+use vm_circuit::witness::generic_type_instantiations::GenericTypeInstantiation;
 use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
@@ -103,6 +109,8 @@ impl<F: FieldExt> Interpreter<F> {
 
     fn make_frame(
         &mut self,
+        next_node_index: NodeIndex,
+        next_node: Node,
         func: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
         frame_index: usize,
@@ -117,12 +125,19 @@ impl<F: FieldExt> Interpreter<F> {
         for (i, item) in value.into_iter().enumerate() {
             locals.store(arg_count - i - 1, item, frame_index, rw_operations)?;
         }
-        Ok(Frame::new(func, type_arguments, locals))
+        Ok(Frame::new(
+            next_node_index,
+            next_node,
+            func,
+            type_arguments,
+            locals,
+        ))
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn run_script(
         &mut self,
+        script: &CompiledScript,
         entry: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
         signer: Option<Signer>,
@@ -134,21 +149,37 @@ impl<F: FieldExt> Interpreter<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
         func_calls: &mut Vec<FunctionCall>,
         arith_operations: &mut Vec<ArithOperation>,
+        generic_type_instantiations: &mut Vec<GenericTypeInstantiation>,
     ) -> VmResult<()> {
+        let generic_graph = generate_for_script(script, data_store);
+        println!("{}", generic_graph.to_dot());
+
         let mut locals = Locals::new(entry.local_count());
 
         self.process_arguments(&mut locals, signer, args, arg_types, 0, rw_operations)?;
 
-        let mut frame = Frame::new(entry, type_arguments, locals);
+        let mut frame = Frame::new(
+            generic_graph.head,
+            generic_graph
+                .graph
+                .node_weight(generic_graph.head)
+                .cloned()
+                .unwrap(),
+            entry,
+            type_arguments,
+            locals,
+        );
         frame.print_frame();
         loop {
             let status = frame.execute(
                 self,
+                &generic_graph,
                 loader,
                 data_store,
                 exec_steps,
                 rw_operations,
                 arith_operations,
+                generic_type_instantiations,
             )?;
             match status {
                 ExitStatus::Return => {
@@ -175,6 +206,7 @@ impl<F: FieldExt> Interpreter<F> {
                         frame.add_pc();
                     } else {
                         let stop = ExecutionStep {
+                            context_id: step_current.context_id,
                             opcode: Opcode::Stop,
                             pc: step_current.pc,
                             stack_size: step_current.stack_size,
@@ -188,6 +220,7 @@ impl<F: FieldExt> Interpreter<F> {
                             auxiliary_3: step_current.auxiliary_3.clone(),
                             auxiliary_4: step_current.auxiliary_4.clone(),
                             auxiliary_5: step_current.auxiliary_5.clone(),
+                            data: None,
                         };
                         exec_steps.push(stop);
                         return Ok(());
@@ -196,6 +229,30 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Call(index, mut execution_step) => {
                     let frame_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
+                    let (_is_internal_call, next_node_index) = {
+                        let edge_to_follow = if frame.func().module_id() != func.module_id() {
+                            Edge::External {
+                                pc: frame.pc() as usize,
+                            }
+                        } else {
+                            Edge::Internal {
+                                pc: frame.pc() as usize,
+                            }
+                        };
+
+                        let mut nexts: Vec<_> = generic_graph
+                            .graph
+                            .edges_directed(frame.generic_index(), Direction::Outgoing)
+                            .filter(|edge| {
+                                let e = edge.weight();
+                                e == &edge_to_follow
+                            })
+                            .map(|edge| edge.target())
+                            .collect();
+                        assert_eq!(nexts.len(), 1);
+                        (edge_to_follow.internal(), nexts.pop().unwrap())
+                    };
+
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.frame_index = frame_index;
@@ -206,8 +263,18 @@ impl<F: FieldExt> Interpreter<F> {
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
-                    let callee_frame =
-                        self.make_frame(func, vec![], frame_index + 1, rw_operations)?;
+                    let callee_frame = self.make_frame(
+                        next_node_index,
+                        generic_graph
+                            .graph
+                            .node_weight(next_node_index)
+                            .cloned()
+                            .unwrap(),
+                        func,
+                        vec![],
+                        frame_index + 1,
+                        rw_operations,
+                    )?;
                     let word_element_count = (rw_operations.len() - rw_op_count) / 2;
                     execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                     exec_steps.push(execution_step);
@@ -241,6 +308,35 @@ impl<F: FieldExt> Interpreter<F> {
 
                     let func = resolver.function_from_instantiation(index);
 
+                    let (_is_internal_call, next_node_index) = {
+                        let edge_to_follow = if frame.func().module_id() != func.module_id() {
+                            Edge::External {
+                                pc: frame.pc() as usize,
+                            }
+                        } else {
+                            Edge::Internal {
+                                pc: frame.pc() as usize,
+                            }
+                        };
+
+                        let mut nexts: Vec<_> = generic_graph
+                            .graph
+                            .edges_directed(frame.generic_index(), Direction::Outgoing)
+                            .filter(|edge| {
+                                let e = edge.weight();
+                                e == &edge_to_follow
+                            })
+                            .map(|edge| edge.target())
+                            .collect();
+                        assert_eq!(nexts.len(), 1);
+                        println!(
+                            "frame: {:?} -> {:?}",
+                            frame.generic_index(),
+                            nexts.last().unwrap()
+                        );
+                        (edge_to_follow.internal(), nexts.pop().unwrap())
+                    };
+
                     execution_step.frame_index = frame_index;
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
@@ -251,11 +347,56 @@ impl<F: FieldExt> Interpreter<F> {
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
-                    let callee_frame =
-                        self.make_frame(func, ty_args, frame_index + 1, rw_operations)?;
+                    let callee_frame = self.make_frame(
+                        next_node_index,
+                        generic_graph
+                            .graph
+                            .node_weight(next_node_index)
+                            .cloned()
+                            .unwrap(),
+                        func,
+                        ty_args.clone(),
+                        frame_index + 1,
+                        rw_operations,
+                    )?;
                     let word_element_count = (rw_operations.len() - rw_op_count) / 2;
                     execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                    exec_steps.push(execution_step);
+                    let caller_pc = if self.frames.size() == 0 {
+                        0
+                    } else {
+                        self.frames.top().unwrap().pc()
+                    };
+                    execution_step.auxiliary_4 = Some(Value::u64(caller_pc as u64));
+
+                    let callee_node_data = {
+                        let node_data = generic_graph
+                            .graph
+                            .node_weight(next_node_index)
+                            .unwrap()
+                            .data();
+                        if let NodeInternal::CallGeneric(call) = node_data {
+                            call
+                        } else {
+                            unreachable!()
+                        }
+                    };
+                    generic_type_instantiations.push(GenericTypeInstantiation {
+                        execution_step_index: exec_steps.len(),
+                        op: Bytecode::CallGeneric(index),
+                        frame_index: frame_index as u64,
+                        call_pc: execution_step.pc as u64,
+                        call_id: pos_to_id(
+                            generic_graph
+                                .graph
+                                .node_weight(next_node_index)
+                                .unwrap()
+                                .pos(),
+                        ),
+                        call_module: callee_node_data.module_id.clone(),
+                        call_function: callee_node_data.fn_name.clone().into(),
+                        type_args: callee_node_data.fn_type_parameters.clone(),
+                        inst_type_args: callee_node_data.fn_inst_type_parameters.clone(),
+                    });
 
                     // record function call
                     let next_module_index = callee_frame
@@ -272,6 +413,7 @@ impl<F: FieldExt> Interpreter<F> {
                         next_pc: 0,
                     });
 
+                    exec_steps.push(execution_step.clone());
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
                     frame = callee_frame;
@@ -382,7 +524,7 @@ impl<F: FieldExt> Interpreter<F> {
         loader: &MoveLoader,
         addr: AccountAddress<F>,
         ty: &Type,
-        sd_index: StructDefinitionIndex,
+        sd_index: GlobalResourceDefIndex,
     ) -> VmResult<GlobalRef<F>> {
         Self::load_resource(data_store, loader, addr, ty)?.borrow_global(addr, sd_index)
     }

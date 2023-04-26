@@ -13,14 +13,18 @@ use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-pub struct Exists<F: FieldExt> {
+pub struct Exists<const GENERIC: bool, F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Exists<F> {
-    const NAME: &'static str = "EXISTS";
+impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Exists<GENERIC, F> {
+    const NAME: &'static str = if GENERIC { "EXISTS_GENERIC" } else { "EXISTS" };
 
-    const OPCODE: Opcode = Opcode::Exists;
+    const OPCODE: Opcode = if GENERIC {
+        Opcode::ExistsGeneric
+    } else {
+        Opcode::Exists
+    };
     fn configure(
         &self,
         _cells: &StepChipCells<F>,

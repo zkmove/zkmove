@@ -9,6 +9,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
+use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
@@ -16,14 +17,20 @@ use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
     Location, PrimitiveValue, Reference, Value, ValueLocation,
 };
+use petgraph::prelude::EdgeRef;
+use petgraph::Direction;
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
 use vm_circuit::witness::arith_operations::ArithOperation;
+use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
+use vm_circuit::witness::generic_type_instantiations::GenericTypeInstantiation;
 use vm_circuit::witness::rw_operations::{RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
+    generic_node_index: NodeIndex,
+    generic_node: Node,
     pc: u16,
     locals: Locals<F>,
     function: Arc<Function>,
@@ -33,16 +40,23 @@ pub struct Frame<F: FieldExt> {
 
 impl<F: FieldExt> Frame<F> {
     pub fn new(
+        generic_node_index: NodeIndex,
+        generic_node: Node,
         function: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
         locals: Locals<F>,
     ) -> Self {
         Frame {
+            generic_node_index,
+            generic_node,
             pc: 0,
             locals,
             function,
             ty_args: type_arguments,
         }
+    }
+    pub fn generic_index(&self) -> NodeIndex {
+        self.generic_node_index
     }
 
     pub fn ty_args(&self) -> &[MoveValueType] {
@@ -70,15 +84,46 @@ impl<F: FieldExt> Frame<F> {
             None => Some(0), // function is in the script
         }
     }
+    fn get_next_call_node(&self, graph: &GenericCallGraph, internal: bool) -> NodeIndex {
+        let edge_to_follow = if !internal {
+            Edge::External {
+                pc: self.pc() as usize,
+            }
+        } else {
+            Edge::Internal {
+                pc: self.pc() as usize,
+            }
+        };
 
+        let mut nexts: Vec<_> = graph
+            .graph
+            .edges_directed(self.generic_index(), Direction::Outgoing)
+            .filter(|edge| {
+                let e = edge.weight();
+                e == &edge_to_follow
+            })
+            .map(|edge| edge.target())
+            .collect();
+        assert_eq!(nexts.len(), 1);
+        println!(
+            "frame: {:?} -> {:?}",
+            self.generic_index(),
+            nexts.last().unwrap()
+        );
+        nexts.pop().unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn execute(
         &mut self,
         interp: &mut Interpreter<F>,
+        call_graph: &GenericCallGraph,
         loader: &MoveLoader,
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
         arith_operations: &mut Vec<ArithOperation>,
+        generic_type_instantiations: &mut Vec<GenericTypeInstantiation>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
         let frame_index = interp.frames.size();
@@ -90,6 +135,7 @@ impl<F: FieldExt> Frame<F> {
         loop {
             for instruction in &code[self.pc as usize..] {
                 let mut execution_step = ExecutionStep {
+                    context_id: pos_to_id(self.generic_node.pos()),
                     opcode: instruction.clone().into(),
                     pc: self.pc,
                     stack_size: interp.stack.size(),
@@ -103,6 +149,7 @@ impl<F: FieldExt> Frame<F> {
                     auxiliary_3: None,
                     auxiliary_4: None,
                     auxiliary_5: None,
+                    data: None,
                 };
 
                 match instruction {
@@ -236,7 +283,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_2 = Some(Value::Address(account_addr));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
-                                execution_step.auxiliary_4 = Some(Value::u128(sd_index.0 as u128));
+                                execution_step.auxiliary_4 = Some(Value::u128(sd_index.to_u128()));
                                 globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::LocalRef(LocalRef { loc, .. }) => {
@@ -275,7 +322,7 @@ impl<F: FieldExt> Frame<F> {
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64)); // word_elem_count
                                         execution_step.auxiliary_4 =
-                                            Some(Value::u128(sd_index.0 as u128));
+                                            Some(Value::u128(sd_index.to_u128()));
                                         globals::emit_global_ops_for_word(
                                             word,
                                             RW::READ,
@@ -339,7 +386,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                                 execution_step.auxiliary_2 = Some(Value::address(account_addr));
                                 execution_step.auxiliary_3 = Some(Value::u64(word.len() as u64)); // word_elem_count
-                                execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
+                                execution_step.auxiliary_4 = Some(Value::u128(sd_idx.to_u128()));
                                 globals::emit_global_ops_for_word(
                                     word.clone(),
                                     RW::WRITE,
@@ -390,7 +437,7 @@ impl<F: FieldExt> Frame<F> {
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word.len() as u64)); // word_elem_count
                                         execution_step.auxiliary_4 =
-                                            Some(Value::u128(sd_idx.0 as u128));
+                                            Some(Value::u128(sd_idx.to_u128()));
                                         globals::emit_global_ops_for_word(
                                             word.clone(),
                                             RW::WRITE,
@@ -412,6 +459,17 @@ impl<F: FieldExt> Frame<F> {
                         let reference = interp.stack.pop_as_reference(rw_operations)?;
                         let word_element_count = reference.value_address_path().len();
                         let field_offset = resolver.field_offset(*fh_idx);
+                        let field_ref = reference.try_borrow_field(field_offset)?;
+                        execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(field_offset as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(field_ref.into(), rw_operations)
+                    }
+                    Bytecode::ImmBorrowFieldGeneric(fh_idx)
+                    | Bytecode::MutBorrowFieldGeneric(fh_idx) => {
+                        let reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let word_element_count = reference.value_address_path().len();
+                        let field_offset = resolver.field_instantiation_offset(*fh_idx);
                         let field_ref = reference.try_borrow_field(field_offset)?;
                         execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(field_offset as u64));
@@ -562,10 +620,32 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
+                    Bytecode::PackGeneric(sd_idx) => {
+                        let field_count = resolver.field_instantiation_count(*sd_idx);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
+                        let args = interp.stack.popn(field_count, rw_operations)?;
+                        let value = Value::container(args);
+                        let word_element_count = value.word_element_count();
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
+                    }
                     Bytecode::Unpack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
+                        let (struct_, word_element_count) =
+                            interp.stack.pop_as_container(rw_operations)?;
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        for value in struct_.unpack() {
+                            interp.stack.push(value, rw_operations)?;
+                        }
+                        Ok(())
+                    }
+                    Bytecode::UnpackGeneric(sdi_idx) => {
+                        let field_count = resolver.field_instantiation_count(*sdi_idx);
+                        execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(sdi_idx.0 as u64));
                         let (struct_, word_element_count) =
                             interp.stack.pop_as_container(rw_operations)?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
@@ -580,6 +660,43 @@ impl<F: FieldExt> Frame<F> {
                         let exists = interp.exists(data_store, loader, addr, &ty)?;
                         interp.stack.push(Value::bool(exists), rw_operations)
                     }
+                    Bytecode::ExistsGeneric(sd_idx) => {
+                        let next_node_index = self.get_next_call_node(call_graph, true);
+                        let callee_node = call_graph.graph.node_weight(next_node_index).unwrap();
+                        let callee_node_data = {
+                            if let NodeInternal::StorageOp(call) = callee_node.data() {
+                                call
+                            } else {
+                                unreachable!()
+                            }
+                        };
+                        generic_type_instantiations.push(GenericTypeInstantiation {
+                            execution_step_index: exec_steps.len(),
+                            op: instruction.clone(),
+                            frame_index: frame_index as u64,
+                            call_pc: execution_step.pc as u64,
+                            call_id: pos_to_id(callee_node.pos()),
+                            call_module: None,
+                            call_function: instruction.clone().into(),
+                            type_args: vec![callee_node_data.struct_type.clone()],
+                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
+                        });
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
+                        execution_step.auxiliary_2 =
+                            Some(Value::u128(pos_to_id(callee_node.pos())));
+                        let caller_pc = interp.frames.top().map(|f| f.pc()).unwrap_or(0);
+                        // execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(caller_pc as u64));
+
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.instantiate_generic_type(*sd_idx, self.ty_args()).map_err(|e| {
+                            error!("fail to resolver.instantiate_generic_type, index: {}, ty_args: {:?}, error: {:?}", sd_idx, self.ty_args(), e);
+                            RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                        })?;
+
+                        let exists = interp.exists(data_store, loader, addr, &ty)?;
+                        interp.stack.push(Value::bool(exists), rw_operations)
+                    }
                     Bytecode::MoveFrom(sd_idx) => {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;
                         let ty = resolver.get_struct_type(*sd_idx);
@@ -590,13 +707,60 @@ impl<F: FieldExt> Frame<F> {
                         // For now, we take a progressive action.
                         let word_elem_num = globals::emit_ops_for_global_value(
                             addr,
-                            *sd_idx,
+                            (*sd_idx).into(),
                             value.clone(),
                             RW::READ,
                             true,
                             rw_operations,
                         )?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::MoveFromGeneric(sd_idx) => {
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.instantiate_generic_type(*sd_idx, self.ty_args()).map_err(|e| {
+                            error!("fail to resolver.instantiate_generic_type, index: {}, ty_args: {:?}, error: {:?}", sd_idx, self.ty_args(), e);
+                            RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                        })?;
+                        let value = interp.move_from(data_store, loader, addr, &ty)?;
+                        // in fact, after move_from, user cannot call move_from again, as the struct is already gone.
+                        // If this limit is constrained by bytecode verifier, then circuit doesn't need to worry about this.
+                        // But if not, we should write a Invalid to the global struct.
+                        // For now, we take a progressive action.
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            (*sd_idx).into(),
+                            value.clone(),
+                            RW::READ,
+                            true,
+                            rw_operations,
+                        )?;
+                        let next_node_index = self.get_next_call_node(call_graph, true);
+                        let callee_node = call_graph.graph.node_weight(next_node_index).unwrap();
+                        let callee_node_data = {
+                            if let NodeInternal::StorageOp(call) = callee_node.data() {
+                                call
+                            } else {
+                                unreachable!()
+                            }
+                        };
+                        generic_type_instantiations.push(GenericTypeInstantiation {
+                            execution_step_index: exec_steps.len(),
+                            op: instruction.clone(),
+                            frame_index: frame_index as u64,
+                            call_pc: execution_step.pc as u64,
+                            call_id: pos_to_id(callee_node.pos()),
+                            call_module: None,
+                            call_function: instruction.clone().into(),
+                            type_args: vec![callee_node_data.struct_type.clone()],
+                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
+                        });
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
+                        execution_step.auxiliary_2 =
+                            Some(Value::u128(pos_to_id(callee_node.pos())));
+                        let caller_pc = interp.frames.top().map(|f| f.pc()).unwrap_or(0);
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(caller_pc as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::MoveTo(sd_idx) => {
@@ -611,7 +775,7 @@ impl<F: FieldExt> Frame<F> {
                             .expect("address should not be None");
                         let word_elem_num = globals::emit_ops_for_global_value(
                             addr,
-                            *sd_idx,
+                            (*sd_idx).into(),
                             resource.clone(),
                             RW::WRITE,
                             false,
@@ -622,16 +786,71 @@ impl<F: FieldExt> Frame<F> {
                         let ty = resolver.get_struct_type(*sd_idx);
                         interp.move_to(data_store, loader, addr, &ty, resource)
                     }
+                    Bytecode::MoveToGeneric(sd_idx) => {
+                        let resource = interp.stack.pop(rw_operations)?;
+                        let signer_reference = interp.stack.pop_as_reference(rw_operations)?;
+                        let addr_value =
+                            Reference::IndexedRef(signer_reference.try_borrow_field(0)?)
+                                .read_ref()?;
+
+                        let addr = addr_value
+                            .into_account_address()
+                            .expect("address should not be None");
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            (*sd_idx).into(),
+                            resource.clone(),
+                            RW::WRITE,
+                            false,
+                            rw_operations,
+                        )?;
+                        let next_node_index = self.get_next_call_node(call_graph, true);
+                        let callee_node = call_graph.graph.node_weight(next_node_index).unwrap();
+                        let callee_node_data = {
+                            if let NodeInternal::StorageOp(call) = callee_node.data() {
+                                call
+                            } else {
+                                unreachable!()
+                            }
+                        };
+                        generic_type_instantiations.push(GenericTypeInstantiation {
+                            execution_step_index: exec_steps.len(),
+                            op: instruction.clone(),
+                            frame_index: frame_index as u64,
+                            call_pc: execution_step.pc as u64,
+                            call_id: pos_to_id(callee_node.pos()),
+                            call_module: None,
+                            call_function: instruction.clone().into(),
+                            type_args: vec![callee_node_data.struct_type.clone()],
+                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
+                        });
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
+                        execution_step.auxiliary_2 =
+                            Some(Value::u128(pos_to_id(callee_node.pos())));
+                        let caller_pc = interp.frames.top().map(|f| f.pc()).unwrap_or(0);
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(caller_pc as u64));
+
+                        let ty = resolver.instantiate_generic_type(*sd_idx, self.ty_args()).map_err(|e| {
+                            error!("fail to resolver.instantiate_generic_type, index: {}, ty_args: {:?}, error: {:?}", sd_idx, self.ty_args(), e);
+                            RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                        })?;
+                        interp.move_to(data_store, loader, addr, &ty, resource)
+                    }
                     Bytecode::ImmBorrowGlobal(sd_idx) | Bytecode::MutBorrowGlobal(sd_idx) => {
                         let addr = interp.stack.pop_as_account_address(rw_operations)?;
                         let ty = resolver.get_struct_type(*sd_idx);
-                        let global_ref = Reference::GlobalRef(
-                            interp.borrow_global(data_store, loader, addr, &ty, *sd_idx)?,
-                        );
+                        let global_ref = Reference::GlobalRef(interp.borrow_global(
+                            data_store,
+                            loader,
+                            addr,
+                            &ty,
+                            (*sd_idx).into(),
+                        )?);
                         let global_value = global_ref.read_ref()?;
                         let word_elem_num = globals::emit_ops_for_global_value(
                             addr,
-                            *sd_idx,
+                            (*sd_idx).into(),
                             global_value,
                             RW::READ,
                             false,
@@ -639,6 +858,59 @@ impl<F: FieldExt> Frame<F> {
                         )?;
                         execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+
+                        interp.stack.push(global_ref.into(), rw_operations)
+                    }
+                    Bytecode::ImmBorrowGlobalGeneric(sd_idx)
+                    | Bytecode::MutBorrowGlobalGeneric(sd_idx) => {
+                        let addr = interp.stack.pop_as_account_address(rw_operations)?;
+                        let ty = resolver.instantiate_generic_type(*sd_idx, self.ty_args()).map_err(|e| {
+                            error!("fail to resolver.instantiate_generic_type, index: {}, ty_args: {:?}, error: {:?}", sd_idx, self.ty_args(), e);
+                            RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                        })?;
+                        let global_ref = Reference::GlobalRef(interp.borrow_global(
+                            data_store,
+                            loader,
+                            addr,
+                            &ty,
+                            (*sd_idx).into(),
+                        )?);
+                        let global_value = global_ref.read_ref()?;
+                        let word_elem_num = globals::emit_ops_for_global_value(
+                            addr,
+                            (*sd_idx).into(),
+                            global_value,
+                            RW::READ,
+                            false,
+                            rw_operations,
+                        )?;
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
+
+                        let next_node_index = self.get_next_call_node(call_graph, true);
+                        let callee_node = call_graph.graph.node_weight(next_node_index).unwrap();
+                        let callee_node_data = {
+                            if let NodeInternal::StorageOp(call) = callee_node.data() {
+                                call
+                            } else {
+                                unreachable!()
+                            }
+                        };
+                        generic_type_instantiations.push(GenericTypeInstantiation {
+                            execution_step_index: exec_steps.len(),
+                            op: instruction.clone(),
+                            frame_index: frame_index as u64,
+                            call_pc: execution_step.pc as u64,
+                            call_id: pos_to_id(callee_node.pos()),
+                            call_module: None,
+                            call_function: instruction.clone().into(),
+                            type_args: vec![callee_node_data.struct_type.clone()],
+                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
+                        });
+                        execution_step.auxiliary_2 =
+                            Some(Value::u128(pos_to_id(callee_node.pos())));
+                        let caller_pc = interp.frames.top().map(|f| f.pc()).unwrap_or(0);
+                        execution_step.auxiliary_4 = Some(Value::u64(caller_pc as u64));
 
                         interp.stack.push(global_ref.into(), rw_operations)
                     }

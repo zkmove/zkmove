@@ -9,12 +9,22 @@ use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
-pub struct Cell<F: FieldExt> {
+pub struct Cell<F> {
     pub expression: Expression<F>,
     pub column: Column<Advice>,
     pub rotation: Rotation,
 }
+impl<F: FieldExt> Expr<F> for Cell<F> {
+    fn expr(&self) -> Expression<F> {
+        self.expression.clone()
+    }
+}
 
+impl<F: FieldExt> Expr<F> for &Cell<F> {
+    fn expr(&self) -> Expression<F> {
+        self.expression.clone()
+    }
+}
 impl<F: FieldExt> Cell<F> {
     pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: i32) -> Self {
         Cell {

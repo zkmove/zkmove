@@ -266,7 +266,7 @@ impl From<Vec<CompiledModule>> for BytecodeTable {
                         .map(|(i, bytecode)| {
                             BytecodeInfo::new(
                                 module_index as u16,
-                                func_def.function.0,
+                                func_def.function.0, // TODO: change to function def index
                                 i as u16,
                                 bytecode.clone(),
                             )

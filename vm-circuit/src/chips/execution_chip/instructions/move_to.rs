@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -8,15 +9,17 @@ use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::call_trace_table::MOVE_TO_GENERIC_AS_FIELD;
+use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use logger::error;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
-pub struct MoveTo<F: FieldExt> {
+pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
     value_a: Cell<F>,
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
@@ -24,12 +27,21 @@ pub struct MoveTo<F: FieldExt> {
     word_a_addr_ext_1: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
+    type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
-    const NAME: &'static str = "MOVETO";
+impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, F> {
+    const NAME: &'static str = if GENERIC {
+        "MOVE_TO_GENERIC"
+    } else {
+        "MOVE_TO"
+    };
 
-    const OPCODE: Opcode = Opcode::MoveTo;
+    const OPCODE: Opcode = if GENERIC {
+        Opcode::MoveToGeneric
+    } else {
+        Opcode::MoveTo
+    };
 
     fn configure(
         &self,
@@ -37,7 +49,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::MoveTo.index()].expression.clone();
+        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -70,7 +82,11 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone(),
                 global_address.clone(),
-                sd_index.clone(),
+                if GENERIC {
+                    sd_index.clone() * 2u64.pow(16).expr()
+                } else {
+                    sd_index.clone()
+                },
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
@@ -111,11 +127,14 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
 
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::MoveTo,
+            Self::OPCODE,
             sd_index,
             &mut lookups.bytecode_lookups,
-            cond,
+            cond.clone(),
         );
+        if let Some(g) = &self.type_cells {
+            g.configure(cells, cb, lookups, cond);
+        }
     }
 
     fn assign(
@@ -171,6 +190,35 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
             .auxiliary_1
             .assign(region, offset, Some(F::from_u128(op.sd_index() as u128)))?;
 
+        if GENERIC {
+            cells.auxiliary_2.assign(
+                region,
+                offset,
+                step.auxiliary_2
+                    .as_ref()
+                    .expect("callee_node id should not be none")
+                    .value(),
+            )?;
+            cells.auxiliary_4.assign(
+                region,
+                offset,
+                step.auxiliary_4
+                    .as_ref()
+                    .expect("caller_pc should not be none")
+                    .value(),
+            )?;
+            if let Some(ExecutionData::StorageOp(data)) = &step.data {
+                self.type_cells.as_ref().unwrap().assign(
+                    region,
+                    offset,
+                    step.frame_index,
+                    data.clone(),
+                )?;
+            } else {
+                error!("expect execution data in {} gadget", Self::NAME);
+                return Err(Error::Synthesis);
+            }
+        }
         Ok(())
     }
 
@@ -183,7 +231,26 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
         let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let type_cells = if GENERIC {
+            let instantiation_index = cb.curr.cells.auxiliary_1.expr();
+            let caller_pc = cb.curr.cells.auxiliary_4.expr();
+            let callee_id = cb.curr.cells.auxiliary_2.expr();
+            let callee_module = 0.expr();
+            let callee_function = (MOVE_TO_GENERIC_AS_FIELD as u64).expr();
 
+            let type_cells = GenericTypeGadget::construct(
+                Self::NAME,
+                cb,
+                caller_pc,
+                callee_id,
+                callee_module,
+                callee_function,
+                instantiation_index,
+            );
+            Some(type_cells)
+        } else {
+            None
+        };
         Self {
             value_a,
             word_a,
@@ -192,6 +259,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
             word_a_addr_ext_1,
             ref_val,
             ref_val_mask,
+            type_cells,
         }
     }
 }

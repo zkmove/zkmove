@@ -1,7 +1,7 @@
 // Copyright (c) The Move Contributors
 // Copyright (c) zkMove Authors
 
-use move_binary_format::errors::{Location, PartialVMError};
+use move_binary_format::errors::{Location, PartialVMError, VMError};
 use move_binary_format::errors::{PartialVMResult, VMResult};
 use move_binary_format::CompiledModule;
 use move_core_types::{
@@ -22,6 +22,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_core_types::gas_algebra::NumBytes;
 use move_core_types::language_storage::TypeTag;
+use move_core_types::resolver::ModuleResolver;
 use move_core_types::value::MoveTypeLayout;
 pub use move_vm_types::data_store::DataStore;
 use std::cell::RefCell;
@@ -184,5 +185,17 @@ impl<F: FieldExt> DataStore for StateStore<F> {
 
     fn events(&self) -> &Vec<(Vec<u8>, u64, Type, MoveTypeLayout, Value)> {
         unimplemented!()
+    }
+}
+
+impl<F: FieldExt> ModuleResolver for StateStore<F> {
+    type Error = VMError;
+
+    fn get_module(&self, id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
+        if self.exists_module(id)? {
+            self.load_module(id).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 }
