@@ -28,36 +28,6 @@ pub(crate) enum CellType {
     //    Lookup,
 }
 
-impl CellType {
-    /*
-    // The phase that given `Expression` becomes evaluateable.
-    fn expr_phase<F: FieldExt>(expr: &Expression<F>) -> u8 {
-        use Expression::*;
-        match expr {
-            Challenge(challenge) => challenge.phase() + 1,
-            Advice(query) => query.phase(),
-            Constant(_) | Selector(_) | Fixed(_) | Instance(_) => 0,
-            Negated(a) | Expression::Scaled(a, _) => Self::expr_phase(a),
-            Sum(a, b) | Product(a, b) => std::cmp::max(Self::expr_phase(a), Self::expr_phase(b)),
-        }
-    }
-
-    /// Return the storage phase of phase
-    pub(crate) fn storage_for_phase<F: FieldExt>(phase: u8) -> CellType {
-        match phase {
-            0 => CellType::StoragePhase1,
-            1 => CellType::StoragePhase2,
-            _ => unreachable!(),
-        }
-    }
-
-    /// Return the storage cell of the expression
-    pub(crate) fn storage_for_expr<F: FieldExt>(expr: &Expression<F>) -> CellType {
-        Self::storage_for_phase::<F>(Self::expr_phase::<F>(expr))
-    }
-    */
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct CellColumn<F> {
     pub(crate) index: usize,
