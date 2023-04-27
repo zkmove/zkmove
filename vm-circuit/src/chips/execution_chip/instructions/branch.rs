@@ -25,10 +25,11 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
     const OPCODE: Opcode = Opcode::Branch;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Branch.index()].expression.clone();
         // next pc is assigned in the auxiliary_1
         let pc_expr = cells.auxiliary_1.expression.clone() - cb.next.cells.pc.expression.clone();
@@ -57,9 +58,6 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            _marker: PhantomData,
-        }
     }
 
     fn assign(

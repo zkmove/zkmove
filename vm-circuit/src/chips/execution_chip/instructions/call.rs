@@ -33,18 +33,12 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
     const OPCODE: Opcode = Opcode::Call;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Call.index()].expression.clone();
-
-        // alloc cell
-        let word_b = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
-        let word_address = cb.query_n_cells(WORD_CAPACITY);
 
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0
@@ -69,16 +63,16 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
-        for (i, item) in word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
-                    word_address[i].expression.clone() + offset.clone() + 1.expr(),
-                    word_b_addr_ext_0[i].expression.clone(),
-                    word_b_addr_ext_1[i].expression.clone(),
+                    self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
+                    self.word_b_addr_ext_0[i].expression.clone(),
+                    self.word_b_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 RWLookup {
@@ -86,13 +80,13 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
                     rw_target: (RWTarget::Locals as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
-                    address: word_address[i].expression.clone(),
-                    address_ext_0: word_b_addr_ext_0[i].expression.clone(),
-                    address_ext_1: word_b_addr_ext_1[i].expression.clone(),
+                    address: self.word_address[i].expression.clone(),
+                    address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
+                    address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
             ));
         }
 
@@ -118,13 +112,6 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            word_b,
-            word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
-            word_address,
-        }
     }
 
     fn assign(

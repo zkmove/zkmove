@@ -27,10 +27,11 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
 
     const OPCODE: Opcode = Opcode::Ret;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
         let frame_index = cells.frame_index.expression.clone();
         let inverse = cells.auxiliary_1.expression.clone();
@@ -76,10 +77,6 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-
-        Self {
-            _marker: PhantomData,
-        }
     }
 
     fn assign(

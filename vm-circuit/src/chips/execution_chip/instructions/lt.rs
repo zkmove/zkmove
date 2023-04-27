@@ -30,23 +30,18 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
 
     const OPCODE: Opcode = Opcode::Lt;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         //Lt
         let cond = cells.conditions[Opcode::Lt.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-        let value_b = cb.query_cell();
-        let value_c = cb.query_cell();
-        let bytes = cb.query_n_cells(BYTES_NUM);
-
-        let lhs = value_a.expression.clone();
-        let rhs = value_b.expression.clone();
-        let out = value_c.expression.clone();
-        let diff = FieldBytes::from(bytes.clone()).expr();
+        let lhs = self.value_a.expression.clone();
+        let rhs = self.value_b.expression.clone();
+        let out = self.value_c.expression.clone();
+        let diff = FieldBytes::from(self.bytes.clone()).expr();
         let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
 
         // out is 0 or 1
@@ -60,9 +55,9 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
         cb.add_constraint("Lt", constraint);
 
         let binary_op = BinaryOp {
-            value_a: value_a.clone(),
-            value_b: value_b.clone(),
-            value_c: value_c.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cells, cb, cond.clone());
         BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
@@ -73,12 +68,6 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            value_a,
-            value_b,
-            value_c,
-            bytes,
-        }
     }
 
     fn assign(

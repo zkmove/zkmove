@@ -24,27 +24,23 @@ impl<F: FieldExt> InstructionGadget<F> for LdU8<F> {
     const OPCODE: Opcode = Opcode::LdU8;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         //LdU8
         let cond = cells.conditions[Opcode::LdU8.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-
         LoadOp::constrain_ld_op(cells, cb, cond.clone());
-        LoadOp::lookup_ld_op(cells, &value_a, &mut lookups.rw_lookups, cond.clone());
+        LoadOp::lookup_ld_op(cells, &self.value_a, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::LdU8,
-            value_a.expression.clone(),
+            self.value_a.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,
         );
-
-        Self { value_a }
     }
 
     fn assign(

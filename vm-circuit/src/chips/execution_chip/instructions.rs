@@ -69,10 +69,11 @@ pub(crate) trait InstructionGadget<F: FieldExt> {
     const OPCODE: Opcode;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self;
+    );
 
     fn assign(
         &self,

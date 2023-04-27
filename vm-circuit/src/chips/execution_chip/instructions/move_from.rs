@@ -29,20 +29,14 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
     const OPCODE: Opcode = Opcode::MoveFrom;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::MoveFrom.index()]
             .expression
             .clone();
-
-        // alloc cell
-        let value_a = cb.query_cell();
-        let word_a = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -65,7 +59,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
             ("module index", cond.clone() * module_index),
             ("function index", cond.clone() * func_index),
         ]);
-        let account_address_expr = value_a.expression.clone();
+        let account_address_expr = self.value_a.expression.clone();
         let sd_index_expr = cells.auxiliary_1.expression.clone();
         lookups.rw_lookups.push((
             RWLookup::stack_pop(
@@ -85,22 +79,22 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
                     account_address_expr.clone(),
                     sd_index_expr.clone(),
                     cells.stack_size.expression.clone(),
-                    word_a_addr_ext_0[i].expression.clone(),
-                    word_a_addr_ext_1[i].expression.clone(),
-                    word_a[i].expression.clone(),
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
+                    self.word_a[i].expression.clone(),
                     word_elem_num.clone(),
                 );
             lookups.rw_lookups.push((
                 read_global,
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 write_invalid_to_global,
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 write_stack,
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -111,13 +105,6 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            value_a,
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-        }
     }
 
     fn assign(

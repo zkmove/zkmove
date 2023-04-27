@@ -24,10 +24,11 @@ impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
 
     const OPCODE: Opcode = Opcode::Abort;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         _cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Abort.index()].expression.clone();
         LookupBytecode::lookup_bytecode(
             cells,
@@ -36,9 +37,6 @@ impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            _marker: PhantomData,
-        }
     }
 
     fn assign(

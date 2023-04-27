@@ -25,20 +25,16 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
 
     const OPCODE: Opcode = Opcode::Or;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Or.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-        let value_b = cb.query_cell();
-        let value_c = cb.query_cell();
-
-        let lhs = value_a.expression.clone();
-        let rhs = value_b.expression.clone();
-        let out = value_c.expression.clone();
+        let lhs = self.value_a.expression.clone();
+        let rhs = self.value_b.expression.clone();
+        let out = self.value_c.expression.clone();
 
         // out is 0 or 1
         let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
@@ -48,9 +44,9 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
         cb.add_constraint("Or", constraint);
 
         let binary_op = BinaryOp {
-            value_a: value_a.clone(),
-            value_b: value_b.clone(),
-            value_c: value_c.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cells, cb, cond.clone());
         BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
@@ -61,11 +57,6 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            value_a,
-            value_b,
-            value_c,
-        }
     }
 
     fn assign(

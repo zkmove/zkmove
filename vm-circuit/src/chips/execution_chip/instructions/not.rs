@@ -24,18 +24,15 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
 
     const OPCODE: Opcode = Opcode::Not;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Not.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-        let value_c = cb.query_cell();
-
-        let x = value_a.expression.clone();
-        let out = value_c.expression.clone();
+        let x = self.value_a.expression.clone();
+        let out = self.value_c.expression.clone();
 
         // out is 0 or 1
         let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
@@ -46,8 +43,8 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         cb.add_constraint("Not", constraint);
 
         let unary_op = UnaryOp {
-            value_a: value_a.clone(),
-            value_c: value_c.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb, cond.clone());
         UnaryOp::lookup_unary_op(cells, &unary_op, &mut lookups.rw_lookups, cond.clone());
@@ -58,7 +55,6 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self { value_a, value_c }
     }
 
     fn assign(

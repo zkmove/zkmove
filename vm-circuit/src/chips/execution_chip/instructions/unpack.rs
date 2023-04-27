@@ -36,23 +36,13 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
     const OPCODE: Opcode = Opcode::Unpack;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         //Unpack
         let cond = cells.conditions[Opcode::Unpack.index()].expression.clone();
-
-        // alloc cell
-        let word_a = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
-        let word_b = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
-        let word_address = cb.query_n_cells(WORD_CAPACITY);
 
         let field_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
@@ -79,16 +69,16 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         ]);
 
         // word_a used for struct and word_b used for unpacked fields.
-        for (i, item) in word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
-                    word_a_addr_ext_0[i].expression.clone(),
-                    word_a_addr_ext_1[i].expression.clone(),
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
@@ -97,13 +87,13 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: 0.expr(),
-                    address: word_address[i].expression.clone(),
-                    address_ext_0: word_b_addr_ext_0[i].expression.clone(),
-                    address_ext_1: word_b_addr_ext_1[i].expression.clone(),
+                    address: self.word_address[i].expression.clone(),
+                    address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
+                    address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
             ));
         }
 
@@ -111,13 +101,14 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         //  word_a.address_ext_1 equal to word_b.address_ext_0
         for i in 0..WORD_CAPACITY {
             let constraint = cond.clone()
-                * word_a_mask[i].expression.clone()
-                * (word_address[i].expression.clone() - word_a_addr_ext_0[i].expression.clone());
+                * self.word_a_mask[i].expression.clone()
+                * (self.word_address[i].expression.clone()
+                    - self.word_a_addr_ext_0[i].expression.clone());
             cb.add_constraint("unpack_address_eq", constraint);
             let constraint = cond.clone()
-                * word_a_mask[i].expression.clone()
-                * (word_b_addr_ext_0[i].expression.clone()
-                    - word_a_addr_ext_1[i].expression.clone());
+                * self.word_a_mask[i].expression.clone()
+                * (self.word_b_addr_ext_0[i].expression.clone()
+                    - self.word_a_addr_ext_1[i].expression.clone());
             cb.add_constraint("unpack_address_ext_0_eq", constraint);
         }
 
@@ -128,17 +119,6 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-            word_b,
-            word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
-            word_address,
-        }
     }
 
     fn assign(

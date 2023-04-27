@@ -25,14 +25,12 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
     const OPCODE: Opcode = Opcode::BrFalse;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::BrFalse.index()].expression.clone();
-
-        // alloc cell
-        let value_a = cb.query_cell();
 
         // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
         let aux = cells.auxiliary_1.expression.clone();
@@ -40,8 +38,8 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         let pc = cells.pc.expression.clone();
         let next_pc = cb.next.cells.pc.expression.clone();
         // auxiliary_1 * (1 - value_a) + (pc + 1) * value_a - next_pc = 0
-        let pc_expr = aux * (1.expr() - value_a.expression.clone())
-            + (pc + 1.expr()) * value_a.expression.clone()
+        let pc_expr = aux * (1.expr() - self.value_a.expression.clone())
+            + (pc + 1.expr()) * self.value_a.expression.clone()
             - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -70,7 +68,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                value_a.expression.clone(),
+                self.value_a.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -82,7 +80,6 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self { value_a }
     }
 
     fn assign(

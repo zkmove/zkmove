@@ -24,18 +24,16 @@ impl<F: FieldExt> InstructionGadget<F> for LdFalse<F> {
     const OPCODE: Opcode = Opcode::LdFalse;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         //LdFalse
         let cond = cells.conditions[Opcode::LdFalse.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-
         LoadOp::constrain_ld_op(cells, cb, cond.clone());
-        LoadOp::lookup_ld_op(cells, &value_a, &mut lookups.rw_lookups, cond.clone());
+        LoadOp::lookup_ld_op(cells, &self.value_a, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::LdFalse,
@@ -43,7 +41,6 @@ impl<F: FieldExt> InstructionGadget<F> for LdFalse<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self { value_a }
     }
 
     fn assign(

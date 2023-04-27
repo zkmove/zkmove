@@ -263,20 +263,20 @@ impl<F: FieldExt> ExecutionChip<F> {
     ) -> G {
         // Configure the gadget with the max height first so we can find out the actual
         // height
-        let height = {
+        let (gadget, height) = {
             let dummy_step_next = StepChip::configure(meta, advices, STEP_HEIGHT, true);
             let mut dummy_cb =
                 ConstraintBuilder::new(step_curr.clone(), dummy_step_next, G::OPCODE);
-            G::probe(&mut dummy_cb);
+            let gadget = G::probe(&mut dummy_cb);
             let (_, height) = dummy_cb.build();
-            height
+            (gadget, height)
         };
 
         // Now actually configure the gadget with the correct minimal height
-        let step_next = &StepChip::configure(meta, advices, height, true);
-        let mut cb = ConstraintBuilder::new(step_curr.clone(), step_next.clone(), G::OPCODE);
+        let step_next = StepChip::configure(meta, advices, height, true);
+        let mut cb = ConstraintBuilder::new(step_curr.clone(), step_next, G::OPCODE);
 
-        let gadget = G::configure(&step_curr.cells, &mut cb, lookups);
+        gadget.configure(&step_curr.cells, &mut cb, lookups);
 
         Self::configure_opcode_gadget_impl(
             meta,

@@ -28,17 +28,12 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
     const OPCODE: Opcode = Opcode::Pop;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Pop.index()].expression.clone();
-
-        // alloc cell
-        let word_a = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -67,11 +62,11 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
-                    word_a_addr_ext_0[i].expression.clone(),
-                    word_a_addr_ext_1[i].expression.clone(),
-                    word_a[i].expression.clone(),
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
+                    self.word_a[i].expression.clone(),
                 ),
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -82,13 +77,6 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-
-        Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-        }
     }
 
     fn assign(

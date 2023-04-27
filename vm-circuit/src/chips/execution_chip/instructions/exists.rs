@@ -22,13 +22,11 @@ impl<F: FieldExt> InstructionGadget<F> for Exists<F> {
 
     const OPCODE: Opcode = Opcode::Exists;
     fn configure(
+        &self,
         _cells: &StepChipCells<F>,
         _cb: &mut ConstraintBuilder<F>,
         _lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+    ) {
     }
 
     fn assign(

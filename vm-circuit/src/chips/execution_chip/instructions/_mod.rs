@@ -25,29 +25,25 @@ impl<F: FieldExt> InstructionGadget<F> for Mod<F> {
 
     const OPCODE: Opcode = Opcode::Mod;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::Mod.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-        let value_b = cb.query_cell();
-        let value_c = cb.query_cell();
-
-        let lhs = value_a.expression.clone();
-        let rhs = value_b.expression.clone();
-        let remainder = value_c.expression.clone();
+        let lhs = self.value_a.expression.clone();
+        let rhs = self.value_b.expression.clone();
+        let remainder = self.value_c.expression.clone();
         let quotient = cells.auxiliary_1.expression.clone();
         let constraint = cond.clone() * (lhs - rhs * quotient - remainder);
         cb.add_constraint("Mod", constraint);
 
         // alloc cell
         let binary_op = BinaryOp {
-            value_a: value_a.clone(),
-            value_b: value_b.clone(),
-            value_c: value_c.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cells, cb, cond.clone());
         BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
@@ -58,11 +54,6 @@ impl<F: FieldExt> InstructionGadget<F> for Mod<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            value_a,
-            value_b,
-            value_c,
-        }
     }
 
     fn assign(

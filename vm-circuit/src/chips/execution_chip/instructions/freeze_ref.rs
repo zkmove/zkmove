@@ -25,10 +25,11 @@ impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
     const OPCODE: Opcode = Opcode::FreezeRef;
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::FreezeRef.index()]
             .expression
             .clone();
@@ -59,9 +60,6 @@ impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            _marker: PhantomData,
-        }
     }
 
     fn assign(

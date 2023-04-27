@@ -35,10 +35,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
     };
 
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let opcode = if MUTABLE {
             Opcode::MutBorrowLoc
         } else {
@@ -46,14 +47,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         };
 
         let cond = cells.conditions[opcode.index()].expression.clone();
-
-        // alloc cell
-        let word_a = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
-        let ref_val = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.query_n_cells(DEPTH_OF_ADDRESS_PATH);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -83,18 +76,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
                 cells.locals_index.expression.clone(),
-                word_a_addr_ext_0[i].expression.clone(),
-                word_a_addr_ext_1[i].expression.clone(),
-                word_a[i].expression.clone(),
+                self.word_a_addr_ext_0[i].expression.clone(),
+                self.word_a_addr_ext_1[i].expression.clone(),
+                self.word_a[i].expression.clone(),
             );
 
             lookups.rw_lookups.push((
                 read,
-                cond.clone() * (1.expr() - word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
-        for (i, item) in ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 RWLookup::stack_push(
@@ -109,11 +102,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         }
 
         // ref_val[0] == frame_index && ref_val[1] == locals_index;
-        let mut constraint =
-            cond.clone() * (ref_val[0].expression.clone() - cells.frame_index.expression.clone());
+        let mut constraint = cond.clone()
+            * (self.ref_val[0].expression.clone() - cells.frame_index.expression.clone());
         cb.add_constraint("borrow_locals_ref_eq", constraint);
-        constraint =
-            cond.clone() * (ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+        constraint = cond.clone()
+            * (self.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
         cb.add_constraint("borrow_locals_ref_eq", constraint);
 
         LookupBytecode::lookup_bytecode(
@@ -123,14 +116,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             &mut lookups.bytecode_lookups,
             cond,
         );
-        Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-            ref_val,
-            ref_val_mask,
-        }
     }
 
     fn assign(

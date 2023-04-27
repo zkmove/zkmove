@@ -29,32 +29,28 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
 
     const OPCODE: Opcode = Opcode::CastU8;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
-    ) -> Self {
+    ) {
         let cond = cells.conditions[Opcode::CastU8.index()].expression.clone();
 
-        // alloc cell
-        let value_a = cb.query_cell();
-        let value_c = cb.query_cell();
-        let bytes = cb.query_n_cells(BYTES_NUM);
-
-        let x = value_a.expression.clone();
-        let out = value_c.expression.clone();
+        let x = self.value_a.expression.clone();
+        let out = self.value_c.expression.clone();
 
         // x = out
         let constraint = cond.clone() * (x - out.clone());
         cb.add_constraint("cast u8", constraint);
 
         // range check for out
-        let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
+        let bytes_1 = FieldBytes::from(self.bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
         let constraint = cond.clone() * (out - bytes_1);
         cb.add_constraint("cast u8 range check", constraint);
 
         let unary_op = UnaryOp {
-            value_a: value_a.clone(),
-            value_c: value_c.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb, cond.clone());
         UnaryOp::lookup_unary_op(cells, &unary_op, &mut lookups.rw_lookups, cond.clone());
@@ -65,12 +61,6 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
             &mut lookups.bytecode_lookups,
             cond,
         );
-
-        Self {
-            value_a,
-            value_c,
-            bytes,
-        }
     }
 
     fn assign(
