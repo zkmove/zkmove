@@ -25,30 +25,30 @@ impl<'a, F: FieldExt> ConstraintBuilder<F> {
         (
             //mul_exec_state_sel(self.constraints),
             self.constraints,
-            self.curr.cell_allocator.get_height(),
+            self.curr.cell_manager.get_height(),
         )
     }
 
-    pub(crate) fn query_cell(&mut self) -> Cell<F> {
-        self.query_cell_with_type(CellType::CustomGate)
+    pub(crate) fn alloc_cell(&mut self) -> Cell<F> {
+        self.alloc_cell_with_type(CellType::CustomGate)
     }
 
-    pub(crate) fn query_n_cells(&mut self, count: usize) -> Vec<Cell<F>> {
-        self.query_cells(CellType::CustomGate, count)
+    pub(crate) fn alloc_n_cells(&mut self, count: usize) -> Vec<Cell<F>> {
+        self.alloc_cells(CellType::CustomGate, count)
     }
 
-    pub(crate) fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
-        self.query_cells(cell_type, 1).first().unwrap().clone()
+    pub(crate) fn alloc_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
+        self.alloc_cells(cell_type, 1).first().unwrap().clone()
     }
 
-    fn query_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
+    fn alloc_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
         if self.in_next_step {
             &mut self.next
         } else {
             &mut self.curr
         }
-        .cell_allocator
-        .query_cells(cell_type, count)
+        .cell_manager
+        .allocate_cells(cell_type, count)
     }
 
     pub(crate) fn add_constraints(&mut self, constraints: Vec<(&'static str, Expression<F>)>) {

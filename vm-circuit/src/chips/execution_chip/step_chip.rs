@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
-use crate::chips::execution_chip::utils::{CellAllocator, CellType};
+use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -33,7 +33,7 @@ pub struct StepChipCells<F: FieldExt> {
 #[derive(Debug, Clone)]
 pub struct StepConfig<F: FieldExt> {
     pub cells: StepChipCells<F>,
-    pub cell_allocator: CellAllocator<F>,
+    pub cell_manager: CellManager<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -82,29 +82,29 @@ impl<F: FieldExt> StepChip<F> {
         // state fields and conditions.
         let step_state_height =
             ((NUM_OF_STEP_STATE + Opcode::total_numbers()) + STEP_CHIP_WIDTH - 1) / STEP_CHIP_WIDTH;
-        // dynamic alloc cells with CellAllocator for opcode
+        // dynamic alloc cells with CellManager for opcode
         let height = if is_next {
             step_state_height // Query only the state of the next step.
         } else {
             STEP_HEIGHT // Query the entire current step.
         };
-        let mut cell_allocator = CellAllocator::new(meta, height, &advices, offset);
+        let mut cell_manager = CellManager::new(meta, height, &advices, offset);
         let cells = {
             StepChipCells {
-                pc: cell_allocator.query_cell(CellType::CustomGate),
-                stack_size: cell_allocator.query_cell(CellType::CustomGate),
-                frame_index: cell_allocator.query_cell(CellType::CustomGate),
-                locals_index: cell_allocator.query_cell(CellType::CustomGate),
-                gc: cell_allocator.query_cell(CellType::CustomGate),
-                module_index: cell_allocator.query_cell(CellType::CustomGate),
-                function_index: cell_allocator.query_cell(CellType::CustomGate),
-                auxiliary_1: cell_allocator.query_cell(CellType::CustomGate),
-                auxiliary_2: cell_allocator.query_cell(CellType::CustomGate),
-                auxiliary_3: cell_allocator.query_cell(CellType::CustomGate),
-                auxiliary_4: cell_allocator.query_cell(CellType::CustomGate),
+                pc: cell_manager.alloc_cell(CellType::CustomGate),
+                stack_size: cell_manager.alloc_cell(CellType::CustomGate),
+                frame_index: cell_manager.alloc_cell(CellType::CustomGate),
+                locals_index: cell_manager.alloc_cell(CellType::CustomGate),
+                gc: cell_manager.alloc_cell(CellType::CustomGate),
+                module_index: cell_manager.alloc_cell(CellType::CustomGate),
+                function_index: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_1: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_2: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_3: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_4: cell_manager.alloc_cell(CellType::CustomGate),
 
-                conditions: cell_allocator
-                    .query_cells(CellType::CustomGate, Opcode::total_numbers()),
+                conditions: cell_manager
+                    .allocate_cells(CellType::CustomGate, Opcode::total_numbers()),
             }
         };
 
@@ -113,7 +113,7 @@ impl<F: FieldExt> StepChip<F> {
 
         StepConfig {
             cells,
-            cell_allocator,
+            cell_manager,
         }
     }
 

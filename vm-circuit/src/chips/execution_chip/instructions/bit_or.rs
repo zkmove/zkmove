@@ -92,12 +92,12 @@ impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
 
     fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.query_cell();
-        let value_b = cb.query_cell();
-        let value_c = cb.query_cell();
-        let bytes = cb.query_n_cells(BYTES_NUM);
-        let bytes_operand_1 = cb.query_n_cells(BYTES_NUM);
-        let bytes_operand_2 = cb.query_n_cells(BYTES_NUM);
+        let value_a = cb.alloc_cell();
+        let value_b = cb.alloc_cell();
+        let value_c = cb.alloc_cell();
+        let bytes = cb.alloc_n_cells(BYTES_NUM);
+        let bytes_operand_1 = cb.alloc_n_cells(BYTES_NUM);
+        let bytes_operand_2 = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
             value_a,

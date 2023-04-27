@@ -118,10 +118,10 @@ impl<F: FieldExt> InstructionGadget<F> for CopyLoc<F> {
 
     fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.query_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.query_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
 
         Self {
             word_a,

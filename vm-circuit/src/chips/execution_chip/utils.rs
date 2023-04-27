@@ -43,14 +43,14 @@ impl<F: FieldExt> Expr<F> for CellColumn<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CellAllocator<F: FieldExt> {
+pub struct CellManager<F: FieldExt> {
     //width: usize,
     height: usize,
     cells: Vec<Cell<F>>,
     columns: Vec<CellColumn<F>>,
 }
 
-impl<F: FieldExt> CellAllocator<F> {
+impl<F: FieldExt> CellManager<F> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
         height: usize,
@@ -83,7 +83,7 @@ impl<F: FieldExt> CellAllocator<F> {
         }
     }
 
-    pub(crate) fn query_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
+    pub(crate) fn allocate_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
         let mut cells = Vec::with_capacity(count);
         while cells.len() < count {
             let column_idx = self.next_column(cell_type);
@@ -94,8 +94,8 @@ impl<F: FieldExt> CellAllocator<F> {
         cells
     }
 
-    pub(crate) fn query_cell(&mut self, cell_type: CellType) -> Cell<F> {
-        self.query_cells(cell_type, 1)[0].clone()
+    pub(crate) fn alloc_cell(&mut self, cell_type: CellType) -> Cell<F> {
+        self.allocate_cells(cell_type, 1)[0].clone()
     }
 
     fn next_column(&self, cell_type: CellType) -> usize {
