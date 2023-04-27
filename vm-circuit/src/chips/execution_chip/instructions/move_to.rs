@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word, WordA};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -121,20 +121,20 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // word_a is resource on stack
+        // word is resource on stack
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        let word_a = WordA {
-            word_a: self.word_a.clone(),
-            word_a_mask: self.word_a_mask.clone(),
-            word_a_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_a_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        let word = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
-        Word::assign_word_a(
+        Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            &word_a,
+            &word,
             step.gc,
             word_element_num,
         )?;

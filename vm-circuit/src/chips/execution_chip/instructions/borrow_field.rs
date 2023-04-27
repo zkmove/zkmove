@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word, WordB};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -18,10 +18,10 @@ use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
-    word_b: Vec<Cell<F>>,
-    word_b_mask: Vec<Cell<F>>,
-    word_b_addr_ext_0: Vec<Cell<F>>,
-    word_b_addr_ext_1: Vec<Cell<F>>,
+    word_a: Vec<Cell<F>>,
+    word_a_mask: Vec<Cell<F>>,
+    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext_1: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 }
@@ -69,7 +69,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in self.word_b.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.word_a.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -91,7 +91,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -100,8 +100,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
                 * self.ref_val_mask[i].expression.clone()
-                * (1.expr() - self.word_b_mask[i].expression.clone())
-                * (field_offset.clone() - self.word_b[i].expression.clone());
+                * (1.expr() - self.word_a_mask[i].expression.clone())
+                * (field_offset.clone() - self.word_a[i].expression.clone());
             cb.add_constraint("borrow_field_offset_eq", constraint);
         }
 
@@ -137,18 +137,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             word_element_num,
         )?;
 
-        let word_b = WordB {
-            word_b: self.word_b.clone(),
-            word_b_mask: self.word_b_mask.clone(),
-            word_b_addr_ext_0: self.word_b_addr_ext_0.clone(),
-            word_b_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        let word = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
-        Word::assign_word_b(
+        Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            &word_b,
+            &word,
             step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num + 1, // the last element is field_offset
         )?;
@@ -176,18 +176,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
         Self {
-            word_b,
-            word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
             ref_val,
             ref_val_mask,
         }

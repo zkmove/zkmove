@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word, WordB};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
@@ -20,10 +20,10 @@ use logger::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct Call<F: FieldExt> {
-    word_b: Vec<Cell<F>>,
-    word_b_mask: Vec<Cell<F>>,
-    word_b_addr_ext_0: Vec<Cell<F>>,
-    word_b_addr_ext_1: Vec<Cell<F>>,
+    word_a: Vec<Cell<F>>,
+    word_a_mask: Vec<Cell<F>>,
+    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext_1: Vec<Cell<F>>,
     word_address: Vec<Cell<F>>,
 }
 
@@ -63,16 +63,16 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_a.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
-                    self.word_b_addr_ext_0[i].expression.clone(),
-                    self.word_b_addr_ext_1[i].expression.clone(),
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
                 RWLookup {
@@ -81,12 +81,12 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
                     address: self.word_address[i].expression.clone(),
-                    address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
-                    address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
+                    address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
+                    address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -141,17 +141,17 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
 
-        let word_b = WordB {
-            word_b: self.word_b.clone(),
-            word_b_mask: self.word_b_mask.clone(),
-            word_b_addr_ext_0: self.word_b_addr_ext_0.clone(),
-            word_b_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        let word = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
-        Word::assign_word_b_with_address_and_filter(
+        Word::assign_word_with_address_and_filter(
             region,
             offset,
             rw_operations,
-            &word_b,
+            &word,
             &self.word_address,
             step.gc,
             word_element_num,
@@ -163,17 +163,17 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let word_address = cb.alloc_n_cells(WORD_CAPACITY);
 
         Self {
-            word_b,
-            word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
             word_address,
         }
     }

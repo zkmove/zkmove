@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word, WordA, WordB};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
@@ -138,14 +138,14 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             .assign(region, offset, field_num.value())?;
 
         // assign
-        let word_a = WordA {
-            word_a: self.word_a.clone(),
-            word_a_mask: self.word_a_mask.clone(),
-            word_a_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_a_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        let word_a = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        Word::assign_word_a(
+        Word::assign_word(
             region,
             offset,
             step,
@@ -155,13 +155,13 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             word_element_num,
         )?;
 
-        let word_b = WordB {
-            word_b: self.word_b.clone(),
-            word_b_mask: self.word_b_mask.clone(),
-            word_b_addr_ext_0: self.word_b_addr_ext_0.clone(),
-            word_b_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        let word_b = Word {
+            word: self.word_b.clone(),
+            word_mask: self.word_b_mask.clone(),
+            word_addr_ext_0: self.word_b_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_b_addr_ext_1.clone(),
         };
-        Word::assign_word_b_with_address(
+        Word::assign_word_with_address(
             region,
             offset,
             rw_operations,

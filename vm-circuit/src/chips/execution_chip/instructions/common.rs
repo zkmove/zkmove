@@ -548,19 +548,10 @@ impl<F: FieldExt> LookupBitwise<F> {
 }
 
 pub struct Word<F: FieldExt> {
-    _marker: PhantomData<F>,
-}
-pub struct WordA<F: FieldExt> {
-    pub word_a: Vec<Cell<F>>,
-    pub word_a_mask: Vec<Cell<F>>,
-    pub word_a_addr_ext_0: Vec<Cell<F>>,
-    pub word_a_addr_ext_1: Vec<Cell<F>>,
-}
-pub struct WordB<F: FieldExt> {
-    pub word_b: Vec<Cell<F>>,
-    pub word_b_mask: Vec<Cell<F>>,
-    pub word_b_addr_ext_0: Vec<Cell<F>>,
-    pub word_b_addr_ext_1: Vec<Cell<F>>,
+    pub word: Vec<Cell<F>>,
+    pub word_mask: Vec<Cell<F>>,
+    pub word_addr_ext_0: Vec<Cell<F>>,
+    pub word_addr_ext_1: Vec<Cell<F>>,
 }
 
 pub struct RefVal<F: FieldExt> {
@@ -595,26 +586,26 @@ impl<F: FieldExt> Word<F> {
             .get_lower_128() as usize)
     }
 
-    pub fn assign_word_a(
+    pub fn assign_word(
         region: &mut Region<'_, F>,
         offset: usize,
         _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &WordA<F>,
+        cells: &Word<F>,
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
         // fixme: word_element_num may be large than WORD_CAPACITY
         for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_a[i].assign(region, offset, op.value().value())?;
-            cells.word_a_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_a_addr_ext_0[i].assign(
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_a_addr_ext_1[i].assign(
+            cells.word_addr_ext_1[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_1() as u64)),
@@ -622,55 +613,19 @@ impl<F: FieldExt> Word<F> {
         }
 
         for i in word_element_num..WORD_CAPACITY {
-            cells.word_a_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_a_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_a_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
     }
 
-    pub fn assign_word_b(
+    pub fn assign_word_with_address(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &WordB<F>,
-        op_index: usize,
-        word_element_num: usize,
-    ) -> Result<(), Error> {
-        // fixme: word_element_num may be large than WORD_CAPACITY
-        for i in 0..word_element_num {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_b[i].assign(region, offset, op.value().value())?;
-            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_0[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_0() as u64)),
-            )?;
-            cells.word_b_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
-        }
-
-        for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-        }
-
-        Ok(())
-    }
-
-    pub fn assign_word_b_with_address(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        // _step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
-        cells: &WordB<F>,
+        cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
@@ -678,14 +633,14 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address.iter().enumerate().take(word_element_num) {
             // for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_b[i].assign(region, offset, op.value().value())?;
-            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_0[i].assign(
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_b_addr_ext_1[i].assign(
+            cells.word_addr_ext_1[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_1() as u64)),
@@ -699,10 +654,9 @@ impl<F: FieldExt> Word<F> {
             .take(WORD_CAPACITY)
             .skip(word_element_num)
         {
-            //for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
         }
 
@@ -710,12 +664,11 @@ impl<F: FieldExt> Word<F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn assign_word_b_with_address_and_filter(
+    pub fn assign_word_with_address_and_filter(
         region: &mut Region<'_, F>,
         offset: usize,
-        // _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &WordB<F>,
+        cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
@@ -727,14 +680,14 @@ impl<F: FieldExt> Word<F> {
 
         while i < word_element_num {
             if op.rw() == filter {
-                cells.word_b[i].assign(region, offset, op.value().value())?;
-                cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-                cells.word_b_addr_ext_0[i].assign(
+                cells.word[i].assign(region, offset, op.value().value())?;
+                cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+                cells.word_addr_ext_0[i].assign(
                     region,
                     offset,
                     Some(F::from(op.address_ext_0() as u64)),
                 )?;
-                cells.word_b_addr_ext_1[i].assign(
+                cells.word_addr_ext_1[i].assign(
                     region,
                     offset,
                     Some(F::from(op.address_ext_1() as u64)),
@@ -754,10 +707,9 @@ impl<F: FieldExt> Word<F> {
             .take(WORD_CAPACITY)
             .skip(word_element_num)
         {
-            //for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
         }
 
