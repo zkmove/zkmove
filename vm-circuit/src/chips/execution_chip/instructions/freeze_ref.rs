@@ -73,7 +73,7 @@ impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
         Ok(())
     }
 
-    fn probe(_cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(_cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
             _marker: PhantomData,
         }

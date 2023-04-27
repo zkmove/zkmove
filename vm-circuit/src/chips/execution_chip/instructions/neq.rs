@@ -92,7 +92,7 @@ impl<F: FieldExt> InstructionGadget<F> for Neq<F> {
         )
     }
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
         let value_b = cb.alloc_cell();

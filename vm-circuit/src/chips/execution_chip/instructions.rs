@@ -84,5 +84,5 @@ pub(crate) trait InstructionGadget<F: FieldExt> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error>;
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self;
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
 }

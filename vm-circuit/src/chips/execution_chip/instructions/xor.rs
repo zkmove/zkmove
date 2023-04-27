@@ -90,7 +90,7 @@ impl<F: FieldExt> InstructionGadget<F> for Xor<F> {
         Ok(())
     }
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
         let value_b = cb.alloc_cell();

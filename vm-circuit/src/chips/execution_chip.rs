@@ -267,7 +267,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             let dummy_step_next = StepChip::configure(meta, advices, STEP_HEIGHT, true);
             let mut dummy_cb =
                 ConstraintBuilder::new(step_curr.clone(), dummy_step_next, G::OPCODE);
-            let gadget = G::probe(&mut dummy_cb);
+            let gadget = G::construct(&mut dummy_cb);
             let (_, height) = dummy_cb.build();
             (gadget, height)
         };

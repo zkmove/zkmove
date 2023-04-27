@@ -174,7 +174,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
         Ok(())
     }
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let word_b = cb.alloc_n_cells(WORD_CAPACITY);
         let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);

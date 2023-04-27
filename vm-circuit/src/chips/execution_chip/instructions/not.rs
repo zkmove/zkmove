@@ -72,7 +72,7 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)
     }
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
         let value_c = cb.alloc_cell();

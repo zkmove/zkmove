@@ -150,7 +150,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
         Ok(())
     }
 
-    fn probe(cb: &mut ConstraintBuilder<F>) -> Self {
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
         let word_a = cb.alloc_n_cells(WORD_CAPACITY);
