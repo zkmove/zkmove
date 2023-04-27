@@ -286,7 +286,6 @@ impl<F: FieldExt> LookupTableConfig<F> {
     pub fn assign(
         layouter: &mut impl Layouter<F>,
         execution_chip: &ExecutionChip<F>,
-        lookup_table: &LookupTableConfig<F>,
     ) -> Result<
         (
             Vec<ConvertedRWOperation<F>>,
@@ -301,6 +300,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
         let mut global_operations: Vec<ConvertedRWOperation<F>> = (&sorted_global_ops).into();
 
+        let lookup_table = &execution_chip.config.lookup_table;
         for (column_idx, column) in lookup_table.rw_table.columns().into_iter().enumerate() {
             layouter.assign_region(
                 || format!("rw_table[{}]", column_idx),

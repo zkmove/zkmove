@@ -52,12 +52,13 @@ use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
@@ -136,6 +137,9 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_call_generic: Box<CallGeneric<F>>,
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
+
+    // lookup table
+    lookup_table: LookupTableConfig<F>,
 }
 
 #[derive(Clone, Debug)]
@@ -166,10 +170,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         Self { witness, config }
     }
 
-    pub fn configure(
-        meta: &mut ConstraintSystem<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) -> <Self as Chip<F>>::Config {
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
 
         let s_step = meta.complex_selector();
@@ -178,11 +179,13 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         let mut height_map = HashMap::new();
 
+        let mut lookups = LookupsWithCondition::new();
+
         macro_rules! configure_opcode_gadget {
             () => {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
-                    lookups,
+                    &mut lookups,
                     advices,
                     s_step,
                     &step_curr,
@@ -250,6 +253,8 @@ impl<F: FieldExt> ExecutionChip<F> {
 
             step: step_curr,
             height_map,
+
+            lookup_table: LookupTableConfig::configure(meta, &lookups, s_step),
         }
     }
 
@@ -343,7 +348,15 @@ impl<F: FieldExt> ExecutionChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-    ) -> Result<Option<AssignedCell<F, F>>, Error> {
+    ) -> Result<
+        (
+            Option<AssignedCell<F, F>>,
+            Vec<ConvertedRWOperation<F>>,
+            Vec<ConvertedRWOperation<F>>,
+            Vec<ConvertedRWOperation<F>>,
+        ),
+        Error,
+    > {
         let step_chip = StepChip::<F>::construct(self.config.step.clone(), ());
         let exec_steps = self.witness.process_exec_steps()?;
         let mut gc_cell = None;
@@ -376,7 +389,15 @@ impl<F: FieldExt> ExecutionChip<F> {
         )?;
         let last_step_gc_cell = gc_cell;
 
-        Ok(last_step_gc_cell)
+        let (stack_operations, locals_operations, global_operations) =
+            LookupTableConfig::assign(layouter, self)?;
+
+        Ok((
+            last_step_gc_cell,
+            stack_operations,
+            locals_operations,
+            global_operations,
+        ))
     }
 
     fn step_height_get(&self, opcode: &Opcode) -> usize {
