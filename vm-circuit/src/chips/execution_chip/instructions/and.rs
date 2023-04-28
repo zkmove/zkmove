@@ -1,43 +1,55 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::Expr;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
-use std::marker::PhantomData;
+use halo2_proofs::plonk::Error;
 
+#[derive(Clone, Debug)]
 pub struct And<F: FieldExt> {
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
+    value_b: Cell<F>,
+    value_c: Cell<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for And<F> {
+impl<F: FieldExt> InstructionGadget<F> for And<F> {
+    const NAME: &'static str = "AND";
+
+    const OPCODE: Opcode = Opcode::And;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::And.index()].expression.clone();
 
-        let lhs = cells.value_a.expression.clone();
-        let rhs = cells.value_b.expression.clone();
-        let out = cells.value_c.expression.clone();
+        let lhs = self.value_a.expression.clone();
+        let rhs = self.value_b.expression.clone();
+        let out = self.value_c.expression.clone();
 
         // out is 0 or 1
         let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
-        constraints.push(("out value is bool", constraint));
+        cb.add_constraint("out value is bool", constraint);
 
         let constraint = cond.clone() * (lhs * rhs - out);
-        constraints.push(("And", constraint));
+        cb.add_constraint("And", constraint);
 
-        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        let binary_op = BinaryOp {
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
+        };
+        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
+        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::And,
@@ -48,12 +60,31 @@ impl<F: FieldExt> Instructions<F> for And<F> {
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)
+        let binary_op = BinaryOp {
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
+        };
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.alloc_cell();
+        let value_b = cb.alloc_cell();
+        let value_c = cb.alloc_cell();
+
+        Self {
+            value_a,
+            value_b,
+            value_c,
+        }
     }
 }

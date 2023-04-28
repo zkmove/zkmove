@@ -1,49 +1,65 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
-use crate::chips::utilities::Expr;
+use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct Pack<F: FieldExt> {
-    _marker: PhantomData<F>,
+    word_a: Vec<Cell<F>>,
+    word_a_mask: Vec<Cell<F>>,
+    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext_1: Vec<Cell<F>>,
+    word_b: Vec<Cell<F>>,
+    word_b_mask: Vec<Cell<F>>,
+    word_b_addr_ext_0: Vec<Cell<F>>,
+    word_b_addr_ext_1: Vec<Cell<F>>,
+    word_address: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> Instructions<F> for Pack<F> {
+impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
+    const NAME: &'static str = "PACK";
+
+    const OPCODE: Opcode = Opcode::Pack;
+
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Pack
         let cond = cells.conditions[Opcode::Pack.index()].expression.clone();
+
         let field_num = cells.auxiliary_1.expression.clone();
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
+            - cb.next.cells.stack_size.expression.clone()
             - field_num.clone()
             + 1.expr();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let word_element_num = cells.auxiliary_3.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + word_element_num.clone() * 2.expr();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -52,31 +68,31 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in cells.word_b.clone().iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::READ as u64).expr(),
                     frame_index: 0.expr(),
-                    address: cells.word_address[i].expression.clone(),
-                    address_ext_0: cells.word_b_addr_ext_0[i].expression.clone(),
-                    address_ext_1: cells.word_b_addr_ext_1[i].expression.clone(),
+                    address: self.word_address[i].expression.clone(),
+                    address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
+                    address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
                 RWLookup::stack_push(
                     cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - field_num.clone(),
-                    cells.word_a_addr_ext_0[i].expression.clone(),
-                    cells.word_a_addr_ext_1[i].expression.clone(),
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -84,15 +100,15 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
         // word_b.address_ext_0 is equal to word_a.address_ext_1
         for i in 0..WORD_CAPACITY {
             let constraint = cond.clone()
-                * cells.word_a_mask[i].expression.clone()
-                * (cells.word_address[i].expression.clone()
-                    - cells.word_a_addr_ext_0[i].expression.clone());
-            constraints.push(("pack_address_eq", constraint));
+                * self.word_a_mask[i].expression.clone()
+                * (self.word_address[i].expression.clone()
+                    - self.word_a_addr_ext_0[i].expression.clone());
+            cb.add_constraint("pack_address_eq", constraint);
             let constraint = cond.clone()
-                * cells.word_a_mask[i].expression.clone()
-                * (cells.word_b_addr_ext_0[i].expression.clone()
-                    - cells.word_a_addr_ext_1[i].expression.clone());
-            constraints.push(("pack_address_ext_0_eq", constraint));
+                * self.word_a_mask[i].expression.clone()
+                * (self.word_b_addr_ext_0[i].expression.clone()
+                    - self.word_a_addr_ext_1[i].expression.clone());
+            cb.add_constraint("pack_address_ext_0_eq", constraint);
         }
 
         LookupBytecode::lookup_bytecode(
@@ -105,6 +121,7 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -120,22 +137,35 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
             .assign(region, offset, field_num.value())?;
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        Word::assign_word_b_with_address(
+
+        let word_b = Word {
+            word: self.word_b.clone(),
+            word_mask: self.word_b_mask.clone(),
+            word_addr_ext_0: self.word_b_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        };
+        Word::assign_word_with_address(
             region,
             offset,
-            step,
             rw_operations,
-            cells,
+            &word_b,
+            &self.word_address,
             step.gc,
             word_element_num,
         )?;
 
-        Word::assign_word_a(
+        let word_a = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        };
+        Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &word_a,
             step.gc + word_element_num,
             word_element_num,
         )?;
@@ -147,5 +177,30 @@ impl<F: FieldExt> Instructions<F> for Pack<F> {
         cells.auxiliary_2.assign(region, offset, sd_idx.value())?;
 
         Ok(())
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_address = cb.alloc_n_cells(WORD_CAPACITY);
+
+        Self {
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
+            word_b,
+            word_b_mask,
+            word_b_addr_ext_0,
+            word_b_addr_ext_1,
+            word_address,
+        }
     }
 }

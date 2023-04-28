@@ -33,6 +33,7 @@ impl BytecodeLookupTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BytecodeLookup<F: FieldExt> {
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,

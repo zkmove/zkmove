@@ -40,6 +40,7 @@ impl CallLookupTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct CallLookup<F: FieldExt> {
     pub type_: Expression<F>,
     pub module_index: Expression<F>,

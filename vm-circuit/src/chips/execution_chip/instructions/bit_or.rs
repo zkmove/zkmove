@@ -1,40 +1,61 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBitwise, LookupBytecode};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::Expr;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
-use std::marker::PhantomData;
+use halo2_proofs::plonk::Error;
 
+#[derive(Clone, Debug)]
 pub struct BitOr<F: FieldExt> {
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
+    value_b: Cell<F>,
+    value_c: Cell<F>,
+    bytes: Vec<Cell<F>>,
+    bytes_operand_1: Vec<Cell<F>>,
+    bytes_operand_2: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> Instructions<F> for BitOr<F> {
+impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
+    const NAME: &'static str = "BITOR";
+
+    const OPCODE: Opcode = Opcode::BitOr;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //bit and
         let cond = cells.conditions[Opcode::BitOr.index()].expression.clone();
 
+        let lookup_bitwise = LookupBitwise {
+            bytes: self.bytes.clone(),
+            bytes_operand_1: self.bytes_operand_1.clone(),
+            bytes_operand_2: self.bytes_operand_2.clone(),
+        };
         LookupBitwise::lookup_bitwise(
-            cells,
+            &lookup_bitwise,
             Opcode::BitOr,
             &mut lookups.bitwise_lookups,
             cond.clone(),
         );
 
-        BinaryOp::constrain_binary_op(cells, constraints, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        let binary_op = BinaryOp {
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
+        };
+        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
+        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::BitOr,
@@ -45,15 +66,46 @@ impl<F: FieldExt> Instructions<F> for BitOr<F> {
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        BinaryOp::assign_binary_op(region, offset, step, rw_operations, cells)?;
-        BinaryOp::assign_bitwise_op(region, offset, step, rw_operations, cells)?;
+        let binary_op = BinaryOp {
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
+        };
+        BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
+
+        let lookup_bitwise = LookupBitwise {
+            bytes: self.bytes.clone(),
+            bytes_operand_1: self.bytes_operand_1.clone(),
+            bytes_operand_2: self.bytes_operand_2.clone(),
+        };
+        BinaryOp::assign_bitwise_op(region, offset, step, rw_operations, &lookup_bitwise)?;
 
         Ok(())
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.alloc_cell();
+        let value_b = cb.alloc_cell();
+        let value_c = cb.alloc_cell();
+        let bytes = cb.alloc_n_cells(BYTES_NUM);
+        let bytes_operand_1 = cb.alloc_n_cells(BYTES_NUM);
+        let bytes_operand_2 = cb.alloc_n_cells(BYTES_NUM);
+
+        Self {
+            value_a,
+            value_b,
+            value_c,
+            bytes,
+            bytes_operand_1,
+            bytes_operand_2,
+        }
     }
 }

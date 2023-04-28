@@ -1,28 +1,44 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::*;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
-    _marker: PhantomData<F>,
+    word_a: Vec<Cell<F>>,
+    word_a_mask: Vec<Cell<F>>,
+    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext_1: Vec<Cell<F>>,
+    ref_val: Vec<Cell<F>>,
+    ref_val_mask: Vec<Cell<F>>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, F> {
+impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTABLE, F> {
+    const NAME: &'static str = "BORROWFIELD";
+
+    const OPCODE: Opcode = if MUTABLE {
+        Opcode::MutBorrowField
+    } else {
+        Opcode::ImmBorrowField
+    };
+
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let opcode = if MUTABLE {
@@ -32,19 +48,19 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         };
         let cond = cells.conditions[opcode.index()].expression.clone();
 
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
-            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
+            cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone()
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr() * depth_of_addr_path_expr.clone();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -53,13 +69,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in cells
-            .word_b
-            .clone()
-            .iter()
-            .enumerate()
-            .take(DEPTH_OF_ADDRESS_PATH)
-        {
+        for (i, item) in self.word_a.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -68,7 +78,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.ref_val_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
@@ -81,7 +91,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone() * (1.expr() - cells.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
         }
 
@@ -89,10 +99,10 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         let field_offset = cells.auxiliary_2.expression.clone();
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
-                * cells.ref_val_mask[i].expression.clone()
-                * (1.expr() - cells.word_b_mask[i].expression.clone())
-                * (field_offset.clone() - cells.word_b[i].expression.clone());
-            constraints.push(("borrow_field_offset_eq", constraint));
+                * self.ref_val_mask[i].expression.clone()
+                * (1.expr() - self.word_a_mask[i].expression.clone())
+                * (field_offset.clone() - self.word_a[i].expression.clone());
+            cb.add_constraint("borrow_field_offset_eq", constraint);
         }
 
         LookupBytecode::lookup_bytecode(
@@ -105,6 +115,7 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -112,22 +123,32 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let ref_val = RefVal {
+            ref_val: self.ref_val.clone(),
+            ref_val_mask: self.ref_val_mask.clone(),
+        };
         Word::assign_ref_val(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &ref_val,
             step.gc,
             word_element_num,
         )?;
 
-        Word::assign_word_b(
+        let word = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        };
+        Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            cells,
+            &word,
             step.gc + DEPTH_OF_ADDRESS_PATH,
             word_element_num + 1, // the last element is field_offset
         )?;
@@ -151,5 +172,24 @@ impl<const MUTABLE: bool, F: FieldExt> Instructions<F> for BorrowField<MUTABLE, 
             .assign(region, offset, field_offset.value())?;
 
         Ok(())
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+
+        Self {
+            word_a,
+            word_a_mask,
+            word_a_addr_ext_0,
+            word_a_addr_ext_1,
+            ref_val,
+            ref_val_mask,
+        }
     }
 }

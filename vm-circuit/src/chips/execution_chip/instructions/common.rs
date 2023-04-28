@@ -3,8 +3,10 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_chip::{StepChipCells, WORD_CAPACITY};
-use crate::chips::utilities::{DeltaInvert, Expr, FieldBytes};
+use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
@@ -20,28 +22,31 @@ use movelang::value::{
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
-    _marker: PhantomData<F>,
+    pub value_a: Cell<F>,
+    pub value_b: Cell<F>,
+    pub value_c: Cell<F>,
 }
 
 impl<F: FieldExt> BinaryOp<F> {
-    pub fn constrain_binary_op(
+    pub(crate) fn constrain_binary_op(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
     ) {
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
+            - cb.next.cells.stack_size.expression.clone()
             - 1.expr();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 3.expr();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 3.expr();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -53,6 +58,7 @@ impl<F: FieldExt> BinaryOp<F> {
 
     pub fn lookup_binary_op(
         cells: &StepChipCells<F>,
+        binary_op: &BinaryOp<F>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
@@ -62,7 +68,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                cells.value_b.expression.clone(),
+                binary_op.value_b.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -72,7 +78,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 0.expr(),
-                cells.value_a.expression.clone(),
+                binary_op.value_a.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -82,7 +88,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.stack_size.expression.clone() - 2.expr(),
                 0.expr(),
                 0.expr(),
-                cells.value_c.expression.clone(),
+                binary_op.value_c.expression.clone(),
             ),
             cond,
         ));
@@ -93,19 +99,25 @@ impl<F: FieldExt> BinaryOp<F> {
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_b.assign(region, offset, op.value().value())?;
+        binary_op
+            .value_b
+            .assign(region, offset, op.value().value())?;
 
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        binary_op
+            .value_a
+            .assign(region, offset, op.value().value())?;
 
         let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        binary_op
+            .value_c
+            .assign(region, offset, op.value().value())?;
 
         Ok(())
     }
@@ -116,8 +128,9 @@ impl<F: FieldExt> BinaryOp<F> {
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
+        binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
-        Self::assign_binary_op(region, offset, step, rw_operations, cells)?;
+        Self::assign_binary_op(region, offset, step, rw_operations, binary_op)?;
 
         let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
             error!("auxiliary_1 is None");
@@ -135,7 +148,7 @@ impl<F: FieldExt> BinaryOp<F> {
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        lookup_bitwise: &LookupBitwise<F>,
     ) -> Result<(), Error> {
         // store operand 1 at bytes_operand_1 cell.
         // every 4 bits within one cell and cost 16 cells.
@@ -151,7 +164,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in cells.bytes_operand_1.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
@@ -183,7 +196,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in cells.bytes_operand_2.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
@@ -215,7 +228,7 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in cells.bytes.iter().take(16).enumerate() {
+        for (index, byte) in lookup_bitwise.bytes.iter().take(16).enumerate() {
             // seperate one byte into 2 fields
             // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
@@ -238,26 +251,27 @@ impl<F: FieldExt> BinaryOp<F> {
 }
 
 pub struct UnaryOp<F: FieldExt> {
-    _marker: PhantomData<F>,
+    pub value_a: Cell<F>,
+    pub value_c: Cell<F>,
 }
 
 impl<F: FieldExt> UnaryOp<F> {
-    pub fn constrain_unary_op(
+    pub(crate) fn constrain_unary_op(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
     ) {
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
-            cells.stack_size.expression.clone() - cells.next_stack_size.expression.clone();
+            cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 2.expr();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -269,6 +283,7 @@ impl<F: FieldExt> UnaryOp<F> {
 
     pub fn lookup_unary_op(
         cells: &StepChipCells<F>,
+        unary_op: &UnaryOp<F>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
@@ -278,7 +293,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                cells.value_a.expression.clone(),
+                unary_op.value_a.expression.clone(),
             ),
             cond.clone(),
         ));
@@ -288,7 +303,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 0.expr(),
-                cells.value_c.expression.clone(),
+                unary_op.value_c.expression.clone(),
             ),
             cond,
         ));
@@ -299,15 +314,19 @@ impl<F: FieldExt> UnaryOp<F> {
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        unary_op: &UnaryOp<F>,
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        cells.value_a.assign(region, offset, op.value().value())?;
+        unary_op
+            .value_a
+            .assign(region, offset, op.value().value())?;
 
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        cells.value_c.assign(region, offset, op.value().value())?;
+        unary_op
+            .value_c
+            .assign(region, offset, op.value().value())?;
 
         Ok(())
     }
@@ -318,23 +337,23 @@ pub struct LoadOp<F: FieldExt> {
 }
 
 impl<F: FieldExt> LoadOp<F> {
-    pub fn constrain_ld_op(
+    pub(crate) fn constrain_ld_op(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
     ) {
-        let pc_expr = cells.pc.expression.clone() - cells.next_pc.expression.clone() + 1.expr();
+        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
-            - cells.next_stack_size.expression.clone()
+            - cb.next.cells.stack_size.expression.clone()
             + 1.expr();
         let frame_index_expr =
-            cells.frame_index.expression.clone() - cells.next_frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone() + 1.expr();
+            cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 1.expr();
         let module_index =
-            cells.module_index.expression.clone() - cells.next_module_index.expression.clone();
-        let func_index =
-            cells.function_index.expression.clone() - cells.next_function_index.expression.clone();
-        constraints.append(&mut vec![
+            cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
+        let func_index = cells.function_index.expression.clone()
+            - cb.next.cells.function_index.expression.clone();
+        cb.add_constraints(vec![
             ("pc", cond.clone() * pc_expr),
             ("stack size", cond.clone() * stack_size_expr),
             ("frame index", cond.clone() * frame_index_expr),
@@ -346,6 +365,7 @@ impl<F: FieldExt> LoadOp<F> {
 
     pub fn lookup_ld_op(
         cells: &StepChipCells<F>,
+        value_a: &Cell<F>,
         rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
@@ -355,7 +375,7 @@ impl<F: FieldExt> LoadOp<F> {
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                cells.value_a.expression.clone(),
+                value_a.expression.clone(),
             ),
             cond,
         ));
@@ -392,9 +412,10 @@ pub struct ArithOverflow<F: FieldExt> {
 }
 
 impl<F: FieldExt> ArithOverflow<F> {
-    pub fn constrain_range_check(
+    pub(crate) fn constrain_range_check(
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        bytes: Vec<Cell<F>>,
+        cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
         out: Expression<F>,
     ) {
@@ -402,9 +423,9 @@ impl<F: FieldExt> ArithOverflow<F> {
         // if bytes_len = NUM_OF_BYTES_U8, then bytes_1 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
-        let bytes_1 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
-        let bytes_8 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
-        let bytes_16 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U128);
+        let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
+        let bytes_8 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
+        let bytes_16 = FieldBytes::from(bytes).expr_with_n(NUM_OF_BYTES_U128);
 
         let num_of_bytes = cells.auxiliary_1.expression.clone();
         let delta_inverse_1 = cells.auxiliary_2.expression.clone();
@@ -421,11 +442,11 @@ impl<F: FieldExt> ArithOverflow<F> {
             * (1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
-        constraints.push(("range check 1", constraint_1));
+        cb.add_constraint("range check 1", constraint_1);
         let constraint_8 = cond_8 * (bytes_8 - out.clone());
-        constraints.push(("range check 8", constraint_8));
+        cb.add_constraint("range check 8", constraint_8);
         let constraint_16 = cond_16 * (bytes_16 - out);
-        constraints.push(("range check 16", constraint_16));
+        cb.add_constraint("range check 16", constraint_16);
     }
 
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.
@@ -454,6 +475,7 @@ impl<F: FieldExt> ArithOverflow<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         cells: &StepChipCells<F>,
+        bytes: Vec<Cell<F>>,
         value: Value<F>,
     ) -> Result<(), Error> {
         // assign value into bytes
@@ -466,7 +488,7 @@ impl<F: FieldExt> ArithOverflow<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in cells.bytes.iter().enumerate() {
+        for (index, byte) in bytes.iter().enumerate() {
             byte.assign(region, offset, Some(F::from(value_bytes[index] as u64)))?;
         }
 
@@ -497,12 +519,14 @@ impl<F: FieldExt> ArithOverflow<F> {
 }
 
 pub struct LookupBitwise<F: FieldExt> {
-    _marker: PhantomData<F>,
+    pub bytes: Vec<Cell<F>>,
+    pub bytes_operand_1: Vec<Cell<F>>,
+    pub bytes_operand_2: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> LookupBitwise<F> {
     pub fn lookup_bitwise(
-        cells: &StepChipCells<F>,
+        cells: &LookupBitwise<F>,
         opcode: Opcode,
         bitwise_lookups: &mut Vec<(BitwiseLookup<F>, Expression<F>)>,
         cond: Expression<F>,
@@ -524,7 +548,15 @@ impl<F: FieldExt> LookupBitwise<F> {
 }
 
 pub struct Word<F: FieldExt> {
-    _marker: PhantomData<F>,
+    pub word: Vec<Cell<F>>,
+    pub word_mask: Vec<Cell<F>>,
+    pub word_addr_ext_0: Vec<Cell<F>>,
+    pub word_addr_ext_1: Vec<Cell<F>>,
+}
+
+pub struct RefVal<F: FieldExt> {
+    pub ref_val: Vec<Cell<F>>,
+    pub ref_val_mask: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> Word<F> {
@@ -554,26 +586,26 @@ impl<F: FieldExt> Word<F> {
             .get_lower_128() as usize)
     }
 
-    pub fn assign_word_a(
+    pub fn assign_word(
         region: &mut Region<'_, F>,
         offset: usize,
         _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        cells: &Word<F>,
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
         // fixme: word_element_num may be large than WORD_CAPACITY
         for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_a[i].assign(region, offset, op.value().value())?;
-            cells.word_a_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_a_addr_ext_0[i].assign(
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_a_addr_ext_1[i].assign(
+            cells.word_addr_ext_1[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_1() as u64)),
@@ -581,92 +613,63 @@ impl<F: FieldExt> Word<F> {
         }
 
         for i in word_element_num..WORD_CAPACITY {
-            cells.word_a_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_a_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_a_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
     }
 
-    pub fn assign_word_b(
+    pub fn assign_word_with_address(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        cells: &Word<F>,
+        word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        // fixme: word_element_num may be large than WORD_CAPACITY
-        for i in 0..word_element_num {
+        for (i, item) in word_address.iter().enumerate().take(word_element_num) {
+            // for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_b[i].assign(region, offset, op.value().value())?;
-            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_0[i].assign(
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_b_addr_ext_1[i].assign(
+            cells.word_addr_ext_1[i].assign(
                 region,
                 offset,
                 Some(F::from(op.address_ext_1() as u64)),
             )?;
+            item.assign(region, offset, Some(F::from(op.address() as u64)))?;
         }
 
-        for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-        }
-
-        Ok(())
-    }
-
-    pub fn assign_word_b_with_address(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        _step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
-        op_index: usize,
-        word_element_num: usize,
-    ) -> Result<(), Error> {
-        for i in 0..word_element_num {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word_b[i].assign(region, offset, op.value().value())?;
-            cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_0[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_0() as u64)),
-            )?;
-            cells.word_b_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
-            cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
-        }
-
-        for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_address[i].assign(region, offset, Some(F::zero()))?;
+        for (i, item) in word_address
+            .iter()
+            .enumerate()
+            .take(WORD_CAPACITY)
+            .skip(word_element_num)
+        {
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            item.assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn assign_word_b_with_address_and_filter(
+    pub fn assign_word_with_address_and_filter(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        cells: &Word<F>,
+        word_address: &[Cell<F>],
         op_index: usize,
         word_element_num: usize,
         filter: RW,
@@ -677,20 +680,20 @@ impl<F: FieldExt> Word<F> {
 
         while i < word_element_num {
             if op.rw() == filter {
-                cells.word_b[i].assign(region, offset, op.value().value())?;
-                cells.word_b_mask[i].assign(region, offset, Some(F::zero()))?;
-                cells.word_b_addr_ext_0[i].assign(
+                cells.word[i].assign(region, offset, op.value().value())?;
+                cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+                cells.word_addr_ext_0[i].assign(
                     region,
                     offset,
                     Some(F::from(op.address_ext_0() as u64)),
                 )?;
-                cells.word_b_addr_ext_1[i].assign(
+                cells.word_addr_ext_1[i].assign(
                     region,
                     offset,
                     Some(F::from(op.address_ext_1() as u64)),
                 )?;
                 // assign index of Locals to word_address
-                cells.word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
+                word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
 
                 i += 1;
             }
@@ -698,11 +701,16 @@ impl<F: FieldExt> Word<F> {
             op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         }
 
-        for i in word_element_num..WORD_CAPACITY {
-            cells.word_b_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_b_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_b_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_address[i].assign(region, offset, Some(F::zero()))?;
+        for (i, item) in word_address
+            .iter()
+            .enumerate()
+            .take(WORD_CAPACITY)
+            .skip(word_element_num)
+        {
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            item.assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
@@ -713,7 +721,7 @@ impl<F: FieldExt> Word<F> {
         offset: usize,
         _step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        cells: &RefVal<F>,
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {

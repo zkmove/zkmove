@@ -1,46 +1,59 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, UnaryOp};
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::utilities::{Expr, FieldBytes};
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U64;
 use std::convert::TryInto;
-use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct CastU64<F: FieldExt> {
-    _marker: PhantomData<F>,
+    value_a: Cell<F>,
+    value_c: Cell<F>,
+    bytes: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> Instructions<F> for CastU64<F> {
+impl<F: FieldExt> InstructionGadget<F> for CastU64<F> {
+    const NAME: &'static str = "CASTU64";
+
+    const OPCODE: Opcode = Opcode::CastU64;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::CastU64.index()].expression.clone();
-        let x = cells.value_a.expression.clone();
-        let out = cells.value_c.expression.clone();
+
+        let x = self.value_a.expression.clone();
+        let out = self.value_c.expression.clone();
 
         // x = out
         let constraint = cond.clone() * (x - out.clone());
-        constraints.push(("cast u64", constraint));
+        cb.add_constraint("cast u64", constraint);
 
         // range check for out
-        let bytes_8 = FieldBytes::from(cells.bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
+        let bytes_8 = FieldBytes::from(self.bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
         let constraint = cond.clone() * (out - bytes_8);
-        constraints.push(("cast u64 range check", constraint));
+        cb.add_constraint("cast u64 range check", constraint);
 
-        UnaryOp::constrain_unary_op(cells, constraints, cond.clone());
-        UnaryOp::lookup_unary_op(cells, &mut lookups.rw_lookups, cond.clone());
+        let unary_op = UnaryOp {
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
+        };
+        UnaryOp::constrain_unary_op(cells, cb, cond.clone());
+        UnaryOp::lookup_unary_op(cells, &unary_op, &mut lookups.rw_lookups, cond.clone());
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::CastU64,
@@ -51,13 +64,19 @@ impl<F: FieldExt> Instructions<F> for CastU64<F> {
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
+        _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        UnaryOp::assign_unary_op(region, offset, step, rw_operations, cells)?;
+        let unary_op = UnaryOp {
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
+        };
+
+        UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         let cast_result = op.value().value().ok_or_else(|| {
@@ -70,10 +89,23 @@ impl<F: FieldExt> Instructions<F> for CastU64<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in cells.bytes.iter().enumerate() {
+        for (index, byte) in self.bytes.iter().enumerate() {
             byte.assign(region, offset, Some(F::from(result_bytes[index] as u64)))?;
         }
 
         Ok(())
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let value_a = cb.alloc_cell();
+        let value_c = cb.alloc_cell();
+        let bytes = cb.alloc_n_cells(BYTES_NUM);
+
+        Self {
+            value_a,
+            value_c,
+            bytes,
+        }
     }
 }

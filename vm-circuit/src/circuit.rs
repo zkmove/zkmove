@@ -1,5 +1,4 @@
 // Copyright (c) zkMove Authors
-
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
@@ -45,6 +44,7 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
             ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
         let (last_step_gc_cell_opt, stack_operations, locals_operations, global_operations) =
             execution_chip.assign(&mut layouter)?;
+
         let last_step_gc_cell = last_step_gc_cell_opt.ok_or_else(|| {
             error!("last step gc cell is None");
             Error::Synthesis

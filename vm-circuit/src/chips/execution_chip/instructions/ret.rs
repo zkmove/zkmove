@@ -1,29 +1,35 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
-use crate::chips::execution_chip::instructions::Instructions;
+use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Expr, SubInvert};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 
+#[derive(Clone, Debug)]
 pub struct Ret<F: FieldExt> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Instructions<F> for Ret<F> {
+impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
+    const NAME: &'static str = "RET";
+
+    const OPCODE: Opcode = Opcode::Ret;
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
         let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
@@ -38,11 +44,11 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
         // frame_index * inverse(frame_index) != 1
         // next_pc == pc
         let pc_expr = (frame_index.clone() * inverse.clone() - 1.expr())
-            * (cells.next_pc.expression.clone() - cells.pc.expression.clone());
+            * (cb.next.cells.pc.expression.clone() - cells.pc.expression.clone());
 
         // gc should not change
-        let gc_expr = cells.gc.expression.clone() - cells.next_gc.expression.clone();
-        constraints.append(&mut vec![
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone();
+        cb.add_constraints(vec![
             ("frame_index", cond.clone() * frame_index_expr),
             ("pc", cond.clone() * pc_expr),
             ("gc", cond.clone() * gc_expr),
@@ -57,9 +63,9 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
                 module_index: cells.module_index.expression.clone(),
                 function_index: cells.function_index.expression.clone(),
                 pc: cells.pc.expression.clone(),
-                next_module_index: cells.next_module_index.expression.clone(),
-                next_function_index: cells.next_function_index.expression.clone(),
-                next_pc: cells.next_pc.expression.clone(),
+                next_module_index: cb.next.cells.module_index.expression.clone(),
+                next_function_index: cb.next.cells.function_index.expression.clone(),
+                next_pc: cb.next.cells.pc.expression.clone(),
             },
             frame_index * inverse * cond.clone(), // only take effect when frame_index != 0
         ));
@@ -74,6 +80,7 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
     }
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
@@ -85,5 +92,11 @@ impl<F: FieldExt> Instructions<F> for Ret<F> {
             .assign(region, offset, (step.frame_index as usize).sub_invert(0))?;
 
         Ok(())
+    }
+
+    fn construct(_cb: &mut ConstraintBuilder<F>) -> Self {
+        Self {
+            _marker: PhantomData,
+        }
     }
 }

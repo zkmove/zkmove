@@ -1,12 +1,14 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::plonk::Error;
 
 pub mod _mod;
 pub mod abort;
@@ -60,18 +62,27 @@ pub mod sub;
 pub mod unpack;
 pub mod write_ref;
 pub mod xor;
-pub trait Instructions<F: FieldExt> {
+
+pub(crate) trait InstructionGadget<F: FieldExt> {
+    const NAME: &'static str;
+
+    const OPCODE: Opcode;
+
     fn configure(
+        &self,
         cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
+        cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     );
 
     fn assign(
+        &self,
         region: &mut Region<'_, F>,
         offset: usize,
         step: &ExecutionStep<F>,
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error>;
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
 }
