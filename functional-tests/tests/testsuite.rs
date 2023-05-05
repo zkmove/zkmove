@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use functional_tests::run_config::{Circuit, RunConfig};
-use halo2_proofs::pasta::{EqAffine, Fp};
+use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
 use movelang::compiler::compile_script;

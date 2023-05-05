@@ -1,6 +1,6 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::pasta::{EqAffine, Fp};
+use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::Params;
 use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};

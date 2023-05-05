@@ -3,19 +3,24 @@
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
+use halo2_proofs::{
+    plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey},
+    poly::{
+        kzg::{
+            strategy::SingleStrategy,
+        },
+    },
 };
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
 use halo2_proofs::{
     dev::{MockProver, VerifyFailure},
-    pasta::EqAffine,
-    pasta::Fp,
 };
+use halo2_proofs::halo2curves::pasta::{EqAffine,Fp};
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::CompiledScript;
+use move_binary_format::normalized::Type;
 use move_binary_format::CompiledModule;
 use movelang::argument::{ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
@@ -173,18 +178,18 @@ impl<F: FieldExt> Runtime<F> {
 
     pub fn print_circuit_layout<ConcreteCircuit: Circuit<F>>(
         &self,
-        k: u32,
-        circuit: &ConcreteCircuit,
+        _k: u32,
+        _circuit: &ConcreteCircuit,
     ) {
-        let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
-        root.fill(&WHITE).unwrap();
-        let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
+        // let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
+        // root.fill(&WHITE).unwrap();
+        // let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
 
-        halo2_proofs::dev::CircuitLayout::default()
-            .mark_equality_cells(true)
-            .show_equality_constraints(true)
-            .render(k, circuit, &root)
-            .unwrap();
+        // halo2_proofs::dev::CircuitLayout::default()
+        //     .mark_equality_cells(true)
+        //     .show_equality_constraints(true)
+        //     .render(k, circuit, &root)
+        //     .unwrap();
     }
 }
 
@@ -195,7 +200,7 @@ where
     pub fn setup_vm_circuit(
         &self,
         circuit: &VmCircuit<F>,
-        params: &Params<EqAffine>,
+        params: &dyn Params<EqAffine, MSM = Type>,
     ) -> VmResult<ProvingKey<EqAffine>> {
         debug!("Generate vk");
         let vk = keygen_vk(params, circuit).map_err(|e| {
@@ -214,7 +219,7 @@ where
         &self,
         circuit: VmCircuit<F>,
         instance: &[&[Fp]],
-        params: &Params<EqAffine>,
+        params: &dyn Params<EqAffine, MSM = Type>,
         pk: ProvingKey<EqAffine>,
     ) -> VmResult<()> {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
@@ -227,10 +232,28 @@ where
         let prove_time = std::time::Instant::now().duration_since(prove_start);
         info!("prove time: {} ms", prove_time.as_millis());
 
-        let strategy = SingleVerifier::new(params);
+        //let strategy = SingleVerifier::new(params);
+        let strategy = SingleStrategy::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        // let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
         let verify_start = std::time::Instant::now();
         let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
+
+        // verify_proof::<
+        //     KZGCommitmentScheme<Bn256>,
+        //     VerifierSHPLONK<'_, Bn256>,
+        //     Challenge255<G1Affine>,
+        //     Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
+        //     SingleStrategy<'_, Bn256>,
+        // >(
+        //     &verifier_params,
+        //     pk.get_vk(),
+        //     strategy,
+        //     &[instance],
+        //     &mut verifier_transcript,
+        // )
+        // .expect("failed to verify bench circuit
+
         let verify_time = std::time::Instant::now().duration_since(verify_start);
         info!("verify time: {} ms", verify_time.as_millis());
         debug!("{:?}", result);

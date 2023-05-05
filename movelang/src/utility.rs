@@ -52,7 +52,7 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
 mod tests {
     use crate::utility::convert_to_field;
     use halo2_proofs::arithmetic::FieldExt;
-    use halo2_proofs::pasta::Fp;
+    use halo2_proofs::halo2curves::pasta::Fp;
     use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 
     #[test]

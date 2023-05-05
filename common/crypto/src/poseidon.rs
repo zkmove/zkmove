@@ -77,7 +77,7 @@ mod tests {
     use crate::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
     use halo2_gadgets::poseidon::primitives::{permute, Spec};
     use halo2_proofs::arithmetic::FieldExt;
-    use halo2_proofs::pasta::Fp;
+    use halo2_proofs::halo2curves::pasta::Fp;
 
     #[test]
     fn orchard_spec_equivalence() {

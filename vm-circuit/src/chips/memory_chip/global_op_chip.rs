@@ -197,19 +197,19 @@ impl<F: FieldExt> GlobalOpChip<F> {
         });
 
         for lookup in gc_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("global gc", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *gc_table)]
             });
         }
         for lookup in addr_ext0_lookup {
-            meta.lookup(|meta| {
+            meta.lookup("global address ext_0", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext0_table)]
             });
         }
         for lookup in addr_ext1_lookup {
-            meta.lookup(|meta| {
+            meta.lookup("global address ext_1", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext1_table)]
             });

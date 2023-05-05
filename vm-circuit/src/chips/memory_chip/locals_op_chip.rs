@@ -215,35 +215,35 @@ impl<F: FieldExt> LocalsOpChip<F> {
         });
 
         for lookup in gc_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("locals gc", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *gc_table)]
             });
         }
 
         for lookup in frame_index_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("locals frame index", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *frame_index_table)]
             });
         }
 
         for lookup in locals_index_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("locals index", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *locals_index_table)]
             });
         }
 
         for lookup in addr_ext_0_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("locals address ext_0", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext_0_table)]
             });
         }
 
         for lookup in addr_ext_1_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("locals address ext_1", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext_1_table)]
             });
