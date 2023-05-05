@@ -648,7 +648,7 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address
             .iter()
             .enumerate()
-            .take(word_element_num)
+            .take(word_element_num + 1)
             .skip(1)
         {
             // for i in 0..word_element_num {
