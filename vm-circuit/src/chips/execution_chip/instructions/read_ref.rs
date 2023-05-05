@@ -150,11 +150,11 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             * is_global
             * (self.ref_val[1].expression.clone() - cells.auxiliary_4.expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-        // cells.ref_val[2] equel to word_a_addr_ext_0
+        // cells.ref_val[2] equal to word_a_addr_ext_0
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.word_a_addr_ext_0[0].expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
-        // cells.ref_val[3] equel to word_a_addr_ext_1
+        // cells.ref_val[3] equal to word_a_addr_ext_1
         constraint = cond.clone()
             * (self.ref_val[3].expression.clone() - self.word_a_addr_ext_1[0].expression.clone());
         cb.add_constraint("read_ref_eq_3", constraint);

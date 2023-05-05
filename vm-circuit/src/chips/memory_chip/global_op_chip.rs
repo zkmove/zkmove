@@ -347,7 +347,6 @@ impl<F: FieldExt> GlobalOpChip<F> {
             addr_ext1_lookups.push(
                 cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
                     * (1.expr() - delt_sd_index * cells.delta_invert_sd_index.expression.clone())
-                    * delt_addr_ext_0.clone()
                     * (1.expr()
                         - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
                     * delt_addr_ext_1,

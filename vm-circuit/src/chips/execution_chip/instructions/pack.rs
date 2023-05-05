@@ -52,9 +52,11 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let word_a_element_num = cells.auxiliary_3.expression.clone();
+        let word_b_element_num = word_a_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_element_num.clone() * 2.expr();
+            + word_b_element_num.clone()
+            + word_a_element_num;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -68,11 +70,11 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
                 "pack(stack pop)",
                 RWLookup {
-                    gc: cells.gc.expression.clone() + (i as u64).expr(),
+                    gc: cells.gc.expression.clone() + ((i - 1) as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::READ as u64).expr(),
                     frame_index: 0.expr(),
@@ -88,7 +90,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             lookups.rw_lookups.push((
                 "pack(stack push)",
                 RWLookup::stack_push(
-                    cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
+                    cells.gc.expression.clone() + word_b_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - field_num.clone(),
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
@@ -98,9 +100,20 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             ));
         }
 
+        lookups.rw_lookups.push((
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + word_b_element_num,
+                cells.stack_size.expression.clone() - field_num,
+                self.word_a_addr_ext_0[0].expression.clone(),
+                self.word_a_addr_ext_1[0].expression.clone(),
+                self.word_a[0].expression.clone(),
+            ),
+            cond.clone() * (1.expr() - self.word_a_mask[0].expression.clone()),
+        ));
+
         // word_b.address is equal to word_a.address_ext_0
         // word_b.address_ext_0 is equal to word_a.address_ext_1
-        for i in 0..WORD_CAPACITY {
+        for i in 1..WORD_CAPACITY {
             let constraint = cond.clone()
                 * self.word_a_mask[i].expression.clone()
                 * (self.word_address[i].expression.clone()
@@ -138,7 +151,8 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             .auxiliary_1
             .assign(region, offset, field_num.value())?;
 
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_a_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_b_element_num = word_a_element_num - 1;
 
         let word_b = Word {
             word: self.word_b.clone(),
@@ -153,7 +167,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             &word_b,
             &self.word_address,
             step.gc,
-            word_element_num,
+            word_b_element_num,
         )?;
 
         let word_a = Word {
@@ -168,8 +182,8 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             step,
             rw_operations,
             &word_a,
-            step.gc + word_element_num,
-            word_element_num,
+            step.gc + word_b_element_num,
+            word_a_element_num,
         )?;
 
         let sd_idx = step.auxiliary_2.as_ref().ok_or_else(|| {

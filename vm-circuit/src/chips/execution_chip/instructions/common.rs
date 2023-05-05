@@ -639,9 +639,23 @@ impl<F: FieldExt> Word<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        for (i, item) in word_address.iter().enumerate().take(word_element_num) {
+        // leave word[0] empty
+        cells.word_mask[0].assign(region, offset, Some(F::one()))?;
+        cells.word_addr_ext_0[0].assign(region, offset, Some(F::zero()))?;
+        cells.word_addr_ext_1[0].assign(region, offset, Some(F::zero()))?;
+        word_address[0].assign(region, offset, Some(F::zero()))?;
+
+        for (i, item) in word_address
+            .iter()
+            .enumerate()
+            .take(word_element_num)
+            .skip(1)
+        {
             // for i in 0..word_element_num {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
+            let op = rw_operations
+                .0
+                .get(op_index + i - 1)
+                .ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
             cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_0[i].assign(
@@ -661,7 +675,7 @@ impl<F: FieldExt> Word<F> {
             .iter()
             .enumerate()
             .take(WORD_CAPACITY)
-            .skip(word_element_num)
+            .skip(word_element_num + 1)
         {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;

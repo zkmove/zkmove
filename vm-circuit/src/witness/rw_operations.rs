@@ -307,7 +307,7 @@ impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
             address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
             address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
-            sd_index: (F::from_u128(0), None),
+            sd_index: (F::from_u128(rw_op.sd_index as u128), None),
         }
     }
 }

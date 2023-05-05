@@ -97,13 +97,14 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             ));
         }
 
-        // field_offset is pushed into the last element of word
+        // field_offset is pushed into the last element of word,
+        // and it's larger than the real offset by 1
         let field_offset = cells.auxiliary_2.expression.clone();
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
                 * self.ref_val_mask[i].expression.clone()
                 * (1.expr() - self.word_a_mask[i].expression.clone())
-                * (field_offset.clone() - self.word_a[i].expression.clone());
+                * (field_offset.clone() + 1.expr() - self.word_a[i].expression.clone());
             cb.add_constraint("borrow_field_offset_eq", constraint);
         }
 

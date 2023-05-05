@@ -13,7 +13,7 @@ use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
-    Reference, Value, ValueLocation,
+    Location, Reference, Value, ValueLocation,
 };
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -653,7 +653,7 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(global_ref.into(), rw_operations)
                     }
                     Bytecode::VecPack(si, num) => {
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -666,7 +666,7 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::VecLen(si) => {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -679,7 +679,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::VecImmBorrow(si) | Bytecode::VecMutBorrow(si) => {
                         let idx = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -692,7 +692,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::VecPushBack(si) => {
                         let elem = interp.stack.pop(rw_operations)?;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -708,11 +708,26 @@ impl<F: FieldExt> Frame<F> {
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_ref)?;
                         let word = LocatedValue(elem_loc, &elem).flatten();
                         Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                        // update container headers
+                        let headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, _len, flattened_len) in headers {
+                            let word = match loc {
+                                Location::ValueLocation(l) => {
+                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
+                                }
+                                Location::IndexedLocation(l) => {
+                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
+                                }
+                            };
+                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                        }
+                        // todo: add rw_op cell 'value_ext' to store container length.
+
                         Ok(())
                     }
                     Bytecode::VecPopBack(si) => {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -720,12 +735,28 @@ impl<F: FieldExt> Frame<F> {
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
                         let res = vec_ref.pop()?;
-                        interp.stack.push(res, rw_operations)
+                        interp.stack.push(res, rw_operations)?;
+
+                        // update container headers
+                        let headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, _len, flattened_len) in headers {
+                            let word = match loc {
+                                Location::ValueLocation(l) => {
+                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
+                                }
+                                Location::IndexedLocation(l) => {
+                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
+                                }
+                            };
+                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                        }
+                        // todo: add rw_op cell 'value_ext' to store container length.
+                        Ok(())
                     }
                     Bytecode::VecUnpack(si, num) => {
                         let (vec, _word_element_count) =
                             interp.stack.pop_as_container(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {
@@ -743,7 +774,7 @@ impl<F: FieldExt> Frame<F> {
                         let idx2 = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let idx1 = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        //is it sufficient to rely on the bytecode verifier for type checking?
+                        //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
                             .map_err(|e| {

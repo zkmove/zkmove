@@ -250,10 +250,20 @@ impl<F: FieldExt> Container<F> {
             let mut sub_values = val.cast_simples();
             sub_values.iter_mut().for_each(|(v, _)| {
                 // prepend value idx to the sub-struct
-                v.insert(0, idx as u128);
+                // to leave a place for the header, the index is increased by 1
+                v.insert(0, (idx + 1) as u128);
             });
             simples.append(&mut sub_values);
         }
+        // add a header element to record the length of the flattened value.
+        // the length includes the header itself.
+        simples.insert(
+            0,
+            (
+                vec![0u128],
+                PrimitiveValue::u128((simples.len() + 1) as u128),
+            ),
+        );
         simples
     }
 }
@@ -354,6 +364,12 @@ impl<F: FieldExt> Reference<F> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Location<F: FieldExt> {
+    ValueLocation(ValueLocation<F>),
+    IndexedLocation(IndexedLocation<F>),
+}
+
 #[derive(Debug)]
 pub enum VectorRef<F: FieldExt> {
     /// vector in locals
@@ -399,6 +415,74 @@ impl<F: FieldExt> VectorRef<F> {
                 Ok(cur_value)
             }
         }
+    }
+
+    pub fn current_and_parent_container_headers(
+        &self,
+    ) -> VmResult<
+        Vec<(
+            Location<F>,
+            /* container length */ usize,
+            /* container flattened length */ usize,
+        )>,
+    > {
+        let mut res = Vec::new();
+        match self {
+            VectorRef::LocalRef(l) => {
+                let ref_val = l.read_ref()?;
+                let (length, flattened_length) = match ref_val {
+                    Value::Container(c) => {
+                        let flattened_len = c.cast_simples().len();
+                        (c.len(), flattened_len)
+                    }
+                    _ => {
+                        return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(
+                            "cannot get length for a non container value".to_string(),
+                        ))
+                    }
+                };
+                res.push((
+                    Location::ValueLocation(ValueLocation::Local(l.loc)),
+                    length,
+                    flattened_length,
+                ))
+            }
+            VectorRef::IndexedRef(i) => {
+                let value_loc = i.container_ref.location();
+                let mut cur_value = i.container_ref.container();
+                res.push((
+                    Location::ValueLocation(value_loc.clone()),
+                    cur_value.len(),
+                    cur_value.cast_simples().len(),
+                ));
+
+                let mut cur_sub_indexes = Vec::new();
+                for idx in &i.sub_indexes {
+                    cur_value = {
+                        let mut val = cur_value.0.borrow_mut();
+                        let sub_val = val
+                            .get_mut(*idx)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+
+                        match sub_val {
+                            Value::Container(c) => c.clone(),
+                            _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                        }
+                    };
+                    cur_sub_indexes.push(*idx);
+                    let loc = IndexedLocation {
+                        sub_indexes: cur_sub_indexes.clone(),
+                        value_loc: value_loc.clone(),
+                    };
+                    res.push((
+                        Location::IndexedLocation(loc),
+                        cur_value.len(),
+                        cur_value.cast_simples().len(),
+                    ));
+                }
+            }
+        }
+        Ok(res)
     }
 
     pub fn try_borrow_elem(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
@@ -819,9 +903,11 @@ impl<F: FieldExt> Value<F> {
                 sub_indexes,
                 container_ref,
             }) => {
+                // Position 0 is occupied by the container header, so the index needs to be increased by 1.
+                let sub_indexes = sub_indexes.iter().map(|idx| idx + 1).collect();
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
                 let ref_pathes = IndexedLocation {
-                    sub_indexes: sub_indexes.clone(),
+                    sub_indexes,
                     value_loc: container_ref.location(),
                 }
                 .to_address_path()
@@ -860,7 +946,19 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
     pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
-        let v_loc = self.0.to_address_path().into_inner();
+        // increase the sub index by 1, because position 0 is occupied by the container header.
+        let sub_indexes = self
+            .0
+            .sub_indexes
+            .iter()
+            .map(|v| (*v + 1) as u128)
+            .collect();
+        let v_loc = self
+            .0
+            .value_loc
+            .to_address_path()
+            .with_subpath(sub_indexes)
+            .into_inner();
         let mut values = self.1.cast_simples();
         values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
