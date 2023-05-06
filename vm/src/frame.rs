@@ -653,6 +653,8 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(global_ref.into(), rw_operations)
                     }
                     Bytecode::VecPack(si, num) => {
+                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -662,6 +664,8 @@ impl<F: FieldExt> Frame<F> {
                             })?;
                         let elements = interp.stack.popn(*num as u16, rw_operations)?;
                         let value = Value::container(elements);
+                        let word_element_count = value.word_element_count();
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::VecLen(si) => {
@@ -754,7 +758,7 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::VecUnpack(si, num) => {
-                        let (vec, _word_element_count) =
+                        let (vec, word_element_count) =
                             interp.stack.pop_as_container(rw_operations)?;
                         //fixme: need type check?
                         let _ty = resolver
@@ -763,11 +767,14 @@ impl<F: FieldExt> Frame<F> {
                                 error!("instantiate type failed: {:?}", e);
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
-                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
                         let elements = vec.unpack();
                         for value in elements {
                             interp.stack.push(value, rw_operations)?;
                         }
+
+                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         Ok(())
                     }
                     Bytecode::VecSwap(si) => {
