@@ -5,7 +5,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
 use std::convert::From;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BytecodeInfo {
     module_index: u16,
     function_index: u16,
@@ -171,7 +171,7 @@ impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct BytecodeTable(Vec<BytecodeInfo>);
 
 impl BytecodeTable {

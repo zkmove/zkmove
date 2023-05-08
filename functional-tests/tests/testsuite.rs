@@ -2,7 +2,8 @@
 
 use functional_tests::run_config::{Circuit, RunConfig};
 use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
-use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use logger::prelude::*;
 use movelang::compiler::compile_script;
 use movelang::state::StateStore;
@@ -73,7 +74,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
 
         debug!("Generate parameters for execution trace");
-        let params: Params<EqAffine> = Params::new(k);
+        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
         let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
