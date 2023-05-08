@@ -74,8 +74,10 @@ impl<F: FieldExt, const L: usize> Default for Poseidon<F, L> {
 
 #[cfg(test)]
 mod tests {
+    // todo. for permute is private function within PSE Halo2.
+    // this function should be changed correspondly.
     // use crate::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
-    // //use halo2_gadgets::poseidon::primitives::{permute, Spec};
+    // use halo2_gadgets::poseidon::primitives::{permute, Spec};
     // use halo2_gadgets::poseidon::primitives::Spec;
     // use halo2_proofs::arithmetic::FieldExt;
     // use halo2_proofs::halo2curves::pasta::Fp;
