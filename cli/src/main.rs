@@ -124,7 +124,7 @@ impl Arguments {
         }
 
         if !print_layout {
-            // dummy information to avoid compile warning. 
+            // dummy information to avoid compile warning.
             info!("no dev-graph...");
         }
         #[cfg(feature = "dev-graph")]
