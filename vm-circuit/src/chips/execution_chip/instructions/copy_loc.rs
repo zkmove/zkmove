@@ -69,10 +69,12 @@ impl<F: FieldExt> InstructionGadget<F> for CopyLoc<F> {
             );
 
             lookups.rw_lookups.push((
+                "copy_loc(read)",
                 read,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "copy_loc(write)",
                 write,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));

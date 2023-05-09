@@ -35,12 +35,28 @@ pub mod rw_table;
 pub mod utils;
 
 pub struct LookupsWithCondition<F: FieldExt> {
-    pub rw_lookups: Vec<(RWLookup<F>, /*condition*/ Expression<F>)>,
-    pub bytecode_lookups: Vec<(BytecodeLookup<F>, /*condition*/ Expression<F>)>,
-    pub call_lookups: Vec<(CallLookup<F>, /*condition*/ Expression<F>)>,
-    pub arith_op_lookups: Vec<(ArithOpLookup<F>, /*condition*/ Expression<F>)>,
-    pub bitwise_lookups: Vec<(BitwiseLookup<F>, /*condition*/ Expression<F>)>,
-    pub pow2_lookups: Vec<(Pow2Lookup<F>, Expression<F>)>,
+    pub rw_lookups: Vec<(&'static str, RWLookup<F>, /*condition*/ Expression<F>)>,
+    pub bytecode_lookups: Vec<(
+        &'static str,
+        BytecodeLookup<F>,
+        /*condition*/ Expression<F>,
+    )>,
+    pub call_lookups: Vec<(
+        &'static str,
+        CallLookup<F>,
+        /*condition*/ Expression<F>,
+    )>,
+    pub arith_op_lookups: Vec<(
+        &'static str,
+        ArithOpLookup<F>,
+        /*condition*/ Expression<F>,
+    )>,
+    pub bitwise_lookups: Vec<(
+        &'static str,
+        BitwiseLookup<F>,
+        /*condition*/ Expression<F>,
+    )>,
+    pub pow2_lookups: Vec<(&'static str, Pow2Lookup<F>, Expression<F>)>,
 }
 
 impl<F: FieldExt> LookupsWithCondition<F> {
@@ -101,8 +117,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.rw_lookups.iter().enumerate() {
         //     debug!("rw lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.rw_lookups {
-            meta.lookup_any("rw table", |meta| {
+        for (name, lookup, cond) in &lookups.rw_lookups {
+            meta.lookup_any(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -139,8 +155,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.bytecode_lookups.iter().enumerate() {
         //     debug!("bytecode lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.bytecode_lookups {
-            meta.lookup("bytecode table", |meta| {
+        for (name, lookup, cond) in &lookups.bytecode_lookups {
+            meta.lookup(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -170,8 +186,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.call_lookups.iter().enumerate() {
         //     debug!("call lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.call_lookups {
-            meta.lookup("call table", |meta| {
+        for (name, lookup, cond) in &lookups.call_lookups {
+            meta.lookup(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -209,8 +225,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.arith_op_lookups.iter().enumerate() {
         //     debug!("arith lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.arith_op_lookups {
-            meta.lookup("arithmetic table", |meta| {
+        for (name, lookup, cond) in &lookups.arith_op_lookups {
+            meta.lookup(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -236,8 +252,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.bitwise_lookups.iter().enumerate() {
         //      debug!("bitwise lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.bitwise_lookups {
-            meta.lookup("bitwise table", |meta| {
+        for (name, lookup, cond) in &lookups.bitwise_lookups {
+            meta.lookup(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 vec![
                     (
@@ -263,8 +279,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // for (i, item) in lookups.pow2_lookups.iter().enumerate() {
         //      debug!("pow2 lookup {}, {:?}", i, item);
         // }
-        for (lookup, cond) in &lookups.pow2_lookups {
-            meta.lookup("pow2 table", |vcells| {
+        for (name, lookup, cond) in &lookups.pow2_lookups {
+            meta.lookup(name, |vcells| {
                 let s_step = vcells.query_selector(s_step);
                 vec![
                     (

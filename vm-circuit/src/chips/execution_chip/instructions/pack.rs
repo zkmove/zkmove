@@ -70,6 +70,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
 
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
+                "pack(stack pop)",
                 RWLookup {
                     gc: cells.gc.expression.clone() + (i as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
@@ -85,6 +86,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             ));
 
             lookups.rw_lookups.push((
+                "pack(stack push)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - field_num.clone(),

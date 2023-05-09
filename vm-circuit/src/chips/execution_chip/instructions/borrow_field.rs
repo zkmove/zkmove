@@ -71,6 +71,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
 
         for (i, item) in self.word_a.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
+                "borrow_field(stack pop)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
@@ -82,6 +83,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             ));
 
             lookups.rw_lookups.push((
+                "borrow_field(stack push)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
                         + depth_of_addr_path_expr.clone()

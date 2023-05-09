@@ -71,6 +71,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         // word_a used for struct and word_b used for unpacked fields.
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
+                "unpack(stack pop)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
@@ -82,6 +83,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             ));
 
             lookups.rw_lookups.push((
+                "unpack(stack push)",
                 RWLookup {
                     gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),

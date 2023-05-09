@@ -74,6 +74,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         let account_address_expr = self.value_a.expression.clone(); // address
         let sd_index_expr = cells.auxiliary_1.expression.clone(); //sd_index
         lookups.rw_lookups.push((
+            "borrow global(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -86,6 +87,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
 
         for i in 0..WORD_CAPACITY {
             lookups.rw_lookups.push((
+                "borrow_global(global read)",
                 RWLookup::global_read(
                     cells.gc.expression.clone() + (i as u64 + 1).expr(),
                     account_address_expr.clone(),
@@ -101,6 +103,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
+                "borrow_global(stack push)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
                         + word_elem_num_expr.clone()

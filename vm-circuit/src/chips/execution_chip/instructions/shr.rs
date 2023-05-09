@@ -66,6 +66,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
             cond.clone(),
         );
         lookups.pow2_lookups.push((
+            "pow2 lookups for opcode shr",
             Pow2Lookup {
                 pow: shift_bits,
                 pow_result: divisor,

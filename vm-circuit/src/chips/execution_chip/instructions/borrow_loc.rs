@@ -82,6 +82,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             );
 
             lookups.rw_lookups.push((
+                "borrow_local(local ref)",
                 read,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
@@ -90,6 +91,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
+                "borrow_local(stack push)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),

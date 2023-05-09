@@ -63,6 +63,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         ]);
 
         lookups.rw_lookups.push((
+            "br_false(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),

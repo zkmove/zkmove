@@ -229,7 +229,7 @@ where
             params,
             &pk,
             &[circuit],
-            &[&[]],
+            &[instance],
             OsRng,
             &mut transcript,
         )

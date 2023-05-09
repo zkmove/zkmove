@@ -62,6 +62,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
         let account_address_expr = self.value_a.expression.clone();
         let sd_index_expr = cells.auxiliary_1.expression.clone();
         lookups.rw_lookups.push((
+            "move_from(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -85,14 +86,17 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
                     word_elem_num.clone(),
                 );
             lookups.rw_lookups.push((
+                "move_from(global read)",
                 read_global,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "move_from(invalid)",
                 write_invalid_to_global,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "move_from(stack write)",
                 write_stack,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));

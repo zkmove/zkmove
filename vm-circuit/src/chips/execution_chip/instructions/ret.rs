@@ -58,6 +58,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in calls table.
         lookups.call_lookups.push((
+            "opcode ret",
             CallLookup {
                 type_: (EntryType::RET as u64).expr(),
                 module_index: cells.module_index.expression.clone(),
