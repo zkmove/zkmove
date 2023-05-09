@@ -26,7 +26,7 @@ use movelang::argument::{ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::value::TypeTag;
-// use plotters::prelude::*;
+use plotters::prelude::*;
 use rand_core::OsRng;
 use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
@@ -176,7 +176,6 @@ impl<F: FieldExt> Runtime<F> {
         Ok(())
     }
 
-    #[cfg(feature = "dev-graph")]
     pub fn print_circuit_layout<ConcreteCircuit: Circuit<F>>(
         &self,
         k: u32,

@@ -123,11 +123,6 @@ impl Arguments {
             runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
         }
 
-        if !print_layout {
-            // dummy information to avoid compile warning.
-            info!("no dev-graph...");
-        }
-        #[cfg(feature = "dev-graph")]
         if print_layout {
             info!("print circuit layout into layout.svg ...");
             runtime.print_circuit_layout(k, &vm_circuit);
