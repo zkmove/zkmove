@@ -1,7 +1,8 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::pasta::{EqAffine, Fp};
-use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_script;
@@ -128,7 +129,7 @@ impl Arguments {
         }
 
         info!("setup vm circuit...");
-        let params: Params<EqAffine> = Params::new(k);
+        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
         let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");

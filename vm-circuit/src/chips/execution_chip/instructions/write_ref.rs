@@ -75,6 +75,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
+                "write_ref(stack pop 0)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
@@ -97,6 +98,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                 item.expression.clone(),
             );
             lookups.rw_lookups.push((
+                "write_ref(stack pop 1)",
                 read,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
@@ -114,6 +116,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                 item.expression.clone(),
             );
             lookups.rw_lookups.push((
+                "write_ref(locals write)",
                 write,
                 cond.clone()
                     * (1.expr() - is_global.clone())
@@ -132,6 +135,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                 self.word_b_addr_ext_1[i].expression.clone(),
             );
             lookups.rw_lookups.push((
+                "write_ref(global write)",
                 write,
                 cond.clone()
                     * is_global.clone()

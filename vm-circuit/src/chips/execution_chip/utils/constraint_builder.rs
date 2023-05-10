@@ -11,7 +11,7 @@ pub(crate) struct ConstraintBuilder<F: FieldExt> {
     in_next_step: bool,
 }
 
-impl<'a, F: FieldExt> ConstraintBuilder<F> {
+impl<F: FieldExt> ConstraintBuilder<F> {
     pub(crate) fn new(curr: StepConfig<F>, next: StepConfig<F>, _opcode: Opcode) -> Self {
         Self {
             curr,

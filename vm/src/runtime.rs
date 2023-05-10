@@ -3,15 +3,20 @@
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, SingleVerifier,
-};
-use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::dev::{MockProver, VerifyFailure};
+use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
+use halo2_proofs::transcript::{TranscriptReadBuffer, TranscriptWriterBuffer};
 use halo2_proofs::{
-    dev::{MockProver, VerifyFailure},
-    pasta::EqAffine,
-    pasta::Fp,
+    plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey},
+    poly::{
+        ipa::{
+            commitment::{IPACommitmentScheme, ParamsIPA},
+            multiopen::ProverIPA,
+            strategy::SingleStrategy,
+        },
+        VerificationStrategy,
+    },
 };
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
@@ -195,7 +200,7 @@ where
     pub fn setup_vm_circuit(
         &self,
         circuit: &VmCircuit<F>,
-        params: &Params<EqAffine>,
+        params: &ParamsIPA<EqAffine>,
     ) -> VmResult<ProvingKey<EqAffine>> {
         debug!("Generate vk");
         let vk = keygen_vk(params, circuit).map_err(|e| {
@@ -214,23 +219,31 @@ where
         &self,
         circuit: VmCircuit<F>,
         instance: &[&[Fp]],
-        params: &Params<EqAffine>,
+        params: &ParamsIPA<EqAffine>,
         pk: ProvingKey<EqAffine>,
     ) -> VmResult<()> {
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<EqAffine>>::init(vec![]);
         // Create a proof
         let prove_start = std::time::Instant::now();
-        create_proof(params, &pk, &[circuit], &[instance], OsRng, &mut transcript)
-            .expect("proof generation should not fail");
+        create_proof::<IPACommitmentScheme<EqAffine>, ProverIPA<EqAffine>, _, _, _, _>(
+            params,
+            &pk,
+            &[circuit],
+            &[instance],
+            OsRng,
+            &mut transcript,
+        )
+        .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
         info!("proof size {} bytes", proof.len());
         let prove_time = std::time::Instant::now().duration_since(prove_start);
         info!("prove time: {} ms", prove_time.as_millis());
 
-        let strategy = SingleVerifier::new(params);
+        let strategy = SingleStrategy::new(params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
         let verify_start = std::time::Instant::now();
         let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
+
         let verify_time = std::time::Instant::now().duration_since(verify_start);
         info!("verify time: {} ms", verify_time.as_millis());
         debug!("{:?}", result);

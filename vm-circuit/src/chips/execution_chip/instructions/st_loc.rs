@@ -70,10 +70,12 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
             );
 
             lookups.rw_lookups.push((
+                "st_loc(stack read)",
                 read,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "st_loc(locals write)",
                 write,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));

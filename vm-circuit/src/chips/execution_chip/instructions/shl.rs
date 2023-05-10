@@ -61,6 +61,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         );
 
         lookups.pow2_lookups.push((
+            "pow2 lookups for opcode shl",
             Pow2Lookup {
                 pow: rhs,
                 pow_result: divisor,

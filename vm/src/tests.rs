@@ -4,7 +4,7 @@ use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::pasta::Fp;
+use halo2_proofs::halo2curves::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;

@@ -32,7 +32,7 @@ impl<F: FieldExt> Locals<F> {
             let locals_op = LocalsOp {
                 frame_index: *address_path
                     .0
-                    .get(0)
+                    .first()
                     .expect("frame_index should not be None") as usize,
                 index: *address_path.0.get(1).expect("index should not be None") as usize,
                 address_ext_0: *address_path
@@ -145,7 +145,7 @@ impl<F: FieldExt> Locals<F> {
                     let locals_op_2 = LocalsOp {
                         frame_index: *address_path
                             .0
-                            .get(0)
+                            .first()
                             .expect("frame_index should not be None")
                             as usize,
                         index: *address_path.0.get(1).expect("index should not be None") as usize,

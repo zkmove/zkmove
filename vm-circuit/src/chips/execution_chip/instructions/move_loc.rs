@@ -70,14 +70,17 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             );
 
             lookups.rw_lookups.push((
+                "move_loc(locals read)",
                 read,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "move_loc(locals write)",
                 write_locals,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "move_loc(stack write)",
                 write_stack,
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));

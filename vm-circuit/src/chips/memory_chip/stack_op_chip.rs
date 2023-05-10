@@ -202,28 +202,28 @@ impl<F: FieldExt> StackOpChip<F> {
         });
 
         for lookup in gc_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("stack gc", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *gc_table)]
             });
         }
 
         for lookup in stack_address_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("stack address", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *stack_address_table)]
             });
         }
 
         for lookup in addr_ext_0_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("stack address ext_0", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext_0_table)]
             });
         }
 
         for lookup in addr_ext_1_lookups {
-            meta.lookup(|meta| {
+            meta.lookup("stack address ext_1", |meta| {
                 let selector = meta.query_selector(selector);
                 vec![(selector * lookup, *addr_ext_1_table)]
             });

@@ -65,6 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
         let offset = cells.stack_size.expression.clone() - arg_num;
         for (i, item) in self.word_a.iter().enumerate().take(WORD_CAPACITY) {
             lookups.rw_lookups.push((
+                "call(stack pop)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
@@ -75,6 +76,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
             lookups.rw_lookups.push((
+                "call(locals write)",
                 RWLookup {
                     gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     rw_target: (RWTarget::Locals as u64).expr(),
@@ -93,6 +95,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in the calls table.
         lookups.call_lookups.push((
+            "opcode call",
             CallLookup {
                 type_: (EntryType::CALL as u64).expr(),
                 module_index: cells.module_index.expression.clone(),

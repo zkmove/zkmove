@@ -59,10 +59,11 @@ impl<F: FieldExt> BinaryOp<F> {
     pub fn lookup_binary_op(
         cells: &StepChipCells<F>,
         binary_op: &BinaryOp<F>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
         rw_lookups.push((
+            "binary op(stack pop 0)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -73,6 +74,7 @@ impl<F: FieldExt> BinaryOp<F> {
             cond.clone(),
         ));
         rw_lookups.push((
+            "binary op(stack pop 1)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
@@ -83,6 +85,7 @@ impl<F: FieldExt> BinaryOp<F> {
             cond.clone(),
         ));
         rw_lookups.push((
+            "binary op(stack push 0)",
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
@@ -284,10 +287,11 @@ impl<F: FieldExt> UnaryOp<F> {
     pub fn lookup_unary_op(
         cells: &StepChipCells<F>,
         unary_op: &UnaryOp<F>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
         rw_lookups.push((
+            "unary op(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -298,6 +302,7 @@ impl<F: FieldExt> UnaryOp<F> {
             cond.clone(),
         ));
         rw_lookups.push((
+            "unary op(stack push)",
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
@@ -366,10 +371,11 @@ impl<F: FieldExt> LoadOp<F> {
     pub fn lookup_ld_op(
         cells: &StepChipCells<F>,
         value_a: &Cell<F>,
-        rw_lookups: &mut Vec<(RWLookup<F>, Expression<F>)>,
+        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
         rw_lookups.push((
+            "ld op(stack push)",
             RWLookup::stack_push(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -391,10 +397,11 @@ impl<F: FieldExt> LookupBytecode<F> {
         cells: &StepChipCells<F>,
         opcode: Opcode,
         bytecode_operand: Expression<F>,
-        bytecode_lookups: &mut Vec<(BytecodeLookup<F>, Expression<F>)>,
+        bytecode_lookups: &mut Vec<(&str, BytecodeLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
         bytecode_lookups.push((
+            "bytecode lookups",
             BytecodeLookup {
                 module_index: cells.module_index.expression.clone(),
                 function_index: cells.function_index.expression.clone(),
@@ -452,11 +459,12 @@ impl<F: FieldExt> ArithOverflow<F> {
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.
     pub fn lookup_arith_op(
         cells: &StepChipCells<F>,
-        arith_op_lookups: &mut Vec<(ArithOpLookup<F>, Expression<F>)>,
+        arith_op_lookups: &mut Vec<(&'static str, ArithOpLookup<F>, Expression<F>)>,
         cond: Expression<F>,
         num_of_bytes: Expression<F>,
     ) {
         arith_op_lookups.push((
+            "arithmetic op lookups",
             ArithOpLookup {
                 module_index: cells.module_index.expression.clone(),
                 function_index: cells.function_index.expression.clone(),
@@ -528,13 +536,14 @@ impl<F: FieldExt> LookupBitwise<F> {
     pub fn lookup_bitwise(
         cells: &LookupBitwise<F>,
         opcode: Opcode,
-        bitwise_lookups: &mut Vec<(BitwiseLookup<F>, Expression<F>)>,
+        bitwise_lookups: &mut Vec<(&'static str, BitwiseLookup<F>, Expression<F>)>,
         cond: Expression<F>,
     ) {
         for (operand_1, operand_2, result_value) in
             izip!(&cells.bytes_operand_1, &cells.bytes_operand_2, &cells.bytes)
         {
             bitwise_lookups.push((
+                "bitwise lookups",
                 BitwiseLookup {
                     opcode: (opcode.index() as u64).expr(),
                     value_1: operand_1.expression.clone(),

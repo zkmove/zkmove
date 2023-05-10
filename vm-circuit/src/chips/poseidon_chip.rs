@@ -105,7 +105,7 @@ mod tests {
     use crypto::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
     use halo2_gadgets::poseidon::primitives::Spec;
     use halo2_proofs::dev::MockProver;
-    use halo2_proofs::pasta::Fp;
+    use halo2_proofs::halo2curves::pasta::Fp;
     use halo2_proofs::{
         arithmetic::FieldExt,
         circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
