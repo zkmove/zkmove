@@ -80,6 +80,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone(),
             ));
@@ -88,13 +89,14 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         let is_global = cells.auxiliary_1.expression.clone();
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             // locals read or global read
-            let read = RWLookup::locals_read_ref(
+            let read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), // frame_index
                 cells.locals_index.expression.clone(), // index
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(),
             );
             lookups.rw_lookups.push((
                 "read_ref(locals read)",
@@ -107,6 +109,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), // account_address
                 item.expression.clone(),
+                0.expr(),
                 cells.auxiliary_4.expression.clone(), //sd_index
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
@@ -129,6 +132,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 self.word_b_addr_ext_0[i].expression.clone(),
                 self.word_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(),
             );
             lookups.rw_lookups.push((
                 "read_ref(stack push)",

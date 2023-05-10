@@ -14,7 +14,7 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 11;
+pub const STACK_OP_CHIP_WIDTH: usize = 12;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
@@ -25,6 +25,7 @@ pub struct StackOpCells<F: FieldExt> {
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
+    pub value_ext: Cell<F>,
     pub is_empty: Cell<F>, // is empty op or not
     // delta_invert_xxx is used to constrain the strict monotonic
     // increment of gc for the same locals
@@ -39,6 +40,7 @@ pub struct StackOpCells<F: FieldExt> {
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
+    pub prev_value_ext: Cell<F>,
     pub prev_is_empty: Cell<F>,
 }
 
@@ -117,6 +119,7 @@ impl<F: FieldExt> StackOpChip<F> {
             address_ext_0: cells.pop_front().unwrap(),
             address_ext_1: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
+            value_ext: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             delta_invert_address: cells.pop_front().unwrap(),
             delta_invert_addr_ext_0: cells.pop_front().unwrap(),
@@ -129,6 +132,7 @@ impl<F: FieldExt> StackOpChip<F> {
             prev_address_ext_0: cells.pop_front().unwrap(),
             prev_address_ext_1: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
+            prev_value_ext: cells.pop_front().unwrap(),
             prev_is_empty: cells.pop_front().unwrap(),
         };
 
@@ -279,9 +283,16 @@ impl<F: FieldExt> StackOpChip<F> {
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
-                "stack read op",
+                "stack read op: value",
                 cond.clone()
                     * (cells.value.expression.clone() - cells.prev_value.expression.clone())
+                    * is_read.clone(),
+            ));
+            constraints.push((
+                "stack read op: value_ext",
+                cond.clone()
+                    * (cells.value_ext.expression.clone()
+                        - cells.prev_value_ext.expression.clone())
                     * is_read,
             ));
 
@@ -444,6 +455,11 @@ impl<F: FieldExt> StackOpChip<F> {
 
             self.config
                 .cells
+                .value_ext
+                .assign(region, offset, op.value_ext.0)?;
+
+            self.config
+                .cells
                 .is_empty
                 .assign(region, offset, Some(F::one()))?;
         } else {
@@ -505,6 +521,16 @@ impl<F: FieldExt> StackOpChip<F> {
                     Error::Synthesis
                 })?,
                 "value",
+            )?;
+
+            self.config.cells.value_ext.assign_equality(
+                region,
+                offset,
+                op.value_ext.1.clone().ok_or_else(|| {
+                    error!("value_ext assigned cell is None");
+                    Error::Synthesis
+                })?,
+                "value_ext",
             )?;
 
             let (prev_address, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {

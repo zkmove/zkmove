@@ -70,6 +70,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_b.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -81,6 +82,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_a.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -92,6 +94,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_c.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));
@@ -298,6 +301,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_a.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -309,6 +313,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_c.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));
@@ -382,6 +387,7 @@ impl<F: FieldExt> LoadOp<F> {
                 0.expr(),
                 0.expr(),
                 value_a.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));

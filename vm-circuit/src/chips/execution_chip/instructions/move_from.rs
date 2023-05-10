@@ -69,6 +69,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
                 0.expr(),
                 0.expr(),
                 account_address_expr.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -83,6 +84,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveFrom<F> {
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                     self.word_a[i].expression.clone(),
+                    0.expr(),
                     word_elem_num.clone(),
                 );
             lookups.rw_lookups.push((

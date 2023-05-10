@@ -82,6 +82,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone(),
             ));
@@ -96,6 +97,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(),
             );
             lookups.rw_lookups.push((
                 "write_ref(stack pop 1)",
@@ -114,6 +116,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                 self.word_b_addr_ext_0[i].expression.clone(),
                 self.word_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(),
             );
             lookups.rw_lookups.push((
                 "write_ref(locals write)",
@@ -130,6 +133,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                     + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), //address
                 self.word_b[i].expression.clone(),
+                0.expr(),
                 cells.auxiliary_4.expression.clone(), //sd_index
                 self.word_b_addr_ext_0[i].expression.clone(),
                 self.word_b_addr_ext_1[i].expression.clone(),

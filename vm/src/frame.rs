@@ -13,7 +13,7 @@ use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
-    Location, Reference, Value, ValueLocation,
+    Location, PrimitiveValue, Reference, Value, ValueLocation,
 };
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -677,8 +677,28 @@ impl<F: FieldExt> Frame<F> {
                                 error!("instantiate type failed: {:?}", e);
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
-                        let value = vec_ref.length()?;
-                        interp.stack.push(Value::u64(value as u64), rw_operations)
+
+                        // emit read op for vec header
+                        let vec = vec_ref.read_ref()?;
+                        let word = match vec_ref.location()? {
+                            Location::ValueLocation(l) => LocatedValue(l, &vec).flatten(),
+                            Location::IndexedLocation(l) => LocatedValue(l, &vec).flatten(),
+                        };
+                        // fixme - could be global ops
+                        let (header_address_path, vec_flattened_len, vec_len) =
+                            word.first().expect("header address should not be none");
+                        Locals::emit_locals_op(
+                            header_address_path.clone(),
+                            *vec_flattened_len,
+                            *vec_len,
+                            RW::READ,
+                            rw_operations,
+                        );
+                        execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
+
+                        let vec_len = vec_ref.length()?;
+                        interp.stack.push(Value::u64(vec_len as u64), rw_operations)
                     }
                     Bytecode::VecImmBorrow(si) | Bytecode::VecMutBorrow(si) => {
                         let idx = interp.stack.pop_as_u64(rw_operations)? as usize;
@@ -711,10 +731,11 @@ impl<F: FieldExt> Frame<F> {
                         let (elem_loc, elem) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_ref)?;
                         let word = LocatedValue(elem_loc, &elem).flatten();
+                        // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         // update container headers
                         let headers = vec_ref.current_and_parent_container_headers()?;
-                        for (loc, _len, flattened_len) in headers {
+                        for (loc, len, flattened_len) in headers {
                             let word = match loc {
                                 Location::ValueLocation(l) => {
                                     LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
@@ -723,9 +744,19 @@ impl<F: FieldExt> Frame<F> {
                                     LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
                                 }
                             };
-                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                            // fixme - could be global ops
+                            let (header_address_path, _, _) =
+                                word.first().expect("header should not be none");
+                            Locals::emit_locals_op(
+                                header_address_path.clone(),
+                                PrimitiveValue::u64(flattened_len as u64),
+                                Some(PrimitiveValue::u64(len as u64)),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+
+                            // Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         }
-                        // todo: add rw_op cell 'value_ext' to store container length.
 
                         Ok(())
                     }
@@ -752,6 +783,7 @@ impl<F: FieldExt> Frame<F> {
                                     LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
                                 }
                             };
+                            // fixme - could be global ops
                             Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         }
                         // todo: add rw_op cell 'value_ext' to store container length.
@@ -796,21 +828,25 @@ impl<F: FieldExt> Frame<F> {
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_1_ref)?;
                         let (elem_2_loc, elem_2) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_2_ref)?;
+                        // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
                             LocatedValue(elem_1_loc.clone(), &elem_1).flatten(),
                             RW::READ,
                             rw_operations,
                         );
+                        // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
                             LocatedValue(elem_2_loc.clone(), &elem_2).flatten(),
                             RW::READ,
                             rw_operations,
                         );
+                        // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
                             LocatedValue(elem_2_loc, &elem_1).flatten(),
                             RW::WRITE,
                             rw_operations,
                         );
+                        // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
                             LocatedValue(elem_1_loc, &elem_2).flatten(),
                             RW::WRITE,

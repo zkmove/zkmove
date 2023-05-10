@@ -8,13 +8,13 @@ use movelang::value::{
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
+    word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
     addr: AccountAddress<F>,
     sd_index: StructDefinitionIndex,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val) in word {
+    for (address_path, val, val_ext) in word {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.0 as usize,
@@ -27,7 +27,8 @@ pub fn emit_global_ops_for_word<F: FieldExt>(
                 .get(3)
                 .expect("address_ext_1 should not be None") as usize,
             value: Some(val),
-            rw: rw.clone(),
+            value_ext: val_ext,
+            rw,
             gc: rw_operations.len(),
         };
         rw_operations.push(RWOperation::GlobalOp(op));
@@ -47,7 +48,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     };
     let word = LocatedValue(ValueLocation::Global(value_addr), &resource_value).flatten();
     let word_len = word.len();
-    for (address_path, val) in word.clone() {
+    for (address_path, val, val_ext) in word.clone() {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.0 as usize,
@@ -60,14 +61,15 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
                 .get(3)
                 .expect("address_ext_1 should not be None") as usize,
             value: Some(val),
-            rw: rw.clone(),
+            value_ext: val_ext,
+            rw,
             gc: rw_operations.len(),
         };
         rw_operations.push(RWOperation::GlobalOp(op));
     }
     // if this is move_from, we need to write an invalid back.
     if write_invalid {
-        for (address_path, _) in word {
+        for (address_path, _, _) in word {
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.0 as usize,
@@ -82,6 +84,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
                     .expect("address_ext_1 should not be None")
                     as usize,
                 value: None,
+                value_ext: None,
                 rw: RW::WRITE,
                 gc: rw_operations.len(),
             };

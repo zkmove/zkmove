@@ -244,24 +244,26 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
-            sub_values.iter_mut().for_each(|(v, _)| {
+            sub_values.iter_mut().for_each(|(v, _, _)| {
                 // prepend value idx to the sub-struct
                 // to leave a place for the header, the index is increased by 1
                 v.insert(0, (idx + 1) as u128);
             });
             simples.append(&mut sub_values);
         }
-        // add a header element to record the length of the flattened value.
-        // the length includes the header itself.
+        // add a header element to record the length of the container,
+        // and the length of the flattened value,
+        // the flattened length includes the header itself.
         simples.insert(
             0,
             (
                 vec![0u128],
                 PrimitiveValue::u128((simples.len() + 1) as u128),
+                Some(PrimitiveValue::u128(self.len() as u128)),
             ),
         );
         simples
@@ -416,6 +418,61 @@ impl<F: FieldExt> VectorRef<F> {
             }
         }
     }
+
+    pub fn location(&self) -> VmResult<Location<F>> {
+        match self {
+            VectorRef::LocalRef(l) => Ok(Location::ValueLocation(ValueLocation::Local(l.loc))),
+            VectorRef::IndexedRef(i) => {
+                let loc = IndexedLocation {
+                    sub_indexes: i.sub_indexes.clone(),
+                    value_loc: i.container_ref.location(),
+                };
+                Ok(Location::IndexedLocation(loc))
+            }
+        }
+    }
+
+    // pub fn current_container_header(
+    //     &self,
+    // ) -> VmResult<(
+    //         Location<F>,
+    //         /* container length */ usize,
+    //         /* container flattened length */ usize,
+    //     )> {
+    //     match self {
+    //         VectorRef::LocalRef(l) => {
+    //             let ref_val = l.read_ref()?;
+    //             let (length, flattened_length) = match ref_val {
+    //                 Value::Container(c) => {
+    //                     let flattened_len = c.cast_simples().len();
+    //                     (c.len(), flattened_len)
+    //                 }
+    //                 _ => {
+    //                     return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(
+    //                         "cannot get length for a non container value".to_string(),
+    //                     ))
+    //                 }
+    //             };
+    //             Ok((
+    //                 Location::ValueLocation(ValueLocation::Local(l.loc)),
+    //                 length,
+    //                 flattened_length,
+    //             ))
+    //         }
+    //         VectorRef::IndexedRef(i) => {
+    //             let val = i.read_ref()?;
+    //             let loc = IndexedLocation {
+    //                 sub_indexes: i.sub_indexes.clone(),
+    //                 value_loc: i.container_ref.location(),
+    //             };
+    //             Ok((
+    //                 Location::IndexedLocation(loc),
+    //                 val.len(),
+    //                 val.cast_simples().len()
+    //             ))
+    //         }
+    //     }
+    // }
 
     pub fn current_and_parent_container_headers(
         &self,
@@ -867,10 +924,10 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
-            return vec![(vec![], simple_value)];
+            return vec![(vec![], simple_value, None)];
         }
         match self {
             Value::Container(container) => container.cast_simples(),
@@ -884,7 +941,13 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -896,7 +959,13 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
@@ -916,7 +985,13 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             _ => unreachable!(),
@@ -928,10 +1003,10 @@ impl<F: FieldExt> Value<F> {
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _)| {
+        values.iter_mut().for_each(|(p, _, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
@@ -939,13 +1014,13 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
         // in flatten, returned address_path should be filled up.
         values
             .into_iter()
-            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
+            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
             .collect()
     }
 }
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = self
             .0
@@ -960,14 +1035,14 @@ impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
             .with_subpath(sub_indexes)
             .into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _)| {
+        values.iter_mut().for_each(|(p, _, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
         });
         values
             .into_iter()
-            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
+            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
             .collect()
     }
 }

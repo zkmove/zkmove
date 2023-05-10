@@ -78,6 +78,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
             ));
@@ -92,6 +93,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));

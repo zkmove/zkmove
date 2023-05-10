@@ -22,11 +22,11 @@ impl<F: FieldExt> EvalStack<F> {
     }
 
     pub fn emit_stack_ops_for_word(
-        word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
+        word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
-        for (address_path, val) in word {
+        for (address_path, val, val_ext) in word {
             let stack_op = StackOp {
                 address: *address_path.0.get(1).expect("address should not be None") as usize,
                 address_ext_0: *address_path
@@ -40,7 +40,8 @@ impl<F: FieldExt> EvalStack<F> {
                     .expect("address_ext_1 should not be None")
                     as usize,
                 value: Some(val),
-                rw: rw.clone(),
+                value_ext: val_ext,
+                rw,
                 gc: rw_operations.len(),
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
