@@ -388,6 +388,18 @@ impl<F: FieldExt> VectorRef<F> {
             VectorRef::IndexedRef(i) => i.read_ref()?,
         })
     }
+    /// return address_path of the vector which is referenced by this ref
+    /// NOTICE: returned address_path is not filled up.
+    pub fn value_address_path(&self) -> AddressPath<F> {
+        match self {
+            Self::LocalRef(l) => ValueLocation::Local(l.loc).to_address_path(),
+            Self::IndexedRef(i) => IndexedLocation {
+                sub_indexes: i.sub_indexes.clone(),
+                value_loc: i.container_ref.location(),
+            }
+            .to_address_path(),
+        }
+    }
 
     pub fn container(&self) -> VmResult<Container<F>> {
         match self {

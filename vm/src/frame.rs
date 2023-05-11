@@ -703,6 +703,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::VecImmBorrow(si) | Bytecode::VecMutBorrow(si) => {
                         let idx = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let word_element_count = vec_ref.value_address_path().len();
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -710,6 +711,8 @@ impl<F: FieldExt> Frame<F> {
                                 error!("instantiate type failed: {:?}", e);
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         let res = vec_ref.try_borrow_elem(idx)?;
                         interp.stack.push(res.into(), rw_operations)
                     }
