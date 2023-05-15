@@ -58,8 +58,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // 2. read vec ref from stack. [gc+word_element_num, DEPTH_OF_ADDRESS_PATH]
         // 3. write value into container (locals or global).
         // [gc + word_element_num + DEPTH_OF_ADDRESS_PATH, word_element_num]
-        // 4. write current and parent headers (flattened element num, length).
-        // [gc + word_element_num * 2 + DEPTH_OF_ADDRESS_PATH, headers_count]
+        // 4. update current and parent headers (flattened element num, length).
+        // [gc + word_element_num * 2 + DEPTH_OF_ADDRESS_PATH, headers_count * 2]
 
         let cond = cells.conditions[Opcode::VecPushBack.index()]
             .expression

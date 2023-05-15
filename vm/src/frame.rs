@@ -773,6 +773,8 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::VecPopBack(si) => {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_word_element_count = vec_ref.value_address_path().len();
+                        let headers = vec_ref.current_and_parent_container_headers()?;
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -780,24 +782,49 @@ impl<F: FieldExt> Frame<F> {
                                 error!("instantiate type failed: {:?}", e);
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
-                        let res = vec_ref.pop()?;
-                        interp.stack.push(res, rw_operations)?;
+
+                        // emit rw operations
+                        let value_idx = vec_ref.length()? - 1;
+                        let value_ref = vec_ref.try_borrow_elem(value_idx)?;
+                        let (value_loc, value) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
+                        let word = LocatedValue(value_loc, &value).flatten();
+                        // fixme - could be global ops
+                        Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                        let word_element_count = value.word_element_count();
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 =
+                            Some(Value::u64(ref_word_element_count as u64));
+
+                        let val = vec_ref.pop()?;
+                        interp.stack.push(val, rw_operations)?;
 
                         // update container headers
-                        let headers = vec_ref.current_and_parent_container_headers()?;
-                        for (loc, _len, flattened_len) in headers {
-                            let word = match loc {
-                                Location::ValueLocation(l) => {
-                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
-                                }
-                                Location::IndexedLocation(l) => {
-                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
-                                }
-                            };
+                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
+                        for (loc, len, flattened_len) in headers {
                             // fixme - could be global ops
-                            Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                            Locals::emit_locals_op(
+                                loc.to_address_path().fill_up(),
+                                PrimitiveValue::u64(flattened_len as u64),
+                                Some(PrimitiveValue::u64(len as u64)),
+                                RW::READ,
+                                rw_operations,
+                            );
                         }
-                        // todo: add rw_op cell 'value_ext' to store container length.
+                        let new_headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, len, flattened_len) in new_headers {
+                            // fixme - could be global ops
+                            Locals::emit_locals_op(
+                                loc.to_address_path().fill_up(),
+                                PrimitiveValue::u64(flattened_len as u64),
+                                Some(PrimitiveValue::u64(len as u64)),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                        }
+
                         Ok(())
                     }
                     Bytecode::VecUnpack(si, num) => {
