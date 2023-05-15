@@ -372,6 +372,15 @@ pub enum Location<F: FieldExt> {
     IndexedLocation(IndexedLocation<F>),
 }
 
+impl<F: FieldExt> Location<F> {
+    pub fn to_address_path(&self) -> AddressPath<F> {
+        match self {
+            Location::ValueLocation(l) => l.to_address_path(),
+            Location::IndexedLocation(l) => l.to_address_path(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum VectorRef<F: FieldExt> {
     /// vector in locals

@@ -309,7 +309,7 @@ impl<F: FieldExt> RWLookup<F> {
         }
     }
 
-    pub fn locals_write_ref(
+    pub fn locals_write(
         gc: Expression<F>,
         frame_index: Expression<F>,
         locals_index: Expression<F>,

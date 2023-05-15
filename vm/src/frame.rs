@@ -717,8 +717,11 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(res.into(), rw_operations)
                     }
                     Bytecode::VecPushBack(si) => {
-                        let elem = interp.stack.pop(rw_operations)?;
+                        let value = interp.stack.pop(rw_operations)?;
+                        let word_element_count = value.word_element_count();
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_word_element_count = vec_ref.value_address_path().len();
+                        let headers = vec_ref.current_and_parent_container_headers()?;
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -726,39 +729,44 @@ impl<F: FieldExt> Frame<F> {
                                 error!("instantiate type failed: {:?}", e);
                                 RuntimeError::new(StatusCode::InstantiateTypeFailed)
                             })?;
-                        vec_ref.push_back(elem)?;
+                        vec_ref.push_back(value)?;
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 =
+                            Some(Value::u64(ref_word_element_count as u64));
 
                         // emit rw operations
-                        let elem_idx = vec_ref.length()? - 1;
-                        let elem_ref = vec_ref.try_borrow_elem(elem_idx)?;
-                        let (elem_loc, elem) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_ref)?;
-                        let word = LocatedValue(elem_loc, &elem).flatten();
+                        let value_idx = vec_ref.length()? - 1;
+                        let value_ref = vec_ref.try_borrow_elem(value_idx)?;
+                        let (value_loc, value) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
+                        let word = LocatedValue(value_loc, &value).flatten();
                         // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+
                         // update container headers
-                        let headers = vec_ref.current_and_parent_container_headers()?;
+                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
-                            let word = match loc {
-                                Location::ValueLocation(l) => {
-                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
-                                }
-                                Location::IndexedLocation(l) => {
-                                    LocatedValue(l, &Value::u64(flattened_len as u64)).flatten()
-                                }
-                            };
                             // fixme - could be global ops
-                            let (header_address_path, _, _) =
-                                word.first().expect("header should not be none");
                             Locals::emit_locals_op(
-                                header_address_path.clone(),
+                                loc.to_address_path().fill_up(),
+                                PrimitiveValue::u64(flattened_len as u64),
+                                Some(PrimitiveValue::u64(len as u64)),
+                                RW::READ,
+                                rw_operations,
+                            );
+                        }
+                        let new_headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, len, flattened_len) in new_headers {
+                            // fixme - could be global ops
+                            Locals::emit_locals_op(
+                                loc.to_address_path().fill_up(),
                                 PrimitiveValue::u64(flattened_len as u64),
                                 Some(PrimitiveValue::u64(len as u64)),
                                 RW::WRITE,
                                 rw_operations,
                             );
-
-                            // Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                         }
 
                         Ok(())

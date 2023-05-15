@@ -106,7 +106,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             ));
 
             // locals write or global write
-            let write = RWLookup::locals_write_ref(
+            let write = RWLookup::locals_write(
                 cells.gc.expression.clone()
                     + depth_of_addr_path_expr.clone()
                     + word_element_num.clone()

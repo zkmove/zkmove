@@ -118,18 +118,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 cond.clone() * (1.expr() - self.indexed_ref_val_mask[i].expression.clone()),
             ));
         }
-        //
-        // // element index should be equal to indexed_ref_val[last],
-        // // counting the header, it's 1 larger than the real offset
-        // let index = self.index.expression.clone();
-        // for i in 0..DEPTH_OF_ADDRESS_PATH {
-        //     let constraint = cond.clone()
-        //         * self.ref_val_mask[i].expression.clone()
-        //         * (1.expr() - self.indexed_ref_val_mask[i].expression.clone())
-        //         * (index.clone() + 1.expr() - self.indexed_ref_val[i].expression.clone());
-        //     cb.add_constraint("borrow_element_index_eq", constraint);
-        // }
-        //
+
+        // element index should be equal to indexed_ref_val[last],
+        // counting the header, it's 1 larger than the real offset
+        let index = self.index.expression.clone();
+        for i in 0..DEPTH_OF_ADDRESS_PATH {
+            let constraint = cond.clone()
+                * self.ref_val_mask[i].expression.clone()
+                * (1.expr() - self.indexed_ref_val_mask[i].expression.clone())
+                * (index.clone() + 1.expr() - self.indexed_ref_val[i].expression.clone());
+            cb.add_constraint("borrow_element_index_eq", constraint);
+        }
+
         LookupBytecode::lookup_bytecode(
             cells,
             opcode,
