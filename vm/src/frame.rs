@@ -848,9 +848,10 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::VecSwap(si) => {
-                        let idx2 = interp.stack.pop_as_u64(rw_operations)? as usize;
-                        let idx1 = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let idx_b = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let idx_a = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_word_element_count = vec_ref.value_address_path().len();
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -860,38 +861,47 @@ impl<F: FieldExt> Frame<F> {
                             })?;
 
                         // emit rw operations
-                        let elem_1_ref = vec_ref.try_borrow_elem(idx1)?;
-                        let elem_2_ref = vec_ref.try_borrow_elem(idx2)?;
-                        let (elem_1_loc, elem_1) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_1_ref)?;
-                        let (elem_2_loc, elem_2) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_2_ref)?;
+                        let elem_a_ref = vec_ref.try_borrow_elem(idx_a)?;
+                        let elem_b_ref = vec_ref.try_borrow_elem(idx_b)?;
+                        let (elem_a_loc, elem_a) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_a_ref)?;
+                        let (elem_b_loc, elem_b) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_b_ref)?;
                         // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_1_loc.clone(), &elem_1).flatten(),
+                            LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
                             RW::READ,
                             rw_operations,
                         );
                         // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_2_loc.clone(), &elem_2).flatten(),
+                            LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
                             RW::READ,
                             rw_operations,
                         );
                         // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_2_loc, &elem_1).flatten(),
+                            LocatedValue(elem_b_loc, &elem_a).flatten(),
                             RW::WRITE,
                             rw_operations,
                         );
                         // fixme - could be global ops
                         Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_1_loc, &elem_2).flatten(),
+                            LocatedValue(elem_a_loc, &elem_b).flatten(),
                             RW::WRITE,
                             rw_operations,
                         );
 
-                        vec_ref.swap(idx1, idx2)
+                        let word_a_element_count = elem_a.word_element_count();
+                        let word_b_element_count = elem_b.word_element_count();
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(word_a_element_count as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_b_element_count as u64));
+                        execution_step.auxiliary_4 =
+                            Some(Value::u64(ref_word_element_count as u64));
+
+                        vec_ref.swap(idx_a, idx_b)
                     }
                     _ => unreachable!(),
                 }?;
