@@ -15,7 +15,6 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
@@ -53,13 +52,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        // for instruction VecPushBack, there are 4 pipeline stages here:
-        // 1. read value from stack. [gc, word_element_num]
-        // 2. read vec ref from stack. [gc+word_element_num, DEPTH_OF_ADDRESS_PATH]
+        // for instruction VecPushBack, there are 4 steps here:
+        // 1. read value from stack. [gc, value_flattened_len]
+        // 2. read vec ref from stack. [gc+value_flattened_len, DEPTH_OF_ADDRESS_PATH]
         // 3. write value into container (locals or global).
-        // [gc + word_element_num + DEPTH_OF_ADDRESS_PATH, word_element_num]
-        // 4. update current and parent headers (flattened element num, length).
-        // [gc + word_element_num * 2 + DEPTH_OF_ADDRESS_PATH, headers_count * 2]
+        // [gc + value_flattened_len + DEPTH_OF_ADDRESS_PATH, value_flattened_len]
+        // 4. update current and parent headers (flattened length, length).
+        // [gc + value_flattened_len * 2 + DEPTH_OF_ADDRESS_PATH, headers_count * 2]
 
         let cond = cells.conditions[Opcode::VecPushBack.index()]
             .expression
@@ -71,11 +70,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             - 2.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let value_flattened_len = cells.auxiliary_3.expression.clone();
         let headers_count = cells.auxiliary_2.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * word_element_num.clone()
+            + 2.expr() * value_flattened_len.clone()
             + depth_of_addr_path_expr.clone()
             + 2.expr() * headers_count.clone();
         let module_index =
@@ -102,6 +101,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                 0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
+                "vec_push_back(read value)",
                 read,
                 cond.clone() * (1.expr() - self.value_mask[i].expression.clone()),
             ));
@@ -109,7 +109,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             // write value into container
             let write = RWLookup::locals_write(
                 cells.gc.expression.clone()
-                    + word_element_num.clone()
+                    + value_flattened_len.clone()
                     + depth_of_addr_path_expr.clone()
                     + (i as u64).expr(),
                 self.vec_frame_index.expression.clone(),
@@ -120,6 +120,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                 0.expr(),
             );
             lookups.rw_lookups.push((
+                "vec_push_back(write value)",
                 write,
                 cond.clone() * (1.expr() - self.value_mask[i].expression.clone()),
             ));
@@ -128,8 +129,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // read reference from stack
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
+                "vec_push_back(read ref)",
                 RWLookup::stack_pop(
-                    cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
+                    cells.gc.expression.clone() + value_flattened_len.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
                     0.expr(),
@@ -142,8 +144,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
 
         // read the old value from headers and write the new value to the headers
         let gc_offset = cells.gc.expression.clone()
-            + word_element_num.clone() * 2.expr()
-            + depth_of_addr_path_expr.clone();
+            + value_flattened_len.clone() * 2.expr()
+            + depth_of_addr_path_expr;
         for (i, item) in self
             .headers_value
             .iter()
@@ -160,6 +162,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                 self.headers_value_ext[i].expression.clone(),
             );
             lookups.rw_lookups.push((
+                "vec_push_back(read headers)",
                 read,
                 cond.clone() * (1.expr() - self.headers_value_mask[i].expression.clone()),
             ));
@@ -174,6 +177,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                 self.new_headers_value_ext[i].expression.clone(),
             );
             lookups.rw_lookups.push((
+                "vec_push_back(write headers)",
                 write,
                 cond.clone() * (1.expr() - self.headers_value_mask[i].expression.clone()),
             ));
@@ -230,7 +234,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         for i in 0..(DEPTH_OF_ADDRESS_PATH - 2) {
             let constraint = cond.clone()
                 * (1.expr() - self.headers_value_mask[i].expression.clone())
-                * (self.headers_value[i].expression.clone() + word_element_num.clone()
+                * (self.headers_value[i].expression.clone() + value_flattened_len.clone()
                     - self.new_headers_value[i].expression.clone());
             cb.add_constraint("header_val_increased", constraint);
 
@@ -259,14 +263,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let si = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("signature index is None");
-            Error::Synthesis
-        })?;
-        cells.auxiliary_1.assign(region, offset, si.value())?;
+        let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let headers_count =
+            Word::assign_auxiliary_2(region, offset, step, cells)?.get_lower_128() as usize;
+        let value_flattened_len =
+            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+        let ref_val_flattened_len =
+            Word::assign_auxiliary_4(region, offset, step, cells)?.get_lower_128() as usize;
 
-        // assign the value
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         let value = Word {
             word: self.value.clone(),
             word_mask: self.value_mask.clone(),
@@ -280,24 +284,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             rw_operations,
             &value,
             step.gc,
-            word_element_num,
+            value_flattened_len,
         )?;
-
-        // assign ref_word_element_num
-        let ref_word_element_num = step.auxiliary_4.as_ref().ok_or_else(|| {
-            error!("ref_word_element_num is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_4
-            .assign(region, offset, ref_word_element_num.value())?;
-        let ref_word_element_count = ref_word_element_num
-            .value()
-            .ok_or_else(|| {
-                error!("failed to get ref_word_element_num");
-                Error::Synthesis
-            })?
-            .get_lower_128() as usize;
 
         // assign vector ref
         let ref_val = RefVal {
@@ -310,14 +298,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             step,
             rw_operations,
             &ref_val,
-            step.gc + word_element_num,
-            ref_word_element_count,
+            step.gc + value_flattened_len,
+            ref_val_flattened_len,
         )?;
 
         // assign the pushed-back value
         let op = rw_operations
             .0
-            .get(step.gc + word_element_num + DEPTH_OF_ADDRESS_PATH)
+            .get(step.gc + value_flattened_len + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
 
         self.vec_frame_index
@@ -337,25 +325,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             step,
             rw_operations,
             &push_back,
-            step.gc + word_element_num + DEPTH_OF_ADDRESS_PATH,
-            word_element_num,
+            step.gc + value_flattened_len + DEPTH_OF_ADDRESS_PATH,
+            value_flattened_len,
         )?;
-
-        // assign container headers
-        let headers_num = step.auxiliary_2.as_ref().ok_or_else(|| {
-            error!("headers_num is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_2
-            .assign(region, offset, headers_num.value())?;
-        let headers_count = headers_num
-            .value()
-            .ok_or_else(|| {
-                error!("failed to get headers_count");
-                Error::Synthesis
-            })?
-            .get_lower_128() as usize;
 
         let headers = WordWithExt {
             word: self.headers_value.clone(),
@@ -369,13 +341,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             offset,
             rw_operations,
             &headers,
-            step.gc + word_element_num * 2 + DEPTH_OF_ADDRESS_PATH,
+            step.gc + value_flattened_len * 2 + DEPTH_OF_ADDRESS_PATH,
             headers_count,
             DEPTH_OF_ADDRESS_PATH - 2,
         )?;
 
         let new_headers_op_idx =
-            step.gc + word_element_num * 2 + DEPTH_OF_ADDRESS_PATH + headers_count;
+            step.gc + value_flattened_len * 2 + DEPTH_OF_ADDRESS_PATH + headers_count;
         for i in 0..headers_count {
             let op = rw_operations
                 .0

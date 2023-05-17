@@ -71,7 +71,6 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         ]);
 
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 "read_ref(stack pop)",
                 RWLookup::stack_pop(
@@ -96,7 +95,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(),
+                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "read_ref(locals read)",
@@ -109,7 +108,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), // account_address
                 item.expression.clone(),
-                0.expr(),
+                0.expr(),                             //fixme, value_ext may not be 0.
                 cells.auxiliary_4.expression.clone(), //sd_index
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
@@ -132,7 +131,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 self.word_b_addr_ext_0[i].expression.clone(),
                 self.word_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(),
+                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "read_ref(stack push)",

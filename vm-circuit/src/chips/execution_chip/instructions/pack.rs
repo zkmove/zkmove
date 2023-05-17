@@ -70,6 +70,9 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
+        // read values from stack, write back the packed struct
+        // word_a[0] is the header. To make the constraint simple, we have already
+        // assigned the word_b[0] to be empty, now we just skip 'i=0'.
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
                 "pack(stack pop)",
@@ -82,7 +85,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
                     address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
                     address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
-                    value_ext: 0.expr(),
+                    value_ext: 0.expr(), //fixme, value_ext may not be 0.
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
@@ -103,6 +106,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pack<F> {
         }
 
         lookups.rw_lookups.push((
+            "pack(write struct header)",
             RWLookup::stack_push(
                 cells.gc.expression.clone() + word_b_element_num,
                 cells.stack_size.expression.clone() - field_num,

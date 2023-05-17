@@ -52,6 +52,7 @@ impl<F: FieldExt> Locals<F> {
         rw_operations.push(RWOperation::LocalsOp(locals_op));
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn emit_locals_ops_for_word(
         word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
         rw: RW,

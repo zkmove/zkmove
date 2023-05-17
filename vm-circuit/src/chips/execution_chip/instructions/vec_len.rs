@@ -39,10 +39,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        // for instruction VecLen, there are 3 pipeline stages here:
+        // for instruction VecLen, there are 3 steps here:
         // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
         // 2. read vec header from locals or global. [gc+DEPTH_OF_ADDRESS_PATH, 1]
-        // 3. store len into stack. [gc+DEPTH_OF_ADDRESS_PATH+1, 1]
+        // 3. write length into stack. [gc+DEPTH_OF_ADDRESS_PATH+1, 1]
         let cond = cells.conditions[Opcode::VecLen.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
@@ -69,6 +69,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
+                "vec_len(stack pop ref_val)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
@@ -93,6 +94,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_len.expression.clone(),
         );
         lookups.rw_lookups.push((
+            "vec_len(read vec header)",
             read,
             cond.clone() * (1.expr() - is_global.clone()), // locals read
         ));
@@ -106,7 +108,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_len.expression.clone(),
             0.expr(),
         );
-        lookups.rw_lookups.push((write, cond.clone()));
+        lookups
+            .rw_lookups
+            .push(("vec_len(push len to stack)", write, cond.clone()));
 
         // cells.ref_val[0] equel to frame_index(Locals)
         let mut constraint = cond.clone()

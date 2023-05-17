@@ -21,6 +21,7 @@ impl<F: FieldExt> EvalStack<F> {
         EvalStack(vec![])
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn emit_stack_ops_for_word(
         word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
         rw: RW,

@@ -72,7 +72,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
-                    0.expr(),
+                    0.expr(), //fixme, value_ext may not be 0.
                 ),
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
@@ -87,7 +87,7 @@ impl<F: FieldExt> InstructionGadget<F> for Call<F> {
                     address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
                     address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
-                    value_ext: 0.expr(),
+                    value_ext: 0.expr(), //fixme, value_ext may not be 0.
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),

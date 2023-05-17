@@ -724,6 +724,8 @@ impl<F: FieldExt> Word<F> {
         Ok(())
     }
 
+    // NOTICE: this function is used for pack/unpack a container type.
+    // word[0] is assigned to be empty, to make the constraints simple.
     pub fn assign_word_with_address(
         region: &mut Region<'_, F>,
         offset: usize,
@@ -745,7 +747,6 @@ impl<F: FieldExt> Word<F> {
             .take(word_element_num + 1)
             .skip(1)
         {
-            // for i in 0..word_element_num {
             let op = rw_operations
                 .0
                 .get(op_index + i - 1)

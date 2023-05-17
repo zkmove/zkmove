@@ -74,7 +74,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveTo<F> {
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
-                0.expr(),
+                0.expr(), //fixme, value_ext may not be 0.
                 word_elem_num.clone(),
                 depth_of_addr_path_expr.clone(),
             );

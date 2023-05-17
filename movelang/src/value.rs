@@ -244,6 +244,7 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
+    #[allow(clippy::type_complexity)]
     fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
@@ -945,6 +946,7 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
+    #[allow(clippy::type_complexity)]
     fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
@@ -1024,6 +1026,7 @@ impl<F: FieldExt> Value<F> {
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
+    #[allow(clippy::type_complexity)]
     pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
@@ -1041,6 +1044,7 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
 }
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
+    #[allow(clippy::type_complexity)]
     pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = self

@@ -12,7 +12,6 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
@@ -40,6 +39,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
+        // for instruction VecMut(Imm)Borrow, there are 3 steps here:
+        // 1. read index from stack. [gc, 1]
+        // 1. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
+        // 3. write reference to element into stack.
+        // [gc + 1 + DEPTH_OF_ADDRESS_PATH, DEPTH_OF_ADDRESS_PATH]
         let opcode = if MUTABLE {
             Opcode::VecMutBorrow
         } else {
@@ -72,6 +76,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
 
         // lookup "read index"
         lookups.rw_lookups.push((
+            "vec_borrow(read index)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -91,6 +96,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         {
             // lookup "read vec ref"
             lookups.rw_lookups.push((
+                "vec_borrow(read vec ref)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + 1.expr() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
@@ -104,6 +110,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
 
             // lookup "write indexed ref"
             lookups.rw_lookups.push((
+                "vec_borrow(write indexed ref)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
                         + depth_of_addr_path_expr.clone()
@@ -120,7 +127,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         }
 
         // element index should be equal to indexed_ref_val[last],
-        // counting the header, it's 1 larger than the real offset
+        // NOTICE: counting the header, it's 1 larger than the real offset
         let index = self.index.expression.clone();
         for i in 0..DEPTH_OF_ADDRESS_PATH {
             let constraint = cond.clone()
@@ -147,11 +154,13 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let ref_val_flattened_len =
+            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
 
+        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         self.index.assign(region, offset, op.value().value())?;
 
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         let ref_val = RefVal {
             ref_val: self.ref_val.clone(),
             ref_val_mask: self.ref_val_mask.clone(),
@@ -163,7 +172,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             rw_operations,
             &ref_val,
             step.gc + 1,
-            word_element_num,
+            ref_val_flattened_len,
         )?;
 
         let indexed_ref_val = RefVal {
@@ -177,15 +186,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             rw_operations,
             &indexed_ref_val,
             step.gc + 1 + DEPTH_OF_ADDRESS_PATH,
-            word_element_num + 1, // the last element is element index
+            ref_val_flattened_len + 1, // the last element is element index
         )?;
-
-        // assign the signature index
-        let si = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("signature index is None");
-            Error::Synthesis
-        })?;
-        cells.auxiliary_1.assign(region, offset, si.value())?;
 
         Ok(())
     }

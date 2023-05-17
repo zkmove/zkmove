@@ -720,7 +720,7 @@ impl<F: FieldExt> Frame<F> {
                         let value = interp.stack.pop(rw_operations)?;
                         let word_element_count = value.word_element_count();
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        let ref_word_element_count = vec_ref.value_address_path().len();
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
                         let headers = vec_ref.current_and_parent_container_headers()?;
                         //fixme: need type check?
                         let _ty = resolver
@@ -733,8 +733,7 @@ impl<F: FieldExt> Frame<F> {
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        execution_step.auxiliary_4 =
-                            Some(Value::u64(ref_word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         // emit rw operations
                         let value_idx = vec_ref.length()? - 1;
@@ -773,7 +772,7 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::VecPopBack(si) => {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        let ref_word_element_count = vec_ref.value_address_path().len();
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
                         let headers = vec_ref.current_and_parent_container_headers()?;
                         //fixme: need type check?
                         let _ty = resolver
@@ -795,8 +794,7 @@ impl<F: FieldExt> Frame<F> {
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        execution_step.auxiliary_4 =
-                            Some(Value::u64(ref_word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         let val = vec_ref.pop()?;
                         interp.stack.push(val, rw_operations)?;
@@ -851,7 +849,7 @@ impl<F: FieldExt> Frame<F> {
                         let idx_b = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let idx_a = interp.stack.pop_as_u64(rw_operations)? as usize;
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
-                        let ref_word_element_count = vec_ref.value_address_path().len();
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -898,8 +896,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(word_a_element_count as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_b_element_count as u64));
-                        execution_step.auxiliary_4 =
-                            Some(Value::u64(ref_word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         vec_ref.swap(idx_a, idx_b)
                     }

@@ -50,19 +50,19 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        // for instruction VecSwap, there are 4 pipeline stages here:
+        // for instruction VecSwap, there are 6 steps here:
         // 1. read idx_a, idx_b from stack [gc, 2]
         // 2. read vec ref from stack. [gc + 2, DEPTH_OF_ADDRESS_PATH]
         // 3. read value_a from vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH, word_a_element_num]
+        // [gc + 2 + DEPTH_OF_ADDRESS_PATH, value_a_flattened_len]
         // 4. read value_b from vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + word_a_element_num, word_b_element_num]
+        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len, value_b_flattened_len]
         // 5. read value_a to vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + word_a_element_num + word_b_element_num,
-        // word_a_element_num]
+        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len + value_b_flattened_len,
+        // value_a_flattened_len]
         // 6. read value_b to vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + 2 * word_a_element_num + word_b_element_num,
-        // word_b_element_num]
+        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + 2 * value_a_flattened_len + value_b_flattened_len,
+        // value_b_flattened_len]
 
         let cond = cells.conditions[Opcode::VecSwap.index()].expression.clone();
 
@@ -72,14 +72,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             - 3.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_a_element_num = cells.auxiliary_2.expression.clone();
-        let word_b_element_num = cells.auxiliary_3.expression.clone();
+        let value_a_flattened_len = cells.auxiliary_2.expression.clone();
+        let value_b_flattened_len = cells.auxiliary_3.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr()
             + depth_of_addr_path_expr.clone()
-            + word_a_element_num.clone() * 2.expr()
-            + word_b_element_num.clone() * 2.expr();
+            + value_a_flattened_len.clone() * 2.expr()
+            + value_b_flattened_len.clone() * 2.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -94,6 +94,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         ]);
 
         lookups.rw_lookups.push((
+            "vec_swap(pop idx_b)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -105,6 +106,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             cond.clone(),
         ));
         lookups.rw_lookups.push((
+            "vec_swap(pop idx_a)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
@@ -119,6 +121,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         // read reference from stack
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
+                "vec_swap(read vec ref)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + 2.expr() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 2.expr(),
@@ -146,6 +149,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(),
             );
             lookups.rw_lookups.push((
+                "vec_swap(read value_a)",
                 read,
                 cond.clone() * (1.expr() - self.value_a_mask[i].expression.clone()),
             ));
@@ -155,8 +159,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
-                    + word_a_element_num.clone()
-                    + word_b_element_num.clone()
+                    + value_a_flattened_len.clone()
+                    + value_b_flattened_len.clone()
                     + (i as u64).expr(),
                 self.vec_frame_index.expression.clone(),
                 self.vec_locals_index.expression.clone(),
@@ -166,6 +170,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
+                "vec_swap(write value_a)",
                 write,
                 cond.clone() * (1.expr() - self.value_a_mask[i].expression.clone()),
             ));
@@ -177,7 +182,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
-                    + word_a_element_num.clone()
+                    + value_a_flattened_len.clone()
                     + (i as u64).expr(),
                 self.vec_frame_index.expression.clone(),
                 self.vec_locals_index.expression.clone(),
@@ -187,6 +192,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(),
             );
             lookups.rw_lookups.push((
+                "vec_swap(read value_b)",
                 read,
                 cond.clone() * (1.expr() - self.value_b_mask[i].expression.clone()),
             ));
@@ -196,8 +202,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
-                    + 2.expr() * word_a_element_num.clone()
-                    + word_b_element_num.clone()
+                    + 2.expr() * value_a_flattened_len.clone()
+                    + value_b_flattened_len.clone()
                     + (i as u64).expr(),
                 self.vec_frame_index.expression.clone(),
                 self.vec_locals_index.expression.clone(),
@@ -207,6 +213,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
+                "vec_swap(write value_b)",
                 write,
                 cond.clone() * (1.expr() - self.value_b_mask[i].expression.clone()),
             ));
@@ -302,11 +309,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
-        let word_a_element_num =
+        let value_a_flattened_len =
             Word::assign_auxiliary_2(region, offset, step, cells)?.get_lower_128() as usize;
-        let word_b_element_num =
+        let value_b_flattened_len =
             Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
-        let ref_word_element_count =
+        let ref_val_flattened_len =
             Word::assign_auxiliary_4(region, offset, step, cells)?.get_lower_128() as usize;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
@@ -326,7 +333,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             rw_operations,
             &ref_val,
             step.gc + 2,
-            ref_word_element_count,
+            ref_val_flattened_len,
         )?;
 
         let op = rw_operations
@@ -353,7 +360,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             rw_operations,
             &value_a,
             step.gc + 2 + DEPTH_OF_ADDRESS_PATH,
-            word_a_element_num,
+            value_a_flattened_len,
         )?;
 
         // assign value_b
@@ -369,16 +376,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &value_b,
-            step.gc + 2 + DEPTH_OF_ADDRESS_PATH + word_a_element_num,
-            word_b_element_num,
+            step.gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len,
+            value_b_flattened_len,
         )?;
 
         // assign ref_value_a_mask and ref_value_b_mask
-        for i in 0..(ref_word_element_count + 1) {
+        for i in 0..(ref_val_flattened_len + 1) {
             self.ref_value_a_mask[i].assign(region, offset, Some(F::zero()))?;
             self.ref_value_b_mask[i].assign(region, offset, Some(F::zero()))?;
         }
-        for i in (ref_word_element_count + 1)..DEPTH_OF_ADDRESS_PATH {
+        for i in (ref_val_flattened_len + 1)..DEPTH_OF_ADDRESS_PATH {
             self.ref_value_a_mask[i].assign(region, offset, Some(F::one()))?;
             self.ref_value_b_mask[i].assign(region, offset, Some(F::one()))?;
         }

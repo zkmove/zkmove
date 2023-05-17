@@ -7,6 +7,7 @@ use movelang::value::{
 };
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
+#[allow(clippy::type_complexity)]
 pub fn emit_global_ops_for_word<F: FieldExt>(
     word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
     addr: AccountAddress<F>,

@@ -71,6 +71,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         ]);
 
         lookups.rw_lookups.push((
+            "unpack(struct header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -83,6 +84,9 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         ));
 
         // word_a used for struct and word_b used for unpacked fields.
+        // read struct from stack, write back the unpacked values
+        // word_a[0] is the header. To make the constraint simple, we have already
+        // assigned the word_b[0] to be empty, now we just skip 'i=0'.
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
                 "unpack(stack pop)",
@@ -92,7 +96,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
-                    0.expr(),
+                    0.expr(), //fixme, value_ext may not be 0.
                 ),
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
@@ -110,7 +114,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
                     address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
                     address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
-                    value_ext: 0.expr(),
+                    value_ext: 0.expr(), //fixme, value_ext may not be 0.
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),

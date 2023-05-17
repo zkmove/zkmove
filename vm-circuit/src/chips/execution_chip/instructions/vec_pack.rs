@@ -15,22 +15,21 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct VecPack<F: FieldExt> {
-    // word for the popped values
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
-    word_address: Vec<Cell<F>>,
+    // cells for the n values popped from stack
+    values: Vec<Cell<F>>,
+    values_mask: Vec<Cell<F>>,
+    values_addr_ext_0: Vec<Cell<F>>,
+    values_addr_ext_1: Vec<Cell<F>>,
+    values_address: Vec<Cell<F>>,
 
-    // word for the vector pushed back
-    word_b: Vec<Cell<F>>,
-    word_b_mask: Vec<Cell<F>>,
-    word_b_addr_ext_0: Vec<Cell<F>>,
-    word_b_addr_ext_1: Vec<Cell<F>>,
+    // cells for the vector pushed back
+    vector: Vec<Cell<F>>,
+    vector_mask: Vec<Cell<F>>,
+    vector_addr_ext_0: Vec<Cell<F>>,
+    vector_addr_ext_1: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
@@ -44,7 +43,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        //VecPack
+        // for instruction VecPack, there are 2 steps here:
+        // 1. read n values from stack. [gc, values_flattened_len]
+        // 2. write vector to stack. [gc + values_flattened_len, vector_flattened_len]
+
         let cond = cells.conditions[Opcode::VecPack.index()].expression.clone();
 
         let values_num = cells.auxiliary_1.expression.clone();
@@ -55,11 +57,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_b_element_num = cells.auxiliary_3.expression.clone();
-        let word_a_element_num = word_b_element_num.clone() - 1.expr();
+        let vector_flattened_len = cells.auxiliary_3.expression.clone();
+        let values_flattened_len = vector_flattened_len.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_a_element_num.clone()
-            + word_b_element_num;
+            + values_flattened_len.clone()
+            + vector_flattened_len;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -73,65 +75,70 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        // word_a is used for the popped values, word_b is used for the vector pushed back
-        for (i, item) in self.word_a.iter().enumerate().take(WORD_CAPACITY).skip(1) {
+        // read values from stack, write back the packed vector
+        // vector[0] is the header. To make the constraint simple, we have already
+        // assigned the values[0] to be empty, now we just skip 'i=0'.
+        for (i, item) in self.values.iter().enumerate().take(WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
+                "vec_pack(read values)",
                 RWLookup {
                     gc: cells.gc.expression.clone() + ((i - 1) as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::READ as u64).expr(),
                     frame_index: 0.expr(),
-                    address: self.word_address[i].expression.clone(),
-                    address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
-                    address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
+                    address: self.values_address[i].expression.clone(),
+                    address_ext_0: self.values_addr_ext_0[i].expression.clone(),
+                    address_ext_1: self.values_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
                     value_ext: 0.expr(),
                     sd_index: 0.expr(),
                 },
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.values_mask[i].expression.clone()),
             ));
 
             lookups.rw_lookups.push((
+                "vec_pack(write vector)",
                 RWLookup::stack_push(
-                    cells.gc.expression.clone() + word_a_element_num.clone() + (i as u64).expr(),
+                    cells.gc.expression.clone() + values_flattened_len.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - values_num.clone(),
-                    self.word_b_addr_ext_0[i].expression.clone(),
-                    self.word_b_addr_ext_1[i].expression.clone(),
+                    self.vector_addr_ext_0[i].expression.clone(),
+                    self.vector_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                     0.expr(),
                 ),
-                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.vector_mask[i].expression.clone()),
             ));
         }
 
         lookups.rw_lookups.push((
+            "vec_pack(write vec header)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + word_a_element_num,
+                cells.gc.expression.clone() + values_flattened_len,
                 cells.stack_size.expression.clone() - values_num,
-                self.word_b_addr_ext_0[0].expression.clone(),
-                self.word_b_addr_ext_1[0].expression.clone(),
-                self.word_b[0].expression.clone(),
+                self.vector_addr_ext_0[0].expression.clone(),
+                self.vector_addr_ext_1[0].expression.clone(),
+                self.vector[0].expression.clone(),
                 0.expr(),
             ),
-            cond.clone() * (1.expr() - self.word_b_mask[0].expression.clone()),
+            cond.clone() * (1.expr() - self.vector_mask[0].expression.clone()),
         ));
 
-        // word_a.address is equal to word_b.address_ext_0
-        // word_a.address_ext_0 is equal to word_b.address_ext_1
+        // values_address is equal to vector_addr_ext_0
+        // values_addr_ext_0 is equal to vector_addr_ext_1
         for i in 1..WORD_CAPACITY {
             let constraint = cond.clone()
-                * self.word_b_mask[i].expression.clone()
-                * (self.word_address[i].expression.clone()
-                    - self.word_b_addr_ext_0[i].expression.clone());
+                * self.vector_mask[i].expression.clone()
+                * (self.values_address[i].expression.clone()
+                    - self.vector_addr_ext_0[i].expression.clone());
             cb.add_constraint("vec_pack_address_eq", constraint);
             let constraint = cond.clone()
-                * self.word_b_mask[i].expression.clone()
-                * (self.word_a_addr_ext_0[i].expression.clone()
-                    - self.word_b_addr_ext_1[i].expression.clone());
+                * self.vector_mask[i].expression.clone()
+                * (self.values_addr_ext_0[i].expression.clone()
+                    - self.vector_addr_ext_1[i].expression.clone());
             cb.add_constraint("vec_pack_address_ext_0_eq", constraint);
         }
 
-        // todo: handle the second operand
+        // todo: add the second operand
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::VecPack,
@@ -149,80 +156,73 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let values_num = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("values num is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, values_num.value())?;
+        let _values_num = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let _si = Word::assign_auxiliary_2(region, offset, step, cells)?;
+        let vector_flattened_len =
+            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+        let values_flattened_len = vector_flattened_len - 1;
 
-        let word_b_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        let word_a_element_num = word_b_element_num - 1;
-
-        let word_a = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        let values = Word {
+            word: self.values.clone(),
+            word_mask: self.values_mask.clone(),
+            word_addr_ext_0: self.values_addr_ext_0.clone(),
+            word_addr_ext_1: self.values_addr_ext_1.clone(),
         };
+        // assign the values into a word
+        // NOTICE: assign word[0] to be empty, to make the constraints simple
         Word::assign_word_with_address(
             region,
             offset,
             rw_operations,
-            &word_a,
-            &self.word_address,
+            &values,
+            &self.values_address,
             step.gc,
-            word_a_element_num,
+            values_flattened_len,
         )?;
 
-        let word_b = Word {
-            word: self.word_b.clone(),
-            word_mask: self.word_b_mask.clone(),
-            word_addr_ext_0: self.word_b_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_b_addr_ext_1.clone(),
+        let vector = Word {
+            word: self.vector.clone(),
+            word_mask: self.vector_mask.clone(),
+            word_addr_ext_0: self.vector_addr_ext_0.clone(),
+            word_addr_ext_1: self.vector_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            &word_b,
-            step.gc + word_a_element_num,
-            word_b_element_num,
+            &vector,
+            step.gc + values_flattened_len,
+            vector_flattened_len,
         )?;
-
-        let si = step.auxiliary_2.as_ref().ok_or_else(|| {
-            error!("signature index is None");
-            Error::Synthesis
-        })?;
-        cells.auxiliary_2.assign(region, offset, si.value())?;
 
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_address = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let values = cb.alloc_n_cells(WORD_CAPACITY);
+        let values_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let values_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let values_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let values_address = cb.alloc_n_cells(WORD_CAPACITY);
+
+        let vector = cb.alloc_n_cells(WORD_CAPACITY);
+        let vector_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let vector_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let vector_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
 
         Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-            word_address,
-            word_b,
-            word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
+            values,
+            values_mask,
+            values_addr_ext_0,
+            values_addr_ext_1,
+            values_address,
+
+            vector,
+            vector_mask,
+            vector_addr_ext_0,
+            vector_addr_ext_1,
         }
     }
 }
