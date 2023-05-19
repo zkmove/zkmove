@@ -609,82 +609,20 @@ impl<F: FieldExt> Word<F> {
             .get_lower_128() as usize)
     }
 
-    pub fn assign_auxiliary_1(
+    pub fn assign_step_value(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        cells: &StepChipCells<F>,
+        step_value: &Option<Value<F>>,
+        step_cell: &Cell<F>,
     ) -> VmResult<F> {
-        let value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
+        let value = step_value.as_ref().ok_or_else(|| {
+            error!("step value {:?} is None", step_value);
             Error::Synthesis
         })?;
-
-        // assign to cells.auxiliary_3
-        cells.auxiliary_1.assign(region, offset, value.value())?;
+        step_cell.assign(region, offset, value.value())?;
 
         Ok(value.value().ok_or_else(|| {
-            error!("failed to get aux value");
-            Error::Synthesis
-        })?)
-    }
-
-    pub fn assign_auxiliary_2(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        cells: &StepChipCells<F>,
-    ) -> VmResult<F> {
-        let value = step.auxiliary_2.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
-            Error::Synthesis
-        })?;
-
-        // assign to cells.auxiliary_3
-        cells.auxiliary_2.assign(region, offset, value.value())?;
-
-        Ok(value.value().ok_or_else(|| {
-            error!("failed to get aux value");
-            Error::Synthesis
-        })?)
-    }
-
-    pub fn assign_auxiliary_3(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        cells: &StepChipCells<F>,
-    ) -> VmResult<F> {
-        let value = step.auxiliary_3.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
-            Error::Synthesis
-        })?;
-
-        // assign to cells.auxiliary_3
-        cells.auxiliary_3.assign(region, offset, value.value())?;
-
-        Ok(value.value().ok_or_else(|| {
-            error!("failed to get aux value");
-            Error::Synthesis
-        })?)
-    }
-
-    pub fn assign_auxiliary_4(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        cells: &StepChipCells<F>,
-    ) -> VmResult<F> {
-        let value = step.auxiliary_4.as_ref().ok_or_else(|| {
-            error!("auxiliary is None");
-            Error::Synthesis
-        })?;
-
-        // assign to cells.auxiliary_3
-        cells.auxiliary_4.assign(region, offset, value.value())?;
-
-        Ok(value.value().ok_or_else(|| {
-            error!("failed to get aux value");
+            error!("failed to get step value {:?}", step_value);
             Error::Synthesis
         })?)
     }

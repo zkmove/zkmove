@@ -156,10 +156,12 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _values_num = Word::assign_auxiliary_1(region, offset, step, cells)?;
-        let _si = Word::assign_auxiliary_2(region, offset, step, cells)?;
+        let _values_num =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+        let _si = Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
         let vector_flattened_len =
-            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
         let values_flattened_len = vector_flattened_len - 1;
 
         let values = Word {

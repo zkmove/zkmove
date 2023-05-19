@@ -2,6 +2,7 @@
 
 use crate::globals;
 use crate::interpreter::Interpreter;
+use crate::locals;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
@@ -101,6 +102,7 @@ impl<F: FieldExt> Frame<F> {
                     auxiliary_2: None,
                     auxiliary_3: None,
                     auxiliary_4: None,
+                    auxiliary_5: None,
                 };
 
                 match instruction {
@@ -235,13 +237,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_index.0 as u128));
-                                globals::emit_global_ops_for_word(
-                                    word,
-                                    account_addr,
-                                    sd_index,
-                                    RW::READ,
-                                    rw_operations,
-                                );
+                                globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::LocalRef(LocalRef { loc, .. }) => {
                                 let frame_index = loc.frame_index;
@@ -254,7 +250,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_2 = Some(Value::u64(frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
-                                Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                                locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::IndexedRef(IndexedRef {
                                 sub_indexes,
@@ -282,8 +278,6 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u128(sd_index.0 as u128));
                                         globals::emit_global_ops_for_word(
                                             word,
-                                            account_addr,
-                                            sd_index,
                                             RW::READ,
                                             rw_operations,
                                         );
@@ -306,7 +300,7 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u64(frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64)); // word_elem_count
-                                        Locals::emit_locals_ops_for_word(
+                                        locals::emit_locals_ops_for_word(
                                             word,
                                             RW::READ,
                                             rw_operations,
@@ -335,7 +329,7 @@ impl<F: FieldExt> Frame<F> {
                                     Some(Value::u64(loc.frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64));
-                                Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                                locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                             }
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_idx) = (loc.address, loc.sd_index);
@@ -348,8 +342,6 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                                 globals::emit_global_ops_for_word(
                                     word.clone(),
-                                    account_addr,
-                                    sd_idx,
                                     RW::WRITE,
                                     rw_operations,
                                 );
@@ -375,7 +367,7 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u64(vloc.frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64));
-                                        Locals::emit_locals_ops_for_word(
+                                        locals::emit_locals_ops_for_word(
                                             word,
                                             RW::WRITE,
                                             rw_operations,
@@ -401,8 +393,6 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u128(sd_idx.0 as u128));
                                         globals::emit_global_ops_for_word(
                                             word.clone(),
-                                            account_addr,
-                                            sd_idx,
                                             RW::WRITE,
                                             rw_operations,
                                         );
@@ -684,17 +674,29 @@ impl<F: FieldExt> Frame<F> {
                             Location::ValueLocation(l) => LocatedValue(l, &vec).flatten(),
                             Location::IndexedLocation(l) => LocatedValue(l, &vec).flatten(),
                         };
-                        // fixme - could be global ops
-                        let (header_address_path, vec_flattened_len, vec_len) =
-                            word.first().expect("header address should not be none");
-                        Locals::emit_locals_op(
-                            header_address_path.clone(),
-                            *vec_flattened_len,
-                            *vec_len,
-                            RW::READ,
-                            rw_operations,
-                        );
-                        execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
+                        if vec_ref.is_global() {
+                            let (header_address_path, vec_flattened_len, vec_len) =
+                                word.first().expect("header address should not be none");
+                            globals::emit_global_op(
+                                header_address_path.clone(),
+                                *vec_flattened_len,
+                                *vec_len,
+                                RW::READ,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_1 = Some(Value::bool(true));
+                        } else {
+                            let (header_address_path, vec_flattened_len, vec_len) =
+                                word.first().expect("header address should not be none");
+                            locals::emit_locals_op(
+                                header_address_path.clone(),
+                                *vec_flattened_len,
+                                *vec_len,
+                                RW::READ,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_1 = Some(Value::bool(false));
+                        }
                         execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
 
                         let vec_len = vec_ref.length()?;
@@ -741,31 +743,55 @@ impl<F: FieldExt> Frame<F> {
                         let (value_loc, value) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
                         let word = LocatedValue(value_loc, &value).flatten();
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(word, RW::WRITE, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
 
                         // update container headers
                         execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
-                            // fixme - could be global ops
-                            Locals::emit_locals_op(
-                                loc.to_address_path().fill_up(),
-                                PrimitiveValue::u64(flattened_len as u64),
-                                Some(PrimitiveValue::u64(len as u64)),
-                                RW::READ,
-                                rw_operations,
-                            );
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            }
                         }
                         let new_headers = vec_ref.current_and_parent_container_headers()?;
                         for (loc, len, flattened_len) in new_headers {
-                            // fixme - could be global ops
-                            Locals::emit_locals_op(
-                                loc.to_address_path().fill_up(),
-                                PrimitiveValue::u64(flattened_len as u64),
-                                Some(PrimitiveValue::u64(len as u64)),
-                                RW::WRITE,
-                                rw_operations,
-                            );
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            }
                         }
 
                         Ok(())
@@ -788,8 +814,14 @@ impl<F: FieldExt> Frame<F> {
                         let (value_loc, value) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
                         let word = LocatedValue(value_loc, &value).flatten();
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
                         let word_element_count = value.word_element_count();
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
@@ -802,25 +834,43 @@ impl<F: FieldExt> Frame<F> {
                         // update container headers
                         execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
-                            // fixme - could be global ops
-                            Locals::emit_locals_op(
-                                loc.to_address_path().fill_up(),
-                                PrimitiveValue::u64(flattened_len as u64),
-                                Some(PrimitiveValue::u64(len as u64)),
-                                RW::READ,
-                                rw_operations,
-                            );
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            }
                         }
                         let new_headers = vec_ref.current_and_parent_container_headers()?;
                         for (loc, len, flattened_len) in new_headers {
-                            // fixme - could be global ops
-                            Locals::emit_locals_op(
-                                loc.to_address_path().fill_up(),
-                                PrimitiveValue::u64(flattened_len as u64),
-                                Some(PrimitiveValue::u64(len as u64)),
-                                RW::WRITE,
-                                rw_operations,
-                            );
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            }
                         }
 
                         Ok(())
@@ -865,30 +915,53 @@ impl<F: FieldExt> Frame<F> {
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_a_ref)?;
                         let (elem_b_loc, elem_b) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_b_ref)?;
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
-                            RW::READ,
-                            rw_operations,
-                        );
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
-                            RW::READ,
-                            rw_operations,
-                        );
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_b_loc, &elem_a).flatten(),
-                            RW::WRITE,
-                            rw_operations,
-                        );
-                        // fixme - could be global ops
-                        Locals::emit_locals_ops_for_word(
-                            LocatedValue(elem_a_loc, &elem_b).flatten(),
-                            RW::WRITE,
-                            rw_operations,
-                        );
+
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_b_loc, &elem_a).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_a_loc, &elem_b).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_b_loc, &elem_a).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_a_loc, &elem_b).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
 
                         let word_a_element_count = elem_a.word_element_count();
                         let word_b_element_count = elem_b.word_element_count();

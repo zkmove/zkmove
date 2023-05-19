@@ -12,7 +12,6 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
@@ -22,8 +21,8 @@ pub struct VecLen<F: FieldExt> {
 
     vec_flattened_len: Cell<F>,
     vec_len: Cell<F>,
-    vec_frame_index: Cell<F>,
-    vec_locals_index: Cell<F>,
+    vec_frame_index_or_global_address: Cell<F>,
+    vec_locals_index_or_global_sd_idx: Cell<F>,
     vec_header_addr_ext_0: Cell<F>,
     vec_header_addr_ext_1: Cell<F>,
 }
@@ -84,10 +83,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         let is_global = cells.auxiliary_1.expression.clone();
         // locals read or global read
-        let read = RWLookup::locals_read(
+        let read_local = RWLookup::locals_read(
             cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
-            self.vec_frame_index.expression.clone(),
-            self.vec_locals_index.expression.clone(),
+            self.vec_frame_index_or_global_address.expression.clone(),
+            self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
             self.vec_header_addr_ext_1.expression.clone(),
             self.vec_flattened_len.expression.clone(),
@@ -95,8 +94,22 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         );
         lookups.rw_lookups.push((
             "vec_len(read vec header)",
-            read,
+            read_local,
             cond.clone() * (1.expr() - is_global.clone()), // locals read
+        ));
+        let read_global = RWLookup::global_read(
+            cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
+            self.vec_frame_index_or_global_address.expression.clone(),
+            self.vec_flattened_len.expression.clone(),
+            self.vec_len.expression.clone(),
+            self.vec_locals_index_or_global_sd_idx.expression.clone(),
+            self.vec_header_addr_ext_0.expression.clone(),
+            self.vec_header_addr_ext_1.expression.clone(),
+        );
+        lookups.rw_lookups.push((
+            "vec_len(read vec header)",
+            read_global,
+            cond.clone() * is_global.clone(), // global read
         ));
 
         // stack write
@@ -112,21 +125,17 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             .rw_lookups
             .push(("vec_len(push len to stack)", write, cond.clone()));
 
-        // cells.ref_val[0] equel to frame_index(Locals)
+        // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
         let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone() - self.vec_frame_index.expression.clone());
+            * (self.ref_val[0].expression.clone()
+                - self.vec_frame_index_or_global_address.expression.clone());
         cb.add_constraint("read_ref_eq_0", constraint);
-
-        //todo: cells.ref_val[0] equel to account_address(Global)
-
-        // cells.ref_val[1] equel to local_index(Locals)
+        // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
         constraint = cond.clone()
             * (1.expr() - is_global)
-            * (self.ref_val[1].expression.clone() - self.vec_locals_index.expression.clone());
+            * (self.ref_val[1].expression.clone()
+                - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-
-        //todo: cells.ref_val[1] equel to sd_index(Global)
-
         // cells.ref_val[2] equal to vec_header_addr_ext_0
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone());
@@ -153,6 +162,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
+        let _si = Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
+        let is_global =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+
         let ref_val = RefVal {
             ref_val: self.ref_val.clone(),
             ref_val_mask: self.ref_val_mask.clone(),
@@ -186,24 +199,30 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             offset,
             Some(F::from(op.address_ext_1() as u64)),
         )?;
-        self.vec_frame_index
-            .assign(region, offset, Some(F::from(op.frame_index() as u64)))?;
-        self.vec_locals_index
-            .assign(region, offset, Some(F::from(op.address() as u64)))?;
+        if is_global == F::zero() {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(F::from(op.frame_index() as u64)),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.address() as u64)),
+            )?;
+        } else {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(op.account_address().value()),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.sd_index() as u64)),
+            )?;
+        }
 
-        let is_global = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, is_global.value())?;
-
-        let si = step.auxiliary_2.as_ref().ok_or_else(|| {
-            error!("signature index is None");
-            Error::Synthesis
-        })?;
-        cells.auxiliary_2.assign(region, offset, si.value())?;
         Ok(())
     }
 
@@ -214,8 +233,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         let vec_flattened_len = cb.alloc_cell();
         let vec_len = cb.alloc_cell();
-        let vec_frame_index = cb.alloc_cell();
-        let vec_locals_index = cb.alloc_cell();
+        let vec_frame_index_or_global_address = cb.alloc_cell();
+        let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
         let vec_header_addr_ext_0 = cb.alloc_cell();
         let vec_header_addr_ext_1 = cb.alloc_cell();
 
@@ -225,8 +244,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
             vec_flattened_len,
             vec_len,
-            vec_frame_index,
-            vec_locals_index,
+            vec_frame_index_or_global_address,
+            vec_locals_index_or_global_sd_idx,
             vec_header_addr_ext_0,
             vec_header_addr_ext_1,
         }

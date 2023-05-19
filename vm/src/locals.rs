@@ -23,45 +23,6 @@ impl<F: FieldExt> Locals<F> {
         )
     }
 
-    pub fn emit_locals_op(
-        address_path: AddressPath<F>,
-        value: PrimitiveValue<F>,
-        value_ext: Option<PrimitiveValue<F>>,
-        rw: RW,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) {
-        let locals_op = LocalsOp {
-            frame_index: *address_path
-                .0
-                .first()
-                .expect("frame_index should not be None") as usize,
-            index: *address_path.0.get(1).expect("index should not be None") as usize,
-            address_ext_0: *address_path
-                .0
-                .get(2)
-                .expect("address_ext_0 should not be None") as usize,
-            address_ext_1: *address_path
-                .0
-                .get(3)
-                .expect("address_ext_1 should not be None") as usize,
-            value: Some(value),
-            value_ext,
-            rw,
-            gc: rw_operations.len(),
-        };
-        rw_operations.push(RWOperation::LocalsOp(locals_op));
-    }
-
-    #[allow(clippy::type_complexity)]
-    pub fn emit_locals_ops_for_word(
-        word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
-        rw: RW,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) {
-        for (address_path, val, val_ext) in word {
-            Locals::emit_locals_op(address_path, val, val_ext, rw, rw_operations)
-        }
-    }
     pub fn copy(
         &self,
         index: usize,
@@ -83,7 +44,7 @@ impl<F: FieldExt> Locals<F> {
                     )
                     .flatten();
 
-                    Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                    emit_locals_ops_for_word(word, RW::READ, rw_operations);
                     Ok(copied_value)
                 }
             }
@@ -118,7 +79,7 @@ impl<F: FieldExt> Locals<F> {
                     &value,
                 )
                 .flatten();
-                Self::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                 *v.borrow_mut() = value;
                 Ok(())
             }
@@ -149,7 +110,7 @@ impl<F: FieldExt> Locals<F> {
                 )
                 .flatten();
                 // LocalsOP Read
-                Self::emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
+                emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
                 // LocalsOP Write
                 for (address_path, _, _) in word {
                     let locals_op_2 = LocalsOp {
@@ -207,7 +168,7 @@ impl<F: FieldExt> Locals<F> {
                     index,
                 };
                 let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
-                Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                emit_locals_ops_for_word(word, RW::READ, rw_operations);
                 Ok(LocalRef {
                     loc,
                     refer: value_cell.clone(),
@@ -235,7 +196,7 @@ impl<F: FieldExt> Locals<F> {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             v => {
                 let word = LocatedValue(ValueLocation::Local(loc), v).flatten();
-                Self::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                emit_locals_ops_for_word(word, RW::READ, rw_operations);
                 Ok(v.copy_value())
             }
         }
@@ -249,5 +210,45 @@ impl<F: FieldExt> Locals<F> {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+pub fn emit_locals_op<F: FieldExt>(
+    address_path: AddressPath<F>,
+    value: PrimitiveValue<F>,
+    value_ext: Option<PrimitiveValue<F>>,
+    rw: RW,
+    rw_operations: &mut Vec<RWOperation<F>>,
+) {
+    let locals_op = LocalsOp {
+        frame_index: *address_path
+            .0
+            .first()
+            .expect("frame_index should not be None") as usize,
+        index: *address_path.0.get(1).expect("index should not be None") as usize,
+        address_ext_0: *address_path
+            .0
+            .get(2)
+            .expect("address_ext_0 should not be None") as usize,
+        address_ext_1: *address_path
+            .0
+            .get(3)
+            .expect("address_ext_1 should not be None") as usize,
+        value: Some(value),
+        value_ext,
+        rw,
+        gc: rw_operations.len(),
+    };
+    rw_operations.push(RWOperation::LocalsOp(locals_op));
+}
+
+#[allow(clippy::type_complexity)]
+pub fn emit_locals_ops_for_word<F: FieldExt>(
+    word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
+    rw: RW,
+    rw_operations: &mut Vec<RWOperation<F>>,
+) {
+    for (address_path, val, val_ext) in word {
+        emit_locals_op(address_path, val, val_ext, rw, rw_operations)
     }
 }

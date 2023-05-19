@@ -7,32 +7,45 @@ use movelang::value::{
 };
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
+pub fn emit_global_op<F: FieldExt>(
+    address_path: AddressPath<F>,
+    value: PrimitiveValue<F>,
+    value_ext: Option<PrimitiveValue<F>>,
+    rw: RW,
+    rw_operations: &mut Vec<RWOperation<F>>,
+) {
+    let op = GlobalOp {
+        address: AccountAddress::new(F::from_u128(
+            *address_path
+                .0
+                .first()
+                .expect("account address should not be None"),
+        )),
+        sd_index: *address_path.0.get(1).expect("sd_index should not be None") as usize,
+        address_ext_0: *address_path
+            .0
+            .get(2)
+            .expect("address_ext_0 should not be None") as usize,
+        address_ext_1: *address_path
+            .0
+            .get(3)
+            .expect("address_ext_1 should not be None") as usize,
+        value: Some(value),
+        value_ext,
+        rw,
+        gc: rw_operations.len(),
+    };
+    rw_operations.push(RWOperation::GlobalOp(op));
+}
+
 #[allow(clippy::type_complexity)]
 pub fn emit_global_ops_for_word<F: FieldExt>(
     word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
-    addr: AccountAddress<F>,
-    sd_index: StructDefinitionIndex,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
     for (address_path, val, val_ext) in word {
-        let op = GlobalOp {
-            address: addr,
-            sd_index: sd_index.0 as usize,
-            address_ext_0: *address_path
-                .0
-                .get(2)
-                .expect("address_ext_0 should not be None") as usize,
-            address_ext_1: *address_path
-                .0
-                .get(3)
-                .expect("address_ext_1 should not be None") as usize,
-            value: Some(val),
-            value_ext: val_ext,
-            rw,
-            gc: rw_operations.len(),
-        };
-        rw_operations.push(RWOperation::GlobalOp(op));
+        emit_global_op(address_path, val, val_ext, rw, rw_operations);
     }
 }
 pub fn emit_ops_for_global_value<F: FieldExt>(

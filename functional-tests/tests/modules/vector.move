@@ -128,4 +128,40 @@ module 0x1::vector {
     public fun elem_field_0(e: &Elem): u8 {
         e.e0
     }
+
+    struct G has key, store {
+        vec: vector<u64>,
+    }
+    public fun new_g(account: &signer, value: u64) {
+        let vec = empty<u64>();
+        push_back(&mut vec, value);
+        move_to(account, G { vec });
+    }
+    public fun read_value(addr: address): u64 acquires G {
+        let g = borrow_global<G>(addr);
+        let value = borrow(&g.vec, 0);
+        *value
+    }
+    public fun write_value(addr: address, value: u64) acquires G {
+        let new_vec = empty<u64>();
+        push_back(&mut new_vec, value);
+        let g = borrow_global_mut<G>(addr);
+        g.vec = new_vec
+    }
+    public fun vec_len(addr: address): u64 acquires G {
+        let g = borrow_global<G>(addr);
+        length(&g.vec)
+    }
+    public fun g_push_back(addr: address, value: u64) acquires G {
+        let g = borrow_global_mut<G>(addr);
+        push_back(&mut g.vec, value);
+    }
+    public fun g_pop_back(addr: address):u64 acquires G {
+        let g = borrow_global_mut<G>(addr);
+        pop_back(&mut g.vec)
+    }
+    public fun g_swap(addr: address, i: u64, j: u64) acquires G {
+        let g = borrow_global_mut<G>(addr);
+        swap(&mut g.vec, i, j);
+    }
 }

@@ -187,6 +187,7 @@ impl<F: FieldExt> Interpreter<F> {
                             auxiliary_2: step_current.auxiliary_2.clone(),
                             auxiliary_3: step_current.auxiliary_3.clone(),
                             auxiliary_4: step_current.auxiliary_4.clone(),
+                            auxiliary_5: step_current.auxiliary_5.clone(),
                         };
                         exec_steps.push(stop);
                         return Ok(());

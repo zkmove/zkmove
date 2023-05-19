@@ -18,4 +18,5 @@ pub struct ExecutionStep<F: FieldExt> {
     pub auxiliary_2: Option<Value<F>>,
     pub auxiliary_3: Option<Value<F>>,
     pub auxiliary_4: Option<Value<F>>,
+    pub auxiliary_5: Option<Value<F>>,
 }

@@ -23,8 +23,8 @@ pub struct VecSwap<F: FieldExt> {
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 
-    vec_frame_index: Cell<F>,
-    vec_locals_index: Cell<F>,
+    vec_frame_index_or_global_address: Cell<F>,
+    vec_locals_index_or_global_sd_idx: Cell<F>,
 
     value_a: Vec<Cell<F>>,
     value_a_mask: Vec<Cell<F>>,
@@ -50,17 +50,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        // for instruction VecSwap, there are 6 steps here:
-        // 1. read idx_a, idx_b from stack [gc, 2]
-        // 2. read vec ref from stack. [gc + 2, DEPTH_OF_ADDRESS_PATH]
-        // 3. read value_a from vec (in locals or global).
+        // for instruction VecSwap, there are 7 steps here:
+        // 1. read idx_b from stack [gc, 1]
+        // 2. read idx_a from stack [gc + 1, 1]
+        // 3. read vec ref from stack. [gc + 2, DEPTH_OF_ADDRESS_PATH]
+        // 4. read value_a from vec (in locals or global).
         // [gc + 2 + DEPTH_OF_ADDRESS_PATH, value_a_flattened_len]
-        // 4. read value_b from vec (in locals or global).
+        // 5. read value_b from vec (in locals or global).
         // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len, value_b_flattened_len]
-        // 5. read value_a to vec (in locals or global).
+        // 6. write value_a to vec (in locals or global).
         // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len + value_b_flattened_len,
         // value_a_flattened_len]
-        // 6. read value_b to vec (in locals or global).
+        // 7. write value_b to vec (in locals or global).
         // [gc + 2 + DEPTH_OF_ADDRESS_PATH + 2 * value_a_flattened_len + value_b_flattened_len,
         // value_b_flattened_len]
 
@@ -134,15 +135,17 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             ));
         }
 
+        let is_global = cells.auxiliary_5.expression.clone();
+
         for (i, item) in self.value_a.iter().enumerate().take(WORD_CAPACITY) {
             // read value_a
-            let read = RWLookup::locals_read(
+            let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
                     + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -150,20 +153,41 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             );
             lookups.rw_lookups.push((
                 "vec_swap(read value_a)",
-                read,
-                cond.clone() * (1.expr() - self.value_a_mask[i].expression.clone()),
+                locals_read,
+                cond.clone()
+                    * (1.expr() - self.value_a_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_read = RWLookup::global_read(
+                cells.gc.expression.clone()
+                    + 2.expr()
+                    + depth_of_addr_path_expr.clone()
+                    + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                0.expr(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.value_a_addr_ext_0[i].expression.clone(),
+                self.value_a_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_swap(read value_a)",
+                global_read,
+                cond.clone()
+                    * (1.expr() - self.value_a_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
 
             // write value_a
-            let write = RWLookup::locals_write(
+            let locals_write = RWLookup::locals_write(
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
                     + value_a_flattened_len.clone()
                     + value_b_flattened_len.clone()
                     + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -171,21 +195,44 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             );
             lookups.rw_lookups.push((
                 "vec_swap(write value_a)",
-                write,
-                cond.clone() * (1.expr() - self.value_a_mask[i].expression.clone()),
+                locals_write,
+                cond.clone()
+                    * (1.expr() - self.value_a_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_write = RWLookup::global_write(
+                cells.gc.expression.clone()
+                    + 2.expr()
+                    + depth_of_addr_path_expr.clone()
+                    + value_a_flattened_len.clone()
+                    + value_b_flattened_len.clone()
+                    + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                0.expr(), //fixme, value_ext may not be 0.
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.value_b_addr_ext_0[i].expression.clone(),
+                self.value_b_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_swap(write value_a)",
+                global_write,
+                cond.clone()
+                    * (1.expr() - self.value_a_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
         }
 
         for (i, item) in self.value_b.iter().enumerate().take(WORD_CAPACITY) {
             // read value_b
-            let read = RWLookup::locals_read(
+            let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
                     + value_a_flattened_len.clone()
                     + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -193,20 +240,42 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             );
             lookups.rw_lookups.push((
                 "vec_swap(read value_b)",
-                read,
-                cond.clone() * (1.expr() - self.value_b_mask[i].expression.clone()),
+                locals_read,
+                cond.clone()
+                    * (1.expr() - self.value_b_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_read = RWLookup::global_read(
+                cells.gc.expression.clone()
+                    + 2.expr()
+                    + depth_of_addr_path_expr.clone()
+                    + value_a_flattened_len.clone()
+                    + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                0.expr(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.value_b_addr_ext_0[i].expression.clone(),
+                self.value_b_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_swap(read value_b)",
+                global_read,
+                cond.clone()
+                    * (1.expr() - self.value_b_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
 
             // write value_b
-            let write = RWLookup::locals_write(
+            let locals_write = RWLookup::locals_write(
                 cells.gc.expression.clone()
                     + 2.expr()
                     + depth_of_addr_path_expr.clone()
                     + 2.expr() * value_a_flattened_len.clone()
                     + value_b_flattened_len.clone()
                     + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -214,24 +283,47 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             );
             lookups.rw_lookups.push((
                 "vec_swap(write value_b)",
-                write,
-                cond.clone() * (1.expr() - self.value_b_mask[i].expression.clone()),
+                locals_write,
+                cond.clone()
+                    * (1.expr() - self.value_b_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_write = RWLookup::global_write(
+                cells.gc.expression.clone()
+                    + 2.expr()
+                    + depth_of_addr_path_expr.clone()
+                    + 2.expr() * value_a_flattened_len.clone()
+                    + value_b_flattened_len.clone()
+                    + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                0.expr(), //fixme, value_ext may not be 0.
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.value_a_addr_ext_0[i].expression.clone(),
+                self.value_a_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_swap(write value_b)",
+                global_write,
+                cond.clone()
+                    * (1.expr() - self.value_b_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
         }
 
-        // Constrains ref_val[0] == vec_frame_index.
+        // Constrains ref_val[0] == vec_frame_index_or_global_address.
         let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone() - self.vec_frame_index.expression.clone())
+            * (self.ref_val[0].expression.clone()
+                - self.vec_frame_index_or_global_address.expression.clone())
             * (1.expr() - self.ref_val_mask[0].expression.clone());
         cb.add_constraint("ref_check_0", constraint);
-        //todo: cells.ref_val[0] equal to account_address(Global)
 
-        // Constrains ref_val[1] == vec_locals_index.
+        // Constrains ref_val[1] == vec_locals_index_or_global_sd_idx.
         constraint = cond.clone()
-            * (self.ref_val[1].expression.clone() - self.vec_locals_index.expression.clone())
+            * (self.ref_val[1].expression.clone()
+                - self.vec_locals_index_or_global_sd_idx.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("ref_check_1", constraint);
-        //todo: cells.ref_val[1] equal to sd_index(Global)
 
         // Constrains ref_val[2] == value_a_addr_ext_0[0] == value_b_addr_ext_0[0].
         constraint = cond.clone()
@@ -308,13 +400,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let _si = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let value_a_flattened_len =
-            Word::assign_auxiliary_2(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?
+                .get_lower_128() as usize;
         let value_b_flattened_len =
-            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
         let ref_val_flattened_len =
-            Word::assign_auxiliary_4(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_4, &cells.auxiliary_4)?
+                .get_lower_128() as usize;
+        let is_global =
+            Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         self.idx_b.assign(region, offset, op.value().value())?;
@@ -341,10 +438,29 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             .get(step.gc + 2 + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
 
-        self.vec_frame_index
-            .assign(region, offset, Some(F::from(op.frame_index() as u64)))?;
-        self.vec_locals_index
-            .assign(region, offset, Some(F::from(op.address() as u64)))?;
+        if is_global == F::zero() {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(F::from(op.frame_index() as u64)),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.address() as u64)),
+            )?;
+        } else {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(op.account_address().value()),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.sd_index() as u64)),
+            )?;
+        }
 
         // assign value_a
         let value_a = Word {
@@ -401,8 +517,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
-        let vec_frame_index = cb.alloc_cell();
-        let vec_locals_index = cb.alloc_cell();
+        let vec_frame_index_or_global_address = cb.alloc_cell();
+        let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
         let value_a = cb.alloc_n_cells(WORD_CAPACITY);
         let value_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
@@ -424,8 +540,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             ref_val,
             ref_val_mask,
 
-            vec_frame_index,
-            vec_locals_index,
+            vec_frame_index_or_global_address,
+            vec_locals_index_or_global_sd_idx,
 
             value_a,
             value_a_mask,

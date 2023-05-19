@@ -154,9 +154,10 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let _si = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let ref_val_flattened_len =
-            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         self.index.assign(region, offset, op.value().value())?;

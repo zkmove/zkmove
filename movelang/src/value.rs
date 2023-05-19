@@ -454,47 +454,22 @@ impl<F: FieldExt> VectorRef<F> {
         }
     }
 
-    // pub fn current_container_header(
-    //     &self,
-    // ) -> VmResult<(
-    //         Location<F>,
-    //         /* container length */ usize,
-    //         /* container flattened length */ usize,
-    //     )> {
-    //     match self {
-    //         VectorRef::LocalRef(l) => {
-    //             let ref_val = l.read_ref()?;
-    //             let (length, flattened_length) = match ref_val {
-    //                 Value::Container(c) => {
-    //                     let flattened_len = c.cast_simples().len();
-    //                     (c.len(), flattened_len)
-    //                 }
-    //                 _ => {
-    //                     return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(
-    //                         "cannot get length for a non container value".to_string(),
-    //                     ))
-    //                 }
-    //             };
-    //             Ok((
-    //                 Location::ValueLocation(ValueLocation::Local(l.loc)),
-    //                 length,
-    //                 flattened_length,
-    //             ))
-    //         }
-    //         VectorRef::IndexedRef(i) => {
-    //             let val = i.read_ref()?;
-    //             let loc = IndexedLocation {
-    //                 sub_indexes: i.sub_indexes.clone(),
-    //                 value_loc: i.container_ref.location(),
-    //             };
-    //             Ok((
-    //                 Location::IndexedLocation(loc),
-    //                 val.len(),
-    //                 val.cast_simples().len()
-    //             ))
-    //         }
-    //     }
-    // }
+    pub fn is_global(&self) -> bool {
+        match self {
+            VectorRef::LocalRef(_) => false,
+            VectorRef::IndexedRef(i) => {
+                let loc = IndexedLocation {
+                    sub_indexes: i.sub_indexes.clone(),
+                    value_loc: i.container_ref.location(),
+                };
+                match loc.value_loc {
+                    ValueLocation::Stack(_) => unreachable!(),
+                    ValueLocation::Local(_) => false,
+                    ValueLocation::Global(_) => true,
+                }
+            }
+        }
+    }
 
     pub fn current_and_parent_container_headers(
         &self,
@@ -548,7 +523,8 @@ impl<F: FieldExt> VectorRef<F> {
                             _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
                         }
                     };
-                    cur_sub_indexes.push(*idx);
+                    // increase the sub index by 1, because position 0 is occupied by the container header.
+                    cur_sub_indexes.push(*idx + 1);
                     let loc = IndexedLocation {
                         sub_indexes: cur_sub_indexes.clone(),
                         value_loc: value_loc.clone(),

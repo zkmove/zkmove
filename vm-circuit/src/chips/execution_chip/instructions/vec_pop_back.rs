@@ -22,8 +22,8 @@ pub struct VecPopBack<F: FieldExt> {
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 
-    vec_frame_index: Cell<F>,
-    vec_locals_index: Cell<F>,
+    vec_frame_index_or_global_address: Cell<F>,
+    vec_locals_index_or_global_sd_idx: Cell<F>,
 
     value: Vec<Cell<F>>,
     value_mask: Vec<Cell<F>>,
@@ -91,6 +91,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
+        let is_global = cells.auxiliary_5.expression.clone();
+
         // read reference from stack
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
@@ -109,10 +111,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
 
         for (i, item) in self.value.iter().enumerate().take(WORD_CAPACITY) {
             // read value from container
-            let read = RWLookup::locals_read(
+            let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_addr_ext_0[i].expression.clone(),
                 self.value_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -120,8 +122,26 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             );
             lookups.rw_lookups.push((
                 "vec_pop_back(read value)",
-                read,
-                cond.clone() * (1.expr() - self.value_mask[i].expression.clone()),
+                locals_read,
+                cond.clone()
+                    * (1.expr() - self.value_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_read = RWLookup::global_read(
+                cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                0.expr(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.value_addr_ext_0[i].expression.clone(),
+                self.value_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_pop_back(read value)",
+                global_read,
+                cond.clone()
+                    * (1.expr() - self.value_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
 
             // write value to stack
@@ -153,10 +173,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             .enumerate()
             .take(DEPTH_OF_ADDRESS_PATH - 2)
         {
-            let read = RWLookup::locals_read(
+            let locals_read = RWLookup::locals_read(
                 gc_offset.clone() + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.headers_value_addr_ext_0[i].expression.clone(),
                 self.headers_value_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
@@ -164,14 +184,32 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             );
             lookups.rw_lookups.push((
                 "vec_pop_back(read headers)",
-                read,
-                cond.clone() * (1.expr() - self.headers_value_mask[i].expression.clone()),
+                locals_read,
+                cond.clone()
+                    * (1.expr() - self.headers_value_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_read = RWLookup::global_read(
+                gc_offset.clone() + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                item.expression.clone(),
+                self.headers_value_ext[i].expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.headers_value_addr_ext_0[i].expression.clone(),
+                self.headers_value_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_pop_back(read headers)",
+                global_read,
+                cond.clone()
+                    * (1.expr() - self.headers_value_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
 
-            let write = RWLookup::locals_write(
+            let locals_write = RWLookup::locals_write(
                 gc_offset.clone() + headers_count.clone() + (i as u64).expr(),
-                self.vec_frame_index.expression.clone(),
-                self.vec_locals_index.expression.clone(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.headers_value_addr_ext_0[i].expression.clone(),
                 self.headers_value_addr_ext_1[i].expression.clone(),
                 self.new_headers_value[i].expression.clone(),
@@ -179,22 +217,40 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             );
             lookups.rw_lookups.push((
                 "vec_pop_back(write headers)",
-                write,
-                cond.clone() * (1.expr() - self.headers_value_mask[i].expression.clone()),
+                locals_write,
+                cond.clone()
+                    * (1.expr() - self.headers_value_mask[i].expression.clone())
+                    * (1.expr() - is_global.clone()),
+            ));
+            let global_write = RWLookup::global_write(
+                gc_offset.clone() + headers_count.clone() + (i as u64).expr(),
+                self.vec_frame_index_or_global_address.expression.clone(),
+                self.new_headers_value[i].expression.clone(),
+                self.new_headers_value_ext[i].expression.clone(),
+                self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                self.headers_value_addr_ext_0[i].expression.clone(),
+                self.headers_value_addr_ext_1[i].expression.clone(),
+            );
+            lookups.rw_lookups.push((
+                "vec_pop_back(write headers)",
+                global_write,
+                cond.clone()
+                    * (1.expr() - self.headers_value_mask[i].expression.clone())
+                    * is_global.clone(),
             ));
         }
 
         // Constrains the value to be popped from the vector referenced by vec_ref.
         let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone() - self.vec_frame_index.expression.clone())
+            * (self.ref_val[0].expression.clone()
+                - self.vec_frame_index_or_global_address.expression.clone())
             * (1.expr() - self.ref_val_mask[0].expression.clone());
         cb.add_constraint("read_ref_eq_0", constraint);
-        //todo: cells.ref_val[0] equal to account_address(Global)
         constraint = cond.clone()
-            * (self.ref_val[1].expression.clone() - self.vec_locals_index.expression.clone())
+            * (self.ref_val[1].expression.clone()
+                - self.vec_locals_index_or_global_sd_idx.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-        //todo: cells.ref_val[1] equal to sd_index(Global)
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.value_addr_ext_0[0].expression.clone())
             * (1.expr() - self.ref_val_mask[2].expression.clone());
@@ -210,10 +266,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         //
         // Skip header[0], it's already constrained by the above lookup
         for i in 1..(DEPTH_OF_ADDRESS_PATH - 2) {
-            // header[i]'s frame_index must equal to ref_val[0],
+            // header[i]'s frame_index or global address must equal to ref_val[0],
             // already constrained by the above lookup
 
-            // header[i]'s locals_index must equal to ref_val[1],
+            // header[i]'s locals_index or global sd_index must equal to ref_val[1],
             // already constrained by the above lookup
 
             // header[i]'s addr_ext_0 must equal to ref_val[2],
@@ -263,13 +319,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _si = Word::assign_auxiliary_1(region, offset, step, cells)?;
+        let _si = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let headers_count =
-            Word::assign_auxiliary_2(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?
+                .get_lower_128() as usize;
         let value_flattened_len =
-            Word::assign_auxiliary_3(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
         let ref_val_flattened_len =
-            Word::assign_auxiliary_4(region, offset, step, cells)?.get_lower_128() as usize;
+            Word::assign_step_value(region, offset, &step.auxiliary_4, &cells.auxiliary_4)?
+                .get_lower_128() as usize;
+        let is_global =
+            Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
         // assign vector ref
         let ref_val = RefVal {
@@ -290,10 +351,29 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             .0
             .get(step.gc + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
-        self.vec_frame_index
-            .assign(region, offset, Some(F::from(op.frame_index() as u64)))?;
-        self.vec_locals_index
-            .assign(region, offset, Some(F::from(op.address() as u64)))?;
+        if is_global == F::zero() {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(F::from(op.frame_index() as u64)),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.address() as u64)),
+            )?;
+        } else {
+            self.vec_frame_index_or_global_address.assign(
+                region,
+                offset,
+                Some(op.account_address().value()),
+            )?;
+            self.vec_locals_index_or_global_sd_idx.assign(
+                region,
+                offset,
+                Some(F::from(op.sd_index() as u64)),
+            )?;
+        }
 
         // assign the popped value
         let popped_value = Word {
@@ -365,8 +445,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
-        let vec_frame_index = cb.alloc_cell();
-        let vec_locals_index = cb.alloc_cell();
+        let vec_frame_index_or_global_address = cb.alloc_cell();
+        let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
         let value = cb.alloc_n_cells(WORD_CAPACITY);
         let value_mask = cb.alloc_n_cells(WORD_CAPACITY);
@@ -390,8 +470,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             ref_val,
             ref_val_mask,
 
-            vec_frame_index,
-            vec_locals_index,
+            vec_frame_index_or_global_address,
+            vec_locals_index_or_global_sd_idx,
 
             value,
             value_mask,
