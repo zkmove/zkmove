@@ -9,7 +9,7 @@ use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: PrimitiveValue<F>,
+    value: Option<PrimitiveValue<F>>,
     value_ext: Option<PrimitiveValue<F>>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
@@ -30,7 +30,7 @@ pub fn emit_global_op<F: FieldExt>(
             .0
             .get(3)
             .expect("address_ext_1 should not be None") as usize,
-        value: Some(value),
+        value,
         value_ext,
         rw,
         gc: rw_operations.len(),
@@ -40,7 +40,11 @@ pub fn emit_global_op<F: FieldExt>(
 
 #[allow(clippy::type_complexity)]
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
+    word: Vec<(
+        AddressPath<F>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
@@ -74,7 +78,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
                 .0
                 .get(3)
                 .expect("address_ext_1 should not be None") as usize,
-            value: Some(val),
+            value: val,
             value_ext: val_ext,
             rw,
             gc: rw_operations.len(),

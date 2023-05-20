@@ -245,7 +245,13 @@ impl<F: FieldExt> Container<F> {
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
     #[allow(clippy::type_complexity)]
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
+    fn cast_simples(
+        &self,
+    ) -> Vec<(
+        Vec<u128>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
@@ -263,7 +269,7 @@ impl<F: FieldExt> Container<F> {
             0,
             (
                 vec![0u128],
-                PrimitiveValue::u128((simples.len() + 1) as u128),
+                Some(PrimitiveValue::u128((simples.len() + 1) as u128)),
                 Some(PrimitiveValue::u128(self.len() as u128)),
             ),
         );
@@ -923,10 +929,16 @@ impl<F: FieldExt> Value<F> {
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
     #[allow(clippy::type_complexity)]
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
+    fn cast_simples(
+        &self,
+    ) -> Vec<(
+        Vec<u128>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
-            return vec![(vec![], simple_value, None)];
+            return vec![(vec![], Some(simple_value), None)];
         }
         match self {
             Value::Container(container) => container.cast_simples(),
@@ -943,7 +955,7 @@ impl<F: FieldExt> Value<F> {
                     .map(|(i, v)| {
                         (
                             vec![i as u128],
-                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
                             None,
                         )
                     })
@@ -961,7 +973,7 @@ impl<F: FieldExt> Value<F> {
                     .map(|(i, v)| {
                         (
                             vec![i as u128],
-                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
                             None,
                         )
                     })
@@ -987,7 +999,7 @@ impl<F: FieldExt> Value<F> {
                     .map(|(i, v)| {
                         (
                             vec![i as u128],
-                            PrimitiveValue::U128(U128(F::from_u128(v))),
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
                             None,
                         )
                     })
@@ -1003,7 +1015,13 @@ pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
     #[allow(clippy::type_complexity)]
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
+    pub fn flatten(
+        &self,
+    ) -> Vec<(
+        AddressPath<F>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
         values.iter_mut().for_each(|(p, _, _)| {
@@ -1021,7 +1039,13 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
     #[allow(clippy::type_complexity)]
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)> {
+    pub fn flatten(
+        &self,
+    ) -> Vec<(
+        AddressPath<F>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = self
             .0

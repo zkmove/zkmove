@@ -758,7 +758,7 @@ impl<F: FieldExt> Frame<F> {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::READ,
                                     rw_operations,
@@ -766,7 +766,7 @@ impl<F: FieldExt> Frame<F> {
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::READ,
                                     rw_operations,
@@ -778,7 +778,7 @@ impl<F: FieldExt> Frame<F> {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::WRITE,
                                     rw_operations,
@@ -786,7 +786,7 @@ impl<F: FieldExt> Frame<F> {
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::WRITE,
                                     rw_operations,
@@ -837,7 +837,7 @@ impl<F: FieldExt> Frame<F> {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::READ,
                                     rw_operations,
@@ -845,7 +845,7 @@ impl<F: FieldExt> Frame<F> {
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::READ,
                                     rw_operations,
@@ -857,7 +857,7 @@ impl<F: FieldExt> Frame<F> {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::WRITE,
                                     rw_operations,
@@ -865,7 +865,7 @@ impl<F: FieldExt> Frame<F> {
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    PrimitiveValue::u64(flattened_len as u64),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
                                     Some(PrimitiveValue::u64(len as u64)),
                                     RW::WRITE,
                                     rw_operations,

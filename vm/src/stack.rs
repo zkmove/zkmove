@@ -23,7 +23,11 @@ impl<F: FieldExt> EvalStack<F> {
 
     #[allow(clippy::type_complexity)]
     pub fn emit_stack_ops_for_word(
-        word: Vec<(AddressPath<F>, PrimitiveValue<F>, Option<PrimitiveValue<F>>)>,
+        word: Vec<(
+            AddressPath<F>,
+            Option<PrimitiveValue<F>>,
+            Option<PrimitiveValue<F>>,
+        )>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
@@ -40,7 +44,7 @@ impl<F: FieldExt> EvalStack<F> {
                     .get(3)
                     .expect("address_ext_1 should not be None")
                     as usize,
-                value: Some(val),
+                value: val,
                 value_ext: val_ext,
                 rw,
                 gc: rw_operations.len(),
