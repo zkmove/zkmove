@@ -81,6 +81,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
                 0.expr(),
                 0.expr(),
                 account_address_expr.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -92,6 +93,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
                     cells.gc.expression.clone() + (i as u64 + 1).expr(),
                     account_address_expr.clone(),
                     self.word_a[i].expression.clone(),
+                    0.expr(), //fixme, value_ext may not be 0.
                     sd_index_expr.clone(),
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
@@ -112,6 +114,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone(),
             ));

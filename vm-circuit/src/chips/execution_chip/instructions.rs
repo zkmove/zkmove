@@ -60,6 +60,13 @@ pub mod st_loc;
 pub mod stop;
 pub mod sub;
 pub mod unpack;
+pub mod vec_borrow;
+pub mod vec_len;
+pub mod vec_pack;
+pub mod vec_pop_back;
+pub mod vec_push_back;
+pub mod vec_swap;
+pub mod vec_unpack;
 pub mod write_ref;
 pub mod xor;
 

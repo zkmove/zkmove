@@ -52,9 +52,11 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let word_a_element_num = cells.auxiliary_3.expression.clone();
+        let word_b_element_num = word_a_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_element_num.clone() * 2.expr();
+            + word_a_element_num.clone()
+            + word_b_element_num;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -68,8 +70,24 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
+        lookups.rw_lookups.push((
+            "unpack(struct header)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                self.word_a_addr_ext_0[0].expression.clone(),
+                self.word_a_addr_ext_1[0].expression.clone(),
+                self.word_a[0].expression.clone(),
+                0.expr(),
+            ),
+            cond.clone() * (1.expr() - self.word_a_mask[0].expression.clone()),
+        ));
+
         // word_a used for struct and word_b used for unpacked fields.
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
+        // read struct from stack, write back the unpacked values
+        // word_a[0] is the header. To make the constraint simple, we have already
+        // assigned the word_b[0] to be empty, now we just skip 'i=0'.
+        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
                 "unpack(stack pop)",
                 RWLookup::stack_pop(
@@ -78,6 +96,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
+                    0.expr(), //fixme, value_ext may not be 0.
                 ),
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
@@ -85,7 +104,9 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             lookups.rw_lookups.push((
                 "unpack(stack push)",
                 RWLookup {
-                    gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
+                    gc: cells.gc.expression.clone()
+                        + word_a_element_num.clone()
+                        + ((i - 1) as u64).expr(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::WRITE as u64).expr(),
                     frame_index: 0.expr(),
@@ -93,6 +114,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
                     address_ext_0: self.word_b_addr_ext_0[i].expression.clone(),
                     address_ext_1: self.word_b_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
+                    value_ext: 0.expr(), //fixme, value_ext may not be 0.
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
@@ -101,7 +123,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
 
         //  word_a.address_ext_0 equal to word_b.address
         //  word_a.address_ext_1 equal to word_b.address_ext_0
-        for i in 0..WORD_CAPACITY {
+        for i in 1..WORD_CAPACITY {
             let constraint = cond.clone()
                 * self.word_a_mask[i].expression.clone()
                 * (self.word_address[i].expression.clone()
@@ -146,7 +168,8 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             word_addr_ext_0: self.word_a_addr_ext_0.clone(),
             word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_a_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_b_element_num = word_a_element_num - 1;
         Word::assign_word(
             region,
             offset,
@@ -154,7 +177,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             rw_operations,
             &word_a,
             step.gc,
-            word_element_num,
+            word_a_element_num,
         )?;
 
         let word_b = Word {
@@ -169,8 +192,8 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
             rw_operations,
             &word_b,
             &self.word_address,
-            step.gc + word_element_num,
-            word_element_num,
+            step.gc + word_a_element_num,
+            word_b_element_num,
         )?;
 
         let sd_idx = step.auxiliary_2.as_ref().ok_or_else(|| {

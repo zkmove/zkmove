@@ -2,6 +2,7 @@
 
 use crate::globals;
 use crate::interpreter::Interpreter;
+use crate::locals;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
@@ -13,7 +14,7 @@ use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
-    Reference, Value, ValueLocation,
+    Location, PrimitiveValue, Reference, Value, ValueLocation,
 };
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
@@ -101,6 +102,7 @@ impl<F: FieldExt> Frame<F> {
                     auxiliary_2: None,
                     auxiliary_3: None,
                     auxiliary_4: None,
+                    auxiliary_5: None,
                 };
 
                 match instruction {
@@ -235,13 +237,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_index.0 as u128));
-                                globals::emit_global_ops_for_word(
-                                    word,
-                                    account_addr,
-                                    sd_index,
-                                    RW::READ,
-                                    rw_operations,
-                                );
+                                globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::LocalRef(LocalRef { loc, .. }) => {
                                 let frame_index = loc.frame_index;
@@ -254,7 +250,7 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_2 = Some(Value::u64(frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
-                                Locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                                locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::IndexedRef(IndexedRef {
                                 sub_indexes,
@@ -282,8 +278,6 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u128(sd_index.0 as u128));
                                         globals::emit_global_ops_for_word(
                                             word,
-                                            account_addr,
-                                            sd_index,
                                             RW::READ,
                                             rw_operations,
                                         );
@@ -306,7 +300,7 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u64(frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64)); // word_elem_count
-                                        Locals::emit_locals_ops_for_word(
+                                        locals::emit_locals_ops_for_word(
                                             word,
                                             RW::READ,
                                             rw_operations,
@@ -335,7 +329,7 @@ impl<F: FieldExt> Frame<F> {
                                     Some(Value::u64(loc.frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64));
-                                Locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                                locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                             }
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_idx) = (loc.address, loc.sd_index);
@@ -348,8 +342,6 @@ impl<F: FieldExt> Frame<F> {
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_idx.0 as u128));
                                 globals::emit_global_ops_for_word(
                                     word.clone(),
-                                    account_addr,
-                                    sd_idx,
                                     RW::WRITE,
                                     rw_operations,
                                 );
@@ -375,7 +367,7 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u64(vloc.frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64));
-                                        Locals::emit_locals_ops_for_word(
+                                        locals::emit_locals_ops_for_word(
                                             word,
                                             RW::WRITE,
                                             rw_operations,
@@ -401,8 +393,6 @@ impl<F: FieldExt> Frame<F> {
                                             Some(Value::u128(sd_idx.0 as u128));
                                         globals::emit_global_ops_for_word(
                                             word.clone(),
-                                            account_addr,
-                                            sd_idx,
                                             RW::WRITE,
                                             rw_operations,
                                         );
@@ -567,7 +557,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let args = interp.stack.popn(field_count, rw_operations)?;
-                        let value = Value::struct_(args);
+                        let value = Value::container(args);
                         let word_element_count = value.word_element_count();
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp.stack.push(value, rw_operations)
@@ -577,9 +567,9 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(sd_idx.0 as u64));
                         let (struct_, word_element_count) =
-                            interp.stack.pop_as_struct(rw_operations)?;
+                            interp.stack.pop_as_container(rw_operations)?;
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        for value in struct_.unpack()? {
+                        for value in struct_.unpack() {
                             interp.stack.push(value, rw_operations)?;
                         }
                         Ok(())
@@ -651,6 +641,337 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         interp.stack.push(global_ref.into(), rw_operations)
+                    }
+                    Bytecode::VecPack(si, num) => {
+                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let elements = interp.stack.popn(*num as u16, rw_operations)?;
+                        let value = Value::container(elements);
+                        let word_element_count = value.word_element_count();
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::VecLen(si) => {
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+
+                        // emit read op for vec header
+                        let vec = vec_ref.read_ref()?;
+                        let word = match vec_ref.location()? {
+                            Location::ValueLocation(l) => LocatedValue(l, &vec).flatten(),
+                            Location::IndexedLocation(l) => LocatedValue(l, &vec).flatten(),
+                        };
+                        if vec_ref.is_global() {
+                            let (header_address_path, vec_flattened_len, vec_len) =
+                                word.first().expect("header address should not be none");
+                            globals::emit_global_op(
+                                header_address_path.clone(),
+                                *vec_flattened_len,
+                                *vec_len,
+                                RW::READ,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_1 = Some(Value::bool(true));
+                        } else {
+                            let (header_address_path, vec_flattened_len, vec_len) =
+                                word.first().expect("header address should not be none");
+                            locals::emit_locals_op(
+                                header_address_path.clone(),
+                                *vec_flattened_len,
+                                *vec_len,
+                                RW::READ,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_1 = Some(Value::bool(false));
+                        }
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
+
+                        let vec_len = vec_ref.length()?;
+                        interp.stack.push(Value::u64(vec_len as u64), rw_operations)
+                    }
+                    Bytecode::VecImmBorrow(si) | Bytecode::VecMutBorrow(si) => {
+                        let idx = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let word_element_count = vec_ref.value_address_path().len();
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        let res = vec_ref.try_borrow_elem(idx)?;
+                        interp.stack.push(res.into(), rw_operations)
+                    }
+                    Bytecode::VecPushBack(si) => {
+                        let value = interp.stack.pop(rw_operations)?;
+                        let word_element_count = value.word_element_count();
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
+                        let headers = vec_ref.current_and_parent_container_headers()?;
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        vec_ref.push_back(value)?;
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+
+                        // emit rw operations
+                        let value_idx = vec_ref.length()? - 1;
+                        let value_ref = vec_ref.try_borrow_elem(value_idx)?;
+                        let (value_loc, value) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
+                        let word = LocatedValue(value_loc, &value).flatten();
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(word, RW::WRITE, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
+
+                        // update container headers
+                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
+                        for (loc, len, flattened_len) in headers {
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            }
+                        }
+                        let new_headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, len, flattened_len) in new_headers {
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            }
+                        }
+
+                        Ok(())
+                    }
+                    Bytecode::VecPopBack(si) => {
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
+                        let headers = vec_ref.current_and_parent_container_headers()?;
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+
+                        // emit rw operations
+                        let value_idx = vec_ref.length()? - 1;
+                        let value_ref = vec_ref.try_borrow_elem(value_idx)?;
+                        let (value_loc, value) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
+                        let word = LocatedValue(value_loc, &value).flatten();
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
+                        let word_element_count = value.word_element_count();
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+
+                        let val = vec_ref.pop()?;
+                        interp.stack.push(val, rw_operations)?;
+
+                        // update container headers
+                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
+                        for (loc, len, flattened_len) in headers {
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::READ,
+                                    rw_operations,
+                                );
+                            }
+                        }
+                        let new_headers = vec_ref.current_and_parent_container_headers()?;
+                        for (loc, len, flattened_len) in new_headers {
+                            if is_global {
+                                globals::emit_global_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            } else {
+                                locals::emit_locals_op(
+                                    loc.to_address_path().fill_up(),
+                                    Some(PrimitiveValue::u64(flattened_len as u64)),
+                                    Some(PrimitiveValue::u64(len as u64)),
+                                    RW::WRITE,
+                                    rw_operations,
+                                );
+                            }
+                        }
+
+                        Ok(())
+                    }
+                    Bytecode::VecUnpack(si, num) => {
+                        let (vec, word_element_count) =
+                            interp.stack.pop_as_container(rw_operations)?;
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+                        let elements = vec.unpack();
+                        for value in elements {
+                            interp.stack.push(value, rw_operations)?;
+                        }
+
+                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        Ok(())
+                    }
+                    Bytecode::VecSwap(si) => {
+                        let idx_b = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let idx_a = interp.stack.pop_as_u64(rw_operations)? as usize;
+                        let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
+                        let ref_val_flattened_len = vec_ref.value_address_path().len();
+                        //fixme: need type check?
+                        let _ty = resolver
+                            .instantiate_single_type(*si, self.ty_args())
+                            .map_err(|e| {
+                                error!("instantiate type failed: {:?}", e);
+                                RuntimeError::new(StatusCode::InstantiateTypeFailed)
+                            })?;
+
+                        // emit rw operations
+                        let elem_a_ref = vec_ref.try_borrow_elem(idx_a)?;
+                        let elem_b_ref = vec_ref.try_borrow_elem(idx_b)?;
+                        let (elem_a_loc, elem_a) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_a_ref)?;
+                        let (elem_b_loc, elem_b) =
+                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_b_ref)?;
+
+                        let is_global = vec_ref.is_global();
+                        if is_global {
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_b_loc, &elem_a).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            globals::emit_global_ops_for_word(
+                                LocatedValue(elem_a_loc, &elem_b).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_5 = Some(Value::bool(true));
+                        } else {
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_a_loc.clone(), &elem_a).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_b_loc.clone(), &elem_b).flatten(),
+                                RW::READ,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_b_loc, &elem_a).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            locals::emit_locals_ops_for_word(
+                                LocatedValue(elem_a_loc, &elem_b).flatten(),
+                                RW::WRITE,
+                                rw_operations,
+                            );
+                            execution_step.auxiliary_5 = Some(Value::bool(false));
+                        }
+
+                        let word_a_element_count = elem_a.word_element_count();
+                        let word_b_element_count = elem_b.word_element_count();
+
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(word_a_element_count as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_b_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+
+                        vec_ref.swap(idx_a, idx_b)
                     }
                     _ => unreachable!(),
                 }?;

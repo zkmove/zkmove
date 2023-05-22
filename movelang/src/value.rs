@@ -244,16 +244,35 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
+    #[allow(clippy::type_complexity)]
+    fn cast_simples(
+        &self,
+    ) -> Vec<(
+        Vec<u128>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
-            sub_values.iter_mut().for_each(|(v, _)| {
+            sub_values.iter_mut().for_each(|(v, _, _)| {
                 // prepend value idx to the sub-struct
-                v.insert(0, idx as u128);
+                // to leave a place for the header, the index is increased by 1
+                v.insert(0, (idx + 1) as u128);
             });
             simples.append(&mut sub_values);
         }
+        // add a header element to record the length of the container,
+        // and the length of the flattened value,
+        // the flattened length includes the header itself.
+        simples.insert(
+            0,
+            (
+                vec![0u128],
+                Some(PrimitiveValue::u128((simples.len() + 1) as u128)),
+                Some(PrimitiveValue::u128(self.len() as u128)),
+            ),
+        );
         simples
     }
 }
@@ -351,6 +370,222 @@ impl<F: FieldExt> Reference<F> {
             Reference::LocalRef(l) => l.try_borrow_field(element_idx),
             Reference::IndexedRef(l) => l.try_borrow_field(element_idx),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Location<F: FieldExt> {
+    ValueLocation(ValueLocation<F>),
+    IndexedLocation(IndexedLocation<F>),
+}
+
+impl<F: FieldExt> Location<F> {
+    pub fn to_address_path(&self) -> AddressPath<F> {
+        match self {
+            Location::ValueLocation(l) => l.to_address_path(),
+            Location::IndexedLocation(l) => l.to_address_path(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum VectorRef<F: FieldExt> {
+    /// vector in locals
+    LocalRef(LocalRef<F>),
+    /// vector as a field of a container
+    IndexedRef(IndexedRef<F>),
+}
+
+impl<F: FieldExt> VectorRef<F> {
+    /// read_ref returns a deep_copyed value
+    pub fn read_ref(&self) -> VmResult<Value<F>> {
+        Ok(match self {
+            VectorRef::LocalRef(l) => l.read_ref()?,
+            VectorRef::IndexedRef(i) => i.read_ref()?,
+        })
+    }
+    /// return address_path of the vector which is referenced by this ref
+    /// NOTICE: returned address_path is not filled up.
+    pub fn value_address_path(&self) -> AddressPath<F> {
+        match self {
+            Self::LocalRef(l) => ValueLocation::Local(l.loc).to_address_path(),
+            Self::IndexedRef(i) => IndexedLocation {
+                sub_indexes: i.sub_indexes.clone(),
+                value_loc: i.container_ref.location(),
+            }
+            .to_address_path(),
+        }
+    }
+
+    pub fn container(&self) -> VmResult<Container<F>> {
+        match self {
+            VectorRef::LocalRef(l) => {
+                let mut ref_val = l.refer.borrow_mut();
+                match ref_val.deref_mut() {
+                    Value::Container(c) => Ok(c.clone()),
+                    _ => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                        .with_message("cannot get length for a non container value".to_string())),
+                }
+            }
+            VectorRef::IndexedRef(i) => {
+                let mut cur_value = i.container_ref.container();
+                for idx in &i.sub_indexes {
+                    cur_value = {
+                        let mut val = cur_value.0.borrow_mut();
+                        let sub_val = val
+                            .get_mut(*idx)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+
+                        match sub_val {
+                            Value::Container(c) => c.clone(),
+                            _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                        }
+                    };
+                }
+                Ok(cur_value)
+            }
+        }
+    }
+
+    pub fn location(&self) -> VmResult<Location<F>> {
+        match self {
+            VectorRef::LocalRef(l) => Ok(Location::ValueLocation(ValueLocation::Local(l.loc))),
+            VectorRef::IndexedRef(i) => {
+                let loc = IndexedLocation {
+                    sub_indexes: i.sub_indexes.clone(),
+                    value_loc: i.container_ref.location(),
+                };
+                Ok(Location::IndexedLocation(loc))
+            }
+        }
+    }
+
+    pub fn is_global(&self) -> bool {
+        match self {
+            VectorRef::LocalRef(_) => false,
+            VectorRef::IndexedRef(i) => {
+                let loc = IndexedLocation {
+                    sub_indexes: i.sub_indexes.clone(),
+                    value_loc: i.container_ref.location(),
+                };
+                match loc.value_loc {
+                    ValueLocation::Stack(_) => unreachable!(),
+                    ValueLocation::Local(_) => false,
+                    ValueLocation::Global(_) => true,
+                }
+            }
+        }
+    }
+
+    pub fn current_and_parent_container_headers(
+        &self,
+    ) -> VmResult<
+        Vec<(
+            Location<F>,
+            /* container length */ usize,
+            /* container flattened length */ usize,
+        )>,
+    > {
+        let mut res = Vec::new();
+        match self {
+            VectorRef::LocalRef(l) => {
+                let ref_val = l.read_ref()?;
+                let (length, flattened_length) = match ref_val {
+                    Value::Container(c) => {
+                        let flattened_len = c.cast_simples().len();
+                        (c.len(), flattened_len)
+                    }
+                    _ => {
+                        return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(
+                            "cannot get length for a non container value".to_string(),
+                        ))
+                    }
+                };
+                res.push((
+                    Location::ValueLocation(ValueLocation::Local(l.loc)),
+                    length,
+                    flattened_length,
+                ))
+            }
+            VectorRef::IndexedRef(i) => {
+                let value_loc = i.container_ref.location();
+                let mut cur_value = i.container_ref.container();
+                res.push((
+                    Location::ValueLocation(value_loc.clone()),
+                    cur_value.len(),
+                    cur_value.cast_simples().len(),
+                ));
+
+                let mut cur_sub_indexes = Vec::new();
+                for idx in &i.sub_indexes {
+                    cur_value = {
+                        let mut val = cur_value.0.borrow_mut();
+                        let sub_val = val
+                            .get_mut(*idx)
+                            .ok_or_else(|| RuntimeError::new(StatusCode::OutOfBounds))?;
+
+                        match sub_val {
+                            Value::Container(c) => c.clone(),
+                            _ => return Err(RuntimeError::new(StatusCode::TypeMismatch)),
+                        }
+                    };
+                    // increase the sub index by 1, because position 0 is occupied by the container header.
+                    cur_sub_indexes.push(*idx + 1);
+                    let loc = IndexedLocation {
+                        sub_indexes: cur_sub_indexes.clone(),
+                        value_loc: value_loc.clone(),
+                    };
+                    res.push((
+                        Location::IndexedLocation(loc),
+                        cur_value.len(),
+                        cur_value.cast_simples().len(),
+                    ));
+                }
+            }
+        }
+        Ok(res)
+    }
+
+    pub fn try_borrow_elem(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
+        match self {
+            VectorRef::LocalRef(l) => l.try_borrow_field(element_idx),
+            VectorRef::IndexedRef(l) => l.try_borrow_field(element_idx),
+        }
+    }
+
+    pub fn length(&self) -> VmResult<usize> {
+        let ref_val = self.read_ref()?;
+        match ref_val {
+            Value::Container(c) => Ok(c.0.borrow().len()),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("cannot get length for a non container value".to_string())),
+        }
+    }
+
+    pub fn push_back(&self, elem: Value<F>) -> VmResult<()> {
+        self.container()?.0.borrow_mut().push(elem);
+        Ok(())
+    }
+
+    pub fn pop(&self) -> VmResult<Value<F>> {
+        let c = self.container()?;
+        let mut values = c.0.borrow_mut();
+        match values.pop() {
+            Some(v) => Ok(v),
+            None => Err(RuntimeError::new(StatusCode::OutOfBounds)
+                .with_message("index out of bounds when get container element".to_string())),
+        }
+    }
+
+    pub fn swap(&self, idx1: usize, idx2: usize) -> VmResult<()> {
+        let c = self.container()?;
+        let mut v = c.0.borrow_mut();
+        if idx1 >= v.len() || idx2 >= v.len() {
+            return Err(RuntimeError::new(StatusCode::OutOfBounds)
+                .with_message("index out of bounds".to_string()));
+        }
+        v.swap(idx1, idx2);
+        Ok(())
     }
 }
 
@@ -528,6 +763,17 @@ impl<F: FieldExt> IndexedRef<F> {
     }
 }
 
+impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>)> {
+    fn from(indexed_ref: IndexedRef<F>) -> Self {
+        let val = indexed_ref.read_ref()?;
+        let loc = IndexedLocation {
+            sub_indexes: indexed_ref.sub_indexes,
+            value_loc: indexed_ref.container_ref.location(),
+        };
+        Ok((loc, val))
+    }
+}
+
 impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
     fn from(simple: PrimitiveValue<F>) -> Self {
         match simple {
@@ -617,8 +863,8 @@ impl<F: FieldExt> Value<F> {
     pub fn signer(x: AccountAddress<F>) -> Self {
         Self::Container(Container::signer(x))
     }
-    pub fn struct_(values: Vec<Value<F>>) -> Self {
-        Self::Container(Container(Rc::new(RefCell::new(values))))
+    pub fn container(elements: Vec<Value<F>>) -> Self {
+        Self::Container(Container(Rc::new(RefCell::new(elements))))
     }
 
     pub fn value(&self) -> Option<F> {
@@ -682,10 +928,17 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
+    #[allow(clippy::type_complexity)]
+    fn cast_simples(
+        &self,
+    ) -> Vec<(
+        Vec<u128>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
-            return vec![(vec![], simple_value)];
+            return vec![(vec![], Some(simple_value), None)];
         }
         match self {
             Value::Container(container) => container.cast_simples(),
@@ -699,7 +952,13 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -711,16 +970,24 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
                 sub_indexes,
                 container_ref,
             }) => {
+                // Position 0 is occupied by the container header, so the index needs to be increased by 1.
+                let sub_indexes = sub_indexes.iter().map(|idx| idx + 1).collect();
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
                 let ref_pathes = IndexedLocation {
-                    sub_indexes: sub_indexes.clone(),
+                    sub_indexes,
                     value_loc: container_ref.location(),
                 }
                 .to_address_path()
@@ -729,7 +996,13 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
+                    .map(|(i, v)| {
+                        (
+                            vec![i as u128],
+                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
+                            None,
+                        )
+                    })
                     .collect()
             }
             _ => unreachable!(),
@@ -741,10 +1014,17 @@ impl<F: FieldExt> Value<F> {
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
+    #[allow(clippy::type_complexity)]
+    pub fn flatten(
+        &self,
+    ) -> Vec<(
+        AddressPath<F>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _)| {
+        values.iter_mut().for_each(|(p, _, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
@@ -752,23 +1032,42 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
         // in flatten, returned address_path should be filled up.
         values
             .into_iter()
-            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
+            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
             .collect()
     }
 }
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
-    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
-        let v_loc = self.0.to_address_path().into_inner();
+    #[allow(clippy::type_complexity)]
+    pub fn flatten(
+        &self,
+    ) -> Vec<(
+        AddressPath<F>,
+        Option<PrimitiveValue<F>>,
+        Option<PrimitiveValue<F>>,
+    )> {
+        // increase the sub index by 1, because position 0 is occupied by the container header.
+        let sub_indexes = self
+            .0
+            .sub_indexes
+            .iter()
+            .map(|v| (*v + 1) as u128)
+            .collect();
+        let v_loc = self
+            .0
+            .value_loc
+            .to_address_path()
+            .with_subpath(sub_indexes)
+            .into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _)| {
+        values.iter_mut().for_each(|(p, _, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
         });
         values
             .into_iter()
-            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
+            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
             .collect()
     }
 }
@@ -1268,17 +1567,15 @@ impl<F: FieldExt> Value<F> {
 }
 
 #[derive(Debug)]
-pub struct Struct<F: FieldExt> {
-    fields: Vec<Value<F>>,
-}
+pub struct ContainerValue<F: FieldExt>(Vec<Value<F>>);
 
-impl<F: FieldExt> Struct<F> {
+impl<F: FieldExt> ContainerValue<F> {
     pub fn pack(values: Vec<Value<F>>) -> Self {
-        Self { fields: values }
+        Self(values)
     }
 
-    pub fn unpack(self) -> VmResult<Vec<Value<F>>> {
-        Ok(self.fields)
+    pub fn unpack(self) -> Vec<Value<F>> {
+        self.0
     }
 }
 

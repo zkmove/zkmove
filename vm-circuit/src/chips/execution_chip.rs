@@ -48,6 +48,13 @@ use crate::chips::execution_chip::instructions::st_loc::StLoc;
 use crate::chips::execution_chip::instructions::stop::Stop;
 use crate::chips::execution_chip::instructions::sub::Sub;
 use crate::chips::execution_chip::instructions::unpack::Unpack;
+use crate::chips::execution_chip::instructions::vec_borrow::VecBorrow;
+use crate::chips::execution_chip::instructions::vec_len::VecLen;
+use crate::chips::execution_chip::instructions::vec_pack::VecPack;
+use crate::chips::execution_chip::instructions::vec_pop_back::VecPopBack;
+use crate::chips::execution_chip::instructions::vec_push_back::VecPushBack;
+use crate::chips::execution_chip::instructions::vec_swap::VecSwap;
+use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
 use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 
@@ -135,6 +142,14 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
     op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
     op_call_generic: Box<CallGeneric<F>>,
+    op_vec_imm_borrow: Box<VecBorrow<false, F>>,
+    op_vec_mut_borrow: Box<VecBorrow<true, F>>,
+    op_vec_len: Box<VecLen<F>>,
+    op_vec_pack: Box<VecPack<F>>,
+    op_vec_pop_back: Box<VecPopBack<F>>,
+    op_vec_push_back: Box<VecPushBack<F>>,
+    op_vec_swap: Box<VecSwap<F>>,
+    op_vec_unpack: Box<VecUnpack<F>>,
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
 
@@ -248,6 +263,14 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_imm_borrow_global: configure_opcode_gadget!(),
             op_mut_borrow_global: configure_opcode_gadget!(),
             op_call_generic: configure_opcode_gadget!(),
+            op_vec_imm_borrow: configure_opcode_gadget!(),
+            op_vec_mut_borrow: configure_opcode_gadget!(),
+            op_vec_len: configure_opcode_gadget!(),
+            op_vec_pack: configure_opcode_gadget!(),
+            op_vec_pop_back: configure_opcode_gadget!(),
+            op_vec_push_back: configure_opcode_gadget!(),
+            op_vec_swap: configure_opcode_gadget!(),
+            op_vec_unpack: configure_opcode_gadget!(),
             op_stop: configure_opcode_gadget!(),
             op_nop: configure_opcode_gadget!(),
 
@@ -476,6 +499,14 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
             Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
             Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
+            Opcode::VecImmBorrow => assign_opcode_gadget!(self.config.op_vec_imm_borrow),
+            Opcode::VecMutBorrow => assign_opcode_gadget!(self.config.op_vec_mut_borrow),
+            Opcode::VecLen => assign_opcode_gadget!(self.config.op_vec_len),
+            Opcode::VecPack => assign_opcode_gadget!(self.config.op_vec_pack),
+            Opcode::VecPopBack => assign_opcode_gadget!(self.config.op_vec_pop_back),
+            Opcode::VecPushBack => assign_opcode_gadget!(self.config.op_vec_push_back),
+            Opcode::VecSwap => assign_opcode_gadget!(self.config.op_vec_swap),
+            Opcode::VecUnpack => assign_opcode_gadget!(self.config.op_vec_unpack),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
         }

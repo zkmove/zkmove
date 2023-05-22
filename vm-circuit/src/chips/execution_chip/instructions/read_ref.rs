@@ -71,7 +71,6 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         ]);
 
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 "read_ref(stack pop)",
                 RWLookup::stack_pop(
@@ -80,6 +79,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
+                    0.expr(),
                 ),
                 cond.clone(),
             ));
@@ -88,13 +88,14 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         let is_global = cells.auxiliary_1.expression.clone();
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             // locals read or global read
-            let read = RWLookup::locals_read_ref(
+            let read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), // frame_index
                 cells.locals_index.expression.clone(), // index
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "read_ref(locals read)",
@@ -107,6 +108,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
                 cells.auxiliary_2.expression.clone(), // account_address
                 item.expression.clone(),
+                0.expr(),                             //fixme, value_ext may not be 0.
                 cells.auxiliary_4.expression.clone(), //sd_index
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
@@ -129,6 +131,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 self.word_b_addr_ext_0[i].expression.clone(),
                 self.word_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
+                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "read_ref(stack push)",
@@ -150,11 +153,11 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             * is_global
             * (self.ref_val[1].expression.clone() - cells.auxiliary_4.expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-        // cells.ref_val[2] equel to word_a_addr_ext_0
+        // cells.ref_val[2] equal to word_a_addr_ext_0
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.word_a_addr_ext_0[0].expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
-        // cells.ref_val[3] equel to word_a_addr_ext_1
+        // cells.ref_val[3] equal to word_a_addr_ext_1
         constraint = cond.clone()
             * (self.ref_val[3].expression.clone() - self.word_a_addr_ext_1[0].expression.clone());
         cb.add_constraint("read_ref_eq_3", constraint);

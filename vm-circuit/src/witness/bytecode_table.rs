@@ -5,7 +5,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
 use std::convert::From;
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BytecodeInfo {
     module_index: u16,
     function_index: u16,
@@ -150,6 +150,40 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::CallGeneric.index() as u128),
             F::from_u128(idx.0 as u128),
         ),
+        Bytecode::VecImmBorrow(idx) => (
+            F::from_u128(Opcode::VecImmBorrow.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecMutBorrow(idx) => (
+            F::from_u128(Opcode::VecMutBorrow.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecLen(idx) => (
+            F::from_u128(Opcode::VecLen.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        // todo: handle the second operand
+        Bytecode::VecPack(idx, _) => (
+            F::from_u128(Opcode::VecPack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecPopBack(idx) => (
+            F::from_u128(Opcode::VecPopBack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecPushBack(idx) => (
+            F::from_u128(Opcode::VecPushBack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::VecSwap(idx) => (
+            F::from_u128(Opcode::VecSwap.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        // todo: handle the second operand
+        Bytecode::VecUnpack(idx, _) => (
+            F::from_u128(Opcode::VecUnpack.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
         _ => unimplemented!("{:?}", bytecode),
     }
 }
@@ -171,7 +205,7 @@ impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Default, Eq, PartialEq, Debug)]
 pub struct BytecodeTable(Vec<BytecodeInfo>);
 
 impl BytecodeTable {

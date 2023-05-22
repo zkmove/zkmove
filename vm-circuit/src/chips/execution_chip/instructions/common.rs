@@ -70,6 +70,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_b.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -81,6 +82,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_a.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -92,6 +94,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_c.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));
@@ -298,6 +301,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_a.expression.clone(),
+                0.expr(),
             ),
             cond.clone(),
         ));
@@ -309,6 +313,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_c.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));
@@ -382,6 +387,7 @@ impl<F: FieldExt> LoadOp<F> {
                 0.expr(),
                 0.expr(),
                 value_a.expression.clone(),
+                0.expr(),
             ),
             cond,
         ));
@@ -568,6 +574,14 @@ pub struct RefVal<F: FieldExt> {
     pub ref_val_mask: Vec<Cell<F>>,
 }
 
+pub struct WordWithExt<F: FieldExt> {
+    pub word: Vec<Cell<F>>,
+    pub word_ext: Vec<Cell<F>>,
+    pub word_mask: Vec<Cell<F>>,
+    pub word_addr_ext_0: Vec<Cell<F>>,
+    pub word_addr_ext_1: Vec<Cell<F>>,
+}
+
 impl<F: FieldExt> Word<F> {
     pub fn get_word_element_num(
         region: &mut Region<'_, F>,
@@ -593,6 +607,24 @@ impl<F: FieldExt> Word<F> {
                 Error::Synthesis
             })?
             .get_lower_128() as usize)
+    }
+
+    pub fn assign_step_value(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step_value: &Option<Value<F>>,
+        step_cell: &Cell<F>,
+    ) -> VmResult<F> {
+        let value = step_value.as_ref().ok_or_else(|| {
+            error!("step value {:?} is None", step_value);
+            Error::Synthesis
+        })?;
+        step_cell.assign(region, offset, value.value())?;
+
+        Ok(value.value().ok_or_else(|| {
+            error!("failed to get step value {:?}", step_value);
+            Error::Synthesis
+        })?)
     }
 
     pub fn assign_word(
@@ -630,6 +662,8 @@ impl<F: FieldExt> Word<F> {
         Ok(())
     }
 
+    // NOTICE: this function is used for pack/unpack a container type.
+    // word[0] is assigned to be empty, to make the constraints simple.
     pub fn assign_word_with_address(
         region: &mut Region<'_, F>,
         offset: usize,
@@ -639,9 +673,22 @@ impl<F: FieldExt> Word<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        for (i, item) in word_address.iter().enumerate().take(word_element_num) {
-            // for i in 0..word_element_num {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
+        // leave word[0] empty
+        cells.word_mask[0].assign(region, offset, Some(F::one()))?;
+        cells.word_addr_ext_0[0].assign(region, offset, Some(F::zero()))?;
+        cells.word_addr_ext_1[0].assign(region, offset, Some(F::zero()))?;
+        word_address[0].assign(region, offset, Some(F::zero()))?;
+
+        for (i, item) in word_address
+            .iter()
+            .enumerate()
+            .take(word_element_num + 1)
+            .skip(1)
+        {
+            let op = rw_operations
+                .0
+                .get(op_index + i - 1)
+                .ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
             cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_0[i].assign(
@@ -661,7 +708,7 @@ impl<F: FieldExt> Word<F> {
             .iter()
             .enumerate()
             .take(WORD_CAPACITY)
-            .skip(word_element_num)
+            .skip(word_element_num + 1)
         {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
@@ -720,6 +767,41 @@ impl<F: FieldExt> Word<F> {
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn assign_word_with_ext(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        rw_operations: &RWOperations<F>,
+        cells: &WordWithExt<F>,
+        op_index: usize,
+        word_element_num: usize,
+        capacity: usize,
+    ) -> Result<(), Error> {
+        for i in 0..word_element_num {
+            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_ext[i].assign(region, offset, op.value_ext().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
+                region,
+                offset,
+                Some(F::from(op.address_ext_0() as u64)),
+            )?;
+            cells.word_addr_ext_1[i].assign(
+                region,
+                offset,
+                Some(F::from(op.address_ext_1() as u64)),
+            )?;
+        }
+
+        for i in word_element_num..capacity {
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())

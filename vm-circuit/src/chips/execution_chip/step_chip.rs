@@ -10,8 +10,8 @@ use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 
-//pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, module_index, func_index
-pub const NUM_OF_STEP_STATE: usize = 11;
+//pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, auxiliary_5, module_index, func_index
+pub const NUM_OF_STEP_STATE: usize = 12;
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
@@ -26,6 +26,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub auxiliary_2: Cell<F>,
     pub auxiliary_3: Cell<F>,
     pub auxiliary_4: Cell<F>,
+    pub auxiliary_5: Cell<F>,
 
     pub conditions: Vec<Cell<F>>, // one cell for each cell
 }
@@ -102,6 +103,7 @@ impl<F: FieldExt> StepChip<F> {
                 auxiliary_2: cell_manager.alloc_cell(CellType::CustomGate),
                 auxiliary_3: cell_manager.alloc_cell(CellType::CustomGate),
                 auxiliary_4: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_5: cell_manager.alloc_cell(CellType::CustomGate),
 
                 conditions: cell_manager
                     .allocate_cells(CellType::CustomGate, Opcode::total_numbers()),

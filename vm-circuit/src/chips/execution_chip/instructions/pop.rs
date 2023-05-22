@@ -66,6 +66,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                     self.word_a[i].expression.clone(),
+                    0.expr(), //fixme, value_ext may not be 0.
                 ),
                 cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
             ));
