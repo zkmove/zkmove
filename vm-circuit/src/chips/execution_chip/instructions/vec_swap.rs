@@ -36,8 +36,7 @@ pub struct VecSwap<F: FieldExt> {
     value_b_addr_ext_0: Vec<Cell<F>>,
     value_b_addr_ext_1: Vec<Cell<F>>,
 
-    ref_value_a_mask: Vec<Cell<F>>,
-    ref_value_b_mask: Vec<Cell<F>>,
+    ref_swapped_value_mask: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
@@ -349,39 +348,33 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         // idx_a + 1 == value_a_address_path[last]
         // idx_b + 1 == value_b_address_path[last]
         // counting the header, it's 1 larger than the real offset
-        for i in 0..WORD_CAPACITY {
-            constraint = cond.clone()
-                * (self.idx_a.expression.clone() + 1.expr()
-                    - self.value_a_addr_ext_0[i].expression.clone())
-                * self.ref_val_mask[2].expression.clone()
-                * (1.expr() - self.ref_value_a_mask[2].expression.clone())
-                * (1.expr() - self.value_a_mask[i].expression.clone());
-            cb.add_constraint("idx_a_check", constraint);
+        constraint = cond.clone()
+            * (self.idx_a.expression.clone() + 1.expr()
+                - self.value_a_addr_ext_0[0].expression.clone())
+            * self.ref_val_mask[2].expression.clone()
+            * (1.expr() - self.ref_swapped_value_mask[2].expression.clone());
+        cb.add_constraint("idx_a_check on addr_ext_0", constraint);
 
-            constraint = cond.clone()
-                * (self.idx_a.expression.clone() + 1.expr()
-                    - self.value_a_addr_ext_1[i].expression.clone())
-                * self.ref_val_mask[3].expression.clone()
-                * (1.expr() - self.ref_value_a_mask[3].expression.clone())
-                * (1.expr() - self.value_a_mask[i].expression.clone());
-            cb.add_constraint("idx_a_check", constraint);
+        constraint = cond.clone()
+            * (self.idx_a.expression.clone() + 1.expr()
+                - self.value_a_addr_ext_1[0].expression.clone())
+            * self.ref_val_mask[3].expression.clone()
+            * (1.expr() - self.ref_swapped_value_mask[3].expression.clone());
+        cb.add_constraint("idx_a_check on addr_ext_1", constraint);
 
-            constraint = cond.clone()
-                * (self.idx_b.expression.clone() + 1.expr()
-                    - self.value_b_addr_ext_0[i].expression.clone())
-                * self.ref_val_mask[2].expression.clone()
-                * (1.expr() - self.ref_value_b_mask[2].expression.clone())
-                * (1.expr() - self.value_b_mask[i].expression.clone());
-            cb.add_constraint("idx_b_check", constraint);
+        constraint = cond.clone()
+            * (self.idx_b.expression.clone() + 1.expr()
+                - self.value_b_addr_ext_0[0].expression.clone())
+            * self.ref_val_mask[2].expression.clone()
+            * (1.expr() - self.ref_swapped_value_mask[2].expression.clone());
+        cb.add_constraint("idx_b_check on addr_ext_0", constraint);
 
-            constraint = cond.clone()
-                * (self.idx_b.expression.clone() + 1.expr()
-                    - self.value_b_addr_ext_1[i].expression.clone())
-                * self.ref_val_mask[3].expression.clone()
-                * (1.expr() - self.ref_value_b_mask[3].expression.clone())
-                * (1.expr() - self.value_b_mask[i].expression.clone());
-            cb.add_constraint("idx_b_check", constraint);
-        }
+        constraint = cond.clone()
+            * (self.idx_b.expression.clone() + 1.expr()
+                - self.value_b_addr_ext_1[0].expression.clone())
+            * self.ref_val_mask[3].expression.clone()
+            * (1.expr() - self.ref_swapped_value_mask[3].expression.clone());
+        cb.add_constraint("idx_b_check on addr_ext_1", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -496,14 +489,12 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             value_b_flattened_len,
         )?;
 
-        // assign ref_value_a_mask and ref_value_b_mask
+        // assign ref_swapped_value_mask
         for i in 0..(ref_val_flattened_len + 1) {
-            self.ref_value_a_mask[i].assign(region, offset, Some(F::zero()))?;
-            self.ref_value_b_mask[i].assign(region, offset, Some(F::zero()))?;
+            self.ref_swapped_value_mask[i].assign(region, offset, Some(F::zero()))?;
         }
         for i in (ref_val_flattened_len + 1)..DEPTH_OF_ADDRESS_PATH {
-            self.ref_value_a_mask[i].assign(region, offset, Some(F::one()))?;
-            self.ref_value_b_mask[i].assign(region, offset, Some(F::one()))?;
+            self.ref_swapped_value_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
         Ok(())
@@ -530,8 +521,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let value_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
         let value_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
 
-        let ref_value_a_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_value_b_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_swapped_value_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
         Self {
             idx_a,
@@ -553,8 +543,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             value_b_addr_ext_0,
             value_b_addr_ext_1,
 
-            ref_value_a_mask,
-            ref_value_b_mask,
+            ref_swapped_value_mask,
         }
     }
 }
