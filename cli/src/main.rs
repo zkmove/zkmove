@@ -181,9 +181,9 @@ fn main() {
             print_layout,
         ),
         Command::CallGraph { module, output } => {
+            std::fs::create_dir_all(output.as_path()).unwrap();
             let graphs = generate(std::fs::read(module.as_path()).unwrap());
             for (fname, graph) in graphs {
-                std::fs::create_dir_all(output.as_path()).unwrap();
                 std::fs::write(output.join(fname).with_extension("dot"), graph.to_dot()).unwrap();
             }
             Ok(())
