@@ -384,7 +384,7 @@ impl<F: FieldExt> Interpreter<F> {
                         execution_step_index: exec_steps.len(),
                         op: Bytecode::CallGeneric(index),
                         frame_index: frame_index as u64,
-                        call_pc: execution_step.pc as u64,
+                        instantiation_point_pc: execution_step.pc as u64,
                         call_id: pos_to_id(
                             generic_graph
                                 .graph
@@ -392,8 +392,8 @@ impl<F: FieldExt> Interpreter<F> {
                                 .unwrap()
                                 .pos(),
                         ),
-                        call_module: callee_node_data.module_id.clone(),
-                        call_function: callee_node_data.fn_name.clone().into(),
+                        instantiation_point_module: callee_node_data.module_id.clone(),
+                        instantiation_point_function: callee_node_data.fn_name.clone().into(),
                         type_args: callee_node_data.fn_type_parameters.clone(),
                         inst_type_args: callee_node_data.fn_inst_type_parameters.clone(),
                     });

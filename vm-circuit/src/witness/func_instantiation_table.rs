@@ -24,9 +24,9 @@ pub struct FuncInstantiation {
     pub(crate) caller_module: u64,
     pub(crate) caller_function: u16,
     pub(crate) instantiation_index: u16,
-    pub(crate) callee_pc: u64,
-    pub(crate) callee_module: u64,
-    pub(crate) callee_function: u16,
+    pub(crate) instantiation_point_pc: u64,
+    pub(crate) instantiated_module: u64,
+    pub(crate) instantiated_function: u16,
 
     /// start from 1, 0 means no reference to ty parameter.
     pub(crate) refered_ty_idx: u16, // TODO: check if it possible for two different refered index while other infos are the same.
@@ -56,11 +56,13 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
         .build(&trace_graph)
         .into_iter()
         .flat_map(|fi_info| {
-            let (m, f) =
-                name_mapping.map_fn_name(fi_info.callee_module.as_ref(), &fi_info.callee_function);
+            let (m, f) = name_mapping.map_fn_name(
+                fi_info.instantiated_module.as_ref(),
+                &fi_info.instantiated_function,
+            );
             let (caller_m, caller_f) = name_mapping
                 .map_fn_name(fi_info.caller_module_id.as_ref(), &fi_info.caller_function);
-            let pc = fi_info.callee_pc;
+            let pc = fi_info.instantiated_pc;
             let instantiation_index = fi_info.instantiation_index.or_else(|| {
                 resolver
                     .resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
@@ -83,9 +85,9 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
                         caller_module: caller_m,
                         caller_function: caller_f.0,
                         instantiation_index: instantiation_index.unwrap(),
-                        callee_module: m,
-                        callee_function: f.0,
-                        callee_pc: pc,
+                        instantiated_module: m,
+                        instantiated_function: f.0,
+                        instantiation_point_pc: pc,
                         refered_ty_idx: t.refered_ty_idx.unwrap_or(0),
                         ty_pos: pos_to_id(&t.pos),
                         ty_module,
@@ -131,9 +133,9 @@ struct FuncInstantiationInfo {
     caller_module_id: Option<ModuleId>,
     caller_function: FunctionName,
 
-    callee_module: Option<ModuleId>,
-    callee_function: FunctionName,
-    callee_pc: u64,
+    instantiated_module: Option<ModuleId>,
+    instantiated_function: FunctionName,
+    instantiated_pc: u64,
     instantiation_index: Option<u16>,
     ty_params: Vec<Type>,
 }
@@ -172,9 +174,9 @@ impl FuncInstantiationBuilder {
                         let inst = FuncInstantiationInfo {
                             caller_module_id: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            callee_pc: edge.weight().pc() as u64,
-                            callee_module: callee.module_id.clone(),
-                            callee_function: callee.fn_name.clone().into(),
+                            instantiated_pc: edge.weight().pc() as u64,
+                            instantiated_module: callee.module_id.clone(),
+                            instantiated_function: callee.fn_name.clone().into(),
                             instantiation_index: None,
                             ty_params: callee.fn_inst_type_parameters.clone(),
                         };
@@ -185,9 +187,9 @@ impl FuncInstantiationBuilder {
                         let inst = FuncInstantiationInfo {
                             caller_module_id: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            callee_pc: edge.weight().pc() as u64,
-                            callee_module: None,
-                            callee_function: callee.op.clone().into(),
+                            instantiated_pc: edge.weight().pc() as u64,
+                            instantiated_module: None,
+                            instantiated_function: callee.op.clone().into(),
                             instantiation_index: Some(callee.operand()),
                             ty_params: vec![callee.inst_struct_type.clone()],
                         };

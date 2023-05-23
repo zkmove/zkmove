@@ -21,12 +21,12 @@ pub struct CallTrace {
     pub caller_id: u128,
     pub caller_module: u64,
     pub caller_function: u16,
-    pub caller_pc: u64,
+    pub caller_callin_pc: u64,
 
     pub callee_id: u128,
     pub callee_module: u64,
     pub callee_function: u16,
-    pub callee_pc: u64,
+    pub callee_callin_pc: u64,
 }
 
 impl From<(CompiledScript, Vec<CompiledModule>)> for CallTraceTable {
@@ -57,11 +57,11 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<CallTrace> 
                 caller_id: pos_to_id(&t.caller_id),
                 caller_module,
                 caller_function: caller_function.0,
-                caller_pc: t.caller_pc as u64,
+                caller_callin_pc: t.caller_callin_pc as u64,
                 callee_id: pos_to_id(&t.callee_id),
                 callee_module,
                 callee_function: callee_function.0,
-                callee_pc: t.callee_pc as u64,
+                callee_callin_pc: t.callee_callin_pc as u64,
             }
         })
         .collect()
@@ -174,12 +174,12 @@ struct CallTraceInner {
     caller_id: Vec<u8>,
     caller_module: Option<ModuleId>,
     caller_function: FunctionName,
-    caller_pc: usize,
+    caller_callin_pc: usize,
 
     callee_id: Vec<u8>,
     callee_module: Option<ModuleId>,
     callee_function: FunctionName,
-    callee_pc: usize,
+    callee_callin_pc: usize,
 }
 
 #[derive(Default, Debug)]
@@ -215,11 +215,11 @@ impl TraceBuilder {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            caller_pc: caller_pc as usize,
+                            caller_callin_pc: caller_pc as usize,
                             callee_id: target_node.pos().to_vec(),
                             callee_module: callee.module_id.clone(),
                             callee_function: callee.fn_name.clone().into(),
-                            callee_pc: edge.weight().pc(),
+                            callee_callin_pc: edge.weight().pc(),
                         };
                         if !self.traces.contains(&t) {
                             self.traces.insert(t);
@@ -231,11 +231,11 @@ impl TraceBuilder {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            caller_pc: caller_pc as usize,
+                            caller_callin_pc: caller_pc as usize,
                             callee_id: target_node.pos().to_vec(),
                             callee_module: None,
                             callee_function: unpack.op.clone().into(),
-                            callee_pc: edge.weight().pc(),
+                            callee_callin_pc: edge.weight().pc(),
                         };
                         self.traces.insert(t);
                     }

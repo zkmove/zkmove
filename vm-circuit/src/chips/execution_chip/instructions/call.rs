@@ -213,11 +213,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
             let callee_module = cb.next.cells.module_index.expr();
             let callee_function = cb.next.cells.function_index.expr();
             let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
-            let caller_pc = cb.curr.cells.auxiliary_4.expr();
+            let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
             let type_cells = GenericTypeGadget::construct(
                 Self::NAME,
                 cb,
-                caller_pc,
+                caller_callin_pc,
                 callee_id,
                 callee_module,
                 callee_function,

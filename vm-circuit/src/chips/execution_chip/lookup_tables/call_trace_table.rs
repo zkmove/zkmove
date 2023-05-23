@@ -9,12 +9,12 @@ pub struct CallTraceTable {
     caller_id: TableColumn,
     caller_module: TableColumn,
     caller_function: TableColumn,
-    caller_pc: TableColumn,
+    caller_callin_pc: TableColumn,
 
     callee_id: TableColumn,
     callee_module: TableColumn,
     callee_function: TableColumn,
-    callee_pc: TableColumn,
+    callee_callin_pc: TableColumn,
 }
 
 impl CallTraceTable {
@@ -23,11 +23,11 @@ impl CallTraceTable {
             caller_id: meta.lookup_table_column(),
             caller_module: meta.lookup_table_column(),
             caller_function: meta.lookup_table_column(),
-            caller_pc: meta.lookup_table_column(),
+            caller_callin_pc: meta.lookup_table_column(),
             callee_id: meta.lookup_table_column(),
             callee_module: meta.lookup_table_column(),
             callee_function: meta.lookup_table_column(),
-            callee_pc: meta.lookup_table_column(),
+            callee_callin_pc: meta.lookup_table_column(),
         }
     }
 
@@ -36,11 +36,11 @@ impl CallTraceTable {
             self.caller_id,
             self.caller_module,
             self.caller_function,
-            self.caller_pc,
+            self.caller_callin_pc,
             self.callee_id,
             self.callee_module,
             self.callee_function,
-            self.callee_pc,
+            self.callee_callin_pc,
         ]
     }
 
@@ -56,11 +56,11 @@ impl CallTraceTable {
                     F::from_u128(t.caller_id),
                     F::from_u128(t.caller_module as u128),
                     F::from_u128(t.caller_function as u128),
-                    F::from_u128(t.caller_pc as u128),
+                    F::from_u128(t.caller_callin_pc as u128),
                     F::from_u128(t.callee_id),
                     F::from_u128(t.callee_module as u128),
                     F::from_u128(t.callee_function as u128),
-                    F::from_u128(t.callee_pc as u128),
+                    F::from_u128(t.callee_callin_pc as u128),
                 ]
             })
             .collect();
@@ -72,12 +72,12 @@ pub struct CallTraceLookup<F: FieldExt> {
     pub caller_id: Expression<F>,
     pub caller_module: Expression<F>,
     pub caller_function: Expression<F>,
-    pub caller_pc: Expression<F>,
+    pub caller_callin_pc: Expression<F>,
 
     pub callee_id: Expression<F>,
     pub callee_module: Expression<F>,
     pub callee_function: Expression<F>,
-    pub callee_pc: Expression<F>,
+    pub callee_callin_pc: Expression<F>,
 }
 
 impl<F: FieldExt> CallTraceLookup<F> {
@@ -86,11 +86,11 @@ impl<F: FieldExt> CallTraceLookup<F> {
             self.caller_id.clone(),
             self.caller_module.clone(),
             self.caller_function.clone(),
-            self.caller_pc.clone(),
+            self.caller_callin_pc.clone(),
             self.callee_id.clone(),
             self.callee_module.clone(),
             self.callee_function.clone(),
-            self.callee_pc.clone(),
+            self.callee_callin_pc.clone(),
         ]
     }
 }

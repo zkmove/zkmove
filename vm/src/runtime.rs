@@ -186,9 +186,9 @@ impl<F: FieldExt> Runtime<F> {
                 .map(|(pos, module, name)| GenericTypeInstantiationTableItem {
                     frame_index_plus_one: 0,
                     call_id: pos_to_id(&[1]),
-                    call_module: 0,
-                    call_function: 0,
-                    call_pc: 0,
+                    instantiation_point_module: 0,
+                    instantiation_point_function: 0,
+                    instantiation_point_pc: 0,
                     ty_arg_pos: pos,
                     ty_arg_module: module,
                     ty_arg_name: name,
@@ -216,14 +216,16 @@ impl<F: FieldExt> Runtime<F> {
                         }
                     })
                     .map(|info| {
-                        let (m, f) =
-                            mapping.map_fn_name(ti.call_module.as_ref(), &ti.call_function);
+                        let (m, f) = mapping.map_fn_name(
+                            ti.instantiation_point_module.as_ref(),
+                            &ti.instantiation_point_function,
+                        );
                         GenericTypeInstantiationTableItem {
                             frame_index_plus_one: ti.frame_index + 1,
                             call_id: ti.call_id,
-                            call_module: m,
-                            call_function: f.0,
-                            call_pc: ti.call_pc,
+                            instantiation_point_module: m,
+                            instantiation_point_function: f.0,
+                            instantiation_point_pc: ti.instantiation_point_pc,
                             ty_arg_pos: info.ty_arg_pos,
                             ty_arg_module: info.ty_arg_module,
                             ty_arg_name: info.ty_arg_name,

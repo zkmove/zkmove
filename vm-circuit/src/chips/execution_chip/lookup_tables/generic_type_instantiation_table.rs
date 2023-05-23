@@ -8,9 +8,9 @@ use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 pub struct GenericTypeInstantiationTable {
     frame_index_plus_one: Column<Advice>,
     call_id: Column<Advice>,
-    call_module: Column<Advice>,
-    call_function: Column<Advice>,
-    call_pc: Column<Advice>,
+    instantiation_point_module: Column<Advice>,
+    instantiation_point_function: Column<Advice>,
+    instantiation_point_pc: Column<Advice>,
 
     ty_arg_pos: Column<Advice>,
     ty_arg_module: Column<Advice>,
@@ -21,9 +21,9 @@ impl GenericTypeInstantiationTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             call_id: meta.advice_column(),
-            call_module: meta.advice_column(),
-            call_function: meta.advice_column(),
-            call_pc: meta.advice_column(),
+            instantiation_point_module: meta.advice_column(),
+            instantiation_point_function: meta.advice_column(),
+            instantiation_point_pc: meta.advice_column(),
             frame_index_plus_one: meta.advice_column(),
             ty_arg_pos: meta.advice_column(),
             ty_arg_module: meta.advice_column(),
@@ -34,9 +34,9 @@ impl GenericTypeInstantiationTable {
     pub fn columns(&self) -> Vec<Column<Advice>> {
         vec![
             self.call_id,
-            self.call_module,
-            self.call_function,
-            self.call_pc,
+            self.instantiation_point_module,
+            self.instantiation_point_function,
+            self.instantiation_point_pc,
             self.frame_index_plus_one,
             self.ty_arg_pos,
             self.ty_arg_module,
@@ -54,9 +54,9 @@ impl GenericTypeInstantiationTable {
             .map(|item| {
                 vec![
                     F::from_u128(item.call_id),
-                    F::from_u128(item.call_module as u128),
-                    F::from_u128(item.call_function as u128),
-                    F::from_u128(item.call_pc as u128),
+                    F::from_u128(item.instantiation_point_module as u128),
+                    F::from_u128(item.instantiation_point_function as u128),
+                    F::from_u128(item.instantiation_point_pc as u128),
                     F::from_u128(item.frame_index_plus_one as u128),
                     F::from_u128(item.ty_arg_pos),
                     F::from_u128(item.ty_arg_module as u128),
@@ -102,9 +102,9 @@ impl GenericTypeInstantiationTable {
 
 pub struct GenericTypeInstantiationLookup<F: FieldExt> {
     pub call_id: Expression<F>,
-    pub call_module: Expression<F>,
-    pub call_function: Expression<F>,
-    pub call_pc: Expression<F>,
+    pub instantiation_point_module: Expression<F>,
+    pub instantiation_point_function: Expression<F>,
+    pub instantiation_point_pc: Expression<F>,
 
     pub frame_index_plus_one: Expression<F>,
     pub ty_arg_pos: Expression<F>,
@@ -116,9 +116,9 @@ impl<F: FieldExt> GenericTypeInstantiationLookup<F> {
     pub fn expressions(&self) -> Vec<Expression<F>> {
         vec![
             self.call_id.clone(),
-            self.call_module.clone(),
-            self.call_function.clone(),
-            self.call_pc.clone(),
+            self.instantiation_point_module.clone(),
+            self.instantiation_point_function.clone(),
+            self.instantiation_point_pc.clone(),
             self.frame_index_plus_one.clone(),
             self.ty_arg_pos.clone(),
             self.ty_arg_module.clone(),

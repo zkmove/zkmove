@@ -253,7 +253,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
-            let caller_pc = cb.curr.cells.auxiliary_4.expr();
+            let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
             let callee_id = cb.curr.cells.auxiliary_2.expr();
             let callee_module = 0.expr();
             let callee_function = (if MUTABLE {
@@ -266,7 +266,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             Some(GenericTypeGadget::construct(
                 Self::NAME,
                 cb,
-                caller_pc,
+                caller_callin_pc,
                 callee_id,
                 callee_module,
                 callee_function,

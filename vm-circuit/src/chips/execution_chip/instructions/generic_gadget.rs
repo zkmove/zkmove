@@ -60,7 +60,7 @@ pub(crate) struct GenericTypeGadget<F> {
     pub(crate) name: &'static str,
     pub(crate) type_cells: Vec<GenericTypeCells<F>>,
 
-    caller_pc: Expression<F>,
+    caller_callin_pc: Expression<F>,
     callee_id: Expression<F>,
     callee_module: Expression<F>,
     callee_function: Expression<F>,
@@ -71,7 +71,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
     pub(crate) fn construct(
         name: &'static str,
         cb: &mut ConstraintBuilder<F>,
-        caller_pc: Expression<F>,
+        caller_callin_pc: Expression<F>,
         callee_id: Expression<F>,
         callee_module: Expression<F>,
         callee_function: Expression<F>,
@@ -83,7 +83,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         Self {
             type_cells: cells,
             name,
-            caller_pc,
+            caller_callin_pc,
             callee_id,
             callee_module,
             callee_function,
@@ -170,9 +170,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         let caller_id = cb.curr.cells.context_id.clone();
         let caller_module = cb.curr.cells.module_index.clone();
         let caller_function = cb.curr.cells.function_index.clone();
-        let callee_pc = cb.curr.cells.pc.clone();
+        let callee_callin_pc = cb.curr.cells.pc.clone();
         let frame_index = cb.curr.cells.frame_index.clone();
-        let caller_pc = self.caller_pc.clone();
+        let caller_callin_pc = self.caller_callin_pc.clone();
         let callee_id = self.callee_id.clone();
         let callee_module = self.callee_module.clone();
         let callee_function = self.callee_function.clone();
@@ -183,11 +183,11 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             caller_id: caller_id.expression.clone(),
             caller_module: caller_module.expression.clone(),
             caller_function: caller_function.expression.clone(),
-            caller_pc: caller_pc.clone(),
+            caller_callin_pc: caller_callin_pc.clone(),
             callee_id: callee_id.clone(),
             callee_module: callee_module.clone(),
             callee_function: callee_function.clone(),
-            callee_pc: callee_pc.expression.clone(),
+            callee_callin_pc: callee_callin_pc.expression.clone(),
         };
 
         lookups.call_trace_lookups.push((
@@ -236,9 +236,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     caller_module: caller_module.expr(),
                     caller_function: caller_function.expr(),
                     function_instantiation_index: instantiation_index.clone(),
-                    callee_module: callee_module.clone(),
-                    callee_function: callee_function.clone(),
-                    callee_pc: callee_pc.expr(),
+                    instantiated_module: callee_module.clone(),
+                    instantiated_function: callee_function.clone(),
+                    instantiation_point_pc: callee_callin_pc.expr(),
                     inst_ty_pos: inst_ty_pos.expr(),
                     refered_param_index: refered_param_index.expr(),
                     ty_module: ty_arg_module.expr(),
@@ -253,9 +253,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                 ));
                 let type_arg_lookup = GenericTypeInstantiationLookup {
                     call_id: callee_id.clone(),
-                    call_module: callee_module.clone(),
-                    call_function: callee_function.clone(),
-                    call_pc: callee_pc.expr(),
+                    instantiation_point_module: callee_module.clone(),
+                    instantiation_point_function: callee_function.clone(),
+                    instantiation_point_pc: callee_callin_pc.expr(),
                     frame_index_plus_one: frame_index.expr() + 1.expr(),
                     ty_arg_pos: ty_arg_pos.expr(),
                     ty_arg_module: ty_arg_module.expr(),
@@ -279,9 +279,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     caller_function: caller_function.expr(),
 
                     function_instantiation_index: instantiation_index.clone(),
-                    callee_module: callee_module.clone(),
-                    callee_function: callee_function.clone(),
-                    callee_pc: callee_pc.expr(),
+                    instantiated_module: callee_module.clone(),
+                    instantiated_function: callee_function.clone(),
+                    instantiation_point_pc: callee_callin_pc.expr(),
 
                     inst_ty_pos: inst_ty_pos.expr(),
                     refered_param_index: refered_param_index.expr(),
@@ -297,9 +297,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                 ));
                 let type_arg_lookup = GenericTypeInstantiationLookup {
                     call_id: callee_id.clone(),
-                    call_module: callee_module.clone(),
-                    call_function: callee_function.clone(),
-                    call_pc: callee_pc.expr(),
+                    instantiation_point_module: callee_module.clone(),
+                    instantiation_point_function: callee_function.clone(),
+                    instantiation_point_pc: callee_callin_pc.expr(),
                     frame_index_plus_one: frame_index.expr() + 1.expr(),
                     ty_arg_pos: ty_arg_pos.expr(),
 
@@ -317,9 +317,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
 
                 let caller_type_arg_lookup = GenericTypeInstantiationLookup {
                     call_id: caller_id.expr(),
-                    call_module: caller_module.expr(),
-                    call_function: caller_function.expr(),
-                    call_pc: caller_pc.clone(),
+                    instantiation_point_module: caller_module.expr(),
+                    instantiation_point_function: caller_function.expr(),
+                    instantiation_point_pc: caller_callin_pc.clone(),
                     frame_index_plus_one: frame_index.expr(),
 
                     ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
