@@ -230,12 +230,10 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                     .value(),
             )?;
             if let Some(ExecutionData::StorageOp(data)) = &step.data {
-                self.type_cells.as_ref().unwrap().assign(
-                    region,
-                    offset,
-                    step.frame_index,
-                    data.clone(),
-                )?;
+                self.type_cells
+                    .as_ref()
+                    .unwrap()
+                    .assign(region, offset, data.clone())?;
             } else {
                 error!("expect execution data in {} gadget", Self::NAME);
                 return Err(Error::Synthesis);

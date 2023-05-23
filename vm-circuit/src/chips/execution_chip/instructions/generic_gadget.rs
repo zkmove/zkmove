@@ -58,7 +58,6 @@ impl<F: FieldExt> GenericTypeCells<F> {
 pub(crate) struct GenericTypeGadget<F> {
     #[allow(dead_code)]
     pub(crate) name: &'static str,
-    pub(crate) frame_index_is_zero: IsZeroGadget<F>,
     pub(crate) type_cells: Vec<GenericTypeCells<F>>,
 
     caller_pc: Expression<F>,
@@ -81,11 +80,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         let cells = (1..=GENERIC_TYPE_CAPACITY)
             .map(|_i| GenericTypeCells::construct(cb))
             .collect();
-        let frame_index_is_zero = IsZeroGadget::construct(cb, cb.curr.cells.frame_index.expr());
         Self {
             type_cells: cells,
             name,
-            frame_index_is_zero,
             caller_pc,
             callee_id,
             callee_module,
@@ -97,11 +94,8 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        frame_index: usize,
         data: GenericTypeData,
     ) -> Result<(), Error> {
-        self.frame_index_is_zero
-            .assign(region, offset, F::from_u128(frame_index as u128))?;
         if data.generic_types.len() > GENERIC_TYPE_CAPACITY {
             error!("generic types to large");
             return Err(Error::Synthesis);
@@ -203,8 +197,6 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         ));
 
         let mut bcb = BaseConstraintBuilder::<F>::new(0);
-        bcb.add_constraints(self.frame_index_is_zero.configure());
-        // TODO: when first call, constraint ty_args equal to inputs
 
         for (_i, cells) in self.type_cells.iter().enumerate() {
             let inst_ty_pos = &cells.inst_ty_pos;
@@ -264,7 +256,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     call_module: callee_module.clone(),
                     call_function: callee_function.clone(),
                     call_pc: callee_pc.expr(),
-                    frame_index: frame_index.expr(),
+                    frame_index_plus_one: frame_index.expr() + 1.expr(),
                     ty_arg_pos: ty_arg_pos.expr(),
                     ty_arg_module: ty_arg_module.expr(),
                     ty_arg_name: ty_arg_name.expr(),
@@ -308,7 +300,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     call_module: callee_module.clone(),
                     call_function: callee_function.clone(),
                     call_pc: callee_pc.expr(),
-                    frame_index: frame_index.expr(),
+                    frame_index_plus_one: frame_index.expr() + 1.expr(),
                     ty_arg_pos: ty_arg_pos.expr(),
 
                     ty_arg_module: ty_arg_module.expr(),
@@ -328,7 +320,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     call_module: caller_module.expr(),
                     call_function: caller_function.expr(),
                     call_pc: caller_pc.clone(),
-                    frame_index: frame_index.expr() - 1.expr(),
+                    frame_index_plus_one: frame_index.expr(),
 
                     ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
                         * inst_ty_pos_max_inverse.expr()
@@ -338,15 +330,14 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     ty_arg_module: ty_arg_module.expr(),
                     ty_arg_name: ty_arg_name.expr(),
                 };
-                // TODO; when first call, check the valut equals to input types
-                let is_first_call = self.frame_index_is_zero.expr();
+
                 lookups.generic_type_instantiation_lookups.push((
                     Box::leak(
                         format!("{}(type_instantiation - generic&caller)", self.name)
                             .into_boxed_str(),
                     ),
                     caller_type_arg_lookup,
-                    lookup_condition.clone() * (1.expr() - is_first_call.clone()),
+                    lookup_condition.clone(),
                 ));
             }
         }

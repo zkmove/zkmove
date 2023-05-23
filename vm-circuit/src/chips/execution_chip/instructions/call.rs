@@ -188,12 +188,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
                     .value(),
             )?;
             if let Some(ExecutionData::CallGeneric(data)) = &step.data {
-                self.type_cells.as_ref().unwrap().assign(
-                    region,
-                    offset,
-                    step.frame_index,
-                    data.clone(),
-                )?;
+                self.type_cells
+                    .as_ref()
+                    .unwrap()
+                    .assign(region, offset, data.clone())?;
             } else {
                 error!("expect execution data in {} gadget", Self::NAME);
                 return Err(Error::Synthesis);

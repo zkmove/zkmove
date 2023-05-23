@@ -18,7 +18,7 @@ pub struct GenericTypeInstantiation {
 }
 #[derive(Clone, Debug)]
 pub struct GenericTypeInstantiationTableItem {
-    pub frame_index: u64,
+    pub frame_index_plus_one: u64,
     pub call_id: u128,
 
     pub call_module: u64,

@@ -121,11 +121,11 @@ impl<F: FieldExt> Runtime<F> {
             &mut arith_operations,
             &mut generic_type_instantiations,
         )?;
-        let normalized_type_args: Vec<_> =
+        let normalized_input_type_args: Vec<_> =
             ty_args.into_iter().map(convert_type_tag_to_type).collect();
         generic_type_instantiations.iter_mut().for_each(|v| {
             v.type_args.iter_mut().for_each(|t| {
-                *t = t.subst(&normalized_type_args);
+                *t = t.subst(&normalized_input_type_args);
             });
         });
         let mapping = NameToIdxMapping::build(&modules);
@@ -171,9 +171,32 @@ impl<F: FieldExt> Runtime<F> {
                 .unwrap_or_else(|| panic!("exec step at {} not exist", idx))
                 .data = Some(data);
         });
-        let generic_type_instantiation_table_data = generic_type_instantiations
-            .iter()
-            .flat_map(|ti| {
+
+        let mut generic_type_instantiation_table_data = vec![];
+        generic_type_instantiation_table_data.extend(
+            // treat input types as a type instantiation
+            normalized_input_type_args
+                .iter()
+                .enumerate()
+                .flat_map(|(idx, t)| flatten_materialized_type(vec![idx as u8 + 1], t, t))
+                .map(|te| {
+                    let (m, s) = map_type_name(&mapping, &te.data);
+                    (pos_to_id(&te.materialized_pos), m, s.0)
+                })
+                .map(|(pos, module, name)| GenericTypeInstantiationTableItem {
+                    frame_index_plus_one: 0,
+                    call_id: pos_to_id(&[1]),
+                    call_module: 0,
+                    call_function: 0,
+                    call_pc: 0,
+                    ty_arg_pos: pos,
+                    ty_arg_module: module,
+                    ty_arg_name: name,
+                }),
+        );
+
+        generic_type_instantiation_table_data.extend(generic_type_instantiations.iter().flat_map(
+            |ti| {
                 ti.type_args
                     .iter()
                     .zip(ti.inst_type_args.iter())
@@ -196,7 +219,7 @@ impl<F: FieldExt> Runtime<F> {
                         let (m, f) =
                             mapping.map_fn_name(ti.call_module.as_ref(), &ti.call_function);
                         GenericTypeInstantiationTableItem {
-                            frame_index: ti.frame_index,
+                            frame_index_plus_one: ti.frame_index + 1,
                             call_id: ti.call_id,
                             call_module: m,
                             call_function: f.0,
@@ -207,8 +230,9 @@ impl<F: FieldExt> Runtime<F> {
                         }
                     })
                     .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+            },
+        ));
+
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let func_instantiations = FuncInstantiationTableData::from((&script, modules.as_slice()));
         let bytecodes = BytecodeTable::from((script.clone(), modules));
