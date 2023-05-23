@@ -162,14 +162,14 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             step.gc + 1,
             word_element_num,
         )?;
-        let sd_index = rw_operations
-            .0
-            .get(step.gc + 1)
-            .ok_or(Error::Synthesis)?
-            .sd_index();
-        cells
-            .auxiliary_1
-            .assign(region, offset, Some(F::from_u128(sd_index as u128)))?;
+        cells.auxiliary_1.assign(
+            region,
+            offset,
+            step.auxiliary_1
+                .as_ref()
+                .expect("callee_node id should not be none")
+                .value(),
+        )?;
         if GENERIC {
             cells.auxiliary_2.assign(
                 region,

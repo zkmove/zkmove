@@ -23,7 +23,7 @@ pub struct FuncInstantiationTableData(pub(crate) Vec<FuncInstantiation>);
 pub struct FuncInstantiation {
     pub(crate) caller_module: u64,
     pub(crate) caller_function: u16,
-    pub(crate) function_instantiation_index: u16,
+    pub(crate) instantiation_index: u16,
     pub(crate) callee_pc: u64,
     pub(crate) callee_module: u64,
     pub(crate) callee_function: u16,
@@ -61,8 +61,13 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
             let (caller_m, caller_f) = name_mapping
                 .map_fn_name(fi_info.caller_module_id.as_ref(), &fi_info.caller_function);
             let pc = fi_info.callee_pc;
-            let function_instantiation_index =
-                resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize);
+            let instantiation_index = fi_info.instantiation_index.or_else(|| {
+                resolver
+                    .resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
+                    .map(|t| t.0)
+            });
+            // let function_instantiation_index =
+            //     resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize);
             let name_mapping = &name_mapping;
             fi_info
                 .ty_params
@@ -77,9 +82,7 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
                     FuncInstantiation {
                         caller_module: caller_m,
                         caller_function: caller_f.0,
-                        function_instantiation_index: function_instantiation_index
-                            .map(|t| t.0)
-                            .unwrap_or(0),
+                        instantiation_index: instantiation_index.unwrap(),
                         callee_module: m,
                         callee_function: f.0,
                         callee_pc: pc,
@@ -131,6 +134,7 @@ struct FuncInstantiationInfo {
     callee_module: Option<ModuleId>,
     callee_function: FunctionName,
     callee_pc: u64,
+    instantiation_index: Option<u16>,
     ty_params: Vec<Type>,
 }
 #[derive(Default, Debug)]
@@ -171,6 +175,7 @@ impl FuncInstantiationBuilder {
                             callee_pc: edge.weight().pc() as u64,
                             callee_module: callee.module_id.clone(),
                             callee_function: callee.fn_name.clone().into(),
+                            instantiation_index: None,
                             ty_params: callee.fn_inst_type_parameters.clone(),
                         };
                         self.traces.insert(inst);
@@ -183,6 +188,7 @@ impl FuncInstantiationBuilder {
                             callee_pc: edge.weight().pc() as u64,
                             callee_module: None,
                             callee_function: callee.op.clone().into(),
+                            instantiation_index: Some(callee.operand()),
                             ty_params: vec![callee.inst_struct_type.clone()],
                         };
                         self.traces.insert(inst);

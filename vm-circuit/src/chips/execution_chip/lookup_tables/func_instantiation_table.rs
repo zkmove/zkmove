@@ -66,7 +66,7 @@ impl FuncInstantiationTable {
                 vec![
                     F::from_u128(v.caller_module as u128),
                     F::from_u128(v.caller_function as u128),
-                    F::from_u128(v.function_instantiation_index as u128),
+                    F::from_u128(v.instantiation_index as u128),
                     F::from_u128(v.callee_module as u128),
                     F::from_u128(v.callee_function as u128),
                     F::from_u128(v.callee_pc as u128),

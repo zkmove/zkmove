@@ -152,7 +152,7 @@ impl<F: FieldExt> Interpreter<F> {
         generic_type_instantiations: &mut Vec<GenericTypeInstantiation>,
     ) -> VmResult<()> {
         let generic_graph = generate_for_script(script, data_store);
-        println!("{}", generic_graph.to_dot());
+        //println!("{}", generic_graph.to_dot());
 
         let mut locals = Locals::new(entry.local_count());
 

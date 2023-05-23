@@ -186,9 +186,14 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         debug_assert!(op.rw() == RW::WRITE);
         self.value_a
             .assign(region, offset, Some(op.account_address().value()))?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, Some(F::from_u128(op.sd_index() as u128)))?;
+        cells.auxiliary_1.assign(
+            region,
+            offset,
+            step.auxiliary_1
+                .as_ref()
+                .expect("callee_node id should not be none")
+                .value(),
+        )?;
 
         if GENERIC {
             cells.auxiliary_2.assign(

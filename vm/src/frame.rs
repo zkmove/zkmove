@@ -105,11 +105,11 @@ impl<F: FieldExt> Frame<F> {
             .map(|edge| edge.target())
             .collect();
         assert_eq!(nexts.len(), 1);
-        println!(
-            "frame: {:?} -> {:?}",
-            self.generic_index(),
-            nexts.last().unwrap()
-        );
+        // println!(
+        //     "frame: {:?} -> {:?}",
+        //     self.generic_index(),
+        //     nexts.last().unwrap()
+        // );
         nexts.pop().unwrap()
     }
 

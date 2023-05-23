@@ -150,6 +150,42 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::CallGeneric.index() as u128),
             F::from_u128(idx.0 as u128),
         ),
+        Bytecode::ExistsGeneric(idx) => (
+            F::from_u128(Opcode::ExistsGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::PackGeneric(idx) => (
+            F::from_u128(Opcode::PackGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::UnpackGeneric(idx) => (
+            F::from_u128(Opcode::UnpackGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::ImmBorrowFieldGeneric(idx) => (
+            F::from_u128(Opcode::ImmBorrowFieldGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::MutBorrowFieldGeneric(idx) => (
+            F::from_u128(Opcode::MutBorrowFieldGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::MoveFromGeneric(idx) => (
+            F::from_u128(Opcode::MoveFromGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::MoveToGeneric(idx) => (
+            F::from_u128(Opcode::MoveToGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::ImmBorrowGlobalGeneric(idx) => (
+            F::from_u128(Opcode::ImmBorrowGlobalGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
+        Bytecode::MutBorrowGlobalGeneric(idx) => (
+            F::from_u128(Opcode::MutBorrowGlobalGeneric.index() as u128),
+            F::from_u128(idx.0 as u128),
+        ),
         Bytecode::VecImmBorrow(idx) => (
             F::from_u128(Opcode::VecImmBorrow.index() as u128),
             F::from_u128(idx.0 as u128),

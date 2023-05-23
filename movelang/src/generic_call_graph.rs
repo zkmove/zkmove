@@ -238,9 +238,21 @@ pub struct StorageOp {
     pub struct_type: Type,
     pub inst_struct_type: Type,
 }
+impl StorageOp {
+    pub fn operand(&self) -> u16 {
+        match &self.op {
+            Bytecode::ExistsGeneric(t) => t.0,
+            Bytecode::MoveToGeneric(t) => t.0,
+            Bytecode::MoveFromGeneric(t) => t.0,
+            Bytecode::MutBorrowGlobalGeneric(t) => t.0,
+            Bytecode::ImmBorrowGlobalGeneric(t) => t.0,
+            _ => unreachable!(),
+        }
+    }
+}
 impl Display for StorageOp {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UNPACK<{}>", &self.struct_type)
+        write!(f, "{:?}<{}>", &self.op, &self.struct_type)
     }
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
