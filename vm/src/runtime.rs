@@ -34,11 +34,9 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
 use vm_circuit::witness::execution_steps::{ExecutionData, GenericTypeData, MaterializedTypeInfo};
-use vm_circuit::witness::func_instantiation_table::{
-    flatten_materialized_type, map_type_name, FuncInstantiationTableData,
-};
-use vm_circuit::witness::generic_type_instantiations::{
-    GenericTypeInstantiationTableData, GenericTypeInstantiationTableItem,
+use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
+use vm_circuit::witness::type_instantiation_table::{
+    flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
 };
 use vm_circuit::witness::{CircuitConfig, Witness};
 
@@ -105,7 +103,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut rw_operations = Vec::new();
         let mut func_calls = Vec::new();
         let mut arith_operations = Vec::new();
-        let mut generic_type_instantiations = Vec::new();
+        let mut generic_types = Vec::new();
         interp.run_script(
             &script,
             entry,
@@ -119,26 +117,39 @@ impl<F: FieldExt> Runtime<F> {
             &mut rw_operations,
             &mut func_calls,
             &mut arith_operations,
-            &mut generic_type_instantiations,
+            &mut generic_types,
         )?;
+        let mapping = NameToIdxMapping::build(&modules);
         let normalized_input_type_args: Vec<_> =
             ty_args.into_iter().map(convert_type_tag_to_type).collect();
-        generic_type_instantiations.iter_mut().for_each(|v| {
-            v.type_args.iter_mut().for_each(|t| {
-                *t = t.subst(&normalized_input_type_args);
-            });
-        });
-        let mapping = NameToIdxMapping::build(&modules);
-        let exec_datas: HashMap<usize, ExecutionData> = generic_type_instantiations
+        let input_type_element_table_data = normalized_input_type_args
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, t)| flatten_materialized_type(vec![idx as u8 + 1], t, t))
+            .map(|te| {
+                let (m, s) = map_type_name(&mapping, &te.data);
+                (pos_to_id(&te.materialized_pos), m, s.0)
+            })
+            .map(|(pos, module, name)| InputTypeElement {
+                ty_arg_pos: pos,
+                ty_arg_module: module,
+                ty_arg_name: name,
+            })
+            .collect();
+
+        let exec_datas: HashMap<usize, ExecutionData> = generic_types
             .iter()
             .map(|ti| {
                 let materialized_type_elements = ti
                     .type_args
                     .iter()
-                    .zip(ti.inst_type_args.iter())
                     .enumerate()
-                    .flat_map(|(i, (materialized_type, inst_type))| {
-                        flatten_materialized_type(vec![i as u8 + 1], materialized_type, inst_type)
+                    .flat_map(|(i, inst_type)| {
+                        flatten_materialized_type(
+                            vec![i as u8 + 1],
+                            &inst_type.subst(&normalized_input_type_args),
+                            inst_type,
+                        )
                     })
                     .map(|te| {
                         let (m, s) = map_type_name(&mapping, &te.data);
@@ -172,71 +183,9 @@ impl<F: FieldExt> Runtime<F> {
                 .data = Some(data);
         });
 
-        let mut generic_type_instantiation_table_data = vec![];
-        generic_type_instantiation_table_data.extend(
-            // treat input types as a type instantiation
-            normalized_input_type_args
-                .iter()
-                .enumerate()
-                .flat_map(|(idx, t)| flatten_materialized_type(vec![idx as u8 + 1], t, t))
-                .map(|te| {
-                    let (m, s) = map_type_name(&mapping, &te.data);
-                    (pos_to_id(&te.materialized_pos), m, s.0)
-                })
-                .map(|(pos, module, name)| GenericTypeInstantiationTableItem {
-                    frame_index_plus_one: 0,
-                    call_id: pos_to_id(&[1]),
-                    instantiation_point_module: 0,
-                    instantiation_point_function: 0,
-                    instantiation_point_pc: 0,
-                    ty_arg_pos: pos,
-                    ty_arg_module: module,
-                    ty_arg_name: name,
-                }),
-        );
-
-        generic_type_instantiation_table_data.extend(generic_type_instantiations.iter().flat_map(
-            |ti| {
-                ti.type_args
-                    .iter()
-                    .zip(ti.inst_type_args.iter())
-                    .enumerate()
-                    .flat_map(|(i, (materialized_type, inst_type))| {
-                        flatten_materialized_type(vec![i as u8 + 1], materialized_type, inst_type)
-                    })
-                    .map(|te| {
-                        let (m, s) = map_type_name(&mapping, &te.data);
-                        MaterializedTypeInfo {
-                            inst_ty_pos: pos_to_id(&te.instantiation_pos),
-                            inst_ty_pos_max: 2u128.pow(te.instantiation_pos.len() as u32 * 8),
-                            referred_param_index: te.referred_ty_idx.unwrap_or(0),
-                            ty_arg_pos: pos_to_id(&te.materialized_pos),
-                            ty_arg_module: m,
-                            ty_arg_name: s.0,
-                        }
-                    })
-                    .map(|info| {
-                        let (m, f) = mapping.map_fn_name(
-                            ti.instantiation_point_module.as_ref(),
-                            &ti.instantiation_point_function,
-                        );
-                        GenericTypeInstantiationTableItem {
-                            frame_index_plus_one: ti.frame_index + 1,
-                            call_id: ti.call_id,
-                            instantiation_point_module: m,
-                            instantiation_point_function: f.0,
-                            instantiation_point_pc: ti.instantiation_point_pc,
-                            ty_arg_pos: info.ty_arg_pos,
-                            ty_arg_module: info.ty_arg_module,
-                            ty_arg_name: info.ty_arg_name,
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            },
-        ));
-
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
-        let func_instantiations = FuncInstantiationTableData::from((&script, modules.as_slice()));
+        let type_instantiations =
+            GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
         let bytecodes = BytecodeTable::from((script.clone(), modules));
 
         Ok(Witness::new(
@@ -246,8 +195,8 @@ impl<F: FieldExt> Runtime<F> {
             func_calls,
             arith_operations,
             call_traces,
-            func_instantiations,
-            GenericTypeInstantiationTableData(generic_type_instantiation_table_data),
+            type_instantiations,
+            InputTypeElementTableData(input_type_element_table_data),
             circuit_config,
         ))
     }

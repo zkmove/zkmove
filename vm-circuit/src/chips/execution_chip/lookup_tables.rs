@@ -12,14 +12,14 @@ use crate::chips::execution_chip::lookup_tables::call_lookup_table::{CallLookup,
 use crate::chips::execution_chip::lookup_tables::call_trace_table::{
     CallTraceLookup, CallTraceTable,
 };
-use crate::chips::execution_chip::lookup_tables::func_instantiation_table::{
-    FuncInstantiationLookup, FuncInstantiationTable,
-};
-use crate::chips::execution_chip::lookup_tables::generic_type_instantiation_table::{
-    GenericTypeInstantiationLookup, GenericTypeInstantiationTable,
+use crate::chips::execution_chip::lookup_tables::input_type_element_table::{
+    InputTypeElementLookup, InputTypeElementTable,
 };
 use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::{Pow2FixedTable, Pow2Lookup};
 use crate::chips::execution_chip::lookup_tables::rw_table::{RWLookup, RWTable};
+use crate::chips::execution_chip::lookup_tables::type_instantiation_table::{
+    TypeInstantiationLookup, TypeInstantiationTable,
+};
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::ExecutionChip;
@@ -40,10 +40,10 @@ pub mod bitwise_lookup_table;
 pub mod bytecode_lookup_table;
 pub mod call_lookup_table;
 pub mod call_trace_table;
-pub mod func_instantiation_table;
-pub mod generic_type_instantiation_table;
+pub mod input_type_element_table;
 pub mod pow2_fixed_table;
 pub mod rw_table;
+pub mod type_instantiation_table;
 pub mod utils;
 
 #[derive(Default)]
@@ -71,13 +71,9 @@ pub struct LookupsWithCondition<F: FieldExt> {
     )>,
     pub pow2_lookups: Vec<(&'static str, Pow2Lookup<F>, Expression<F>)>,
     pub call_trace_lookups: Vec<(&'static str, CallTraceLookup<F>, Expression<F>)>,
-    pub func_instantiation_type_lookups:
-        Vec<(&'static str, FuncInstantiationLookup<F>, Expression<F>)>,
-    pub generic_type_instantiation_lookups: Vec<(
-        &'static str,
-        GenericTypeInstantiationLookup<F>,
-        Expression<F>,
-    )>,
+    pub type_instantiation_type_lookups:
+        Vec<(&'static str, TypeInstantiationLookup<F>, Expression<F>)>,
+    pub input_type_element_lookups: Vec<(&'static str, InputTypeElementLookup<F>, Expression<F>)>,
 }
 
 impl<F: FieldExt> LookupsWithCondition<F> {
@@ -95,8 +91,8 @@ pub struct LookupTableConfig<F: FieldExt> {
     pub bitwise_table: BitwiseLookupTable,
     pub pow2_table: Pow2FixedTable,
     pub call_trace_table: CallTraceTable,
-    pub func_instantiation_table: FuncInstantiationTable,
-    pub generic_type_instantiation_table: GenericTypeInstantiationTable,
+    pub type_instantiation_table: TypeInstantiationTable,
+    pub input_type_element_table: InputTypeElementTable,
     _marker: PhantomData<F>,
 }
 impl<F: FieldExt> LookupTableConfig<F> {
@@ -108,8 +104,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2FixedTable::construct(meta);
         let call_trace_table = CallTraceTable::construct(meta);
-        let func_instantiation_table = FuncInstantiationTable::construct(meta);
-        let generic_type_instantiation_table = GenericTypeInstantiationTable::construct(meta);
+        let type_instantiation_table = TypeInstantiationTable::construct(meta);
+        let input_type_element_table = InputTypeElementTable::construct(meta);
         LookupTableConfig {
             rw_table,
             bytecode_table,
@@ -118,8 +114,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
             bitwise_table,
             pow2_table,
             call_trace_table,
-            func_instantiation_table,
-            generic_type_instantiation_table,
+            type_instantiation_table,
+            input_type_element_table,
             _marker: PhantomData,
         }
     }
@@ -249,18 +245,18 @@ impl<F: FieldExt> LookupTableConfig<F> {
                     .collect()
             });
         }
-        for (name, lookup, cond) in &lookups.func_instantiation_type_lookups {
+        for (name, lookup, cond) in &lookups.type_instantiation_type_lookups {
             meta.lookup(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 lookup
                     .expressions()
                     .into_iter()
                     .map(|e| s_step.clone() * cond.clone() * e)
-                    .zip(lookup_table.func_instantiation_table.columns())
+                    .zip(lookup_table.type_instantiation_table.columns())
                     .collect()
             });
         }
-        for (name, lookup, cond) in &lookups.generic_type_instantiation_lookups {
+        for (name, lookup, cond) in &lookups.input_type_element_lookups {
             meta.lookup_any(name, |meta| {
                 let s_step = meta.query_selector(s_step);
                 lookup
@@ -269,7 +265,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                     .map(|e| s_step.clone() * cond.clone() * e)
                     .zip(
                         lookup_table
-                            .generic_type_instantiation_table
+                            .input_type_element_table
                             .columns()
                             .into_iter()
                             .map(|c| meta.query_advice(c, Rotation::cur())),
@@ -405,9 +401,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
                 },
             )?;
         }
-        lookup_table.generic_type_instantiation_table.assign_table(
+        lookup_table.input_type_element_table.assign_table(
             layouter,
-            execution_chip.witness.generic_type_instantiations.clone().0,
+            execution_chip.witness.input_type_elements.clone().0,
         )?;
 
         let bytecodes: Vec<Vec<F>> = (&execution_chip.witness.bytecode_table).into();
@@ -445,9 +441,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         lookup_table
             .call_trace_table
             .assign_table(layouter, execution_chip.witness.call_trace_table.0.clone())?;
-        lookup_table.func_instantiation_table.assign_table(
+        lookup_table.type_instantiation_table.assign_table(
             layouter,
-            execution_chip.witness.func_instantiations.0.clone(),
+            execution_chip.witness.type_instantiations.0.clone(),
         )?;
 
         // bitwise table

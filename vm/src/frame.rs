@@ -25,7 +25,7 @@ use std::sync::Arc;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::generic_type_instantiations::GenericTypeInstantiation;
+use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::{RWOperation, RW};
 
 pub struct Frame<F: FieldExt> {
@@ -123,7 +123,7 @@ impl<F: FieldExt> Frame<F> {
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
         arith_operations: &mut Vec<ArithOperation>,
-        generic_type_instantiations: &mut Vec<GenericTypeInstantiation>,
+        generic_types: &mut Vec<GenericTypeMaterialization>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
         let frame_index = interp.frames.size();
@@ -670,16 +670,15 @@ impl<F: FieldExt> Frame<F> {
                                 unreachable!()
                             }
                         };
-                        generic_type_instantiations.push(GenericTypeInstantiation {
+                        generic_types.push(GenericTypeMaterialization {
                             execution_step_index: exec_steps.len(),
                             op: instruction.clone(),
                             frame_index: frame_index as u64,
                             instantiation_point_pc: execution_step.pc as u64,
-                            call_id: pos_to_id(callee_node.pos()),
+                            instantiation_point_id: pos_to_id(callee_node.pos()),
                             instantiation_point_module: None,
                             instantiation_point_function: instruction.clone().into(),
                             type_args: vec![callee_node_data.struct_type.clone()],
-                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
                         });
                         execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_2 =
@@ -745,16 +744,15 @@ impl<F: FieldExt> Frame<F> {
                                 unreachable!()
                             }
                         };
-                        generic_type_instantiations.push(GenericTypeInstantiation {
+                        generic_types.push(GenericTypeMaterialization {
                             execution_step_index: exec_steps.len(),
                             op: instruction.clone(),
                             frame_index: frame_index as u64,
                             instantiation_point_pc: execution_step.pc as u64,
-                            call_id: pos_to_id(callee_node.pos()),
+                            instantiation_point_id: pos_to_id(callee_node.pos()),
                             instantiation_point_module: None,
                             instantiation_point_function: instruction.clone().into(),
                             type_args: vec![callee_node_data.struct_type.clone()],
-                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
                         });
                         execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_2 =
@@ -815,16 +813,15 @@ impl<F: FieldExt> Frame<F> {
                                 unreachable!()
                             }
                         };
-                        generic_type_instantiations.push(GenericTypeInstantiation {
+                        generic_types.push(GenericTypeMaterialization {
                             execution_step_index: exec_steps.len(),
                             op: instruction.clone(),
                             frame_index: frame_index as u64,
                             instantiation_point_pc: execution_step.pc as u64,
-                            call_id: pos_to_id(callee_node.pos()),
+                            instantiation_point_id: pos_to_id(callee_node.pos()),
                             instantiation_point_module: None,
                             instantiation_point_function: instruction.clone().into(),
                             type_args: vec![callee_node_data.struct_type.clone()],
-                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
                         });
                         execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_2 =
@@ -898,16 +895,15 @@ impl<F: FieldExt> Frame<F> {
                                 unreachable!()
                             }
                         };
-                        generic_type_instantiations.push(GenericTypeInstantiation {
+                        generic_types.push(GenericTypeMaterialization {
                             execution_step_index: exec_steps.len(),
                             op: instruction.clone(),
                             frame_index: frame_index as u64,
                             instantiation_point_pc: execution_step.pc as u64,
-                            call_id: pos_to_id(callee_node.pos()),
+                            instantiation_point_id: pos_to_id(callee_node.pos()),
                             instantiation_point_module: None,
                             instantiation_point_function: instruction.clone().into(),
                             type_args: vec![callee_node_data.struct_type.clone()],
-                            inst_type_args: vec![callee_node_data.inst_struct_type.clone()],
                         });
                         execution_step.auxiliary_2 =
                             Some(Value::u128(pos_to_id(callee_node.pos())));

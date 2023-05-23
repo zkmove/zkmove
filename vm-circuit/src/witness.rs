@@ -5,10 +5,10 @@ use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::func_instantiation_table::FuncInstantiationTableData;
 use crate::witness::function_calls::FunctionCall;
-use crate::witness::generic_type_instantiations::GenericTypeInstantiationTableData;
+use crate::witness::input_type_elements::InputTypeElementTableData;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
+use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
@@ -18,10 +18,10 @@ pub mod arith_operations;
 pub mod bytecode_table;
 pub mod call_trace_table;
 pub mod execution_steps;
-pub mod func_instantiation_table;
 pub mod function_calls;
-pub mod generic_type_instantiations;
+pub mod input_type_elements;
 pub mod rw_operations;
+pub mod type_instantiation_table;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
@@ -104,8 +104,8 @@ pub struct Witness<F: FieldExt> {
     pub func_calls: Vec<FunctionCall>,
     pub arith_operations: Vec<ArithOperation>,
     pub call_trace_table: CallTraceTable,
-    pub func_instantiations: FuncInstantiationTableData,
-    pub generic_type_instantiations: GenericTypeInstantiationTableData,
+    pub type_instantiations: GenericTypeInstantiationTableData,
+    pub input_type_elements: InputTypeElementTableData,
     pub circuit_config: CircuitConfig,
 }
 
@@ -118,8 +118,8 @@ impl<F: FieldExt> Witness<F> {
         func_calls: Vec<FunctionCall>,
         arith_operations: Vec<ArithOperation>,
         call_trace_table: CallTraceTable,
-        func_instantiations: FuncInstantiationTableData,
-        generic_type_instantiations: GenericTypeInstantiationTableData,
+        type_instantiations: GenericTypeInstantiationTableData,
+        input_type_elements: InputTypeElementTableData,
         circuit_config: CircuitConfig,
     ) -> Self {
         Witness {
@@ -129,8 +129,8 @@ impl<F: FieldExt> Witness<F> {
             func_calls,
             arith_operations,
             call_trace_table,
-            func_instantiations,
-            generic_type_instantiations,
+            type_instantiations,
+            input_type_elements,
             circuit_config,
         }
     }
@@ -217,18 +217,18 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;
+        writeln!(f, "Input type table:")?;
+        self.input_type_elements.0.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
+        });
+        writeln!(f)?;
         writeln!(f, "Call trace table:")?;
         self.call_trace_table.0.iter().for_each(|op| {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;
-        writeln!(f, "Func instantiation table:")?;
-        self.func_instantiations.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
-        });
-        writeln!(f)?;
         writeln!(f, "Type instantiation table:")?;
-        self.generic_type_instantiations.0.iter().for_each(|op| {
+        self.type_instantiations.0.iter().for_each(|op| {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;

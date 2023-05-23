@@ -17,16 +17,21 @@ use petgraph::Direction;
 use std::collections::{BTreeSet, HashSet};
 
 #[derive(Clone, Default, PartialEq, Debug, Eq)]
-pub struct FuncInstantiationTableData(pub(crate) Vec<FuncInstantiation>);
+pub struct GenericTypeInstantiationTableData(pub(crate) Vec<GenericTypeInstantiation>);
 
 #[derive(Clone, Default, PartialEq, Debug, Eq)]
-pub struct FuncInstantiation {
+pub struct GenericTypeInstantiation {
+    pub(crate) caller_id: u128,
     pub(crate) caller_module: u64,
     pub(crate) caller_function: u16,
-    pub(crate) instantiation_index: u16,
+    pub(crate) caller_callin_pc: usize,
+
+    pub(crate) instantiation_id: u128,
+
     pub(crate) instantiation_point_pc: u64,
-    pub(crate) instantiated_module: u64,
-    pub(crate) instantiated_function: u16,
+    pub(crate) instantiation_point_module: u64,
+    pub(crate) instantiation_point_function: u16,
+    pub(crate) instantiation_index: u16,
 
     /// start from 1, 0 means no reference to ty parameter.
     pub(crate) referred_ty_idx: u16, // TODO: check if it possible for two different referred index while other infos are the same.
@@ -35,39 +40,45 @@ pub struct FuncInstantiation {
     pub(crate) ty_name: u16, // struct handle index in the module
 }
 
-impl From<(CompiledScript, Vec<CompiledModule>)> for FuncInstantiationTableData {
+impl From<(CompiledScript, Vec<CompiledModule>)> for GenericTypeInstantiationTableData {
     fn from((script, deps): (CompiledScript, Vec<CompiledModule>)) -> Self {
-        FuncInstantiationTableData(generate(&script, &deps))
+        GenericTypeInstantiationTableData(generate(&script, &deps))
     }
 }
-impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for FuncInstantiationTableData {
+impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for GenericTypeInstantiationTableData {
     fn from((script, deps): (&'a CompiledScript, &'a [CompiledModule])) -> Self {
-        FuncInstantiationTableData(generate(script, deps))
+        GenericTypeInstantiationTableData(generate(script, deps))
     }
 }
 
-fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstantiation> {
+fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericTypeInstantiation> {
     let mut store = RemoteStore::default();
     deps.iter().for_each(|dep| store.add_module(dep));
     let trace_graph = generate_for_script(script, &store);
     let name_mapping = NameToIdxMapping::build(deps);
     let resolver = FuncInstantiationResolver { script, deps };
-    FuncInstantiationBuilder::default()
+    TypeInstantiationBuilder::default()
         .build(&trace_graph)
         .into_iter()
         .flat_map(|fi_info| {
             let (m, f) = name_mapping.map_fn_name(
-                fi_info.instantiated_module.as_ref(),
-                &fi_info.instantiated_function,
+                fi_info.instantiation_point_module.as_ref(),
+                &fi_info.instantiation_point_function,
             );
             let (caller_m, caller_f) = name_mapping
                 .map_fn_name(fi_info.caller_module_id.as_ref(), &fi_info.caller_function);
-            let pc = fi_info.instantiated_pc;
-            let instantiation_index = fi_info.instantiation_index.or_else(|| {
-                resolver
-                    .resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
-                    .map(|t| t.0)
-            });
+            let pc = fi_info.instantiation_point_pc;
+            let instantiation_index = fi_info
+                .instantiation_index
+                .or_else(|| {
+                    resolver
+                        .resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
+                        .map(|t| t.0)
+                })
+                .unwrap();
+            let caller_id = pos_to_id(fi_info.caller_id.as_ref());
+            let caller_callin_pc = fi_info.caller_callin_pc;
+            let instantiated_callee_id = pos_to_id(fi_info.instantiation_id.as_ref());
             // let function_instantiation_index =
             //     resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize);
             let name_mapping = &name_mapping;
@@ -81,13 +92,19 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
                         .data
                         .map(|t| map_type_name(name_mapping, &t))
                         .unwrap_or((0, StructHandleIndex(0)));
-                    FuncInstantiation {
+                    GenericTypeInstantiation {
+                        caller_id,
                         caller_module: caller_m,
                         caller_function: caller_f.0,
-                        instantiation_index: instantiation_index.unwrap(),
-                        instantiated_module: m,
-                        instantiated_function: f.0,
+                        caller_callin_pc,
+
+                        instantiation_id: instantiated_callee_id,
+                        instantiation_point_module: m,
+                        instantiation_point_function: f.0,
                         instantiation_point_pc: pc,
+
+                        instantiation_index,
+
                         referred_ty_idx: t.referred_ty_idx.unwrap_or(0),
                         ty_pos: pos_to_id(&t.pos),
                         ty_module,
@@ -129,31 +146,36 @@ impl<'a> FuncInstantiationResolver<'a> {
     }
 }
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
-struct FuncInstantiationInfo {
+struct TypeInstantiationInfo {
+    caller_id: Vec<u8>,
     caller_module_id: Option<ModuleId>,
     caller_function: FunctionName,
+    caller_callin_pc: usize,
 
-    instantiated_module: Option<ModuleId>,
-    instantiated_function: FunctionName,
-    instantiated_pc: u64,
+    instantiation_id: Vec<u8>,
+    instantiation_point_module: Option<ModuleId>,
+    instantiation_point_function: FunctionName,
+    instantiation_point_pc: u64,
+
     instantiation_index: Option<u16>,
     ty_params: Vec<Type>,
 }
 #[derive(Default, Debug)]
-pub(crate) struct FuncInstantiationBuilder {
-    traces: BTreeSet<FuncInstantiationInfo>,
+pub(crate) struct TypeInstantiationBuilder {
+    traces: BTreeSet<TypeInstantiationInfo>,
 }
 
-impl FuncInstantiationBuilder {
-    fn build(mut self, graph: &GenericCallGraph) -> Vec<FuncInstantiationInfo> {
+impl TypeInstantiationBuilder {
+    fn build(mut self, graph: &GenericCallGraph) -> Vec<TypeInstantiationInfo> {
         let mut visited_node_indexes: HashSet<NodeIndex> = HashSet::default();
-        self.generate(graph, &mut visited_node_indexes, graph.head);
+        self.generate(graph, &mut visited_node_indexes, 0, graph.head);
         self.traces.into_iter().collect()
     }
     fn generate(
         &mut self,
         graph: &GenericCallGraph,
         visited_node_indexes: &mut HashSet<NodeIndex>,
+        caller_callin_pc: usize,
         caller_node_index: NodeIndex,
     ) {
         if visited_node_indexes.contains(&caller_node_index) {
@@ -171,27 +193,35 @@ impl FuncInstantiationBuilder {
             if let NodeInternal::CallGeneric(caller) = caller_node.data() {
                 match target_node.data() {
                     NodeInternal::CallGeneric(callee) => {
-                        let inst = FuncInstantiationInfo {
+                        let inst = TypeInstantiationInfo {
+                            caller_id: caller_node.pos().to_vec(),
                             caller_module_id: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            instantiated_pc: edge.weight().pc() as u64,
-                            instantiated_module: callee.module_id.clone(),
-                            instantiated_function: callee.fn_name.clone().into(),
+                            caller_callin_pc,
+
+                            instantiation_id: target_node.pos().to_vec(),
+                            instantiation_point_module: callee.module_id.clone(),
+                            instantiation_point_function: callee.fn_name.clone().into(),
+                            instantiation_point_pc: edge.weight().pc() as u64,
                             instantiation_index: None,
-                            ty_params: callee.fn_inst_type_parameters.clone(),
+                            ty_params: callee.fn_type_parameters.clone(),
                         };
                         self.traces.insert(inst);
-                        self.generate(graph, visited_node_indexes, target);
+                        self.generate(graph, visited_node_indexes, edge.weight().pc(), target);
                     }
                     NodeInternal::StorageOp(callee) => {
-                        let inst = FuncInstantiationInfo {
+                        let inst = TypeInstantiationInfo {
+                            caller_id: caller_node.pos().to_vec(),
                             caller_module_id: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            instantiated_pc: edge.weight().pc() as u64,
-                            instantiated_module: None,
-                            instantiated_function: callee.op.clone().into(),
+                            caller_callin_pc,
+
+                            instantiation_id: target_node.pos().to_vec(),
+                            instantiation_point_pc: edge.weight().pc() as u64,
+                            instantiation_point_module: None,
+                            instantiation_point_function: callee.op.clone().into(),
                             instantiation_index: Some(callee.operand()),
-                            ty_params: vec![callee.inst_struct_type.clone()],
+                            ty_params: vec![callee.struct_type.clone()],
                         };
                         self.traces.insert(inst);
                     }

@@ -25,7 +25,7 @@ use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
-use vm_circuit::witness::generic_type_instantiations::GenericTypeInstantiation;
+use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
 pub struct Interpreter<F: FieldExt> {
@@ -149,7 +149,7 @@ impl<F: FieldExt> Interpreter<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
         func_calls: &mut Vec<FunctionCall>,
         arith_operations: &mut Vec<ArithOperation>,
-        generic_type_instantiations: &mut Vec<GenericTypeInstantiation>,
+        generic_types: &mut Vec<GenericTypeMaterialization>,
     ) -> VmResult<()> {
         let generic_graph = generate_for_script(script, data_store);
         //println!("{}", generic_graph.to_dot());
@@ -179,7 +179,7 @@ impl<F: FieldExt> Interpreter<F> {
                 exec_steps,
                 rw_operations,
                 arith_operations,
-                generic_type_instantiations,
+                generic_types,
             )?;
             match status {
                 ExitStatus::Return => {
@@ -380,12 +380,12 @@ impl<F: FieldExt> Interpreter<F> {
                             unreachable!()
                         }
                     };
-                    generic_type_instantiations.push(GenericTypeInstantiation {
+                    generic_types.push(GenericTypeMaterialization {
                         execution_step_index: exec_steps.len(),
                         op: Bytecode::CallGeneric(index),
                         frame_index: frame_index as u64,
                         instantiation_point_pc: execution_step.pc as u64,
-                        call_id: pos_to_id(
+                        instantiation_point_id: pos_to_id(
                             generic_graph
                                 .graph
                                 .node_weight(next_node_index)
@@ -395,7 +395,6 @@ impl<F: FieldExt> Interpreter<F> {
                         instantiation_point_module: callee_node_data.module_id.clone(),
                         instantiation_point_function: callee_node_data.fn_name.clone().into(),
                         type_args: callee_node_data.fn_type_parameters.clone(),
-                        inst_type_args: callee_node_data.fn_inst_type_parameters.clone(),
                     });
 
                     // record function call

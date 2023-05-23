@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::lookup_tables::call_trace_table::CallTraceLookup;
-use crate::chips::execution_chip::lookup_tables::func_instantiation_table::FuncInstantiationLookup;
-use crate::chips::execution_chip::lookup_tables::generic_type_instantiation_table::GenericTypeInstantiationLookup;
+use crate::chips::execution_chip::lookup_tables::input_type_element_table::InputTypeElementLookup;
+use crate::chips::execution_chip::lookup_tables::type_instantiation_table::TypeInstantiationLookup;
 use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::param::GENERIC_TYPE_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -170,14 +170,14 @@ impl<F: FieldExt> GenericTypeGadget<F> {
         let caller_id = cb.curr.cells.context_id.clone();
         let caller_module = cb.curr.cells.module_index.clone();
         let caller_function = cb.curr.cells.function_index.clone();
-        let callee_callin_pc = cb.curr.cells.pc.clone();
-        let frame_index = cb.curr.cells.frame_index.clone();
         let caller_callin_pc = self.caller_callin_pc.clone();
+
+        let callee_callin_pc = cb.curr.cells.pc.clone();
         let callee_id = self.callee_id.clone();
         let callee_module = self.callee_module.clone();
         let callee_function = self.callee_function.clone();
         let instantiation_index = self.instantiation_index.clone();
-        // In function call, we constraint: caller_id/callee_id in call trace table.
+        // TODO: In function call, we constraint: caller_id/callee_id in call trace table.
         // in other opcode, we constraint: step_cur.cells.context_id == step_nexr.cells.context_id
         let lookup_calltrace = CallTraceLookup {
             caller_id: caller_id.expression.clone(),
@@ -223,7 +223,8 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             // TODO: inst_ty_pos < inst_ty_pos_max && inst_ty_pos > inst_ty_pos_max / 16
             let is_not_generic = referred_param_index_is_zero.expr();
 
-            // not generic
+            // if the type element is not generic, then it must be in func-instantiation static table.
+            // or else, it must be referring an input type.
             {
                 bcb.condition(subcond.clone() * is_not_generic.clone(), |bcb| {
                     bcb.add_constraint(
@@ -232,40 +233,29 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     );
                 });
                 let lookup_condition = cond.clone() * subcond.clone() * is_not_generic.clone();
-                let lookup_func_instantiation_type = FuncInstantiationLookup {
+                let lookup_func_instantiation_type = TypeInstantiationLookup {
+                    caller_id: caller_id.expr(),
                     caller_module: caller_module.expr(),
                     caller_function: caller_function.expr(),
+                    caller_callin_pc: caller_callin_pc.clone(),
+
                     function_instantiation_index: instantiation_index.clone(),
-                    instantiated_module: callee_module.clone(),
-                    instantiated_function: callee_function.clone(),
-                    instantiation_point_pc: callee_callin_pc.expr(),
-                    inst_ty_pos: inst_ty_pos.expr(),
-                    referred_param_index: referred_param_index.expr(),
-                    ty_module: ty_arg_module.expr(),
-                    ty_name: ty_arg_name.expr(),
-                };
-                lookups.func_instantiation_type_lookups.push((
-                    Box::leak(
-                        format!("{}(func_instantiation - no-generic)", self.name).into_boxed_str(),
-                    ),
-                    lookup_func_instantiation_type,
-                    lookup_condition.clone(),
-                ));
-                let type_arg_lookup = GenericTypeInstantiationLookup {
-                    call_id: callee_id.clone(),
+
+                    instantiation_id: callee_id.clone(),
                     instantiation_point_module: callee_module.clone(),
                     instantiation_point_function: callee_function.clone(),
                     instantiation_point_pc: callee_callin_pc.expr(),
-                    frame_index_plus_one: frame_index.expr() + 1.expr(),
-                    ty_arg_pos: ty_arg_pos.expr(),
-                    ty_arg_module: ty_arg_module.expr(),
-                    ty_arg_name: ty_arg_name.expr(),
+
+                    referred_param_index: 0.expr(),
+                    inst_ty_pos: inst_ty_pos.expr(),
+                    ty_module: ty_arg_module.expr(),
+                    ty_name: ty_arg_name.expr(),
                 };
-                lookups.generic_type_instantiation_lookups.push((
+                lookups.type_instantiation_type_lookups.push((
                     Box::leak(
                         format!("{}(type_instantiation - no-generic)", self.name).into_boxed_str(),
                     ),
-                    type_arg_lookup,
+                    lookup_func_instantiation_type,
                     lookup_condition.clone(),
                 ));
             }
@@ -274,54 +264,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             {
                 let subcond = subcond * (1.expr() - is_not_generic.clone());
                 let lookup_condition = cond.clone() * subcond.clone();
-                let lookup_func_instantiation_type = FuncInstantiationLookup {
-                    caller_module: caller_module.expr(),
-                    caller_function: caller_function.expr(),
-
-                    function_instantiation_index: instantiation_index.clone(),
-                    instantiated_module: callee_module.clone(),
-                    instantiated_function: callee_function.clone(),
-                    instantiation_point_pc: callee_callin_pc.expr(),
-
-                    inst_ty_pos: inst_ty_pos.expr(),
-                    referred_param_index: referred_param_index.expr(),
-                    ty_module: 0.expr(),
-                    ty_name: 0.expr(),
-                };
-                lookups.func_instantiation_type_lookups.push((
-                    Box::leak(
-                        format!("{}(func_instantiation - generic)", self.name).into_boxed_str(),
-                    ),
-                    lookup_func_instantiation_type,
-                    lookup_condition.clone(),
-                ));
-                let type_arg_lookup = GenericTypeInstantiationLookup {
-                    call_id: callee_id.clone(),
-                    instantiation_point_module: callee_module.clone(),
-                    instantiation_point_function: callee_function.clone(),
-                    instantiation_point_pc: callee_callin_pc.expr(),
-                    frame_index_plus_one: frame_index.expr() + 1.expr(),
-                    ty_arg_pos: ty_arg_pos.expr(),
-
-                    ty_arg_module: ty_arg_module.expr(),
-                    ty_arg_name: ty_arg_name.expr(),
-                };
-
-                lookups.generic_type_instantiation_lookups.push((
-                    Box::leak(
-                        format!("{}(type_instantiation - generic)", self.name).into_boxed_str(),
-                    ),
-                    type_arg_lookup,
-                    lookup_condition.clone(),
-                ));
-
-                let caller_type_arg_lookup = GenericTypeInstantiationLookup {
-                    call_id: caller_id.expr(),
-                    instantiation_point_module: caller_module.expr(),
-                    instantiation_point_function: caller_function.expr(),
-                    instantiation_point_pc: caller_callin_pc.clone(),
-                    frame_index_plus_one: frame_index.expr(),
-
+                let caller_type_arg_lookup = InputTypeElementLookup {
                     ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
                         * inst_ty_pos_max_inverse.expr()
                         * 16.expr()
@@ -331,11 +274,8 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     ty_arg_name: ty_arg_name.expr(),
                 };
 
-                lookups.generic_type_instantiation_lookups.push((
-                    Box::leak(
-                        format!("{}(type_instantiation - generic&caller)", self.name)
-                            .into_boxed_str(),
-                    ),
+                lookups.input_type_element_lookups.push((
+                    Box::leak(format!("{}(input_type)", self.name).into_boxed_str()),
                     caller_type_arg_lookup,
                     lookup_condition.clone(),
                 ));

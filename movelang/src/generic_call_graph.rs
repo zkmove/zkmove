@@ -32,12 +32,6 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
             .enumerate()
             .map(|(i, _)| Type::TypeParameter(i as TypeParameterIndex))
             .collect(),
-        fn_inst_type_parameters: script
-            .type_parameters
-            .iter()
-            .enumerate()
-            .map(|(i, _)| Type::TypeParameter(i as TypeParameterIndex))
-            .collect(),
     };
     let caller_node_pos = vec![1];
     let caller_node = Node::new(caller_node_pos.clone(), caller_node_data.clone());
@@ -83,7 +77,6 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
                 .into_iter()
                 .map(|t| t.subst(caller_node_data.fn_type_parameters.as_ref()))
                 .collect(),
-            fn_inst_type_parameters: callee_inst_type_parameters,
         };
         let callee_node_pos = {
             let mut node_pos = caller_node_pos.clone();
@@ -147,12 +140,6 @@ impl<'a> GenericCallGraphBuilder<'a> {
                 module_id: Some(fun_def.module().self_id()),
                 fn_name: fun_def.name().to_string(),
                 fn_type_parameters: fun_def
-                    .type_parameters()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, _)| Type::TypeParameter(i as TypeParameterIndex))
-                    .collect(),
-                fn_inst_type_parameters: fun_def
                     .type_parameters()
                     .iter()
                     .enumerate()
@@ -260,7 +247,6 @@ pub struct CallGeneric {
     pub module_id: Option<ModuleId>,
     pub fn_name: String,
     pub fn_type_parameters: Vec<Type>,
-    pub fn_inst_type_parameters: Vec<Type>,
 }
 impl CallGeneric {
     pub fn is_generic(&self) -> bool {
@@ -442,7 +428,6 @@ impl<'a, S: ModuleResolver> Visitor<'a, S> {
                             .into_iter()
                             .map(|t| t.subst(node_to_visit.fn_type_parameters.as_ref()))
                             .collect(),
-                        fn_inst_type_parameters: callee_inst_type_parameters,
                     };
                     // internal module function call
                     if callee_func_handle.module == caller_module.self_handle_idx() {
