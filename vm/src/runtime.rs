@@ -145,7 +145,7 @@ impl<F: FieldExt> Runtime<F> {
                         MaterializedTypeInfo {
                             inst_ty_pos: pos_to_id(&te.instantiation_pos),
                             inst_ty_pos_max: 2u128.pow(te.instantiation_pos.len() as u32 * 8),
-                            refered_param_index: te.refered_ty_idx.unwrap_or(0),
+                            referred_param_index: te.referred_ty_idx.unwrap_or(0),
                             ty_arg_pos: pos_to_id(&te.materialized_pos),
                             ty_arg_module: m,
                             ty_arg_name: s.0,
@@ -209,7 +209,7 @@ impl<F: FieldExt> Runtime<F> {
                         MaterializedTypeInfo {
                             inst_ty_pos: pos_to_id(&te.instantiation_pos),
                             inst_ty_pos_max: 2u128.pow(te.instantiation_pos.len() as u32 * 8),
-                            refered_param_index: te.refered_ty_idx.unwrap_or(0),
+                            referred_param_index: te.referred_ty_idx.unwrap_or(0),
                             ty_arg_pos: pos_to_id(&te.materialized_pos),
                             ty_arg_module: m,
                             ty_arg_name: s.0,

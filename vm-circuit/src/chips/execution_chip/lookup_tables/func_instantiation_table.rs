@@ -16,7 +16,7 @@ pub struct FuncInstantiationTable {
     instantiation_point_pc: TableColumn,
     inst_ty_pos: TableColumn,
     /// if is zero, means no generic
-    refered_param_index: TableColumn,
+    referred_param_index: TableColumn,
 
     ty_module: TableColumn,
     ty_name: TableColumn,
@@ -34,7 +34,7 @@ impl FuncInstantiationTable {
             instantiation_point_pc: meta.lookup_table_column(),
 
             inst_ty_pos: meta.lookup_table_column(),
-            refered_param_index: meta.lookup_table_column(),
+            referred_param_index: meta.lookup_table_column(),
             ty_module: meta.lookup_table_column(),
             ty_name: meta.lookup_table_column(),
         }
@@ -49,7 +49,7 @@ impl FuncInstantiationTable {
             self.instantiated_function,
             self.instantiation_point_pc,
             self.inst_ty_pos,
-            self.refered_param_index,
+            self.referred_param_index,
             self.ty_module,
             self.ty_name,
         ]
@@ -71,7 +71,7 @@ impl FuncInstantiationTable {
                     F::from_u128(v.instantiated_function as u128),
                     F::from_u128(v.instantiation_point_pc as u128),
                     F::from_u128(v.ty_pos),
-                    F::from_u128(v.refered_ty_idx as u128),
+                    F::from_u128(v.referred_ty_idx as u128),
                     F::from_u128(v.ty_module as u128),
                     F::from_u128(v.ty_name as u128),
                 ]
@@ -94,7 +94,7 @@ pub struct FuncInstantiationLookup<F: FieldExt> {
     pub instantiated_function: Expression<F>,
     pub instantiation_point_pc: Expression<F>,
     pub inst_ty_pos: Expression<F>,
-    pub refered_param_index: Expression<F>,
+    pub referred_param_index: Expression<F>,
     pub ty_module: Expression<F>,
     pub ty_name: Expression<F>,
 }
@@ -109,7 +109,7 @@ impl<F: FieldExt> FuncInstantiationLookup<F> {
             self.instantiated_function.clone(),
             self.instantiation_point_pc.clone(),
             self.inst_ty_pos.clone(),
-            self.refered_param_index.clone(),
+            self.referred_param_index.clone(),
             self.ty_module.clone(),
             self.ty_name.clone(),
         ]

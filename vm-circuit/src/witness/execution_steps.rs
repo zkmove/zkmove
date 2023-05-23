@@ -36,7 +36,7 @@ pub struct GenericTypeData {
 pub struct MaterializedTypeInfo {
     pub inst_ty_pos: u128,
     pub inst_ty_pos_max: u128,
-    pub refered_param_index: u16,
+    pub referred_param_index: u16,
 
     pub ty_arg_pos: u128,
     pub ty_arg_module: u64,

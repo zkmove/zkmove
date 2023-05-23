@@ -21,8 +21,8 @@ pub(crate) struct GenericTypeCells<F> {
     pub(crate) inst_ty_pos: Cell<F>,
     pub(crate) inst_ty_pos_max: Cell<F>,
     pub(crate) inst_ty_pos_max_inverse: Cell<F>,
-    pub(crate) refered_param_index: Cell<F>,
-    pub(crate) refered_param_index_is_zero: IsZeroGadget<F>,
+    pub(crate) referred_param_index: Cell<F>,
+    pub(crate) referred_param_index_is_zero: IsZeroGadget<F>,
     pub(crate) ty_arg_pos: Cell<F>,
     pub(crate) ty_arg_module: Cell<F>,
     pub(crate) ty_arg_name: Cell<F>,
@@ -34,8 +34,8 @@ impl<F: FieldExt> GenericTypeCells<F> {
         let inst_ty_pos = cb.alloc_cell();
         let inst_ty_pos_max = cb.alloc_cell();
         let inst_ty_pos_max_inverse = cb.alloc_cell();
-        let refered_param_index = cb.alloc_cell();
-        let refered_param_index_is_zero = IsZeroGadget::construct(cb, refered_param_index.expr());
+        let referred_param_index = cb.alloc_cell();
+        let referred_param_index_is_zero = IsZeroGadget::construct(cb, referred_param_index.expr());
         let ty_arg_pos = cb.alloc_cell();
         let ty_arg_module = cb.alloc_cell();
         let ty_arg_name = cb.alloc_cell();
@@ -45,8 +45,8 @@ impl<F: FieldExt> GenericTypeCells<F> {
             inst_ty_pos,
             inst_ty_pos_max,
             inst_ty_pos_max_inverse,
-            refered_param_index,
-            refered_param_index_is_zero,
+            referred_param_index,
+            referred_param_index_is_zero,
             ty_arg_pos,
             ty_arg_module,
             ty_arg_name,
@@ -114,8 +114,8 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             let inst_ty_pos = &cells.inst_ty_pos;
             let inst_ty_pos_max = &cells.inst_ty_pos_max;
             let inst_ty_pos_max_inverse = &cells.inst_ty_pos_max_inverse;
-            let refered_param_index = &cells.refered_param_index;
-            let refered_param_index_is_zero = &cells.refered_param_index_is_zero;
+            let referred_param_index = &cells.referred_param_index;
+            let referred_param_index_is_zero = &cells.referred_param_index_is_zero;
 
             let ty_arg_pos = &cells.ty_arg_pos;
             let ty_arg_module = &cells.ty_arg_module;
@@ -137,15 +137,15 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                 offset,
                 Some(pos_max.invert().unwrap_or(F::zero())),
             )?;
-            refered_param_index.assign(
+            referred_param_index.assign(
                 region,
                 offset,
-                Some(F::from_u128(item.refered_param_index as u128)),
+                Some(F::from_u128(item.referred_param_index as u128)),
             )?;
-            refered_param_index_is_zero.assign(
+            referred_param_index_is_zero.assign(
                 region,
                 offset,
-                F::from_u128(item.refered_param_index as u128),
+                F::from_u128(item.referred_param_index as u128),
             )?;
 
             ty_arg_pos.assign(region, offset, Some(F::from_u128(item.ty_arg_pos)))?;
@@ -202,8 +202,8 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             let inst_ty_pos = &cells.inst_ty_pos;
             let inst_ty_pos_max = &cells.inst_ty_pos_max;
             let inst_ty_pos_max_inverse = &cells.inst_ty_pos_max_inverse;
-            let refered_param_index = &cells.refered_param_index;
-            let refered_param_index_is_zero = &cells.refered_param_index_is_zero;
+            let referred_param_index = &cells.referred_param_index;
+            let referred_param_index_is_zero = &cells.referred_param_index_is_zero;
 
             let ty_arg_pos = &cells.ty_arg_pos;
             let ty_arg_module = &cells.ty_arg_module;
@@ -218,10 +218,10 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     "inst_ty_pos_max*inst_ty_pos_max_inverse = 1",
                     1.expr() - inst_ty_pos_max_inverse.expr() * inst_ty_pos_max.expr(),
                 );
-                b.add_constraints(cells.refered_param_index_is_zero.configure());
+                b.add_constraints(cells.referred_param_index_is_zero.configure());
             });
             // TODO: inst_ty_pos < inst_ty_pos_max && inst_ty_pos > inst_ty_pos_max / 16
-            let is_not_generic = refered_param_index_is_zero.expr();
+            let is_not_generic = referred_param_index_is_zero.expr();
 
             // not generic
             {
@@ -240,7 +240,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     instantiated_function: callee_function.clone(),
                     instantiation_point_pc: callee_callin_pc.expr(),
                     inst_ty_pos: inst_ty_pos.expr(),
-                    refered_param_index: refered_param_index.expr(),
+                    referred_param_index: referred_param_index.expr(),
                     ty_module: ty_arg_module.expr(),
                     ty_name: ty_arg_name.expr(),
                 };
@@ -284,7 +284,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     instantiation_point_pc: callee_callin_pc.expr(),
 
                     inst_ty_pos: inst_ty_pos.expr(),
-                    refered_param_index: refered_param_index.expr(),
+                    referred_param_index: referred_param_index.expr(),
                     ty_module: 0.expr(),
                     ty_name: 0.expr(),
                 };
@@ -325,7 +325,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                     ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
                         * inst_ty_pos_max_inverse.expr()
                         * 16.expr()
-                        + refered_param_index.expr(), // le encoding of ty_arg pos
+                        + referred_param_index.expr(), // le encoding of ty_arg pos
 
                     ty_arg_module: ty_arg_module.expr(),
                     ty_arg_name: ty_arg_name.expr(),

@@ -29,7 +29,7 @@ pub struct FuncInstantiation {
     pub(crate) instantiated_function: u16,
 
     /// start from 1, 0 means no reference to ty parameter.
-    pub(crate) refered_ty_idx: u16, // TODO: check if it possible for two different refered index while other infos are the same.
+    pub(crate) referred_ty_idx: u16, // TODO: check if it possible for two different referred index while other infos are the same.
     pub(crate) ty_pos: u128, // type pos in little endian, such as: 1/2 -> 2 * 256+1
     pub(crate) ty_module: u64, // module index
     pub(crate) ty_name: u16, // struct handle index in the module
@@ -88,7 +88,7 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<FuncInstant
                         instantiated_module: m,
                         instantiated_function: f.0,
                         instantiation_point_pc: pc,
-                        refered_ty_idx: t.refered_ty_idx.unwrap_or(0),
+                        referred_ty_idx: t.referred_ty_idx.unwrap_or(0),
                         ty_pos: pos_to_id(&t.pos),
                         ty_module,
                         ty_name: ty_name.0,
@@ -204,7 +204,7 @@ impl FuncInstantiationBuilder {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeElement {
     pos: Vec<u8>,
-    refered_ty_idx: Option<u16>,
+    referred_ty_idx: Option<u16>,
     data: Option<TypeElem>,
 }
 fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
@@ -218,7 +218,7 @@ fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
             } => {
                 result.push(TypeElement {
                     pos: pos.clone(),
-                    refered_ty_idx: None,
+                    referred_ty_idx: None,
                     data: Some(TypeElem::Struct {
                         module_id: ModuleId::new(*address, module.clone()),
                         name: name.to_string(),
@@ -234,13 +234,13 @@ fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
             }
             Type::TypeParameter(idx) => result.push(TypeElement {
                 pos: pos.clone(),
-                refered_ty_idx: Some(*idx + 1), // type index start from 1
+                referred_ty_idx: Some(*idx + 1), // type index start from 1
                 data: None,
             }),
             Type::Vector(inner) => {
                 result.push(TypeElement {
                     pos: pos.clone(),
-                    refered_ty_idx: None,
+                    referred_ty_idx: None,
                     data: Some(TypeElem::Vector),
                 });
                 flatten_inner(result, inner, {
@@ -260,7 +260,7 @@ fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
                 };
                 result.push(TypeElement {
                     pos: pos.to_vec(),
-                    refered_ty_idx: None,
+                    referred_ty_idx: None,
                     data: Some(data),
                 });
             }
@@ -299,7 +299,7 @@ pub struct MaterializedTypeElement {
     pub materialized_pos: Vec<u8>,
     pub data: TypeElem,
     pub instantiation_pos: Vec<u8>,
-    pub refered_ty_idx: Option<u16>,
+    pub referred_ty_idx: Option<u16>,
 }
 
 /// caller must ensure, first type is materialized from the second.
@@ -313,7 +313,7 @@ pub fn flatten_materialized_type(
     let mut i = 0;
     let mut results = vec![];
     for inst_type_elem in instantiation_type_elems {
-        if let Some(refer) = inst_type_elem.refered_ty_idx {
+        if let Some(refer) = inst_type_elem.referred_ty_idx {
             while materialized_type_elems
                 .get(i)
                 .filter(|e| e.pos.starts_with(&inst_type_elem.pos))
@@ -323,7 +323,7 @@ pub fn flatten_materialized_type(
                     materialized_pos: materialized_type_elems[i].pos.clone(),
                     data: materialized_type_elems[i].data.clone().unwrap(),
                     instantiation_pos: inst_type_elem.pos.clone(),
-                    refered_ty_idx: Some(refer),
+                    referred_ty_idx: Some(refer),
                 });
                 i += 1;
             }
@@ -333,7 +333,7 @@ pub fn flatten_materialized_type(
                 materialized_pos: materialized_type_elems[i].pos.clone(),
                 data: materialized_type_elems[i].data.clone().unwrap(),
                 instantiation_pos: inst_type_elem.pos,
-                refered_ty_idx: None,
+                referred_ty_idx: None,
             });
             i += 1;
         }
