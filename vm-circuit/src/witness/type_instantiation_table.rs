@@ -71,9 +71,13 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericType
             let instantiation_index = fi_info
                 .instantiation_index
                 .or_else(|| {
-                    resolver
-                        .resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
-                        .map(|t| t.0)
+                    println!(
+                        "{:?},{:?},{}",
+                        fi_info.caller_module_id.as_ref(),
+                        &fi_info.caller_function,
+                        pc
+                    );
+                    resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
                 })
                 .unwrap();
             let caller_id = pos_to_id(fi_info.caller_id.as_ref());
@@ -126,7 +130,7 @@ impl<'a> FuncInstantiationResolver<'a> {
         module_id: Option<&ModuleId>,
         function_handle_index: FunctionHandleIndex,
         pc: usize,
-    ) -> Option<FunctionInstantiationIndex> {
+    ) -> Option<u16> {
         let codes = match module_id {
             Some(id) => {
                 let m = self.deps.iter().find(|m| &m.self_id() == id)?;
@@ -139,7 +143,9 @@ impl<'a> FuncInstantiationResolver<'a> {
             None => &self.script.code.code,
         };
         if let Bytecode::CallGeneric(t) = codes.get(pc)? {
-            Some(*t)
+            Some(t.0)
+        } else if let Bytecode::Call(t) = codes.get(pc)? {
+            Some(t.0)
         } else {
             None
         }
