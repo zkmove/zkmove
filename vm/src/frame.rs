@@ -84,7 +84,7 @@ impl<F: FieldExt> Frame<F> {
             None => Some(0), // function is in the script
         }
     }
-    fn get_next_call_node(&self, graph: &GenericCallGraph, internal: bool) -> NodeIndex {
+    pub(crate) fn get_next_call_node(&self, graph: &GenericCallGraph, internal: bool) -> NodeIndex {
         let edge_to_follow = if !internal {
             Edge::External {
                 pc: self.pc() as usize,
@@ -105,11 +105,11 @@ impl<F: FieldExt> Frame<F> {
             .map(|edge| edge.target())
             .collect();
         assert_eq!(nexts.len(), 1);
-        // println!(
-        //     "frame: {:?} -> {:?}",
-        //     self.generic_index(),
-        //     nexts.last().unwrap()
-        // );
+        trace!(
+            "frame: {:?} -> {:?}",
+            self.generic_index(),
+            nexts.last().unwrap()
+        );
         nexts.pop().unwrap()
     }
 

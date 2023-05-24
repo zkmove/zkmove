@@ -11,14 +11,13 @@ use move_vm_runtime::loader::Function;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
 use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
-use movelang::generic_call_graph::{generate_for_script, Edge, Node, NodeInternal};
+use movelang::generic_call_graph::{generate_for_script, Node, NodeInternal};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
 use petgraph::prelude::NodeIndex;
-use petgraph::visit::EdgeRef;
-use petgraph::Direction;
+
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::arith_operations::ArithOperation;
@@ -229,30 +228,10 @@ impl<F: FieldExt> Interpreter<F> {
                 ExitStatus::Call(index, mut execution_step) => {
                     let frame_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
-                    let (_is_internal_call, next_node_index) = {
-                        let edge_to_follow = if frame.func().module_id() != func.module_id() {
-                            Edge::External {
-                                pc: frame.pc() as usize,
-                            }
-                        } else {
-                            Edge::Internal {
-                                pc: frame.pc() as usize,
-                            }
-                        };
-
-                        let mut nexts: Vec<_> = generic_graph
-                            .graph
-                            .edges_directed(frame.generic_index(), Direction::Outgoing)
-                            .filter(|edge| {
-                                let e = edge.weight();
-                                e == &edge_to_follow
-                            })
-                            .map(|edge| edge.target())
-                            .collect();
-                        assert_eq!(nexts.len(), 1);
-                        (edge_to_follow.internal(), nexts.pop().unwrap())
-                    };
-
+                    let next_node_index = frame.get_next_call_node(
+                        &generic_graph,
+                        frame.func().module_id() == func.module_id(),
+                    );
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.frame_index = frame_index;
@@ -308,34 +287,10 @@ impl<F: FieldExt> Interpreter<F> {
 
                     let func = resolver.function_from_instantiation(index);
 
-                    let (_is_internal_call, next_node_index) = {
-                        let edge_to_follow = if frame.func().module_id() != func.module_id() {
-                            Edge::External {
-                                pc: frame.pc() as usize,
-                            }
-                        } else {
-                            Edge::Internal {
-                                pc: frame.pc() as usize,
-                            }
-                        };
-
-                        let mut nexts: Vec<_> = generic_graph
-                            .graph
-                            .edges_directed(frame.generic_index(), Direction::Outgoing)
-                            .filter(|edge| {
-                                let e = edge.weight();
-                                e == &edge_to_follow
-                            })
-                            .map(|edge| edge.target())
-                            .collect();
-                        assert_eq!(nexts.len(), 1);
-                        trace!(
-                            "frame: {:?} -> {:?}",
-                            frame.generic_index(),
-                            nexts.last().unwrap()
-                        );
-                        (edge_to_follow.internal(), nexts.pop().unwrap())
-                    };
+                    let next_node_index = frame.get_next_call_node(
+                        &generic_graph,
+                        frame.func().module_id() == func.module_id(),
+                    );
 
                     execution_step.frame_index = frame_index;
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
@@ -374,7 +329,7 @@ impl<F: FieldExt> Interpreter<F> {
                             .node_weight(next_node_index)
                             .unwrap()
                             .data();
-                        if let NodeInternal::CallGeneric(call) = node_data {
+                        if let NodeInternal::Call(call) = node_data {
                             call
                         } else {
                             unreachable!()

@@ -208,9 +208,9 @@ impl TraceBuilder {
         {
             let target = edge.target();
             let target_node = graph.graph.node_weight(target).unwrap();
-            if let NodeInternal::CallGeneric(caller) = caller_node.data() {
+            if let NodeInternal::Call(caller) = caller_node.data() {
                 match target_node.data() {
-                    NodeInternal::CallGeneric(callee) => {
+                    NodeInternal::Call(callee) => {
                         let t = CallTraceInner {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module: caller.module_id.clone(),

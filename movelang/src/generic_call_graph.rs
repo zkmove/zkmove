@@ -23,7 +23,8 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
     s: &'a S,
 ) -> GenericCallGraph {
     let mut call_graph = GenericCallGraph::default();
-    let caller_node_data = CallGeneric {
+    let caller_node_data = FuncCall {
+        op: Bytecode::Nop, // use nop to represent root call
         module_id: None,
         fn_name: "main".to_string(),
         fn_type_parameters: script
@@ -66,7 +67,8 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
         let callee_func_handle = script.function_handle_at(callee_func_handle);
         let module_handle = script.module_handle_at(callee_func_handle.module);
 
-        let callee_node_data = CallGeneric {
+        let callee_node_data = FuncCall {
+            op: instr.clone(),
             module_id: Some(ModuleId::new(
                 *script.address_identifier_at(module_handle.address),
                 script.identifier_at(module_handle.name).into(),
@@ -136,7 +138,8 @@ impl<'a> GenericCallGraphBuilder<'a> {
             let mut graph = GenericCallGraph::default();
             let func_def_index_of_call = FunctionDefinitionIndex::new(def_idx as u16);
             let fun_def = FunctionDefinitionView::new(self.module, func_def);
-            let node_data = CallGeneric {
+            let node_data = FuncCall {
+                op: Bytecode::Nop,
                 module_id: Some(fun_def.module().self_id()),
                 fn_name: fun_def.name().to_string(),
                 fn_type_parameters: fun_def
@@ -162,12 +165,12 @@ impl<'a> GenericCallGraphBuilder<'a> {
         graphs
     }
 }
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum NodeInternal {
-    CallGeneric(CallGeneric),
+    Call(FuncCall),
     StorageOp(StorageOp),
 }
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Node {
     node_pos: Vec<u8>,
     data: NodeInternal,
@@ -204,7 +207,7 @@ impl Display for Node {
 impl Display for NodeInternal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CallGeneric(c) => Display::fmt(c, f),
+            Self::Call(c) => Display::fmt(c, f),
             Self::StorageOp(c) => Display::fmt(c, f),
         }
     }
@@ -214,12 +217,12 @@ impl From<StorageOp> for NodeInternal {
         NodeInternal::StorageOp(d)
     }
 }
-impl From<CallGeneric> for NodeInternal {
-    fn from(d: CallGeneric) -> Self {
-        NodeInternal::CallGeneric(d)
+impl From<FuncCall> for NodeInternal {
+    fn from(d: FuncCall) -> Self {
+        NodeInternal::Call(d)
     }
 }
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct StorageOp {
     pub op: Bytecode, // only: Exist, MoveTo,MoveFrom,BorrowGlobal,MutBorrowGlobal
     pub struct_type: Type,
@@ -242,18 +245,30 @@ impl Display for StorageOp {
         write!(f, "{:?}<{}>", &self.op, &self.struct_type)
     }
 }
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CallGeneric {
+#[derive(Debug, Clone)]
+pub struct FuncCall {
+    op: Bytecode,
     pub module_id: Option<ModuleId>,
     pub fn_name: String,
     pub fn_type_parameters: Vec<Type>,
 }
-impl CallGeneric {
+impl FuncCall {
     pub fn is_generic(&self) -> bool {
         !self.fn_type_parameters.is_empty()
     }
+    pub fn is_root_call(&self) -> bool {
+        matches!(&self.op, Bytecode::Nop)
+    }
+    pub fn func_index(&self) -> Option<u16> {
+        match &self.op {
+            Bytecode::Call(idx) => Some(idx.0),
+            Bytecode::CallGeneric(idx) => Some(idx.0),
+            Bytecode::Nop => None,
+            _ => unreachable!(),
+        }
+    }
 }
-impl Display for CallGeneric {
+impl Display for FuncCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(mid) = &self.module_id {
             write!(f, "{}::", &mid)?;
@@ -359,7 +374,7 @@ impl<'a, S: ModuleResolver> Visitor<'a, S> {
             },
         ) = self.call_stack.last().unwrap();
         let node_to_visit = match node_to_visit {
-            NodeInternal::CallGeneric(t) => t,
+            NodeInternal::Call(t) => t,
             _ => unreachable!(),
         };
         let caller_module = CompiledModule::deserialize(
@@ -420,7 +435,8 @@ impl<'a, S: ModuleResolver> Visitor<'a, S> {
                     let callee_func_handle = caller_module.function_handle_at(callee_func_handle);
                     let callee_func_handle_view =
                         FunctionHandleView::new(&caller_module, callee_func_handle);
-                    let callee_node_data = CallGeneric {
+                    let callee_node_data = FuncCall {
+                        op: instr.clone(),
                         module_id: Some(callee_func_handle_view.module_id()),
                         fn_name: callee_func_handle_view.name().to_string(),
                         fn_type_parameters: callee_inst_type_parameters
@@ -440,7 +456,7 @@ impl<'a, S: ModuleResolver> Visitor<'a, S> {
                                 .iter()
                                 .rev()
                                 .find(|(_, node)| match &node.data {
-                                    NodeInternal::CallGeneric(prev) => {
+                                    NodeInternal::Call(prev) => {
                                         prev.fn_name == callee_node_data.fn_name
                                             && prev.module_id == callee_node_data.module_id
                                             && prev.fn_type_parameters

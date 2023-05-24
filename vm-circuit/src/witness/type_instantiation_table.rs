@@ -1,13 +1,10 @@
 use crate::witness::call_trace_table::{pos_to_id, FunctionName, NameToIdxMapping};
 
-use move_binary_format::file_format::{
-    Bytecode, CompiledScript, FunctionHandleIndex, FunctionInstantiationIndex, StructHandleIndex,
-};
+use move_binary_format::file_format::{CompiledScript, StructHandleIndex};
 use move_binary_format::normalized::Type;
 
 use move_binary_format::CompiledModule;
 
-use move_binary_format::access::ModuleAccess;
 use move_core_types::language_storage::ModuleId;
 use movelang::generic_call_graph::{
     generate_for_script, GenericCallGraph, NodeInternal, RemoteStore,
@@ -56,7 +53,6 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericType
     deps.iter().for_each(|dep| store.add_module(dep));
     let trace_graph = generate_for_script(script, &store);
     let name_mapping = NameToIdxMapping::build(deps);
-    let resolver = FuncInstantiationResolver { script, deps };
     TypeInstantiationBuilder::default()
         .build(&trace_graph)
         .into_iter()
@@ -68,18 +64,7 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericType
             let (caller_m, caller_f) = name_mapping
                 .map_fn_name(fi_info.caller_module_id.as_ref(), &fi_info.caller_function);
             let pc = fi_info.instantiation_point_pc;
-            let instantiation_index = fi_info
-                .instantiation_index
-                .or_else(|| {
-                    println!(
-                        "{:?},{:?},{}",
-                        fi_info.caller_module_id.as_ref(),
-                        &fi_info.caller_function,
-                        pc
-                    );
-                    resolver.resolve(fi_info.caller_module_id.as_ref(), caller_f, pc as usize)
-                })
-                .unwrap();
+            let instantiation_index = fi_info.instantiation_index;
             let caller_id = pos_to_id(fi_info.caller_id.as_ref());
             let caller_callin_pc = fi_info.caller_callin_pc;
             let instantiated_callee_id = pos_to_id(fi_info.instantiation_id.as_ref());
@@ -119,38 +104,6 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericType
         .collect()
 }
 
-pub struct FuncInstantiationResolver<'a> {
-    script: &'a CompiledScript,
-    deps: &'a [CompiledModule],
-}
-
-impl<'a> FuncInstantiationResolver<'a> {
-    fn resolve(
-        &self,
-        module_id: Option<&ModuleId>,
-        function_handle_index: FunctionHandleIndex,
-        pc: usize,
-    ) -> Option<u16> {
-        let codes = match module_id {
-            Some(id) => {
-                let m = self.deps.iter().find(|m| &m.self_id() == id)?;
-                let fd = m
-                    .function_defs()
-                    .iter()
-                    .find(|fd| fd.function == function_handle_index)?;
-                &fd.code.as_ref()?.code
-            }
-            None => &self.script.code.code,
-        };
-        if let Bytecode::CallGeneric(t) = codes.get(pc)? {
-            Some(t.0)
-        } else if let Bytecode::Call(t) = codes.get(pc)? {
-            Some(t.0)
-        } else {
-            None
-        }
-    }
-}
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct TypeInstantiationInfo {
     caller_id: Vec<u8>,
@@ -163,7 +116,7 @@ struct TypeInstantiationInfo {
     instantiation_point_function: FunctionName,
     instantiation_point_pc: u64,
 
-    instantiation_index: Option<u16>,
+    instantiation_index: u16,
     ty_params: Vec<Type>,
 }
 #[derive(Default, Debug)]
@@ -196,9 +149,9 @@ impl TypeInstantiationBuilder {
         {
             let target = edge.target();
             let target_node = graph.graph.node_weight(target).unwrap();
-            if let NodeInternal::CallGeneric(caller) = caller_node.data() {
+            if let NodeInternal::Call(caller) = caller_node.data() {
                 match target_node.data() {
-                    NodeInternal::CallGeneric(callee) => {
+                    NodeInternal::Call(callee) => {
                         let inst = TypeInstantiationInfo {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module_id: caller.module_id.clone(),
@@ -209,7 +162,7 @@ impl TypeInstantiationBuilder {
                             instantiation_point_module: callee.module_id.clone(),
                             instantiation_point_function: callee.fn_name.clone().into(),
                             instantiation_point_pc: edge.weight().pc() as u64,
-                            instantiation_index: None,
+                            instantiation_index: callee.func_index().unwrap_or(0),
                             ty_params: callee.fn_type_parameters.clone(),
                         };
                         self.traces.insert(inst);
@@ -226,7 +179,7 @@ impl TypeInstantiationBuilder {
                             instantiation_point_pc: edge.weight().pc() as u64,
                             instantiation_point_module: None,
                             instantiation_point_function: callee.op.clone().into(),
-                            instantiation_index: Some(callee.operand()),
+                            instantiation_index: callee.operand(),
                             ty_params: vec![callee.struct_type.clone()],
                         };
                         self.traces.insert(inst);
