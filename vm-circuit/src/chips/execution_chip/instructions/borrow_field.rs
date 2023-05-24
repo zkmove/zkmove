@@ -1,29 +1,31 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::{BYTES_NUM, MAX_ADDRESS_EXT_LENGTH};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::{Cell, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::value::{DEPTH_OF_ADDRESS_PATH, DEPTH_OF_LOCATION_PATH};
 
 #[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
+    word_val: Vec<Cell<F>>,
+    word_val_mask: Vec<Cell<F>>,
+    ref_val_addr_ext_bytes: Vec<Cell<F>>,
+    ref_val_addr_ext_bytes_mask: Vec<Cell<F>>,
+    word_val_addr_ext_bytes: Vec<Cell<F>>,
+    word_val_addr_ext_bytes_mask: Vec<Cell<F>>,
 }
 
 impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTABLE, F> {
@@ -69,7 +71,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             ("function index", cond.clone() * func_index),
         ]);
 
-        for (i, item) in self.word_a.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        // lookup
+        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
                 "borrow_field(stack pop)",
                 RWLookup::stack_pop(
@@ -80,9 +83,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
                     item.expression.clone(),
                     0.expr(),
                 ),
-                cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
+                cond.clone(),
             ));
+        }
 
+        for (i, item) in self.word_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             lookups.rw_lookups.push((
                 "borrow_field(stack push)",
                 RWLookup::stack_push(
@@ -95,18 +100,57 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
                     item.expression.clone(),
                     0.expr(),
                 ),
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
+                cond.clone(),
             ));
+        }
+
+        // check for ref_val and word_val
+        // ensure addr_ext equal to bytes
+        let addr_ext = self
+            .ref_val
+            .get(2)
+            .expect("addr_ext is not exsit")
+            .expression
+            .clone();
+        let bytes = FieldBytes::from(self.ref_val_addr_ext_bytes.clone())
+            .expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let constraint = cond.clone() * (addr_ext - bytes);
+        cb.add_constraint("borrow_field: addr_ext bytes check 0", constraint);
+
+        let addr_ext = self
+            .word_val
+            .get(2)
+            .expect("addr_ext is not exsit")
+            .expression
+            .clone();
+        let bytes = FieldBytes::from(self.word_val_addr_ext_bytes.clone())
+            .expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let constraint = cond.clone() * (addr_ext - bytes);
+        cb.add_constraint("borrow_field: addr_ext bytes check 1", constraint);
+
+        // location check between ref_val and word_val
+        AddrExt::location_val_constrain(cb, cond.clone(), &self.ref_val, &self.word_val)
+            .expect("location chck failed");
+
+        // addr_ext equal between ref_val and word_val
+        // skip
+        for i in 0..MAX_ADDRESS_EXT_LENGTH {
+            let constraint = cond.clone()
+                * (1.expr() - self.ref_val_addr_ext_bytes_mask[i].expression.clone())
+                * (self.ref_val_addr_ext_bytes[i].expression.clone()
+                    - self.word_val_addr_ext_bytes[i].expression.clone());
+            cb.add_constraint("borrow_field: addr_ext_eq", constraint);
         }
 
         // field_offset is pushed into the last element of word,
         // and it's larger than the real offset by 1
         let field_offset = cells.auxiliary_2.expression.clone();
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
+        for i in 0..MAX_ADDRESS_EXT_LENGTH {
             let constraint = cond.clone()
-                * self.ref_val_mask[i].expression.clone()
-                * (1.expr() - self.word_a_mask[i].expression.clone())
-                * (field_offset.clone() + 1.expr() - self.word_a[i].expression.clone());
+                * self.ref_val_addr_ext_bytes_mask[i].expression.clone()
+                * (1.expr() - self.word_val_addr_ext_bytes_mask[i].expression.clone())
+                * (field_offset.clone() + 1.expr()
+                    - self.word_val_addr_ext_bytes[i].expression.clone());
             cb.add_constraint("borrow_field_offset_eq", constraint);
         }
 
@@ -142,20 +186,34 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             word_element_num,
         )?;
 
-        let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        let ref_val_addr_ext = AddrExt {
+            bytes: self.ref_val_addr_ext_bytes.clone(),
         };
-        Word::assign_word(
+        ref_val_addr_ext.assign_bytes(region, offset, step, step.gc + 2, rw_operations)?;
+
+        let word = RefVal {
+            ref_val: self.word_val.clone(),
+            ref_val_mask: self.word_val_mask.clone(),
+        };
+        Word::assign_ref_val(
             region,
             offset,
             step,
             rw_operations,
             &word,
             step.gc + DEPTH_OF_ADDRESS_PATH,
-            word_element_num + 1, // the last element is field_offset
+            DEPTH_OF_ADDRESS_PATH,
+        )?;
+
+        let word_val_addr_ext = AddrExt {
+            bytes: self.word_val_addr_ext_bytes.clone(),
+        };
+        word_val_addr_ext.assign_bytes(
+            region,
+            offset,
+            step,
+            step.gc + DEPTH_OF_ADDRESS_PATH + 2,
+            rw_operations,
         )?;
 
         // assign the fh_idx
@@ -176,25 +234,45 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
             .auxiliary_2
             .assign(region, offset, field_offset.value())?;
 
+        // assign bytes mask
+        // there is DEPTH_OF_LOCATION_PATH bits tophead.
+        for i in 0..(word_element_num - DEPTH_OF_LOCATION_PATH) {
+            self.ref_val_addr_ext_bytes_mask[i].assign(region, offset, Some(F::zero()))?;
+        }
+        for i in (word_element_num - DEPTH_OF_LOCATION_PATH)..MAX_ADDRESS_EXT_LENGTH {
+            self.ref_val_addr_ext_bytes_mask[i].assign(region, offset, Some(F::one()))?;
+        }
+        for i in 0..(word_element_num - DEPTH_OF_LOCATION_PATH + 1) {
+            self.word_val_addr_ext_bytes_mask[i].assign(region, offset, Some(F::zero()))?;
+        }
+        for i in (word_element_num - DEPTH_OF_LOCATION_PATH + 1)..MAX_ADDRESS_EXT_LENGTH {
+            self.word_val_addr_ext_bytes_mask[i].assign(region, offset, Some(F::one()))?;
+        }
+
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let word_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let word_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        // BYTES_NUM is adapt to FieldBytes::from, only use MAX_ADDRESS_EXT_LENGTH.
+        let ref_val_addr_ext_bytes = cb.alloc_n_cells(BYTES_NUM);
+        let ref_val_addr_ext_bytes_mask = cb.alloc_n_cells(BYTES_NUM);
+        let word_val_addr_ext_bytes = cb.alloc_n_cells(BYTES_NUM);
+        let word_val_addr_ext_bytes_mask = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
             ref_val,
             ref_val_mask,
+            word_val,
+            word_val_mask,
+            ref_val_addr_ext_bytes,
+            ref_val_addr_ext_bytes_mask,
+            word_val_addr_ext_bytes,
+            word_val_addr_ext_bytes_mask,
         }
     }
 }

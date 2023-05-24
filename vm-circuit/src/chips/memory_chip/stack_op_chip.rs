@@ -240,7 +240,8 @@ impl<F: FieldExt> StackOpChip<F> {
         is_first: bool,
         gc_lookups: &mut Vec<Expression<F>>,
         stack_address_lookups: &mut Vec<Expression<F>>,
-        addr_ext_0_lookups: &mut Vec<Expression<F>>,
+        //addr_ext_0_lookups: &mut <Expression<F>>,
+        _addr_ext_0_lookups: &mut [Expression<F>],
         addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
@@ -380,7 +381,8 @@ impl<F: FieldExt> StackOpChip<F> {
             // stack address index must be less than max_stack_size(EVAL_STACK_SIZE)
             stack_address_lookups.push(cond.clone() * cells.address.expression.clone());
             // address_ext_0 must be less than max_locals_size
-            addr_ext_0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
+            // Fixme. address extend validation
+            // addr_ext_0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
             // addr_ext_1 must be less than max_locals_size
             addr_ext_1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
 
@@ -390,12 +392,13 @@ impl<F: FieldExt> StackOpChip<F> {
 
             // Case B: if same address,
             //            addr_ext_0 must be great than or equal to prev_addr_ext_0
-            addr_ext_0_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
-                    * delt_addr_ext_0.clone(),
-            );
+            // Fixme. address extend validation
+            // addr_ext_0_lookups.push(
+            //     cond.clone()
+            //         * (1.expr()
+            //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
+            //         * delt_addr_ext_0.clone(),
+            // );
 
             // Case C: if same address/addr_ext_0,
             //            addr_ext_1 must be great than or equal to prev_addr_ext_1

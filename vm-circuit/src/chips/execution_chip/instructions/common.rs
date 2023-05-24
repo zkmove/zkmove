@@ -3,7 +3,7 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::{MAX_ADDRESS_EXT_LENGTH, WORD_CAPACITY};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
@@ -816,8 +816,7 @@ impl<F: FieldExt> Word<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        // fixme: word_element_num may be large than DEPTH_OF_ADDRESS_PATH
-        for i in 0..word_element_num {
+        for i in 0..word_element_num.min(DEPTH_OF_ADDRESS_PATH) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.ref_val[i].assign(region, offset, op.value().value())?;
             cells.ref_val_mask[i].assign(region, offset, Some(F::zero()))?;
@@ -826,6 +825,75 @@ impl<F: FieldExt> Word<F> {
         for i in word_element_num..DEPTH_OF_ADDRESS_PATH {
             cells.ref_val_mask[i].assign(region, offset, Some(F::one()))?;
         }
+
+        Ok(())
+    }
+}
+
+pub struct AddrExt<F: FieldExt> {
+    pub bytes: Vec<Cell<F>>,
+}
+
+impl<F: FieldExt> AddrExt<F> {
+    pub fn assign_bytes(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        _step: &ExecutionStep<F>,
+        op_index: usize,
+        rw_operations: &RWOperations<F>,
+    ) -> Result<(), Error> {
+        let result = rw_operations
+            .0
+            .get(op_index)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        for (index, byte) in self.bytes.iter().take(MAX_ADDRESS_EXT_LENGTH).enumerate() {
+            let v: u128 =
+                (result_bytes[2 * index] as u128) + ((result_bytes[2 * index + 1] as u128) << 8);
+            byte.assign(region, offset, Some(F::from_u128(v)))?;
+        }
+
+        Ok(())
+    }
+    pub(crate) fn location_val_constrain(
+        cb: &mut ConstraintBuilder<F>,
+        cond: Expression<F>,
+        val_a: &[Cell<F>],
+        val_b: &[Cell<F>],
+    ) -> Result<(), Error> {
+        let a0 = val_a
+            .get(0)
+            .expect("location is not exsit")
+            .expression
+            .clone();
+        let b0 = val_b
+            .get(0)
+            .expect("location is not exsit")
+            .expression
+            .clone();
+        let constraint = cond.clone() * (a0 - b0);
+        cb.add_constraint("location_val_constrain: 0", constraint);
+
+        let a1 = val_a
+            .get(1)
+            .expect("location is not exsit")
+            .expression
+            .clone();
+        let b1 = val_b
+            .get(1)
+            .expect("location is not exsit")
+            .expression
+            .clone();
+        let constraint = cond * (a1 - b1);
+        cb.add_constraint("location_val_constrain: 1", constraint);
 
         Ok(())
     }

@@ -262,7 +262,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
         gc_lookups: &mut Vec<Expression<F>>,
         frame_index_lookups: &mut Vec<Expression<F>>,
         locals_index_lookups: &mut Vec<Expression<F>>,
-        addr_ext_0_lookups: &mut Vec<Expression<F>>,
+        //addr_ext_0_lookups: &mut <Expression<F>>,
+        _addr_ext_0_lookups: &mut [Expression<F>],
         addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
@@ -429,7 +430,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // address_ext_0 must be less than max_locals_size
-            addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_0.expression.clone());
+            // Fixme. address extend validation
+            // addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_0.expression.clone());
             // addr_ext_1 must be less than max_locals_size
             addr_ext_1_lookups.push(cond.clone() * cells.addr_ext_1.expression.clone());
 
@@ -446,14 +448,15 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
             // Case C: if same frame_index/index,
             //         addr_ext_0 must be great than or equal to prev_addr_ext_0
-            addr_ext_0_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_frame_index.clone()
-                            * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                    * delt_addr_ext_0.clone(),
-            );
+            // Fixme. address extend validation
+            // addr_ext_0_lookups.push(
+            //     cond.clone()
+            //         * (1.expr()
+            //             - delt_frame_index.clone()
+            //                 * cells.delta_invert_frame_index.expression.clone())
+            //         * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+            //         * delt_addr_ext_0.clone(),
+            // );
             // Case D: if same frame_index/index/addr_ext_0,
             //         addr_ext_1 must be great than or equal to prev_addr_ext_1
             addr_ext_1_lookups.push(

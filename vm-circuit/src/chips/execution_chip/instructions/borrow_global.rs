@@ -103,7 +103,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         }
 
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            // for i in 0..DEPTH_OF_ADDRESS_PATH {
             lookups.rw_lookups.push((
                 "borrow_global(stack push)",
                 RWLookup::stack_push(

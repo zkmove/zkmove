@@ -120,16 +120,8 @@ impl<F: FieldExt> Locals<F> {
                             .expect("frame_index should not be None")
                             as usize,
                         index: *address_path.0.get(1).expect("index should not be None") as usize,
-                        address_ext_0: *address_path
-                            .0
-                            .get(2)
-                            .expect("address_ext_0 should not be None")
-                            as usize,
-                        address_ext_1: *address_path
-                            .0
-                            .get(3)
-                            .expect("address_ext_1 should not be None")
-                            as usize,
+                        address_ext_0: address_path.addr_ext(),
+                        address_ext_1: 0_usize,
                         value: None,
                         value_ext: None,
                         rw: RW::WRITE,
@@ -226,14 +218,8 @@ pub fn emit_locals_op<F: FieldExt>(
             .first()
             .expect("frame_index should not be None") as usize,
         index: *address_path.0.get(1).expect("index should not be None") as usize,
-        address_ext_0: *address_path
-            .0
-            .get(2)
-            .expect("address_ext_0 should not be None") as usize,
-        address_ext_1: *address_path
-            .0
-            .get(3)
-            .expect("address_ext_1 should not be None") as usize,
+        address_ext_0: address_path.addr_ext(),
+        address_ext_1: 0_usize,
         value,
         value_ext,
         rw,

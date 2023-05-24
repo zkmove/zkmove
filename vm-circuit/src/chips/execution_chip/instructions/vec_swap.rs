@@ -334,16 +334,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             * (1.expr() - self.ref_val_mask[2].expression.clone());
         cb.add_constraint("ref_check_2", constraint);
 
-        // Constrains ref_val[3] == value_a_addr_ext_1[0] == value_b_addr_ext_1[0].
-        constraint = cond.clone()
-            * (self.ref_val[3].expression.clone() - self.value_a_addr_ext_1[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[3].expression.clone());
-        cb.add_constraint("ref_check_3", constraint);
-        constraint = cond.clone()
-            * (self.ref_val[3].expression.clone() - self.value_b_addr_ext_1[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[3].expression.clone());
-        cb.add_constraint("ref_check_3", constraint);
-
         // value_a is read from idx_a, value_b is read from idx_b
         // idx_a + 1 == value_a_address_path[last]
         // idx_b + 1 == value_b_address_path[last]
@@ -356,25 +346,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_constraint("idx_a_check on addr_ext_0", constraint);
 
         constraint = cond.clone()
-            * (self.idx_a.expression.clone() + 1.expr()
-                - self.value_a_addr_ext_1[0].expression.clone())
-            * self.ref_val_mask[3].expression.clone()
-            * (1.expr() - self.ref_swapped_value_mask[3].expression.clone());
-        cb.add_constraint("idx_a_check on addr_ext_1", constraint);
-
-        constraint = cond.clone()
             * (self.idx_b.expression.clone() + 1.expr()
                 - self.value_b_addr_ext_0[0].expression.clone())
             * self.ref_val_mask[2].expression.clone()
             * (1.expr() - self.ref_swapped_value_mask[2].expression.clone());
         cb.add_constraint("idx_b_check on addr_ext_0", constraint);
-
-        constraint = cond.clone()
-            * (self.idx_b.expression.clone() + 1.expr()
-                - self.value_b_addr_ext_1[0].expression.clone())
-            * self.ref_val_mask[3].expression.clone()
-            * (1.expr() - self.ref_swapped_value_mask[3].expression.clone());
-        cb.add_constraint("idx_b_check on addr_ext_1", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,

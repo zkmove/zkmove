@@ -255,35 +255,27 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             * (self.ref_val[2].expression.clone() - self.value_addr_ext_0[0].expression.clone())
             * (1.expr() - self.ref_val_mask[2].expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
-        constraint = cond.clone()
-            * (self.ref_val[3].expression.clone() - self.value_addr_ext_1[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[3].expression.clone());
-        cb.add_constraint("read_ref_eq_3", constraint);
 
         // Constrains the address of headers must be part of the vector's address path.
         // For example, if the vector has address path [3,1,2,1], the header's address will
         // be: [3,1,0,0],[3,1,2,0],[3,1,2,1]
         //
         // Skip header[0], it's already constrained by the above lookup
-        for i in 1..(DEPTH_OF_ADDRESS_PATH - 2) {
-            // header[i]'s frame_index or global address must equal to ref_val[0],
-            // already constrained by the above lookup
+        // for i in 1..(DEPTH_OF_ADDRESS_PATH - 2) {
+        //     // header[i]'s frame_index or global address must equal to ref_val[0],
+        //     // already constrained by the above lookup
 
-            // header[i]'s locals_index or global sd_index must equal to ref_val[1],
-            // already constrained by the above lookup
+        //     // header[i]'s locals_index or global sd_index must equal to ref_val[1],
+        //     // already constrained by the above lookup
 
-            // header[i]'s addr_ext_0 must equal to ref_val[2],
-            let constraint = cond.clone()
-                * (1.expr() - self.headers_value_mask[i].expression.clone())
-                * (self.headers_value_addr_ext_0[i].expression.clone()
-                    - self.ref_val[2].expression.clone());
-            cb.add_constraint("check header addr_ext_0", constraint);
+        //     // header[i]'s addr_ext_0 must equal to ref_val[2],
+        //     let constraint = cond.clone()
+        //         * (1.expr() - self.headers_value_mask[i].expression.clone())
+        //         * (self.headers_value_addr_ext_0[i].expression.clone()
+        //             - self.ref_val[2].expression.clone());
+        //     cb.add_constraint("check header addr_ext_0", constraint);
 
-            // TODO:
-            // header[i]'s addr_ext_1 must equal to ref_val[3],
-            // the current impl only support two layers nesting
-            // add constraints when to support configurable layers
-        }
+        // }
 
         // Constrains the headers are correctly updated.
         for i in 0..(DEPTH_OF_ADDRESS_PATH - 2) {
