@@ -713,6 +713,7 @@ impl<F: FieldExt> Frame<F> {
                             true,
                             rw_operations,
                         )?;
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
                         interp.stack.push(value, rw_operations)
                     }
@@ -781,6 +782,7 @@ impl<F: FieldExt> Frame<F> {
                             false,
                             rw_operations,
                         )?;
+                        execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
                         let ty = resolver.get_struct_type(*sd_idx);

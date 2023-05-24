@@ -191,7 +191,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             offset,
             step.auxiliary_1
                 .as_ref()
-                .expect("callee_node id should not be none")
+                .expect("sd_index id should not be none")
                 .value(),
         )?;
 
