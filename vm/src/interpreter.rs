@@ -329,7 +329,7 @@ impl<F: FieldExt> Interpreter<F> {
                             .map(|edge| edge.target())
                             .collect();
                         assert_eq!(nexts.len(), 1);
-                        println!(
+                        trace!(
                             "frame: {:?} -> {:?}",
                             frame.generic_index(),
                             nexts.last().unwrap()
