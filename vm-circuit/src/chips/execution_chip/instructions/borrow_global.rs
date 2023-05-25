@@ -17,11 +17,11 @@ use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
 pub struct BorrowGlobal<const MUTABLE: bool, F: FieldExt> {
-    value_a: Cell<F>,
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
+    account_address: Cell<F>,
+    word: Vec<Cell<F>>,
+    word_mask: Vec<Cell<F>>,
+    word_addr_ext_0: Vec<Cell<F>>,
+    word_addr_ext_1: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 }
@@ -71,7 +71,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
             ("function index", cond.clone() * func_index),
         ]);
 
-        let account_address_expr = self.value_a.expression.clone(); // address
+        let account_address_expr = self.account_address.expression.clone(); // account_address
         let sd_index_expr = cells.auxiliary_1.expression.clone(); //sd_index
         lookups.rw_lookups.push((
             "borrow global(stack pop)",
@@ -92,13 +92,13 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
                 RWLookup::global_read(
                     cells.gc.expression.clone() + (i as u64 + 1).expr(),
                     account_address_expr.clone(),
-                    self.word_a[i].expression.clone(),
+                    self.word[i].expression.clone(),
                     0.expr(), //fixme, value_ext may not be 0.
                     sd_index_expr.clone(),
-                    self.word_a_addr_ext_0[i].expression.clone(),
-                    self.word_a_addr_ext_1[i].expression.clone(),
+                    self.word_addr_ext_0[i].expression.clone(),
+                    self.word_addr_ext_1[i].expression.clone(),
                 ),
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
+                cond.clone() * (1.expr() - self.word_mask[i].expression.clone()),
             ));
         }
 
@@ -145,7 +145,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        self.value_a.assign(region, offset, op.value().value())?;
+        self.account_address
+            .assign(region, offset, op.value().value())?;
 
         cells.auxiliary_1.assign(
             region,
@@ -157,18 +158,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         )?;
 
         let word_elem_num = Word::get_word_element_num(region, offset, step, cells)?;
-        let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+        let global_value = Word {
+            word: self.word.clone(),
+            word_mask: self.word_mask.clone(),
+            word_addr_ext_0: self.word_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
             offset,
             step,
             rw_operations,
-            &word,
+            &global_value,
             step.gc + 1,
             word_elem_num,
         )?;
@@ -191,20 +192,20 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let account_address = cb.alloc_cell();
+        let word = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_mask = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
         Self {
-            value_a,
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
+            account_address,
+            word,
+            word_mask,
+            word_addr_ext_0,
+            word_addr_ext_1,
             ref_val,
             ref_val_mask,
         }

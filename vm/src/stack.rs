@@ -110,7 +110,7 @@ impl<F: FieldExt> EvalStack<F> {
         }
     }
 
-    pub fn push_as_rererence(
+    pub fn push_as_ref_val(
         &mut self,
         value: Value<F>,
         rw_operations: &mut Vec<RWOperation<F>>,

@@ -325,14 +325,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_constraint("ref_check_1", constraint);
 
         // Constrains ref_val[2] == value_a_addr_ext_0[0] == value_b_addr_ext_0[0].
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone() - self.value_a_addr_ext_0[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
-        cb.add_constraint("ref_check_2", constraint);
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone() - self.value_b_addr_ext_0[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
-        cb.add_constraint("ref_check_2", constraint);
+        // Todo value_addr_ext_0 is multiplexing for all address extend.
+        // need to use FieldBytes to parse everyone.
+        // constraint = cond.clone()
+        //     * (self.ref_val[2].expression.clone() - self.value_a_addr_ext_0[0].expression.clone())
+        //     * (1.expr() - self.ref_val_mask[2].expression.clone());
+        // cb.add_constraint("ref_check_2", constraint);
+        // constraint = cond.clone()
+        //     * (self.ref_val[2].expression.clone() - self.value_b_addr_ext_0[0].expression.clone())
+        //     * (1.expr() - self.ref_val_mask[2].expression.clone());
+        // cb.add_constraint("ref_check_2", constraint);
 
         // value_a is read from idx_a, value_b is read from idx_b
         // idx_a + 1 == value_a_address_path[last]
@@ -466,7 +468,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         )?;
 
         // assign ref_swapped_value_mask
-        for i in 0..(ref_val_flattened_len + 1) {
+        for i in 0..(ref_val_flattened_len + 1).min(DEPTH_OF_ADDRESS_PATH) {
             self.ref_swapped_value_mask[i].assign(region, offset, Some(F::zero()))?;
         }
         for i in (ref_val_flattened_len + 1)..DEPTH_OF_ADDRESS_PATH {

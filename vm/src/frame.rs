@@ -215,7 +215,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp
                             .stack
-                            .push_as_rererence(local_ref.into(), rw_operations)
+                            .push_as_ref_val(local_ref.into(), rw_operations)
                     }
 
                     Bytecode::ReadRef => {
@@ -420,7 +420,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         interp
                             .stack
-                            .push_as_rererence(field_ref.into(), rw_operations)
+                            .push_as_ref_val(field_ref.into(), rw_operations)
                     }
                     Bytecode::LdTrue => {
                         let constant = F::one();
@@ -646,7 +646,7 @@ impl<F: FieldExt> Frame<F> {
 
                         interp
                             .stack
-                            .push_as_rererence(global_ref.into(), rw_operations)
+                            .push_as_ref_val(global_ref.into(), rw_operations)
                     }
                     Bytecode::VecPack(si, num) => {
                         execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
@@ -722,7 +722,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         let res = vec_ref.try_borrow_elem(idx)?;
-                        interp.stack.push(res.into(), rw_operations)
+                        interp.stack.push_as_ref_val(res.into(), rw_operations)
                     }
                     Bytecode::VecPushBack(si) => {
                         let value = interp.stack.pop(rw_operations)?;

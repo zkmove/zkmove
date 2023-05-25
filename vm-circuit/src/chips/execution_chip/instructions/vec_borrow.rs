@@ -88,11 +88,12 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             cond.clone(),
         ));
 
+        // Todo. need to parse addr_ext.
         for (i, item) in self
             .indexed_ref_val
             .iter()
             .enumerate()
-            .take(DEPTH_OF_ADDRESS_PATH)
+            .take(2)
         {
             // lookup "read vec ref"
             lookups.rw_lookups.push((

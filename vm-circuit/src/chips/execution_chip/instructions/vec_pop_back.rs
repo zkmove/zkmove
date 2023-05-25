@@ -6,7 +6,7 @@ use crate::chips::execution_chip::instructions::common::{
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::{MAX_ADDRESS_EXT_LENGTH, WORD_CAPACITY};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
@@ -171,7 +171,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             .headers_value
             .iter()
             .enumerate()
-            .take(DEPTH_OF_ADDRESS_PATH - 2)
+            .take(MAX_ADDRESS_EXT_LENGTH)
         {
             let locals_read = RWLookup::locals_read(
                 gc_offset.clone() + (i as u64).expr(),
@@ -251,17 +251,20 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
                 - self.vec_locals_index_or_global_sd_idx.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone() - self.value_addr_ext_0[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
-        cb.add_constraint("read_ref_eq_2", constraint);
+
+        // Todo value_addr_ext_0 is multiplexing for all address extend.
+        // need to use FieldBytes to parse everyone.
+        // constraint = cond.clone()
+        //     * (self.ref_val[2].expression.clone() - self.value_addr_ext_0[0].expression.clone())
+        //     * (1.expr() - self.ref_val_mask[2].expression.clone());
+        // cb.add_constraint("read_ref_eq_2", constraint);
 
         // Constrains the address of headers must be part of the vector's address path.
         // For example, if the vector has address path [3,1,2,1], the header's address will
         // be: [3,1,0,0],[3,1,2,0],[3,1,2,1]
         //
         // Skip header[0], it's already constrained by the above lookup
-        // for i in 1..(DEPTH_OF_ADDRESS_PATH - 2) {
+        // for i in 1..(MAX_ADDRESS_EXT_LENGTH) {
         //     // header[i]'s frame_index or global address must equal to ref_val[0],
         //     // already constrained by the above lookup
 
@@ -278,7 +281,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         // }
 
         // Constrains the headers are correctly updated.
-        for i in 0..(DEPTH_OF_ADDRESS_PATH - 2) {
+        for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
             let constraint = cond.clone()
                 * (1.expr() - self.headers_value_mask[i].expression.clone())
                 * (self.headers_value[i].expression.clone()
@@ -367,8 +370,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             )?;
         }
 
-        // assign the popped value
-        let popped_value = Word {
+        // assign value read from locals(or global)
+        let value_pop = Word {
             word: self.value.clone(),
             word_mask: self.value_mask.clone(),
             word_addr_ext_0: self.value_addr_ext_0.clone(),
@@ -379,13 +382,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             offset,
             step,
             rw_operations,
-            &popped_value,
+            &value_pop,
             step.gc + DEPTH_OF_ADDRESS_PATH,
             value_flattened_len,
         )?;
 
-        // assign the value with new address
-        let value = Word {
+        // assign value write to stack
+        let value_stack = Word {
             word: self.value.clone(),
             word_mask: self.value_mask.clone(),
             word_addr_ext_0: self.new_value_addr_ext_0.clone(),
@@ -396,7 +399,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             offset,
             step,
             rw_operations,
-            &value,
+            &value_stack,
             step.gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len,
             value_flattened_len,
         )?;
@@ -415,7 +418,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             &headers,
             step.gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len * 2,
             headers_count,
-            DEPTH_OF_ADDRESS_PATH - 2,
+            MAX_ADDRESS_EXT_LENGTH,
         )?;
 
         let new_headers_op_idx =
@@ -449,14 +452,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let new_value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
 
         // todo: pass max_container_depth as circuit configuration;
-        let headers_value = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
-        let headers_value_ext = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
-        let headers_value_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
-        let headers_value_addr_ext_0 = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
-        let headers_value_addr_ext_1 = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
+        let headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
+        let headers_value_ext = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
+        let headers_value_mask = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
+        let headers_value_addr_ext_0 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
+        let headers_value_addr_ext_1 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
 
-        let new_headers_value = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
-        let new_headers_value_ext = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH - 2);
+        let new_headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
+        let new_headers_value_ext = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
 
         Self {
             ref_val,
