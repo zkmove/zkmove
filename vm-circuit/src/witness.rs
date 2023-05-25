@@ -3,9 +3,12 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
+use crate::witness::call_trace_table::CallTraceTable;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::FunctionCall;
+use crate::witness::input_type_elements::InputTypeElementTableData;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
+use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
@@ -13,10 +16,12 @@ use std::fmt;
 
 pub mod arith_operations;
 pub mod bytecode_table;
+pub mod call_trace_table;
 pub mod execution_steps;
 pub mod function_calls;
+pub mod input_type_elements;
 pub mod rw_operations;
-
+pub mod type_instantiation_table;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
@@ -98,16 +103,23 @@ pub struct Witness<F: FieldExt> {
     pub bytecode_table: BytecodeTable,
     pub func_calls: Vec<FunctionCall>,
     pub arith_operations: Vec<ArithOperation>,
+    pub call_trace_table: CallTraceTable,
+    pub type_instantiations: GenericTypeInstantiationTableData,
+    pub input_type_elements: InputTypeElementTableData,
     pub circuit_config: CircuitConfig,
 }
 
 impl<F: FieldExt> Witness<F> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
         bytecode_table: BytecodeTable,
         func_calls: Vec<FunctionCall>,
         arith_operations: Vec<ArithOperation>,
+        call_trace_table: CallTraceTable,
+        type_instantiations: GenericTypeInstantiationTableData,
+        input_type_elements: InputTypeElementTableData,
         circuit_config: CircuitConfig,
     ) -> Self {
         Witness {
@@ -116,6 +128,9 @@ impl<F: FieldExt> Witness<F> {
             bytecode_table,
             func_calls,
             arith_operations,
+            call_trace_table,
+            type_instantiations,
+            input_type_elements,
             circuit_config,
         }
     }
@@ -132,6 +147,7 @@ impl<F: FieldExt> Witness<F> {
             })?;
 
             let nop = ExecutionStep {
+                context_id: last.context_id,
                 opcode: Opcode::Nop,
                 pc: last.pc,
                 stack_size: last.stack_size,
@@ -145,6 +161,7 @@ impl<F: FieldExt> Witness<F> {
                 auxiliary_3: last.auxiliary_3.clone(),
                 auxiliary_4: last.auxiliary_4.clone(),
                 auxiliary_5: last.auxiliary_5.clone(),
+                data: None,
             };
 
             while exec_steps.len() < steps_number {
@@ -197,6 +214,21 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Arithmetic op table:")?;
         self.arith_operations.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Input type table:")?;
+        self.input_type_elements.0.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Call trace table:")?;
+        self.call_trace_table.0.iter().for_each(|op| {
+            writeln!(f, "{:?}", op).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Type instantiation table:")?;
+        self.type_instantiations.0.iter().for_each(|op| {
             writeln!(f, "{:?}", op).unwrap();
         });
         writeln!(f)?;

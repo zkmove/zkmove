@@ -6,6 +6,7 @@ use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_script;
+use movelang::generic_call_graph::generate;
 use movelang::state::StateStore;
 use std::path::{Path, PathBuf};
 use std::process::exit;
@@ -58,6 +59,8 @@ pub enum Command {
         #[structopt(long = "print-layout")]
         print_layout: bool,
     },
+    #[structopt(name = "graph", about = "generate generic call graph")]
+    CallGraph { module: PathBuf, output: PathBuf },
 }
 
 impl Arguments {
@@ -177,6 +180,14 @@ fn main() {
             verbose,
             print_layout,
         ),
+        Command::CallGraph { module, output } => {
+            std::fs::create_dir_all(output.as_path()).unwrap();
+            let graphs = generate(std::fs::read(module.as_path()).unwrap());
+            for (fname, graph) in graphs {
+                std::fs::write(output.join(fname).with_extension("dot"), graph.to_dot()).unwrap();
+            }
+            Ok(())
+        }
     };
 
     if let Err(error) = result {

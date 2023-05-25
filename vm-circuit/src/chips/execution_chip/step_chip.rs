@@ -10,11 +10,12 @@ use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 
-//pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, auxiliary_5, module_index, func_index
-pub const NUM_OF_STEP_STATE: usize = 12;
+//context_id, pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, auxiliary_5, module_index, func_index
+pub const NUM_OF_STEP_STATE: usize = 13;
 
 #[derive(Clone, Debug)]
 pub struct StepChipCells<F: FieldExt> {
+    pub context_id: Cell<F>,
     pub pc: Cell<F>,
     pub stack_size: Cell<F>,
     pub frame_index: Cell<F>,
@@ -92,6 +93,7 @@ impl<F: FieldExt> StepChip<F> {
         let mut cell_manager = CellManager::new(meta, height, &advices, offset);
         let cells = {
             StepChipCells {
+                context_id: cell_manager.alloc_cell(CellType::CustomGate),
                 pc: cell_manager.alloc_cell(CellType::CustomGate),
                 stack_size: cell_manager.alloc_cell(CellType::CustomGate),
                 frame_index: cell_manager.alloc_cell(CellType::CustomGate),
@@ -153,6 +155,11 @@ impl<F: FieldExt> StepChip<F> {
         step: &ExecutionStep<F>,
         _rw_operations: &RWOperations<F>,
     ) -> Result<Option<AssignedCell<F, F>>, Error> {
+        self.config
+            .cells
+            .context_id
+            .assign(region, offset, Some(F::from_u128(step.context_id)))?;
+
         // assign step states
         self.config
             .cells

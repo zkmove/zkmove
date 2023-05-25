@@ -7,8 +7,8 @@ use halo2_proofs::{
 };
 use std::hash::Hash;
 
+pub mod base_constaint_builder;
 pub mod constraint_builder;
-
 pub(crate) fn query_expression<F: FieldExt, T>(
     meta: &mut ConstraintSystem<F>,
     mut f: impl FnMut(&mut VirtualCells<F>) -> T,

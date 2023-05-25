@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -8,15 +9,19 @@ use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use crate::witness::execution_steps::ExecutionStep;
+use crate::witness::call_trace_table::{
+    IMM_BORROW_GLOBAL_GENERIC_AS_FIELD, MUT_BORROW_GLOBAL_GENERIC_AS_FIELD,
+};
+use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use logger::error;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
-pub struct BorrowGlobal<const MUTABLE: bool, F: FieldExt> {
+pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
     value_a: Cell<F>,
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
@@ -24,15 +29,24 @@ pub struct BorrowGlobal<const MUTABLE: bool, F: FieldExt> {
     word_a_addr_ext_1: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
+    type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUTABLE, F> {
-    const NAME: &'static str = "BORROWGLOBAL";
+impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
+    for BorrowGlobal<MUTABLE, GENERIC, F>
+{
+    const NAME: &'static str = match (MUTABLE, GENERIC) {
+        (true, true) => "MUT_BORROW_GLOBAL_GENERIC",
+        (true, false) => "MUT_BORROW_GLOBAL",
+        (false, true) => "IMM_BORROW_GLOBAL_GENERIC",
+        (false, false) => "IMM_BORROW_GLOBAL",
+    };
 
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::MutBorrowGlobal
-    } else {
-        Opcode::ImmBorrowGlobal
+    const OPCODE: Opcode = match (MUTABLE, GENERIC) {
+        (true, true) => Opcode::MutBorrowGlobalGeneric,
+        (true, false) => Opcode::MutBorrowGlobal,
+        (false, true) => Opcode::ImmBorrowGlobalGeneric,
+        (false, false) => Opcode::ImmBorrowGlobal,
     };
     fn configure(
         &self,
@@ -40,12 +54,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let opcode = if MUTABLE {
-            Opcode::MutBorrowGlobal
-        } else {
-            Opcode::ImmBorrowGlobal
-        };
-        let cond = cells.conditions[opcode.index()].expression.clone();
+        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -94,7 +103,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
                     account_address_expr.clone(),
                     self.word_a[i].expression.clone(),
                     0.expr(), //fixme, value_ext may not be 0.
-                    sd_index_expr.clone(),
+                    if GENERIC {
+                        sd_index_expr.clone() * 2u64.pow(16).expr()
+                    } else {
+                        sd_index_expr.clone()
+                    },
                     self.word_a_addr_ext_0[i].expression.clone(),
                     self.word_a_addr_ext_1[i].expression.clone(),
                 ),
@@ -124,16 +137,28 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         let mut constraint =
             cond.clone() * (self.ref_val[0].expression.clone() - account_address_expr);
         cb.add_constraint("borrow_global_ref_eq", constraint);
-        constraint = cond.clone() * (self.ref_val[1].expression.clone() - sd_index_expr.clone());
+        constraint = cond.clone()
+            * (self.ref_val[1].expression.clone()
+                - if GENERIC {
+                    sd_index_expr.clone() * 2u64.pow(16).expr()
+                } else {
+                    sd_index_expr.clone()
+                });
         cb.add_constraint("borrow_global_ref_eq", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
-            opcode,
+            Self::OPCODE,
             sd_index_expr,
             &mut lookups.bytecode_lookups,
-            cond,
+            cond.clone(),
         );
+        if GENERIC {
+            self.type_cells
+                .as_ref()
+                .unwrap()
+                .configure(cells, cb, lookups, cond);
+        }
     }
 
     fn assign(
@@ -187,6 +212,33 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
             step.gc + 1 + word_elem_num,
             DEPTH_OF_ADDRESS_PATH,
         )?;
+        if GENERIC {
+            cells.auxiliary_2.assign(
+                region,
+                offset,
+                step.auxiliary_2
+                    .as_ref()
+                    .expect("callee_node id should not be none")
+                    .value(),
+            )?;
+            cells.auxiliary_4.assign(
+                region,
+                offset,
+                step.auxiliary_4
+                    .as_ref()
+                    .expect("caller_pc should not be none")
+                    .value(),
+            )?;
+            if let Some(ExecutionData::StorageOp(data)) = &step.data {
+                self.type_cells
+                    .as_ref()
+                    .unwrap()
+                    .assign(region, offset, data.clone())?;
+            } else {
+                error!("expect execution data in {} gadget", Self::NAME);
+                return Err(Error::Synthesis);
+            }
+        }
         Ok(())
     }
 
@@ -199,7 +251,30 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
         let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let type_cells = if GENERIC {
+            let instantiation_index = cb.curr.cells.auxiliary_1.expr();
+            let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
+            let callee_id = cb.curr.cells.auxiliary_2.expr();
+            let callee_module = 0.expr();
+            let callee_function = (if MUTABLE {
+                MUT_BORROW_GLOBAL_GENERIC_AS_FIELD
+            } else {
+                IMM_BORROW_GLOBAL_GENERIC_AS_FIELD
+            } as u64)
+                .expr();
 
+            Some(GenericTypeGadget::construct(
+                Self::NAME,
+                cb,
+                caller_callin_pc,
+                callee_id,
+                callee_module,
+                callee_function,
+                instantiation_index,
+            ))
+        } else {
+            None
+        };
         Self {
             value_a,
             word_a,
@@ -208,6 +283,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowGlobal<MUT
             word_a_addr_ext_1,
             ref_val,
             ref_val_mask,
+            type_cells,
         }
     }
 }
