@@ -139,7 +139,7 @@ impl Arguments {
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
-
+        #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
             .or(config.new_args.as_ref().map(|t| t.as_inner()))
