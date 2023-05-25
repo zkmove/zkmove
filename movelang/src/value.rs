@@ -7,7 +7,7 @@ use crate::utility::{MoveValue, MoveValueType};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
-use move_binary_format::file_format::StructDefinitionIndex;
+use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
@@ -147,7 +147,33 @@ pub struct Container<F: FieldExt>(pub Rc<RefCell<Vec<Value<F>>>>);
 #[derive(Clone, Copy, Debug)]
 pub struct GlobalLocation<F: FieldExt> {
     pub address: AccountAddress<F>,
-    pub sd_index: StructDefinitionIndex,
+    pub sd_index: GlobalResourceDefIndex,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum GlobalResourceDefIndex {
+    StructDefinitionIndex(StructDefinitionIndex),
+    StructDefInstantiationIndex(StructDefInstantiationIndex),
+}
+
+impl From<StructDefinitionIndex> for GlobalResourceDefIndex {
+    fn from(d: StructDefinitionIndex) -> Self {
+        GlobalResourceDefIndex::StructDefinitionIndex(d)
+    }
+}
+impl From<StructDefInstantiationIndex> for GlobalResourceDefIndex {
+    fn from(d: StructDefInstantiationIndex) -> Self {
+        GlobalResourceDefIndex::StructDefInstantiationIndex(d)
+    }
+}
+
+impl GlobalResourceDefIndex {
+    pub fn to_u128(&self) -> u128 {
+        match self {
+            Self::StructDefinitionIndex(idx) => idx.0 as u128,
+            GlobalResourceDefIndex::StructDefInstantiationIndex(idx) => (idx.0 as u128) << 16,
+        }
+    }
 }
 
 /// Location of local values(simple values or containers)
@@ -202,7 +228,7 @@ impl<F: FieldExt> ValueLocation<F> {
             ValueLocation::Global(loc) => vec![
                 // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
                 loc.address.value().get_lower_128(),
-                loc.sd_index.0 as u128,
+                loc.sd_index.to_u128(),
             ],
         };
         indexes.into()
@@ -1686,7 +1712,7 @@ impl<F: FieldExt> GlobalValue<F> {
     pub fn borrow_global(
         &self,
         address: AccountAddress<F>,
-        sd_index: StructDefinitionIndex,
+        sd_index: GlobalResourceDefIndex,
     ) -> VmResult<GlobalRef<F>> {
         match self {
             Self::None | Self::Deleted => Err(RuntimeError::new(StatusCode::MissingData)),

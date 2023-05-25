@@ -20,17 +20,24 @@ use halo2_proofs::{
 };
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
-use move_binary_format::file_format::CompiledScript;
+use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_binary_format::CompiledModule;
-use movelang::argument::{ScriptArguments, Signer};
+use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::value::TypeTag;
 use plotters::prelude::*;
 use rand_core::OsRng;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
+use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
+use vm_circuit::witness::execution_steps::{ExecutionData, GenericTypeData, MaterializedTypeInfo};
+use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
+use vm_circuit::witness::type_instantiation_table::{
+    flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
+};
 use vm_circuit::witness::{CircuitConfig, Witness};
 
 // number of circuit rows cannot exceed 2^MAX_K
@@ -75,7 +82,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
-        let (entry, type_arguments, arg_types) = self
+        let (entry, type_arguments) = self
             .loader()
             .load_script(&script_bytes, &ty_args, data_store)
             .map_err(|e| {
@@ -83,8 +90,9 @@ impl<F: FieldExt> Runtime<F> {
                 RuntimeError::new(StatusCode::ScriptLoadingError)
             })?;
         trace!("script entry {:?}", entry.name());
-        let arg_types = arg_types
-            .into_iter()
+        let arg_types = entry
+            .parameter_types()
+            .iter()
             .map(|ty| ty.subst(&type_arguments))
             .collect::<PartialVMResult<Vec<_>>>()
             .map_err(|e| {
@@ -95,7 +103,9 @@ impl<F: FieldExt> Runtime<F> {
         let mut rw_operations = Vec::new();
         let mut func_calls = Vec::new();
         let mut arith_operations = Vec::new();
+        let mut generic_types = Vec::new();
         interp.run_script(
+            &script,
             entry,
             type_arguments,
             signer,
@@ -107,15 +117,86 @@ impl<F: FieldExt> Runtime<F> {
             &mut rw_operations,
             &mut func_calls,
             &mut arith_operations,
+            &mut generic_types,
         )?;
+        let mapping = NameToIdxMapping::build(&modules);
+        let normalized_input_type_args: Vec<_> =
+            ty_args.into_iter().map(convert_type_tag_to_type).collect();
+        let input_type_element_table_data = normalized_input_type_args
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, t)| flatten_materialized_type(vec![idx as u8 + 1], t, t))
+            .map(|te| {
+                let (m, s) = map_type_name(&mapping, &te.data);
+                (pos_to_id(&te.materialized_pos), m, s.0)
+            })
+            .map(|(pos, module, name)| InputTypeElement {
+                ty_arg_pos: pos,
+                ty_arg_module: module,
+                ty_arg_name: name,
+            })
+            .collect();
 
+        let exec_datas: HashMap<usize, ExecutionData> = generic_types
+            .iter()
+            .map(|ti| {
+                let materialized_type_elements = ti
+                    .type_args
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(i, inst_type)| {
+                        flatten_materialized_type(
+                            vec![i as u8 + 1],
+                            &inst_type.subst(&normalized_input_type_args),
+                            inst_type,
+                        )
+                    })
+                    .map(|te| {
+                        let (m, s) = map_type_name(&mapping, &te.data);
+                        MaterializedTypeInfo {
+                            inst_ty_pos: pos_to_id(&te.instantiation_pos),
+                            inst_ty_pos_max: 2u128.pow(te.instantiation_pos.len() as u32 * 8),
+                            referred_param_index: te.referred_ty_idx.unwrap_or(0),
+                            ty_arg_pos: pos_to_id(&te.materialized_pos),
+                            ty_arg_module: m,
+                            ty_arg_name: s.0,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (
+                    ti.execution_step_index,
+                    match ti.op {
+                        Bytecode::CallGeneric(_) => ExecutionData::CallGeneric(GenericTypeData {
+                            generic_types: materialized_type_elements,
+                        }),
+                        _ => ExecutionData::StorageOp(GenericTypeData {
+                            generic_types: materialized_type_elements,
+                        }),
+                    },
+                )
+            })
+            .collect();
+        exec_datas.into_iter().for_each(|(idx, data)| {
+            exec_steps
+                .get_mut(idx)
+                .unwrap_or_else(|| panic!("exec step at {} not exist", idx))
+                .data = Some(data);
+        });
+
+        let call_traces = CallTraceTable::from((&script, modules.as_slice()));
+        let type_instantiations =
+            GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
         let bytecodes = BytecodeTable::from((script.clone(), modules));
+
         Ok(Witness::new(
             exec_steps,
             rw_operations,
             bytecodes,
             func_calls,
             arith_operations,
+            call_traces,
+            type_instantiations,
+            InputTypeElementTableData(input_type_element_table_data),
             circuit_config,
         ))
     }

@@ -4,16 +4,45 @@ module Generics {
         v: u8
     }
 
-    struct R_T<T: key+store+copy+drop> has key, store, copy,drop {
+    struct G_T<T: store> has key, store {
         t: T
     }
 
-    struct R_P<T: key+store+copy+drop> has key, store, copy,drop {
-        t: T
+    struct G_P<T1: store, T2: store> has key, store {
+        t1: T1,
+        t2: T2
     }
 
     struct TM<phantom T> has  key, store, copy, drop {
     }
+    public fun create_gt<T: store>(signer: &signer, t: T) {
+        move_to(signer, G_T{t});
+    }
+
+    public fun destroy_gt<T: store>(from: address): T acquires G_T {
+       let G_T{t: t} = move_from<G_T<T>>(from);
+       t
+    }
+    public fun set_gt<T: store+drop>(from: address, t: T) acquires G_T {
+        if (exists<G_T<T>>(from)) {
+            let gt = borrow_global_mut<G_T<T>>(from);
+            gt.t = t;
+        }
+    }
+    public fun get_gt<T: store+copy>(from: address):T acquires G_T {
+       let gt = borrow_global<G_T<T>>(from);
+       gt.t
+    }
+
+    public fun create_gp<T1: store, T2: store>(signer: &signer, t1: T1, t2: T2) {
+        move_to(signer, G_P{t1,t2});
+    }
+
+    public fun destroy_gp<T1: store, T2: store>(from: address): (T1,T2) acquires G_P {
+       let G_P{t1,t2} = move_from<G_P<T1, T2>>(from);
+       (t1,t2)
+    }
+
     public fun hello_generic<T: copy+drop, S: copy+drop>(v: T,s: S) {
         let _ = v;
         let _ = s;

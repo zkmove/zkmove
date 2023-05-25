@@ -9,7 +9,6 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-
 pub mod _mod;
 pub mod abort;
 pub mod add;
@@ -23,7 +22,6 @@ pub mod br_false;
 pub mod br_true;
 pub mod branch;
 pub mod call;
-pub mod call_generic;
 pub mod castu128;
 pub mod castu64;
 pub mod castu8;
@@ -34,6 +32,7 @@ pub mod eq;
 pub mod exists;
 pub mod freeze_ref;
 pub mod ge;
+pub(crate) mod generic_gadget;
 pub mod gt;
 pub mod ld_false;
 pub mod ld_true;
@@ -69,7 +68,6 @@ pub mod vec_swap;
 pub mod vec_unpack;
 pub mod write_ref;
 pub mod xor;
-
 pub(crate) trait InstructionGadget<F: FieldExt> {
     const NAME: &'static str;
 

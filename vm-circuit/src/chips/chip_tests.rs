@@ -28,6 +28,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let bytecodes = (script, vec![]).into();
 
     let step_0 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -41,8 +42,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_1 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -56,8 +59,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_2 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -71,8 +76,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_3 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -86,8 +93,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_4 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -101,8 +110,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_5 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -116,6 +127,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
@@ -196,6 +208,9 @@ fn test_fake_rw_operation() -> VmResult<()> {
         bytecodes,
         vec![],
         vec![],
+        Default::default(),
+        Default::default(),
+        Default::default(),
         circuit_config,
     );
     let vm_circuit = VmCircuit { witness };
@@ -225,6 +240,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
     let bytecodes = (script, vec![]).into();
 
     let step_0 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -238,8 +254,10 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_1 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -253,8 +271,10 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_2 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -268,8 +288,10 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_3 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -283,8 +305,10 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_4 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -298,8 +322,10 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_5 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -313,6 +339,7 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
@@ -392,6 +419,9 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         bytecodes,
         vec![],
         vec![],
+        Default::default(),
+        Default::default(),
+        Default::default(),
         circuit_config,
     );
     // witness.sorted_stack_ops.0 = wrong_sorted_stack_operations;

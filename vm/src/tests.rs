@@ -36,7 +36,7 @@ fn test_execution_step() -> VmResult<()> {
     let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
 
-    let (entry, ty_arguments, arg_types) = runtime
+    let (entry, ty_arguments) = runtime
         .loader()
         .load_script(&blob, &[], &data_store)
         .map_err(|e| {
@@ -44,13 +44,15 @@ fn test_execution_step() -> VmResult<()> {
             RuntimeError::new(StatusCode::ScriptLoadingError)
         })
         .unwrap();
-
+    let arg_types = entry.parameter_types().to_vec();
     let mut exec_steps = Vec::new();
     let mut rw_operations = Vec::new();
     let mut func_calls = Vec::new();
     let mut arith_operations = Vec::new();
+    let mut generic_type_infos = Vec::new();
     interp
         .run_script(
+            &script,
             entry,
             ty_arguments,
             None,
@@ -62,10 +64,12 @@ fn test_execution_step() -> VmResult<()> {
             &mut rw_operations,
             &mut func_calls,
             &mut arith_operations,
+            &mut generic_type_infos,
         )
         .unwrap();
 
     let expected_step_0 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -79,8 +83,10 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_1 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -94,8 +100,10 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_2 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -109,8 +117,10 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_3 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -124,8 +134,10 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_4 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -139,8 +151,10 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_5 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -154,6 +168,7 @@ fn test_execution_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
 
     assert_eq!(exec_steps[0], expected_step_0, "result is not expected");
@@ -232,6 +247,9 @@ fn test_execution_step() -> VmResult<()> {
         bytecodes,
         vec![],
         arith_operations,
+        Default::default(),
+        Default::default(),
+        Default::default(),
         circuit_config,
     );
     let vm_circuit = VmCircuit { witness };
@@ -259,6 +277,7 @@ fn test_nop_step() -> VmResult<()> {
     let bytecodes = (script, vec![]).into();
 
     let step_0 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -272,8 +291,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_1 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -287,8 +308,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_2 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -302,8 +325,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_3 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -317,8 +342,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_4 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -332,8 +359,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_5 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Nop,
         pc: 4,
         stack_size: 0,
@@ -347,8 +376,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_6 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Nop,
         pc: 4,
         stack_size: 0,
@@ -362,8 +393,10 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let step_7 = ExecutionStep::<Fp> {
+        context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -377,6 +410,7 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
 
     let exec_steps = vec![
@@ -459,6 +493,9 @@ fn test_nop_step() -> VmResult<()> {
         bytecodes,
         vec![],
         vec![],
+        Default::default(),
+        Default::default(),
+        Default::default(),
         circuit_config,
     );
     let vm_circuit = VmCircuit { witness };
@@ -501,6 +538,7 @@ fn test_nop_steps() -> VmResult<()> {
     let k = runtime.find_best_k(&vm_circuit, vec![])?;
 
     let expected_step_0 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
         stack_size: 0,
@@ -514,8 +552,10 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_1 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
@@ -529,8 +569,10 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_2 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Add,
         pc: 2,
         stack_size: 2,
@@ -544,8 +586,10 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_3 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
@@ -559,8 +603,10 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: Some(Value::u64(1u64)),
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_4 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
@@ -574,8 +620,10 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
     let expected_step_5 = ExecutionStep {
+        context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
@@ -589,6 +637,7 @@ fn test_nop_steps() -> VmResult<()> {
         auxiliary_3: None,
         auxiliary_4: None,
         auxiliary_5: None,
+        data: None,
     };
 
     let steps = &vm_circuit.witness.exec_steps;

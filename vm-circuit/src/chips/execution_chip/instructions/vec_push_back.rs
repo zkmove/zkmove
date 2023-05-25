@@ -255,7 +255,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                 - self.vec_locals_index_or_global_sd_idx.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
-        
+
         // Todo value_addr_ext_0 is multiplexing for all address extend.
         // need to use FieldBytes to parse everyone.
         // constraint = cond.clone()

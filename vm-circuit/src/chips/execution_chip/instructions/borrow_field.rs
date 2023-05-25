@@ -17,7 +17,7 @@ use logger::prelude::*;
 use movelang::value::{DEPTH_OF_ADDRESS_PATH, DEPTH_OF_LOCATION_PATH};
 
 #[derive(Clone, Debug)]
-pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
+pub struct BorrowField<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
     word_val: Vec<Cell<F>>,
@@ -28,13 +28,21 @@ pub struct BorrowField<const MUTABLE: bool, F: FieldExt> {
     word_val_addr_ext_bytes_mask: Vec<Cell<F>>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTABLE, F> {
-    const NAME: &'static str = "BORROWFIELD";
+impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
+    for BorrowField<MUTABLE, GENERIC, F>
+{
+    const NAME: &'static str = match (MUTABLE, GENERIC) {
+        (true, true) => "MUT_BORROW_FIELD_GENERIC",
+        (true, false) => "MUT_BORROW_FIELD",
+        (false, true) => "IMM_BORROW_FIELD_GENERIC",
+        (false, false) => "IMM_BORROW_FIELD",
+    };
 
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::MutBorrowField
-    } else {
-        Opcode::ImmBorrowField
+    const OPCODE: Opcode = match (MUTABLE, GENERIC) {
+        (true, true) => Opcode::MutBorrowFieldGeneric,
+        (true, false) => Opcode::MutBorrowField,
+        (false, true) => Opcode::ImmBorrowFieldGeneric,
+        (false, false) => Opcode::ImmBorrowField,
     };
 
     fn configure(
@@ -43,12 +51,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let opcode = if MUTABLE {
-            Opcode::MutBorrowField
-        } else {
-            Opcode::ImmBorrowField
-        };
-        let cond = cells.conditions[opcode.index()].expression.clone();
+        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -156,7 +159,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowField<MUTA
 
         LookupBytecode::lookup_bytecode(
             cells,
-            opcode,
+            Self::OPCODE,
             cells.auxiliary_1.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,

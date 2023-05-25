@@ -18,7 +18,7 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 
 #[derive(Clone, Debug)]
-pub struct Unpack<F: FieldExt> {
+pub struct Unpack<const GENERIC: bool, F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
     word_a_addr_ext_0: Vec<Cell<F>>,
@@ -30,10 +30,14 @@ pub struct Unpack<F: FieldExt> {
     word_address: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
-    const NAME: &'static str = "UNPACK";
+impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, F> {
+    const NAME: &'static str = if GENERIC { "UNPACK_GENERIC" } else { "UnPACK" };
 
-    const OPCODE: Opcode = Opcode::Unpack;
+    const OPCODE: Opcode = if GENERIC {
+        Opcode::UnpackGeneric
+    } else {
+        Opcode::Unpack
+    };
 
     fn configure(
         &self,
@@ -42,7 +46,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Unpack
-        let cond = cells.conditions[Opcode::Unpack.index()].expression.clone();
+        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
 
         let field_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
@@ -138,7 +142,7 @@ impl<F: FieldExt> InstructionGadget<F> for Unpack<F> {
 
         LookupBytecode::lookup_bytecode(
             cells,
-            Opcode::Unpack,
+            Self::OPCODE,
             cells.auxiliary_2.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,

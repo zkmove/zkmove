@@ -12,7 +12,6 @@ use crate::chips::execution_chip::instructions::br_false::BrFalse;
 use crate::chips::execution_chip::instructions::br_true::BrTrue;
 use crate::chips::execution_chip::instructions::branch::Branch;
 use crate::chips::execution_chip::instructions::call::Call;
-use crate::chips::execution_chip::instructions::call_generic::CallGeneric;
 use crate::chips::execution_chip::instructions::castu128::CastU128;
 use crate::chips::execution_chip::instructions::castu64::CastU64;
 use crate::chips::execution_chip::instructions::castu8::CastU8;
@@ -57,7 +56,6 @@ use crate::chips::execution_chip::instructions::vec_swap::VecSwap;
 use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
 use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
-
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -121,27 +119,19 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_branch: Box<Branch<F>>,
     op_br_true: Box<BrTrue<F>>,
     op_br_false: Box<BrFalse<F>>,
-    op_call: Box<Call<F>>,
+    op_call: Box<Call<false, F>>,
     op_abort: Box<Abort<F>>,
     op_le: Box<Le<F>>,
     op_lt: Box<Lt<F>>,
     op_ge: Box<Ge<F>>,
     op_gt: Box<Gt<F>>,
-    op_pack: Box<Pack<F>>,
-    op_unpack: Box<Unpack<F>>,
+    op_pack: Box<Pack<false, F>>,
+    op_unpack: Box<Unpack<false, F>>,
     op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
     op_imm_borrow_loc: Box<BorrowLoc<false, F>>,
     op_read_ref: Box<ReadRef<F>>,
     op_write_ref: Box<WriteRef<F>>,
     op_freeze_ref: Box<FreezeRef<F>>,
-    op_imm_borrow_field: Box<BorrowField<false, F>>,
-    op_mut_borrow_field: Box<BorrowField<true, F>>,
-    op_move_from: Box<MoveFrom<F>>,
-    op_move_to: Box<MoveTo<F>>,
-    op_exists: Box<Exists<F>>,
-    op_imm_borrow_global: Box<BorrowGlobal<false, F>>,
-    op_mut_borrow_global: Box<BorrowGlobal<true, F>>,
-    op_call_generic: Box<CallGeneric<F>>,
     op_vec_imm_borrow: Box<VecBorrow<false, F>>,
     op_vec_mut_borrow: Box<VecBorrow<true, F>>,
     op_vec_len: Box<VecLen<F>>,
@@ -150,6 +140,24 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_vec_push_back: Box<VecPushBack<F>>,
     op_vec_swap: Box<VecSwap<F>>,
     op_vec_unpack: Box<VecUnpack<F>>,
+    op_imm_borrow_field: Box<BorrowField<false, false, F>>,
+    op_mut_borrow_field: Box<BorrowField<true, false, F>>,
+    op_move_from: Box<MoveFrom<false, F>>,
+    op_move_to: Box<MoveTo<false, F>>,
+    op_exists: Box<Exists<false, F>>,
+    op_imm_borrow_global: Box<BorrowGlobal<false, false, F>>,
+    op_mut_borrow_global: Box<BorrowGlobal<true, false, F>>,
+    op_call_generic: Box<Call<true, F>>,
+    op_imm_borrow_global_generic: Box<BorrowGlobal<false, true, F>>,
+    op_mut_borrow_global_generic: Box<BorrowGlobal<true, true, F>>,
+    op_move_to_generic: Box<MoveTo<true, F>>,
+    op_move_from_generic: Box<MoveFrom<true, F>>,
+    op_exists_generic: Box<Exists<true, F>>,
+    op_pack_generic: Box<Pack<true, F>>,
+    op_unpack_generic: Box<Unpack<true, F>>,
+    op_imm_borrow_field_generic: Box<BorrowField<false, true, F>>,
+    op_mut_borrow_field_generic: Box<BorrowField<true, true, F>>,
+
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
 
@@ -262,7 +270,6 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_exists: configure_opcode_gadget!(),
             op_imm_borrow_global: configure_opcode_gadget!(),
             op_mut_borrow_global: configure_opcode_gadget!(),
-            op_call_generic: configure_opcode_gadget!(),
             op_vec_imm_borrow: configure_opcode_gadget!(),
             op_vec_mut_borrow: configure_opcode_gadget!(),
             op_vec_len: configure_opcode_gadget!(),
@@ -271,6 +278,16 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_vec_push_back: configure_opcode_gadget!(),
             op_vec_swap: configure_opcode_gadget!(),
             op_vec_unpack: configure_opcode_gadget!(),
+            op_call_generic: configure_opcode_gadget!(),
+            op_imm_borrow_global_generic: configure_opcode_gadget!(),
+            op_mut_borrow_global_generic: configure_opcode_gadget!(),
+            op_move_to_generic: configure_opcode_gadget!(),
+            op_move_from_generic: configure_opcode_gadget!(),
+            op_exists_generic: configure_opcode_gadget!(),
+            op_pack_generic: configure_opcode_gadget!(),
+            op_unpack_generic: configure_opcode_gadget!(),
+            op_imm_borrow_field_generic: configure_opcode_gadget!(),
+            op_mut_borrow_field_generic: configure_opcode_gadget!(),
             op_stop: configure_opcode_gadget!(),
             op_nop: configure_opcode_gadget!(),
 
@@ -498,7 +515,6 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::Exists => assign_opcode_gadget!(self.config.op_exists),
             Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
             Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
-            Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
             Opcode::VecImmBorrow => assign_opcode_gadget!(self.config.op_vec_imm_borrow),
             Opcode::VecMutBorrow => assign_opcode_gadget!(self.config.op_vec_mut_borrow),
             Opcode::VecLen => assign_opcode_gadget!(self.config.op_vec_len),
@@ -507,6 +523,25 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::VecPushBack => assign_opcode_gadget!(self.config.op_vec_push_back),
             Opcode::VecSwap => assign_opcode_gadget!(self.config.op_vec_swap),
             Opcode::VecUnpack => assign_opcode_gadget!(self.config.op_vec_unpack),
+            Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
+            Opcode::ImmBorrowGlobalGeneric => {
+                assign_opcode_gadget!(self.config.op_imm_borrow_global_generic)
+            }
+
+            Opcode::MutBorrowGlobalGeneric => {
+                assign_opcode_gadget!(self.config.op_mut_borrow_global_generic)
+            }
+            Opcode::MoveFromGeneric => assign_opcode_gadget!(self.config.op_move_from_generic),
+            Opcode::MoveToGeneric => assign_opcode_gadget!(self.config.op_move_to_generic),
+            Opcode::PackGeneric => assign_opcode_gadget!(self.config.op_pack_generic),
+            Opcode::UnpackGeneric => assign_opcode_gadget!(self.config.op_unpack_generic),
+            Opcode::ImmBorrowFieldGeneric => {
+                assign_opcode_gadget!(self.config.op_imm_borrow_field_generic)
+            }
+            Opcode::MutBorrowFieldGeneric => {
+                assign_opcode_gadget!(self.config.op_mut_borrow_field_generic)
+            }
+            Opcode::ExistsGeneric => assign_opcode_gadget!(self.config.op_exists_generic),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
         }

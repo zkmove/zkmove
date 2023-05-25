@@ -32,16 +32,16 @@ impl MoveLoader {
         script_blob: &[u8],
         ty_args: &[TypeTag],
         data_store: &impl DataStore,
-    ) -> VMResult<(Arc<Function>, Vec<Type>, Vec<Type>)> {
+    ) -> VMResult<(Arc<Function>, Vec<Type>)> {
         let (
             main,
             LoadedFunctionInstantiation {
                 type_arguments,
-                parameters: arg_types,
+                parameters: _,
                 return_: _,
             },
         ) = self.loader.load_script(script_blob, ty_args, data_store)?;
-        Ok((main, type_arguments, arg_types))
+        Ok((main, type_arguments))
     }
 
     pub fn function_from_handle(

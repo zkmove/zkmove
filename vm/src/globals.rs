@@ -1,9 +1,10 @@
 use error::VmResult;
 use halo2_proofs::arithmetic::FieldExt;
-use move_binary_format::file_format::StructDefinitionIndex;
+
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, GlobalLocation, LocatedValue, PrimitiveValue, Value, ValueLocation,
+    AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, PrimitiveValue, Value,
+    ValueLocation,
 };
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
@@ -48,7 +49,7 @@ pub fn emit_global_ops_for_word<F: FieldExt>(
 }
 pub fn emit_ops_for_global_value<F: FieldExt>(
     addr: AccountAddress<F>,
-    sd_index: StructDefinitionIndex,
+    sd_index: GlobalResourceDefIndex,
     resource_value: Value<F>,
     rw: RW,
     write_invalid: bool,
@@ -63,7 +64,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     for (address_path, val, val_ext) in word.clone() {
         let op = GlobalOp {
             address: addr,
-            sd_index: sd_index.0 as usize,
+            sd_index: sd_index.to_u128() as usize,
             address_ext_0: address_path.addr_ext(),
             address_ext_1: 0_usize,
             value: val,
@@ -78,7 +79,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         for (address_path, _, _) in word {
             let op = GlobalOp {
                 address: addr,
-                sd_index: sd_index.0 as usize,
+                sd_index: sd_index.to_u128() as usize,
                 address_ext_0: address_path.addr_ext(),
                 address_ext_1: 0_usize,
                 value: None,
