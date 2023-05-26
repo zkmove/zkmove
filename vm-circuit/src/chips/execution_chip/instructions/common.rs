@@ -863,6 +863,34 @@ impl<F: FieldExt> AddrExt<F> {
 
         Ok(())
     }
+
+    // bytes[n] is selected by mask_a and mask_b
+    // for mask_a[n] is 1 and mask_b[n] is 0
+    pub fn assign_byte_n_mask(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        mask_a: &[Cell<F>],
+        mask_b: &[Cell<F>],
+        n: usize,
+    ) -> Result<(), Error> {
+        // assign bytes mask
+        for (_i, item) in mask_a.iter().enumerate().take(n) {
+            item.assign(region, offset, Some(F::zero()))?;
+        }
+        for (_i, item) in mask_a.iter().enumerate().skip(n) {
+            item.assign(region, offset, Some(F::one()))?;
+        }
+
+        for (_i, item) in mask_b.iter().enumerate().take(n + 1) {
+            item.assign(region, offset, Some(F::zero()))?;
+        }
+        for (_i, item) in mask_b.iter().enumerate().skip(n + 1) {
+            item.assign(region, offset, Some(F::one()))?;
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn location_val_constrain(
         cb: &mut ConstraintBuilder<F>,
         cond: Expression<F>,
@@ -894,6 +922,55 @@ impl<F: FieldExt> AddrExt<F> {
             .clone();
         let constraint = cond * (a1 - b1);
         cb.add_constraint("location_val_constrain: 1", constraint);
+
+        Ok(())
+    }
+
+    pub(crate) fn addr_ext_constrain(
+        cb: &mut ConstraintBuilder<F>,
+        cond: Expression<F>,
+        ref_val: &[Cell<F>],
+        ref_val_addr_ext_bytes: &[Cell<F>],
+    ) -> Result<(), Error> {
+        let ref_val_addr_ext = ref_val
+            .get(2)
+            .expect("addr_ext is not exsit")
+            .expression
+            .clone();
+        let ref_val_bytes =
+            FieldBytes::from(ref_val_addr_ext_bytes.to_owned()).expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let constraint = cond * (ref_val_addr_ext - ref_val_bytes);
+        cb.add_constraint("borrow_field: addr_ext bytes check 0", constraint);
+
+        Ok(())
+    }
+
+    pub(crate) fn addr_ext_bytes_constrain(
+        cb: &mut ConstraintBuilder<F>,
+        cond: Expression<F>,
+        ref_bytes: &[Cell<F>],
+        ref_bytes_mask: &[Cell<F>],
+        indexed_ref_bytes: &[Cell<F>],
+        indexed_ref_bytes_mask: &[Cell<F>],
+        offset: &Cell<F>,
+    ) -> Result<(), Error> {
+        // addr_ext comparation between ref_val and indexed_ref_val
+        for i in 0..MAX_ADDRESS_EXT_LENGTH {
+            let constraint = cond.clone()
+                * (1.expr() - ref_bytes_mask[i].expression.clone())
+                * (ref_bytes[i].expression.clone() - indexed_ref_bytes[i].expression.clone());
+            cb.add_constraint("addr_ext_constrain: addr_ext_eq", constraint);
+        }
+
+        // field_offset is pushed into the last element of word,
+        // and it's larger than the real offset by 1
+        for i in 0..MAX_ADDRESS_EXT_LENGTH {
+            let constraint = cond.clone()
+                * ref_bytes_mask[i].expression.clone()
+                * (1.expr() - indexed_ref_bytes_mask[i].expression.clone())
+                * (offset.expression.clone() + 1.expr() - indexed_ref_bytes[i].expression.clone());
+            cb.add_constraint("addr_ext_constrain: field_offset_eq", constraint);
+        }
 
         Ok(())
     }

@@ -347,7 +347,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // -[x] for same address/sd_index/addr_ext0, must have `addr_ext_1 >= prev_addr_ext_1`
 
             // if same address/sd_index, addr_ext_0 must be great than or equal to prev_addr_ext_0
-            // Fixme. addr_ext range check
+            // TODO. addr_ext range check
             // addr_ext0_lookups.push(
             //     cond.clone()
             //         * (1.expr()

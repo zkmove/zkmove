@@ -430,7 +430,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
             // address_ext_0 must be less than max_locals_size
-            // Fixme. address extend validation
+            // TODO. address extend validation
             // addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_0.expression.clone());
             // addr_ext_1 must be less than max_locals_size
             addr_ext_1_lookups.push(cond.clone() * cells.addr_ext_1.expression.clone());
@@ -448,7 +448,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
             // Case C: if same frame_index/index,
             //         addr_ext_0 must be great than or equal to prev_addr_ext_0
-            // Fixme. address extend validation
+            // TODO. address extend validation
             // addr_ext_0_lookups.push(
             //     cond.clone()
             //         * (1.expr()

@@ -1,27 +1,31 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::param::{BYTES_NUM, MAX_ADDRESS_EXT_LENGTH};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::{Cell, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::value::{DEPTH_OF_ADDRESS_PATH, DEPTH_OF_LOCATION_PATH};
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
     index: Cell<F>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
-
+    ref_val_addr_ext_bytes: Vec<Cell<F>>,
+    ref_val_addr_ext_bytes_mask: Vec<Cell<F>>,
     indexed_ref_val: Vec<Cell<F>>,
     indexed_ref_val_mask: Vec<Cell<F>>,
+    indexed_ref_val_addr_ext_bytes: Vec<Cell<F>>,
+    indexed_ref_val_addr_ext_bytes_mask: Vec<Cell<F>>,
 }
 
 impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABLE, F> {
@@ -88,8 +92,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             cond.clone(),
         ));
 
-        // Todo. need to parse addr_ext.
-        for (i, item) in self.indexed_ref_val.iter().enumerate().take(2) {
+        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // lookup "read vec ref"
             lookups.rw_lookups.push((
                 "vec_borrow(read vec ref)",
@@ -103,14 +106,20 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 ),
                 cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
             ));
-
+        }
+        for (i, item) in self
+            .indexed_ref_val
+            .iter()
+            .enumerate()
+            .take(DEPTH_OF_ADDRESS_PATH)
+        {
             // lookup "write indexed ref"
             lookups.rw_lookups.push((
                 "vec_borrow(write indexed ref)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
-                        + depth_of_addr_path_expr.clone()
                         + 1.expr()
+                        + depth_of_addr_path_expr.clone()
                         + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 2.expr(),
                     (i as u64).expr(),
@@ -122,16 +131,43 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             ));
         }
 
-        // element index should be equal to indexed_ref_val[last],
-        // NOTICE: counting the header, it's 1 larger than the real offset
-        let index = self.index.expression.clone();
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
-            let constraint = cond.clone()
-                * self.ref_val_mask[i].expression.clone()
-                * (1.expr() - self.indexed_ref_val_mask[i].expression.clone())
-                * (index.clone() + 1.expr() - self.indexed_ref_val[i].expression.clone());
-            cb.add_constraint("borrow_element_index_eq", constraint);
-        }
+        // ensure addr_ext equal to bytes for ref_val and indexed_ref_val
+        let ref_val_addr_ext = self
+            .ref_val
+            .get(2)
+            .expect("addr_ext is not exsit")
+            .expression
+            .clone();
+        let ref_val_bytes = FieldBytes::from(self.ref_val_addr_ext_bytes.clone())
+            .expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let constraint = cond.clone() * (ref_val_addr_ext - ref_val_bytes);
+        cb.add_constraint("vec_borrow: addr_ext bytes check 0", constraint);
+
+        let indexed_ref_val_addr_ext = self
+            .indexed_ref_val
+            .get(2)
+            .expect("addr_ext is not exsit")
+            .expression
+            .clone();
+        let indexed_ref_val_bytes = FieldBytes::from(self.indexed_ref_val_addr_ext_bytes.clone())
+            .expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let constraint = cond.clone() * (indexed_ref_val_addr_ext - indexed_ref_val_bytes);
+        cb.add_constraint("vec_borrow: addr_ext bytes check 1", constraint);
+
+        // location check between ref_val and indexed_ref_val
+        AddrExt::location_val_constrain(cb, cond.clone(), &self.ref_val, &self.indexed_ref_val)
+            .expect("vec_borrow: location chck failed");
+
+        // addr_ext comparation between ref_val and indexed_ref_val
+        // field_offset is pushed into the last element of indexed_ref_val,
+        // and it's larger than the real offset by 1
+        let a = &self.ref_val_addr_ext_bytes;
+        let a_mask = &self.ref_val_addr_ext_bytes_mask;
+        let b = &self.indexed_ref_val_addr_ext_bytes;
+        let b_mask = &self.indexed_ref_val_addr_ext_bytes_mask;
+        let offset = &cells.auxiliary_2; // field_offset
+        AddrExt::addr_ext_bytes_constrain(cb, cond.clone(), a, a_mask, b, b_mask, offset)
+            .expect("vec_borrow: addr ext check failed");
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -172,6 +208,12 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             ref_val_flattened_len,
         )?;
 
+        let ref_val_addr_ext = AddrExt {
+            bytes: self.ref_val_addr_ext_bytes.clone(),
+        };
+        // addr_ext is 3rd member of ref_val
+        ref_val_addr_ext.assign_bytes(region, offset, step, step.gc + 1 + 2, rw_operations)?;
+
         let indexed_ref_val = RefVal {
             ref_val: self.indexed_ref_val.clone(),
             ref_val_mask: self.indexed_ref_val_mask.clone(),
@@ -183,8 +225,27 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             rw_operations,
             &indexed_ref_val,
             step.gc + 1 + DEPTH_OF_ADDRESS_PATH,
-            ref_val_flattened_len + 1, // the last element is element index
+            DEPTH_OF_ADDRESS_PATH,
         )?;
+
+        let indexed_ref_val_addr_ext = AddrExt {
+            bytes: self.indexed_ref_val_addr_ext_bytes.clone(),
+        };
+        // addr_ext is 3rd member of ref_val
+        indexed_ref_val_addr_ext.assign_bytes(
+            region,
+            offset,
+            step,
+            step.gc + 1 + DEPTH_OF_ADDRESS_PATH + 2,
+            rw_operations,
+        )?;
+
+        // assign bytes mask
+        // skip DEPTH_OF_LOCATION_PATH bits tophead.
+        let n = ref_val_flattened_len - DEPTH_OF_LOCATION_PATH;
+        let mask_a = &self.ref_val_addr_ext_bytes_mask;
+        let mask_b = &self.indexed_ref_val_addr_ext_bytes_mask;
+        AddrExt::assign_byte_n_mask(region, offset, mask_a, mask_b, n)?;
 
         Ok(())
     }
@@ -194,17 +255,25 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         let index = cb.alloc_cell();
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-
+        // BYTES_NUM is adapt to FieldBytes::from, only use MAX_ADDRESS_EXT_LENGTH.
+        let ref_val_addr_ext_bytes = cb.alloc_n_cells(BYTES_NUM);
+        let ref_val_addr_ext_bytes_mask = cb.alloc_n_cells(BYTES_NUM);
         let indexed_ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let indexed_ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        // BYTES_NUM is adapt to FieldBytes::from, only use MAX_ADDRESS_EXT_LENGTH.
+        let indexed_ref_val_addr_ext_bytes = cb.alloc_n_cells(BYTES_NUM);
+        let indexed_ref_val_addr_ext_bytes_mask = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
             index,
             ref_val,
             ref_val_mask,
-
+            ref_val_addr_ext_bytes,
+            ref_val_addr_ext_bytes_mask,
             indexed_ref_val,
             indexed_ref_val_mask,
+            indexed_ref_val_addr_ext_bytes,
+            indexed_ref_val_addr_ext_bytes_mask,
         }
     }
 }
