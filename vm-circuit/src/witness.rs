@@ -4,6 +4,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
+use crate::witness::const_table::ConstantTable;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::FunctionCall;
 use crate::witness::input_type_elements::InputTypeElementTableData;
@@ -17,6 +18,7 @@ use std::fmt;
 pub mod arith_operations;
 pub mod bytecode_table;
 pub mod call_trace_table;
+pub mod const_table;
 pub mod execution_steps;
 pub mod function_calls;
 pub mod input_type_elements;
@@ -101,6 +103,7 @@ pub struct Witness<F: FieldExt> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_operations: RWOperations<F>,
     pub bytecode_table: BytecodeTable,
+    pub constant_table: ConstantTable,
     pub func_calls: Vec<FunctionCall>,
     pub arith_operations: Vec<ArithOperation>,
     pub call_trace_table: CallTraceTable,
@@ -115,6 +118,7 @@ impl<F: FieldExt> Witness<F> {
         exec_steps: Vec<ExecutionStep<F>>,
         rw_operations: Vec<RWOperation<F>>,
         bytecode_table: BytecodeTable,
+        constant_table: ConstantTable,
         func_calls: Vec<FunctionCall>,
         arith_operations: Vec<ArithOperation>,
         call_trace_table: CallTraceTable,
@@ -126,6 +130,7 @@ impl<F: FieldExt> Witness<F> {
             exec_steps,
             rw_operations: RWOperations(rw_operations),
             bytecode_table,
+            constant_table,
             func_calls,
             arith_operations,
             call_trace_table,
@@ -205,6 +210,11 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f, "Bytecode table:")?;
         self.bytecode_table.as_inner().iter().for_each(|bytecode| {
             writeln!(f, "{:?}", bytecode).unwrap();
+        });
+        writeln!(f)?;
+        writeln!(f, "Constant table:")?;
+        self.constant_table.0.iter().for_each(|constant| {
+            writeln!(f, "{:?}", constant).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Function calls table:")?;

@@ -34,6 +34,7 @@ pub mod freeze_ref;
 pub mod ge;
 pub(crate) mod generic_gadget;
 pub mod gt;
+pub mod ld_const;
 pub mod ld_false;
 pub mod ld_true;
 pub mod ldu128;

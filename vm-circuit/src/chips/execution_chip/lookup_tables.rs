@@ -12,6 +12,9 @@ use crate::chips::execution_chip::lookup_tables::call_lookup_table::{CallLookup,
 use crate::chips::execution_chip::lookup_tables::call_trace_table::{
     CallTraceLookup, CallTraceTable,
 };
+use crate::chips::execution_chip::lookup_tables::constant_lookup_table::{
+    ConstantLookup, ConstantLookupTable,
+};
 use crate::chips::execution_chip::lookup_tables::input_type_element_table::{
     InputTypeElementLookup, InputTypeElementTable,
 };
@@ -40,6 +43,7 @@ pub mod bitwise_lookup_table;
 pub mod bytecode_lookup_table;
 pub mod call_lookup_table;
 pub mod call_trace_table;
+pub mod constant_lookup_table;
 pub mod input_type_element_table;
 pub mod pow2_fixed_table;
 pub mod rw_table;
@@ -49,6 +53,7 @@ pub mod utils;
 #[derive(Default)]
 pub struct LookupsWithCondition<F: FieldExt> {
     pub rw_lookups: Vec<(&'static str, RWLookup<F>, /*condition*/ Expression<F>)>,
+    pub constant_lookup: Vec<(&'static str, ConstantLookup<F>, Expression<F>)>,
     pub bytecode_lookups: Vec<(
         &'static str,
         BytecodeLookup<F>,
@@ -85,6 +90,7 @@ impl<F: FieldExt> LookupsWithCondition<F> {
 #[derive(Clone, Debug)]
 pub struct LookupTableConfig<F: FieldExt> {
     pub rw_table: RWTable,
+    pub constant_table: ConstantLookupTable,
     pub bytecode_table: BytecodeLookupTable,
     pub calls_table: CallLookupTable,
     pub arith_op_table: ArithOpLookupTable,
@@ -99,6 +105,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
     pub fn construct(meta: &mut ConstraintSystem<F>) -> Self {
         let rw_table = RWTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
+        let constant_table = ConstantLookupTable::construct(meta);
         let calls_table = CallLookupTable::construct(meta);
         let arith_op_table = ArithOpLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
@@ -108,6 +115,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let input_type_element_table = InputTypeElementTable::construct(meta);
         LookupTableConfig {
             rw_table,
+            constant_table,
             bytecode_table,
             calls_table,
             arith_op_table,
@@ -195,7 +203,17 @@ impl<F: FieldExt> LookupTableConfig<F> {
                 ]
             });
         }
-
+        for (name, lookup, cond) in &lookups.constant_lookup {
+            meta.lookup(name, |meta| {
+                let s_step = meta.query_selector(s_step);
+                lookup
+                    .expressions()
+                    .into_iter()
+                    .map(|e| s_step.clone() * cond.clone() * e)
+                    .zip(lookup_table.constant_table.columns())
+                    .collect()
+            });
+        }
         // for (i, item) in lookups.call_lookups.iter().enumerate() {
         //     debug!("call lookup {}, {:?}", i, item);
         // }
@@ -414,7 +432,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
             &bytecodes,
             "bytecode_table",
         )?;
-
+        lookup_table
+            .constant_table
+            .assign_table(layouter, execution_chip.witness.constant_table.clone().0)?;
         let func_calls = &execution_chip
             .witness
             .func_calls
