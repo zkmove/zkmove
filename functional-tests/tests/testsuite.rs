@@ -54,16 +54,17 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let circuit_config = CircuitConfig::default()
             .steps_num(config.steps_num)
             .stack_ops_num(config.stack_ops_num)
-            .locals_ops_num(config.locals_ops_num);
+            .locals_ops_num(config.locals_ops_num)
+            .global_ops_num(config.global_ops_num);
 
         let witness = runtime.execute_script(
-            script,
-            compiled_modules,
-            config.ty_args,
-            config.signer,
+            script.clone(),
+            compiled_modules.clone(),
+            config.ty_args.clone(),
+            config.signer.clone(),
             config.args,
             &mut state,
-            circuit_config,
+            circuit_config.clone(),
         )?;
         debug!("{:?}", witness);
 
@@ -78,7 +79,28 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
-        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk)?;
+        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
+        if let Some(new_args) = config.new_args.as_ref() {
+            info!("execute script with new arguments");
+            let new_witness = runtime.execute_script(
+                script,
+                compiled_modules,
+                if config.new_ty_args.is_empty() {
+                    config.ty_args
+                } else {
+                    config.new_ty_args
+                },
+                config.signer,
+                Some(new_args.clone()),
+                &mut state,
+                circuit_config,
+            )?;
+            let new_vm_circuit = VmCircuit {
+                witness: new_witness,
+            };
+            info!("prove the new execution with old proving key...");
+            runtime.prove_vm_circuit(new_vm_circuit, &[], &params, pk)?;
+        }
     }
 
     Ok(())

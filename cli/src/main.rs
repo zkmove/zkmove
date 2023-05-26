@@ -81,6 +81,7 @@ impl Arguments {
         // compile script and depended modules
         let mut targets = vec![script_file.to_string()];
         let config = RunConfig::new(script)?;
+
         for module in config.modules.into_iter() {
             let path = module_dir
                 .clone()
@@ -106,7 +107,8 @@ impl Arguments {
         let circuit_config = CircuitConfig::default()
             .steps_num(config.steps_num)
             .stack_ops_num(config.stack_ops_num)
-            .locals_ops_num(config.locals_ops_num);
+            .locals_ops_num(config.locals_ops_num)
+            .global_ops_num(config.global_ops_num);
         let witness = runtime.execute_script(
             script.clone(),
             compiled_modules.clone(),
@@ -137,14 +139,21 @@ impl Arguments {
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
-
-        if let Some(new_args) = new_args {
+        #[allow(clippy::or_fun_call)]
+        if let Some(new_args) = new_args
+            .as_ref()
+            .or(config.new_args.as_ref().map(|t| t.as_inner()))
+        {
             info!("execute script with new arguments");
             let arguments = Some(ScriptArguments::new(new_args.clone()));
             let new_witness = runtime.execute_script(
                 script,
                 compiled_modules,
-                config.ty_args,
+                if config.new_ty_args.is_empty() {
+                    config.ty_args
+                } else {
+                    config.new_ty_args
+                },
                 config.signer,
                 arguments,
                 &mut state,
