@@ -22,6 +22,7 @@ use crate::chips::execution_chip::instructions::exists::Exists;
 use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
 use crate::chips::execution_chip::instructions::gt::Gt;
+use crate::chips::execution_chip::instructions::ld_const::LdConst;
 use crate::chips::execution_chip::instructions::ld_false::LdFalse;
 use crate::chips::execution_chip::instructions::ld_true::LdTrue;
 use crate::chips::execution_chip::instructions::ldu128::LdU128;
@@ -91,6 +92,7 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_ldu8: Box<LdU8<F>>,
     op_ldu64: Box<LdU64<F>>,
     op_ldu128: Box<LdU128<F>>,
+    op_ld_const: Box<LdConst<F>>,
     op_castu8: Box<CastU8<F>>,
     op_castu64: Box<CastU64<F>>,
     op_castu128: Box<CastU128<F>>,
@@ -222,6 +224,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_ldu8: configure_opcode_gadget!(),
             op_ldu64: configure_opcode_gadget!(),
             op_ldu128: configure_opcode_gadget!(),
+            op_ld_const: configure_opcode_gadget!(),
             op_castu8: configure_opcode_gadget!(),
             op_castu64: configure_opcode_gadget!(),
             op_castu128: configure_opcode_gadget!(),
@@ -467,6 +470,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::LdU8 => assign_opcode_gadget!(self.config.op_ldu8),
             Opcode::LdU64 => assign_opcode_gadget!(self.config.op_ldu64),
             Opcode::LdU128 => assign_opcode_gadget!(self.config.op_ldu128),
+            Opcode::LdConst => assign_opcode_gadget!(self.config.op_ld_const),
             Opcode::CastU8 => assign_opcode_gadget!(self.config.op_castu8),
             Opcode::CastU64 => assign_opcode_gadget!(self.config.op_castu64),
             Opcode::CastU128 => assign_opcode_gadget!(self.config.op_castu128),
