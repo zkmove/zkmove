@@ -33,6 +33,7 @@ use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
+use vm_circuit::witness::const_table::ConstantTable;
 use vm_circuit::witness::execution_steps::{ExecutionData, GenericTypeData, MaterializedTypeInfo};
 use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
 use vm_circuit::witness::type_instantiation_table::{
@@ -186,12 +187,14 @@ impl<F: FieldExt> Runtime<F> {
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let type_instantiations =
             GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
+        let constants = ConstantTable::from(modules.as_slice());
         let bytecodes = BytecodeTable::from((script.clone(), modules));
 
         Ok(Witness::new(
             exec_steps,
             rw_operations,
             bytecodes,
+            constants,
             func_calls,
             arith_operations,
             call_traces,

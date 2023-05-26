@@ -812,6 +812,19 @@ impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
     }
 }
 
+impl<F: FieldExt> From<MoveValue> for PrimitiveValue<F> {
+    fn from(value: MoveValue) -> Self {
+        match value {
+            MoveValue::U8(v) => PrimitiveValue::u8(v),
+            MoveValue::U64(v) => PrimitiveValue::u64(v),
+            MoveValue::U128(v) => PrimitiveValue::u128(v),
+            MoveValue::Bool(v) => PrimitiveValue::bool(v),
+            MoveValue::Address(v) => PrimitiveValue::address(v.into()),
+            _ => unimplemented!("not supported"),
+        }
+    }
+}
+
 impl<F: FieldExt> PrimitiveValue<F> {
     pub fn bool(x: bool) -> Self {
         let value = if x { F::one() } else { F::zero() };

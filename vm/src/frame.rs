@@ -7,6 +7,7 @@ use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
+
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
@@ -153,6 +154,21 @@ impl<F: FieldExt> Frame<F> {
                 };
 
                 match instruction {
+                    Bytecode::LdConst(const_index) => {
+                        let constant = resolver.constant_at(*const_index);
+                        let val: PrimitiveValue<_> = constant
+                            .deserialize_constant()
+                            .ok_or_else(|| {
+                                RuntimeError::new(StatusCode::UnknownInvariantViolationError)
+                                    .with_message(
+                                    "Verifier failed to verify the deserialization of constants"
+                                        .to_owned(),
+                                )
+                            })?
+                            .into();
+                        execution_step.auxiliary_1 = Some(Value::u64(const_index.0 as u64));
+                        interp.stack.push(val.into(), rw_operations)
+                    }
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u128(*v as u128);
                         let value = Value::new(constant, MoveValueType::U8)?;
