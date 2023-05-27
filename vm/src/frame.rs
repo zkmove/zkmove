@@ -1027,7 +1027,6 @@ impl<F: FieldExt> Frame<F> {
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         // emit rw operations
                         let value_idx = vec_ref.length()? - 1;
@@ -1045,7 +1044,10 @@ impl<F: FieldExt> Frame<F> {
                         }
 
                         // update container headers
-                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(value_idx as u64));
+                        // auxiliary_4 is multiplexed by header_len and ref_val_flattened_len.
+                        let val = (ref_val_flattened_len << 8) + headers.len();
+                        execution_step.auxiliary_4 = Some(Value::u64(val as u64));
                         for (loc, len, flattened_len) in headers {
                             if is_global {
                                 globals::emit_global_op(
@@ -1117,14 +1119,16 @@ impl<F: FieldExt> Frame<F> {
                         let word_element_count = value.word_element_count();
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        execution_step.auxiliary_2 = Some(Value::u64(value_idx as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+                        // auxiliary_4 is multiplexed by header_len and ref_val_flattened_len.
+                        let val = (ref_val_flattened_len << 8) + headers.len();
+                        execution_step.auxiliary_4 = Some(Value::u64(val as u64));
 
                         let val = vec_ref.pop()?;
                         interp.stack.push(val, rw_operations)?;
 
                         // update container headers
-                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
                             if is_global {
                                 globals::emit_global_op(

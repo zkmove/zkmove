@@ -839,18 +839,9 @@ impl<F: FieldExt> AddrExt<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
-        op_index: usize,
-        rw_operations: &RWOperations<F>,
+        val: F,
     ) -> Result<(), Error> {
-        let result = rw_operations
-            .0
-            .get(op_index)
-            .ok_or(Error::Synthesis)?
-            .value()
-            .value()
-            .ok_or(Error::Synthesis)?;
-        let result_bytes: [u8; 32] = result
+        let result_bytes: [u8; 32] = val
             .to_repr()
             .as_ref()
             .try_into()
