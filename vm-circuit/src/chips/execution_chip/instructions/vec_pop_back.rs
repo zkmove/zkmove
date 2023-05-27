@@ -283,22 +283,19 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         // For example, if the vector has address path [3,1,2,1], the header's address will
         // be: [3,1,0,0],[3,1,2,0],[3,1,2,1]
         //
-        // Skip header[0], it's already constrained by the above lookup
-        // for i in 1..(MAX_ADDRESS_EXT_LENGTH) {
-        //     // header[i]'s frame_index or global address must equal to ref_val[0],
-        //     // already constrained by the above lookup
+        for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
+            // header[i]'s frame_index or global address must equal to ref_val[0],
+            // header[i]'s locals_index or global sd_index must equal to ref_val[1],
+            // already constrained by the above lookup
 
-        //     // header[i]'s locals_index or global sd_index must equal to ref_val[1],
-        //     // already constrained by the above lookup
-
-        //     // header[i]'s addr_ext_0 must equal to ref_val[2],
-        //     let constraint = cond.clone()
-        //         * (1.expr() - self.headers_value_mask[i].expression.clone())
-        //         * (self.headers_value_addr_ext_0[i].expression.clone()
-        //             - self.ref_val[2].expression.clone());
-        //     cb.add_constraint("check header addr_ext_0", constraint);
-
-        // }
+            // header[i]'s addr_ext_0 must equal to ref_val[2],
+            let constraint = cond.clone()
+                * (self.ref_val_addr_ext_bytes_mask[i].expression.clone())
+                * (1.expr() - self.value_addr_ext_bytes_mask[i].expression.clone())
+                * (self.headers_value_addr_ext_0[i].expression.clone()
+                    - self.ref_val[2].expression.clone());
+            cb.add_constraint("check header addr_ext_0", constraint);
+        }
 
         // Constrains the headers are correctly updated.
         for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
