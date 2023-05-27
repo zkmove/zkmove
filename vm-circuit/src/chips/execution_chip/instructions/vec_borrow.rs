@@ -45,7 +45,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
     ) {
         // for instruction VecMut(Imm)Borrow, there are 3 steps here:
         // 1. read index from stack. [gc, 1]
-        // 1. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
+        // 2. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
         // 3. write reference to element into stack.
         // [gc + 1 + DEPTH_OF_ADDRESS_PATH, DEPTH_OF_ADDRESS_PATH]
         let opcode = if MUTABLE {
@@ -158,7 +158,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         let a_mask = &self.ref_val_addr_ext_bytes_mask;
         let b = &self.indexed_ref_val_addr_ext_bytes;
         let b_mask = &self.indexed_ref_val_addr_ext_bytes_mask;
-        let offset = &cells.auxiliary_2; // field_offset
+        let offset = &self.index; // field_offset
         AddrExt::addr_ext_bytes_constrain(cb, cond.clone(), a, a_mask, b, b_mask, offset)
             .expect("addr ext check failed");
 
