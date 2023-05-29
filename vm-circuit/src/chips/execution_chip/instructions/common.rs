@@ -11,11 +11,12 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 
-use error::VmResult;
+use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
+use movelang::value::DEPTH_OF_LOCATION_PATH;
 use movelang::value::{
     Value, DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
@@ -613,18 +614,46 @@ impl<F: FieldExt> Word<F> {
         region: &mut Region<'_, F>,
         offset: usize,
         step_value: &Option<Value<F>>,
-        step_cell: &Cell<F>,
+        cell: &Cell<F>,
     ) -> VmResult<F> {
         let value = step_value.as_ref().ok_or_else(|| {
             error!("step value {:?} is None", step_value);
             Error::Synthesis
         })?;
-        step_cell.assign(region, offset, value.value())?;
+        cell.assign(region, offset, value.value())?;
 
         Ok(value.value().ok_or_else(|| {
             error!("failed to get step value {:?}", step_value);
             Error::Synthesis
         })?)
+    }
+    pub fn assign_offset_pow2(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step_value: &Option<Value<F>>,
+        cell: &Cell<F>,
+    ) -> VmResult<F> {
+        let val = step_value
+            .as_ref()
+            .ok_or_else(|| {
+                error!("step value {:?} is None", step_value);
+                Error::Synthesis
+            })?
+            .value()
+            .unwrap()
+            .get_lower_32();
+
+        let addr_ext_offset = val - (DEPTH_OF_LOCATION_PATH as u32);
+        if addr_ext_offset >= (MAX_ADDRESS_EXT_LENGTH as u32) {
+            error!("ref value {:?} is out of bound", step_value);
+            return Err(RuntimeError::new(StatusCode::OutOfBounds));
+        }
+
+        // every layer of addres extend is 16 bits. max 65535 members.
+        let pow2_of_val = F::from_u128(2).pow(&[(addr_ext_offset * 16) as u64, 0, 0, 0]);
+        cell.assign(region, offset, Some(pow2_of_val))?;
+
+        Ok(pow2_of_val)
     }
 
     pub fn assign_word(
@@ -917,52 +946,52 @@ impl<F: FieldExt> AddrExt<F> {
         Ok(())
     }
 
-    pub(crate) fn addr_ext_constrain(
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-        ref_val: &[Cell<F>],
-        ref_val_addr_ext_bytes: &[Cell<F>],
-    ) -> Result<(), Error> {
-        let ref_val_addr_ext = ref_val
-            .get(2)
-            .expect("addr_ext is not exsit")
-            .expression
-            .clone();
-        let ref_val_bytes =
-            FieldBytes::from(ref_val_addr_ext_bytes.to_owned()).expr_16bit(MAX_ADDRESS_EXT_LENGTH);
-        let constraint = cond * (ref_val_addr_ext - ref_val_bytes);
-        cb.add_constraint("borrow_field: addr_ext bytes check 0", constraint);
+    // pub(crate) fn addr_ext_constrain(
+    //     cb: &mut ConstraintBuilder<F>,
+    //     cond: Expression<F>,
+    //     ref_val: &[Cell<F>],
+    //     ref_val_addr_ext_bytes: &[Cell<F>],
+    // ) -> Result<(), Error> {
+    //     let ref_val_addr_ext = ref_val
+    //         .get(2)
+    //         .expect("addr_ext is not exsit")
+    //         .expression
+    //         .clone();
+    //     let ref_val_bytes =
+    //         FieldBytes::from(ref_val_addr_ext_bytes.to_owned()).expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+    //     let constraint = cond * (ref_val_addr_ext - ref_val_bytes);
+    //     cb.add_constraint("borrow_field: addr_ext bytes check 0", constraint);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub(crate) fn addr_ext_bytes_constrain(
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-        ref_bytes: &[Cell<F>],
-        ref_bytes_mask: &[Cell<F>],
-        indexed_ref_bytes: &[Cell<F>],
-        indexed_ref_bytes_mask: &[Cell<F>],
-        offset: &Cell<F>,
-    ) -> Result<(), Error> {
-        // addr_ext comparation between ref_val and indexed_ref_val
-        for i in 0..MAX_ADDRESS_EXT_LENGTH {
-            let constraint = cond.clone()
-                * (1.expr() - ref_bytes_mask[i].expression.clone())
-                * (ref_bytes[i].expression.clone() - indexed_ref_bytes[i].expression.clone());
-            cb.add_constraint("addr_ext_constrain: addr_ext_eq", constraint);
-        }
+    // pub(crate) fn addr_ext_bytes_constrain(
+    //     cb: &mut ConstraintBuilder<F>,
+    //     cond: Expression<F>,
+    //     ref_bytes: &[Cell<F>],
+    //     ref_bytes_mask: &[Cell<F>],
+    //     indexed_ref_bytes: &[Cell<F>],
+    //     indexed_ref_bytes_mask: &[Cell<F>],
+    //     offset: &Cell<F>,
+    // ) -> Result<(), Error> {
+    //     // addr_ext comparation between ref_val and indexed_ref_val
+    //     for i in 0..MAX_ADDRESS_EXT_LENGTH {
+    //         let constraint = cond.clone()
+    //             * (1.expr() - ref_bytes_mask[i].expression.clone())
+    //             * (ref_bytes[i].expression.clone() - indexed_ref_bytes[i].expression.clone());
+    //         cb.add_constraint("addr_ext_constrain: addr_ext_eq", constraint);
+    //     }
 
-        // field_offset is pushed into the last element of word,
-        // and it's larger than the real offset by 1
-        for i in 0..MAX_ADDRESS_EXT_LENGTH {
-            let constraint = cond.clone()
-                * ref_bytes_mask[i].expression.clone()
-                * (1.expr() - indexed_ref_bytes_mask[i].expression.clone())
-                * (offset.expression.clone() + 1.expr() - indexed_ref_bytes[i].expression.clone());
-            cb.add_constraint("addr_ext_constrain: field_offset_eq", constraint);
-        }
+    //     // field_offset is pushed into the last element of word,
+    //     // and it's larger than the real offset by 1
+    //     for i in 0..MAX_ADDRESS_EXT_LENGTH {
+    //         let constraint = cond.clone()
+    //             * ref_bytes_mask[i].expression.clone()
+    //             * (1.expr() - indexed_ref_bytes_mask[i].expression.clone())
+    //             * (offset.expression.clone() + 1.expr() - indexed_ref_bytes[i].expression.clone());
+    //         cb.add_constraint("addr_ext_constrain: field_offset_eq", constraint);
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }

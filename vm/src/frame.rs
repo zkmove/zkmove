@@ -1025,9 +1025,6 @@ impl<F: FieldExt> Frame<F> {
                             })?;
                         vec_ref.push_back(value)?;
 
-                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
-                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-
                         // emit rw operations
                         let value_idx = vec_ref.length()? - 1;
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
@@ -1043,11 +1040,14 @@ impl<F: FieldExt> Frame<F> {
                             execution_step.auxiliary_5 = Some(Value::bool(false));
                         }
 
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        // auxiliary_2 is multiplexed by header_len and value_index.
+                        let val = (value_idx << 8) + headers.len();
+                        execution_step.auxiliary_2 = Some(Value::u64(val as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+
                         // update container headers
-                        execution_step.auxiliary_2 = Some(Value::u64(value_idx as u64));
-                        // auxiliary_4 is multiplexed by header_len and ref_val_flattened_len.
-                        let val = (ref_val_flattened_len << 8) + headers.len();
-                        execution_step.auxiliary_4 = Some(Value::u64(val as u64));
                         for (loc, len, flattened_len) in headers {
                             if is_global {
                                 globals::emit_global_op(
@@ -1119,11 +1119,11 @@ impl<F: FieldExt> Frame<F> {
                         let word_element_count = value.word_element_count();
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
-                        execution_step.auxiliary_2 = Some(Value::u64(value_idx as u64));
+                        // auxiliary_2 is multiplexed by header_len and value_index.
+                        let val = (value_idx << 8) + headers.len();
+                        execution_step.auxiliary_2 = Some(Value::u64(val as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        // auxiliary_4 is multiplexed by header_len and ref_val_flattened_len.
-                        let val = (ref_val_flattened_len << 8) + headers.len();
-                        execution_step.auxiliary_4 = Some(Value::u64(val as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         let val = vec_ref.pop()?;
                         interp.stack.push(val, rw_operations)?;

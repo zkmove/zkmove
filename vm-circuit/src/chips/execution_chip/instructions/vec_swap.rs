@@ -5,6 +5,7 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::WORD_CAPACITY;
+
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
@@ -19,6 +20,7 @@ use movelang::value::DEPTH_OF_ADDRESS_PATH;
 pub struct VecSwap<F: FieldExt> {
     idx_a: Cell<F>,
     idx_b: Cell<F>,
+    offset_pow2: Cell<F>,
 
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
@@ -35,8 +37,6 @@ pub struct VecSwap<F: FieldExt> {
     value_b_mask: Vec<Cell<F>>,
     value_b_addr_ext_0: Vec<Cell<F>>,
     value_b_addr_ext_1: Vec<Cell<F>>,
-
-    ref_swapped_value_mask: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
@@ -324,35 +324,24 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("ref_check_1", constraint);
 
-        // Constrains ref_val[2] == value_a_addr_ext_0[0] == value_b_addr_ext_0[0].
-        // Todo value_addr_ext_0 is multiplexing for all address extend.
-        // need to use FieldBytes to parse everyone.
-        // constraint = cond.clone()
-        //     * (self.ref_val[2].expression.clone() - self.value_a_addr_ext_0[0].expression.clone())
-        //     * (1.expr() - self.ref_val_mask[2].expression.clone());
-        // cb.add_constraint("ref_check_2", constraint);
-        // constraint = cond.clone()
-        //     * (self.ref_val[2].expression.clone() - self.value_b_addr_ext_0[0].expression.clone())
-        //     * (1.expr() - self.ref_val_mask[2].expression.clone());
-        // cb.add_constraint("ref_check_2", constraint);
-
+        // Constrains ref_val[2] == value_a_address_path[2, ref_val_flattened_len].
+        // Constrains ref_val[2] == value_b_address_path[2, ref_val_flattened_len].
         // value_a is read from idx_a, value_b is read from idx_b
         // idx_a + 1 == value_a_address_path[last]
         // idx_b + 1 == value_b_address_path[last]
         // counting the header, it's 1 larger than the real offset
         constraint = cond.clone()
-            * (self.idx_a.expression.clone() + 1.expr()
+            * (self.ref_val[2].expression.clone()
+                + (self.idx_a.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
                 - self.value_a_addr_ext_0[0].expression.clone())
-            * self.ref_val_mask[2].expression.clone()
-            * (1.expr() - self.ref_swapped_value_mask[2].expression.clone());
-        cb.add_constraint("idx_a_check on addr_ext_0", constraint);
-
+            * (1.expr() - self.ref_val_mask[2].expression.clone());
+        cb.add_constraint("value_a's address check with ref_val[2]", constraint);
         constraint = cond.clone()
-            * (self.idx_b.expression.clone() + 1.expr()
+            * (self.ref_val[2].expression.clone()
+                + (self.idx_b.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
                 - self.value_b_addr_ext_0[0].expression.clone())
-            * self.ref_val_mask[2].expression.clone()
-            * (1.expr() - self.ref_swapped_value_mask[2].expression.clone());
-        cb.add_constraint("idx_b_check on addr_ext_0", constraint);
+            * (1.expr() - self.ref_val_mask[2].expression.clone());
+        cb.add_constraint("value_b's address check with ref_val[2]", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -381,6 +370,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let ref_val_flattened_len =
             Word::assign_step_value(region, offset, &step.auxiliary_4, &cells.auxiliary_4)?
                 .get_lower_128() as usize;
+        let _pow2 = Word::assign_offset_pow2(region, offset, &step.auxiliary_4, &self.offset_pow2)?
+            .get_lower_128() as usize;
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
@@ -467,14 +458,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             value_b_flattened_len,
         )?;
 
-        // assign ref_swapped_value_mask
-        for i in 0..(ref_val_flattened_len + 1).min(DEPTH_OF_ADDRESS_PATH) {
-            self.ref_swapped_value_mask[i].assign(region, offset, Some(F::zero()))?;
-        }
-        for i in (ref_val_flattened_len + 1)..DEPTH_OF_ADDRESS_PATH {
-            self.ref_swapped_value_mask[i].assign(region, offset, Some(F::one()))?;
-        }
-
         Ok(())
     }
 
@@ -482,6 +465,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         // alloc cell
         let idx_a = cb.alloc_cell();
         let idx_b = cb.alloc_cell();
+        let offset_pow2 = cb.alloc_cell();
 
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
@@ -499,11 +483,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let value_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
         let value_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
 
-        let ref_swapped_value_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-
         Self {
             idx_a,
             idx_b,
+            offset_pow2,
 
             ref_val,
             ref_val_mask,
@@ -520,8 +503,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             value_b_mask,
             value_b_addr_ext_0,
             value_b_addr_ext_1,
-
-            ref_swapped_value_mask,
         }
     }
 }
