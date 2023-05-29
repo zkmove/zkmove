@@ -13,10 +13,9 @@ pub struct RWTable {
     pub address_ext_0_column: Column<Advice>,
     pub address_ext_1_column: Column<Advice>,
     pub value_column: Column<Advice>,
-    pub value_ext_column: Column<Advice>,
     pub sd_index_column: Column<Advice>,
 }
-pub const RW_LOOKUP_TABLE_WIDTH: usize = 10;
+pub const RW_LOOKUP_TABLE_WIDTH: usize = 9;
 
 impl RWTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
@@ -29,7 +28,6 @@ impl RWTable {
             address_ext_0_column: meta.advice_column(),
             address_ext_1_column: meta.advice_column(),
             value_column: meta.advice_column(),
-            value_ext_column: meta.advice_column(),
             sd_index_column: meta.advice_column(),
         };
 
@@ -42,7 +40,6 @@ impl RWTable {
         meta.enable_equality(rw_table.address_ext_0_column);
         meta.enable_equality(rw_table.address_ext_1_column);
         meta.enable_equality(rw_table.value_column);
-        meta.enable_equality(rw_table.value_ext_column);
         meta.enable_equality(rw_table.sd_index_column);
 
         rw_table
@@ -58,7 +55,6 @@ impl RWTable {
             self.address_ext_0_column,
             self.address_ext_1_column,
             self.value_column,
-            self.value_ext_column,
             self.sd_index_column,
         ]
     }
@@ -81,7 +77,6 @@ pub struct RWLookup<F: FieldExt> {
     pub address_ext_0: Expression<F>,
     pub address_ext_1: Expression<F>,
     pub value: Expression<F>,
-    pub value_ext: Expression<F>,
     pub sd_index: Expression<F>, // struct definition index used by global rw ops
 }
 
@@ -92,7 +87,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -103,7 +97,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index: 0.expr(),
         }
     }
@@ -114,7 +107,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -125,7 +117,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index: 0.expr(),
         }
     }
@@ -139,7 +130,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
@@ -152,7 +142,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
-                value_ext: value_ext.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
@@ -164,7 +153,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0,
                 address_ext_1,
                 value,
-                value_ext,
                 sd_index: 0.expr(),
             },
         )
@@ -179,7 +167,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
         (
@@ -192,7 +179,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
-                value_ext: value_ext.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
@@ -204,7 +190,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: 0.expr(),
-                value_ext: 0.expr(),
                 sd_index: 0.expr(),
             },
             RWLookup {
@@ -216,7 +201,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0,
                 address_ext_1,
                 value,
-                value_ext,
                 sd_index: 0.expr(),
             },
         )
@@ -231,7 +215,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
@@ -244,7 +227,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
-                value_ext: value_ext.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
@@ -256,7 +238,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0,
                 address_ext_1,
                 value,
-                value_ext,
                 sd_index: 0.expr(),
             },
         )
@@ -270,7 +251,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -281,7 +261,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index: 0.expr(),
         }
     }
@@ -293,7 +272,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -304,7 +282,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index: 0.expr(),
         }
     }
@@ -316,7 +293,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
     ) -> RWLookup<F> {
         RWLookup {
             gc,
@@ -327,7 +303,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index: 0.expr(),
         }
     }
@@ -336,7 +311,6 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         address: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         sd_index: Expression<F>,
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
@@ -350,7 +324,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index,
         }
     }
@@ -363,7 +336,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         word_element_num: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
         (
@@ -377,7 +349,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
-                value_ext: value_ext.clone(),
             },
             RWLookup {
                 gc: gc.clone() + word_element_num.clone(),
@@ -389,7 +360,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: 0.expr(),
-                value_ext: 0.expr(),
             },
             RWLookup {
                 gc: gc + word_element_num * 2.expr(),
@@ -400,7 +370,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0,
                 address_ext_1,
                 value,
-                value_ext,
                 sd_index: 0.expr(),
             },
         )
@@ -415,7 +384,6 @@ impl<F: FieldExt> RWLookup<F> {
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         word_elem_num: Expression<F>,
         depth_of_addr_path: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
@@ -429,7 +397,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0: address_ext_0.clone(),
                 address_ext_1: address_ext_1.clone(),
                 value: value.clone(),
-                value_ext: value_ext.clone(),
                 sd_index: 0.expr(),
             },
             RWLookup {
@@ -442,7 +409,6 @@ impl<F: FieldExt> RWLookup<F> {
                 address_ext_0,
                 address_ext_1,
                 value,
-                value_ext,
             },
         )
     }
@@ -451,7 +417,6 @@ impl<F: FieldExt> RWLookup<F> {
         gc: Expression<F>,
         address: Expression<F>,
         value: Expression<F>,
-        value_ext: Expression<F>,
         sd_index: Expression<F>,
         address_ext_0: Expression<F>,
         address_ext_1: Expression<F>,
@@ -465,7 +430,6 @@ impl<F: FieldExt> RWLookup<F> {
             address_ext_0,
             address_ext_1,
             value,
-            value_ext,
             sd_index,
         }
     }

@@ -101,7 +101,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(),
                 0.expr(),
                 self.idx_b.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -113,7 +112,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 0.expr(),
                 0.expr(),
                 self.idx_a.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -128,7 +126,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
-                    0.expr(),
                 ),
                 cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
             ));
@@ -148,7 +145,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(),
             );
             lookups.rw_lookups.push((
                 "vec_swap(read value_a)",
@@ -164,7 +160,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     + (i as u64).expr(),
                 self.vec_frame_index_or_global_address.expression.clone(),
                 item.expression.clone(),
-                0.expr(),
                 self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),
@@ -190,7 +185,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "vec_swap(write value_a)",
@@ -208,7 +202,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     + (i as u64).expr(),
                 self.vec_frame_index_or_global_address.expression.clone(),
                 item.expression.clone(),
-                0.expr(), //fixme, value_ext may not be 0.
                 self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
@@ -235,7 +228,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(),
             );
             lookups.rw_lookups.push((
                 "vec_swap(read value_b)",
@@ -252,7 +244,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     + (i as u64).expr(),
                 self.vec_frame_index_or_global_address.expression.clone(),
                 item.expression.clone(),
-                0.expr(),
                 self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_b_addr_ext_0[i].expression.clone(),
                 self.value_b_addr_ext_1[i].expression.clone(),
@@ -278,7 +269,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
-                0.expr(), //fixme, value_ext may not be 0.
             );
             lookups.rw_lookups.push((
                 "vec_swap(write value_b)",
@@ -296,7 +286,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     + (i as u64).expr(),
                 self.vec_frame_index_or_global_address.expression.clone(),
                 item.expression.clone(),
-                0.expr(), //fixme, value_ext may not be 0.
                 self.vec_locals_index_or_global_sd_idx.expression.clone(),
                 self.value_a_addr_ext_0[i].expression.clone(),
                 self.value_a_addr_ext_1[i].expression.clone(),

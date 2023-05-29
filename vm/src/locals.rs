@@ -112,7 +112,7 @@ impl<F: FieldExt> Locals<F> {
                 // LocalsOP Read
                 emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
                 // LocalsOP Write
-                for (address_path, _, _) in word {
+                for (address_path, _) in word {
                     let locals_op_2 = LocalsOp {
                         frame_index: *address_path
                             .0
@@ -123,7 +123,6 @@ impl<F: FieldExt> Locals<F> {
                         address_ext_0: address_path.addr_ext(),
                         address_ext_1: 0_usize,
                         value: None,
-                        value_ext: None,
                         rw: RW::WRITE,
                         gc: rw_operations.len(),
                     };
@@ -207,8 +206,7 @@ impl<F: FieldExt> Locals<F> {
 
 pub fn emit_locals_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: Option<PrimitiveValue<F>>,
-    value_ext: Option<PrimitiveValue<F>>,
+    value: PrimitiveValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
@@ -220,8 +218,7 @@ pub fn emit_locals_op<F: FieldExt>(
         index: *address_path.0.get(1).expect("index should not be None") as usize,
         address_ext_0: address_path.addr_ext(),
         address_ext_1: 0_usize,
-        value,
-        value_ext,
+        value: Some(value),
         rw,
         gc: rw_operations.len(),
     };
@@ -230,15 +227,11 @@ pub fn emit_locals_op<F: FieldExt>(
 
 #[allow(clippy::type_complexity)]
 pub fn emit_locals_ops_for_word<F: FieldExt>(
-    word: Vec<(
-        AddressPath<F>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )>,
+    word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val, val_ext) in word {
-        emit_locals_op(address_path, val, val_ext, rw, rw_operations)
+    for (address_path, val) in word {
+        emit_locals_op(address_path, val, rw, rw_operations)
     }
 }

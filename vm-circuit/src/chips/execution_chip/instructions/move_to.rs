@@ -90,7 +90,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
-                0.expr(), //fixme, value_ext may not be 0.
                 word_elem_num.clone(),
                 depth_of_addr_path_expr.clone(),
             );
@@ -117,7 +116,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
-                    0.expr(),
                 ),
                 cond.clone(),
             ));

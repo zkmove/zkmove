@@ -14,7 +14,7 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 14;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 13;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
@@ -26,7 +26,6 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
-    pub value_ext: Cell<F>,
     pub is_empty: Cell<F>, // is empty op or not
     // delta_invert_xxx is used to constrain the strict monotonic
     // increment of gc for the same locals
@@ -43,7 +42,6 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
-    pub prev_value_ext: Cell<F>,
     pub prev_is_empty: Cell<F>,
 }
 
@@ -125,7 +123,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
-            value_ext: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             delta_invert_frame_index: cells.pop_front().unwrap(),
             delta_invert_idx: cells.pop_front().unwrap(),
@@ -140,7 +137,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
-            prev_value_ext: cells.pop_front().unwrap(),
             prev_is_empty: cells.pop_front().unwrap(),
         };
 
@@ -303,16 +299,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
             constraints.push((
-                "read op: value",
+                "read op",
                 cond.clone()
                     * (cells.value.expression.clone() - cells.prev_value.expression.clone())
-                    * is_read.clone(),
-            ));
-            constraints.push((
-                "read op: value_ext",
-                cond.clone()
-                    * (cells.value_ext.expression.clone()
-                        - cells.prev_value_ext.expression.clone())
                     * is_read,
             ));
 
@@ -562,16 +551,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     Error::Synthesis
                 })?,
                 "value",
-            )?;
-
-            self.config.cells.value_ext.assign_equality(
-                region,
-                offset,
-                op.value_ext.1.clone().ok_or_else(|| {
-                    error!("value_ext assigned cell is None");
-                    Error::Synthesis
-                })?,
-                "value_ext",
             )?;
         }
 
