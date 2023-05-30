@@ -435,14 +435,10 @@ impl<F: FieldExt> LookupTableConfig<F> {
         lookup_table
             .constant_table
             .assign_table(layouter, execution_chip.witness.constant_table.clone().0)?;
-        let func_calls = &execution_chip
-            .witness
-            .func_calls
-            .iter()
-            .map(|call| call.into())
-            .collect();
-        let call_table_columns = lookup_table.calls_table.columns();
-        assign_table(layouter, call_table_columns, func_calls, "call_table")?;
+
+        lookup_table
+            .calls_table
+            .assign_table(layouter, execution_chip.witness.func_call_table.clone())?;
 
         let arith_ops = &execution_chip
             .witness

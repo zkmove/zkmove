@@ -1,4 +1,7 @@
-use halo2_proofs::plonk::{Expression, TableColumn};
+use crate::chips::execution_chip::lookup_tables::utils::assign_table;
+use crate::witness::function_calls::FunctionCall;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::{Error, Expression, TableColumn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
@@ -37,6 +40,28 @@ impl CallLookupTable {
             self.callee_function_index_column,
             self.next_pc_column,
         ]
+    }
+
+    pub fn assign_table<F: FieldExt>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        calls: Vec<FunctionCall>,
+    ) -> Result<(), Error> {
+        let values = calls
+            .into_iter()
+            .map(|func_call| {
+                vec![
+                    F::from_u128(func_call.type_ as u128),
+                    F::from_u128(func_call.module_index as u128),
+                    F::from_u128(func_call.function_index as u128),
+                    F::from_u128(func_call.pc as u128),
+                    F::from_u128(func_call.next_module_index as u128),
+                    F::from_u128(func_call.next_function_index as u128),
+                    F::from_u128(func_call.next_pc as u128),
+                ]
+            })
+            .collect();
+        assign_table(layouter, self.columns(), &values, "func_call_table")
     }
 }
 

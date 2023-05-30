@@ -35,6 +35,7 @@ use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
 use vm_circuit::witness::const_table::ConstantTable;
 use vm_circuit::witness::execution_steps::{ExecutionData, GenericTypeData, MaterializedTypeInfo};
+use vm_circuit::witness::function_calls::FunctionCalls;
 use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
 use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
@@ -184,6 +185,7 @@ impl<F: FieldExt> Runtime<F> {
                 .data = Some(data);
         });
 
+        let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let type_instantiations =
             GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
