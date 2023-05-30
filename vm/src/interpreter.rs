@@ -23,7 +23,7 @@ use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
+
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
@@ -220,9 +220,6 @@ impl<F: FieldExt> Interpreter<F> {
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.frame_index = frame_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
-                    let module_index = execution_step.module_index;
-                    let function_index = execution_step.function_index;
-                    let pc = execution_step.pc;
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
@@ -265,9 +262,6 @@ impl<F: FieldExt> Interpreter<F> {
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     trace!("step #{}, {:?}", self.step, execution_step);
-                    let module_index = execution_step.module_index;
-                    let function_index = execution_step.function_index;
-                    let pc = execution_step.pc;
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
