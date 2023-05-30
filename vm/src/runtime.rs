@@ -103,7 +103,6 @@ impl<F: FieldExt> Runtime<F> {
             })?;
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
-        let mut func_calls = Vec::new();
         let mut arith_operations = Vec::new();
         let mut generic_types = Vec::new();
         interp.run_script(
@@ -117,7 +116,6 @@ impl<F: FieldExt> Runtime<F> {
             data_store,
             &mut exec_steps,
             &mut rw_operations,
-            &mut func_calls,
             &mut arith_operations,
             &mut generic_types,
         )?;
