@@ -434,38 +434,39 @@ impl<F: FieldExt> StackOpChip<F> {
                 .counter
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
-        if is_empty {
-            self.config.cells.gc.assign(region, offset, Some(op.gc.0))?;
-
-            self.config.cells.rw.assign(region, offset, Some(op.rw.0))?;
-
-            self.config
-                .cells
-                .address
-                .assign(region, offset, Some(op.address.0))?;
-
-            self.config
-                .cells
-                .address_ext_0
-                .assign(region, offset, Some(op.address_ext_0.0))?;
-
-            self.config
-                .cells
-                .address_ext_1
-                .assign(region, offset, Some(op.address_ext_1.0))?;
-
-            self.config.cells.value.assign(region, offset, op.value.0)?;
-
-            self.config
-                .cells
-                .value_ext
-                .assign(region, offset, op.value_ext.0)?;
-
-            self.config
-                .cells
-                .is_empty
-                .assign(region, offset, Some(F::one()))?;
-        } else {
+        // if is_empty {
+        //     self.config.cells.gc.assign(region, offset, Some(op.gc.0))?;
+        //
+        //     self.config.cells.rw.assign(region, offset, Some(op.rw.0))?;
+        //
+        //     self.config
+        //         .cells
+        //         .address
+        //         .assign(region, offset, Some(op.address.0))?;
+        //
+        //     self.config
+        //         .cells
+        //         .address_ext_0
+        //         .assign(region, offset, Some(op.address_ext_0.0))?;
+        //
+        //     self.config
+        //         .cells
+        //         .address_ext_1
+        //         .assign(region, offset, Some(op.address_ext_1.0))?;
+        //
+        //     self.config.cells.value.assign(region, offset, op.value.0)?;
+        //
+        //     self.config
+        //         .cells
+        //         .value_ext
+        //         .assign(region, offset, op.value_ext.0)?;
+        //
+        //     self.config
+        //         .cells
+        //         .is_empty
+        //         .assign(region, offset, Some(F::one()))?;
+        // } else
+        {
             self.config.cells.gc.assign_equality(
                 region,
                 offset,
@@ -556,10 +557,11 @@ impl<F: FieldExt> StackOpChip<F> {
                 op.address_ext_1.0.delta_invert(pre_addr_ext_1),
             )?;
 
-            self.config
-                .cells
-                .is_empty
-                .assign(region, offset, Some(F::zero()))?;
+            self.config.cells.is_empty.assign(
+                region,
+                offset,
+                Some(if is_empty { F::one() } else { F::zero() }),
+            )?;
         }
 
         Ok(assigned)
@@ -570,18 +572,18 @@ impl<F: FieldExt> StackOpChip<F> {
         layouter: &mut impl Layouter<F>,
         circuit_config: &CircuitConfig,
         stack_ops: Vec<ConvertedRWOperation<F>>,
-        stack_ops_num: usize,
+        real_stack_ops_len: usize,
     ) -> Option<AssignedCell<F, F>> {
         let mut last_stack_counter: Option<AssignedCell<F, F>> = None;
 
-        if !stack_ops.is_empty() || stack_ops_num > 0 {
+        if !stack_ops.is_empty() {
             layouter
                 .assign_region(
                     || "stack operations",
                     |mut region: Region<'_, F>| {
                         let mut prev_op = None;
                         let mut counter = 0;
-                        for (index, op) in stack_ops.iter().enumerate() {
+                        for (index, op) in stack_ops.iter().enumerate().take(real_stack_ops_len) {
                             counter = index + 1;
                             let assigned_counter = if index == 0 {
                                 self.config.s_first_stack_op.enable(&mut region, index)?;
@@ -590,7 +592,7 @@ impl<F: FieldExt> StackOpChip<F> {
                                 self.config.s_stack_op.enable(&mut region, index)?;
                                 self.assign_cell(&mut region, index, op, counter, prev_op, false)?
                             };
-                            if counter == stack_ops.len() {
+                            if counter == real_stack_ops_len {
                                 last_stack_counter = Some(assigned_counter);
                             }
                             prev_op = Some(op.clone());
@@ -599,32 +601,17 @@ impl<F: FieldExt> StackOpChip<F> {
                         // If the number of stack ops is less than stack_ops_num set by user, fill with
                         // empty op. This happened when the execution path is not fixed, for example,
                         // if there is loop in the code.
-                        if stack_ops.len() < stack_ops_num {
-                            for index in stack_ops.len()..stack_ops_num {
-                                let assigned_counter = if index == 0 {
-                                    self.config.s_first_stack_op.enable(&mut region, index)?;
-                                    self.assign_cell(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        None,
-                                        true,
-                                    )?
-                                } else {
-                                    self.config.s_stack_op.enable(&mut region, index)?;
-                                    self.assign_cell(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        prev_op,
-                                        true,
-                                    )?
-                                };
-                                last_stack_counter = Some(assigned_counter);
-                                prev_op = Some(ConvertedRWOperation::empty());
-                            }
+
+                        for (index, op) in stack_ops.iter().enumerate().skip(real_stack_ops_len) {
+                            let assigned_counter = if index == 0 {
+                                self.config.s_first_stack_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, None, true)?
+                            } else {
+                                self.config.s_stack_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, prev_op, true)?
+                            };
+                            last_stack_counter = Some(assigned_counter);
+                            prev_op = Some(op.clone());
                         }
                         Ok(())
                     },

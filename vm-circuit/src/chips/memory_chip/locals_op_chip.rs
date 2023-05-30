@@ -493,38 +493,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .counter
                 .assign(region, offset, Some(F::from(counter as u64)))?; //fixme: how about if counter is great than max_u64?
 
-        if is_empty {
-            self.config.cells.gc.assign(region, offset, Some(op.gc.0))?;
-
-            self.config.cells.rw.assign(region, offset, Some(op.rw.0))?;
-
-            self.config
-                .cells
-                .frame_index
-                .assign(region, offset, Some(op.frame_index.0))?;
-
-            self.config
-                .cells
-                .index
-                .assign(region, offset, Some(op.address.0))?;
-
-            self.config
-                .cells
-                .addr_ext_0
-                .assign(region, offset, Some(op.address_ext_0.0))?;
-
-            self.config
-                .cells
-                .addr_ext_1
-                .assign(region, offset, Some(op.address_ext_1.0))?;
-
-            self.config.cells.value.assign(region, offset, op.value.0)?;
-
-            self.config
-                .cells
-                .value_ext
-                .assign(region, offset, op.value_ext.0)?;
-        } else {
+        {
             self.config.cells.gc.assign_equality(
                 region,
                 offset,
@@ -650,18 +619,18 @@ impl<F: FieldExt> LocalsOpChip<F> {
         layouter: &mut impl Layouter<F>,
         circuit_config: &CircuitConfig,
         locals_ops: Vec<ConvertedRWOperation<F>>,
-        locals_ops_num: usize,
+        real_locals_ops_len: usize,
     ) -> Option<AssignedCell<F, F>> {
         let mut last_locals_counter: Option<AssignedCell<F, F>> = None;
 
-        if !locals_ops.is_empty() || locals_ops_num > 0 {
+        if !locals_ops.is_empty() {
             layouter
                 .assign_region(
                     || "locals operations",
                     |mut region: Region<'_, F>| {
                         let mut prev_op = None;
                         let mut counter = 0;
-                        for (index, op) in locals_ops.iter().enumerate() {
+                        for (index, op) in locals_ops.iter().enumerate().take(real_locals_ops_len) {
                             counter = index + 1;
                             let assigned_counter = if index == 0 {
                                 self.config.s_first_locals_op.enable(&mut region, index)?;
@@ -678,33 +647,18 @@ impl<F: FieldExt> LocalsOpChip<F> {
 
                         // If the number of locals ops is less than locals_ops_num set by user, fill with
                         // empty locals op.
-                        if locals_ops.len() < locals_ops_num {
-                            for index in locals_ops.len()..locals_ops_num {
-                                let assigned_counter = if index == 0 {
-                                    self.config.s_first_locals_op.enable(&mut region, index)?;
-                                    self.assign_cell(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        None,
-                                        true,
-                                    )?
-                                } else {
-                                    self.config.s_locals_op.enable(&mut region, index)?;
-                                    self.assign_cell(
-                                        &mut region,
-                                        index,
-                                        &ConvertedRWOperation::empty(),
-                                        counter,
-                                        prev_op,
-                                        true,
-                                    )?
-                                };
 
-                                last_locals_counter = Some(assigned_counter);
-                                prev_op = Some(ConvertedRWOperation::empty());
-                            }
+                        for (index, op) in locals_ops.iter().enumerate().skip(real_locals_ops_len) {
+                            let assigned_counter = if index == 0 {
+                                self.config.s_first_locals_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, None, true)?
+                            } else {
+                                self.config.s_locals_op.enable(&mut region, index)?;
+                                self.assign_cell(&mut region, index, op, counter, prev_op, true)?
+                            };
+
+                            last_locals_counter = Some(assigned_counter);
+                            prev_op = Some(op.clone());
                         }
 
                         Ok(())
