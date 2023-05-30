@@ -35,6 +35,7 @@ use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
 use vm_circuit::witness::const_table::ConstantTable;
 use vm_circuit::witness::execution_steps::{ExecutionData, GenericTypeData, MaterializedTypeInfo};
+use vm_circuit::witness::function_calls::FunctionCalls;
 use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
 use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
@@ -102,7 +103,6 @@ impl<F: FieldExt> Runtime<F> {
             })?;
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
-        let mut func_calls = Vec::new();
         let mut arith_operations = Vec::new();
         let mut generic_types = Vec::new();
         interp.run_script(
@@ -116,7 +116,6 @@ impl<F: FieldExt> Runtime<F> {
             data_store,
             &mut exec_steps,
             &mut rw_operations,
-            &mut func_calls,
             &mut arith_operations,
             &mut generic_types,
         )?;
@@ -184,6 +183,7 @@ impl<F: FieldExt> Runtime<F> {
                 .data = Some(data);
         });
 
+        let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let type_instantiations =
             GenericTypeInstantiationTableData::from((&script, modules.as_slice()));

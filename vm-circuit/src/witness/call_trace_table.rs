@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::file_format::{
-    Bytecode, CompiledScript, FunctionHandleIndex, StructHandleIndex,
+    Bytecode, CompiledScript, FunctionDefinitionIndex, StructDefinitionIndex,
 };
 
 use move_binary_format::CompiledModule;
@@ -69,8 +69,8 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<CallTrace> 
 
 pub struct NameToIdxMapping {
     module_names: HashMap<String, usize>,
-    fn_names: HashMap<String, HashMap<String, FunctionHandleIndex>>,
-    struct_names: HashMap<String, HashMap<String, StructHandleIndex>>,
+    fn_names: HashMap<String, HashMap<String, FunctionDefinitionIndex>>,
+    struct_names: HashMap<String, HashMap<String, StructDefinitionIndex>>,
 }
 
 impl NameToIdxMapping {
@@ -84,11 +84,12 @@ impl NameToIdxMapping {
                 dep.name().to_string(),
                 dep.function_defs()
                     .iter()
-                    .map(|fn_def| {
+                    .enumerate()
+                    .map(|(fn_idx, fn_def)| {
                         let fn_name = dep
                             .identifier_at(dep.function_handle_at(fn_def.function).name)
                             .to_string();
-                        (fn_name, fn_def.function)
+                        (fn_name, FunctionDefinitionIndex(fn_idx as u16))
                     })
                     .collect(),
             );
@@ -96,11 +97,12 @@ impl NameToIdxMapping {
                 dep.name().to_string(),
                 dep.struct_defs()
                     .iter()
-                    .map(|struct_def| {
+                    .enumerate()
+                    .map(|(struct_idx, struct_def)| {
                         let struct_name = dep
                             .identifier_at(dep.struct_handle_at(struct_def.struct_handle).name)
                             .to_string();
-                        (struct_name, struct_def.struct_handle)
+                        (struct_name, StructDefinitionIndex(struct_idx as u16))
                     })
                     .collect(),
             );
@@ -116,7 +118,7 @@ impl NameToIdxMapping {
         &self,
         module_id: Option<&ModuleId>,
         fn_name: &FunctionName,
-    ) -> (u64, FunctionHandleIndex) {
+    ) -> (u64, FunctionDefinitionIndex) {
         match module_id {
             Some(mid) => {
                 let m_idx = self
@@ -135,7 +137,7 @@ impl NameToIdxMapping {
                         }
                     })
                     .cloned()
-                    .unwrap_or(FunctionHandleIndex(0));
+                    .unwrap_or(FunctionDefinitionIndex(0));
                 (m_idx, f_idx)
             }
             // treat script as `0`
@@ -148,12 +150,16 @@ impl NameToIdxMapping {
                     FunctionName::MutBorrowGlobalGeneric => MUT_BORROW_GLOBAL_GENERIC_AS_FIELD,
                     FunctionName::General(_) => 0,
                 };
-                (0, FunctionHandleIndex(fn_index as u16))
+                (0, FunctionDefinitionIndex(fn_index as u16))
             }
         }
     }
     /// TODO: consider module address
-    pub fn map_struct_name(&self, module_id: &ModuleId, name: &str) -> (u64, StructHandleIndex) {
+    pub fn map_struct_name(
+        &self,
+        module_id: &ModuleId,
+        name: &str,
+    ) -> (u64, StructDefinitionIndex) {
         let m_idx = self
             .module_names
             .get(module_id.name().as_str())
@@ -164,7 +170,7 @@ impl NameToIdxMapping {
             .get(module_id.name().as_str())
             .and_then(|t| t.get(name))
             .cloned()
-            .unwrap_or(StructHandleIndex(0));
+            .unwrap_or(StructDefinitionIndex(0));
         (m_idx, s_idx)
     }
 }

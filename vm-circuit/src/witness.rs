@@ -104,7 +104,7 @@ pub struct Witness<F: FieldExt> {
     pub rw_operations: RWOperations<F>,
     pub bytecode_table: BytecodeTable,
     pub constant_table: ConstantTable,
-    pub func_calls: Vec<FunctionCall>,
+    pub func_call_table: Vec<FunctionCall>,
     pub arith_operations: Vec<ArithOperation>,
     pub call_trace_table: CallTraceTable,
     pub type_instantiations: GenericTypeInstantiationTableData,
@@ -131,7 +131,7 @@ impl<F: FieldExt> Witness<F> {
             rw_operations: RWOperations(rw_operations),
             bytecode_table,
             constant_table,
-            func_calls,
+            func_call_table: func_calls,
             arith_operations,
             call_trace_table,
             type_instantiations,
@@ -218,7 +218,7 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         });
         writeln!(f)?;
         writeln!(f, "Function calls table:")?;
-        self.func_calls.iter().for_each(|call| {
+        self.func_call_table.iter().for_each(|call| {
             writeln!(f, "{:?}", call).unwrap();
         });
         writeln!(f)?;
