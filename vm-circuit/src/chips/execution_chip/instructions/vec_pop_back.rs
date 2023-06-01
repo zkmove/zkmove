@@ -78,6 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let value_flattened_len = cells.auxiliary_3.expression.clone();
+        let ref_val_flattened_len = cells.auxiliary_4.expression.clone();
         let headers_count = self.headers_count.expression.clone();
         let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
@@ -285,6 +286,17 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
                     - self.ref_val[2].expression.clone());
             cb.add_constraint("check header addr_ext_0", constraint);
         }
+
+        // constraint on addr_ext_mask_0 and addr_ext_mask_1
+        // skip DEPTH_OF_LOCATION_PATH bits tophead.
+        AddrExt::constrain_mask_n(
+            &self.ref_val_addr_ext_mask_0,
+            &self.ref_val_addr_ext_mask_1,
+            ref_val_flattened_len - (DEPTH_OF_LOCATION_PATH as u64).expr(),
+            (MAX_ADDRESS_EXT_LENGTH as u64).expr(),
+            cb,
+            cond.clone(),
+        );
 
         // Constrains the headers are correctly updated.
         for i in 0..(MAX_ADDRESS_EXT_LENGTH) {

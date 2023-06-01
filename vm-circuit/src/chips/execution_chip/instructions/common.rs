@@ -886,6 +886,62 @@ impl<F: FieldExt> AddrExt<F> {
         Ok(())
     }
 
+    // constraint on mask_a and mask_b
+    // mask_a and mask_b is implemented to get the Nth element on addr_ext.
+    pub(crate) fn constrain_mask_n(
+        mask_a: &[Cell<F>],
+        mask_b: &[Cell<F>],
+        n: Expression<F>,
+        total_len: Expression<F>,
+        cb: &mut ConstraintBuilder<F>,
+        cond: Expression<F>,
+    ) {
+        let one = Expression::Constant(F::one());
+
+        // every entry is 0 or 1 for mask_a
+        let zero_or_one = mask_a
+            .iter()
+            .map(|cell| {
+                (
+                    "zero or one",
+                    cond.clone()
+                        * (cell.expression.clone() - one.clone())
+                        * cell.expression.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        cb.add_constraints(zero_or_one);
+
+        // every entry is monotonic increase
+        for (i, _) in mask_a.iter().enumerate().skip(1) {
+            let delta = mask_a[i].expression.clone() - mask_a[i - 1].expression.clone();
+            let constraint = cond.clone() * delta.clone() * (1.expr() - delta);
+            cb.add_constraint("check header addr_ext_0", constraint);
+        }
+
+        //  sum value of mask_a is MAX_ADDRESS_EXT_LENGTH -  n
+        let init = total_len.clone() - n.clone();
+        let sum = mask_a
+            .iter()
+            .fold(init, |acc, cell| acc - cell.expression.clone());
+        cb.add_constraint("read_ref_eq_0", sum * cond.clone());
+
+        // sum value of mask_b is MAX_ADDRESS_EXT_LENGTH -  n - 1
+        let init = total_len - n.clone() - 1.expr();
+        let sum = mask_b
+            .iter()
+            .fold(init, |acc, cell| acc - cell.expression.clone());
+        cb.add_constraint("read_ref_eq_0", sum * cond.clone());
+
+        // compare mask_a and mask_b, only Nth element is different
+        for (i, _) in mask_a.iter().enumerate() {
+            let constraint = cond.clone()
+                * (n.clone() - (i as u64).expr())
+                * (mask_a[i].expression.clone() - mask_b[i].expression.clone());
+            cb.add_constraint("check header addr_ext_0", constraint);
+        }
+    }
+
     // bytes[n] is selected by mask_a and mask_b
     // for mask_a[n] is 1 and mask_b[n] is 0
     pub fn assign_byte_n_mask(
