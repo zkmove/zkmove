@@ -44,12 +44,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         // 2. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
         // 3. write reference to element into stack.
         // [gc + 1 + DEPTH_OF_ADDRESS_PATH, DEPTH_OF_ADDRESS_PATH]
-        let opcode = if MUTABLE {
-            Opcode::VecMutBorrow
-        } else {
-            Opcode::VecImmBorrow
-        };
-        let cond = cells.conditions[opcode.index()].expression.clone();
+
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -143,7 +139,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
 
         LookupBytecode::lookup_bytecode(
             cells,
-            opcode,
+            Self::OPCODE,
             cells.auxiliary_1.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,

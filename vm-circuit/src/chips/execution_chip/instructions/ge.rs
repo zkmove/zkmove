@@ -36,7 +36,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Ge
-        let cond = cells.conditions[Opcode::Ge.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();

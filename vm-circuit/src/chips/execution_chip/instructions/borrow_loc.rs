@@ -40,13 +40,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let opcode = if MUTABLE {
-            Opcode::MutBorrowLoc
-        } else {
-            Opcode::ImmBorrowLoc
-        };
-
-        let cond = cells.conditions[opcode.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -114,7 +108,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
 
         LookupBytecode::lookup_bytecode(
             cells,
-            opcode,
+            Self::OPCODE,
             cells.locals_index.expression.clone(),
             &mut lookups.bytecode_lookups,
             cond,

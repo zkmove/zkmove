@@ -32,7 +32,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Ret.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
         let frame_index = cells.frame_index.expression.clone();
         let inverse = cells.auxiliary_1.expression.clone();
 

@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
+use crate::chips::execution_chip::utils::dynamic_selector_half::DynamicSelectorHalf;
 use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
@@ -29,7 +30,16 @@ pub struct StepChipCells<F: FieldExt> {
     pub auxiliary_4: Cell<F>,
     pub auxiliary_5: Cell<F>,
 
-    pub conditions: Vec<Cell<F>>, // one cell for each cell
+    pub(crate) conditions: DynamicSelectorHalf<F>,
+}
+impl<F: FieldExt> StepChipCells<F> {
+    pub(crate) fn opcode_selector(
+        &self,
+        opcodes: impl IntoIterator<Item = Opcode>,
+    ) -> Expression<F> {
+        self.conditions
+            .selector(opcodes.into_iter().map(|op| op.index()))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -107,8 +117,7 @@ impl<F: FieldExt> StepChip<F> {
                 auxiliary_4: cell_manager.alloc_cell(CellType::CustomGate),
                 auxiliary_5: cell_manager.alloc_cell(CellType::CustomGate),
 
-                conditions: cell_manager
-                    .allocate_cells(CellType::CustomGate, Opcode::total_numbers()),
+                conditions: DynamicSelectorHalf::new(&mut cell_manager, Opcode::total_numbers()),
             }
         };
 
@@ -120,32 +129,32 @@ impl<F: FieldExt> StepChip<F> {
             cell_manager,
         }
     }
-
-    // step condition must be 1 or 0, and sum of all conditions must be 1
-    pub(crate) fn constrain_step_conditions(
-        cells: &StepChipCells<F>,
-        constraints: &mut Vec<(&str, Expression<F>)>,
-    ) {
-        let one = Expression::Constant(F::one());
-
-        let mut zero_or_one = cells
-            .conditions
-            .iter()
-            .map(|cell| {
-                (
-                    "zero or one",
-                    (cell.expression.clone() - one.clone()) * cell.expression.clone(),
-                )
-            })
-            .collect::<Vec<_>>();
-        constraints.append(&mut zero_or_one);
-
-        let sum_to_one = cells
-            .conditions
-            .iter()
-            .fold(one, |acc, cell| acc - cell.expression.clone());
-        constraints.push(("sum to one", sum_to_one));
-    }
+    //
+    // // step condition must be 1 or 0, and sum of all conditions must be 1
+    // pub(crate) fn constrain_step_conditions(
+    //     cells: &StepChipCells<F>,
+    //     constraints: &mut Vec<(&str, Expression<F>)>,
+    // ) {
+    //     let one = Expression::Constant(F::one());
+    //
+    //     let mut zero_or_one = cells
+    //         .conditions
+    //         .iter()
+    //         .map(|cell| {
+    //             (
+    //                 "zero or one",
+    //                 (cell.expression.clone() - one.clone()) * cell.expression.clone(),
+    //             )
+    //         })
+    //         .collect::<Vec<_>>();
+    //     constraints.append(&mut zero_or_one);
+    //
+    //     let sum_to_one = cells
+    //         .conditions
+    //         .iter()
+    //         .fold(one, |acc, cell| acc - cell.expression.clone());
+    //     constraints.push(("sum to one", sum_to_one));
+    // }
 
     // assign each cell of the step, return assigned cell for gc
     pub fn assign(
@@ -200,16 +209,7 @@ impl<F: FieldExt> StepChip<F> {
         self.config
             .cells
             .conditions
-            .iter()
-            .enumerate()
-            .for_each(|(index, cell)| {
-                let condition = if step.opcode.index() == index {
-                    F::one()
-                } else {
-                    F::zero()
-                };
-                let _assigned = cell.assign(region, offset, Some(condition));
-            });
+            .assign(region, offset, step.opcode.index())?;
 
         // assign other cells for the step
         // step.opcode

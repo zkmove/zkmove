@@ -46,9 +46,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         // for instruction VecUnpack, there are 2 steps here:
         // 1. read vector from stack. [gc, vector_flattened_len]
         // 2. write n values to stack. [gc + vector_flattened_len, , values_flattened_len]
-        let cond = cells.conditions[Opcode::VecUnpack.index()]
-            .expression
-            .clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let values_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();

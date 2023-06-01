@@ -30,7 +30,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
         let const_index = cells.auxiliary_1.expr();
 
         LoadOp::constrain_ld_op(cells, cb, cond.clone());

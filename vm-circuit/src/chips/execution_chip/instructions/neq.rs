@@ -31,7 +31,7 @@ impl<F: FieldExt> InstructionGadget<F> for Neq<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Neq
-        let cond = cells.conditions[Opcode::Neq.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();

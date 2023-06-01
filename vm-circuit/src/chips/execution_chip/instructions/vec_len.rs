@@ -42,7 +42,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
         // 2. read vec header from locals or global. [gc+DEPTH_OF_ADDRESS_PATH, 1]
         // 3. write length into stack. [gc+DEPTH_OF_ADDRESS_PATH+1, 1]
-        let cond = cells.conditions[Opcode::VecLen.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =

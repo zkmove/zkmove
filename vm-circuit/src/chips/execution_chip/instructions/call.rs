@@ -44,7 +44,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Self::OPCODE.index()].expr();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0

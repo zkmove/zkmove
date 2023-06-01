@@ -46,7 +46,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Unpack
-        let cond = cells.conditions[Self::OPCODE.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let field_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();

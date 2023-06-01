@@ -30,7 +30,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::BrFalse.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
         let aux = cells.auxiliary_1.expression.clone();
