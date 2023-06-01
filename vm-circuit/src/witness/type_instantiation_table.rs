@@ -1,6 +1,6 @@
 use crate::witness::call_trace_table::{pos_to_id, FunctionName, NameToIdxMapping};
 
-use move_binary_format::file_format::{CompiledScript, StructHandleIndex};
+use move_binary_format::file_format::{CompiledScript, StructDefinitionIndex};
 use move_binary_format::normalized::Type;
 
 use move_binary_format::CompiledModule;
@@ -80,7 +80,7 @@ fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericType
                     let (ty_module, ty_name) = t
                         .data
                         .map(|t| map_type_name(name_mapping, &t))
-                        .unwrap_or((0, StructHandleIndex(0)));
+                        .unwrap_or((0, StructDefinitionIndex(0)));
                     GenericTypeInstantiation {
                         caller_id,
                         caller_module: caller_m,
@@ -270,15 +270,18 @@ pub enum TypeElem {
     Struct { module_id: ModuleId, name: String },
     Vector,
 }
-pub fn map_type_name(mapping: &NameToIdxMapping, type_elem: &TypeElem) -> (u64, StructHandleIndex) {
+pub fn map_type_name(
+    mapping: &NameToIdxMapping,
+    type_elem: &TypeElem,
+) -> (u64, StructDefinitionIndex) {
     match type_elem {
-        TypeElem::Bool => (0, StructHandleIndex(1)),
-        TypeElem::U8 => (0, StructHandleIndex(2)),
-        TypeElem::U64 => (0, StructHandleIndex(3)),
-        TypeElem::U128 => (0, StructHandleIndex(4)),
-        TypeElem::Address => (0, StructHandleIndex(5)),
-        TypeElem::Signer => (0, StructHandleIndex(6)),
-        TypeElem::Vector => (0, StructHandleIndex(7)),
+        TypeElem::Bool => (0, StructDefinitionIndex(1)),
+        TypeElem::U8 => (0, StructDefinitionIndex(2)),
+        TypeElem::U64 => (0, StructDefinitionIndex(3)),
+        TypeElem::U128 => (0, StructDefinitionIndex(4)),
+        TypeElem::Address => (0, StructDefinitionIndex(5)),
+        TypeElem::Signer => (0, StructDefinitionIndex(6)),
+        TypeElem::Vector => (0, StructDefinitionIndex(7)),
         TypeElem::Struct { module_id, name } => mapping.map_struct_name(module_id, name),
     }
 }

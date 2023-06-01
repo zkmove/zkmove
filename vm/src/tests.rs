@@ -47,7 +47,6 @@ fn test_execution_step() -> VmResult<()> {
     let arg_types = entry.parameter_types().to_vec();
     let mut exec_steps = Vec::new();
     let mut rw_operations = Vec::new();
-    let mut func_calls = Vec::new();
     let mut arith_operations = Vec::new();
     let mut generic_type_infos = Vec::new();
     interp
@@ -62,7 +61,6 @@ fn test_execution_step() -> VmResult<()> {
             &mut data_store,
             &mut exec_steps,
             &mut rw_operations,
-            &mut func_calls,
             &mut arith_operations,
             &mut generic_type_infos,
         )

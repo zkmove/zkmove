@@ -18,7 +18,7 @@ jobs:
     if: github.event.pull_request.draft == false
 
     name: Test on ubuntu
-    timeout-minutes: 80
+    timeout-minutes: 120
     runs-on: ubuntu-latest
 
     steps:

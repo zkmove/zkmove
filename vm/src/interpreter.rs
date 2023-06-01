@@ -23,7 +23,7 @@ use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
-use vm_circuit::witness::function_calls::{EntryType, FunctionCall};
+
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
@@ -146,7 +146,6 @@ impl<F: FieldExt> Interpreter<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
-        func_calls: &mut Vec<FunctionCall>,
         arith_operations: &mut Vec<ArithOperation>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
     ) -> VmResult<()> {
@@ -186,21 +185,6 @@ impl<F: FieldExt> Interpreter<F> {
                         .last()
                         .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
                     if let Some(caller_frame) = self.frames.pop() {
-                        // record function ret
-                        let next_module_index = caller_frame
-                            .module_index(data_store)
-                            .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
-                        let next_function_index = caller_frame.func().index().0;
-                        func_calls.push(FunctionCall {
-                            type_: EntryType::RET,
-                            module_index: step_current.module_index,
-                            function_index: step_current.function_index,
-                            pc: step_current.pc,
-                            next_module_index,
-                            next_function_index,
-                            next_pc: caller_frame.pc() + 1, //next instruction after 'Call'
-                        });
-
                         frame = caller_frame;
                         frame.add_pc();
                     } else {
@@ -236,9 +220,6 @@ impl<F: FieldExt> Interpreter<F> {
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     execution_step.frame_index = frame_index;
                     trace!("step #{}, {:?}", self.step, execution_step);
-                    let module_index = execution_step.module_index;
-                    let function_index = execution_step.function_index;
-                    let pc = execution_step.pc;
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
@@ -257,21 +238,6 @@ impl<F: FieldExt> Interpreter<F> {
                     let word_element_count = (rw_operations.len() - rw_op_count) / 2;
                     execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                     exec_steps.push(execution_step);
-
-                    // record function call
-                    let next_module_index = callee_frame
-                        .module_index(data_store)
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
-                    let next_function_index = callee_frame.func().index().0;
-                    func_calls.push(FunctionCall {
-                        type_: EntryType::CALL,
-                        module_index,
-                        function_index,
-                        pc,
-                        next_module_index,
-                        next_function_index,
-                        next_pc: 0,
-                    });
 
                     callee_frame.print_frame();
                     self.frames.push(frame)?;
@@ -296,9 +262,6 @@ impl<F: FieldExt> Interpreter<F> {
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
                     execution_step.auxiliary_2 = Some(Value::u64(index.0 as u64));
                     trace!("step #{}, {:?}", self.step, execution_step);
-                    let module_index = execution_step.module_index;
-                    let function_index = execution_step.function_index;
-                    let pc = execution_step.pc;
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
                     let rw_op_count = rw_operations.len();
@@ -350,21 +313,6 @@ impl<F: FieldExt> Interpreter<F> {
                         instantiation_point_module: callee_node_data.module_id.clone(),
                         instantiation_point_function: callee_node_data.fn_name.clone().into(),
                         type_args: callee_node_data.fn_type_parameters.clone(),
-                    });
-
-                    // record function call
-                    let next_module_index = callee_frame
-                        .module_index(data_store)
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ModuleNotFound))?;
-                    let next_function_index = callee_frame.func().index().0;
-                    func_calls.push(FunctionCall {
-                        type_: EntryType::CALL,
-                        module_index,
-                        function_index,
-                        pc,
-                        next_module_index,
-                        next_function_index,
-                        next_pc: 0,
                     });
 
                     exec_steps.push(execution_step.clone());
