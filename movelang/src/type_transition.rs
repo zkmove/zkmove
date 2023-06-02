@@ -17,8 +17,10 @@ use move_binary_format::{
     },
     safe_unwrap,
 };
-use move_bytecode_verifier::meter::{Meter, Scope};
+use move_bytecode_verifier::meter::{DummyMeter, Meter, Scope};
 use move_core_types::vm_status::StatusCode;
+use std::collections::BTreeMap;
+use std::mem::take;
 
 struct Locals<'a> {
     param_count: usize,
@@ -47,11 +49,41 @@ impl<'a> Locals<'a> {
     }
 }
 
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+pub struct TypeTransition {
+    pub instr: Bytecode,
+    /// types that consumed by a bytecode in the order of consuming.
+    pub consume: Vec<SignatureToken>,
+    /// types that outputted by a bytecode in the order of outputting.
+    pub output: Vec<SignatureToken>,
+}
+
+impl Default for TypeTransition {
+    fn default() -> Self {
+        Self {
+            instr: Bytecode::Nop,
+            consume: Default::default(),
+            output: Default::default(),
+        }
+    }
+}
+
+impl std::fmt::Display for TypeTransition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?}: {:?} -> {:?}",
+            &self.instr, &self.consume, &self.output
+        )
+    }
+}
+
 struct TypeSafetyChecker<'a> {
     resolver: &'a BinaryIndexedView<'a>,
     function_view: &'a FunctionView<'a>,
     locals: Locals<'a>,
     stack: Vec<SignatureToken>,
+    transition: TypeTransition,
 }
 
 impl<'a> TypeSafetyChecker<'a> {
@@ -62,6 +94,7 @@ impl<'a> TypeSafetyChecker<'a> {
             function_view,
             locals,
             stack: vec![],
+            transition: TypeTransition::default(),
         }
     }
 
@@ -85,8 +118,16 @@ impl<'a> TypeSafetyChecker<'a> {
 
     fn push(&mut self, meter: &mut impl Meter, ty: SignatureToken) -> PartialVMResult<()> {
         self.charge_ty(meter, &ty)?;
+        self.transition.output.push(ty.clone());
         self.stack.push(ty);
         Ok(())
+    }
+    fn pop(&mut self) -> Option<SignatureToken> {
+        let ty = self.stack.pop();
+        if let Some(t) = &ty {
+            self.transition.consume.push(t.clone());
+        }
+        ty
     }
 
     fn charge_ty(&mut self, meter: &mut impl Meter, ty: &SignatureToken) -> PartialVMResult<()> {
@@ -107,23 +148,28 @@ impl<'a> TypeSafetyChecker<'a> {
         }
         Ok(())
     }
+
+    fn take_type_transition(&mut self) -> TypeTransition {
+        take(&mut self.transition)
+    }
 }
 
-pub(crate) fn verify<'a>(
+pub fn generate<'a>(
     resolver: &'a BinaryIndexedView<'a>,
     function_view: &'a FunctionView<'a>,
-    meter: &mut impl Meter,
-) -> PartialVMResult<()> {
+) -> PartialVMResult<BTreeMap<CodeOffset, TypeTransition>> {
     let verifier = &mut TypeSafetyChecker::new(resolver, function_view);
-
+    let mut transitions = BTreeMap::default();
     for block_id in function_view.cfg().blocks() {
         for offset in function_view.cfg().instr_indexes(block_id) {
             let instr = &verifier.function_view.code().code[offset as usize];
-            verify_instr(verifier, instr, offset, meter)?
+            verifier.transition.instr = instr.clone();
+            verify_instr(verifier, instr, offset, &mut DummyMeter)?;
+            transitions.insert(offset, verifier.take_type_transition());
         }
     }
 
-    Ok(())
+    Ok(transitions)
 }
 
 // helper for both `ImmBorrowField` and `MutBorrowField`
@@ -136,7 +182,7 @@ fn borrow_field(
     type_args: &Signature,
 ) -> PartialVMResult<()> {
     // load operand and check mutability constraints
-    let operand = safe_unwrap!(verifier.stack.pop());
+    let operand = safe_unwrap!(verifier.pop());
     if mut_ && !operand.is_mutable_reference() {
         return Err(verifier.error(StatusCode::BORROWFIELD_TYPE_MISMATCH_ERROR, offset));
     }
@@ -209,7 +255,7 @@ fn borrow_global(
     type_args: &Signature,
 ) -> PartialVMResult<()> {
     // check and consume top of stack
-    let operand = safe_unwrap!(verifier.stack.pop());
+    let operand = safe_unwrap!(verifier.pop());
     if operand != ST::Address {
         return Err(verifier.error(StatusCode::BORROWGLOBAL_TYPE_MISMATCH_ERROR, offset));
     }
@@ -241,7 +287,7 @@ fn call(
 ) -> PartialVMResult<()> {
     let parameters = verifier.resolver.signature_at(function_handle.parameters);
     for parameter in parameters.0.iter().rev() {
-        let arg = safe_unwrap!(verifier.stack.pop());
+        let arg = safe_unwrap!(verifier.pop());
         if (type_actuals.is_empty() && &arg != parameter)
             || (!type_actuals.is_empty() && arg != instantiate(parameter, type_actuals))
         {
@@ -286,7 +332,7 @@ fn pack(
     let struct_type = materialize_type(struct_def.struct_handle, type_args);
     let field_sig = type_fields_signature(verifier, meter, offset, struct_def, type_args)?;
     for sig in field_sig.0.iter().rev() {
-        let arg = safe_unwrap!(verifier.stack.pop());
+        let arg = safe_unwrap!(verifier.pop());
         if &arg != sig {
             return Err(verifier.error(StatusCode::PACK_TYPE_MISMATCH_ERROR, offset));
         }
@@ -307,7 +353,7 @@ fn unpack(
 
     // Pop an abstract value from the stack and check if its type is equal to the one
     // declared.
-    let arg = safe_unwrap!(verifier.stack.pop());
+    let arg = safe_unwrap!(verifier.pop());
     if arg != struct_type {
         return Err(verifier.error(StatusCode::UNPACK_TYPE_MISMATCH_ERROR, offset));
     }
@@ -334,7 +380,7 @@ fn exists(
         ));
     }
 
-    let operand = safe_unwrap!(verifier.stack.pop());
+    let operand = safe_unwrap!(verifier.pop());
     if operand != ST::Address {
         // TODO better error here
         return Err(verifier.error(
@@ -360,7 +406,7 @@ fn move_from(
     }
 
     let struct_type = materialize_type(struct_def.struct_handle, type_args);
-    let operand = safe_unwrap!(verifier.stack.pop());
+    let operand = safe_unwrap!(verifier.pop());
     if operand != ST::Address {
         return Err(verifier.error(StatusCode::MOVEFROM_TYPE_MISMATCH_ERROR, offset));
     }
@@ -381,8 +427,8 @@ fn move_to(
     }
 
     let struct_type = materialize_type(struct_def.struct_handle, type_args);
-    let key_struct_operand = safe_unwrap!(verifier.stack.pop());
-    let signer_reference_operand = safe_unwrap!(verifier.stack.pop());
+    let key_struct_operand = safe_unwrap!(verifier.pop());
+    let signer_reference_operand = safe_unwrap!(verifier.pop());
     if key_struct_operand != struct_type {
         return Err(verifier.error(StatusCode::MOVETO_TYPE_MISMATCH_ERROR, offset));
     }
@@ -402,8 +448,8 @@ fn borrow_vector_element(
     offset: CodeOffset,
     mut_ref_only: bool,
 ) -> PartialVMResult<()> {
-    let operand_idx = safe_unwrap!(verifier.stack.pop());
-    let operand_vec = safe_unwrap!(verifier.stack.pop());
+    let operand_idx = safe_unwrap!(verifier.pop());
+    let operand_vec = safe_unwrap!(verifier.pop());
 
     // check index
     if operand_idx != ST::U64 {
@@ -433,7 +479,7 @@ fn verify_instr(
 ) -> PartialVMResult<()> {
     match bytecode {
         Bytecode::Pop => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             let abilities = verifier
                 .resolver
                 .abilities(&operand, verifier.function_view.type_parameters());
@@ -443,21 +489,21 @@ fn verify_instr(
         }
 
         Bytecode::BrTrue(_) | Bytecode::BrFalse(_) => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if operand != ST::Bool {
                 return Err(verifier.error(StatusCode::BR_TYPE_MISMATCH_ERROR, offset));
             }
         }
 
         Bytecode::StLoc(idx) => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if &operand != verifier.local_at(*idx) {
                 return Err(verifier.error(StatusCode::STLOC_TYPE_MISMATCH_ERROR, offset));
             }
         }
 
         Bytecode::Abort => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if operand != ST::U64 {
                 return Err(verifier.error(StatusCode::ABORT_TYPE_MISMATCH_ERROR, offset));
             }
@@ -466,7 +512,7 @@ fn verify_instr(
         Bytecode::Ret => {
             let return_ = &verifier.function_view.return_().0;
             for return_type in return_.iter().rev() {
-                let operand = safe_unwrap!(verifier.stack.pop());
+                let operand = safe_unwrap!(verifier.pop());
                 if &operand != return_type {
                     return Err(verifier.error(StatusCode::RET_TYPE_MISMATCH_ERROR, offset));
                 }
@@ -476,7 +522,7 @@ fn verify_instr(
         Bytecode::Branch(_) | Bytecode::Nop => (),
 
         Bytecode::FreezeRef => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             match operand {
                 ST::MutableReference(inner) => verifier.push(meter, ST::Reference(inner))?,
                 _ => return Err(verifier.error(StatusCode::FREEZEREF_TYPE_MISMATCH_ERROR, offset)),
@@ -625,7 +671,7 @@ fn verify_instr(
         }
 
         Bytecode::ReadRef => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             match operand {
                 ST::Reference(inner) | ST::MutableReference(inner) => {
                     if !verifier.abilities(&inner)?.has_copy() {
@@ -640,8 +686,8 @@ fn verify_instr(
         }
 
         Bytecode::WriteRef => {
-            let ref_operand = safe_unwrap!(verifier.stack.pop());
-            let val_operand = safe_unwrap!(verifier.stack.pop());
+            let ref_operand = safe_unwrap!(verifier.pop());
+            let val_operand = safe_unwrap!(verifier.pop());
             let ref_inner_signature = match ref_operand {
                 ST::MutableReference(inner) => *inner,
                 _ => {
@@ -660,21 +706,21 @@ fn verify_instr(
         }
 
         Bytecode::CastU8 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }
             verifier.push(meter, ST::U8)?;
         }
         Bytecode::CastU64 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }
             verifier.push(meter, ST::U64)?;
         }
         Bytecode::CastU128 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }
@@ -689,8 +735,8 @@ fn verify_instr(
         | Bytecode::BitOr
         | Bytecode::BitAnd
         | Bytecode::Xor => {
-            let operand1 = safe_unwrap!(verifier.stack.pop());
-            let operand2 = safe_unwrap!(verifier.stack.pop());
+            let operand1 = safe_unwrap!(verifier.pop());
+            let operand2 = safe_unwrap!(verifier.pop());
             if operand1.is_integer() && operand1 == operand2 {
                 verifier.push(meter, operand1)?;
             } else {
@@ -699,8 +745,8 @@ fn verify_instr(
         }
 
         Bytecode::Shl | Bytecode::Shr => {
-            let operand1 = safe_unwrap!(verifier.stack.pop());
-            let operand2 = safe_unwrap!(verifier.stack.pop());
+            let operand1 = safe_unwrap!(verifier.pop());
+            let operand2 = safe_unwrap!(verifier.pop());
             if operand2.is_integer() && operand1 == ST::U8 {
                 verifier.push(meter, operand2)?;
             } else {
@@ -709,8 +755,8 @@ fn verify_instr(
         }
 
         Bytecode::Or | Bytecode::And => {
-            let operand1 = safe_unwrap!(verifier.stack.pop());
-            let operand2 = safe_unwrap!(verifier.stack.pop());
+            let operand1 = safe_unwrap!(verifier.pop());
+            let operand2 = safe_unwrap!(verifier.pop());
             if operand1 == ST::Bool && operand2 == ST::Bool {
                 verifier.push(meter, ST::Bool)?;
             } else {
@@ -719,7 +765,7 @@ fn verify_instr(
         }
 
         Bytecode::Not => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if operand == ST::Bool {
                 verifier.push(meter, ST::Bool)?;
             } else {
@@ -728,8 +774,8 @@ fn verify_instr(
         }
 
         Bytecode::Eq | Bytecode::Neq => {
-            let operand1 = safe_unwrap!(verifier.stack.pop());
-            let operand2 = safe_unwrap!(verifier.stack.pop());
+            let operand1 = safe_unwrap!(verifier.pop());
+            let operand2 = safe_unwrap!(verifier.pop());
             if verifier.abilities(&operand1)?.has_drop() && operand1 == operand2 {
                 verifier.push(meter, ST::Bool)?;
             } else {
@@ -738,8 +784,8 @@ fn verify_instr(
         }
 
         Bytecode::Lt | Bytecode::Gt | Bytecode::Le | Bytecode::Ge => {
-            let operand1 = safe_unwrap!(verifier.stack.pop());
-            let operand2 = safe_unwrap!(verifier.stack.pop());
+            let operand1 = safe_unwrap!(verifier.pop());
+            let operand2 = safe_unwrap!(verifier.pop());
             if operand1.is_integer() && operand1 == operand2 {
                 verifier.push(meter, ST::Bool)?
             } else {
@@ -811,18 +857,16 @@ fn verify_instr(
         Bytecode::VecPack(idx, num) => {
             let element_type = &verifier.resolver.signature_at(*idx).0[0];
             for _ in 0..*num {
-                let operand_type = safe_unwrap!(verifier.stack.pop());
+                let operand_type = safe_unwrap!(verifier.pop());
                 if element_type != &operand_type {
                     return Err(verifier.error(StatusCode::TYPE_MISMATCH, offset));
                 }
             }
-            verifier
-                .stack
-                .push(ST::Vector(Box::new(element_type.clone())));
+            verifier.push(meter, ST::Vector(Box::new(element_type.clone())))?
         }
 
         Bytecode::VecLen(idx) => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             let declared_element_type = &verifier.resolver.signature_at(*idx).0[0];
             match get_vector_element_type(operand, false) {
                 Some(derived_element_type) if &derived_element_type == declared_element_type => {
@@ -842,8 +886,8 @@ fn verify_instr(
         }
 
         Bytecode::VecPushBack(idx) => {
-            let operand_elem = safe_unwrap!(verifier.stack.pop());
-            let operand_vec = safe_unwrap!(verifier.stack.pop());
+            let operand_elem = safe_unwrap!(verifier.pop());
+            let operand_vec = safe_unwrap!(verifier.pop());
             let declared_element_type = &verifier.resolver.signature_at(*idx).0[0];
             if declared_element_type != &operand_elem {
                 return Err(verifier.error(StatusCode::TYPE_MISMATCH, offset));
@@ -855,7 +899,7 @@ fn verify_instr(
         }
 
         Bytecode::VecPopBack(idx) => {
-            let operand_vec = safe_unwrap!(verifier.stack.pop());
+            let operand_vec = safe_unwrap!(verifier.pop());
             let declared_element_type = &verifier.resolver.signature_at(*idx).0[0];
             match get_vector_element_type(operand_vec, true) {
                 Some(derived_element_type) if &derived_element_type == declared_element_type => {
@@ -866,7 +910,7 @@ fn verify_instr(
         }
 
         Bytecode::VecUnpack(idx, num) => {
-            let operand_vec = safe_unwrap!(verifier.stack.pop());
+            let operand_vec = safe_unwrap!(verifier.pop());
             let declared_element_type = &verifier.resolver.signature_at(*idx).0[0];
             if operand_vec != ST::Vector(Box::new(declared_element_type.clone())) {
                 return Err(verifier.error(StatusCode::TYPE_MISMATCH, offset));
@@ -877,9 +921,9 @@ fn verify_instr(
         }
 
         Bytecode::VecSwap(idx) => {
-            let operand_idx2 = safe_unwrap!(verifier.stack.pop());
-            let operand_idx1 = safe_unwrap!(verifier.stack.pop());
-            let operand_vec = safe_unwrap!(verifier.stack.pop());
+            let operand_idx2 = safe_unwrap!(verifier.pop());
+            let operand_idx1 = safe_unwrap!(verifier.pop());
+            let operand_vec = safe_unwrap!(verifier.pop());
             if operand_idx1 != ST::U64 || operand_idx2 != ST::U64 {
                 return Err(verifier.error(StatusCode::TYPE_MISMATCH, offset));
             }
@@ -890,21 +934,21 @@ fn verify_instr(
             };
         }
         Bytecode::CastU16 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }
             verifier.push(meter, ST::U16)?;
         }
         Bytecode::CastU32 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }
             verifier.push(meter, ST::U32)?;
         }
         Bytecode::CastU256 => {
-            let operand = safe_unwrap!(verifier.stack.pop());
+            let operand = safe_unwrap!(verifier.pop());
             if !operand.is_integer() {
                 return Err(verifier.error(StatusCode::INTEGER_OP_TYPE_MISMATCH_ERROR, offset));
             }

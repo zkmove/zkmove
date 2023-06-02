@@ -5,8 +5,12 @@ use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use logger::prelude::*;
+use move_binary_format::access::ModuleAccess;
+use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
+use move_binary_format::file_format::FunctionDefinitionIndex;
 use movelang::compiler::compile_script;
 use movelang::state::StateStore;
+use movelang::type_transition;
 use std::path::Path;
 use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
@@ -38,6 +42,36 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let script = compiled_script.expect("script is missing");
     let runtime = Runtime::<Fp>::new();
     let mut state = StateStore::new();
+
+    {
+        let transitions = type_transition::generate(
+            &BinaryIndexedView::Script(&script),
+            &FunctionView::script(&script),
+        )?;
+        trace!("type transition of script:\n");
+        for (pc, t) in transitions {
+            trace!("{}, {}", pc, t);
+        }
+        for m in &compiled_modules {
+            for (idx, func) in m.function_defs().iter().enumerate() {
+                if let Some(code) = func.code.as_ref() {
+                    let fh = m.function_handle_at(func.function);
+                    let transitions = type_transition::generate(
+                        &BinaryIndexedView::Module(m),
+                        &FunctionView::function(m, FunctionDefinitionIndex(idx as u16), code, fh),
+                    )?;
+                    trace!(
+                        "type transition of func {} in module {}\n",
+                        m.identifier_at(fh.name).as_str(),
+                        m.self_id(),
+                    );
+                    for (pc, t) in transitions {
+                        trace!("{}, {}", pc, t);
+                    }
+                }
+            }
+        }
+    }
 
     for module in compiled_modules.clone().into_iter() {
         state.add_module(module);
