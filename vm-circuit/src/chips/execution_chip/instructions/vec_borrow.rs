@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -17,9 +17,9 @@ use movelang::value::DEPTH_OF_ADDRESS_PATH;
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
     index: Cell<F>,
+    offset_pow2: Cell<F>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
-
     indexed_ref_val: Vec<Cell<F>>,
     indexed_ref_val_mask: Vec<Cell<F>>,
 }
@@ -41,7 +41,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
     ) {
         // for instruction VecMut(Imm)Borrow, there are 3 steps here:
         // 1. read index from stack. [gc, 1]
-        // 1. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
+        // 2. read reference from stack. [gc + 1, DEPTH_OF_ADDRESS_PATH]
         // 3. write reference to element into stack.
         // [gc + 1 + DEPTH_OF_ADDRESS_PATH, DEPTH_OF_ADDRESS_PATH]
         let opcode = if MUTABLE {
@@ -88,12 +88,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             cond.clone(),
         ));
 
-        for (i, item) in self
-            .indexed_ref_val
-            .iter()
-            .enumerate()
-            .take(DEPTH_OF_ADDRESS_PATH)
-        {
+        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
             // lookup "read vec ref"
             lookups.rw_lookups.push((
                 "vec_borrow(read vec ref)",
@@ -107,14 +102,20 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 ),
                 cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
             ));
-
+        }
+        for (i, item) in self
+            .indexed_ref_val
+            .iter()
+            .enumerate()
+            .take(DEPTH_OF_ADDRESS_PATH)
+        {
             // lookup "write indexed ref"
             lookups.rw_lookups.push((
                 "vec_borrow(write indexed ref)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
-                        + depth_of_addr_path_expr.clone()
                         + 1.expr()
+                        + depth_of_addr_path_expr.clone()
                         + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 2.expr(),
                     (i as u64).expr(),
@@ -126,16 +127,19 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             ));
         }
 
-        // element index should be equal to indexed_ref_val[last],
-        // NOTICE: counting the header, it's 1 larger than the real offset
-        let index = self.index.expression.clone();
-        for i in 0..DEPTH_OF_ADDRESS_PATH {
-            let constraint = cond.clone()
-                * self.ref_val_mask[i].expression.clone()
-                * (1.expr() - self.indexed_ref_val_mask[i].expression.clone())
-                * (index.clone() + 1.expr() - self.indexed_ref_val[i].expression.clone());
-            cb.add_constraint("borrow_element_index_eq", constraint);
-        }
+        // location check between ref_val and indexed_ref_val
+        AddrExt::location_val_constrain(cb, cond.clone(), &self.ref_val, &self.indexed_ref_val)
+            .expect("location chck failed");
+
+        // addr_ext comparation between ref_val and indexed_ref_val
+        // field_offset is pushed into the last element of indexed_ref_val,
+        // and it's larger than the real offset by 1
+        let constraint = cond.clone()
+            * (self.ref_val[2].expression.clone()
+                + (self.index.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+                - self.indexed_ref_val[2].expression.clone())
+            * (1.expr() - self.ref_val_mask[2].expression.clone());
+        cb.add_constraint("field_offset check with ref_val[2]", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -158,6 +162,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         let ref_val_flattened_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
+        let _pow2 = Word::assign_offset_pow2(region, offset, &step.auxiliary_3, &self.offset_pow2)?
+            .get_lower_128() as usize;
 
         let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
         self.index.assign(region, offset, op.value().value())?;
@@ -187,7 +193,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             rw_operations,
             &indexed_ref_val,
             step.gc + 1 + DEPTH_OF_ADDRESS_PATH,
-            ref_val_flattened_len + 1, // the last element is element index
+            DEPTH_OF_ADDRESS_PATH,
         )?;
 
         Ok(())
@@ -196,17 +202,18 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let index = cb.alloc_cell();
+        let offset_pow2 = cb.alloc_cell();
+
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-
         let indexed_ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let indexed_ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
         Self {
             index,
+            offset_pow2,
             ref_val,
             ref_val_mask,
-
             indexed_ref_val,
             indexed_ref_val_mask,
         }

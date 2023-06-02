@@ -19,7 +19,8 @@ pub use move_core_types::language_storage::TypeTag;
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
-pub const DEPTH_OF_ADDRESS_PATH: usize = 4; // frame_index, index(address), address_ext_1, address_ext_1
+pub const DEPTH_OF_ADDRESS_PATH: usize = 3; // frame_index, index(address), address_ext
+pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U8<F: FieldExt>(pub F);
@@ -79,6 +80,18 @@ impl<F: FieldExt> AddressPath<F> {
             length = self.len();
         }
         self
+    }
+    // addr_ext begin from 3rd elements
+    // 128bit(16 * 8) can keep 8 dimensions container address
+    pub fn addr_ext(self) -> usize {
+        let path = self.into_inner();
+        let ret: u128 = path
+            .iter()
+            .enumerate()
+            .skip(2)
+            .map(|(i, v)| (*v << (16 * (i - 2))))
+            .sum();
+        ret as usize
     }
 }
 

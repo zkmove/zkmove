@@ -116,6 +116,16 @@ impl<F: FieldExt> FieldBytes<F> {
         }
         value
     }
+
+    pub fn expr_16bit(&self, num: usize) -> Expression<F> {
+        let mut value = 0.expr();
+        let mut multiplier = F::one();
+        for byte in self.0.iter().take(num) {
+            value = value + byte.expression.clone() * multiplier;
+            multiplier *= F::from(1 << 16);
+        }
+        value
+    }
 }
 
 pub(crate) trait SubInvert<F: FieldExt> {

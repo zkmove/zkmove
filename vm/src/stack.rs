@@ -4,6 +4,7 @@ use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
+use movelang::value::DEPTH_OF_LOCATION_PATH;
 use movelang::value::{
     AddressPath, Container, ContainerValue, LocatedValue, PrimitiveValue, Reference, StackLocation,
     Value, ValueLocation, VectorRef,
@@ -34,16 +35,8 @@ impl<F: FieldExt> EvalStack<F> {
         for (address_path, val, val_ext) in word {
             let stack_op = StackOp {
                 address: *address_path.0.get(1).expect("address should not be None") as usize,
-                address_ext_0: *address_path
-                    .0
-                    .get(2)
-                    .expect("address_ext_0 should not be None")
-                    as usize,
-                address_ext_1: *address_path
-                    .0
-                    .get(3)
-                    .expect("address_ext_1 should not be None")
-                    as usize,
+                address_ext_0: address_path.addr_ext(),
+                address_ext_1: 0_usize,
                 value: val,
                 value_ext: val_ext,
                 rw,
@@ -51,6 +44,48 @@ impl<F: FieldExt> EvalStack<F> {
             };
             rw_operations.push(RWOperation::StackOp(stack_op));
         }
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn emit_stack_ops_for_ref_val(
+        word: Vec<(
+            AddressPath<F>,
+            Option<PrimitiveValue<F>>,
+            Option<PrimitiveValue<F>>,
+        )>,
+        rw: RW,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) {
+        let mut v: u128 = 0;
+        for (i, (address_path, val, val_ext)) in word.clone().into_iter().enumerate() {
+            if i < DEPTH_OF_LOCATION_PATH {
+                let stack_op = StackOp {
+                    address: *address_path.0.get(1).expect("address should not be None") as usize,
+                    address_ext_0: address_path.addr_ext(),
+                    address_ext_1: 0_usize,
+                    value: val,
+                    value_ext: val_ext,
+                    rw,
+                    gc: rw_operations.len(),
+                };
+                rw_operations.push(RWOperation::StackOp(stack_op));
+            } else {
+                // fold addr_ext into one cell
+                let x = val.unwrap().value().unwrap().get_lower_128();
+                v += x << (16 * (i - 2));
+            }
+        }
+        let (address_path, _, _) = word.get(2).expect("address");
+        let stack_op = StackOp {
+            address: *address_path.0.get(1).expect("address should not be None") as usize,
+            address_ext_0: address_path.clone().addr_ext(),
+            address_ext_1: 0_usize,
+            value: Some(PrimitiveValue::u128(v)),
+            value_ext: None,
+            rw,
+            gc: rw_operations.len(),
+        };
+        rw_operations.push(RWOperation::StackOp(stack_op));
     }
 
     pub fn push(
@@ -67,6 +102,28 @@ impl<F: FieldExt> EvalStack<F> {
             )
             .flatten();
             Self::emit_stack_ops_for_word(word, RW::WRITE, rw_operations);
+
+            self.0.push(value);
+            Ok(())
+        } else {
+            Err(RuntimeError::new(StatusCode::StackOverflow))
+        }
+    }
+
+    pub fn push_as_ref_val(
+        &mut self,
+        value: Value<F>,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
+        if self.0.len() < EVAL_STACK_SIZE {
+            let word = LocatedValue(
+                ValueLocation::Stack(StackLocation {
+                    stack_index: self.0.len(),
+                }),
+                &value,
+            )
+            .flatten();
+            Self::emit_stack_ops_for_ref_val(word, RW::WRITE, rw_operations);
 
             self.0.push(value);
             Ok(())
@@ -169,7 +226,7 @@ impl<F: FieldExt> EvalStack<F> {
                 &value,
             )
             .flatten();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops_for_ref_val(word, RW::READ, rw_operations);
 
             match value {
                 Value::GlobalRef(r) => Ok(Reference::GlobalRef(r)),

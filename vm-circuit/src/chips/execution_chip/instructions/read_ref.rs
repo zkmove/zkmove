@@ -85,7 +85,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             ));
         }
 
-        let is_global = cells.auxiliary_1.expression.clone();
+        let is_global = cells.auxiliary_5.expression.clone();
         for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
             // locals read or global read
             let read = RWLookup::locals_read(
@@ -157,10 +157,6 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.word_a_addr_ext_0[0].expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
-        // cells.ref_val[3] equal to word_a_addr_ext_1
-        constraint = cond.clone()
-            * (self.ref_val[3].expression.clone() - self.word_a_addr_ext_1[0].expression.clone());
-        cb.add_constraint("read_ref_eq_3", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -226,12 +222,12 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             word_element_num,
         )?;
 
-        let is_global = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
+        let is_global = step.auxiliary_5.as_ref().ok_or_else(|| {
+            error!("auxiliary_5 is None");
             Error::Synthesis
         })?;
         cells
-            .auxiliary_1
+            .auxiliary_5
             .assign(region, offset, is_global.value())?;
 
         if is_global.value() == Some(F::zero()) {

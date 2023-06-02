@@ -23,14 +23,8 @@ pub fn emit_global_op<F: FieldExt>(
                 .expect("account address should not be None"),
         )),
         sd_index: *address_path.0.get(1).expect("sd_index should not be None") as usize,
-        address_ext_0: *address_path
-            .0
-            .get(2)
-            .expect("address_ext_0 should not be None") as usize,
-        address_ext_1: *address_path
-            .0
-            .get(3)
-            .expect("address_ext_1 should not be None") as usize,
+        address_ext_0: address_path.addr_ext(),
+        address_ext_1: 0_usize,
         value,
         value_ext,
         rw,
@@ -71,14 +65,8 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
-            address_ext_0: *address_path
-                .0
-                .get(2)
-                .expect("address_ext_0 should not be None") as usize,
-            address_ext_1: *address_path
-                .0
-                .get(3)
-                .expect("address_ext_1 should not be None") as usize,
+            address_ext_0: address_path.addr_ext(),
+            address_ext_1: 0_usize,
             value: val,
             value_ext: val_ext,
             rw,
@@ -92,16 +80,8 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,
-                address_ext_0: *address_path
-                    .0
-                    .get(2)
-                    .expect("address_ext_0 should not be None")
-                    as usize,
-                address_ext_1: *address_path
-                    .0
-                    .get(3)
-                    .expect("address_ext_1 should not be None")
-                    as usize,
+                address_ext_0: address_path.addr_ext(),
+                address_ext_1: 0_usize,
                 value: None,
                 value_ext: None,
                 rw: RW::WRITE,

@@ -276,7 +276,9 @@ impl<F: FieldExt> Frame<F> {
                                 .borrow_locals(*v as usize, frame_index, rw_operations)?;
                         let word_element_count = local_ref.refer.borrow().word_element_count();
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        interp.stack.push(local_ref.into(), rw_operations)
+                        interp
+                            .stack
+                            .push_as_ref_val(local_ref.into(), rw_operations)
                     }
 
                     Bytecode::ReadRef => {
@@ -295,11 +297,11 @@ impl<F: FieldExt> Frame<F> {
                                 let word =
                                     LocatedValue(ValueLocation::Global(loc), &value).flatten();
                                 let word_element_count = word.len();
-                                execution_step.auxiliary_1 = Some(Value::bool(true)); // global
                                 execution_step.auxiliary_2 = Some(Value::Address(account_addr));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_index.to_u128()));
+                                execution_step.auxiliary_5 = Some(Value::bool(true)); // global
                                 globals::emit_global_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::LocalRef(LocalRef { loc, .. }) => {
@@ -309,10 +311,10 @@ impl<F: FieldExt> Frame<F> {
                                     LocatedValue(ValueLocation::Local(loc), &value).flatten();
                                 let word_element_count = word.len();
                                 execution_step.locals_index = index as usize;
-                                execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                                 execution_step.auxiliary_2 = Some(Value::u64(frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
+                                execution_step.auxiliary_5 = Some(Value::bool(false)); // is not global
                                 locals::emit_locals_ops_for_word(word, RW::READ, rw_operations);
                             }
                             Reference::IndexedRef(IndexedRef {
@@ -332,13 +334,13 @@ impl<F: FieldExt> Frame<F> {
                                         );
                                         let word = indexed_value.flatten();
                                         let word_element_count = word.len();
-                                        execution_step.auxiliary_1 = Some(Value::bool(true)); // global
                                         execution_step.auxiliary_2 =
                                             Some(Value::Address(account_addr));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64)); // word_elem_count
                                         execution_step.auxiliary_4 =
                                             Some(Value::u128(sd_index.to_u128()));
+                                        execution_step.auxiliary_5 = Some(Value::bool(true)); // global
                                         globals::emit_global_ops_for_word(
                                             word,
                                             RW::READ,
@@ -358,11 +360,11 @@ impl<F: FieldExt> Frame<F> {
                                         let word = indexed_value.flatten();
                                         let word_element_count = word.len();
                                         execution_step.locals_index = index as usize;
-                                        execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                                         execution_step.auxiliary_2 =
                                             Some(Value::u64(frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64)); // word_elem_count
+                                        execution_step.auxiliary_5 = Some(Value::bool(false)); // is not global
                                         locals::emit_locals_ops_for_word(
                                             word,
                                             RW::READ,
@@ -387,11 +389,11 @@ impl<F: FieldExt> Frame<F> {
                                     LocatedValue(ValueLocation::Local(loc), &value).flatten();
                                 let word_element_count = value.word_element_count();
                                 execution_step.locals_index = loc.index as usize;
-                                execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                                 execution_step.auxiliary_2 =
                                     Some(Value::u64(loc.frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64));
+                                execution_step.auxiliary_5 = Some(Value::bool(false)); // is not global
                                 locals::emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
                             }
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
@@ -399,10 +401,10 @@ impl<F: FieldExt> Frame<F> {
                                 let word =
                                     LocatedValue(ValueLocation::Global(loc), &value).flatten();
 
-                                execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                                 execution_step.auxiliary_2 = Some(Value::address(account_addr));
                                 execution_step.auxiliary_3 = Some(Value::u64(word.len() as u64)); // word_elem_count
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_idx.to_u128()));
+                                execution_step.auxiliary_5 = Some(Value::bool(true)); // is global
                                 globals::emit_global_ops_for_word(
                                     word.clone(),
                                     RW::WRITE,
@@ -425,11 +427,11 @@ impl<F: FieldExt> Frame<F> {
                                         .flatten();
                                         let word_element_count = value.word_element_count();
                                         execution_step.locals_index = vloc.index as usize;
-                                        execution_step.auxiliary_1 = Some(Value::bool(false)); // is not global
                                         execution_step.auxiliary_2 =
                                             Some(Value::u64(vloc.frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word_element_count as u64));
+                                        execution_step.auxiliary_5 = Some(Value::bool(false)); // is not global
                                         locals::emit_locals_ops_for_word(
                                             word,
                                             RW::WRITE,
@@ -447,13 +449,13 @@ impl<F: FieldExt> Frame<F> {
                                         )
                                         .flatten();
 
-                                        execution_step.auxiliary_1 = Some(Value::bool(true)); // is global
                                         execution_step.auxiliary_2 =
                                             Some(Value::address(account_addr));
                                         execution_step.auxiliary_3 =
                                             Some(Value::u64(word.len() as u64)); // word_elem_count
                                         execution_step.auxiliary_4 =
                                             Some(Value::u128(sd_idx.to_u128()));
+                                        execution_step.auxiliary_5 = Some(Value::bool(true)); // is global
                                         globals::emit_global_ops_for_word(
                                             word.clone(),
                                             RW::WRITE,
@@ -479,7 +481,9 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(fh_idx.0 as u64));
                         execution_step.auxiliary_2 = Some(Value::u64(field_offset as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        interp.stack.push(field_ref.into(), rw_operations)
+                        interp
+                            .stack
+                            .push_as_ref_val(field_ref.into(), rw_operations)
                     }
                     Bytecode::ImmBorrowFieldGeneric(fh_idx)
                     | Bytecode::MutBorrowFieldGeneric(fh_idx) => {
@@ -874,7 +878,9 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(sd_idx.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_elem_num as u64));
 
-                        interp.stack.push(global_ref.into(), rw_operations)
+                        interp
+                            .stack
+                            .push_as_ref_val(global_ref.into(), rw_operations)
                     }
                     Bytecode::ImmBorrowGlobalGeneric(sd_idx)
                     | Bytecode::MutBorrowGlobalGeneric(sd_idx) => {
@@ -1002,7 +1008,7 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         let res = vec_ref.try_borrow_elem(idx)?;
-                        interp.stack.push(res.into(), rw_operations)
+                        interp.stack.push_as_ref_val(res.into(), rw_operations)
                     }
                     Bytecode::VecPushBack(si) => {
                         let value = interp.stack.pop(rw_operations)?;
@@ -1019,10 +1025,6 @@ impl<F: FieldExt> Frame<F> {
                             })?;
                         vec_ref.push_back(value)?;
 
-                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
-                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
-                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
-
                         // emit rw operations
                         let value_idx = vec_ref.length()? - 1;
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
@@ -1038,8 +1040,14 @@ impl<F: FieldExt> Frame<F> {
                             execution_step.auxiliary_5 = Some(Value::bool(false));
                         }
 
+                        execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        // auxiliary_2 is multiplexed by header_len and value_index.
+                        let val = (value_idx << 8) + headers.len();
+                        execution_step.auxiliary_2 = Some(Value::u64(val as u64));
+                        execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                        execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
+
                         // update container headers
-                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
                             if is_global {
                                 globals::emit_global_op(
@@ -1111,6 +1119,9 @@ impl<F: FieldExt> Frame<F> {
                         let word_element_count = value.word_element_count();
 
                         execution_step.auxiliary_1 = Some(Value::u64(si.0 as u64));
+                        // auxiliary_2 is multiplexed by header_len and value_index.
+                        let val = (value_idx << 8) + headers.len();
+                        execution_step.auxiliary_2 = Some(Value::u64(val as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
@@ -1118,7 +1129,6 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(val, rw_operations)?;
 
                         // update container headers
-                        execution_step.auxiliary_2 = Some(Value::u64(headers.len() as u64));
                         for (loc, len, flattened_len) in headers {
                             if is_global {
                                 globals::emit_global_op(

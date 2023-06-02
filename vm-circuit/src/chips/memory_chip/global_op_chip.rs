@@ -226,7 +226,8 @@ impl<F: FieldExt> GlobalOpChip<F> {
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
         gc_lookups: &mut Vec<Expression<F>>,
-        addr_ext0_lookups: &mut Vec<Expression<F>>,
+        // addr_ext0_lookups: &mut Vec<Expression<F>>,
+        _addr_ext0_lookups: &mut [Expression<F>],
         addr_ext1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
@@ -336,7 +337,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // todo: address must belong to the address list?
             // todo: sd_index must belong to the sd_index list?
             // address_ext_* range check
-            addr_ext0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
+            // addr_ext0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
             addr_ext1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
 
             // TODO: address monotonic check.  should we make a common `gte` gadget instead of those lookup?
@@ -346,14 +347,15 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // -[x] for same address/sd_index/addr_ext0, must have `addr_ext_1 >= prev_addr_ext_1`
 
             // if same address/sd_index, addr_ext_0 must be great than or equal to prev_addr_ext_0
-            addr_ext0_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
-                    * (1.expr()
-                        - delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone())
-                    * delt_addr_ext_0.clone(),
-            );
+            // TODO. addr_ext range check
+            // addr_ext0_lookups.push(
+            //     cond.clone()
+            //         * (1.expr()
+            //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
+            //         * (1.expr()
+            //             - delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone())
+            //         * delt_addr_ext_0.clone(),
+            // );
             // if same address/sd_index/addr_ext_0, addr_ext_1 must be great than or equal to prev_addr_ext_1
             addr_ext1_lookups.push(
                 cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())

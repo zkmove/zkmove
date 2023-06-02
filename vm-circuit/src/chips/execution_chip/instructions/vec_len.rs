@@ -140,10 +140,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
-        // cells.ref_val[3] equal to vec_header_addr_ext_1
-        constraint = cond.clone()
-            * (self.ref_val[3].expression.clone() - self.vec_header_addr_ext_1.expression.clone());
-        cb.add_constraint("read_ref_eq_3", constraint);
 
         LookupBytecode::lookup_bytecode(
             cells,
