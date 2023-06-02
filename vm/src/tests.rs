@@ -8,10 +8,12 @@ use halo2_proofs::halo2curves::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
+use move_binary_format::CompiledModule;
 use movelang::state::StateStore;
 use movelang::value::{PrimitiveValue, Value};
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
+use vm_circuit::witness::arith_operations::ArithOperations;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RW::{READ, WRITE};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, StackOp};
@@ -29,6 +31,8 @@ fn test_execution_step() -> VmResult<()> {
         MoveBytecode::Ret,
     ];
     let bytecodes = (script.clone(), vec![]).into();
+    let deps: &[CompiledModule] = &[];
+    let arith_operations = ArithOperations::from((&script, deps)).0;
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
 
@@ -47,7 +51,6 @@ fn test_execution_step() -> VmResult<()> {
     let arg_types = entry.parameter_types().to_vec();
     let mut exec_steps = Vec::new();
     let mut rw_operations = Vec::new();
-    let mut arith_operations = Vec::new();
     let mut generic_type_infos = Vec::new();
     interp
         .run_script(
@@ -61,7 +64,6 @@ fn test_execution_step() -> VmResult<()> {
             &mut data_store,
             &mut exec_steps,
             &mut rw_operations,
-            &mut arith_operations,
             &mut generic_type_infos,
         )
         .unwrap();

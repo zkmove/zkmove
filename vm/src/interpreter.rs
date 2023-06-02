@@ -20,7 +20,7 @@ use petgraph::prelude::NodeIndex;
 
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
-use vm_circuit::witness::arith_operations::ArithOperation;
+
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 
@@ -146,7 +146,6 @@ impl<F: FieldExt> Interpreter<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
-        arith_operations: &mut Vec<ArithOperation>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
     ) -> VmResult<()> {
         let generic_graph = generate_for_script(script, data_store);
@@ -176,7 +175,6 @@ impl<F: FieldExt> Interpreter<F> {
                 data_store,
                 exec_steps,
                 rw_operations,
-                arith_operations,
                 generic_types,
             )?;
             match status {

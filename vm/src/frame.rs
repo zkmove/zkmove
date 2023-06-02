@@ -15,15 +15,13 @@ use movelang::loader::MoveLoader;
 use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
-    ContainerRef, GlobalRef, IndexedLocation, IndexedRef, IntegerType, LocalRef, LocatedValue,
-    Location, PrimitiveValue, Reference, Value, ValueLocation,
+    ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
+    PrimitiveValue, Reference, Value, ValueLocation,
 };
 use petgraph::prelude::EdgeRef;
 use petgraph::Direction;
-use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use vm_circuit::witness::arith_operations::ArithOperation;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
@@ -123,7 +121,6 @@ impl<F: FieldExt> Frame<F> {
         data_store: &mut StateStore<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
-        arith_operations: &mut Vec<ArithOperation>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
     ) -> VmResult<ExitStatus<F>> {
         let code = self.function.code();
@@ -191,36 +188,15 @@ impl<F: FieldExt> Frame<F> {
                         Ok(())
                     }
                     Bytecode::Add => {
-                        let ty = interp.binary_op(Value::add, rw_operations)?;
-                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
-                        arith_operations.push(ArithOperation {
-                            module_index,
-                            function_index,
-                            pc: self.pc,
-                            num_of_bytes,
-                        });
+                        interp.binary_op(Value::add, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::Sub => {
-                        let ty = interp.binary_op(Value::sub, rw_operations)?;
-                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
-                        arith_operations.push(ArithOperation {
-                            module_index,
-                            function_index,
-                            pc: self.pc,
-                            num_of_bytes,
-                        });
+                        interp.binary_op(Value::sub, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::Mul => {
-                        let ty = interp.binary_op(Value::mul, rw_operations)?;
-                        let num_of_bytes = IntegerType::try_from(ty)?.num_of_bytes();
-                        arith_operations.push(ArithOperation {
-                            module_index,
-                            function_index,
-                            pc: self.pc,
-                            num_of_bytes,
-                        });
+                        interp.binary_op(Value::mul, rw_operations)?;
                         Ok(())
                     }
                     Bytecode::Div => interp.binary_op_auxiliary(
