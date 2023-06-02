@@ -33,7 +33,7 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //Sub
-        let cond = cells.conditions[Opcode::Sub.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();

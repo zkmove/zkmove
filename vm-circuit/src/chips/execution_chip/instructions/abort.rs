@@ -29,7 +29,7 @@ impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
         _cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Abort.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
         LookupBytecode::lookup_bytecode(
             cells,
             Opcode::Abort,

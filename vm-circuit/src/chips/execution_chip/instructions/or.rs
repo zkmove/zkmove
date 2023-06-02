@@ -30,7 +30,7 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Or.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();

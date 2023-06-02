@@ -35,7 +35,7 @@ impl<F: FieldExt> InstructionGadget<F> for Xor<F> {
         lookups: &mut LookupsWithCondition<F>,
     ) {
         //xor
-        let cond = cells.conditions[Opcode::Xor.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lookup_bitwise = LookupBitwise {
             bytes: self.bytes.clone(),

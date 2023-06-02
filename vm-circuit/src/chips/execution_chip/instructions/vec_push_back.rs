@@ -66,9 +66,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // 4. update current and parent headers (flattened length, length).
         // [gc + value_flattened_len * 2 + DEPTH_OF_ADDRESS_PATH, headers_count * 2]
 
-        let cond = cells.conditions[Opcode::VecPushBack.index()]
-            .expression
-            .clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()

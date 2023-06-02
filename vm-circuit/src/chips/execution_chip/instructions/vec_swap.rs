@@ -64,7 +64,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         // [gc + 2 + DEPTH_OF_ADDRESS_PATH + 2 * value_a_flattened_len + value_b_flattened_len,
         // value_b_flattened_len]
 
-        let cond = cells.conditions[Opcode::VecSwap.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()

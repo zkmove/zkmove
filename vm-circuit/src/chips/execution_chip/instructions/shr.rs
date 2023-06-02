@@ -32,7 +32,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Shr.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let dividend = self.value_a.expression.clone();
         let shift_bits = self.value_b.expression.clone();

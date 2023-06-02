@@ -34,9 +34,7 @@ impl<F: FieldExt> InstructionGadget<F> for CastU128<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::CastU128.index()]
-            .expression
-            .clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let x = self.value_a.expression.clone();
         let out = self.value_c.expression.clone();

@@ -47,7 +47,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         // 1. read n values from stack. [gc, values_flattened_len]
         // 2. write vector to stack. [gc + values_flattened_len, vector_flattened_len]
 
-        let cond = cells.conditions[Opcode::VecPack.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let values_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();

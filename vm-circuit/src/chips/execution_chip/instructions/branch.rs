@@ -30,7 +30,7 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
         cb: &mut ConstraintBuilder<F>,
         lookups: &mut LookupsWithCondition<F>,
     ) {
-        let cond = cells.conditions[Opcode::Branch.index()].expression.clone();
+        let cond = cells.opcode_selector([Self::OPCODE]);
         // next pc is assigned in the auxiliary_1
         let pc_expr = cells.auxiliary_1.expression.clone() - cb.next.cells.pc.expression.clone();
         let stack_size_expr =

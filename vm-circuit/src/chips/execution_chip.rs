@@ -68,6 +68,7 @@ use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_proofs::plonk::Constraints;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -352,8 +353,8 @@ impl<F: FieldExt> ExecutionChip<F> {
         cb: ConstraintBuilder<F>,
     ) {
         // config each execution path of the step
-        let mut constraints = Vec::new();
-        StepChip::constrain_step_conditions(&step_curr.cells, &mut constraints);
+        let constraints = step_curr.cells.conditions.configure();
+        //StepChip::constrain_step_conditions(&step_curr.cells, &mut constraints);
         // for (i, constraint) in constraints.iter().enumerate() {
         //     debug!("constraint {}, {:?}", i, constraint);
         // }
@@ -380,9 +381,9 @@ impl<F: FieldExt> ExecutionChip<F> {
         if !constraints.is_empty() {
             meta.create_gate(name, |meta| {
                 let s_step = meta.query_selector(s_step);
-                constraints
-                    .into_iter()
-                    .map(move |(name, constraint)| (name, s_step.clone() * constraint))
+                // TODO: add cond here.
+                // let cond = step_curr.cells.opcode_selector([opcode]);
+                Constraints::with_selector(s_step, constraints)
             });
         }
     }
