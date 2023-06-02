@@ -6,5 +6,6 @@ pub mod compiler;
 pub mod generic_call_graph;
 pub mod loader;
 pub mod state;
+pub mod type_safety;
 pub mod utility;
 pub mod value;
