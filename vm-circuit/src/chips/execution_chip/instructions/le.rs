@@ -99,14 +99,6 @@ impl<F: FieldExt> InstructionGadget<F> for Le<F> {
         })?;
 
         assign_to_cells(region, offset, Some(diff), &self.bytes)?;
-        // let diff_bytes: [u8; 32] = diff
-        //     .to_repr()
-        //     .as_ref()
-        //     .try_into()
-        //     .expect("Field fits into 256 bits");
-        // for (index, byte) in self.bytes.iter().enumerate() {
-        //     byte.assign(region, offset, Some(F::from(diff_bytes[index] as u64)))?;
-        // }
 
         Ok(())
     }

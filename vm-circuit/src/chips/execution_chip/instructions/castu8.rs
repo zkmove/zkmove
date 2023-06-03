@@ -84,14 +84,6 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
         })?;
 
         assign_to_cells(region, offset, Some(cast_result), &self.bytes)?;
-        // let result_bytes: [u8; 32] = cast_result
-        //     .to_repr()
-        //     .as_ref()
-        //     .try_into()
-        //     .expect("Field fits into 256 bits");
-        // for (index, byte) in self.bytes.iter().enumerate() {
-        //     byte.assign(region, offset, Some(F::from(result_bytes[index] as u64)))?;
-        // }
 
         Ok(())
     }
