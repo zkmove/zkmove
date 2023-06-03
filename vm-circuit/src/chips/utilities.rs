@@ -116,8 +116,37 @@ impl<F: FieldExt> FieldBytes<F> {
         }
         value
     }
+}
 
-    pub fn expr_16bit(&self, num: usize) -> Expression<F> {
+pub struct FieldBytes16bit<F: FieldExt>(pub(crate) [Cell<F>; 8]);
+
+impl<F: FieldExt> From<Vec<Cell<F>>> for FieldBytes16bit<F> {
+    fn from(bytes: Vec<Cell<F>>) -> FieldBytes16bit<F> {
+        let bytes: [Cell<F>; 8] = bytes.try_into().unwrap_or_else(|v: Vec<Cell<F>>| {
+            panic!(
+                "Expected a Vec of length {} but it was {}",
+                NUM_OF_BYTES_U128,
+                v.len()
+            )
+        });
+        FieldBytes16bit(bytes)
+    }
+}
+
+impl<F: FieldExt> Expr<F> for FieldBytes16bit<F> {
+    fn expr(&self) -> Expression<F> {
+        let mut value = 0.expr();
+        let mut multiplier = F::one();
+        for byte in self.0.iter() {
+            value = value + byte.expression.clone() * multiplier;
+            multiplier *= F::from(1 << 16);
+        }
+        value
+    }
+}
+
+impl<F: FieldExt> FieldBytes16bit<F> {
+    pub fn expr_with_n(&self, num: usize) -> Expression<F> {
         let mut value = 0.expr();
         let mut multiplier = F::one();
         for byte in self.0.iter().take(num) {

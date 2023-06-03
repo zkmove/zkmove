@@ -6,7 +6,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{MAX_ADDRESS_EXT_LENGTH, WORD_CAPACITY};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
+use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes, FieldBytes16bit};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
@@ -1016,8 +1016,7 @@ impl<F: FieldExt> AddrExt<F> {
             .expect("addr_ext is not exsit")
             .expression
             .clone();
-        let ref_val_bytes =
-            FieldBytes::from(ref_val_addr_ext_bytes.to_owned()).expr_16bit(MAX_ADDRESS_EXT_LENGTH);
+        let ref_val_bytes = FieldBytes16bit::from(ref_val_addr_ext_bytes.to_owned()).expr();
         let constraint = cond * (ref_val_addr_ext - ref_val_bytes);
         cb.add_constraint("borrow_field: addr_ext bytes check 0", constraint);
 

@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::param::MAX_ADDRESS_EXT_LENGTH;
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
@@ -12,15 +13,17 @@ use halo2_proofs::plonk::{
 };
 use logger::prelude::*;
 use std::collections::VecDeque;
+use std::convert::TryInto;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 12;
+pub const STACK_OP_CHIP_WIDTH: usize = 20;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of stack operations
     pub address: Cell<F>,
     pub address_ext_0: Cell<F>,
+    pub addr_ext_bytes: Vec<Cell<F>>, // byte set for addr_ext_0
     pub address_ext_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
@@ -36,6 +39,7 @@ pub struct StackOpCells<F: FieldExt> {
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
     pub prev_address_ext_0: Cell<F>,
+    pub prev_addr_ext_bytes: Vec<Cell<F>>, // byte set for prev_address_ext_0
     pub prev_address_ext_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
@@ -117,6 +121,13 @@ impl<F: FieldExt> StackOpChip<F> {
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
             address_ext_0: cells.pop_front().unwrap(),
+            addr_ext_bytes: {
+                let mut vec = Vec::new();
+                for _i in 0..MAX_ADDRESS_EXT_LENGTH {
+                    vec.push(cells.pop_front().unwrap());
+                }
+                vec
+            },
             address_ext_1: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             value_ext: cells.pop_front().unwrap(),
@@ -130,6 +141,13 @@ impl<F: FieldExt> StackOpChip<F> {
             prev_rw: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
             prev_address_ext_0: cells.pop_front().unwrap(),
+            prev_addr_ext_bytes: {
+                let mut vec = Vec::new();
+                for _i in 0..MAX_ADDRESS_EXT_LENGTH {
+                    vec.push(cells.pop_front().unwrap());
+                }
+                vec
+            },
             prev_address_ext_1: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
             prev_value_ext: cells.pop_front().unwrap(),
@@ -240,8 +258,7 @@ impl<F: FieldExt> StackOpChip<F> {
         is_first: bool,
         gc_lookups: &mut Vec<Expression<F>>,
         stack_address_lookups: &mut Vec<Expression<F>>,
-        //addr_ext_0_lookups: &mut <Expression<F>>,
-        _addr_ext_0_lookups: &mut [Expression<F>],
+        addr_ext_0_lookups: &mut Vec<Expression<F>>,
         addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
@@ -381,10 +398,16 @@ impl<F: FieldExt> StackOpChip<F> {
             // stack address index must be less than max_stack_size(EVAL_STACK_SIZE)
             stack_address_lookups.push(cond.clone() * cells.address.expression.clone());
             // address_ext_0 must be less than max_locals_size
-            // TODO. address extend validation
-            // addr_ext_0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
+            for i in 0..MAX_ADDRESS_EXT_LENGTH {
+                addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_bytes[i].expression.clone());
+            }
             // addr_ext_1 must be less than max_locals_size
             addr_ext_1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
+
+            // addr_ext_bytes validation
+            let bytes = FieldBytes16bit::from(cells.addr_ext_bytes.clone()).expr();
+            let constraint = cond.clone() * (cells.address_ext_0.expression.clone() - bytes);
+            constraints.push(("addr_ext_bytes check", constraint));
 
             // address monotonic increment
             // Case A: address must be great than or equal to prev_address
@@ -392,13 +415,15 @@ impl<F: FieldExt> StackOpChip<F> {
 
             // Case B: if same address,
             //            addr_ext_0 must be great than or equal to prev_addr_ext_0
-            // TODO. address extend validation
-            // addr_ext_0_lookups.push(
-            //     cond.clone()
-            //         * (1.expr()
-            //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
-            //         * delt_addr_ext_0.clone(),
-            // );
+            for i in 0..MAX_ADDRESS_EXT_LENGTH {
+                addr_ext_0_lookups.push(
+                    cond.clone()
+                        * (1.expr()
+                            - delt_address.clone() * cells.delta_invert_address.expression.clone())
+                        * (cells.addr_ext_bytes[i].expression.clone()
+                            - cells.prev_addr_ext_bytes[i].expression.clone()),
+                );
+            }
 
             // Case C: if same address/addr_ext_0,
             //            addr_ext_1 must be great than or equal to prev_addr_ext_1
@@ -448,6 +473,27 @@ impl<F: FieldExt> StackOpChip<F> {
                 .cells
                 .address_ext_0
                 .assign(region, offset, Some(op.address_ext_0.0))?;
+
+            // assign addr_ext_0_bytes
+            let result_bytes: [u8; 32] = op
+                .address_ext_0
+                .0
+                .to_repr()
+                .as_ref()
+                .try_into()
+                .expect("Field fits into 256 bits");
+            for (index, byte) in self
+                .config
+                .cells
+                .addr_ext_bytes
+                .iter()
+                .take(MAX_ADDRESS_EXT_LENGTH)
+                .enumerate()
+            {
+                let v: u128 = (result_bytes[2 * index] as u128)
+                    + ((result_bytes[2 * index + 1] as u128) << 8);
+                byte.assign(region, offset, Some(F::from_u128(v)))?;
+            }
 
             self.config
                 .cells
@@ -505,6 +551,26 @@ impl<F: FieldExt> StackOpChip<F> {
                 })?,
                 "address_ext_0",
             )?;
+
+            let result_bytes: [u8; 32] = op
+                .address_ext_0
+                .0
+                .to_repr()
+                .as_ref()
+                .try_into()
+                .expect("Field fits into 256 bits");
+            for (index, byte) in self
+                .config
+                .cells
+                .addr_ext_bytes
+                .iter()
+                .take(MAX_ADDRESS_EXT_LENGTH)
+                .enumerate()
+            {
+                let v: u128 = (result_bytes[2 * index] as u128)
+                    + ((result_bytes[2 * index + 1] as u128) << 8);
+                byte.assign(region, offset, Some(F::from_u128(v)))?;
+            }
 
             self.config.cells.address_ext_1.assign_equality(
                 region,

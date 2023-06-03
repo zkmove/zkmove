@@ -33,7 +33,7 @@ pub mod stack_op_chip;
 // 3. make sure total number of sorted rw operations is equal to the gc of the last
 // execution step.
 
-pub const MEM_CHIP_WIDTH: usize = 14; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH, GLOBAL_OP_CHIP_WIDTH)
+pub const MEM_CHIP_WIDTH: usize = 22; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH, GLOBAL_OP_CHIP_WIDTH)
 
 #[derive(Clone, Debug)]
 pub struct MemoryChipConfig<F: FieldExt> {
