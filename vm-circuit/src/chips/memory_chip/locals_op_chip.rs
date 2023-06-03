@@ -13,7 +13,6 @@ use halo2_proofs::plonk::{
 };
 use logger::prelude::*;
 use std::collections::VecDeque;
-use std::convert::TryInto;
 use std::marker::PhantomData;
 
 pub const LOCALS_OP_CHIP_WIDTH: usize = 22;
@@ -471,18 +470,18 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
             // Case C: if same frame_index/index,
             //         addr_ext_0 must be great than or equal to prev_addr_ext_0
-            for i in 0..MAX_ADDRESS_EXT_LENGTH {
-                addr_ext_0_lookups.push(
-                    cond.clone()
-                        * (1.expr()
-                            - delt_frame_index.clone()
-                                * cells.delta_invert_frame_index.expression.clone())
-                        * (1.expr()
-                            - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                        * (cells.addr_ext_bytes[i].expression.clone()
-                            - cells.prev_addr_ext_bytes[i].expression.clone()),
-                );
-            }
+            // for i in 0..MAX_ADDRESS_EXT_LENGTH {
+            //     addr_ext_0_lookups.push(
+            //         cond.clone()
+            //             * (1.expr()
+            //                 - delt_frame_index.clone()
+            //                     * cells.delta_invert_frame_index.expression.clone())
+            //             * (1.expr()
+            //                 - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+            //             * (cells.addr_ext_bytes[i].expression.clone()
+            //                 - cells.prev_addr_ext_bytes[i].expression.clone()),
+            //     );
+            // }
 
             // Case D: if same frame_index/index/addr_ext_0,
             //         addr_ext_1 must be great than or equal to prev_addr_ext_1
@@ -539,27 +538,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 .cells
                 .addr_ext_0
                 .assign(region, offset, Some(op.address_ext_0.0))?;
-
             // assign addr_ext_0_bytes
-            let result_bytes: [u8; 32] = op
-                .address_ext_0
-                .0
-                .to_repr()
-                .as_ref()
-                .try_into()
-                .expect("Field fits into 256 bits");
-            for (index, byte) in self
-                .config
-                .cells
-                .addr_ext_bytes
-                .iter()
-                .take(MAX_ADDRESS_EXT_LENGTH)
-                .enumerate()
-            {
-                let v: u128 = (result_bytes[2 * index] as u128)
-                    + ((result_bytes[2 * index + 1] as u128) << 8);
-                byte.assign(region, offset, Some(F::from_u128(v)))?;
-            }
+            assign_to_cells_bit16(
+                region,
+                offset,
+                Some(op.address_ext_0.0),
+                &self.config.cells.addr_ext_bytes,
+            )?;
 
             self.config
                 .cells
@@ -622,26 +607,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 })?,
                 "address_ext_0",
             )?;
-
-            let result_bytes: [u8; 32] = op
-                .address_ext_0
-                .0
-                .to_repr()
-                .as_ref()
-                .try_into()
-                .expect("Field fits into 256 bits");
-            for (index, byte) in self
-                .config
-                .cells
-                .addr_ext_bytes
-                .iter()
-                .take(MAX_ADDRESS_EXT_LENGTH)
-                .enumerate()
-            {
-                let v: u128 = (result_bytes[2 * index] as u128)
-                    + ((result_bytes[2 * index + 1] as u128) << 8);
-                byte.assign(region, offset, Some(F::from_u128(v)))?;
-            }
+            // assign addr_ext_0_bytes
+            assign_to_cells_bit16(
+                region,
+                offset,
+                Some(op.address_ext_0.0),
+                &self.config.cells.addr_ext_bytes,
+            )?;
 
             self.config.cells.addr_ext_1.assign_equality(
                 region,

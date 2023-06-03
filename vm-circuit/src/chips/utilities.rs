@@ -67,6 +67,49 @@ impl<F: FieldExt> Cell<F> {
     }
 }
 
+// 128 bit is divided into 16 cells[u8; 16]
+pub fn assign_to_cells<F: FieldExt>(
+    region: &mut Region<'_, F>,
+    offset: usize,
+    value: Option<F>,
+    cells: &[Cell<F>],
+) -> Result<(), Error> {
+    let result_bytes: [u8; 32] = value
+        .unwrap()
+        .to_repr()
+        .as_ref()
+        .try_into()
+        .expect("Field fits into 256 bits");
+
+    for (index, byte) in cells.iter().enumerate() {
+        byte.assign(region, offset, Some(F::from(result_bytes[index] as u64)))?;
+    }
+
+    Ok(())
+}
+
+// 128 bit is divided into 8 cells[u16; 8]
+pub fn assign_to_cells_bit16<F: FieldExt>(
+    region: &mut Region<'_, F>,
+    offset: usize,
+    value: Option<F>,
+    cells: &[Cell<F>],
+) -> Result<(), Error> {
+    let result_bytes: [u8; 32] = value
+        .unwrap()
+        .to_repr()
+        .as_ref()
+        .try_into()
+        .expect("Field fits into 256 bits");
+
+    for (index, byte) in cells.iter().enumerate() {
+        let v: u64 = (result_bytes[2 * index] as u64) + ((result_bytes[2 * index + 1] as u64) << 8);
+        byte.assign(region, offset, Some(F::from(v)))?;
+    }
+
+    Ok(())
+}
+
 pub(crate) trait Expr<F: FieldExt> {
     fn expr(&self) -> Expression<F>;
 }

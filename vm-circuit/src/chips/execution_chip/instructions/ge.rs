@@ -7,7 +7,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr, FieldBytes};
+use crate::chips::utilities::{assign_to_cells, Cell, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -15,7 +15,6 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U128;
-use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct Ge<F: FieldExt> {
@@ -96,14 +95,15 @@ impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
             Error::Synthesis
         })?;
 
-        let diff_bytes: [u8; 32] = diff
-            .to_repr()
-            .as_ref()
-            .try_into()
-            .expect("Field fits into 256 bits");
-        for (index, byte) in self.bytes.iter().enumerate() {
-            byte.assign(region, offset, Some(F::from(diff_bytes[index] as u64)))?;
-        }
+        assign_to_cells(region, offset, Some(diff), &self.bytes)?;
+        // let diff_bytes: [u8; 32] = diff
+        //     .to_repr()
+        //     .as_ref()
+        //     .try_into()
+        //     .expect("Field fits into 256 bits");
+        // for (index, byte) in self.bytes.iter().enumerate() {
+        //     byte.assign(region, offset, Some(F::from(diff_bytes[index] as u64)))?;
+        // }
 
         Ok(())
     }
