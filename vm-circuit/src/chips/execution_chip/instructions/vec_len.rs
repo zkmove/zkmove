@@ -188,7 +188,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         self.vec_header_addr_ext_0.assign(
             region,
             offset,
-            Some(F::from(op.address_ext_0() as u64)),
+            Some(F::from_u128(op.address_ext_0())),
         )?;
         self.vec_header_addr_ext_1.assign(
             region,

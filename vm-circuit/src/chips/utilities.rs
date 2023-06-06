@@ -110,6 +110,37 @@ pub fn assign_to_cells_bit16<F: FieldExt>(
     Ok(())
 }
 
+// 128 bit is divided into 8 cells[u16; 8]
+pub fn assign_invert_to_cells_bit16<F: FieldExt>(
+    region: &mut Region<'_, F>,
+    offset: usize,
+    cur_value: Option<F>,
+    prev_value: Option<F>,
+    cells: &[Cell<F>],
+) -> Result<(), Error> {
+    let cur_bytes: [u8; 32] = cur_value
+        .unwrap()
+        .to_repr()
+        .as_ref()
+        .try_into()
+        .expect("Field fits into 256 bits");
+    let prev_bytes: [u8; 32] = prev_value
+        .unwrap()
+        .to_repr()
+        .as_ref()
+        .try_into()
+        .expect("Field fits into 256 bits");
+
+    for (index, byte) in cells.iter().enumerate() {
+        let v0: u64 = (cur_bytes[2 * index] as u64) + ((cur_bytes[2 * index + 1] as u64) << 8);
+        let v1: u64 = (prev_bytes[2 * index] as u64) + ((prev_bytes[2 * index + 1] as u64) << 8);
+
+        byte.assign(region, offset, (v0 as usize).sub_invert(v1 as usize))?;
+    }
+
+    Ok(())
+}
+
 pub(crate) trait Expr<F: FieldExt> {
     fn expr(&self) -> Expression<F>;
 }

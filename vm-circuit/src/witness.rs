@@ -182,29 +182,29 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Execution steps:")?;
         self.exec_steps.iter().enumerate().for_each(|(i, step)| {
-            writeln!(f, "{}: {:?}", i, step).unwrap();
+            writeln!(f, "{}: {:x?}", i, step).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Read/Write operations:")?;
         self.rw_operations.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:x?}", op).unwrap();
         });
         writeln!(f)?;
         let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
             self.rw_operations.clone().into();
         writeln!(f, "Sorted stack operations:")?;
         sorted_stack_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Sorted locals operations:")?;
         sorted_locals_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Sorted global operations:")?;
         sorted_global_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Bytecode table:")?;

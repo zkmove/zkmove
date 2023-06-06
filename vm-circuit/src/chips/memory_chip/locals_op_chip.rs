@@ -15,7 +15,7 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 22;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 30;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
@@ -35,6 +35,7 @@ pub struct LocalsOpCells<F: FieldExt> {
     pub delta_invert_frame_index: Cell<F>,
     pub delta_invert_idx: Cell<F>,
     pub delta_invert_addr_ext_0: Cell<F>,
+    pub delta_invert_addr_ext_bytes: Vec<Cell<F>>,
     pub delta_invert_addr_ext_1: Cell<F>,
 
     pub prev_counter: Cell<F>,
@@ -140,6 +141,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
             delta_invert_frame_index: cells.pop_front().unwrap(),
             delta_invert_idx: cells.pop_front().unwrap(),
             delta_invert_addr_ext_0: cells.pop_front().unwrap(),
+            delta_invert_addr_ext_bytes: {
+                let mut vec = Vec::new();
+                for _i in 0..MAX_ADDRESS_EXT_LENGTH {
+                    vec.push(cells.pop_front().unwrap());
+                }
+                vec
+            },
             delta_invert_addr_ext_1: cells.pop_front().unwrap(),
 
             prev_counter: cells.pop_front().unwrap(),
@@ -482,6 +490,27 @@ impl<F: FieldExt> LocalsOpChip<F> {
             //                 - cells.prev_addr_ext_bytes[i].expression.clone()),
             //     );
             // }
+            for i in (0..MAX_ADDRESS_EXT_LENGTH).rev() {
+                let delta = cells.addr_ext_bytes[i].expression.clone()
+                    - cells.prev_addr_ext_bytes[i].expression.clone();
+                let init = cond.clone()
+                    * (1.expr()
+                        - delt_frame_index.clone()
+                            * cells.delta_invert_frame_index.expression.clone())
+                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * delta;
+                let val = ((i + 1)..MAX_ADDRESS_EXT_LENGTH)
+                    .rev()
+                    .map(|j| {
+                        1.expr()
+                            - (cells.addr_ext_bytes[j].expression.clone()
+                                - cells.prev_addr_ext_bytes[j].expression.clone())
+                                * cells.delta_invert_addr_ext_bytes[j].expression.clone()
+                    })
+                    .fold(init, |acc, cell| acc * cell);
+
+                addr_ext_0_lookups.push(val);
+            }
 
             // Case D: if same frame_index/index/addr_ext_0,
             //         addr_ext_1 must be great than or equal to prev_addr_ext_1
@@ -669,6 +698,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
             region,
             offset,
             op.address_ext_0.0.delta_invert(prev_addr_ext_0),
+        )?;
+        assign_invert_to_cells_bit16(
+            region,
+            offset,
+            Some(op.address_ext_0.0),
+            Some(prev_addr_ext_0),
+            &self.config.cells.delta_invert_addr_ext_bytes,
         )?;
         self.config.cells.delta_invert_addr_ext_1.assign(
             region,

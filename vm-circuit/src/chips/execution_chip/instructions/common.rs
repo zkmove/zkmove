@@ -645,7 +645,8 @@ impl<F: FieldExt> Word<F> {
             .get_lower_32();
 
         // offset within addr_ext is address length sub DEPTH_OF_LOCATION_PATH.
-        let addr_ext_offset = len_of_address - (DEPTH_OF_LOCATION_PATH as u32);
+        let addr_ext_offset =
+            ((MAX_ADDRESS_EXT_LENGTH + DEPTH_OF_LOCATION_PATH - 1) as u32) - len_of_address;
         if addr_ext_offset >= (MAX_ADDRESS_EXT_LENGTH as u32) {
             error!("ref value {:?} is out of bound", step_value);
             return Err(RuntimeError::new(StatusCode::OutOfBounds));
@@ -675,7 +676,7 @@ impl<F: FieldExt> Word<F> {
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
-                Some(F::from(op.address_ext_0() as u64)),
+                Some(F::from_u128(op.address_ext_0() as u128)),
             )?;
             cells.word_addr_ext_1[i].assign(
                 region,
@@ -725,7 +726,7 @@ impl<F: FieldExt> Word<F> {
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
-                Some(F::from(op.address_ext_0() as u64)),
+                Some(F::from_u128(op.address_ext_0())),
             )?;
             cells.word_addr_ext_1[i].assign(
                 region,
@@ -772,7 +773,7 @@ impl<F: FieldExt> Word<F> {
                 cells.word_addr_ext_0[i].assign(
                     region,
                     offset,
-                    Some(F::from(op.address_ext_0() as u64)),
+                    Some(F::from_u128(op.address_ext_0())),
                 )?;
                 cells.word_addr_ext_1[i].assign(
                     region,
@@ -820,7 +821,7 @@ impl<F: FieldExt> Word<F> {
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
-                Some(F::from(op.address_ext_0() as u64)),
+                Some(F::from_u128(op.address_ext_0())),
             )?;
             cells.word_addr_ext_1[i].assign(
                 region,

@@ -10,6 +10,7 @@ use movelang::value::{
     Value, ValueLocation, VectorRef,
 };
 use std::rc::Rc;
+use vm_circuit::chips::execution_chip::param::MAX_ADDRESS_EXT_LENGTH;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
@@ -46,6 +47,8 @@ impl<F: FieldExt> EvalStack<F> {
         }
     }
 
+    // addr_ext begin from 3rd elements
+    // 128bit(16 * 8) can keep 8 dimensions container address
     #[allow(clippy::type_complexity)]
     pub fn emit_stack_ops_for_ref_val(
         word: Vec<(
@@ -57,7 +60,12 @@ impl<F: FieldExt> EvalStack<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
         let mut v: u128 = 0;
-        for (i, (address_path, val, val_ext)) in word.clone().into_iter().enumerate() {
+        for (i, (address_path, val, val_ext)) in word
+            .clone()
+            .into_iter()
+            .enumerate()
+            .take(MAX_ADDRESS_EXT_LENGTH)
+        {
             if i < DEPTH_OF_LOCATION_PATH {
                 let stack_op = StackOp {
                     address: *address_path.0.get(1).expect("address should not be None") as usize,
@@ -72,7 +80,7 @@ impl<F: FieldExt> EvalStack<F> {
             } else {
                 // fold addr_ext into one cell
                 let x = val.unwrap().value().unwrap().get_lower_128();
-                v += x << (16 * (i - 2));
+                v += x << (16 * (DEPTH_OF_LOCATION_PATH + MAX_ADDRESS_EXT_LENGTH - 1 - i));
             }
         }
         let (address_path, _, _) = word.get(2).expect("address");
@@ -254,7 +262,7 @@ impl<F: FieldExt> EvalStack<F> {
                 &value,
             )
             .flatten();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops_for_ref_val(word, RW::READ, rw_operations);
 
             match value {
                 Value::LocalRef(r) => Ok(VectorRef::LocalRef(r)),

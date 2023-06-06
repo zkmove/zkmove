@@ -117,7 +117,7 @@ pub enum RW {
 pub struct LocalsOp<F: FieldExt> {
     pub frame_index: usize, // locals ops will sorted by (frame_index, index, gc)
     pub index: usize,
-    pub address_ext_0: usize,
+    pub address_ext_0: u128,
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
@@ -194,7 +194,7 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackOp<F: FieldExt> {
     pub address: usize, // stack ops will be sorted by (address, gc)
-    pub address_ext_0: usize,
+    pub address_ext_0: u128,
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
@@ -269,7 +269,7 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
 pub struct GlobalOp<F: FieldExt> {
     pub address: AccountAddress<F>, // global ops will be sorted by (address, sd_index, gc)
     pub sd_index: usize,            // struct definition index
-    pub address_ext_0: usize,
+    pub address_ext_0: u128,
     pub address_ext_1: usize,
     pub gc: usize,
     pub rw: RW,
@@ -429,7 +429,7 @@ impl<F: FieldExt> RWOperation<F> {
         }
     }
 
-    pub fn address_ext_0(&self) -> usize {
+    pub fn address_ext_0(&self) -> u128 {
         match self {
             Self::StackOp(op) => op.address_ext_0,
             Self::LocalsOp(op) => op.address_ext_0,
