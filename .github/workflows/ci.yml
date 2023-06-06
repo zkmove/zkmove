@@ -35,7 +35,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: bench
-          args: --all
+          args: --all --exclude functional-tests
 
   build:
     if: github.event.pull_request.draft == false
@@ -52,6 +52,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --all-targets --workspace
 
   fmt:
     if: github.event.pull_request.draft == false
@@ -86,4 +87,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --verbose --release --all --tests
+          args: --verbose --release --all --all-targets

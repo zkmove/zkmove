@@ -8,6 +8,7 @@ on:
     # Only run benchmarks on changes to following paths:
     paths:
       - "vm-circuit/**"
+      - "functional-tests/benches/**"
   workflow_dispatch:
 
 env:
