@@ -14,16 +14,19 @@ vm-circuit = { path = "../vm-circuit" }
 vm = { path = "../vm" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
 anyhow = "1.0.38"
-criterion = "0.3.4"
+criterion = "0.5.1"
 rand_core = { version = "0.6", default-features = false }
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
+regex = "1.5"
+walkdir = "2.3.2"
 
 [[test]]
 name = "testsuite"
 harness = false
 
-#[[bench]]
-#name = "circuit_benchmark"
-#harness = false
+[[bench]]
+name = "circuit_benchmark"
+harness = false
+
