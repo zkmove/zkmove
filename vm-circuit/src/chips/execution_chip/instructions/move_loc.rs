@@ -66,7 +66,6 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
-                0.expr(),                 //fixme, value_ext may not be 0.
                 word_element_num.clone(), // word_element_num
             );
 

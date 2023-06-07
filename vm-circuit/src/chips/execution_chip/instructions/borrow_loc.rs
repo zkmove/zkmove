@@ -73,7 +73,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
                 self.word_a_addr_ext_0[i].expression.clone(),
                 self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
-                0.expr(),
             );
 
             lookups.rw_lookups.push((
@@ -92,7 +91,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
-                    0.expr(), //fixme, value_ext may not be 0.
                 ),
                 cond.clone(),
             ));
