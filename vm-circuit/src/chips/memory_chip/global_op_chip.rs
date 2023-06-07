@@ -378,18 +378,6 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // -[x] for same address/sd_index/addr_ext0, must have `addr_ext_1 >= prev_addr_ext_1`
 
             // if same address/sd_index, addr_ext_0 must be great than or equal to prev_addr_ext_0
-            // for i in 0..MAX_ADDRESS_EXT_LENGTH {
-            //     addr_ext0_lookups.push(
-            //         cond.clone()
-            //             * (1.expr()
-            //                 - delt_address.clone() * cells.delta_invert_address.expression.clone())
-            //             * (1.expr()
-            //                 - delt_sd_index.clone()
-            //                     * cells.delta_invert_sd_index.expression.clone())
-            //             * (cells.addr_ext_bytes[i].expression.clone()
-            //                 - cells.prev_addr_ext_bytes[i].expression.clone()),
-            //     );
-            // }
             for i in (0..MAX_ADDRESS_EXT_LENGTH).rev() {
                 let delta = cells.addr_ext_bytes[i].expression.clone()
                     - cells.prev_addr_ext_bytes[i].expression.clone();

@@ -21,7 +21,7 @@ pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const DEPTH_OF_ADDRESS_PATH: usize = 3; // frame_index, index(address), address_ext
 pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
-pub const DEPTH_OF_ADDR_EXT: usize = 8; // max(global location, locals location, stack location)
+pub const DEPTH_OF_ADDR_EXT: usize = 8;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U8<F: FieldExt>(pub F);

@@ -478,18 +478,6 @@ impl<F: FieldExt> LocalsOpChip<F> {
             );
             // Case C: if same frame_index/index,
             //         addr_ext_0 must be great than or equal to prev_addr_ext_0
-            // for i in 0..MAX_ADDRESS_EXT_LENGTH {
-            //     addr_ext_0_lookups.push(
-            //         cond.clone()
-            //             * (1.expr()
-            //                 - delt_frame_index.clone()
-            //                     * cells.delta_invert_frame_index.expression.clone())
-            //             * (1.expr()
-            //                 - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-            //             * (cells.addr_ext_bytes[i].expression.clone()
-            //                 - cells.prev_addr_ext_bytes[i].expression.clone()),
-            //     );
-            // }
             for i in (0..MAX_ADDRESS_EXT_LENGTH).rev() {
                 let delta = cells.addr_ext_bytes[i].expression.clone()
                     - cells.prev_addr_ext_bytes[i].expression.clone();
