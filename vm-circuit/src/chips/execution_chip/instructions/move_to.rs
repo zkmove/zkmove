@@ -16,17 +16,17 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::value::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
-    value_a: Cell<F>,
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
-    ref_val: Vec<Cell<F>>,
-    ref_val_mask: Vec<Cell<F>>,
+    account_address: Cell<F>,
+    word: Vec<Cell<F>>,
+    word_mask: Vec<Cell<F>>,
+    word_addr_ext_0: Vec<Cell<F>>,
+    word_addr_ext_1: Vec<Cell<F>>,
+    signer_ref: Vec<Cell<F>>,
+    signer_ref_mask: Vec<Cell<F>>,
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
@@ -51,10 +51,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr() * word_elem_num
-            + depth_of_addr_path_expr.clone();
+            + (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -67,11 +67,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             ("module index", module_index),
             ("function index", func_index),
         ]);
-        let global_address = self.value_a.expression.clone();
+        let global_address = self.account_address.expression.clone();
         let sd_index = cells.auxiliary_1.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
 
-        for (i, _) in self.word_a.iter().enumerate() {
+        for (i, _) in self.word.iter().enumerate() {
             let (read_stack, write_global) = RWLookup::move_to_global(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone(),
@@ -81,21 +81,25 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                 } else {
                     sd_index.clone()
                 },
-                self.word_a_addr_ext_0[i].expression.clone(),
-                self.word_a_addr_ext_1[i].expression.clone(),
-                self.word_a[i].expression.clone(),
+                self.word_addr_ext_0[i].expression.clone(),
+                self.word_addr_ext_1[i].expression.clone(),
+                self.word[i].expression.clone(),
                 word_elem_num.clone(),
-                depth_of_addr_path_expr.clone(),
+                (LEN_OF_REFERENCE_VALUE as u64).expr(),
             );
-            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+            cb.condition(1.expr() - self.word_mask[i].expression.clone(), |cb| {
                 cb.add_lookup("move_to(stack read)", read_stack);
                 cb.add_lookup("move_to(global write)", write_global);
             });
         }
 
         // lookup the signer reference is popped
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            // for i in 0..DEPTH_OF_ADDRESS_PATH {
+        for (i, item) in self
+            .signer_ref
+            .iter()
+            .enumerate()
+            .take(LEN_OF_REFERENCE_VALUE)
+        {
             cb.add_lookup(
                 "move_to(signer stack pop)",
                 RWLookup::stack_pop(
@@ -127,10 +131,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         // word is resource on stack
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+            word: self.word.clone(),
+            word_mask: self.word_mask.clone(),
+            word_addr_ext_0: self.word_addr_ext_0.clone(),
+            word_addr_ext_1: self.word_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -143,28 +147,29 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         )?;
 
         // assign the signer reference
-        let ref_val = RefVal {
-            ref_val: self.ref_val.clone(),
-            ref_val_mask: self.ref_val_mask.clone(),
+        let signer_ref = RefVal {
+            ref_val: self.signer_ref.clone(),
+            ref_val_mask: self.signer_ref_mask.clone(),
         };
         Word::assign_ref_val(
             region,
             offset,
             step,
             rw_operations,
-            &ref_val,
+            &signer_ref,
             step.gc + word_element_num,
-            DEPTH_OF_ADDRESS_PATH,
+            LEN_OF_REFERENCE_VALUE,
         )?;
 
-        // value c is the global address
+        // global account address
         let op = rw_operations
             .0
-            .get(step.gc + word_element_num + DEPTH_OF_ADDRESS_PATH)
+            .get(step.gc + word_element_num + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
-        self.value_a
+        self.account_address
             .assign(region, offset, Some(op.account_address().value()))?;
+
         cells.auxiliary_1.assign(
             region,
             offset,
@@ -208,13 +213,13 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let word_cap = word_capacity();
 
         // alloc cell
-        let value_a = cb.alloc_cell();
-        let word_a = cb.alloc_n_cells(word_cap);
-        let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let account_address = cb.alloc_cell();
+        let word = cb.alloc_n_cells(word_cap);
+        let word_mask = cb.alloc_n_cells(word_cap);
+        let word_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let signer_ref = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let signer_ref_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
             let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
@@ -236,13 +241,13 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             None
         };
         Self {
-            value_a,
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
-            ref_val,
-            ref_val_mask,
+            account_address,
+            word,
+            word_mask,
+            word_addr_ext_0,
+            word_addr_ext_1,
+            signer_ref,
+            signer_ref_mask,
             type_cells,
         }
     }

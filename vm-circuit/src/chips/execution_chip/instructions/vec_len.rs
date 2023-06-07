@@ -15,8 +15,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value::value_header::ValueHeader;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::value::LEN_OF_REFERENCE_VALUE;
+use movelang::word::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {
@@ -39,19 +39,19 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecLen, there are 3 steps here:
-        // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
-        // 2. read vec header from locals or global. [gc+DEPTH_OF_ADDRESS_PATH, 1]
-        // 3. write length into stack. [gc+DEPTH_OF_ADDRESS_PATH+1, 1]
+        // 1. read reference from stack. [gc, LEN_OF_REFERENCE_VALUE]
+        // 2. read vec header from locals or global. [gc+LEN_OF_REFERENCE_VALUE, 1]
+        // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, 1]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + depth_of_addr_path_expr.clone()
-            + 2.expr();
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+            + 3.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -65,7 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
             cb.add_lookup(
                 "vec_len(stack pop ref_val)",
                 RWLookup::stack_pop(
@@ -81,7 +81,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let is_global = cells.auxiliary_1.expression.clone();
         // locals read or global read
         let read_local = RWLookup::locals_read(
-            cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
+            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr(),
             self.vec_frame_index_or_global_address.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
@@ -94,7 +94,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         });
 
         let read_global = RWLookup::global_read(
-            cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
+            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr(),
             self.vec_frame_index_or_global_address.expression.clone(),
             self.vec_header_value.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
@@ -108,27 +108,42 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         // stack write
         let write = RWLookup::stack_push(
-            cells.gc.expression.clone() + depth_of_addr_path_expr + 1.expr(),
+            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 1.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
             0.expr(),
+            0.expr(),
+            ValueHeader::default_for_simple().expr(),
+        );
+        cb.add_lookup("vec_len(push value header to stack)", write);
+        let write = RWLookup::stack_push(
+            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 2.expr(),
+            cells.stack_size.expression.clone() - 1.expr(),
+            1.expr(),
             0.expr(),
             self.vec_len.expression.clone(),
         );
         cb.add_lookup("vec_len(push len to stack)", write);
 
-        // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
-        let mut constraint = self.ref_val[0].expression.clone()
-            - self.vec_frame_index_or_global_address.expression.clone();
+        // ref_val[0] equals to ref value header
+        let mut constraint =
+            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr();
         cb.add_constraint("read_ref_eq_0", constraint);
-        // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
-        constraint = (1.expr() - is_global)
-            * (self.ref_val[1].expression.clone()
-                - self.vec_locals_index_or_global_sd_idx.expression.clone());
+
+        // ref_val[1] equel to frame_index(Locals) or account_address(Global)
+        constraint = self.ref_val[1].expression.clone()
+            - self.vec_frame_index_or_global_address.expression.clone();
         cb.add_constraint("read_ref_eq_1", constraint);
-        // cells.ref_val[2] equal to vec_header_addr_ext_0
-        constraint =
-            self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone();
+
+        // ref_val[2] equel to local_index(Locals) or sd_index(Global)
+        constraint = (1.expr() - is_global)
+            * (self.ref_val[2].expression.clone()
+                - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
+
+        // ref_val[3] equal to vec_header_addr_ext_0
+        constraint =
+            self.ref_val[3].expression.clone() - self.vec_header_addr_ext_0.expression.clone();
+        cb.add_constraint("read_ref_eq_3", constraint);
 
         // check vec header
         ValueHeaderGadget::construct(
@@ -169,12 +184,12 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             rw_operations,
             &ref_val,
             step.gc,
-            DEPTH_OF_ADDRESS_PATH,
+            LEN_OF_REFERENCE_VALUE,
         )?;
 
         let op = rw_operations
             .0
-            .get(step.gc + DEPTH_OF_ADDRESS_PATH)
+            .get(step.gc + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
 
         // assign vec_header_value, vec_flattened_len
@@ -226,7 +241,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // assign vec_len
         let op = rw_operations
             .0
-            .get(step.gc + DEPTH_OF_ADDRESS_PATH + 1)
+            .get(step.gc + LEN_OF_REFERENCE_VALUE + 2)
             .ok_or(Error::Synthesis)?;
         self.vec_len.assign(region, offset, op.value().value())?;
 
@@ -235,8 +250,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
 
         let vec_header_value = cb.alloc_cell();
         let vec_flattened_len = cb.alloc_cell();

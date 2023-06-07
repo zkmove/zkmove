@@ -268,28 +268,6 @@ impl<F: FieldExt> RWLookup<F> {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn locals_ref(
-        gc: Expression<F>,
-        frame_index: Expression<F>,
-        locals_index: Expression<F>,
-        address_ext_0: Expression<F>,
-        address_ext_1: Expression<F>,
-        value: Expression<F>,
-    ) -> RWLookup<F> {
-        RWLookup {
-            gc,
-            rw_target: (RWTarget::Locals as u64).expr(),
-            rw: (RW::READ as u64).expr(),
-            frame_index,
-            address: locals_index,
-            address_ext_0,
-            address_ext_1,
-            value,
-            sd_index: 0.expr(),
-        }
-    }
-
     pub fn locals_read(
         gc: Expression<F>,
         frame_index: Expression<F>,

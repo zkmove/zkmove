@@ -61,7 +61,7 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
 
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
         let cast_result = op.value().value().ok_or_else(|| {
             error!("cast_result is None");
             Error::Synthesis

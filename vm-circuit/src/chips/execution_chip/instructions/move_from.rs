@@ -16,14 +16,15 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
+use movelang::word::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
-    value_a: Cell<F>,
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
+    account_address: Cell<F>,
+    global_value: Vec<Cell<F>>,
+    global_value_mask: Vec<Cell<F>>,
+    global_value_addr_ext_0: Vec<Cell<F>>,
+    global_value_addr_ext_1: Vec<Cell<F>>,
 
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -50,7 +51,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let word_elem_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + word_elem_num.clone() * 3.expr() // two for global read resource, one for stack push value
-            + 1.expr(); // stack pop account_address
+            + 2.expr(); // stack pop account_address
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -63,23 +64,35 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             ("module index", module_index),
             ("function index", func_index),
         ]);
-        let account_address_expr = self.value_a.expression.clone();
-        let sd_index = cells.auxiliary_1.expression.clone();
+
+        // pop account_address
+        let account_address_expr = self.account_address.expression.clone();
         cb.add_lookup(
-            "move_from(stack pop)",
+            "move_from(stack pop value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "move_from(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                0.expr(),
                 account_address_expr.clone(),
             ),
         );
 
-        for (i, _) in self.word_a.iter().enumerate() {
+        let sd_index = cells.auxiliary_1.expression.clone();
+        for (i, _) in self.global_value.iter().enumerate() {
             let (read_global, write_invalid_to_global, write_stack) =
                 RWLookup::move_from_global_to_stack(
-                    cells.gc.expression.clone() + (i as u64 + 1).expr(),
+                    cells.gc.expression.clone() + (i as u64 + 2).expr(),
                     account_address_expr.clone(),
                     if GENERIC {
                         sd_index.clone() * 2u64.pow(16).expr()
@@ -87,16 +100,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                         sd_index.clone()
                     },
                     cells.stack_size.expression.clone(),
-                    self.word_a_addr_ext_0[i].expression.clone(),
-                    self.word_a_addr_ext_1[i].expression.clone(),
-                    self.word_a[i].expression.clone(),
+                    self.global_value_addr_ext_0[i].expression.clone(),
+                    self.global_value_addr_ext_1[i].expression.clone(),
+                    self.global_value[i].expression.clone(),
                     word_elem_num.clone(),
                 );
-            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
-                cb.add_lookup("move_from(global read)", read_global);
-                cb.add_lookup("move_from(invalid)", write_invalid_to_global);
-                cb.add_lookup("move_from(stack write)", write_stack);
-            });
+            cb.condition(
+                1.expr() - self.global_value_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup("move_from(global read)", read_global);
+                    cb.add_lookup("move_from(invalid)", write_invalid_to_global);
+                    cb.add_lookup("move_from(stack write)", write_stack);
+                },
+            );
         }
 
         LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, sd_index);
@@ -113,19 +129,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-
         // account address
-        self.value_a.assign(region, offset, op.value().value())?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        self.account_address
+            .assign(region, offset, op.value().value())?;
 
         // resource structs
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
         let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+            word: self.global_value.clone(),
+            word_mask: self.global_value_mask.clone(),
+            word_addr_ext_0: self.global_value_addr_ext_0.clone(),
+            word_addr_ext_1: self.global_value_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -133,7 +149,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             step,
             rw_operations,
             &word,
-            step.gc + 1,
+            step.gc + 2,
             word_element_num,
         )?;
         cells.auxiliary_1.assign(
@@ -178,11 +194,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let word_cap = word_capacity();
 
         // alloc cell
-        let value_a = cb.alloc_cell();
-        let word_a = cb.alloc_n_cells(word_cap);
-        let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let account_address = cb.alloc_cell();
+        let global_value = cb.alloc_n_cells(word_cap);
+        let global_value_mask = cb.alloc_n_cells(word_cap);
+        let global_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let global_value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
@@ -205,11 +221,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             None
         };
         Self {
-            value_a,
-            word_a,
-            word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
+            account_address,
+            global_value,
+            global_value_mask,
+            global_value_addr_ext_0,
+            global_value_addr_ext_1,
             type_cells,
         }
     }

@@ -39,7 +39,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdU128<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let value_a = &self.value_a;
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         value_a.assign(region, offset, op.value().value())?;
         Ok(())

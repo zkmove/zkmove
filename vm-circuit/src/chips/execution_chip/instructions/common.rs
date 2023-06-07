@@ -16,10 +16,9 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::value::DEPTH_OF_LOCATION_PATH;
-use movelang::value::{
-    Value, DEPTH_OF_ADDRESS_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
-};
+use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
+use movelang::value::{DEPTH_OF_LOCATION_PATH, LEN_OF_REFERENCE_VALUE};
+use movelang::word::ValueHeader;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -38,7 +37,8 @@ impl<F: FieldExt> BinaryOp<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 3.expr();
+        // Each stack push/pop have two rw_op, one is for the value header.
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 6.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -59,31 +59,61 @@ impl<F: FieldExt> BinaryOp<F> {
         binary_op: &BinaryOp<F>,
     ) {
         cb.add_lookup(
-            "binary op(stack pop 0)",
+            "binary op(stack pop value_b's header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack pop value_b)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                0.expr(),
                 binary_op.value_b.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "binary op(stack pop 1)",
+            "binary op(stack pop value_a's header)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack pop value_a)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 3.expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                1.expr(),
                 0.expr(),
                 binary_op.value_a.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "binary op(stack push 0)",
+            "binary op(stack push value_c's header)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 2.expr(),
+                cells.gc.expression.clone() + 4.expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 0.expr(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack push value_c)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + 5.expr(),
+                cells.stack_size.expression.clone() - 2.expr(),
+                1.expr(),
                 0.expr(),
                 binary_op.value_c.expression.clone(),
             ),
@@ -97,19 +127,19 @@ impl<F: FieldExt> BinaryOp<F> {
         rw_operations: &RWOperations<F>,
         binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         binary_op
             .value_b
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         binary_op
             .value_a
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 5).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         binary_op
             .value_c
@@ -150,7 +180,7 @@ impl<F: FieldExt> BinaryOp<F> {
         // every 4 bits within one cell and cost 16 cells.
         let result = rw_operations
             .0
-            .get(step.gc + 1)
+            .get(step.gc + 3)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -182,7 +212,7 @@ impl<F: FieldExt> BinaryOp<F> {
         // every 4 bits within one cell and cost 16 cells.
         let result = rw_operations
             .0
-            .get(step.gc)
+            .get(step.gc + 1)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -214,7 +244,7 @@ impl<F: FieldExt> BinaryOp<F> {
         // every 4 bits within one cell and cost 16 cells.
         let result = rw_operations
             .0
-            .get(step.gc + 2)
+            .get(step.gc + 5)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -258,7 +288,7 @@ impl<F: FieldExt> UnaryOp<F> {
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 4.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -279,21 +309,41 @@ impl<F: FieldExt> UnaryOp<F> {
         unary_op: &UnaryOp<F>,
     ) {
         cb.add_lookup(
-            "unary op(stack pop)",
+            "unary op(stack pop value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "unary op(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                0.expr(),
                 unary_op.value_a.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "unary op(stack push)",
+            "unary op(stack push value header)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "unary op(stack push value)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + 3.expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                1.expr(),
                 0.expr(),
                 unary_op.value_c.expression.clone(),
             ),
@@ -307,13 +357,13 @@ impl<F: FieldExt> UnaryOp<F> {
         rw_operations: &RWOperations<F>,
         unary_op: &UnaryOp<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         unary_op
             .value_a
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         unary_op
             .value_c
@@ -335,7 +385,7 @@ impl<F: FieldExt> LoadOp<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 1.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -353,16 +403,26 @@ impl<F: FieldExt> LoadOp<F> {
     pub(crate) fn lookup_ld_op(
         cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
-        value_a: &Cell<F>,
+        value: &Cell<F>,
     ) {
         cb.add_lookup(
-            "ld op(stack push)",
+            "ld op(stack push value header)",
             RWLookup::stack_push(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                value_a.expression.clone(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "ld op(stack push value)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                0.expr(),
+                value.expression.clone(),
             ),
         );
     }
@@ -796,13 +856,13 @@ impl<F: FieldExt> Word<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        for i in 0..word_element_num.min(DEPTH_OF_ADDRESS_PATH) {
+        for i in 0..word_element_num.min(LEN_OF_REFERENCE_VALUE) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.ref_val[i].assign(region, offset, op.value().value())?;
             cells.ref_val_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in word_element_num..DEPTH_OF_ADDRESS_PATH {
+        for i in word_element_num..LEN_OF_REFERENCE_VALUE {
             cells.ref_val_mask[i].assign(region, offset, Some(F::one()))?;
         }
 
@@ -920,12 +980,12 @@ impl<F: FieldExt> AddrExt<F> {
         val_b: &[Cell<F>],
     ) -> Result<(), Error> {
         let a0 = val_a
-            .get(0)
+            .get(1)
             .expect("location is not exsit")
             .expression
             .clone();
         let b0 = val_b
-            .get(0)
+            .get(1)
             .expect("location is not exsit")
             .expression
             .clone();
@@ -933,12 +993,12 @@ impl<F: FieldExt> AddrExt<F> {
         cb.add_constraint("location_val_constrain: 0", constraint);
 
         let a1 = val_a
-            .get(1)
+            .get(2)
             .expect("location is not exsit")
             .expression
             .clone();
         let b1 = val_b
-            .get(1)
+            .get(2)
             .expect("location is not exsit")
             .expression
             .clone();
