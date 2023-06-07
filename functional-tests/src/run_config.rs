@@ -15,7 +15,7 @@ use std::str::FromStr;
 // //! signer: 0x1      - only for test, set signer as 0x1
 // //! args: 0, 1       - pass arguments to the script, multiple args should separate with comma
 // //! circuit: vm      - specify which circuit to use (vm or fast, default to support both)
-// //! steps_num        - fix the number of execution steps
+// //! step_max_row        - fix the row of execution steps
 // //! stack_ops_num    - fix the number of stack ops
 // //! locals_ops_num   - fix the number of locals ops
 
@@ -34,7 +34,7 @@ pub struct RunConfig {
     pub new_ty_args: Vec<TypeTag>,
     pub modules: Vec<String>,
     pub circuit: Option<Circuit>,
-    pub steps_num: Option<usize>,
+    pub step_max_row: Option<usize>,
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
     pub global_ops_num: Option<usize>,
@@ -50,7 +50,7 @@ impl RunConfig {
             new_ty_args: vec![],
             modules: vec![],
             circuit: None,
-            steps_num: None,
+            step_max_row: None,
             stack_ops_num: None,
             locals_ops_num: None,
             global_ops_num: None,
@@ -85,8 +85,8 @@ impl RunConfig {
             if let Some(s) = s.strip_prefix("//!circuit:") {
                 config.circuit = Some(s.parse::<Circuit>()?);
             }
-            if let Some(s) = s.strip_prefix("//!steps_num:") {
-                config.steps_num = Some(s.parse::<usize>()?);
+            if let Some(s) = s.strip_prefix("//!step_max_row:") {
+                config.step_max_row = Some(s.parse::<usize>()?);
             }
             if let Some(s) = s.strip_prefix("//!stack_ops_num:") {
                 config.stack_ops_num = Some(s.parse::<usize>()?);

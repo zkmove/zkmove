@@ -523,7 +523,7 @@ fn test_nop_steps() -> VmResult<()> {
 
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
-    let circuit_config = CircuitConfig::default().steps_num(Some(8));
+    let circuit_config = CircuitConfig::default().max_step_row(Some(8));
     let witness = runtime.execute_script(
         script,
         vec![],

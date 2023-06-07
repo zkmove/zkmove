@@ -52,7 +52,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     if use_vm_circuit {
         debug!("Generate execution trace for script {:?}", script_file);
         let circuit_config = CircuitConfig::default()
-            .steps_num(config.steps_num)
+            .max_step_row(config.step_max_row)
             .stack_ops_num(config.stack_ops_num)
             .locals_ops_num(config.locals_ops_num)
             .global_ops_num(config.global_ops_num);
