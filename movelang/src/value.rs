@@ -14,7 +14,10 @@ use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
+use crate::value::value_header::ValueHeader;
 pub use move_core_types::language_storage::TypeTag;
+
+pub mod value_header;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U64: usize = 8;
@@ -286,18 +289,11 @@ impl<F: FieldExt> Container<F> {
 
     /// cast_simples return a flattened vec contains all the simple values of the container
     /// keep it private so it cannot be abused
-    #[allow(clippy::type_complexity)]
-    fn cast_simples(
-        &self,
-    ) -> Vec<(
-        Vec<u128>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
         let mut simples = Vec::new();
         for (idx, val) in self.0.borrow().iter().enumerate() {
             let mut sub_values = val.cast_simples();
-            sub_values.iter_mut().for_each(|(v, _, _)| {
+            sub_values.iter_mut().for_each(|(v, _)| {
                 // prepend value idx to the sub-struct
                 // to leave a place for the header, the index is increased by 1
                 v.insert(0, (idx + 1) as u128);
@@ -307,14 +303,8 @@ impl<F: FieldExt> Container<F> {
         // add a header element to record the length of the container,
         // and the length of the flattened value,
         // the flattened length includes the header itself.
-        simples.insert(
-            0,
-            (
-                vec![0u128],
-                Some(PrimitiveValue::u128((simples.len() + 1) as u128)),
-                Some(PrimitiveValue::u128(self.len() as u128)),
-            ),
-        );
+        let header = ValueHeader::new(simples.len() + 1, self.len());
+        simples.insert(0, (vec![0u128], header.into()));
         simples
     }
 }
@@ -521,42 +511,34 @@ impl<F: FieldExt> VectorRef<F> {
 
     pub fn current_and_parent_container_headers(
         &self,
-    ) -> VmResult<
-        Vec<(
-            Location<F>,
-            /* container length */ usize,
-            /* container flattened length */ usize,
-        )>,
-    > {
+    ) -> VmResult<Vec<(Location<F>, PrimitiveValue<F>)>> {
         let mut res = Vec::new();
         match self {
             VectorRef::LocalRef(l) => {
                 let ref_val = l.read_ref()?;
-                let (length, flattened_length) = match ref_val {
+                match ref_val {
                     Value::Container(c) => {
-                        let flattened_len = c.cast_simples().len();
-                        (c.len(), flattened_len)
+                        let flattened_value = c.cast_simples();
+                        let (_, header_value) =
+                            flattened_value.first().expect("header should not be none");
+                        res.push((
+                            Location::ValueLocation(ValueLocation::Local(l.loc)),
+                            *header_value,
+                        ))
                     }
                     _ => {
                         return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(
                             "cannot get length for a non container value".to_string(),
                         ))
                     }
-                };
-                res.push((
-                    Location::ValueLocation(ValueLocation::Local(l.loc)),
-                    length,
-                    flattened_length,
-                ))
+                }
             }
             VectorRef::IndexedRef(i) => {
                 let value_loc = i.container_ref.location();
                 let mut cur_value = i.container_ref.container();
-                res.push((
-                    Location::ValueLocation(value_loc.clone()),
-                    cur_value.len(),
-                    cur_value.cast_simples().len(),
-                ));
+                let flattened_value = cur_value.cast_simples();
+                let (_, header_value) = flattened_value.first().expect("header should not be none");
+                res.push((Location::ValueLocation(value_loc.clone()), *header_value));
 
                 let mut cur_sub_indexes = Vec::new();
                 for idx in &i.sub_indexes {
@@ -577,11 +559,10 @@ impl<F: FieldExt> VectorRef<F> {
                         sub_indexes: cur_sub_indexes.clone(),
                         value_loc: value_loc.clone(),
                     };
-                    res.push((
-                        Location::IndexedLocation(loc),
-                        cur_value.len(),
-                        cur_value.cast_simples().len(),
-                    ));
+                    let flattened_value = cur_value.cast_simples();
+                    let (_, header_value) =
+                        flattened_value.first().expect("header should not be none");
+                    res.push((Location::IndexedLocation(loc), *header_value));
                 }
             }
         }
@@ -983,17 +964,10 @@ impl<F: FieldExt> Value<F> {
     /// the list is sorted by it paths.
     /// Such as: `[0] < [1,0] < [1,1,0] < [1,1,1] < [2]`
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    #[allow(clippy::type_complexity)]
-    fn cast_simples(
-        &self,
-    ) -> Vec<(
-        Vec<u128>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )> {
+    fn cast_simples(&self) -> Vec<(Vec<u128>, PrimitiveValue<F>)> {
         if let Some(simple_value) = self.cast_simple() {
             // simple value doesn't need subpaths.
-            return vec![(vec![], Some(simple_value), None)];
+            return vec![(vec![], simple_value)];
         }
         match self {
             Value::Container(container) => container.cast_simples(),
@@ -1007,13 +981,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| {
-                        (
-                            vec![i as u128],
-                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
-                            None,
-                        )
-                    })
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             Value::LocalRef(LocalRef { loc, .. }) => {
@@ -1025,13 +993,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| {
-                        (
-                            vec![i as u128],
-                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
-                            None,
-                        )
-                    })
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             Value::IndexedRef(IndexedRef {
@@ -1051,13 +1013,7 @@ impl<F: FieldExt> Value<F> {
                 ref_pathes
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| {
-                        (
-                            vec![i as u128],
-                            Some(PrimitiveValue::U128(U128(F::from_u128(v)))),
-                            None,
-                        )
-                    })
+                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
                     .collect()
             }
             _ => unreachable!(),
@@ -1069,17 +1025,10 @@ impl<F: FieldExt> Value<F> {
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
 impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
-    #[allow(clippy::type_complexity)]
-    pub fn flatten(
-        &self,
-    ) -> Vec<(
-        AddressPath<F>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
         let v_loc = self.0.to_address_path().into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _, _)| {
+        values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
@@ -1087,20 +1036,13 @@ impl<'v, F: FieldExt> LocatedValue<'v, ValueLocation<F>, Value<F>> {
         // in flatten, returned address_path should be filled up.
         values
             .into_iter()
-            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
+            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
             .collect()
     }
 }
 
 impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
-    #[allow(clippy::type_complexity)]
-    pub fn flatten(
-        &self,
-    ) -> Vec<(
-        AddressPath<F>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )> {
+    pub fn flatten(&self) -> Vec<(AddressPath<F>, PrimitiveValue<F>)> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = self
             .0
@@ -1115,14 +1057,14 @@ impl<'v, F: FieldExt> LocatedValue<'v, IndexedLocation<F>, Value<F>> {
             .with_subpath(sub_indexes)
             .into_inner();
         let mut values = self.1.cast_simples();
-        values.iter_mut().for_each(|(p, _, _)| {
+        values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
         });
         values
             .into_iter()
-            .map(|(p, v, v_ext)| (AddressPath::from(p).fill_up(), v, v_ext))
+            .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
             .collect()
     }
 }

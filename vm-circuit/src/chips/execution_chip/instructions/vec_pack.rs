@@ -90,7 +90,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                     address_ext_0: self.values_addr_ext_0[i].expression.clone(),
                     address_ext_1: self.values_addr_ext_1[i].expression.clone(),
                     value: item.expression.clone(),
-                    value_ext: 0.expr(),
                     sd_index: 0.expr(),
                 },
                 cond.clone() * (1.expr() - self.values_mask[i].expression.clone()),
@@ -104,7 +103,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                     self.vector_addr_ext_0[i].expression.clone(),
                     self.vector_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
-                    0.expr(),
                 ),
                 cond.clone() * (1.expr() - self.vector_mask[i].expression.clone()),
             ));
@@ -118,7 +116,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                 self.vector_addr_ext_0[0].expression.clone(),
                 self.vector_addr_ext_1[0].expression.clone(),
                 self.vector[0].expression.clone(),
-                0.expr(),
             ),
             cond.clone() * (1.expr() - self.vector_mask[0].expression.clone()),
         ));

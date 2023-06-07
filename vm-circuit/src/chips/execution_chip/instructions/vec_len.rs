@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::{
+    LookupBytecode, RefVal, ValueHeaderGadget, Word,
+};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -12,6 +14,8 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use logger::prelude::*;
+use movelang::value::value_header::ValueHeader;
 use movelang::value::DEPTH_OF_ADDRESS_PATH;
 
 #[derive(Clone, Debug)]
@@ -19,6 +23,7 @@ pub struct VecLen<F: FieldExt> {
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 
+    vec_header_value: Cell<F>,
     vec_flattened_len: Cell<F>,
     vec_len: Cell<F>,
     vec_frame_index_or_global_address: Cell<F>,
@@ -75,7 +80,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
-                    0.expr(),
                 ),
                 cond.clone(),
             ));
@@ -89,8 +93,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
             self.vec_header_addr_ext_1.expression.clone(),
-            self.vec_flattened_len.expression.clone(),
-            self.vec_len.expression.clone(),
+            self.vec_header_value.expression.clone(),
         );
         lookups.rw_lookups.push((
             "vec_len(read vec header)",
@@ -100,8 +103,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let read_global = RWLookup::global_read(
             cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
             self.vec_frame_index_or_global_address.expression.clone(),
-            self.vec_flattened_len.expression.clone(),
-            self.vec_len.expression.clone(),
+            self.vec_header_value.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
             self.vec_header_addr_ext_1.expression.clone(),
@@ -119,7 +121,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             0.expr(),
             0.expr(),
             self.vec_len.expression.clone(),
-            0.expr(),
         );
         lookups
             .rw_lookups
@@ -140,6 +141,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         constraint = cond.clone()
             * (self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
+
+        // check vec header
+        ValueHeaderGadget::construct(
+            self.vec_header_value.expression.clone(),
+            self.vec_flattened_len.expression.clone(),
+            self.vec_len.expression.clone(),
+        )
+        .constrain(cb, cond.clone(), "check_vec_header");
 
         LookupBytecode::lookup_bytecode(
             cells,
@@ -181,10 +190,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             .get(step.gc + DEPTH_OF_ADDRESS_PATH)
             .ok_or(Error::Synthesis)?;
 
-        self.vec_flattened_len
+        // assign vec_header_value, vec_flattened_len
+        let header_value = op.value().value().ok_or_else(|| {
+            error!("header value is None");
+            Error::Synthesis
+        })?;
+        let vec_flattened_len = ValueHeader::from(header_value).flattened_len();
+
+        self.vec_header_value
             .assign(region, offset, op.value().value())?;
-        self.vec_len
-            .assign(region, offset, op.value_ext().value())?;
+        self.vec_flattened_len
+            .assign(region, offset, Some(F::from(vec_flattened_len as u64)))?;
+
         self.vec_header_addr_ext_0.assign(
             region,
             offset,
@@ -219,6 +236,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             )?;
         }
 
+        // assign vec_len
+        let op = rw_operations
+            .0
+            .get(step.gc + DEPTH_OF_ADDRESS_PATH + 1)
+            .ok_or(Error::Synthesis)?;
+        self.vec_len.assign(region, offset, op.value().value())?;
+
         Ok(())
     }
 
@@ -227,6 +251,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
 
+        let vec_header_value = cb.alloc_cell();
         let vec_flattened_len = cb.alloc_cell();
         let vec_len = cb.alloc_cell();
         let vec_frame_index_or_global_address = cb.alloc_cell();
@@ -238,6 +263,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             ref_val,
             ref_val_mask,
 
+            vec_header_value,
             vec_flattened_len,
             vec_len,
             vec_frame_index_or_global_address,

@@ -90,7 +90,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                 0.expr(),
                 0.expr(),
                 account_address_expr.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -102,7 +101,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                     cells.gc.expression.clone() + (i as u64 + 1).expr(),
                     account_address_expr.clone(),
                     self.word[i].expression.clone(),
-                    0.expr(), //fixme, value_ext may not be 0.
                     if GENERIC {
                         sd_index_expr.clone() * 2u64.pow(16).expr()
                     } else {
@@ -126,7 +124,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                     (i as u64).expr(),
                     0.expr(),
                     item.expression.clone(),
-                    0.expr(),
                 ),
                 cond.clone(),
             ));

@@ -62,18 +62,22 @@ use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, LookupsWith
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
+use crate::chips::execution_chip::utils::base_constaint_builder::BaseConstraintBuilder;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value};
 use halo2_proofs::plonk::Constraints;
+use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
+use logger::{error, trace};
 use std::collections::HashMap;
 
 pub mod instructions;
@@ -85,7 +89,11 @@ pub mod utils;
 
 #[derive(Clone, Debug)]
 pub struct ExecutionChipConfig<F: FieldExt> {
-    pub s_step: Selector,
+    pub s_usable: Selector,
+    pub s_step_first: Selector,
+    pub s_step: Column<Advice>,
+    pub num_rows_until_next_step: Column<Advice>,
+    pub num_rows_inv: Column<Advice>,
     step: StepConfig<F>,
     pub(crate) height_map: HashMap<Opcode, usize>,
 
@@ -199,10 +207,77 @@ impl<F: FieldExt> ExecutionChip<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
         let advices = [(); STEP_CHIP_WIDTH].map(|_| meta.advice_column());
 
-        let s_step = meta.complex_selector();
+        let s_usable = meta.complex_selector();
+        let s_step_first = meta.complex_selector();
+        let s_step = meta.advice_column();
+        let num_rows_until_next_step = meta.advice_column();
+        let num_rows_inv = meta.advice_column();
 
         let step_curr = StepChip::configure(meta, advices, 0, false);
 
+        {
+            meta.create_gate("s_step", |meta| {
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let s_step_first = meta.query_selector(s_step_first);
+                let num_rows_left_cur =
+                    meta.query_advice(num_rows_until_next_step, Rotation::cur());
+                let num_rows_left_next =
+                    meta.query_advice(num_rows_until_next_step, Rotation::next());
+                let num_rows_left_inverse = meta.query_advice(num_rows_inv, Rotation::cur());
+                let mut cb = BaseConstraintBuilder::default();
+
+                // s_step should be enabled on the first row
+                cb.condition(s_step_first, |cb| {
+                    cb.require_equal("s_step = 1", s_step.clone(), 1.expr());
+                    cb.require_zero("first step, pc = 0", step_curr.cells.pc.expr());
+                    cb.require_zero(
+                        "first step, frame_index = 0",
+                        step_curr.cells.frame_index.expr(),
+                    );
+                    cb.require_zero(
+                        "first step, module_index = 0",
+                        step_curr.cells.module_index.expr(),
+                    );
+                    cb.require_zero(
+                        "first step, function_index = 0",
+                        step_curr.cells.function_index.expr(),
+                    );
+                });
+                // Except when step is enabled, the step counter needs to decrease by 1
+                cb.condition(1.expr() - s_step.clone(), |cb| {
+                    cb.require_equal(
+                        "num_rows_left_cur := num_rows_left_next + 1",
+                        num_rows_left_cur.clone(),
+                        num_rows_left_next + 1.expr(),
+                    );
+                });
+                // Enforce that s_step := num_rows_until_next_step == 0
+                let is_zero =
+                    1.expr() - (num_rows_left_cur.clone() * num_rows_left_inverse.clone());
+                cb.require_zero(
+                    "num_rows_left_cur * is_zero == 0",
+                    num_rows_left_cur * is_zero.clone(),
+                );
+                cb.require_zero(
+                    "num_rows_left_inverse * is_zero == 0",
+                    num_rows_left_inverse * is_zero.clone(),
+                );
+                cb.require_equal("s_step == is_zero", s_step, is_zero);
+
+                // On each usable row
+                cb.gate(s_usable)
+            });
+            // config each execution path of the step
+            meta.create_gate("constrain execution step", |meta| {
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                Constraints::with_selector(
+                    s_usable * s_step,
+                    step_curr.cells.conditions.configure(),
+                )
+            });
+        }
         let mut height_map = HashMap::new();
 
         let mut lookups = LookupsWithCondition::new();
@@ -213,6 +288,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                     meta,
                     &mut lookups,
                     advices,
+                    s_usable,
                     s_step,
                     &step_curr,
                     &mut height_map,
@@ -221,7 +297,11 @@ impl<F: FieldExt> ExecutionChip<F> {
         }
 
         ExecutionChipConfig {
+            s_usable,
+            s_step_first,
             s_step,
+            num_rows_until_next_step,
+            num_rows_inv,
             op_ldu8: configure_opcode_gadget!(),
             op_ldu64: configure_opcode_gadget!(),
             op_ldu128: configure_opcode_gadget!(),
@@ -297,8 +377,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
             step: step_curr,
             height_map,
-
-            lookup_table: LookupTableConfig::configure(meta, &lookups, s_step),
+            lookup_table: LookupTableConfig::configure(meta, &lookups, s_usable, s_step),
         }
     }
 
@@ -306,7 +385,8 @@ impl<F: FieldExt> ExecutionChip<F> {
         meta: &mut ConstraintSystem<F>,
         lookups: &mut LookupsWithCondition<F>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
-        s_step: Selector,
+        s_usable: Selector,
+        s_step: Column<Advice>,
         step_curr: &StepConfig<F>,
         height_map: &mut HashMap<Opcode, usize>,
     ) -> G {
@@ -329,6 +409,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         Self::configure_opcode_gadget_impl(
             meta,
+            s_usable,
             s_step,
             step_curr,
             height_map,
@@ -344,28 +425,15 @@ impl<F: FieldExt> ExecutionChip<F> {
     #[allow(clippy::too_many_arguments)]
     fn configure_opcode_gadget_impl(
         meta: &mut ConstraintSystem<F>,
-        s_step: Selector,
-        step_curr: &StepConfig<F>,
+        s_usable: Selector,
+        s_step: Column<Advice>,
+        _step_curr: &StepConfig<F>,
         height_map: &mut HashMap<Opcode, usize>,
         name: &'static str,
         opcode: Opcode,
         height: usize,
         cb: ConstraintBuilder<F>,
     ) {
-        // config each execution path of the step
-        let constraints = step_curr.cells.conditions.configure();
-        //StepChip::constrain_step_conditions(&step_curr.cells, &mut constraints);
-        // for (i, constraint) in constraints.iter().enumerate() {
-        //     debug!("constraint {}, {:?}", i, constraint);
-        // }
-
-        meta.create_gate("constrain step conditions", |meta| {
-            let s_step = meta.query_selector(s_step);
-            constraints
-                .into_iter()
-                .map(move |(name, constraint)| (name, s_step.clone() * constraint))
-        });
-
         // insert height into hash table
         debug_assert!(
             !height_map.contains_key(&opcode),
@@ -378,12 +446,14 @@ impl<F: FieldExt> ExecutionChip<F> {
         // for (i, constraint) in constraints.iter().enumerate() {
         //     debug!("constraint {}, {:?}", i, constraint);
         // }
+
         if !constraints.is_empty() {
             meta.create_gate(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
                 // TODO: add cond here.
                 // let cond = step_curr.cells.opcode_selector([opcode]);
-                Constraints::with_selector(s_step, constraints)
+                Constraints::with_selector(s_usable * s_step, constraints)
             });
         }
     }
@@ -402,19 +472,29 @@ impl<F: FieldExt> ExecutionChip<F> {
         Error,
     > {
         let step_chip = StepChip::<F>::construct(self.config.step.clone(), ());
-        let exec_steps = self.witness.process_exec_steps()?;
-        let mut gc_cell = None;
-        layouter.assign_region(
+
+        let last_step_gc_cell = layouter.assign_region(
             || "execution steps",
             |mut region: Region<'_, F>| {
+                // Annotate columns within it's single region.
+                self.annotate_circuit(&mut region);
+
+                let mut exec_steps = self.witness.exec_steps.clone();
+                let last_step = exec_steps.pop().expect("exec steps non-empty");
+                debug_assert_eq!(last_step.opcode, Opcode::Stop);
+                debug_assert_eq!(self.step_height_get(&last_step.opcode), 1);
+
                 let mut offset = 0;
+
+                // enable step_first
+                self.config.s_step_first.enable(&mut region, offset)?;
+                // part1: assign normal steps before Opcode::Stop.
                 for step in &exec_steps {
-                    // enable s_step
-                    self.config.s_step.enable(&mut region, offset)?;
+                    let step_height = self.step_height_get(&step.opcode);
+                    self.assign_s_step(&mut region, offset, step_height)?;
 
                     // assign step state
-                    gc_cell =
-                        step_chip.assign(&mut region, offset, step, &self.witness.rw_operations)?;
+                    step_chip.assign(&mut region, offset, step, &self.witness.rw_operations)?;
 
                     // assign gadget
                     self.assign_gadegt(
@@ -425,13 +505,92 @@ impl<F: FieldExt> ExecutionChip<F> {
                         &self.config.step.cells,
                     )?;
 
-                    let step_height = self.step_height_get(&step.opcode);
                     offset += step_height;
                 }
-                Ok(())
+                // part2: if padding is needed, assign Opcode::Nop in the padding range.
+                // This happened when an execution path is not fixed, for example, if there
+                // is loop in the code.
+                if let Some(max_row) = self.witness.circuit_config.max_step_row {
+                    if offset >= max_row {
+                        error!(
+                            "execution circuit offset larger than max rows: {} > {}",
+                            offset, max_row
+                        );
+                        return Err(Error::Synthesis);
+                    }
+                    let height = self.step_height_get(&Opcode::Nop);
+                    debug_assert_eq!(height, 1);
+                    let last_row = max_row - 1;
+                    trace!("assign Nop in range [{}, {})", offset, last_row);
+                    let nop_step = {
+                        let mut nop = last_step.clone();
+                        nop.opcode = Opcode::Nop;
+                        nop
+                    };
+                    for offset in offset..last_row {
+                        // enable s_step
+                        self.assign_s_step(&mut region, offset, 1)?;
+
+                        // assign step state
+                        step_chip.assign(
+                            &mut region,
+                            offset,
+                            &nop_step,
+                            &self.witness.rw_operations,
+                        )?;
+
+                        // assign gadget
+                        self.assign_gadegt(
+                            &mut region,
+                            offset,
+                            &nop_step,
+                            &self.witness.rw_operations,
+                            &self.config.step.cells,
+                        )?;
+                    }
+
+                    offset = last_row;
+                }
+
+                // part3: assign last step of Opcode::Stop
+                let last_step_gc_cell = {
+                    self.assign_s_step(&mut region, offset, 1)?;
+                    // assign step state
+                    let gc_cell = step_chip.assign(
+                        &mut region,
+                        offset,
+                        &last_step,
+                        &self.witness.rw_operations,
+                    )?;
+
+                    // assign gadget
+                    self.assign_gadegt(
+                        &mut region,
+                        offset,
+                        &last_step,
+                        &self.witness.rw_operations,
+                        &self.config.step.cells,
+                    )?;
+                    gc_cell
+                };
+                // part4:
+                // These are still referenced (but not used) in next rows
+                region.assign_advice(
+                    || "step height",
+                    self.config.num_rows_until_next_step,
+                    offset + 1,
+                    || Value::known(F::zero()),
+                )?;
+                region.assign_advice(
+                    || "step height inv",
+                    self.config.num_rows_inv,
+                    offset + 1,
+                    || Value::known(F::zero()),
+                )?;
+
+                Ok(last_step_gc_cell)
             },
         )?;
-        let last_step_gc_cell = gc_cell;
 
         let (stack_operations, locals_operations, global_operations) =
             LookupTableConfig::assign(layouter, self)?;
@@ -450,6 +609,40 @@ impl<F: FieldExt> ExecutionChip<F> {
             .get(opcode)
             .copied()
             .unwrap_or_else(|| panic!("Execution state unknown: {:?}", self))
+    }
+    fn assign_s_step(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        height: usize,
+    ) -> Result<(), Error> {
+        for idx in 0..height {
+            self.config.s_usable.enable(region, offset + idx)?;
+            region.assign_advice(
+                || "step selector",
+                self.config.s_step,
+                offset + idx,
+                || Value::known(if idx == 0 { F::one() } else { F::zero() }),
+            )?;
+            let num_rows_until_next_step = if idx == 0 {
+                F::zero()
+            } else {
+                F::from((height - idx) as u64)
+            };
+            region.assign_advice(
+                || "step height",
+                self.config.num_rows_until_next_step,
+                offset + idx,
+                || Value::known(num_rows_until_next_step),
+            )?;
+            region.assign_advice(
+                || "step height inv",
+                self.config.num_rows_inv,
+                offset + idx,
+                || Value::known(num_rows_until_next_step.invert().unwrap_or(F::zero())),
+            )?;
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -552,5 +745,13 @@ impl<F: FieldExt> ExecutionChip<F> {
         }
 
         Ok(())
+    }
+    fn annotate_circuit(&self, region: &mut Region<F>) {
+        region.name_column(|| "Exec_s_step", self.config.s_step);
+        region.name_column(
+            || "Exec_num_rows_until_next_step",
+            self.config.num_rows_until_next_step,
+        );
+        region.name_column(|| "Exec_num_rows_inv", self.config.num_rows_inv);
     }
 }

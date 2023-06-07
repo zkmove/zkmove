@@ -70,7 +70,6 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
                 0.expr(),
                 0.expr(),
                 self.value_a.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));

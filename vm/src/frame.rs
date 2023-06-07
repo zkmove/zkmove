@@ -7,7 +7,6 @@ use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
-
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
@@ -967,23 +966,21 @@ impl<F: FieldExt> Frame<F> {
                             Location::IndexedLocation(l) => LocatedValue(l, &vec).flatten(),
                         };
                         if vec_ref.is_global() {
-                            let (header_address_path, vec_flattened_len, vec_len) =
+                            let (header_address_path, header_value) =
                                 word.first().expect("header address should not be none");
                             globals::emit_global_op(
                                 header_address_path.clone(),
-                                *vec_flattened_len,
-                                *vec_len,
+                                *header_value,
                                 RW::READ,
                                 rw_operations,
                             );
                             execution_step.auxiliary_1 = Some(Value::bool(true));
                         } else {
-                            let (header_address_path, vec_flattened_len, vec_len) =
+                            let (header_address_path, header_value) =
                                 word.first().expect("header address should not be none");
                             locals::emit_locals_op(
                                 header_address_path.clone(),
-                                *vec_flattened_len,
-                                *vec_len,
+                                *header_value,
                                 RW::READ,
                                 rw_operations,
                             );
@@ -1016,6 +1013,7 @@ impl<F: FieldExt> Frame<F> {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
                         let ref_val_flattened_len = vec_ref.value_address_path().len();
                         let headers = vec_ref.current_and_parent_container_headers()?;
+                        debug_assert!(!headers.is_empty());
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -1048,40 +1046,37 @@ impl<F: FieldExt> Frame<F> {
                         execution_step.auxiliary_4 = Some(Value::u64(ref_val_flattened_len as u64));
 
                         // update container headers
-                        for (loc, len, flattened_len) in headers {
+                        for (loc, header_value) in headers {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::READ,
                                     rw_operations,
                                 );
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::READ,
                                     rw_operations,
                                 );
                             }
                         }
                         let new_headers = vec_ref.current_and_parent_container_headers()?;
-                        for (loc, len, flattened_len) in new_headers {
+                        debug_assert!(!new_headers.is_empty());
+                        for (loc, header_value) in new_headers {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::WRITE,
                                     rw_operations,
                                 );
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::WRITE,
                                     rw_operations,
                                 );
@@ -1094,6 +1089,7 @@ impl<F: FieldExt> Frame<F> {
                         let vec_ref = interp.stack.pop_as_vector_ref(rw_operations)?;
                         let ref_val_flattened_len = vec_ref.value_address_path().len();
                         let headers = vec_ref.current_and_parent_container_headers()?;
+                        debug_assert!(!headers.is_empty());
                         //fixme: need type check?
                         let _ty = resolver
                             .instantiate_single_type(*si, self.ty_args())
@@ -1129,40 +1125,37 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(val, rw_operations)?;
 
                         // update container headers
-                        for (loc, len, flattened_len) in headers {
+                        for (loc, header_value) in headers {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::READ,
                                     rw_operations,
                                 );
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::READ,
                                     rw_operations,
                                 );
                             }
                         }
                         let new_headers = vec_ref.current_and_parent_container_headers()?;
-                        for (loc, len, flattened_len) in new_headers {
+                        debug_assert!(!new_headers.is_empty());
+                        for (loc, header_value) in new_headers {
                             if is_global {
                                 globals::emit_global_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::WRITE,
                                     rw_operations,
                                 );
                             } else {
                                 locals::emit_locals_op(
                                     loc.to_address_path().fill_up(),
-                                    Some(PrimitiveValue::u64(flattened_len as u64)),
-                                    Some(PrimitiveValue::u64(len as u64)),
+                                    header_value,
                                     RW::WRITE,
                                     rw_operations,
                                 );

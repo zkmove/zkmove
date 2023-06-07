@@ -9,3 +9,7 @@ members = [
     "functional-tests",
     "cli",
 ]
+
+
+[profile.bench]
+lto=true

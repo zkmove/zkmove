@@ -10,8 +10,7 @@ use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: Option<PrimitiveValue<F>>,
-    value_ext: Option<PrimitiveValue<F>>,
+    value: PrimitiveValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
@@ -25,8 +24,7 @@ pub fn emit_global_op<F: FieldExt>(
         sd_index: *address_path.0.get(1).expect("sd_index should not be None") as usize,
         address_ext_0: address_path.addr_ext(),
         address_ext_1: 0_usize,
-        value,
-        value_ext,
+        value: Some(value),
         rw,
         gc: rw_operations.len(),
     };
@@ -35,16 +33,12 @@ pub fn emit_global_op<F: FieldExt>(
 
 #[allow(clippy::type_complexity)]
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(
-        AddressPath<F>,
-        Option<PrimitiveValue<F>>,
-        Option<PrimitiveValue<F>>,
-    )>,
+    word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val, val_ext) in word {
-        emit_global_op(address_path, val, val_ext, rw, rw_operations);
+    for (address_path, val) in word {
+        emit_global_op(address_path, val, rw, rw_operations);
     }
 }
 pub fn emit_ops_for_global_value<F: FieldExt>(
@@ -61,14 +55,13 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     };
     let word = LocatedValue(ValueLocation::Global(value_addr), &resource_value).flatten();
     let word_len = word.len();
-    for (address_path, val, val_ext) in word.clone() {
+    for (address_path, val) in word.clone() {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
             address_ext_0: address_path.addr_ext(),
             address_ext_1: 0_usize,
-            value: val,
-            value_ext: val_ext,
+            value: Some(val),
             rw,
             gc: rw_operations.len(),
         };
@@ -76,14 +69,13 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     }
     // if this is move_from, we need to write an invalid back.
     if write_invalid {
-        for (address_path, _, _) in word {
+        for (address_path, _) in word {
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,
                 address_ext_0: address_path.addr_ext(),
                 address_ext_1: 0_usize,
                 value: None,
-                value_ext: None,
                 rw: RW::WRITE,
                 gc: rw_operations.len(),
             };

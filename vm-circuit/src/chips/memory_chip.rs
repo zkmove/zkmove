@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::memory_chip::global_op_chip::{GlobalOpChip, GlobalOpChipConfig};
-use crate::witness::rw_operations::ConvertedRWOperation;
+use crate::witness::rw_operations::{ConvertedRWOperation, RWOperation};
 use crate::witness::{CircuitConfig, Witness};
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
@@ -33,7 +33,7 @@ pub mod stack_op_chip;
 // 3. make sure total number of sorted rw operations is equal to the gc of the last
 // execution step.
 
-pub const MEM_CHIP_WIDTH: usize = 30; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH, GLOBAL_OP_CHIP_WIDTH)
+pub const MEM_CHIP_WIDTH: usize = 29; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH, GLOBAL_OP_CHIP_WIDTH)
 
 #[derive(Clone, Debug)]
 pub struct MemoryChipConfig<F: FieldExt> {
@@ -117,21 +117,29 @@ impl<F: FieldExt> MemoryChip<F> {
         locals_ops: Vec<ConvertedRWOperation<F>>,
         global_ops: Vec<ConvertedRWOperation<F>>,
     ) -> Result<(), Error> {
+        let (mut real_stack_ops_len, mut real_locals_ops_len, mut real_global_ops_len) =
+            (0usize, 0usize, 0usize);
+        self.witness.rw_operations.0.iter().for_each(|op| match op {
+            RWOperation::LocalsOp(_) => real_locals_ops_len += 1,
+            RWOperation::StackOp(_) => real_stack_ops_len += 1,
+            RWOperation::GlobalOp(_) => real_global_ops_len += 1,
+        });
+
         let stack_ops_num = self.witness.circuit_config.stack_ops_num.unwrap_or(0);
         let locals_ops_num = self.witness.circuit_config.locals_ops_num.unwrap_or(0);
         let global_ops_num = self.witness.circuit_config.global_ops_num.unwrap_or(0);
 
         let stack_op_chip = StackOpChip::<F>::construct(self.config.stack_op_config.clone(), ());
         let last_stack_counter =
-            stack_op_chip.assign(layouter, circuit_config, stack_ops, stack_ops_num);
+            stack_op_chip.assign(layouter, circuit_config, stack_ops, real_stack_ops_len);
 
         let locals_op_chip = LocalsOpChip::<F>::construct(self.config.locals_op_config.clone(), ());
         let last_locals_counter =
-            locals_op_chip.assign(layouter, circuit_config, locals_ops, locals_ops_num);
+            locals_op_chip.assign(layouter, circuit_config, locals_ops, real_locals_ops_len);
 
         let global_op_chip = GlobalOpChip::<F>::construct(self.config.global_op_config.clone(), ());
         let last_global_counter =
-            global_op_chip.assign(layouter, circuit_config, global_ops, global_ops_num);
+            global_op_chip.assign(layouter, circuit_config, global_ops, real_global_ops_len);
 
         layouter.assign_region(
             || "add counter",

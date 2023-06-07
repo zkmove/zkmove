@@ -71,7 +71,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_b.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -83,7 +82,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_a.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -95,7 +93,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 0.expr(),
                 binary_op.value_c.expression.clone(),
-                0.expr(),
             ),
             cond,
         ));
@@ -302,7 +299,6 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_a.expression.clone(),
-                0.expr(),
             ),
             cond.clone(),
         ));
@@ -314,7 +310,6 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 0.expr(),
                 unary_op.value_c.expression.clone(),
-                0.expr(),
             ),
             cond,
         ));
@@ -388,7 +383,6 @@ impl<F: FieldExt> LoadOp<F> {
                 0.expr(),
                 0.expr(),
                 value_a.expression.clone(),
-                0.expr(),
             ),
             cond,
         ));
@@ -575,14 +569,6 @@ pub struct RefVal<F: FieldExt> {
     pub ref_val_mask: Vec<Cell<F>>,
 }
 
-pub struct WordWithExt<F: FieldExt> {
-    pub word: Vec<Cell<F>>,
-    pub word_ext: Vec<Cell<F>>,
-    pub word_mask: Vec<Cell<F>>,
-    pub word_addr_ext_0: Vec<Cell<F>>,
-    pub word_addr_ext_1: Vec<Cell<F>>,
-}
-
 impl<F: FieldExt> Word<F> {
     pub fn get_word_element_num(
         region: &mut Region<'_, F>,
@@ -686,6 +672,44 @@ impl<F: FieldExt> Word<F> {
         }
 
         for i in word_element_num..WORD_CAPACITY {
+            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn assign_word_with_capacity(
+        region: &mut Region<'_, F>,
+        offset: usize,
+        _step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &Word<F>,
+        op_index: usize,
+        word_element_num: usize,
+        capacity: usize,
+    ) -> Result<(), Error> {
+        for i in 0..word_element_num {
+            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
+            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_addr_ext_0[i].assign(
+                region,
+                offset,
+                Some(F::from_u128(op.address_ext_0() as u128)),
+            )?;
+            cells.word_addr_ext_1[i].assign(
+                region,
+                offset,
+                Some(F::from_u128(op.address_ext_1() as u128)),
+            )?;
+        }
+
+        debug_assert!(word_element_num <= capacity);
+
+        for i in word_element_num..capacity {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
@@ -799,41 +823,6 @@ impl<F: FieldExt> Word<F> {
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
-        }
-
-        Ok(())
-    }
-
-    pub fn assign_word_with_ext(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        rw_operations: &RWOperations<F>,
-        cells: &WordWithExt<F>,
-        op_index: usize,
-        word_element_num: usize,
-        capacity: usize,
-    ) -> Result<(), Error> {
-        for i in 0..word_element_num {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word[i].assign(region, offset, op.value().value())?;
-            cells.word_ext[i].assign(region, offset, op.value_ext().value())?;
-            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_0[i].assign(
-                region,
-                offset,
-                Some(F::from_u128(op.address_ext_0())),
-            )?;
-            cells.word_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
-        }
-
-        for i in word_element_num..capacity {
-            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
@@ -1053,5 +1042,38 @@ impl<F: FieldExt> AddrExt<F> {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ValueHeaderGadget<F: FieldExt> {
+    pub header_value: Expression<F>,
+    pub flattened_len: Expression<F>,
+    pub len: Expression<F>,
+}
+
+impl<F: FieldExt> ValueHeaderGadget<F> {
+    pub(crate) fn construct(
+        header_value: Expression<F>,
+        flattened_len: Expression<F>,
+        len: Expression<F>,
+    ) -> Self {
+        Self {
+            header_value,
+            flattened_len,
+            len,
+        }
+    }
+    pub(crate) fn constrain(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        cond: Expression<F>,
+        name: &'static str,
+    ) {
+        let constraint = cond
+            * (self.header_value.clone()
+                - self.flattened_len.clone()
+                - self.len.clone() * 2u64.pow(16).expr());
+        cb.add_constraint(name, constraint);
     }
 }

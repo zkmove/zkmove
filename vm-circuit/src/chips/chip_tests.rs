@@ -137,7 +137,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: WRITE,
         gc: 0,
     });
@@ -146,7 +145,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(2)),
-        value_ext: None,
         rw: WRITE,
         gc: 1,
     });
@@ -155,7 +153,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(2)),
-        value_ext: None,
         rw: READ,
         gc: 2,
     });
@@ -164,7 +161,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: READ,
         gc: 3,
     });
@@ -173,7 +169,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
-        value_ext: None,
         rw: WRITE,
         gc: 4,
     });
@@ -182,7 +177,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
-        value_ext: None,
         rw: READ,
         gc: 5,
     });
@@ -192,7 +186,6 @@ fn test_fake_rw_operation() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
-        value_ext: None,
         rw: WRITE,
         gc: 6,
     });
@@ -350,7 +343,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: WRITE,
         gc: 0,
     };
@@ -359,7 +351,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: WRITE,
         gc: 1,
     };
@@ -368,7 +359,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: READ,
         gc: 2,
     };
@@ -377,7 +367,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
-        value_ext: None,
         rw: READ,
         gc: 3,
     };
@@ -386,7 +375,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(2)),
-        value_ext: None,
         rw: WRITE,
         gc: 4,
     };
@@ -395,7 +383,6 @@ fn test_rw_operation_with_wrong_gc() -> VmResult<()> {
         address_ext_0: 0,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(2)),
-        value_ext: None,
         rw: READ,
         gc: 5,
     };

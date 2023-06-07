@@ -131,7 +131,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         lookups: &LookupsWithCondition<F>,
-        s_step: Selector,
+        s_usable: Selector,
+        s_step: Column<Advice>,
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
 
@@ -140,7 +141,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // }
         for (name, lookup, cond) in &lookups.rw_lookups {
             meta.lookup_any(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.gc.clone() * cond.clone(),
@@ -166,7 +169,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         meta.query_advice(lookup_table.rw_table.address_column, Rotation::cur()),
                     ),
                     (
-                        s_step * lookup.value.clone() * cond.clone(),
+                        s_step * lookup.value.clone() * cond,
                         meta.query_advice(lookup_table.rw_table.value_column, Rotation::cur()),
                     ),
                 ]
@@ -178,7 +181,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // }
         for (name, lookup, cond) in &lookups.bytecode_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.module_index.clone() * cond.clone(),
@@ -197,7 +202,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         lookup_table.bytecode_table.opcode_column,
                     ),
                     (
-                        s_step * lookup.operand.clone() * cond.clone(),
+                        s_step * lookup.operand.clone() * cond,
                         lookup_table.bytecode_table.operand_column,
                     ),
                 ]
@@ -205,7 +210,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         }
         for (name, lookup, cond) in &lookups.constant_lookup {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 lookup
                     .expressions()
                     .into_iter()
@@ -219,7 +226,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // }
         for (name, lookup, cond) in &lookups.call_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.type_.clone() * cond.clone(),
@@ -246,7 +255,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         lookup_table.calls_table.callee_function_index_column,
                     ),
                     (
-                        s_step * lookup.next_pc.clone() * cond.clone(),
+                        s_step * lookup.next_pc.clone() * cond,
                         lookup_table.calls_table.next_pc_column,
                     ),
                 ]
@@ -254,7 +263,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         }
         for (name, lookup, cond) in &lookups.call_trace_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 lookup
                     .expressions()
                     .into_iter()
@@ -265,7 +276,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         }
         for (name, lookup, cond) in &lookups.type_instantiation_type_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 lookup
                     .expressions()
                     .into_iter()
@@ -276,7 +289,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         }
         for (name, lookup, cond) in &lookups.input_type_element_lookups {
             meta.lookup_any(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 lookup
                     .expressions()
                     .into_iter()
@@ -297,7 +312,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // }
         for (name, lookup, cond) in &lookups.arith_op_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.module_index.clone() * cond.clone(),
@@ -312,7 +329,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         lookup_table.arith_op_table.pc_column,
                     ),
                     (
-                        s_step * lookup.num_of_bytes.clone() * cond.clone(),
+                        s_step * lookup.num_of_bytes.clone() * cond,
                         lookup_table.arith_op_table.num_of_bytes_column,
                     ),
                 ]
@@ -324,7 +341,9 @@ impl<F: FieldExt> LookupTableConfig<F> {
         // }
         for (name, lookup, cond) in &lookups.bitwise_lookups {
             meta.lookup(name, |meta| {
-                let s_step = meta.query_selector(s_step);
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.opcode.clone() * cond.clone(),
@@ -339,7 +358,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         lookup_table.bitwise_table.value_2_column,
                     ),
                     (
-                        s_step * lookup.result.clone() * cond.clone(),
+                        s_step * lookup.result.clone() * cond,
                         lookup_table.bitwise_table.result_column,
                     ),
                 ]
@@ -350,15 +369,17 @@ impl<F: FieldExt> LookupTableConfig<F> {
         //      debug!("pow2 lookup {}, {:?}", i, item);
         // }
         for (name, lookup, cond) in &lookups.pow2_lookups {
-            meta.lookup(name, |vcells| {
-                let s_step = vcells.query_selector(s_step);
+            meta.lookup(name, |meta| {
+                let s_usable = meta.query_selector(s_usable);
+                let s_step = meta.query_advice(s_step, Rotation::cur());
+                let cond = cond.clone() * s_usable;
                 vec![
                     (
                         s_step.clone() * lookup.pow.clone() * cond.clone(),
                         lookup_table.pow2_table.pow_column,
                     ),
                     (
-                        s_step * lookup.pow_result.clone() * cond.clone(),
+                        s_step * lookup.pow_result.clone() * cond,
                         lookup_table.pow2_table.pow_result_column,
                     ),
                 ]
@@ -385,7 +406,48 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let mut stack_operations: Vec<ConvertedRWOperation<F>> = (&sorted_stack_ops).into();
         let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
         let mut global_operations: Vec<ConvertedRWOperation<F>> = (&sorted_global_ops).into();
-
+        let stack_ops_num = execution_chip
+            .witness
+            .circuit_config
+            .stack_ops_num
+            .unwrap_or(0);
+        let locals_ops_num = execution_chip
+            .witness
+            .circuit_config
+            .locals_ops_num
+            .unwrap_or(0);
+        let global_ops_num = execution_chip
+            .witness
+            .circuit_config
+            .global_ops_num
+            .unwrap_or(0);
+        debug!(
+            "rw_lens, stack: {}, local: {}, global: {}",
+            stack_operations.len(),
+            locals_operations.len(),
+            global_operations.len()
+        );
+        if stack_ops_num > 0 {
+            if stack_operations.len() > stack_ops_num {
+                return Err(Error::InstanceTooLarge);
+            } else {
+                stack_operations.resize(stack_ops_num, ConvertedRWOperation::empty());
+            }
+        }
+        if locals_ops_num > 0 {
+            if locals_operations.len() > locals_ops_num {
+                return Err(Error::InstanceTooLarge);
+            } else {
+                locals_operations.resize(locals_ops_num, ConvertedRWOperation::empty());
+            }
+        }
+        if global_ops_num > 0 {
+            if global_operations.len() > global_ops_num {
+                return Err(Error::InstanceTooLarge);
+            } else {
+                global_operations.resize(global_ops_num, ConvertedRWOperation::empty());
+            }
+        }
         let lookup_table = &execution_chip.config.lookup_table;
         for (column_idx, column) in lookup_table.rw_table.columns().into_iter().enumerate() {
             layouter.assign_region(

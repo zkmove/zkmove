@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
@@ -11,8 +10,6 @@ use crate::witness::input_type_elements::InputTypeElementTableData;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use std::fmt;
 
 pub mod arith_operations;
@@ -31,7 +28,7 @@ pub const DEFAULT_WORD_CAPACITY: usize = 16;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
-    pub steps_num: Option<usize>,
+    pub max_step_row: Option<usize>,
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
     pub global_ops_num: Option<usize>,
@@ -44,7 +41,7 @@ pub struct CircuitConfig {
 impl Default for CircuitConfig {
     fn default() -> Self {
         CircuitConfig {
-            steps_num: None,
+            max_step_row: None,
             stack_ops_num: None,
             locals_ops_num: None,
             global_ops_num: None,
@@ -57,8 +54,8 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
-    pub fn steps_num(mut self, steps_num: Option<usize>) -> Self {
-        self.steps_num = steps_num;
+    pub fn max_step_row(mut self, max_row: Option<usize>) -> Self {
+        self.max_step_row = max_row;
         self
     }
 
@@ -138,42 +135,6 @@ impl<F: FieldExt> Witness<F> {
             input_type_elements,
             circuit_config,
         }
-    }
-
-    // If the number of steps is less than a given steps number, fill with nop.
-    // This happened when an execution path is not fixed, for example, if there
-    // is loop in the code.
-    pub fn process_exec_steps(&self) -> Result<Vec<ExecutionStep<F>>, Error> {
-        let mut exec_steps = self.exec_steps.clone();
-        if let Some(steps_number) = self.circuit_config.steps_num {
-            let last = exec_steps.last().ok_or_else(|| {
-                error!("failed to get the last exec step");
-                Error::Synthesis
-            })?;
-
-            let nop = ExecutionStep {
-                context_id: last.context_id,
-                opcode: Opcode::Nop,
-                pc: last.pc,
-                stack_size: last.stack_size,
-                frame_index: last.frame_index,
-                locals_index: last.locals_index,
-                gc: last.gc,
-                module_index: last.module_index,
-                function_index: last.function_index,
-                auxiliary_1: last.auxiliary_1.clone(),
-                auxiliary_2: last.auxiliary_2.clone(),
-                auxiliary_3: last.auxiliary_3.clone(),
-                auxiliary_4: last.auxiliary_4.clone(),
-                auxiliary_5: last.auxiliary_5.clone(),
-                data: None,
-            };
-
-            while exec_steps.len() < steps_number {
-                exec_steps.insert(exec_steps.len() - 1, nop.clone());
-            }
-        }
-        Ok(exec_steps)
     }
 }
 

@@ -19,7 +19,6 @@ pub struct ConvertedRWOperation<F: FieldExt> {
     pub(crate) address_ext_0: (F, Option<AssignedCell<F, F>>),
     pub(crate) address_ext_1: (F, Option<AssignedCell<F, F>>),
     pub(crate) value: (Option<F>, Option<AssignedCell<F, F>>),
-    pub(crate) value_ext: (Option<F>, Option<AssignedCell<F, F>>),
     //struct definition index, only used by global ops
     pub(crate) sd_index: (F, Option<AssignedCell<F, F>>),
 }
@@ -35,7 +34,6 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
             address_ext_0: (F::from_u128(0u128), None),
             address_ext_1: (F::from_u128(0u128), None),
             value: (Some(F::from_u128(0u128)), None),
-            value_ext: (Some(F::from_u128(0u128)), None),
             sd_index: (F::from_u128(0u128), None),
         }
     }
@@ -52,11 +50,7 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
                 .value
                 .0
                 .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere)),
-            8 => self
-                .value_ext
-                .0
-                .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere)),
-            9 => Ok(self.sd_index.0),
+            8 => Ok(self.sd_index.0),
             _ => Err(RuntimeError::new(StatusCode::OutOfBounds)),
         }
     }
@@ -95,10 +89,6 @@ impl<F: FieldExt> ConvertedRWOperation<F> {
                 Ok(())
             }
             8 => {
-                self.value_ext = (self.value_ext.0, cell);
-                Ok(())
-            }
-            9 => {
                 self.sd_index = (self.sd_index.0, cell);
                 Ok(())
             }
@@ -122,7 +112,6 @@ pub struct LocalsOp<F: FieldExt> {
     pub gc: usize,
     pub rw: RW,
     pub value: Option<PrimitiveValue<F>>,
-    pub value_ext: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> LocalsOp<F> {
@@ -135,7 +124,6 @@ impl<F: FieldExt> LocalsOp<F> {
             gc: 0,
             rw: RW::READ,
             value: Some(PrimitiveValue::u64(0)),
-            value_ext: Some(PrimitiveValue::u64(0)),
         }
     }
 }
@@ -172,10 +160,6 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
             None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
-        let value_ext = match rw_op.value_ext {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
-        };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
             rw_target: (F::from_u128(RWTarget::Locals as u128), None),
@@ -185,7 +169,6 @@ impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
             address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
             address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
-            value_ext: (value_ext, None),
             sd_index: (F::from_u128(0), None),
         }
     }
@@ -199,7 +182,6 @@ pub struct StackOp<F: FieldExt> {
     pub gc: usize,
     pub rw: RW,
     pub value: Option<PrimitiveValue<F>>,
-    pub value_ext: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> StackOp<F> {
@@ -209,7 +191,6 @@ impl<F: FieldExt> StackOp<F> {
             address_ext_0: 0,
             address_ext_1: 0,
             value: Some(PrimitiveValue::u64(0)),
-            value_ext: Some(PrimitiveValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
@@ -246,10 +227,6 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
             None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
-        let value_ext = match rw_op.value_ext {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
-        };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
             rw_target: (F::from_u128(RWTarget::Stack as u128), None),
@@ -259,7 +236,6 @@ impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
             address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
             address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
-            value_ext: (value_ext, None),
             sd_index: (F::from_u128(0), None),
         }
     }
@@ -274,7 +250,6 @@ pub struct GlobalOp<F: FieldExt> {
     pub gc: usize,
     pub rw: RW,
     pub value: Option<PrimitiveValue<F>>,
-    pub value_ext: Option<PrimitiveValue<F>>,
 }
 
 impl<F: FieldExt> GlobalOp<F> {
@@ -285,7 +260,6 @@ impl<F: FieldExt> GlobalOp<F> {
             address_ext_0: 0,
             address_ext_1: 0,
             value: Some(PrimitiveValue::u64(0)),
-            value_ext: Some(PrimitiveValue::u64(0)),
             rw: RW::READ,
             gc: 0,
         }
@@ -324,10 +298,6 @@ impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
             None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
-        let value_ext = match rw_op.value_ext {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
-        };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
             rw_target: (F::from_u128(RWTarget::Global as u128), None),
@@ -337,7 +307,6 @@ impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
             address_ext_0: (F::from_u128(rw_op.address_ext_0 as u128), None),
             address_ext_1: (F::from_u128(rw_op.address_ext_1 as u128), None),
             value: (value, None),
-            value_ext: (value_ext, None),
             sd_index: (F::from_u128(rw_op.sd_index as u128), None),
         }
     }
@@ -404,15 +373,6 @@ impl<F: FieldExt> RWOperation<F> {
         v.map(Into::into).unwrap_or_else(|| Value::Invalid)
     }
 
-    pub fn value_ext(&self) -> Value<F> {
-        let v = match self {
-            Self::StackOp(op) => op.value_ext,
-            Self::LocalsOp(op) => op.value_ext,
-            Self::GlobalOp(op) => op.value_ext,
-        };
-        v.map(Into::into).unwrap_or_else(|| Value::Invalid)
-    }
-
     pub fn sd_index(&self) -> usize {
         match self {
             Self::StackOp(_) => 0,
@@ -462,11 +422,6 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             _ => rw_op.value().value(),
         };
 
-        let value_ext = match rw_op.value_ext() {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value().value(),
-        };
-
         let address_value = match rw_op {
             RWOperation::StackOp(op) => F::from_u128(op.address as u128),
             RWOperation::LocalsOp(op) => F::from_u128(op.index as u128),
@@ -494,7 +449,6 @@ impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
             address_ext_0: (address_ext_0_value, None),
             address_ext_1: (address_ext_1_value, None),
             value: (value, None),
-            value_ext: (value_ext, None),
             sd_index: (F::from_u128(rw_op.sd_index() as u128), None),
         }
     }
