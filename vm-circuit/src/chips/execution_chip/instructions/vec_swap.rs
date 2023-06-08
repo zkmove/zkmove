@@ -133,7 +133,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
 
         let is_global = cells.auxiliary_5.expression.clone();
 
-        for (i, item) in self.value_a.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.value_a.iter().enumerate().take(*WORD_CAPACITY) {
             // read value_a
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()
@@ -215,7 +215,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             ));
         }
 
-        for (i, item) in self.value_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.value_b.iter().enumerate().take(*WORD_CAPACITY) {
             // read value_b
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()
@@ -462,15 +462,15 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
-        let value_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
-        let value_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value_b = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_b_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_b_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_b_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         Self {
             idx_a,

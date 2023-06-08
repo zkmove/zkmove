@@ -77,7 +77,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let global_address = self.value_a.expression.clone();
         let sd_index = cells.auxiliary_1.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
-        for i in 0..WORD_CAPACITY {
+        for i in 0..*WORD_CAPACITY {
             let (read_stack, write_global) = RWLookup::move_to_global(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone(),
@@ -226,10 +226,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let type_cells = if GENERIC {

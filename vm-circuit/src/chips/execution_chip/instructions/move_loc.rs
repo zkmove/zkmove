@@ -57,7 +57,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..WORD_CAPACITY {
+        for i in 0..*WORD_CAPACITY {
             let (read, write_locals, write_stack) = RWLookup::locals_move(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
@@ -126,10 +126,10 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         Self {
             word_a,

@@ -89,9 +89,13 @@ impl CircuitConfig {
         self
     }
 
-    pub fn word_size(mut self, word_size: usize) -> Self {
-        self.word_size = word_size;
+    pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
+        self.word_size = word_capacity.unwrap_or(DEFAULT_WORD_CAPACITY);
         self
+    }
+
+    pub fn get_word_size(self) -> usize {
+        self.word_size
     }
 }
 

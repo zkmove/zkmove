@@ -670,7 +670,7 @@ impl<F: FieldExt> Word<F> {
             )?;
         }
 
-        for i in word_element_num..WORD_CAPACITY {
+        for i in word_element_num..*WORD_CAPACITY {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
@@ -762,7 +762,7 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address
             .iter()
             .enumerate()
-            .take(WORD_CAPACITY)
+            .take(*WORD_CAPACITY)
             .skip(word_element_num + 1)
         {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
@@ -815,7 +815,7 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address
             .iter()
             .enumerate()
-            .take(WORD_CAPACITY)
+            .take(*WORD_CAPACITY)
             .skip(word_element_num)
         {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;

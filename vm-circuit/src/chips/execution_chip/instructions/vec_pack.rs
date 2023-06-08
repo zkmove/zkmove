@@ -78,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         // read values from stack, write back the packed vector
         // vector[0] is the header. To make the constraint simple, we have already
         // assigned the values[0] to be empty, now we just skip 'i=0'.
-        for (i, item) in self.values.iter().enumerate().take(WORD_CAPACITY).skip(1) {
+        for (i, item) in self.values.iter().enumerate().take(*WORD_CAPACITY).skip(1) {
             lookups.rw_lookups.push((
                 "vec_pack(read values)",
                 RWLookup {
@@ -122,7 +122,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
 
         // values_address is equal to vector_addr_ext_0
         // values_addr_ext_0 is equal to vector_addr_ext_1
-        for i in 1..WORD_CAPACITY {
+        for i in 1..*WORD_CAPACITY {
             let constraint = cond.clone()
                 * self.vector_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
@@ -200,16 +200,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let values = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let values = cb.alloc_n_cells(*WORD_CAPACITY);
+        let values_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let values_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let values_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let values_address = cb.alloc_n_cells(*WORD_CAPACITY);
 
-        let vector = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let vector = cb.alloc_n_cells(*WORD_CAPACITY);
+        let vector_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let vector_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let vector_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         Self {
             values,

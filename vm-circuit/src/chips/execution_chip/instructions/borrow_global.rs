@@ -94,7 +94,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             cond.clone(),
         ));
 
-        for i in 0..WORD_CAPACITY {
+        for i in 0..*WORD_CAPACITY {
             lookups.rw_lookups.push((
                 "borrow_global(global read)",
                 RWLookup::global_read(
@@ -242,10 +242,10 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let account_address = cb.alloc_cell();
-        let word = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let type_cells = if GENERIC {

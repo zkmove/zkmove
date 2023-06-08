@@ -92,7 +92,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         ]);
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.value.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.value.iter().enumerate().take(*WORD_CAPACITY) {
             // read value from stack
             let read = RWLookup::stack_pop(
                 cells.gc.expression.clone() + (i as u64).expr(),
@@ -475,10 +475,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         let value_index = cb.alloc_cell();
         let offset_pow2 = cb.alloc_cell();
 
-        let value = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
@@ -487,8 +487,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
 
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
-        let new_value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let new_value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let new_value_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let new_value_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let headers_value_mask = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);

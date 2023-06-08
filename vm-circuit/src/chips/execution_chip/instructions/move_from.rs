@@ -84,7 +84,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             cond.clone(),
         ));
 
-        for i in 0..WORD_CAPACITY {
+        for i in 0..*WORD_CAPACITY {
             let (read_global, write_invalid_to_global, write_stack) =
                 RWLookup::move_from_global_to_stack(
                     cells.gc.expression.clone() + (i as u64 + 1).expr(),
@@ -201,10 +201,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a = cb.alloc_cell();
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();

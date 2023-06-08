@@ -13,7 +13,7 @@ use std::process::exit;
 use structopt::StructOpt;
 use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
-use vm_circuit::witness::CircuitConfig;
+use vm_circuit::witness::{CircuitConfig, DEFAULT_WORD_CAPACITY};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -58,6 +58,14 @@ pub enum Command {
 
         #[structopt(long = "print-layout")]
         print_layout: bool,
+
+        #[structopt(
+            short = "w",
+            long = "word-capacity",
+            default_value = "16",
+            help = "word max member size is 16 by default, which must be customized for complex struct"
+        )]
+        word_capacity: u64,
     },
     #[structopt(name = "graph", about = "generate generic call graph")]
     CallGraph { module: PathBuf, output: PathBuf },
@@ -73,6 +81,7 @@ impl Arguments {
         new_args: &Option<Vec<ScriptArgument>>,
         verbose: bool,
         print_layout: bool,
+        word_capacity: u64,
     ) -> VmResult<()> {
         logger::init_for_main(verbose);
 
@@ -104,11 +113,12 @@ impl Arguments {
         }
 
         info!("generate execution trace...");
-        let circuit_config = CircuitConfig::default()
+        let mut circuit_config = CircuitConfig::default()
             .max_step_row(config.step_max_row)
             .stack_ops_num(config.stack_ops_num)
             .locals_ops_num(config.locals_ops_num)
-            .global_ops_num(config.global_ops_num);
+            .global_ops_num(config.global_ops_num)
+            .word_size(config.word_capacity);
         let witness = runtime.execute_script(
             script.clone(),
             compiled_modules.clone(),
@@ -131,6 +141,11 @@ impl Arguments {
         if print_layout {
             info!("print circuit layout into layout.svg ...");
             runtime.print_circuit_layout(k, &vm_circuit);
+        }
+
+        if word_capacity != (DEFAULT_WORD_CAPACITY as u64) {
+            info!(" word capacity is customized by cli, {:?}", word_capacity);
+            circuit_config.word_size = word_capacity as usize;
         }
 
         info!("setup vm circuit...");
@@ -181,6 +196,7 @@ fn main() {
             ref new_args,
             verbose,
             print_layout,
+            word_capacity,
         } => args.run(
             script.as_path(),
             modules,
@@ -188,6 +204,7 @@ fn main() {
             new_args,
             verbose,
             print_layout,
+            word_capacity,
         ),
         Command::CallGraph { module, output } => {
             std::fs::create_dir_all(output.as_path()).unwrap();

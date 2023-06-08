@@ -109,7 +109,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             ));
         }
 
-        for (i, item) in self.value.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.value.iter().enumerate().take(*WORD_CAPACITY) {
             // read value from container
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
@@ -480,13 +480,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
-        let value = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
-        let new_value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let new_value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let new_value_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let new_value_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let headers_value_mask = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);

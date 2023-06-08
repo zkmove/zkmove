@@ -69,7 +69,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
-        for (i, item) in self.word_a.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_a.iter().enumerate().take(*WORD_CAPACITY) {
             lookups.rw_lookups.push((
                 "call(stack pop)",
                 RWLookup::stack_pop(
@@ -200,11 +200,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_address = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let type_cells = if GENERIC {
             let callee_id = cb.next.cells.context_id.expr();

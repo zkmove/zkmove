@@ -85,7 +85,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         }
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate().take(*WORD_CAPACITY) {
             // locals read or global read
             let read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
@@ -255,14 +255,14 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_b = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_b_mask = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_b_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_b_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
 
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
