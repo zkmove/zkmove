@@ -57,7 +57,7 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..*WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate() {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),

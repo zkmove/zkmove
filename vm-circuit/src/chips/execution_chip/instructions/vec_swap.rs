@@ -133,7 +133,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
 
         let is_global = cells.auxiliary_5.expression.clone();
 
-        for (i, item) in self.value_a.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.value_a.iter().enumerate() {
             // read value_a
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()
@@ -215,7 +215,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             ));
         }
 
-        for (i, item) in self.value_b.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.value_b.iter().enumerate() {
             // read value_b
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone()

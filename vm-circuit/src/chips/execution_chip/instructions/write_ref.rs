@@ -86,7 +86,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         }
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.word_b.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate() {
             // stack read
             let read = RWLookup::stack_pop(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),

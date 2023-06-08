@@ -69,7 +69,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
-        for (i, item) in self.word_a.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.word_a.iter().enumerate() {
             lookups.rw_lookups.push((
                 "call(stack pop)",
                 RWLookup::stack_pop(

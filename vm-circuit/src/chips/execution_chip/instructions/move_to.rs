@@ -77,7 +77,8 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let global_address = self.value_a.expression.clone();
         let sd_index = cells.auxiliary_1.expression.clone();
         let word_elem_num = cells.auxiliary_3.expression.clone();
-        for i in 0..*WORD_CAPACITY {
+
+        for (i, _) in self.word_a.iter().enumerate() {
             let (read_stack, write_global) = RWLookup::move_to_global(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone(),

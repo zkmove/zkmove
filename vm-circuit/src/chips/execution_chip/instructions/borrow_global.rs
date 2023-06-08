@@ -94,7 +94,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             cond.clone(),
         ));
 
-        for i in 0..*WORD_CAPACITY {
+        for (i, _) in self.word.iter().enumerate() {
             lookups.rw_lookups.push((
                 "borrow_global(global read)",
                 RWLookup::global_read(

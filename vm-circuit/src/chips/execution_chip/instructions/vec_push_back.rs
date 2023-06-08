@@ -92,7 +92,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         ]);
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.value.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.value.iter().enumerate() {
             // read value from stack
             let read = RWLookup::stack_pop(
                 cells.gc.expression.clone() + (i as u64).expr(),

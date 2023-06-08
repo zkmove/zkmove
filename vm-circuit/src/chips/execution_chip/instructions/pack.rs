@@ -77,7 +77,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         // read values from stack, write back the packed struct
         // word_a[0] is the header. To make the constraint simple, we have already
         // assigned the word_b[0] to be empty, now we just skip 'i=0'.
-        for (i, item) in self.word_b.iter().enumerate().take(*WORD_CAPACITY).skip(1) {
+        for (i, item) in self.word_b.iter().enumerate().skip(1) {
             lookups.rw_lookups.push((
                 "pack(stack pop)",
                 RWLookup {
@@ -121,7 +121,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
 
         // word_b.address is equal to word_a.address_ext_0
         // word_b.address_ext_0 is equal to word_a.address_ext_1
-        for i in 1..*WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate().skip(1) {
             let constraint = cond.clone()
                 * self.word_a_mask[i].expression.clone()
                 * (self.word_address[i].expression.clone()

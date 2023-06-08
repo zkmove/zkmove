@@ -109,7 +109,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             ));
         }
 
-        for (i, item) in self.value.iter().enumerate().take(*WORD_CAPACITY) {
+        for (i, item) in self.value.iter().enumerate() {
             // read value from container
             let locals_read = RWLookup::locals_read(
                 cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),

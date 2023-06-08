@@ -57,7 +57,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..*WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate() {
             lookups.rw_lookups.push((
                 "pop(stack)",
                 RWLookup::stack_pop(

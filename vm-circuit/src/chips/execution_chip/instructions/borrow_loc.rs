@@ -65,7 +65,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             ("function index", cond.clone() * func_index),
         ]);
 
-        for i in 0..*WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate() {
             let read = RWLookup::locals_ref(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
