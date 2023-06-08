@@ -75,3 +75,17 @@ pub struct CallLookup<F: FieldExt> {
     pub next_function_index: Expression<F>,
     pub next_pc: Expression<F>,
 }
+
+impl<F: FieldExt> CallLookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.type_.clone(),
+            self.module_index.clone(),
+            self.function_index.clone(),
+            self.pc.clone(),
+            self.next_module_index.clone(),
+            self.next_function_index.clone(),
+            self.next_pc.clone(),
+        ]
+    }
+}

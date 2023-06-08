@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{
     LookupBytecode, RefVal, ValueHeaderGadget, Word,
 };
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -37,17 +37,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
     const OPCODE: Opcode = Opcode::VecLen;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecLen, there are 3 steps here:
         // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
         // 2. read vec header from locals or global. [gc+DEPTH_OF_ADDRESS_PATH, 1]
         // 3. write length into stack. [gc+DEPTH_OF_ADDRESS_PATH+1, 1]
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -63,16 +57,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
 
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            lookups.rw_lookups.push((
+            cb.add_lookup(
                 "vec_len(stack pop ref_val)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -81,8 +75,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone(),
-            ));
+            );
         }
 
         let is_global = cells.auxiliary_1.expression.clone();
@@ -95,11 +88,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_header_addr_ext_1.expression.clone(),
             self.vec_header_value.expression.clone(),
         );
-        lookups.rw_lookups.push((
-            "vec_len(read vec header)",
-            read_local,
-            cond.clone() * (1.expr() - is_global.clone()), // locals read
-        ));
+        cb.condition(1.expr() - is_global.clone(), |cb| {
+            // locals read
+            cb.add_lookup("vec_len(read vec header)", read_local);
+        });
+
         let read_global = RWLookup::global_read(
             cells.gc.expression.clone() + depth_of_addr_path_expr.clone(),
             self.vec_frame_index_or_global_address.expression.clone(),
@@ -108,11 +101,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_header_addr_ext_0.expression.clone(),
             self.vec_header_addr_ext_1.expression.clone(),
         );
-        lookups.rw_lookups.push((
-            "vec_len(read vec header)",
-            read_global,
-            cond.clone() * is_global.clone(), // global read
-        ));
+        // global read
+        cb.condition(is_global.clone(), |cb| {
+            cb.add_lookup("vec_len(read vec header)", read_global);
+        });
 
         // stack write
         let write = RWLookup::stack_push(
@@ -122,24 +114,20 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             0.expr(),
             self.vec_len.expression.clone(),
         );
-        lookups
-            .rw_lookups
-            .push(("vec_len(push len to stack)", write, cond.clone()));
+        cb.add_lookup("vec_len(push len to stack)", write);
 
         // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
-        let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone()
-                - self.vec_frame_index_or_global_address.expression.clone());
+        let mut constraint = self.ref_val[0].expression.clone()
+            - self.vec_frame_index_or_global_address.expression.clone();
         cb.add_constraint("read_ref_eq_0", constraint);
         // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
-        constraint = cond.clone()
-            * (1.expr() - is_global)
+        constraint = (1.expr() - is_global)
             * (self.ref_val[1].expression.clone()
                 - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
         // cells.ref_val[2] equal to vec_header_addr_ext_0
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone());
+        constraint =
+            self.ref_val[2].expression.clone() - self.vec_header_addr_ext_0.expression.clone();
         cb.add_constraint("read_ref_eq_2", constraint);
 
         // check vec header
@@ -148,14 +136,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_flattened_len.expression.clone(),
             self.vec_len.expression.clone(),
         )
-        .constrain(cb, cond.clone(), "check_vec_header");
+        .constrain(cb, "check_vec_header");
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::VecLen,
             cells.auxiliary_2.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 

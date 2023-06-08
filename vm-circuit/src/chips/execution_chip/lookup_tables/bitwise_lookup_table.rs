@@ -37,3 +37,14 @@ pub struct BitwiseLookup<F: FieldExt> {
     pub value_2: Expression<F>,
     pub result: Expression<F>,
 }
+
+impl<F: FieldExt> BitwiseLookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.opcode.clone(),
+            self.value_1.clone(),
+            self.value_2.clone(),
+            self.result.clone(),
+        ]
+    }
+}

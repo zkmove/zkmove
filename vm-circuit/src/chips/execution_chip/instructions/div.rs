@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -24,19 +24,12 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
     const NAME: &'static str = "DIV";
 
     const OPCODE: Opcode = Opcode::Div;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();
         let quotient = self.value_c.expression.clone();
         let remainder = cells.auxiliary_1.expression.clone();
-        let constraint = cond.clone() * (lhs - rhs * quotient - remainder);
+        let constraint = lhs - rhs * quotient - remainder;
         cb.add_constraint("Div", constraint);
 
         let binary_op = BinaryOp {
@@ -44,15 +37,9 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Div,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Div, 0.expr());
     }
 
     fn assign(

@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -74,12 +73,7 @@ pub(crate) trait InstructionGadget<F: FieldExt> {
 
     const OPCODE: Opcode;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    );
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>);
 
     fn assign(
         &self,

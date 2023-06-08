@@ -68,6 +68,7 @@ impl CallTraceTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct CallTraceLookup<F: FieldExt> {
     pub caller_id: Expression<F>,
     pub caller_module: Expression<F>,
@@ -81,7 +82,7 @@ pub struct CallTraceLookup<F: FieldExt> {
 }
 
 impl<F: FieldExt> CallTraceLookup<F> {
-    pub fn expressions(&self) -> Vec<Expression<F>> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.caller_id.clone(),
             self.caller_module.clone(),

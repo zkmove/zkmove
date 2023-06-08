@@ -31,11 +31,7 @@ pub struct BinaryOp<F: FieldExt> {
 }
 
 impl<F: FieldExt> BinaryOp<F> {
-    pub(crate) fn constrain_binary_op(
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-    ) {
+    pub(crate) fn constrain_binary_op(cb: &mut ConstraintBuilder<F>, cells: &StepChipCells<F>) {
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
@@ -48,22 +44,21 @@ impl<F: FieldExt> BinaryOp<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
     }
 
-    pub fn lookup_binary_op(
+    pub(crate) fn lookup_binary_op(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
         binary_op: &BinaryOp<F>,
-        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
     ) {
-        rw_lookups.push((
+        cb.add_lookup(
             "binary op(stack pop 0)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
@@ -72,9 +67,8 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 binary_op.value_b.expression.clone(),
             ),
-            cond.clone(),
-        ));
-        rw_lookups.push((
+        );
+        cb.add_lookup(
             "binary op(stack pop 1)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
@@ -83,9 +77,8 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 binary_op.value_a.expression.clone(),
             ),
-            cond.clone(),
-        ));
-        rw_lookups.push((
+        );
+        cb.add_lookup(
             "binary op(stack push 0)",
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
@@ -94,8 +87,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 0.expr(),
                 binary_op.value_c.expression.clone(),
             ),
-            cond,
-        ));
+        );
     }
 
     pub fn assign_binary_op(
@@ -260,11 +252,7 @@ pub struct UnaryOp<F: FieldExt> {
 }
 
 impl<F: FieldExt> UnaryOp<F> {
-    pub(crate) fn constrain_unary_op(
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-    ) {
+    pub(crate) fn constrain_unary_op(cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
@@ -276,22 +264,21 @@ impl<F: FieldExt> UnaryOp<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
     }
 
-    pub fn lookup_unary_op(
+    pub(crate) fn lookup_unary_op(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
         unary_op: &UnaryOp<F>,
-        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
     ) {
-        rw_lookups.push((
+        cb.add_lookup(
             "unary op(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
@@ -300,9 +287,8 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 unary_op.value_a.expression.clone(),
             ),
-            cond.clone(),
-        ));
-        rw_lookups.push((
+        );
+        cb.add_lookup(
             "unary op(stack push)",
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 1.expr(),
@@ -311,8 +297,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 0.expr(),
                 unary_op.value_c.expression.clone(),
             ),
-            cond,
-        ));
+        );
     }
 
     pub fn assign_unary_op(
@@ -343,11 +328,7 @@ pub struct LoadOp<F: FieldExt> {
 }
 
 impl<F: FieldExt> LoadOp<F> {
-    pub(crate) fn constrain_ld_op(
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-    ) {
+    pub(crate) fn constrain_ld_op(cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
@@ -360,22 +341,21 @@ impl<F: FieldExt> LoadOp<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
     }
 
-    pub fn lookup_ld_op(
+    pub(crate) fn lookup_ld_op(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
         value_a: &Cell<F>,
-        rw_lookups: &mut Vec<(&str, RWLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
     ) {
-        rw_lookups.push((
+        cb.add_lookup(
             "ld op(stack push)",
             RWLookup::stack_push(
                 cells.gc.expression.clone(),
@@ -384,8 +364,7 @@ impl<F: FieldExt> LoadOp<F> {
                 0.expr(),
                 value_a.expression.clone(),
             ),
-            cond,
-        ));
+        );
     }
 }
 
@@ -394,14 +373,14 @@ pub struct LookupBytecode<F: FieldExt> {
 }
 
 impl<F: FieldExt> LookupBytecode<F> {
-    pub fn lookup_bytecode(
+    pub(crate) fn lookup_bytecode(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
+
         opcode: Opcode,
         bytecode_operand: Expression<F>,
-        bytecode_lookups: &mut Vec<(&str, BytecodeLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
     ) {
-        bytecode_lookups.push((
+        cb.add_lookup(
             "bytecode lookups",
             BytecodeLookup {
                 module_index: cells.module_index.expression.clone(),
@@ -410,8 +389,7 @@ impl<F: FieldExt> LookupBytecode<F> {
                 opcode: (opcode.index() as u64).expr(),
                 operand: bytecode_operand,
             },
-            cond,
-        ));
+        );
     }
 }
 
@@ -421,10 +399,9 @@ pub struct ArithOverflow<F: FieldExt> {
 
 impl<F: FieldExt> ArithOverflow<F> {
     pub(crate) fn constrain_range_check(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
         bytes: Vec<Cell<F>>,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
         out: Expression<F>,
     ) {
         // arithmetic overflow check
@@ -440,14 +417,12 @@ impl<F: FieldExt> ArithOverflow<F> {
         let delta_inverse_8 = cells.auxiliary_3.expression.clone();
         let delta_inverse_16 = cells.auxiliary_4.expression.clone();
 
-        let cond_1 = cond.clone()
-            * (1.expr()
-                - (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr()) * delta_inverse_1);
-        let cond_8 = cond.clone()
-            * (1.expr()
-                - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8);
-        let cond_16 = cond
-            * (1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16);
+        let cond_1 =
+            1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr()) * delta_inverse_1;
+        let cond_8 =
+            1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8;
+        let cond_16 =
+            1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16;
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
         cb.add_constraint("range check 1", constraint_1);
@@ -458,13 +433,12 @@ impl<F: FieldExt> ArithOverflow<F> {
     }
 
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.
-    pub fn lookup_arith_op(
+    pub(crate) fn lookup_arith_op(
+        cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
-        arith_op_lookups: &mut Vec<(&'static str, ArithOpLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
         num_of_bytes: Expression<F>,
     ) {
-        arith_op_lookups.push((
+        cb.add_lookup(
             "arithmetic op lookups",
             ArithOpLookup {
                 module_index: cells.module_index.expression.clone(),
@@ -472,8 +446,7 @@ impl<F: FieldExt> ArithOverflow<F> {
                 pc: cells.pc.expression.clone(),
                 num_of_bytes,
             },
-            cond,
-        ));
+        );
     }
 
     // given a value, assign it's number of bytes (num_of_bytes) into auxiliary_1
@@ -534,16 +507,15 @@ pub struct LookupBitwise<F: FieldExt> {
 }
 
 impl<F: FieldExt> LookupBitwise<F> {
-    pub fn lookup_bitwise(
+    pub(crate) fn lookup_bitwise(
+        cb: &mut ConstraintBuilder<F>,
         cells: &LookupBitwise<F>,
         opcode: Opcode,
-        bitwise_lookups: &mut Vec<(&'static str, BitwiseLookup<F>, Expression<F>)>,
-        cond: Expression<F>,
     ) {
         for (operand_1, operand_2, result_value) in
             izip!(&cells.bytes_operand_1, &cells.bytes_operand_2, &cells.bytes)
         {
-            bitwise_lookups.push((
+            cb.add_lookup(
                 "bitwise lookups",
                 BitwiseLookup {
                     opcode: (opcode.index() as u64).expr(),
@@ -551,8 +523,7 @@ impl<F: FieldExt> LookupBitwise<F> {
                     value_2: operand_2.expression.clone(),
                     result: result_value.expression.clone(),
                 },
-                cond.clone(),
-            ));
+            );
         }
     }
 }
@@ -878,12 +849,11 @@ impl<F: FieldExt> AddrExt<F> {
     // constraint on mask_a and mask_b
     // mask_a and mask_b is implemented to get the Nth element on addr_ext.
     pub(crate) fn constrain_mask_n(
+        cb: &mut ConstraintBuilder<F>,
         mask_a: &[Cell<F>],
         mask_b: &[Cell<F>],
         n: Expression<F>,
         total_len: Expression<F>,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
     ) {
         let one = Expression::Constant(F::one());
 
@@ -893,9 +863,7 @@ impl<F: FieldExt> AddrExt<F> {
             .map(|cell| {
                 (
                     "zero or one",
-                    cond.clone()
-                        * (cell.expression.clone() - one.clone())
-                        * cell.expression.clone(),
+                    (cell.expression.clone() - one.clone()) * cell.expression.clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -904,7 +872,7 @@ impl<F: FieldExt> AddrExt<F> {
         // every entry is monotonic increase
         for (i, _) in mask_a.iter().enumerate().skip(1) {
             let delta = mask_a[i].expression.clone() - mask_a[i - 1].expression.clone();
-            let constraint = cond.clone() * delta.clone() * (1.expr() - delta);
+            let constraint = delta.clone() * (1.expr() - delta);
             cb.add_constraint("check header addr_ext_0", constraint);
         }
 
@@ -913,19 +881,18 @@ impl<F: FieldExt> AddrExt<F> {
         let sum = mask_a
             .iter()
             .fold(init, |acc, cell| acc - cell.expression.clone());
-        cb.add_constraint("read_ref_eq_0", sum * cond.clone());
+        cb.add_constraint("read_ref_eq_0", sum);
 
         // sum value of mask_b is MAX_ADDRESS_EXT_LENGTH -  n - 1
         let init = total_len - n.clone() - 1.expr();
         let sum = mask_b
             .iter()
             .fold(init, |acc, cell| acc - cell.expression.clone());
-        cb.add_constraint("read_ref_eq_0", sum * cond.clone());
+        cb.add_constraint("read_ref_eq_0", sum);
 
         // compare mask_a and mask_b, only Nth element is different
         for (i, _) in mask_a.iter().enumerate() {
-            let constraint = cond.clone()
-                * (n.clone() - (i as u64).expr())
+            let constraint = (n.clone() - (i as u64).expr())
                 * (mask_a[i].expression.clone() - mask_b[i].expression.clone());
             cb.add_constraint("check header addr_ext_0", constraint);
         }
@@ -960,7 +927,6 @@ impl<F: FieldExt> AddrExt<F> {
 
     pub(crate) fn location_val_constrain(
         cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
         val_a: &[Cell<F>],
         val_b: &[Cell<F>],
     ) -> Result<(), Error> {
@@ -974,7 +940,7 @@ impl<F: FieldExt> AddrExt<F> {
             .expect("location is not exsit")
             .expression
             .clone();
-        let constraint = cond.clone() * (a0 - b0);
+        let constraint = a0 - b0;
         cb.add_constraint("location_val_constrain: 0", constraint);
 
         let a1 = val_a
@@ -987,7 +953,7 @@ impl<F: FieldExt> AddrExt<F> {
             .expect("location is not exsit")
             .expression
             .clone();
-        let constraint = cond * (a1 - b1);
+        let constraint = a1 - b1;
         cb.add_constraint("location_val_constrain: 1", constraint);
 
         Ok(())
@@ -1064,16 +1030,10 @@ impl<F: FieldExt> ValueHeaderGadget<F> {
             len,
         }
     }
-    pub(crate) fn constrain(
-        &self,
-        cb: &mut ConstraintBuilder<F>,
-        cond: Expression<F>,
-        name: &'static str,
-    ) {
-        let constraint = cond
-            * (self.header_value.clone()
-                - self.flattened_len.clone()
-                - self.len.clone() * 2u64.pow(16).expr());
+    pub(crate) fn constrain(&self, cb: &mut ConstraintBuilder<F>, name: &'static str) {
+        let constraint = self.header_value.clone()
+            - self.flattened_len.clone()
+            - self.len.clone() * 2u64.pow(16).expr();
         cb.add_constraint(name, constraint);
     }
 }
