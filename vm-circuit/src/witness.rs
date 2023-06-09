@@ -92,14 +92,18 @@ impl CircuitConfig {
     }
 
     pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
-        self.word_size = word_capacity.unwrap_or(DEFAULT_WORD_CAPACITY);
+        if let Some(cap) = word_capacity {
+            self.word_size = cap;
+        }
         self
     }
 
     // WORD_CAPACITY is customized.
     pub fn word_capacity_set(word_capacity: Option<usize>) {
         unsafe {
-            WORD_CAPACITY = word_capacity.unwrap_or(DEFAULT_WORD_CAPACITY);
+            if let Some(cap) = word_capacity {
+                WORD_CAPACITY = cap;
+            }
         }
     }
     pub fn word_capacity_get() -> usize {
