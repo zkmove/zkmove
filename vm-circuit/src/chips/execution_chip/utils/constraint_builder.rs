@@ -2,7 +2,7 @@ use crate::chips::execution_chip::lookup_tables::Lookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepConfig;
 use crate::chips::execution_chip::utils::CellType;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Cell;
 
 use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 
@@ -46,7 +46,7 @@ impl<F: FieldExt> ConstraintBuilder<F> {
                 .collect(),
             self.lookups
                 .into_iter()
-                .map(|(name, lookup)| (name, Lookup::Conditional(op_sel.clone(), Box::new(lookup))))
+                .map(|(name, lookup)| (name, lookup.conditionals(vec![op_sel.clone()])))
                 .collect(),
             self.curr.cell_manager.get_height(),
         )
@@ -77,10 +77,9 @@ impl<F: FieldExt> ConstraintBuilder<F> {
     // Lookups
 
     pub(crate) fn add_lookup<L: Into<Lookup<F>>>(&mut self, name: &'static str, lookup: L) {
-        let lookup = lookup.into();
-        let lookup = match self.condition_expr_opt() {
-            Some(c) => Lookup::Conditional(c, Box::new(lookup)),
-            None => lookup,
+        let mut lookup = lookup.into();
+        if !self.conditions.is_empty() {
+            lookup = lookup.conditionals(self.conditions.clone());
         };
         self.lookups.push((name, lookup))
     }
@@ -104,8 +103,11 @@ impl<F: FieldExt> ConstraintBuilder<F> {
         }
     }
 
-    pub(crate) fn add_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
-        self.push_constraint(name, constraint * self.condition_expr());
+    pub(crate) fn add_constraint(&mut self, name: &'static str, mut constraint: Expression<F>) {
+        if let Some(cond) = self.condition_expr_opt() {
+            constraint = cond * constraint;
+        }
+        self.push_constraint(name, constraint);
     }
 
     fn push_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
@@ -120,10 +122,32 @@ impl<F: FieldExt> ConstraintBuilder<F> {
         };
         Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
     }
-    fn condition_expr(&self) -> Expression<F> {
-        match self.condition_expr_opt() {
-            Some(condition) => condition,
-            None => 1.expr(),
-        }
-    }
 }
+
+pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+    let mut iter = iter.as_ref().iter();
+    let first = match iter.next() {
+        Some(e) => e,
+        None => return None,
+    };
+    Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
+}
+
+// pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+//     //let mut iter = self.conditions.iter();
+//     let iter = iter.as_ref();
+//     if iter.is_empty() {
+//         None
+//     } else if iter.len() == 1 {
+//         Some(iter[0].clone())
+//     } else {
+//         let (left, right) = iter.split_at(iter.len() / 2);
+//
+//         Some(match (mul_exprs(left), mul_exprs(right)) {
+//             (Some(l), Some(r)) => l * r,
+//             (Some(l), None) => l,
+//             (None, Some(r)) => r,
+//             _ => unreachable!(),
+//         })
+//     }
+// }

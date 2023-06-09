@@ -25,6 +25,7 @@ use crate::chips::execution_chip::lookup_tables::type_instantiation_table::{
 };
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::utils::constraint_builder::mul_exprs;
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use halo2_proofs::circuit::Region;
@@ -37,6 +38,7 @@ use halo2_proofs::{
 };
 use logger::prelude::*;
 use std::marker::PhantomData;
+use std::ops::Deref;
 
 pub mod arith_op_lookup_table;
 pub mod bitwise_lookup_table;
@@ -62,7 +64,7 @@ pub enum Lookup<F: FieldExt> {
     CallTrace(CallTraceLookup<F>),
     TypeInstantiation(TypeInstantiationLookup<F>),
     InputTypeArg(InputTypeElementLookup<F>),
-    Conditional(Expression<F>, Box<Lookup<F>>),
+    Conditional(Vec<Expression<F>>, Box<Lookup<F>>),
 }
 
 impl<F: FieldExt> From<BytecodeLookup<F>> for Lookup<F> {
@@ -119,6 +121,7 @@ impl<F: FieldExt> From<InputTypeElementLookup<F>> for Lookup<F> {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum TableKind {
     RW,
     MoveConstant,
@@ -133,6 +136,19 @@ pub enum TableKind {
 }
 
 impl<F: FieldExt> Lookup<F> {
+    pub fn conditionals(self, mut conds: Vec<Expression<F>>) -> Lookup<F> {
+        match self {
+            Self::Conditional(mut c, l) => Self::Conditional(
+                {
+                    conds.append(&mut c);
+                    conds
+                },
+                l,
+            ),
+            _ => Self::Conditional(conds, Box::new(self)),
+        }
+    }
+
     pub fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
             Lookup::RW(rw) => rw.exprs(),
@@ -145,11 +161,25 @@ impl<F: FieldExt> Lookup<F> {
             Lookup::CallTrace(l) => l.exprs(),
             Lookup::TypeInstantiation(l) => l.exprs(),
             Lookup::InputTypeArg(l) => l.exprs(),
-            Lookup::Conditional(cond, inner) => inner
-                .input_exprs()
-                .into_iter()
-                .map(|e| e * cond.clone())
-                .collect(),
+            Lookup::Conditional(cond, inner) => {
+                let mut conds = cond.clone();
+                let mut inner = inner.clone();
+                while let Lookup::Conditional(next_cond, next_inner) = inner.deref() {
+                    conds.append(&mut next_cond.clone());
+                    inner = next_inner.clone();
+                }
+
+                let cond = mul_exprs::<F>(cond.clone().into_iter());
+                if let Some(c) = cond {
+                    inner
+                        .input_exprs()
+                        .into_iter()
+                        .map(|e| c.clone() * e)
+                        .collect()
+                } else {
+                    inner.input_exprs()
+                }
+            }
         }
     }
     pub fn table(&self) -> TableKind {
@@ -212,12 +242,12 @@ impl<F: FieldExt> LookupTableConfig<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        lookups: &Vec<(&'static str, Lookup<F>)>,
+        mut lookups: Vec<(&'static str, Lookup<F>)>,
         s_usable: Selector,
         s_step: Column<Advice>,
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
-
+        lookups.sort_by_key(|(_, l)| l.table());
         for (name, lookup) in lookups {
             let mut fixed_table_columns = Vec::new();
             let mut advice_table_columns = Vec::new();

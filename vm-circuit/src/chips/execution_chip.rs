@@ -377,7 +377,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
             step: step_curr,
             height_map,
-            lookup_table: LookupTableConfig::configure(meta, &lookups, s_usable, s_step),
+            lookup_table: LookupTableConfig::configure(meta, lookups, s_usable, s_step),
         }
     }
 
@@ -445,7 +445,6 @@ impl<F: FieldExt> ExecutionChip<F> {
 
         // install constraint entries for gadget
         let (constraints, mut op_lookups, _) = cb.build();
-
         if !constraints.is_empty() {
             meta.create_gate(name, |meta| {
                 let s_usable = meta.query_selector(s_usable);
