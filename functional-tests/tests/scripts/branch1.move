@@ -1,4 +1,5 @@
 //! args: 1u8, 2u8
+//! new_args: 1u8,1u8
 //! step_max_row: 100
 //! stack_ops_num: 50
 //! locals_ops_num: 50
