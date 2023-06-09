@@ -31,6 +31,7 @@ use rand_core::OsRng;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use vm_circuit::circuit::VmCircuit;
+use vm_circuit::witness::arith_operations::ArithOperations;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
 use vm_circuit::witness::const_table::ConstantTable;
@@ -103,7 +104,6 @@ impl<F: FieldExt> Runtime<F> {
             })?;
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
-        let mut arith_operations = Vec::new();
         let mut generic_types = Vec::new();
         interp.run_script(
             &script,
@@ -116,7 +116,6 @@ impl<F: FieldExt> Runtime<F> {
             data_store,
             &mut exec_steps,
             &mut rw_operations,
-            &mut arith_operations,
             &mut generic_types,
         )?;
         let mapping = NameToIdxMapping::build(&modules);
@@ -183,6 +182,7 @@ impl<F: FieldExt> Runtime<F> {
                 .data = Some(data);
         });
 
+        let arith_operations = ArithOperations::from((&script, modules.as_slice())).0;
         let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let type_instantiations =
