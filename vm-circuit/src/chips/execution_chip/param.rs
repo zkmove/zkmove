@@ -15,5 +15,5 @@ pub const GENERIC_TYPE_CAPACITY: usize = 4;
 
 lazy_static::lazy_static! {
     // Step slot height in evm circuit
-    pub(crate) static ref WORD_CAPACITY : usize = CircuitConfig::default().get_word_size();
+    pub(crate) static ref WORD_CAPACITY : usize = CircuitConfig::word_capacity_get();
 }

@@ -26,6 +26,8 @@ pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
 pub const DEFAULT_WORD_CAPACITY: usize = 16;
 
+static mut WORD_CAPACITY: usize = DEFAULT_WORD_CAPACITY;
+
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub max_step_row: Option<usize>,
@@ -94,8 +96,14 @@ impl CircuitConfig {
         self
     }
 
-    pub fn get_word_size(self) -> usize {
-        self.word_size
+    // WORD_CAPACITY is customized.
+    pub fn word_capacity_set(word_capacity: Option<usize>) {
+        unsafe {
+            WORD_CAPACITY = word_capacity.unwrap_or(DEFAULT_WORD_CAPACITY);
+        }
+    }
+    pub fn word_capacity_get() -> usize {
+        unsafe { WORD_CAPACITY }
     }
 }
 
