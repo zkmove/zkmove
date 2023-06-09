@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
@@ -493,7 +494,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        circuit_config: &CircuitConfig,
+        _circuit_config: &CircuitConfig,
         global_ops: Vec<ConvertedRWOperation<F>>,
         real_global_ops_len: usize,
     ) -> Option<AssignedCell<F, F>> {
@@ -548,14 +549,14 @@ impl<F: FieldExt> GlobalOpChip<F> {
             layouter,
             "addr_ext0_table",
             self.config.addr_ext_0_table,
-            circuit_config.word_size,
+            *WORD_CAPACITY,
         )
         .ok()?;
         assign_index_table(
             layouter,
             "addr_ext1_table",
             self.config.addr_ext_1_table,
-            circuit_config.word_size,
+            *WORD_CAPACITY,
         )
         .ok()?;
         last_global_counter

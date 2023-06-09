@@ -37,7 +37,6 @@ pub struct CircuitConfig {
     pub max_frame_index: usize,
     pub max_locals_size: usize,
     pub max_stack_size: usize,
-    pub word_size: usize,
 }
 
 impl Default for CircuitConfig {
@@ -50,7 +49,6 @@ impl Default for CircuitConfig {
             max_frame_index: DEFAULT_MAX_FRAME_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
             max_stack_size: DEFAULT_MAX_STACK_SIZE,
-            word_size: DEFAULT_WORD_CAPACITY,
         }
     }
 }
@@ -88,13 +86,6 @@ impl CircuitConfig {
 
     pub fn max_stack_size(mut self, max_stack_size: usize) -> Self {
         self.max_stack_size = max_stack_size;
-        self
-    }
-
-    pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
-        if let Some(cap) = word_capacity {
-            self.word_size = cap;
-        }
         self
     }
 
@@ -221,6 +212,7 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;
         writeln!(f, "{:?}", self.circuit_config).unwrap();
+        writeln!(f, "Word_capacity: {:?}", CircuitConfig::word_capacity_get()).unwrap();
         Ok(())
     }
 }

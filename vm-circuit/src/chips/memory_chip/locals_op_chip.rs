@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::param::WORD_CAPACITY;
 use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
@@ -700,13 +701,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
             layouter,
             "addr_ext_0_table",
             self.config.addr_ext_0_table,
-            circuit_config.word_size,
+            *WORD_CAPACITY,
         )?;
         self.assign_index_table(
             layouter,
             "addr_ext_1_table",
             self.config.addr_ext_1_table,
-            circuit_config.word_size,
+            *WORD_CAPACITY,
         )?;
 
         Ok(())
