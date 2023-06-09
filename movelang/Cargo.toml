@@ -15,6 +15,7 @@ move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b0369
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-vm-runtime = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-vm-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
+move-bytecode-verifier = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
 
 anyhow = "1.0.38"
