@@ -6,7 +6,7 @@ use crate::chips::execution_chip::lookup_tables::{
     rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -199,17 +199,19 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        // alloc cell
-        let values = cb.alloc_n_cells(*WORD_CAPACITY);
-        let values_mask = cb.alloc_n_cells(*WORD_CAPACITY);
-        let values_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
-        let values_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
-        let values_address = cb.alloc_n_cells(*WORD_CAPACITY);
+        let word_cap = word_capacity();
 
-        let vector = cb.alloc_n_cells(*WORD_CAPACITY);
-        let vector_mask = cb.alloc_n_cells(*WORD_CAPACITY);
-        let vector_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
-        let vector_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        // alloc cell
+        let values = cb.alloc_n_cells(word_cap);
+        let values_mask = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let values_address = cb.alloc_n_cells(word_cap);
+
+        let vector = cb.alloc_n_cells(word_cap);
+        let vector_mask = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             values,

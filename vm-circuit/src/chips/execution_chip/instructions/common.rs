@@ -3,7 +3,7 @@ use crate::chips::execution_chip::lookup_tables::{
     bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::{MAX_ADDRESS_EXT_LENGTH, WORD_CAPACITY};
+use crate::chips::execution_chip::param::MAX_ADDRESS_EXT_LENGTH;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
@@ -653,8 +653,7 @@ impl<F: FieldExt> Word<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        // fixme: word_element_num may be large than WORD_CAPACITY
-        for i in 0..word_element_num {
+        for (i, _) in cells.word.iter().enumerate().take(word_element_num) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
             cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
@@ -670,7 +669,7 @@ impl<F: FieldExt> Word<F> {
             )?;
         }
 
-        for i in word_element_num..*WORD_CAPACITY {
+        for (i, _) in cells.word.iter().enumerate().skip(word_element_num) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
@@ -759,12 +758,7 @@ impl<F: FieldExt> Word<F> {
             item.assign(region, offset, Some(F::from(op.address() as u64)))?;
         }
 
-        for (i, item) in word_address
-            .iter()
-            .enumerate()
-            .take(*WORD_CAPACITY)
-            .skip(word_element_num + 1)
-        {
+        for (i, item) in word_address.iter().enumerate().skip(word_element_num + 1) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
@@ -812,12 +806,7 @@ impl<F: FieldExt> Word<F> {
             op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         }
 
-        for (i, item) in word_address
-            .iter()
-            .enumerate()
-            .take(*WORD_CAPACITY)
-            .skip(word_element_num)
-        {
+        for (i, item) in word_address.iter().enumerate().skip(word_element_num) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
             cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;

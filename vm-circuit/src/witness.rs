@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::param::{word_capacity, WORD_CAPACITY};
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
@@ -26,8 +27,6 @@ pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
 pub const DEFAULT_WORD_CAPACITY: usize = 16;
 
-static mut WORD_CAPACITY: usize = DEFAULT_WORD_CAPACITY;
-
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub max_step_row: Option<usize>,
@@ -37,6 +36,7 @@ pub struct CircuitConfig {
     pub max_frame_index: usize,
     pub max_locals_size: usize,
     pub max_stack_size: usize,
+    pub word_size: usize,
 }
 
 impl Default for CircuitConfig {
@@ -49,6 +49,7 @@ impl Default for CircuitConfig {
             max_frame_index: DEFAULT_MAX_FRAME_INDEX,
             max_locals_size: DEFAULT_MAX_LOCALS_SIZE,
             max_stack_size: DEFAULT_MAX_STACK_SIZE,
+            word_size: DEFAULT_WORD_CAPACITY,
         }
     }
 }
@@ -89,11 +90,20 @@ impl CircuitConfig {
         self
     }
 
-    // WORD_CAPACITY is customized.
+    pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
+        if let Some(cap) = word_capacity {
+            self.word_size = cap;
+        }
+        self
+    }
+
+    // value is customized.
     pub fn word_capacity_set(word_capacity: Option<usize>) {
         unsafe {
             if let Some(cap) = word_capacity {
-                WORD_CAPACITY = cap;
+                if cap > WORD_CAPACITY {
+                    WORD_CAPACITY = cap;
+                }
             }
         }
     }
@@ -212,7 +222,7 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;
         writeln!(f, "{:?}", self.circuit_config).unwrap();
-        writeln!(f, "Word_capacity: {:?}", CircuitConfig::word_capacity_get()).unwrap();
+        writeln!(f, "Word_capacity: {:?}", word_capacity()).unwrap();
         Ok(())
     }
 }

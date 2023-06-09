@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal,
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -451,6 +451,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
         let idx_a = cb.alloc_cell();
         let idx_b = cb.alloc_cell();
@@ -462,15 +464,15 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
-        let value_a = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_a_mask = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_a_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_a_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_a = cb.alloc_n_cells(word_cap);
+        let value_a_mask = cb.alloc_n_cells(word_cap);
+        let value_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let value_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
-        let value_b = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_b_mask = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_b_addr_ext_0 = cb.alloc_n_cells(*WORD_CAPACITY);
-        let value_b_addr_ext_1 = cb.alloc_n_cells(*WORD_CAPACITY);
+        let value_b = cb.alloc_n_cells(word_cap);
+        let value_b_mask = cb.alloc_n_cells(word_cap);
+        let value_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let value_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             idx_a,
