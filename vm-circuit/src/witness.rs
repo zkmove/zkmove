@@ -25,7 +25,7 @@ pub mod type_instantiation_table;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
-pub const DEFAULT_WORD_CAPACITY: usize = 16;
+pub const DEFAULT_WORD_CAPACITY: usize = 8;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {

@@ -9,7 +9,7 @@ pub const STEP_HEIGHT: usize = 40; // default max step height
 
 pub const GENERIC_TYPE_CAPACITY: usize = 4;
 
-pub static mut WORD_CAPACITY: usize = 16;
+pub static mut WORD_CAPACITY: usize = 8;
 pub fn word_capacity() -> usize {
     unsafe { WORD_CAPACITY }
 }

@@ -1,5 +1,5 @@
 //! mods: wallet.move
-//!word_capacity: 26 
+//!word_capacity: 12 
 script {
     use 0x1::Wallet;
     fun main() {
@@ -11,7 +11,7 @@ script {
         assert!(amount == 103, 202);
 
         let walletset = Wallet::walletset_create(wallet_1, wallet_1);
-        let _walletset2 = Wallet::walletset_create2(walletset, walletset);
+        // let _walletset2 = Wallet::walletset_create2(walletset, walletset);
 
         Wallet::destroy(wallet_1);
     }

@@ -1,5 +1,5 @@
 //! mods: vector.move
-//!word_capacity: 20
+//!word_capacity: 10 
 script {
     use 0x1::vector;
     fun main() {
@@ -19,11 +19,9 @@ script {
         vector::push_back(&mut n, elem_3);
         let elem_4 = vector::new_elem(9, 10);
         vector::push_back(&mut n, elem_4);
-        let elem_5 = vector::new_elem(11, 12);
-        vector::push_back(&mut n, elem_5);
         vector::append(&mut v, n);
 
-        assert!(vector::length(&v) == 6, 101);
+        assert!(vector::length(&v) == 5, 101);
         let elem_ref = vector::borrow(&v, 0);
         let field = vector::elem_field_0(elem_ref);
         assert!(field == 1, 102);
