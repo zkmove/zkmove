@@ -3,7 +3,7 @@
 use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::constant_lookup_table::ConstantLookup;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -24,38 +24,20 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
     const NAME: &'static str = "LdConst";
 
     const OPCODE: Opcode = Opcode::LdConst;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let const_index = cells.auxiliary_1.expr();
 
-        LoadOp::constrain_ld_op(cells, cb, cond.clone());
-        LoadOp::lookup_ld_op(
-            cells,
-            &self.const_value,
-            &mut lookups.rw_lookups,
-            cond.clone(),
-        );
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Self::OPCODE,
-            const_index.clone(),
-            &mut lookups.bytecode_lookups,
-            cond.clone(),
-        );
-        lookups.constant_lookup.push((
+        LoadOp::constrain_ld_op(cells, cb);
+        LoadOp::lookup_ld_op(cb, cells, &self.const_value);
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, const_index.clone());
+        cb.add_lookup(
             "constant lookup",
             ConstantLookup {
                 module_index: cells.module_index.expr(),
                 constant_index: const_index,
                 value: self.const_value.expr(),
             },
-            cond,
-        ));
+        );
     }
 
     fn assign(

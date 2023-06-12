@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -24,13 +24,7 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
 
     const OPCODE: Opcode = Opcode::Branch;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // next pc is assigned in the auxiliary_1
         let pc_expr = cells.auxiliary_1.expression.clone() - cb.next.cells.pc.expression.clone();
         let stack_size_expr =
@@ -43,20 +37,19 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("branch pc", cond.clone() * pc_expr),
-            ("branch stack size", cond.clone() * stack_size_expr),
-            ("branch frame index", cond.clone() * frame_index_expr),
-            ("branch gc", cond.clone() * gc_expr),
-            ("branch module index", cond.clone() * module_index),
-            ("branch function index", cond.clone() * func_index),
+            ("branch pc", pc_expr),
+            ("branch stack size", stack_size_expr),
+            ("branch frame index", frame_index_expr),
+            ("branch gc", gc_expr),
+            ("branch module index", module_index),
+            ("branch function index", func_index),
         ]);
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::Branch,
             cells.auxiliary_1.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 

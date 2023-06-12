@@ -54,7 +54,7 @@ pub struct ConstantLookup<F: FieldExt> {
 }
 
 impl<F: FieldExt> ConstantLookup<F> {
-    pub fn expressions(&self) -> Vec<Expression<F>> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.module_index.clone(),
             self.constant_index.clone(),

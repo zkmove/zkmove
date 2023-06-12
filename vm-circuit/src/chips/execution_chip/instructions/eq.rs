@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -24,14 +24,8 @@ impl<F: FieldExt> InstructionGadget<F> for Eq<F> {
     const NAME: &'static str = "EQ";
 
     const OPCODE: Opcode = Opcode::Eq;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Eq
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();
@@ -39,14 +33,13 @@ impl<F: FieldExt> InstructionGadget<F> for Eq<F> {
         let delta_invert = cells.auxiliary_1.expression.clone();
 
         // constrain delta_invert
-        let constraint = cond.clone()
-            * (((lhs.clone() - rhs.clone()) * delta_invert.clone() - 1.expr())
-                * (lhs.clone() - rhs.clone()));
+        let constraint = ((lhs.clone() - rhs.clone()) * delta_invert.clone() - 1.expr())
+            * (lhs.clone() - rhs.clone());
         cb.add_constraint("delta_invert", constraint);
 
         // if a != b then (a - b) * inverse(a - b) == 1 - out
         // if a == b then (a - b) * 1 == 1 - out
-        let constraint = cond.clone() * ((lhs - rhs) * delta_invert + (out - 1.expr()));
+        let constraint = (lhs - rhs) * delta_invert + (out - 1.expr());
 
         cb.add_constraint("Eq", constraint);
 
@@ -55,15 +48,9 @@ impl<F: FieldExt> InstructionGadget<F> for Eq<F> {
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Eq,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Eq, 0.expr());
     }
 
     fn assign(
