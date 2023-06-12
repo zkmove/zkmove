@@ -1,5 +1,5 @@
 //! circuit: vm
-//! step_max_row: 160
+//! step_max_row: 150
 //! stack_ops_num: 100
 //! locals_ops_num: 100
 //! global_ops_num: 100

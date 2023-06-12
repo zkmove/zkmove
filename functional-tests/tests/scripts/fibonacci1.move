@@ -1,6 +1,6 @@
 //! circuit: vm
 //! args: 8u64
-//! step_max_row: 380
+//! step_max_row: 300
 //! stack_ops_num: 200
 //! locals_ops_num: 150
 script {
