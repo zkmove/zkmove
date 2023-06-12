@@ -18,6 +18,7 @@ use std::str::FromStr;
 // //! step_max_row        - fix the row of execution steps
 // //! stack_ops_num    - fix the number of stack ops
 // //! locals_ops_num   - fix the number of locals ops
+// //! word_capacity    - fix the number of word max member
 
 #[derive(Debug)]
 pub enum Circuit {
@@ -38,6 +39,7 @@ pub struct RunConfig {
     pub stack_ops_num: Option<usize>,
     pub locals_ops_num: Option<usize>,
     pub global_ops_num: Option<usize>,
+    pub word_capacity: Option<usize>,
 }
 
 impl RunConfig {
@@ -54,6 +56,7 @@ impl RunConfig {
             stack_ops_num: None,
             locals_ops_num: None,
             global_ops_num: None,
+            word_capacity: None,
         };
         let file_str = script_file.to_str().expect("path is None.");
 
@@ -96,6 +99,9 @@ impl RunConfig {
             }
             if let Some(s) = s.strip_prefix("//!global_ops_num:") {
                 config.global_ops_num = Some(s.parse::<usize>()?);
+            }
+            if let Some(s) = s.strip_prefix("//!word_capacity:") {
+                config.word_capacity = Some(s.parse::<usize>()?);
             }
         }
         Ok(config)

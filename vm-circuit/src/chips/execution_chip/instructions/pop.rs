@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -50,7 +50,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
             ("function index", func_index),
         ]);
 
-        for i in 0..WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate() {
             cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "pop(stack)",
@@ -97,11 +97,13 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             word_a,

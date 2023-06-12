@@ -7,7 +7,7 @@ use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget,
 };
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -62,7 +62,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
-        for (i, item) in self.word_a.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_a.iter().enumerate() {
             cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "call(stack pop)",
@@ -184,12 +184,14 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_address = cb.alloc_n_cells(word_cap);
 
         let type_cells = if GENERIC {
             let callee_id = cb.next.cells.context_id.expr();

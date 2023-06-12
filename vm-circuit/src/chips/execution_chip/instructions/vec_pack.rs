@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -69,7 +69,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         // read values from stack, write back the packed vector
         // vector[0] is the header. To make the constraint simple, we have already
         // assigned the values[0] to be empty, now we just skip 'i=0'.
-        for (i, item) in self.values.iter().enumerate().take(WORD_CAPACITY).skip(1) {
+        for (i, item) in self.values.iter().enumerate().skip(1) {
             cb.condition(1.expr() - self.values_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "vec_pack(read values)",
@@ -115,7 +115,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         });
         // values_address is equal to vector_addr_ext_0
         // values_addr_ext_0 is equal to vector_addr_ext_1
-        for i in 1..WORD_CAPACITY {
+        for (i, _) in self.values.iter().enumerate().skip(1) {
             let constraint = self.vector_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
                     - self.vector_addr_ext_0[i].expression.clone());
@@ -189,17 +189,19 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        // alloc cell
-        let values = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_cap = word_capacity();
 
-        let vector = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        // alloc cell
+        let values = cb.alloc_n_cells(word_cap);
+        let values_mask = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let values_address = cb.alloc_n_cells(word_cap);
+
+        let vector = cb.alloc_n_cells(word_cap);
+        let vector_mask = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             values,

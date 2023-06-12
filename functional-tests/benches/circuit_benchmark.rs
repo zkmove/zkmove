@@ -57,7 +57,10 @@ fn setup(
         .max_step_row(config.step_max_row)
         .stack_ops_num(config.stack_ops_num)
         .locals_ops_num(config.locals_ops_num)
-        .global_ops_num(config.global_ops_num);
+        .global_ops_num(config.global_ops_num)
+        .word_size(config.word_capacity);
+    // static varible set
+    CircuitConfig::word_capacity_set(config.word_capacity);
 
     let witness = runtime.execute_script(
         script,

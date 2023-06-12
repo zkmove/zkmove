@@ -5,7 +5,7 @@ use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadge
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -86,7 +86,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             ),
         );
 
-        for i in 0..WORD_CAPACITY {
+        for (i, _) in self.word.iter().enumerate() {
             cb.condition(1.expr() - self.word_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "borrow_global(global read)",
@@ -225,12 +225,14 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
         let account_address = cb.alloc_cell();
-        let word = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word = cb.alloc_n_cells(word_cap);
+        let word_mask = cb.alloc_n_cells(word_cap);
+        let word_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_addr_ext_1 = cb.alloc_n_cells(word_cap);
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let type_cells = if GENERIC {

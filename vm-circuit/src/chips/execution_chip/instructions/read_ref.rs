@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal,
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -78,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         }
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.word_b.iter().enumerate() {
             cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
                 // locals read or global read
                 let read = RWLookup::locals_read(
@@ -238,15 +238,17 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_b = cb.alloc_n_cells(word_cap);
+        let word_b_mask = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
         let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);

@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::{MAX_ADDRESS_EXT_LENGTH, WORD_CAPACITY};
+use crate::chips::execution_chip::param::{word_capacity, MAX_ADDRESS_EXT_LENGTH};
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
@@ -103,7 +103,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             });
         }
 
-        for (i, item) in self.value.iter().enumerate().take(WORD_CAPACITY) {
+        for (i, item) in self.value.iter().enumerate() {
             cb.condition(1.expr() - self.value_mask[i].expression.clone(), |cb| {
                 // read value from container
                 cb.condition(1.expr() - is_global.clone(), |cb| {
@@ -432,6 +432,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
         // alloc cell
         let headers_count = cb.alloc_cell();
         let value_index = cb.alloc_cell();
@@ -445,13 +446,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
-        let value = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value = cb.alloc_n_cells(word_cap);
+        let value_mask = cb.alloc_n_cells(word_cap);
+        let value_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
-        let new_value_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let new_value_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let new_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let new_value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let headers_value_mask = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);

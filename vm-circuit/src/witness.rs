@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::param::{word_capacity, WORD_CAPACITY};
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
@@ -24,7 +25,7 @@ pub mod type_instantiation_table;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
-pub const DEFAULT_WORD_CAPACITY: usize = 16;
+pub const DEFAULT_WORD_CAPACITY: usize = 8;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
@@ -89,9 +90,20 @@ impl CircuitConfig {
         self
     }
 
-    pub fn word_size(mut self, word_size: usize) -> Self {
-        self.word_size = word_size;
+    pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
+        if let Some(cap) = word_capacity {
+            self.word_size = cap;
+        }
         self
+    }
+
+    // value is customized.
+    pub fn word_capacity_set(word_capacity: Option<usize>) {
+        if let Some(cap) = word_capacity {
+            WORD_CAPACITY.with(|f| {
+                *f.borrow_mut() = cap;
+            })
+        }
     }
 }
 
@@ -205,6 +217,7 @@ impl<F: FieldExt> fmt::Debug for Witness<F> {
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;
         writeln!(f, "{:?}", self.circuit_config).unwrap();
+        writeln!(f, "Word_capacity: {:?}", word_capacity()).unwrap();
         Ok(())
     }
 }

@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -83,7 +83,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
         // read struct from stack, write back the unpacked values
         // word_a[0] is the header. To make the constraint simple, we have already
         // assigned the word_b[0] to be empty, now we just skip 'i=0'.
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY).skip(1) {
+        for (i, item) in self.word_b.iter().enumerate().skip(1) {
             cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "unpack(stack pop)",
@@ -118,7 +118,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
 
         //  word_a.address_ext_0 equal to word_b.address
         //  word_a.address_ext_1 equal to word_b.address_ext_0
-        for i in 1..WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate().skip(1) {
             cb.condition(self.word_a_mask[i].expression.clone(), |cb| {
                 let constraint = self.word_address[i].expression.clone()
                     - self.word_a_addr_ext_0[i].expression.clone();
@@ -198,16 +198,18 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_b = cb.alloc_n_cells(word_cap);
+        let word_b_mask = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_address = cb.alloc_n_cells(word_cap);
 
         Self {
             word_a,
