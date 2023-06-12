@@ -124,7 +124,7 @@ fn circuit_benchmark(c: &mut Criterion) {
 
 criterion_group!(
     name = circuit_benches;
-    config = Criterion::default().sample_size(10).measurement_time(Duration::from_secs(60*10)).without_plots();
+    config = Criterion::default().sample_size(3).measurement_time(Duration::from_secs(60*5)).without_plots();
     targets = circuit_benchmark
 );
 

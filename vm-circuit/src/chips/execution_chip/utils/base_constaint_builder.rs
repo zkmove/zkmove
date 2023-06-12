@@ -10,6 +10,7 @@ pub struct BaseConstraintBuilder<F> {
 }
 
 impl<F: FieldExt> BaseConstraintBuilder<F> {
+    #[allow(dead_code)]
     pub(crate) fn new(max_degree: usize) -> Self {
         BaseConstraintBuilder {
             constraints: Vec::new(),

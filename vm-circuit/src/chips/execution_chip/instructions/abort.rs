@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -23,20 +23,8 @@ impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
     const NAME: &'static str = "ABORT";
 
     const OPCODE: Opcode = Opcode::Abort;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        _cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Abort,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Abort, 0.expr());
     }
 
     fn assign(

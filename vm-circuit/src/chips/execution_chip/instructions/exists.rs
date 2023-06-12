@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -25,13 +25,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Exists<GENERIC, 
     } else {
         Opcode::Exists
     };
-    fn configure(
-        &self,
-        _cells: &StepChipCells<F>,
-        _cb: &mut ConstraintBuilder<F>,
-        _lookups: &mut LookupsWithCondition<F>,
-    ) {
-    }
+    fn configure(&self, _cells: &StepChipCells<F>, _cb: &mut ConstraintBuilder<F>) {}
 
     fn assign(
         &self,

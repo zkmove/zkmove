@@ -58,7 +58,7 @@ use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
 use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::{Lookup, LookupTableConfig};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
@@ -280,8 +280,8 @@ impl<F: FieldExt> ExecutionChip<F> {
         }
         let mut height_map = HashMap::new();
 
-        let mut lookups = LookupsWithCondition::new();
-
+        // let mut lookups = LookupsWithCondition::new();
+        let mut lookups = Vec::new();
         macro_rules! configure_opcode_gadget {
             () => {
                 Box::new(Self::configure_opcode_gadget(
@@ -383,7 +383,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
     fn configure_opcode_gadget<G: InstructionGadget<F>>(
         meta: &mut ConstraintSystem<F>,
-        lookups: &mut LookupsWithCondition<F>,
+        lookups: &mut Vec<(&'static str, Lookup<F>)>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         s_usable: Selector,
         s_step: Column<Advice>,
@@ -397,7 +397,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             let mut dummy_cb =
                 ConstraintBuilder::new(step_curr.clone(), dummy_step_next, G::OPCODE);
             let _gadget = G::construct(&mut dummy_cb);
-            let (_, height) = dummy_cb.build();
+            let (_, _, height) = dummy_cb.build();
             height
         };
 
@@ -405,7 +405,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         let step_next = StepChip::configure(meta, advices, height, true);
         let mut cb = ConstraintBuilder::new(step_curr.clone(), step_next, G::OPCODE);
         let gadget = G::construct(&mut cb);
-        gadget.configure(&step_curr.cells, &mut cb, lookups);
+        gadget.configure(&step_curr.cells, &mut cb);
 
         Self::configure_opcode_gadget_impl(
             meta,
@@ -417,6 +417,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             G::OPCODE,
             height,
             cb,
+            lookups,
         );
 
         gadget
@@ -433,6 +434,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         opcode: Opcode,
         height: usize,
         cb: ConstraintBuilder<F>,
+        lookups: &mut Vec<(&'static str, Lookup<F>)>,
     ) {
         // insert height into hash table
         debug_assert!(
@@ -442,20 +444,16 @@ impl<F: FieldExt> ExecutionChip<F> {
         height_map.insert(opcode, height);
 
         // install constraint entries for gadget
-        let (constraints, _) = cb.build();
-        // for (i, constraint) in constraints.iter().enumerate() {
-        //     debug!("constraint {}, {:?}", i, constraint);
-        // }
+        let (constraints, mut op_lookups, _) = cb.build();
 
         if !constraints.is_empty() {
             meta.create_gate(name, |meta| {
                 let s_usable = meta.query_selector(s_usable);
                 let s_step = meta.query_advice(s_step, Rotation::cur());
-                // TODO: add cond here.
-                // let cond = step_curr.cells.opcode_selector([opcode]);
                 Constraints::with_selector(s_usable * s_step, constraints)
             });
         }
+        lookups.append(&mut op_lookups);
     }
 
     #[allow(clippy::type_complexity)]

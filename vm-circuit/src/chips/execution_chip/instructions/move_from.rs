@@ -3,7 +3,7 @@
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -41,14 +41,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         Opcode::MoveFrom
     };
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
@@ -63,16 +56,16 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
         let account_address_expr = self.value_a.expression.clone();
         let sd_index = cells.auxiliary_1.expression.clone();
-        lookups.rw_lookups.push((
+        cb.add_lookup(
             "move_from(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
@@ -81,8 +74,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                 0.expr(),
                 account_address_expr.clone(),
             ),
-            cond.clone(),
-        ));
+        );
 
         for (i, _) in self.word_a.iter().enumerate() {
             let (read_global, write_invalid_to_global, write_stack) =
@@ -100,32 +92,16 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                     self.word_a[i].expression.clone(),
                     word_elem_num.clone(),
                 );
-            lookups.rw_lookups.push((
-                "move_from(global read)",
-                read_global,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            lookups.rw_lookups.push((
-                "move_from(invalid)",
-                write_invalid_to_global,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            lookups.rw_lookups.push((
-                "move_from(stack write)",
-                write_stack,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
+            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+                cb.add_lookup("move_from(global read)", read_global);
+                cb.add_lookup("move_from(invalid)", write_invalid_to_global);
+                cb.add_lookup("move_from(stack write)", write_stack);
+            });
         }
 
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Self::OPCODE,
-            sd_index,
-            &mut lookups.bytecode_lookups,
-            cond.clone(),
-        );
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, sd_index);
         if let Some(g) = &self.type_cells {
-            g.configure(cells, cb, lookups, cond);
+            g.configure(cells, cb);
         }
     }
 

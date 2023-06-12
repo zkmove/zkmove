@@ -4,7 +4,7 @@ use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
-    call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
+    call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::word_capacity;
@@ -38,14 +38,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         Opcode::Call
     };
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0
         let pc_expr = cb.next.cells.pc.expression.clone();
@@ -61,46 +54,48 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + word_element_num.clone() * 2.expr();
         cb.add_constraints(vec![
-            ("Call pc", cond.clone() * pc_expr),
-            ("Call stack_size", cond.clone() * stack_size_expr),
-            ("Call frame_index", cond.clone() * frame_index_expr),
-            ("Call gc", cond.clone() * gc_expr),
+            ("Call pc", pc_expr),
+            ("Call stack_size", stack_size_expr),
+            ("Call frame_index", frame_index_expr),
+            ("Call gc", gc_expr),
         ]);
 
         // stack address of first argument, which is used to offset between stack and locals address
         let offset = cells.stack_size.expression.clone() - arg_num;
         for (i, item) in self.word_a.iter().enumerate() {
-            lookups.rw_lookups.push((
-                "call(stack pop)",
-                RWLookup::stack_pop(
-                    cells.gc.expression.clone() + (i as u64).expr(),
-                    self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
-                    self.word_a_addr_ext_0[i].expression.clone(),
-                    self.word_a_addr_ext_1[i].expression.clone(),
-                    item.expression.clone(),
-                ),
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            lookups.rw_lookups.push((
-                "call(locals write)",
-                RWLookup {
-                    gc: cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
-                    rw_target: (RWTarget::Locals as u64).expr(),
-                    rw: (RW::WRITE as u64).expr(),
-                    frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
-                    address: self.word_address[i].expression.clone(),
-                    address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
-                    address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
-                    value: item.expression.clone(),
-                    sd_index: 0.expr(),
-                },
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
+            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+                cb.add_lookup(
+                    "call(stack pop)",
+                    RWLookup::stack_pop(
+                        cells.gc.expression.clone() + (i as u64).expr(),
+                        self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
+                        self.word_a_addr_ext_0[i].expression.clone(),
+                        self.word_a_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    ),
+                );
+                cb.add_lookup(
+                    "call(locals write)",
+                    RWLookup {
+                        gc: cells.gc.expression.clone()
+                            + word_element_num.clone()
+                            + (i as u64).expr(),
+                        rw_target: (RWTarget::Locals as u64).expr(),
+                        rw: (RW::WRITE as u64).expr(),
+                        frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
+                        address: self.word_address[i].expression.clone(),
+                        address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
+                        address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
+                        value: item.expression.clone(),
+                        sd_index: 0.expr(),
+                    },
+                );
+            });
         }
 
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in the calls table.
-        lookups.call_lookups.push((
+        cb.add_lookup(
             "opcode call",
             CallLookup {
                 type_: (EntryType::CALL as u64).expr(),
@@ -111,22 +106,12 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
                 next_function_index: cb.next.cells.function_index.expression.clone(),
                 next_pc: cb.next.cells.pc.expression.clone(),
             },
-            cond.clone(),
-        ));
-        let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Self::OPCODE,
-            function_instantiation_index,
-            &mut lookups.bytecode_lookups,
-            cond.clone(),
         );
+        let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, function_instantiation_index);
         if GENERIC {
             // configure generic gadget
-            self.type_cells
-                .as_ref()
-                .unwrap()
-                .configure(cells, cb, lookups, cond);
+            self.type_cells.as_ref().unwrap().configure(cells, cb);
         }
     }
 

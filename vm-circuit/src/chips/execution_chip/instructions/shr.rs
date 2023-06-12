@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2Lookup;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -26,14 +26,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
 
     const OPCODE: Opcode = Opcode::Shr;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let dividend = self.value_a.expression.clone();
         let shift_bits = self.value_b.expression.clone();
         let quotient = self.value_c.expression.clone();
@@ -45,7 +38,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         // quotient * divisor + remainder = dividend
         cb.add_constraint(
             "shr: quotient * divisor + remainder = dividend",
-            cond.clone() * (quotient * divisor.clone() + reminder - dividend),
+            quotient * divisor.clone() + reminder - dividend,
         );
 
         // TODO: reminder < divisor
@@ -56,23 +49,16 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Shr,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond.clone(),
-        );
-        lookups.pow2_lookups.push((
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shr, 0.expr());
+        cb.add_lookup(
             "pow2 lookups for opcode shr",
             Pow2Lookup {
                 pow: shift_bits,
                 pow_result: divisor,
             },
-            cond,
-        ));
+        );
     }
 
     fn assign(

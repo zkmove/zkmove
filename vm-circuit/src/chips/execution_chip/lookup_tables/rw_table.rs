@@ -1,6 +1,7 @@
 use crate::chips::utilities::Expr;
 use crate::witness::rw_operations::RW;
-use halo2_proofs::plonk::{Advice, Column, Expression};
+use halo2_proofs::plonk::{Advice, Column, Expression, VirtualCells};
+use halo2_proofs::poly::Rotation;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
@@ -45,6 +46,15 @@ impl RWTable {
         rw_table
     }
 
+    /// Return the list of expressions used to define the lookup table.
+    /// TODO: abstract it into a trait
+    pub fn table_exprs<F: FieldExt>(&self, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
+        self.columns()
+            .iter()
+            .map(|&column| meta.query_any(column, Rotation::cur()))
+            .collect()
+    }
+
     pub fn columns(&self) -> Vec<Column<Advice>> {
         vec![
             self.gc_column,
@@ -78,6 +88,21 @@ pub struct RWLookup<F: FieldExt> {
     pub address_ext_1: Expression<F>,
     pub value: Expression<F>,
     pub sd_index: Expression<F>, // struct definition index used by global rw ops
+}
+impl<F: FieldExt> RWLookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.gc.clone(),
+            self.rw_target.clone(),
+            self.rw.clone(),
+            self.frame_index.clone(),
+            self.address.clone(),
+            self.address_ext_0.clone(),
+            self.address_ext_1.clone(),
+            self.value.clone(),
+            self.sd_index.clone(),
+        ]
+    }
 }
 
 impl<F: FieldExt> RWLookup<F> {

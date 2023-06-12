@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -24,14 +24,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
 
     const OPCODE: Opcode = Opcode::BrTrue;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
         let aux = cells.auxiliary_1.expression.clone();
         //let value_a = value_a.expression.clone();
@@ -54,15 +47,15 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
             - cb.next.cells.function_index.expression.clone();
 
         cb.add_constraints(vec![
-            ("BrTrue pc", cond.clone() * pc_expr),
-            ("BrTrue stack size", cond.clone() * stack_size_expr),
-            ("BrTrue frame index", cond.clone() * frame_index_expr),
-            ("BrTrue gc", cond.clone() * gc_expr),
-            ("BrFalse module index", cond.clone() * module_index),
-            ("BrFalse function index", cond.clone() * func_index),
+            ("BrTrue pc", pc_expr),
+            ("BrTrue stack size", stack_size_expr),
+            ("BrTrue frame index", frame_index_expr),
+            ("BrTrue gc", gc_expr),
+            ("BrFalse module index", module_index),
+            ("BrFalse function index", func_index),
         ]);
 
-        lookups.rw_lookups.push((
+        cb.add_lookup(
             "br_true(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
@@ -71,15 +64,13 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
                 0.expr(),
                 self.value_a.expression.clone(),
             ),
-            cond.clone(),
-        ));
+        );
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::BrTrue,
             cells.auxiliary_1.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 

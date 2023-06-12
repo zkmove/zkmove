@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -23,24 +23,12 @@ impl<F: FieldExt> InstructionGadget<F> for LdU8<F> {
 
     const OPCODE: Opcode = Opcode::LdU8;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //LdU8
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
-        LoadOp::constrain_ld_op(cells, cb, cond.clone());
-        LoadOp::lookup_ld_op(cells, &self.value_a, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::LdU8,
-            self.value_a.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        LoadOp::constrain_ld_op(cells, cb);
+        LoadOp::lookup_ld_op(cb, cells, &self.value_a);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::LdU8, self.value_a.expression.clone());
     }
 
     fn assign(

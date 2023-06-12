@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -41,17 +41,11 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         (false, false) => Opcode::ImmBorrowField,
     };
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction Mut(Imm)BorrowField, there are 2 steps here:
         // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
         // 2. write reference to element into stack.
         // [gc + DEPTH_OF_ADDRESS_PATH, DEPTH_OF_ADDRESS_PATH]
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -66,27 +60,28 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
 
         // lookup
         for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            lookups.rw_lookups.push((
-                "borrow_field(stack pop)",
-                RWLookup::stack_pop(
-                    cells.gc.expression.clone() + (i as u64).expr(),
-                    cells.stack_size.expression.clone(),
-                    (i as u64).expr(),
-                    0.expr(),
-                    item.expression.clone(),
-                ),
-                cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
-            ));
+            cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
+                cb.add_lookup(
+                    "borrow_field(stack pop)",
+                    RWLookup::stack_pop(
+                        cells.gc.expression.clone() + (i as u64).expr(),
+                        cells.stack_size.expression.clone(),
+                        (i as u64).expr(),
+                        0.expr(),
+                        item.expression.clone(),
+                    ),
+                )
+            });
         }
 
         for (i, item) in self
@@ -95,42 +90,44 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             .enumerate()
             .take(DEPTH_OF_ADDRESS_PATH)
         {
-            lookups.rw_lookups.push((
-                "borrow_field(stack push)",
-                RWLookup::stack_push(
-                    cells.gc.expression.clone()
-                        + depth_of_addr_path_expr.clone()
-                        + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 1.expr(),
-                    (i as u64).expr(),
-                    0.expr(),
-                    item.expression.clone(),
-                ),
-                cond.clone() * (1.expr() - self.indexed_ref_val_mask[i].expression.clone()),
-            ));
+            cb.condition(
+                1.expr() - self.indexed_ref_val_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup(
+                        "borrow_field(stack push)",
+                        RWLookup::stack_push(
+                            cells.gc.expression.clone()
+                                + depth_of_addr_path_expr.clone()
+                                + (i as u64).expr(),
+                            cells.stack_size.expression.clone() - 1.expr(),
+                            (i as u64).expr(),
+                            0.expr(),
+                            item.expression.clone(),
+                        ),
+                    )
+                },
+            );
         }
 
         // location check between ref_val and indexed_ref_val
-        AddrExt::location_val_constrain(cb, cond.clone(), &self.ref_val, &self.indexed_ref_val)
+        AddrExt::location_val_constrain(cb, &self.ref_val, &self.indexed_ref_val)
             .expect("location check failed");
 
         // addr_ext check between ref_val and indexed_ref_val
         // field_offset is pushed into the last element of indexed_ref_val,
         // and it's larger than the real offset by 1
         let offset = &cells.auxiliary_2; // field_offset
-        let constraint = cond.clone()
-            * (self.ref_val[2].expression.clone()
-                + (offset.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
-                - self.indexed_ref_val[2].expression.clone())
+        let constraint = (self.ref_val[2].expression.clone()
+            + (offset.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            - self.indexed_ref_val[2].expression.clone())
             * (1.expr() - self.ref_val_mask[2].expression.clone());
         cb.add_constraint("field_offset check with ref_val[2]", constraint);
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Self::OPCODE,
             cells.auxiliary_1.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 

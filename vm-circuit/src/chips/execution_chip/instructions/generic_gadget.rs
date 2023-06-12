@@ -3,10 +3,10 @@
 use crate::chips::execution_chip::lookup_tables::call_trace_table::CallTraceLookup;
 use crate::chips::execution_chip::lookup_tables::input_type_element_table::InputTypeElementLookup;
 use crate::chips::execution_chip::lookup_tables::type_instantiation_table::TypeInstantiationLookup;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::param::GENERIC_TYPE_CAPACITY;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::execution_chip::utils::base_constaint_builder::BaseConstraintBuilder;
+
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::is_zero::IsZeroGadget;
 use crate::chips::utilities::{Cell, Expr};
@@ -160,13 +160,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn configure(
-        &self,
-        _cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-        cond: Expression<F>,
-    ) {
+    pub(crate) fn configure(&self, _cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let caller_id = cb.curr.cells.context_id.clone();
         let caller_module = cb.curr.cells.module_index.clone();
         let caller_function = cb.curr.cells.function_index.clone();
@@ -190,13 +184,10 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             callee_callin_pc: callee_callin_pc.expression.clone(),
         };
 
-        lookups.call_trace_lookups.push((
+        cb.add_lookup(
             Box::leak(format!("{}(call_trace)", self.name).into_boxed_str()),
             lookup_calltrace,
-            cond.clone(),
-        ));
-
-        let mut bcb = BaseConstraintBuilder::<F>::new(0);
+        );
 
         for (_i, cells) in self.type_cells.iter().enumerate() {
             let inst_ty_pos = &cells.inst_ty_pos;
@@ -210,79 +201,71 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             let ty_arg_name = &cells.ty_arg_name;
             let ty_mask = &cells.ty_mask;
 
-            // FIXME: require inst_ty_pos_max is pow2 of [4,8,..,128]
-            let subcond = 1.expr() - ty_mask.expr();
-
-            bcb.condition(subcond.clone(), |b| {
-                b.add_constraint(
+            cb.condition(1.expr() - ty_mask.expr(), |cb| {
+                // FIXME: require inst_ty_pos_max is pow2 of [4,8,..,128]
+                cb.add_constraint(
                     "inst_ty_pos_max*inst_ty_pos_max_inverse = 1",
                     1.expr() - inst_ty_pos_max_inverse.expr() * inst_ty_pos_max.expr(),
                 );
-                b.add_constraints(cells.referred_param_index_is_zero.configure());
-            });
-            // TODO: inst_ty_pos < inst_ty_pos_max && inst_ty_pos > inst_ty_pos_max / 16
-            let is_not_generic = referred_param_index_is_zero.expr();
+                cb.add_constraints(cells.referred_param_index_is_zero.configure());
 
-            // if the type element is not generic, then it must be in func-instantiation static table.
-            // or else, it must be referring an input type.
-            {
-                bcb.condition(subcond.clone() * is_not_generic.clone(), |bcb| {
-                    bcb.add_constraint(
+                // TODO: inst_ty_pos < inst_ty_pos_max && inst_ty_pos > inst_ty_pos_max / 16
+                let is_not_generic = referred_param_index_is_zero.expr();
+
+                // if the type element is not generic, then it must be in func-instantiation static table.
+                // or else, it must be referring an input type.
+
+                cb.condition(is_not_generic.clone(), |cb| {
+                    cb.add_constraint(
                         "inst_ty_pos == real_ty_pos when not generic",
                         inst_ty_pos.expr() - ty_arg_pos.expr(),
                     );
+                    let lookup_func_instantiation_type = TypeInstantiationLookup {
+                        caller_id: caller_id.expr(),
+                        caller_module: caller_module.expr(),
+                        caller_function: caller_function.expr(),
+                        caller_callin_pc: caller_callin_pc.clone(),
+
+                        function_instantiation_index: instantiation_index.clone(),
+
+                        instantiation_id: callee_id.clone(),
+                        instantiation_point_module: callee_module.clone(),
+                        instantiation_point_function: callee_function.clone(),
+                        instantiation_point_pc: callee_callin_pc.expr(),
+
+                        referred_param_index: 0.expr(),
+                        inst_ty_pos: inst_ty_pos.expr(),
+                        ty_module: ty_arg_module.expr(),
+                        ty_name: ty_arg_name.expr(),
+                    };
+                    cb.add_lookup(
+                        Box::leak(
+                            format!("{}(type_instantiation - no-generic)", self.name)
+                                .into_boxed_str(),
+                        ),
+                        lookup_func_instantiation_type,
+                    );
                 });
-                let lookup_condition = cond.clone() * subcond.clone() * is_not_generic.clone();
-                let lookup_func_instantiation_type = TypeInstantiationLookup {
-                    caller_id: caller_id.expr(),
-                    caller_module: caller_module.expr(),
-                    caller_function: caller_function.expr(),
-                    caller_callin_pc: caller_callin_pc.clone(),
 
-                    function_instantiation_index: instantiation_index.clone(),
+                // generic
 
-                    instantiation_id: callee_id.clone(),
-                    instantiation_point_module: callee_module.clone(),
-                    instantiation_point_function: callee_function.clone(),
-                    instantiation_point_pc: callee_callin_pc.expr(),
+                cb.condition(1.expr() - is_not_generic, |cb| {
+                    let caller_type_arg_lookup = InputTypeElementLookup {
+                        ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
+                            * inst_ty_pos_max_inverse.expr()
+                            * 16.expr()
+                            + referred_param_index.expr(), // le encoding of ty_arg pos
 
-                    referred_param_index: 0.expr(),
-                    inst_ty_pos: inst_ty_pos.expr(),
-                    ty_module: ty_arg_module.expr(),
-                    ty_name: ty_arg_name.expr(),
-                };
-                lookups.type_instantiation_type_lookups.push((
-                    Box::leak(
-                        format!("{}(type_instantiation - no-generic)", self.name).into_boxed_str(),
-                    ),
-                    lookup_func_instantiation_type,
-                    lookup_condition.clone(),
-                ));
-            }
+                        ty_arg_module: ty_arg_module.expr(),
+                        ty_arg_name: ty_arg_name.expr(),
+                    };
 
-            // generic
-            {
-                let subcond = subcond * (1.expr() - is_not_generic.clone());
-                let lookup_condition = cond.clone() * subcond.clone();
-                let caller_type_arg_lookup = InputTypeElementLookup {
-                    ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
-                        * inst_ty_pos_max_inverse.expr()
-                        * 16.expr()
-                        + referred_param_index.expr(), // le encoding of ty_arg pos
-
-                    ty_arg_module: ty_arg_module.expr(),
-                    ty_arg_name: ty_arg_name.expr(),
-                };
-
-                lookups.input_type_element_lookups.push((
-                    Box::leak(format!("{}(input_type)", self.name).into_boxed_str()),
-                    caller_type_arg_lookup,
-                    lookup_condition.clone(),
-                ));
-            }
+                    cb.add_lookup(
+                        Box::leak(format!("{}(input_type)", self.name).into_boxed_str()),
+                        caller_type_arg_lookup,
+                    );
+                });
+            });
         }
-
-        let constraints = bcb.gate(cond);
-        cb.add_constraints(constraints);
     }
 }

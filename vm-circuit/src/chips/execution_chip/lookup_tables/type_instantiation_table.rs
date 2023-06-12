@@ -99,6 +99,7 @@ impl TypeInstantiationTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct TypeInstantiationLookup<F: FieldExt> {
     pub caller_id: Expression<F>,
     pub caller_module: Expression<F>,
@@ -119,7 +120,7 @@ pub struct TypeInstantiationLookup<F: FieldExt> {
 }
 
 impl<F: FieldExt> TypeInstantiationLookup<F> {
-    pub fn expressions(&self) -> Vec<Expression<F>> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.caller_id.clone(),
             self.caller_module.clone(),
