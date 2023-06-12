@@ -99,16 +99,11 @@ impl CircuitConfig {
 
     // value is customized.
     pub fn word_capacity_set(word_capacity: Option<usize>) {
-        unsafe {
-            if let Some(cap) = word_capacity {
-                if cap > WORD_CAPACITY {
-                    WORD_CAPACITY = cap;
-                }
-            }
+        if let Some(cap) = word_capacity {
+            WORD_CAPACITY.with(|f| {
+                *f.borrow_mut() = cap;
+            })
         }
-    }
-    pub fn word_capacity_get() -> usize {
-        unsafe { WORD_CAPACITY }
     }
 }
 
