@@ -12,7 +12,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value::LEN_OF_REFERENCE_VALUE;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {

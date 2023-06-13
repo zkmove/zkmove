@@ -16,9 +16,10 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::value::{Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8};
-use movelang::value::{DEPTH_OF_LOCATION_PATH, LEN_OF_REFERENCE_VALUE};
-use movelang::word::ValueHeader;
+use movelang::value::{
+    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+};
+use movelang::word::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 

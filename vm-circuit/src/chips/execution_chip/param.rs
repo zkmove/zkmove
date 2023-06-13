@@ -16,3 +16,9 @@ thread_local!(pub static WORD_CAPACITY: RefCell<usize> = RefCell::new(8));
 pub fn word_capacity() -> usize {
     WORD_CAPACITY.with(|f| *f.borrow())
 }
+
+// TODO: static parse the length
+// To constrain the function call we need to flatten all the arguments
+// and assign them to a set of cells. This constant is used to represent
+// the maximum number of the cells.
+pub const NUM_OF_ARGS_CELLS: usize = 32;

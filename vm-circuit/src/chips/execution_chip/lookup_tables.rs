@@ -319,21 +319,36 @@ impl<F: FieldExt> LookupTableConfig<F> {
         );
         if stack_ops_num > 0 {
             if stack_operations.len() > stack_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "stack operations length {:?} exceeds stack_ops_num {:?}",
+                    stack_operations.len(),
+                    stack_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 stack_operations.resize(stack_ops_num, ConvertedRWOperation::empty());
             }
         }
         if locals_ops_num > 0 {
             if locals_operations.len() > locals_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "locals operations length {:?} exceeds locals_ops_num {:?}",
+                    locals_operations.len(),
+                    locals_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 locals_operations.resize(locals_ops_num, ConvertedRWOperation::empty());
             }
         }
         if global_ops_num > 0 {
             if global_operations.len() > global_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "global operations length {:?} exceeds global_ops_num {:?}",
+                    global_operations.len(),
+                    global_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 global_operations.resize(global_ops_num, ConvertedRWOperation::empty());
             }

@@ -1,75 +1,18 @@
 // Copyright (c) zkMove Authors
 
 use crate::value::{
-    AddressPath, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
-    PrimitiveValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, LEN_OF_REFERENCE_VALUE, U128,
+    AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
+    Location, PrimitiveValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
 };
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
-use std::convert::From;
+use std::convert::{From, TryInto};
 use std::marker::PhantomData;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct ValueHeader<F: FieldExt> {
-    flattened_len: u16,
-    len: u16,
-    _marker: PhantomData<F>,
-}
+pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
 
-impl<F: FieldExt> ValueHeader<F> {
-    pub fn new(flattened_len: usize, len: usize) -> Self {
-        debug_assert!(flattened_len < u16::MAX as usize);
-        debug_assert!(len < u16::MAX as usize);
-
-        Self {
-            flattened_len: flattened_len as u16,
-            len: len as u16,
-            _marker: PhantomData,
-        }
-    }
-
-    // The content of the header is compressed into a field element in little-endian order.
-    // bit[0..16],  flattened_len
-    // bit[16..32], len
-    pub fn value(&self) -> F {
-        F::from_u128((self.flattened_len as u128) + ((self.len as u128) << 16))
-    }
-    pub fn expr(&self) -> Expression<F> {
-        Expression::Constant(self.value())
-    }
-    pub fn flattened_len(&self) -> u16 {
-        self.flattened_len
-    }
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> u16 {
-        self.len
-    }
-
-    // default ValueHeader for any simple value
-    pub fn default_for_simple() -> Self {
-        Self::new(2, 1)
-    }
-
-    // default ValueHeader for any reference value
-    pub fn default_for_ref_val() -> Self {
-        Self::new(LEN_OF_REFERENCE_VALUE, LEN_OF_REFERENCE_VALUE - 1)
-    }
-}
-
-impl<F: FieldExt> From<ValueHeader<F>> for PrimitiveValue<F> {
-    fn from(value: ValueHeader<F>) -> PrimitiveValue<F> {
-        PrimitiveValue::U128(U128(value.value()))
-    }
-}
-
-impl<F: FieldExt> From<F> for ValueHeader<F> {
-    fn from(value: F) -> ValueHeader<F> {
-        let flattened_len = (value.get_lower_128() & 0xFFFF) as usize;
-        let len = ((value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
-        Self::new(flattened_len, len)
-    }
-}
-
+/// To efficiently represent a complex value in the circuit, we defined 'word', a uniform
+/// flattened value representation, to flatten the complex value into simple values.
 #[derive(Clone, Debug)]
 pub struct Word<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
 
@@ -89,12 +32,12 @@ impl<F: FieldExt> From<&Value<F>> for Word<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct SimpleValueWord<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
+pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, PrimitiveValue<F>); 2]);
 
 impl<F: FieldExt> From<&Value<F>> for SimpleValueWord<F> {
     fn from(value: &Value<F>) -> SimpleValueWord<F> {
         match value.cast_simple() {
-            Some(simple_value) => SimpleValueWord(vec![
+            Some(simple_value) => SimpleValueWord([
                 (vec![0u128], ValueHeader::default_for_simple().into()),
                 (vec![1u128], simple_value),
             ]),
@@ -105,17 +48,19 @@ impl<F: FieldExt> From<&Value<F>> for SimpleValueWord<F> {
 
 impl<F: FieldExt> From<SimpleValueWord<F>> for Word<F> {
     fn from(word: SimpleValueWord<F>) -> Word<F> {
-        Word(word.0)
+        Word(word.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ReferenceValueWord<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
+pub struct ReferenceValueWord<F: FieldExt>(
+    pub [(Vec<u128>, PrimitiveValue<F>); LEN_OF_REFERENCE_VALUE],
+);
 
 impl<F: FieldExt> ReferenceValueWord<F> {
-    fn fold(self) -> Self {
+    fn fold(word: Vec<(Vec<u128>, PrimitiveValue<F>)>) -> Self {
         let mut value: u128 = 0;
-        for (i, (_, val)) in self.0.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
+        for (i, (_, val)) in word.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
             // fold addr_ext into one cell
             let x = val
                 .value()
@@ -124,15 +69,23 @@ impl<F: FieldExt> ReferenceValueWord<F> {
             value += x << (16 * i);
         }
 
-        let mut new_ref_value = self
-            .0
+        let mut new_ref_value = word
             .into_iter()
             .take(LEN_OF_REFERENCE_VALUE)
             .collect::<Vec<_>>();
 
         let (address_path, _) = new_ref_value.pop().expect("value should not be None.");
         new_ref_value.push((address_path, PrimitiveValue::u128(value)));
-        ReferenceValueWord(new_ref_value)
+        let new_word: [(Vec<u128>, PrimitiveValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
+            .try_into()
+            .unwrap_or_else(|v: Vec<(Vec<u128>, PrimitiveValue<F>)>| {
+                panic!(
+                    "Expected a Vec of length {} but it was {}",
+                    LEN_OF_REFERENCE_VALUE,
+                    v.len()
+                )
+            });
+        ReferenceValueWord(new_word)
     }
 }
 
@@ -193,13 +146,13 @@ impl<F: FieldExt> From<&Value<F>> for ReferenceValueWord<F> {
             .enumerate()
             .map(|(i, v)| (vec![i as u128], v))
             .collect::<Vec<_>>();
-        ReferenceValueWord(word).fold()
+        ReferenceValueWord::fold(word)
     }
 }
 
 impl<F: FieldExt> From<ReferenceValueWord<F>> for Word<F> {
     fn from(word: ReferenceValueWord<F>) -> Word<F> {
-        Word(word.0)
+        Word(word.0.to_vec())
     }
 }
 
@@ -209,26 +162,30 @@ pub struct ContainerValueWord<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>
 impl<F: FieldExt> From<&Value<F>> for ContainerValueWord<F> {
     fn from(value: &Value<F>) -> ContainerValueWord<F> {
         match value {
-            Value::Container(container) => {
-                let mut simples = Vec::new();
-                for (idx, val) in container.0.borrow().iter().enumerate() {
-                    let mut sub_values = Word::from(val).0;
-                    sub_values.iter_mut().for_each(|(v, _)| {
-                        // prepend value idx to the sub-struct
-                        // to leave a place for the header, the index is increased by 1
-                        v.insert(0, (idx + 1) as u128);
-                    });
-                    simples.append(&mut sub_values);
-                }
-                // add a header element to record the length of the container,
-                // and the length of the flattened value,
-                // the flattened length includes the header itself.
-                let header = ValueHeader::new(simples.len() + 1, container.len());
-                simples.insert(0, (vec![0u128], header.into()));
-                ContainerValueWord(simples)
-            }
+            Value::Container(container) => container.into(),
             _ => unreachable!(),
         }
+    }
+}
+
+impl<F: FieldExt> From<&Container<F>> for ContainerValueWord<F> {
+    fn from(container: &Container<F>) -> ContainerValueWord<F> {
+        let mut simples = Vec::new();
+        for (idx, val) in container.0.borrow().iter().enumerate() {
+            let mut sub_values = Word::from(val).0;
+            sub_values.iter_mut().for_each(|(v, _)| {
+                // prepend value idx to the sub-struct
+                // to leave a place for the header, the index is increased by 1
+                v.insert(0, (idx + 1) as u128);
+            });
+            simples.append(&mut sub_values);
+        }
+        // add a header element to record the length of the container,
+        // and the length of the flattened value,
+        // the flattened length includes the header itself.
+        let header = ValueHeader::new(simples.len() + 1, container.len());
+        simples.insert(0, (vec![0u128], header.into()));
+        ContainerValueWord(simples)
     }
 }
 
@@ -287,5 +244,68 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>> for L
                 .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
                 .collect(),
         )
+    }
+}
+
+/// A header is added for the flattened value. Both value length and flattened value's length
+/// are recorded in the header.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct ValueHeader<F: FieldExt> {
+    flattened_len: u16,
+    len: u16,
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> ValueHeader<F> {
+    pub fn new(flattened_len: usize, len: usize) -> Self {
+        debug_assert!(flattened_len < u16::MAX as usize);
+        debug_assert!(len < u16::MAX as usize);
+
+        Self {
+            flattened_len: flattened_len as u16,
+            len: len as u16,
+            _marker: PhantomData,
+        }
+    }
+
+    // The content of the header is compressed into a field element in little-endian order.
+    // bit[0..16],  flattened_len
+    // bit[16..32], len
+    pub fn value(&self) -> F {
+        F::from_u128((self.flattened_len as u128) + ((self.len as u128) << 16))
+    }
+    pub fn expr(&self) -> Expression<F> {
+        Expression::Constant(self.value())
+    }
+    pub fn flattened_len(&self) -> u16 {
+        self.flattened_len
+    }
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> u16 {
+        self.len
+    }
+
+    // default ValueHeader for any simple value
+    pub fn default_for_simple() -> Self {
+        Self::new(2, 1)
+    }
+
+    // default ValueHeader for any reference value
+    pub fn default_for_ref_val() -> Self {
+        Self::new(LEN_OF_REFERENCE_VALUE, LEN_OF_REFERENCE_VALUE - 1)
+    }
+}
+
+impl<F: FieldExt> From<ValueHeader<F>> for PrimitiveValue<F> {
+    fn from(value: ValueHeader<F>) -> PrimitiveValue<F> {
+        PrimitiveValue::U128(U128(value.value()))
+    }
+}
+
+impl<F: FieldExt> From<F> for ValueHeader<F> {
+    fn from(value: F) -> ValueHeader<F> {
+        let flattened_len = (value.get_lower_128() & 0xFFFF) as usize;
+        let len = ((value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
+        Self::new(flattened_len, len)
     }
 }

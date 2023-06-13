@@ -1,5 +1,5 @@
 //! mods: vector.move
-//!word_capacity: 10 
+//!word_capacity: 10
 script {
     use 0x1::vector;
     fun main() {

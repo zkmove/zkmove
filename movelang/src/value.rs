@@ -4,7 +4,7 @@
 use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
-use crate::word::Word;
+use crate::word::{ContainerValueWord, Word};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
@@ -20,7 +20,6 @@ pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
 pub const DEPTH_OF_ADDRESS_PATH: usize = DEPTH_OF_LOCATION_PATH + 8;
-pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U8<F: FieldExt>(pub F);
@@ -81,6 +80,7 @@ impl<F: FieldExt> AddressPath<F> {
         }
         self
     }
+    // TODO: 'self' is not always a full address path. but this function assume it's a full path.
     // addr_ext begin from 3rd elements
     // 128bit(16 * 8) can keep 8 dimensions container address
     pub fn addr_ext(self) -> usize {
@@ -214,14 +214,14 @@ impl<F: FieldExt> IndexedLocation<F> {
 }
 
 /// Location of value when it move/copy from one place to another place.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ValueLocation<F: FieldExt> {
     Stack(StackLocation),
     Local(LocalLocation),
     Global(GlobalLocation<F>),
 }
 impl<F: FieldExt> ValueLocation<F> {
-    fn to_address_path(&self) -> AddressPath<F> {
+    fn to_address_path(self) -> AddressPath<F> {
         let indexes = match self {
             ValueLocation::Stack(loc) => vec![0_u128, loc.stack_index as u128],
             ValueLocation::Local(loc) => vec![loc.frame_index.0 as u128, loc.index as u128],
@@ -509,9 +509,9 @@ impl<F: FieldExt> VectorRef<F> {
             VectorRef::IndexedRef(i) => {
                 let value_loc = i.container_ref.location();
                 let mut cur_value = i.container_ref.container();
-                let flattened_value = Word::from(&Value::Container(cur_value.clone())).0;
+                let flattened_value = ContainerValueWord::from(&cur_value).0;
                 let (_, header_value) = flattened_value.first().expect("header should not be none");
-                res.push((Location::ValueLocation(value_loc.clone()), *header_value));
+                res.push((Location::ValueLocation(value_loc), *header_value));
 
                 let mut cur_sub_indexes = Vec::new();
                 for idx in &i.sub_indexes {
@@ -530,9 +530,9 @@ impl<F: FieldExt> VectorRef<F> {
                     cur_sub_indexes.push(*idx + 1);
                     let loc = IndexedLocation {
                         sub_indexes: cur_sub_indexes.clone(),
-                        value_loc: value_loc.clone(),
+                        value_loc,
                     };
-                    let flattened_value = Word::from(&Value::Container(cur_value.clone())).0;
+                    let flattened_value = ContainerValueWord::from(&cur_value).0;
                     let (_, header_value) =
                         flattened_value.first().expect("header should not be none");
                     res.push((Location::IndexedLocation(loc), *header_value));
