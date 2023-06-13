@@ -9,6 +9,7 @@ use movelang::compiler::compile_script;
 use movelang::state::StateStore;
 use std::path::Path;
 use vm::runtime::Runtime;
+
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
@@ -57,8 +58,6 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             .locals_ops_num(config.locals_ops_num)
             .global_ops_num(config.global_ops_num)
             .word_size(config.word_capacity);
-        // static varible set
-        CircuitConfig::word_capacity_set(config.word_capacity);
 
         let witness = runtime.execute_script(
             script.clone(),
