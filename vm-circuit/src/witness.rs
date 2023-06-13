@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::param::{word_capacity, WORD_CAPACITY};
+use crate::chips::execution_chip::param::{set_word_capacity, word_capacity};
 use crate::witness::arith_operations::ArithOperation;
 use crate::witness::bytecode_table::BytecodeTable;
 use crate::witness::call_trace_table::CallTraceTable;
@@ -93,17 +93,10 @@ impl CircuitConfig {
     pub fn word_size(mut self, word_capacity: Option<usize>) -> Self {
         if let Some(cap) = word_capacity {
             self.word_size = cap;
+            // put it here to keep word_size and global word_cap in sync.
+            set_word_capacity(cap);
         }
         self
-    }
-
-    // value is customized.
-    pub fn word_capacity_set(word_capacity: Option<usize>) {
-        if let Some(cap) = word_capacity {
-            WORD_CAPACITY.with(|f| {
-                *f.borrow_mut() = cap;
-            })
-        }
     }
 }
 
