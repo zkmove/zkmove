@@ -1,7 +1,7 @@
 //! circuit: vm
 //! step_max_row: 150
 //! stack_ops_num: 200
-//! locals_ops_num: 150
+//! locals_ops_num: 100
 //! args: 5u64
 //! new_args: 7u64
 script {
