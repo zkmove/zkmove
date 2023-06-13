@@ -58,12 +58,14 @@ use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
 use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{Lookup, LookupTableConfig};
+use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
 use crate::chips::execution_chip::utils::base_constaint_builder::BaseConstraintBuilder;
-use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::execution_chip::utils::constraint_builder::{
+    ConditionalLookup, ConstraintBuilder,
+};
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::ConvertedRWOperation;
@@ -383,7 +385,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
     fn configure_opcode_gadget<G: InstructionGadget<F>>(
         meta: &mut ConstraintSystem<F>,
-        lookups: &mut Vec<(&'static str, Lookup<F>)>,
+        lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         s_usable: Selector,
         s_step: Column<Advice>,
@@ -434,7 +436,7 @@ impl<F: FieldExt> ExecutionChip<F> {
         opcode: Opcode,
         height: usize,
         cb: ConstraintBuilder<F>,
-        lookups: &mut Vec<(&'static str, Lookup<F>)>,
+        lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
     ) {
         // insert height into hash table
         debug_assert!(
@@ -449,7 +451,10 @@ impl<F: FieldExt> ExecutionChip<F> {
             meta.create_gate(name, |meta| {
                 let s_usable = meta.query_selector(s_usable);
                 let s_step = meta.query_advice(s_step, Rotation::cur());
-                Constraints::with_selector(s_usable * s_step, constraints)
+                Constraints::with_selector(
+                    s_usable * s_step,
+                    constraints.into_iter().map(|(name, c)| (name, c.expr())),
+                )
             });
         }
         lookups.append(&mut op_lookups);

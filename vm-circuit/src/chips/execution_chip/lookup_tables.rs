@@ -25,7 +25,7 @@ use crate::chips::execution_chip::lookup_tables::type_instantiation_table::{
 };
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::utils::constraint_builder::mul_exprs;
+use crate::chips::execution_chip::utils::constraint_builder::{mul_exprs, ConditionalLookup};
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use halo2_proofs::circuit::Region;
@@ -36,9 +36,10 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
+
 use logger::prelude::*;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 pub mod arith_op_lookup_table;
 pub mod bitwise_lookup_table;
@@ -64,7 +65,6 @@ pub enum Lookup<F: FieldExt> {
     CallTrace(CallTraceLookup<F>),
     TypeInstantiation(TypeInstantiationLookup<F>),
     InputTypeArg(InputTypeElementLookup<F>),
-    Conditional(Vec<Expression<F>>, Box<Lookup<F>>),
 }
 
 impl<F: FieldExt> From<BytecodeLookup<F>> for Lookup<F> {
@@ -136,19 +136,6 @@ pub enum TableKind {
 }
 
 impl<F: FieldExt> Lookup<F> {
-    pub fn conditionals(self, mut conds: Vec<Expression<F>>) -> Lookup<F> {
-        match self {
-            Self::Conditional(mut c, l) => Self::Conditional(
-                {
-                    conds.append(&mut c);
-                    conds
-                },
-                l,
-            ),
-            _ => Self::Conditional(conds, Box::new(self)),
-        }
-    }
-
     pub fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
             Lookup::RW(rw) => rw.exprs(),
@@ -161,27 +148,9 @@ impl<F: FieldExt> Lookup<F> {
             Lookup::CallTrace(l) => l.exprs(),
             Lookup::TypeInstantiation(l) => l.exprs(),
             Lookup::InputTypeArg(l) => l.exprs(),
-            Lookup::Conditional(cond, inner) => {
-                let mut conds = cond.clone();
-                let mut inner = inner.clone();
-                while let Lookup::Conditional(next_cond, next_inner) = inner.deref() {
-                    conds.append(&mut next_cond.clone());
-                    inner = next_inner.clone();
-                }
-
-                let cond = mul_exprs::<F>(cond.clone().into_iter());
-                if let Some(c) = cond {
-                    inner
-                        .input_exprs()
-                        .into_iter()
-                        .map(|e| c.clone() * e)
-                        .collect()
-                } else {
-                    inner.input_exprs()
-                }
-            }
         }
     }
+
     pub fn table(&self) -> TableKind {
         match self {
             Lookup::RW(_) => TableKind::RW,
@@ -194,7 +163,6 @@ impl<F: FieldExt> Lookup<F> {
             Lookup::CallTrace(_) => TableKind::CallTrace,
             Lookup::TypeInstantiation(_) => TableKind::TypeInstantiation,
             Lookup::InputTypeArg(_) => TableKind::InputTypeArg,
-            Lookup::Conditional(_, inner) => inner.table(),
         }
     }
 }
@@ -242,42 +210,88 @@ impl<F: FieldExt> LookupTableConfig<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        mut lookups: Vec<(&'static str, Lookup<F>)>,
+        mut lookups: Vec<(&'static str, ConditionalLookup<F>)>,
         s_usable: Selector,
         s_step: Column<Advice>,
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
-        lookups.sort_by_key(|(_, l)| l.table());
-        for (name, lookup) in lookups {
+        lookups.sort_by_key(|(_, l)| l.as_ref().table());
+        // for (kind, ls) in lookups
+        //     .iter()
+        //     .fold(BTreeMap::default(), |mut r, (name, l)| {
+        //         r.entry(l.table()).or_insert(vec![]).push((name, l));
+        //         r
+        //     })
+        //     .iter()
+        // {
+        //     println!("{:?}", kind);
+        //     for (name, l) in ls {
+        //         let (conds, exprs) = l.cond_and_exprs();
+        //         let cond = mul_exprs(&conds).unwrap();
+        //         println!(
+        //             "{}, {}",
+        //             name,
+        //             exprs
+        //                 .iter()
+        //                 .map(|e| cond.clone() * e.clone())
+        //                 .map(|e| format!("{}|{}", e.complexity(), e.degree()))
+        //                 .join(","),
+        //         );
+        //         println!("{}", cond.identifier());
+        //         println!("{}", exprs.iter().map(|e| e.identifier()).join(","));
+        //     }
+        // }
+
+        let mut fixed_tables = BTreeMap::new();
+        fixed_tables.insert(
+            TableKind::MoveConstant,
+            lookup_table.constant_table.columns(),
+        );
+        fixed_tables.insert(TableKind::Bytecode, lookup_table.bytecode_table.columns());
+        fixed_tables.insert(TableKind::Call, lookup_table.calls_table.columns());
+        fixed_tables.insert(TableKind::ArithOp, lookup_table.arith_op_table.columns());
+        fixed_tables.insert(TableKind::Bitwise, lookup_table.bitwise_table.columns());
+        fixed_tables.insert(TableKind::Pow2, lookup_table.pow2_table.columns());
+        fixed_tables.insert(
+            TableKind::CallTrace,
+            lookup_table.call_trace_table.columns(),
+        );
+        fixed_tables.insert(
+            TableKind::TypeInstantiation,
+            lookup_table.type_instantiation_table.columns(),
+        );
+        let mut advice_tables = BTreeMap::new();
+        advice_tables.insert(TableKind::RW, lookup_table.rw_table.columns());
+        advice_tables.insert(
+            TableKind::InputTypeArg,
+            lookup_table.input_type_element_table.columns(),
+        );
+
+        for (name, mut lookup) in lookups {
             let mut fixed_table_columns = Vec::new();
             let mut advice_table_columns = Vec::new();
-            match lookup.table() {
-                TableKind::RW => advice_table_columns = lookup_table.rw_table.columns(),
-                TableKind::InputTypeArg => {
-                    advice_table_columns = lookup_table.input_type_element_table.columns()
-                }
-                TableKind::MoveConstant => {
-                    fixed_table_columns = lookup_table.constant_table.columns()
-                }
-                TableKind::Bytecode => fixed_table_columns = lookup_table.bytecode_table.columns(),
-                TableKind::Call => fixed_table_columns = lookup_table.calls_table.columns(),
-                TableKind::ArithOp => fixed_table_columns = lookup_table.arith_op_table.columns(),
 
-                TableKind::Bitwise => fixed_table_columns = lookup_table.bitwise_table.columns(),
-                TableKind::Pow2 => fixed_table_columns = lookup_table.pow2_table.columns(),
-                TableKind::CallTrace => {
-                    fixed_table_columns = lookup_table.call_trace_table.columns()
+            match lookup.as_ref().table() {
+                t @ (TableKind::RW | TableKind::InputTypeArg) => {
+                    advice_table_columns = advice_tables.get(&t).cloned().unwrap();
                 }
-                TableKind::TypeInstantiation => {
-                    fixed_table_columns = lookup_table.type_instantiation_table.columns()
+                t => {
+                    fixed_table_columns = fixed_tables.get(&t).cloned().unwrap();
                 }
             };
             if !advice_table_columns.is_empty() {
-                debug_assert_eq!(advice_table_columns.len(), lookup.input_exprs().len());
+                debug_assert_eq!(
+                    advice_table_columns.len(),
+                    lookup.as_ref().input_exprs().len()
+                );
+
                 meta.lookup_any(name, |meta| {
                     let s_usable = meta.query_selector(s_usable);
                     let s_step = meta.query_advice(s_step, Rotation::cur());
-                    let cond = s_step * s_usable;
+                    lookup.add_conditions(vec![s_usable, s_step]);
+                    let (conds, lookup) = lookup.into();
+
+                    let cond = mul_exprs(&conds).unwrap();
                     lookup
                         .input_exprs()
                         .into_iter()
@@ -291,11 +305,17 @@ impl<F: FieldExt> LookupTableConfig<F> {
                 });
             } else {
                 debug_assert!(!fixed_table_columns.is_empty());
-                debug_assert_eq!(fixed_table_columns.len(), lookup.input_exprs().len());
+                debug_assert_eq!(
+                    fixed_table_columns.len(),
+                    lookup.as_ref().input_exprs().len()
+                );
+
                 meta.lookup(name, |meta| {
                     let s_usable = meta.query_selector(s_usable);
                     let s_step = meta.query_advice(s_step, Rotation::cur());
-                    let cond = s_step * s_usable;
+                    lookup.add_conditions(vec![s_usable, s_step]);
+                    let (conds, lookup) = lookup.into();
+                    let cond = mul_exprs(&conds).unwrap();
                     lookup
                         .input_exprs()
                         .into_iter()
