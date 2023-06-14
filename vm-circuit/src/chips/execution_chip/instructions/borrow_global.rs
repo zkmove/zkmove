@@ -18,7 +18,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::word::ValueHeader;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
@@ -55,10 +56,10 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let word_elem_num_expr = cells.auxiliary_3.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 1.expr()
-            + depth_of_addr_path_expr
+            + 2.expr()
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + word_elem_num_expr.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -75,12 +76,24 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
 
         let account_address_expr = self.account_address.expression.clone(); // account_address
         let sd_index_expr = cells.auxiliary_1.expression.clone(); //sd_index
+
+        // pop account_address
         cb.add_lookup(
             "borrow global(stack pop)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "borrow global(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
                 0.expr(),
                 account_address_expr.clone(),
             ),
@@ -91,7 +104,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                 cb.add_lookup(
                     "borrow_global(global read)",
                     RWLookup::global_read(
-                        cells.gc.expression.clone() + (i as u64 + 1).expr(),
+                        cells.gc.expression.clone() + (i as u64 + 2).expr(),
                         account_address_expr.clone(),
                         self.word[i].expression.clone(),
                         if GENERIC {
@@ -106,13 +119,13 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             });
         }
 
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
                 "borrow_global(stack push)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone()
                         + word_elem_num_expr.clone()
-                        + (i as u64 + 1).expr(),
+                        + (i as u64 + 2).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
                     0.expr(),
@@ -121,20 +134,25 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             );
         }
 
-        // ref_val[0] == account_address && ref_val[1] == sd_index;
+        // ref_val[1] == account_address && ref_val[2] == sd_index;
         cb.add_constraint(
-            "borrow_global_ref_eq",
-            self.ref_val[0].expression.clone() - account_address_expr,
+            "borrow_locals_ref_eq_0",
+            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr(),
         );
         cb.add_constraint(
-            "borrow_global_ref_eq",
-            self.ref_val[1].expression.clone()
+            "borrow_global_ref_eq_1",
+            self.ref_val[1].expression.clone() - account_address_expr,
+        );
+        cb.add_constraint(
+            "borrow_global_ref_eq_2",
+            self.ref_val[2].expression.clone()
                 - if GENERIC {
                     sd_index_expr.clone() * 2u64.pow(16).expr()
                 } else {
                     sd_index_expr.clone()
                 },
         );
+        cb.add_constraint("borrow_locals_ref_eq_3", self.ref_val[3].expression.clone());
 
         LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, sd_index_expr);
         if GENERIC {
@@ -150,7 +168,8 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        // get account_address
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         self.account_address
             .assign(region, offset, op.value().value())?;
@@ -177,7 +196,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             step,
             rw_operations,
             &global_value,
-            step.gc + 1,
+            step.gc + 2,
             word_elem_num,
         )?;
 
@@ -191,8 +210,8 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             step,
             rw_operations,
             &ref_val,
-            step.gc + 1 + word_elem_num,
-            DEPTH_OF_ADDRESS_PATH,
+            step.gc + 2 + word_elem_num,
+            LEN_OF_REFERENCE_VALUE,
         )?;
         if GENERIC {
             cells.auxiliary_2.assign(
@@ -233,8 +252,8 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let word_mask = cb.alloc_n_cells(word_cap);
         let word_addr_ext_0 = cb.alloc_n_cells(word_cap);
         let word_addr_ext_1 = cb.alloc_n_cells(word_cap);
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
             let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();

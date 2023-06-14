@@ -13,10 +13,11 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
+use movelang::word::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct BrFalse<F: FieldExt> {
-    value_a: Cell<F>,
+    value: Cell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
@@ -27,12 +28,11 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
         let aux = cells.auxiliary_1.expression.clone();
-        // let value_a = cells.value_a.expression.clone();
         let pc = cells.pc.expression.clone();
         let next_pc = cb.next.cells.pc.expression.clone();
-        // auxiliary_1 * (1 - value_a) + (pc + 1) * value_a - next_pc = 0
-        let pc_expr = aux * (1.expr() - self.value_a.expression.clone())
-            + (pc + 1.expr()) * self.value_a.expression.clone()
+        // auxiliary_1 * (1 - value) + (pc + 1) * value - next_pc = 0
+        let pc_expr = aux * (1.expr() - self.value.expression.clone())
+            + (pc + 1.expr()) * self.value.expression.clone()
             - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -40,7 +40,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 1.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -56,13 +56,23 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         ]);
 
         cb.add_lookup(
-            "br_false(stack pop)",
+            "br_false(stack pop value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                self.value_a.expression.clone(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "br_false(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                0.expr(),
+                self.value.expression.clone(),
             ),
         );
 
@@ -91,19 +101,20 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             .auxiliary_1
             .assign(region, offset, aux_value.value())?;
 
-        let op = rw_operations.0.get(step.gc).ok_or_else(|| {
+        // get value
+        let op = rw_operations.0.get(step.gc + 1).ok_or_else(|| {
             error!("gc is is None");
             Error::Synthesis
         })?;
         debug_assert!(op.rw() == RW::READ);
-        self.value_a.assign(region, offset, op.value().value())?;
+        self.value.assign(region, offset, op.value().value())?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
+        let value = cb.alloc_cell();
 
-        Self { value_a }
+        Self { value }
     }
 }

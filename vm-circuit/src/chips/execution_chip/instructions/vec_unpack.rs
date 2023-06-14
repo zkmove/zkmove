@@ -117,6 +117,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
 
         // vector_addr_ext_0 is equal to values_address
         // vector_addr_ext_1 is equal to values_addr_ext_0
+        // fixme: addr_ext_0, addr_ext_1... have been folded.
         for (i, _) in self.values.iter().enumerate().skip(1) {
             let constraint = self.vector_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()

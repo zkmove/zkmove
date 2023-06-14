@@ -13,7 +13,8 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::word::ValueHeader;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
@@ -44,7 +45,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         let word_element_num = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + word_element_num.clone()
-            + (DEPTH_OF_ADDRESS_PATH as u64).expr();
+            + (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -60,7 +61,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
 
         for (i, _) in self.word_a.iter().enumerate() {
             cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
-                let read = RWLookup::locals_ref(
+                let read = RWLookup::locals_read(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.frame_index.expression.clone(),
                     cells.locals_index.expression.clone(),
@@ -69,13 +70,13 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
                     self.word_a[i].expression.clone(),
                 );
 
-                cb.add_lookup("borrow_local(local ref)", read);
+                cb.add_lookup("borrow_local(read locals)", read);
             });
         }
 
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
-                "borrow_local(stack push)",
+                "borrow_local(stack push ref_val)",
                 RWLookup::stack_push(
                     cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
@@ -86,17 +87,20 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             );
         }
 
-        // ref_val[0] == frame_index && ref_val[1] == locals_index;
-
+        // ref_val[1] == frame_index && ref_val[2] == locals_index;
         cb.add_constraint(
-            "borrow_locals_ref_eq",
-            self.ref_val[0].expression.clone() - cells.frame_index.expression.clone(),
+            "borrow_locals_ref_eq_0",
+            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr(),
         );
-
         cb.add_constraint(
-            "borrow_locals_ref_eq",
-            self.ref_val[1].expression.clone() - cells.locals_index.expression.clone(),
+            "borrow_locals_ref_eq_1",
+            self.ref_val[1].expression.clone() - cells.frame_index.expression.clone(),
         );
+        cb.add_constraint(
+            "borrow_locals_ref_eq_2",
+            self.ref_val[2].expression.clone() - cells.locals_index.expression.clone(),
+        );
+        cb.add_constraint("borrow_locals_ref_eq_3", self.ref_val[3].expression.clone());
 
         LookupBytecode::lookup_bytecode(
             cb,
@@ -142,7 +146,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             rw_operations,
             &ref_val,
             step.gc + word_element_num,
-            DEPTH_OF_ADDRESS_PATH,
+            LEN_OF_REFERENCE_VALUE,
         )?;
         Ok(())
     }
@@ -155,8 +159,8 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         let word_a_mask = cb.alloc_n_cells(word_cap);
         let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
         let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
 
         Self {
             word_a,

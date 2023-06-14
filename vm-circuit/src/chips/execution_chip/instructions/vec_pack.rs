@@ -125,6 +125,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                     - self.vector_addr_ext_1[i].expression.clone());
             cb.add_constraint("vec_pack_address_ext_0_eq", constraint);
         }
+        //fixme: addr_ext_0, addr_ext_1... have been folded.
 
         // todo: add the second operand
         LookupBytecode::lookup_bytecode(

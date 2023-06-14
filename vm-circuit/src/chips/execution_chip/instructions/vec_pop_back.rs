@@ -13,7 +13,9 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value::{DEPTH_OF_ADDRESS_PATH, DEPTH_OF_LOCATION_PATH};
+use movelang::value::DEPTH_OF_LOCATION_PATH;
+use movelang::word::ValueHeader;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecPopBack<F: FieldExt> {
@@ -51,13 +53,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
     const OPCODE: Opcode = Opcode::VecPopBack;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecPopBack, there are 4 steps here:
-        // 1. read vec ref from stack. [gc, DEPTH_OF_ADDRESS_PATH]
+        // 1. read vec ref from stack. [gc, LEN_OF_REFERENCE_VALUE]
         // 2. read value from vec (in locals or global).
-        // [gc + DEPTH_OF_ADDRESS_PATH, value_flattened_len]
+        // [gc + LEN_OF_REFERENCE_VALUE, value_flattened_len]
         // 3. write value to stack.
-        // [gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len, value_flattened_len]
+        // [gc + LEN_OF_REFERENCE_VALUE + value_flattened_len, value_flattened_len]
         // 4. update current and parent headers (flattened_length, length).
-        // [gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len * 2, headers_count * 2]
+        // [gc + LEN_OF_REFERENCE_VALUE + value_flattened_len * 2, headers_count * 2]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -67,10 +69,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let value_flattened_len = cells.auxiliary_3.expression.clone();
         let ref_val_flattened_len = cells.auxiliary_4.expression.clone();
         let headers_count = self.headers_count.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + 2.expr() * value_flattened_len.clone()
-            + depth_of_addr_path_expr.clone()
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + 2.expr() * headers_count.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -88,7 +90,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let is_global = cells.auxiliary_5.expression.clone();
 
         // read reference from stack
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "vec_pop_back(read ref)",
@@ -109,7 +111,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
                 cb.condition(1.expr() - is_global.clone(), |cb| {
                     let locals_read = RWLookup::locals_read(
                         cells.gc.expression.clone()
-                            + depth_of_addr_path_expr.clone()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + (i as u64).expr(),
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
@@ -122,7 +124,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
                 cb.condition(is_global.clone(), |cb| {
                     let global_read = RWLookup::global_read(
                         cells.gc.expression.clone()
-                            + depth_of_addr_path_expr.clone()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + (i as u64).expr(),
                         self.vec_frame_index_or_global_address.expression.clone(),
                         item.expression.clone(),
@@ -136,7 +138,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
                 // write value to stack
                 let write = RWLookup::stack_push(
                     cells.gc.expression.clone()
-                        + depth_of_addr_path_expr.clone()
+                        + (LEN_OF_REFERENCE_VALUE as u64).expr()
                         + value_flattened_len.clone()
                         + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
@@ -150,7 +152,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
 
         // read the old value from headers and write the new value to the headers
         let gc_offset = cells.gc.expression.clone()
-            + depth_of_addr_path_expr
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + value_flattened_len.clone() * 2.expr();
         for (i, item) in self
             .headers_value
@@ -206,14 +208,21 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         }
 
         // Constrains the value to be popped from the vector referenced by vec_ref.
+        // ref_val[0] equals to ref value header
         let mut constraint = (self.ref_val[0].expression.clone()
-            - self.vec_frame_index_or_global_address.expression.clone())
+            - ValueHeader::default_for_ref_val().expr())
             * (1.expr() - self.ref_val_mask[0].expression.clone());
         cb.add_constraint("read_ref_eq_0", constraint);
+
         constraint = (self.ref_val[1].expression.clone()
-            - self.vec_locals_index_or_global_sd_idx.expression.clone())
+            - self.vec_frame_index_or_global_address.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
+
+        constraint = (self.ref_val[2].expression.clone()
+            - self.vec_locals_index_or_global_sd_idx.expression.clone())
+            * (1.expr() - self.ref_val_mask[2].expression.clone());
+        cb.add_constraint("read_ref_eq_2", constraint);
 
         // addr_ext comparation between ref_val and indexed_ref_val
         // field_offset is pushed into the last element of indexed_ref_val,
@@ -229,17 +238,17 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         // For example, if the vector has address path [3,1,2,1], the header's address will
         // be: [3,1,0,0],[3,1,2,0],[3,1,2,1]
         //
-        // header[i]'s frame_index or global address must equal to ref_val[0],
-        // header[i]'s locals_index or global sd_index must equal to ref_val[1],
+        // header[i]'s frame_index or global address must equal to ref_val[1],
+        // header[i]'s locals_index or global sd_index must equal to ref_val[2],
         // already constrained by the above lookup
-        for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
-            // fixme: header[i]'s addr_ext_0 is not always equal to ref_val[2],
-            let constraint = (self.ref_val_addr_ext_mask_0[i].expression.clone())
-                * (1.expr() - self.ref_val_addr_ext_mask_1[i].expression.clone())
-                * (self.headers_value_addr_ext_0[i].expression.clone()
-                    - self.ref_val[2].expression.clone());
-            cb.add_constraint("check header addr_ext_0", constraint);
-        }
+        // fixme: header[i]'s addr_ext_0 is not always equal to ref_val[3],
+        // for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
+        //     let constraint = (self.ref_val_addr_ext_mask_0[i].expression.clone())
+        //         * (1.expr() - self.ref_val_addr_ext_mask_1[i].expression.clone())
+        //         * (self.headers_value_addr_ext_0[i].expression.clone()
+        //             - self.ref_val[3].expression.clone());
+        //     cb.add_constraint("check header addr_ext_0", constraint);
+        // }
 
         // constraint on addr_ext_mask_0 and addr_ext_mask_1
         // skip DEPTH_OF_LOCATION_PATH bits tophead.
@@ -334,7 +343,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             ref_val_flattened_len,
         )?;
 
-        let index = step.gc + DEPTH_OF_ADDRESS_PATH;
+        let index = step.gc + LEN_OF_REFERENCE_VALUE;
         let op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         if is_global == F::zero() {
             self.vec_frame_index_or_global_address.assign(
@@ -397,7 +406,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             step,
             rw_operations,
             &value_stack,
-            step.gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len,
+            step.gc + LEN_OF_REFERENCE_VALUE + value_flattened_len,
             value_flattened_len,
         )?;
 
@@ -413,13 +422,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
             step,
             rw_operations,
             &headers,
-            step.gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len * 2,
+            step.gc + LEN_OF_REFERENCE_VALUE + value_flattened_len * 2,
             headers_count,
             MAX_ADDRESS_EXT_LENGTH,
         )?;
 
         let new_headers_op_idx =
-            step.gc + DEPTH_OF_ADDRESS_PATH + value_flattened_len * 2 + headers_count;
+            step.gc + LEN_OF_REFERENCE_VALUE + value_flattened_len * 2 + headers_count;
         for i in 0..headers_count {
             let op = rw_operations
                 .0
@@ -438,8 +447,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
         let value_index = cb.alloc_cell();
         let offset_pow2 = cb.alloc_cell();
 
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let ref_val_addr_ext_mask_0 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let ref_val_addr_ext_mask_1 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
 

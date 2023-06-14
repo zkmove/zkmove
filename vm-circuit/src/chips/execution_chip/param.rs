@@ -25,3 +25,9 @@ pub fn set_word_capacity(word_capacity: usize) {
         *f.borrow_mut() = word_capacity;
     })
 }
+
+// TODO: static parse the length
+// To constrain the function call we need to flatten all the arguments
+// and assign them to a set of cells. This constant is used to represent
+// the maximum number of the cells.
+pub const NUM_OF_ARGS_CELLS: usize = 32;

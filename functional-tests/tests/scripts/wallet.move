@@ -10,7 +10,7 @@ script {
         let amount = Wallet::value_1(&wallet_1);
         assert!(amount == 103, 202);
 
-        let walletset = Wallet::walletset_create(wallet_1, wallet_1);
+        let _walletset = Wallet::walletset_create(wallet_1, wallet_1);
         // let _walletset2 = Wallet::walletset_create2(walletset, walletset);
 
         Wallet::destroy(wallet_1);

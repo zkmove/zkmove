@@ -62,7 +62,8 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
 
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
+        // get value_c
+        let op = rw_operations.0.get(step.gc + 5).ok_or(Error::Synthesis)?;
         let value = op.value();
         ArithOverflow::assign_num_of_bytes(region, offset, cells, self.bytes.clone(), value)?;
 

@@ -71,8 +71,8 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
         // It's ok to slice here, as BinaryOp::assign_binary_op already check the range.
-        let ops = &rw_operations.0[step.gc..=step.gc + 2];
-        let b = &ops[0].value();
+        let ops = &rw_operations.0[step.gc..=step.gc + 5];
+        let b = &ops[1].value();
         let pow2_of_b = F::from_u128(2).pow(&[b.value().unwrap().get_lower_32() as u64, 0, 0, 0]);
         cells.auxiliary_1.assign(region, offset, Some(pow2_of_b))?;
 

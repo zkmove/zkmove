@@ -11,6 +11,7 @@ use move_binary_format::file_format::Bytecode as MoveBytecode;
 use move_binary_format::CompiledModule;
 use movelang::state::StateStore;
 use movelang::value::{PrimitiveValue, Value};
+use movelang::word::ValueHeader;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::arith_operations::ArithOperations;
@@ -92,7 +93,7 @@ fn test_execution_step() -> VmResult<()> {
         stack_size: 1,
         frame_index: 0,
         locals_index: 0,
-        gc: 1,
+        gc: 2,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -109,7 +110,7 @@ fn test_execution_step() -> VmResult<()> {
         stack_size: 2,
         frame_index: 0,
         locals_index: 0,
-        gc: 2,
+        gc: 4,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -126,12 +127,12 @@ fn test_execution_step() -> VmResult<()> {
         stack_size: 1,
         frame_index: 0,
         locals_index: 0,
-        gc: 5,
+        gc: 10,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: Some(Value::u64(1u64)),
+        auxiliary_3: Some(Value::u64(2u64)),
         auxiliary_4: None,
         auxiliary_5: None,
         data: None,
@@ -143,7 +144,7 @@ fn test_execution_step() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -160,7 +161,7 @@ fn test_execution_step() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -182,16 +183,16 @@ fn test_execution_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 1,
-        address_ext_0: 0,
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(PrimitiveValue::u64(1)),
 
         rw: WRITE,
         gc: 1,
@@ -200,37 +201,91 @@ fn test_execution_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
-        rw: READ,
+        rw: WRITE,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(2)),
+
+        rw: WRITE,
+        gc: 3,
+    });
+    let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 4,
+    });
+    let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(2)),
+
+        rw: READ,
+        gc: 5,
+    });
+    let expected_rw_op_6 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 6,
+    });
+    let expected_rw_op_7 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
 
         rw: READ,
-        gc: 3,
+        gc: 7,
     });
-    let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
+    let expected_rw_op_8 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: WRITE,
+        gc: 8,
+    });
+    let expected_rw_op_9 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
 
         rw: WRITE,
-        gc: 4,
+        gc: 9,
     });
-    let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
+    let expected_rw_op_10 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 10,
+    });
+    let expected_rw_op_11 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
 
         rw: READ,
-        gc: 5,
+        gc: 11,
     });
 
     assert_eq!(rw_operations[0], expected_rw_op_0, "result is not expected");
@@ -239,6 +294,18 @@ fn test_execution_step() -> VmResult<()> {
     assert_eq!(rw_operations[3], expected_rw_op_3, "result is not expected");
     assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
     assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
+    assert_eq!(rw_operations[6], expected_rw_op_6, "result is not expected");
+    assert_eq!(rw_operations[7], expected_rw_op_7, "result is not expected");
+    assert_eq!(rw_operations[8], expected_rw_op_8, "result is not expected");
+    assert_eq!(rw_operations[9], expected_rw_op_9, "result is not expected");
+    assert_eq!(
+        rw_operations[10], expected_rw_op_10,
+        "result is not expected"
+    );
+    assert_eq!(
+        rw_operations[11], expected_rw_op_11,
+        "result is not expected"
+    );
 
     let circuit_config = CircuitConfig::default();
     let witness = Witness::new(
@@ -277,7 +344,7 @@ fn test_nop_step() -> VmResult<()> {
     ];
     let bytecodes = (script, vec![]).into();
 
-    let step_0 = ExecutionStep::<Fp> {
+    let step_0 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::LdU64,
         pc: 0,
@@ -294,28 +361,11 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_5: None,
         data: None,
     };
-    let step_1 = ExecutionStep::<Fp> {
+    let step_1 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::LdU64,
         pc: 1,
         stack_size: 1,
-        frame_index: 0,
-        locals_index: 0,
-        gc: 1,
-        module_index: 0,
-        function_index: 0,
-        auxiliary_1: None,
-        auxiliary_2: None,
-        auxiliary_3: None,
-        auxiliary_4: None,
-        auxiliary_5: None,
-        data: None,
-    };
-    let step_2 = ExecutionStep::<Fp> {
-        context_id: 1,
-        opcode: Opcode::Add,
-        pc: 2,
-        stack_size: 2,
         frame_index: 0,
         locals_index: 0,
         gc: 2,
@@ -328,31 +378,48 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_5: None,
         data: None,
     };
-    let step_3 = ExecutionStep::<Fp> {
+    let step_2 = ExecutionStep {
+        context_id: 1,
+        opcode: Opcode::Add,
+        pc: 2,
+        stack_size: 2,
+        frame_index: 0,
+        locals_index: 0,
+        gc: 4,
+        module_index: 0,
+        function_index: 0,
+        auxiliary_1: None,
+        auxiliary_2: None,
+        auxiliary_3: None,
+        auxiliary_4: None,
+        auxiliary_5: None,
+        data: None,
+    };
+    let step_3 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::Pop,
         pc: 3,
         stack_size: 1,
         frame_index: 0,
         locals_index: 0,
-        gc: 5,
+        gc: 10,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: Some(Value::u64(1u64)),
+        auxiliary_3: Some(Value::u64(2u64)),
         auxiliary_4: None,
         auxiliary_5: None,
         data: None,
     };
-    let step_4 = ExecutionStep::<Fp> {
+    let step_4 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::Ret,
         pc: 4,
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -369,7 +436,7 @@ fn test_nop_step() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -386,7 +453,7 @@ fn test_nop_step() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -396,14 +463,14 @@ fn test_nop_step() -> VmResult<()> {
         auxiliary_5: None,
         data: None,
     };
-    let step_7 = ExecutionStep::<Fp> {
+    let step_7 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::Stop,
         pc: 4,
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -422,16 +489,16 @@ fn test_nop_step() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
         rw: WRITE,
         gc: 0,
     });
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 1,
-        address_ext_0: 0,
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(PrimitiveValue::u64(1)),
 
         rw: WRITE,
         gc: 1,
@@ -440,37 +507,91 @@ fn test_nop_step() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
-        rw: READ,
+        rw: WRITE,
         gc: 2,
     });
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(2)),
+
+        rw: WRITE,
+        gc: 3,
+    });
+    let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 4,
+    });
+    let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 1,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(2)),
+
+        rw: READ,
+        gc: 5,
+    });
+    let rw_op_6 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 6,
+    });
+    let rw_op_7 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(1)),
 
         rw: READ,
-        gc: 3,
+        gc: 7,
     });
-    let rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
+    let rw_op_8 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: WRITE,
+        gc: 8,
+    });
+    let rw_op_9 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
 
         rw: WRITE,
-        gc: 4,
+        gc: 9,
     });
-    let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
+    let rw_op_10 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 10,
+    });
+    let rw_op_11 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
         value: Some(PrimitiveValue::u64(3)),
 
         rw: READ,
-        gc: 5,
+        gc: 11,
     });
     let fake_rw_op = RWOperation::<Fp>::LocalsOp(LocalsOp {
         frame_index: 0,
@@ -480,11 +601,12 @@ fn test_nop_step() -> VmResult<()> {
         value: Some(PrimitiveValue::u64(3)),
 
         rw: WRITE,
-        gc: 6,
+        gc: 12,
     });
 
     let rw_operations = vec![
-        rw_op_0, rw_op_1, rw_op_2, rw_op_3, rw_op_4, rw_op_5, fake_rw_op,
+        rw_op_0, rw_op_1, rw_op_2, rw_op_3, rw_op_4, rw_op_5, rw_op_6, rw_op_7, rw_op_8, rw_op_9,
+        rw_op_10, rw_op_11, fake_rw_op,
     ];
 
     let circuit_config = CircuitConfig::default();
@@ -525,7 +647,7 @@ fn test_nop_steps() -> VmResult<()> {
 
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
-    let circuit_config = CircuitConfig::default().max_step_row(Some(8));
+    let circuit_config = CircuitConfig::default().max_step_row(Some(100));
     let witness = runtime.execute_script(
         script,
         vec![],
@@ -563,7 +685,7 @@ fn test_nop_steps() -> VmResult<()> {
         stack_size: 1,
         frame_index: 0,
         locals_index: 0,
-        gc: 1,
+        gc: 2,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -580,7 +702,7 @@ fn test_nop_steps() -> VmResult<()> {
         stack_size: 2,
         frame_index: 0,
         locals_index: 0,
-        gc: 2,
+        gc: 4,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -597,12 +719,12 @@ fn test_nop_steps() -> VmResult<()> {
         stack_size: 1,
         frame_index: 0,
         locals_index: 0,
-        gc: 5,
+        gc: 10,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
         auxiliary_2: None,
-        auxiliary_3: Some(Value::u64(1u64)),
+        auxiliary_3: Some(Value::u64(2u64)),
         auxiliary_4: None,
         auxiliary_5: None,
         data: None,
@@ -614,7 +736,7 @@ fn test_nop_steps() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -631,7 +753,7 @@ fn test_nop_steps() -> VmResult<()> {
         stack_size: 0,
         frame_index: 0,
         locals_index: 0,
-        gc: 6,
+        gc: 12,
         module_index: 0,
         function_index: 0,
         auxiliary_1: None,
@@ -654,16 +776,16 @@ fn test_nop_steps() -> VmResult<()> {
         address: 0,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
         rw: WRITE,
         gc: 0,
     });
     let expected_rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 1,
-        address_ext_0: 0,
+        address: 0,
+        address_ext_0: 1,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(PrimitiveValue::u64(1)),
 
         rw: WRITE,
         gc: 1,
@@ -672,46 +794,113 @@ fn test_nop_steps() -> VmResult<()> {
         address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
-        rw: READ,
+        rw: WRITE,
         gc: 2,
     });
     let expected_rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 0,
-        address_ext_0: 0,
+        address: 1,
+        address_ext_0: 1,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(PrimitiveValue::u64(2)),
 
-        rw: READ,
+        rw: WRITE,
         gc: 3,
     });
     let expected_rw_op_4 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 0,
+        address: 1,
         address_ext_0: 0,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(3)),
+        value: Some(ValueHeader::default_for_simple().into()),
 
-        rw: WRITE,
+        rw: READ,
         gc: 4,
     });
     let expected_rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
-        address: 0,
-        address_ext_0: 0,
+        address: 1,
+        address_ext_0: 1,
         address_ext_1: 0,
-        value: Some(PrimitiveValue::u64(3)),
+        value: Some(PrimitiveValue::u64(2)),
 
         rw: READ,
         gc: 5,
     });
+    let expected_rw_op_6 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
 
-    let rw_ops = &vm_circuit.witness.rw_operations.0;
-    assert_eq!(rw_ops[0], expected_rw_op_0, "result is not expected");
-    assert_eq!(rw_ops[1], expected_rw_op_1, "result is not expected");
-    assert_eq!(rw_ops[2], expected_rw_op_2, "result is not expected");
-    assert_eq!(rw_ops[3], expected_rw_op_3, "result is not expected");
-    assert_eq!(rw_ops[4], expected_rw_op_4, "result is not expected");
-    assert_eq!(rw_ops[5], expected_rw_op_5, "result is not expected");
+        rw: READ,
+        gc: 6,
+    });
+    let expected_rw_op_7 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(1)),
+
+        rw: READ,
+        gc: 7,
+    });
+    let expected_rw_op_8 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: WRITE,
+        gc: 8,
+    });
+    let expected_rw_op_9 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(3)),
+
+        rw: WRITE,
+        gc: 9,
+    });
+    let expected_rw_op_10 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 0,
+        address_ext_1: 0,
+        value: Some(ValueHeader::default_for_simple().into()),
+
+        rw: READ,
+        gc: 10,
+    });
+    let expected_rw_op_11 = RWOperation::<Fp>::StackOp(StackOp {
+        address: 0,
+        address_ext_0: 1,
+        address_ext_1: 0,
+        value: Some(PrimitiveValue::u64(3)),
+
+        rw: READ,
+        gc: 11,
+    });
+
+    let rw_operations = &vm_circuit.witness.rw_operations.0;
+
+    assert_eq!(rw_operations[0], expected_rw_op_0, "result is not expected");
+    assert_eq!(rw_operations[1], expected_rw_op_1, "result is not expected");
+    assert_eq!(rw_operations[2], expected_rw_op_2, "result is not expected");
+    assert_eq!(rw_operations[3], expected_rw_op_3, "result is not expected");
+    assert_eq!(rw_operations[4], expected_rw_op_4, "result is not expected");
+    assert_eq!(rw_operations[5], expected_rw_op_5, "result is not expected");
+    assert_eq!(rw_operations[6], expected_rw_op_6, "result is not expected");
+    assert_eq!(rw_operations[7], expected_rw_op_7, "result is not expected");
+    assert_eq!(rw_operations[8], expected_rw_op_8, "result is not expected");
+    assert_eq!(rw_operations[9], expected_rw_op_9, "result is not expected");
+    assert_eq!(
+        rw_operations[10], expected_rw_op_10,
+        "result is not expected"
+    );
+    assert_eq!(
+        rw_operations[11], expected_rw_op_11,
+        "result is not expected"
+    );
 
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
