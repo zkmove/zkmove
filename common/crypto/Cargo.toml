@@ -5,9 +5,9 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
-halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
-pasta_curves = "0.4"
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+#pasta_curves = "0.4"
 anyhow = "1.0.41"
-ff = "0.12"
+#ff = "0.12"
 rand = "0.8"

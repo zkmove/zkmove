@@ -12,7 +12,7 @@ logger = { path = "../common/logger" }
 movelang = { path = "../movelang"}
 vm-circuit = { path = "../vm-circuit" }
 vm = { path = "../vm" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
 anyhow = "1.0.38"
 criterion = { git = "https://github.com/young-rocks/criterion.rs", rev="98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
 rand_core = { version = "0.6", default-features = false }
