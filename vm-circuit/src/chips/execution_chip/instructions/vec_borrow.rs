@@ -86,7 +86,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             ),
         );
 
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             // lookup "read vec ref"
             cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
@@ -101,12 +101,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 );
             });
         }
-        for (i, item) in self
-            .indexed_ref_val
-            .iter()
-            .enumerate()
-            .take(LEN_OF_REFERENCE_VALUE)
-        {
+        for (i, item) in self.indexed_ref_val.iter().enumerate() {
             // lookup "write indexed ref"
             cb.condition(
                 1.expr() - self.indexed_ref_val_mask[i].expression.clone(),

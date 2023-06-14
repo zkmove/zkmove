@@ -2,11 +2,11 @@
 
 use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
-    Location, PrimitiveValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
+    Location, PrimitiveValue, Reference, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
 };
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
-use std::convert::{From, TryInto};
+use std::convert::{From, TryFrom, TryInto};
 use std::marker::PhantomData;
 
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
@@ -21,11 +21,13 @@ impl<F: FieldExt> From<&Value<F>> for Word<F> {
         match value {
             Value::Invalid => Word(vec![]), // TODO: Issue #52
             Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) | Value::Address(_) => {
-                SimpleValueWord::from(value).into()
+                let simple = PrimitiveValue::try_from(value).expect("should not fail");
+                SimpleValueWord::from(simple).into()
             }
-            Value::Container(_) => ContainerValueWord::from(value).into(), // headers have been inserted during casting to simples
+            Value::Container(c) => ContainerValueWord::from(c).into(),
             Value::GlobalRef(_) | Value::IndexedRef(_) | Value::LocalRef(_) => {
-                ReferenceValueWord::from(value).into()
+                let reference = Reference::try_from(value).expect("should not fail");
+                ReferenceValueWord::from(reference).into()
             }
         }
     }
@@ -34,15 +36,12 @@ impl<F: FieldExt> From<&Value<F>> for Word<F> {
 #[derive(Clone, Debug)]
 pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, PrimitiveValue<F>); 2]);
 
-impl<F: FieldExt> From<&Value<F>> for SimpleValueWord<F> {
-    fn from(value: &Value<F>) -> SimpleValueWord<F> {
-        match value.cast_simple() {
-            Some(simple_value) => SimpleValueWord([
-                (vec![0u128], ValueHeader::default_for_simple().into()),
-                (vec![1u128], simple_value),
-            ]),
-            None => unreachable!(),
-        }
+impl<F: FieldExt> From<PrimitiveValue<F>> for SimpleValueWord<F> {
+    fn from(value: PrimitiveValue<F>) -> SimpleValueWord<F> {
+        SimpleValueWord([
+            (vec![0u128], ValueHeader::default_for_simple().into()),
+            (vec![1u128], value),
+        ])
     }
 }
 
@@ -89,57 +88,45 @@ impl<F: FieldExt> ReferenceValueWord<F> {
     }
 }
 
-impl<F: FieldExt> From<&Value<F>> for ReferenceValueWord<F> {
-    fn from(value: &Value<F>) -> ReferenceValueWord<F> {
-        let values = match value {
-            Value::GlobalRef(GlobalRef { loc, .. }) => {
+impl<F: FieldExt> From<Reference<F>> for ReferenceValueWord<F> {
+    fn from(value: Reference<F>) -> ReferenceValueWord<F> {
+        let ref_paths = match value {
+            Reference::GlobalRef(GlobalRef { loc, .. }) => {
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
-                let ref_pathes = Location::ValueLocation(ValueLocation::Global(*loc))
+                Location::ValueLocation(ValueLocation::Global(loc))
                     .to_address_path()
                     .fill_up()
-                    .into_inner();
-                ref_pathes
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
-                    .collect::<Vec<_>>()
+                    .into_inner()
             }
-            Value::LocalRef(LocalRef { loc, .. }) => {
+            Reference::LocalRef(LocalRef { loc, .. }) => {
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
-                let ref_pathes = Location::ValueLocation(ValueLocation::<F>::Local(*loc))
+                Location::ValueLocation(ValueLocation::<F>::Local(loc))
                     .to_address_path()
                     .fill_up()
-                    .into_inner();
-                ref_pathes
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
-                    .collect::<Vec<_>>()
+                    .into_inner()
             }
-            Value::IndexedRef(IndexedRef {
+            Reference::IndexedRef(IndexedRef {
                 sub_indexes,
                 container_ref,
             }) => {
                 // Position 0 is occupied by the container header, so the index needs to be increased by 1.
                 let sub_indexes = sub_indexes.iter().map(|idx| idx + 1).collect();
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
-                let ref_pathes = Location::IndexedLocation(IndexedLocation {
+                Location::IndexedLocation(IndexedLocation {
                     sub_indexes,
                     value_loc: container_ref.location(),
                 })
                 .to_address_path()
                 .fill_up()
-                .into_inner();
-                ref_pathes
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, v)| (vec![i as u128], PrimitiveValue::U128(U128(F::from_u128(v)))))
-                    .collect::<Vec<_>>()
+                .into_inner()
             }
-            _ => unreachable!(),
         };
 
-        let mut simples = values.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+        let mut simples = ref_paths
+            .into_iter()
+            .map(|v| PrimitiveValue::U128(U128(F::from_u128(v))))
+            .collect::<Vec<_>>();
+
         simples.insert(0, ValueHeader::default_for_ref_val().into());
         let word = simples
             .into_iter()
@@ -158,15 +145,6 @@ impl<F: FieldExt> From<ReferenceValueWord<F>> for Word<F> {
 
 #[derive(Clone, Debug)]
 pub struct ContainerValueWord<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
-
-impl<F: FieldExt> From<&Value<F>> for ContainerValueWord<F> {
-    fn from(value: &Value<F>) -> ContainerValueWord<F> {
-        match value {
-            Value::Container(container) => container.into(),
-            _ => unreachable!(),
-        }
-    }
-}
 
 impl<F: FieldExt> From<&Container<F>> for ContainerValueWord<F> {
     fn from(container: &Container<F>) -> ContainerValueWord<F> {

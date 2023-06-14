@@ -65,7 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
                 "write_ref(stack pop 0)",
                 RWLookup::stack_pop(

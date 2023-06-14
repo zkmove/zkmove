@@ -94,12 +94,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         }
 
         // lookup the signer reference is popped
-        for (i, item) in self
-            .signer_ref
-            .iter()
-            .enumerate()
-            .take(LEN_OF_REFERENCE_VALUE)
-        {
+        for (i, item) in self.signer_ref.iter().enumerate() {
             cb.add_lookup(
                 "move_to(signer stack pop)",
                 RWLookup::stack_pop(

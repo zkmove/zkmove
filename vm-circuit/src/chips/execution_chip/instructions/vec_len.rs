@@ -65,7 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
                 "vec_len(stack pop ref_val)",
                 RWLookup::stack_pop(

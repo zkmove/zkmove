@@ -11,6 +11,7 @@ use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 pub use move_core_types::language_storage::TypeTag;
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
@@ -334,6 +335,19 @@ impl<F: FieldExt> From<Reference<F>> for Value<F> {
             Reference::GlobalRef(g) => Value::GlobalRef(g),
             Reference::LocalRef(l) => Value::LocalRef(l),
             Reference::IndexedRef(i) => Value::IndexedRef(i),
+        }
+    }
+}
+
+impl<F: FieldExt> TryFrom<&Value<F>> for Reference<F> {
+    type Error = RuntimeError;
+
+    fn try_from(v: &Value<F>) -> VmResult<Reference<F>> {
+        match v {
+            Value::GlobalRef(g) => Ok(Reference::GlobalRef(g.clone())),
+            Value::LocalRef(l) => Ok(Reference::LocalRef(l.clone())),
+            Value::IndexedRef(i) => Ok(Reference::IndexedRef(i.clone())),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
         }
     }
 }
@@ -778,6 +792,21 @@ impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
             PrimitiveValue::U128(v) => Value::U128(v),
             PrimitiveValue::Bool(v) => Value::Bool(v),
             PrimitiveValue::Address(v) => Value::Address(v),
+        }
+    }
+}
+
+impl<F: FieldExt> TryFrom<&Value<F>> for PrimitiveValue<F> {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value<F>) -> VmResult<PrimitiveValue<F>> {
+        match value {
+            Value::U8(v) => Ok(PrimitiveValue::U8(*v)),
+            Value::U64(v) => Ok(PrimitiveValue::U64(*v)),
+            Value::U128(v) => Ok(PrimitiveValue::U128(*v)),
+            Value::Bool(v) => Ok(PrimitiveValue::Bool(*v)),
+            Value::Address(v) => Ok(PrimitiveValue::Address(*v)),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
         }
     }
 }

@@ -65,7 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
                 "read_ref(stack pop)",
                 RWLookup::stack_pop(

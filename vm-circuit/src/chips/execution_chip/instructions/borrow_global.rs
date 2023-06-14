@@ -119,7 +119,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             });
         }
 
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.add_lookup(
                 "borrow_global(stack push)",
                 RWLookup::stack_push(

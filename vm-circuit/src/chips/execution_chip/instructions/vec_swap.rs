@@ -129,7 +129,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         );
 
         // read reference from stack
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "vec_swap(read vec ref)",

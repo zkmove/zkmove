@@ -68,7 +68,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         ]);
 
         // lookup
-        for (i, item) in self.ref_val.iter().enumerate().take(LEN_OF_REFERENCE_VALUE) {
+        for (i, item) in self.ref_val.iter().enumerate() {
             cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "borrow_field(stack pop)",
@@ -83,12 +83,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             });
         }
 
-        for (i, item) in self
-            .indexed_ref_val
-            .iter()
-            .enumerate()
-            .take(LEN_OF_REFERENCE_VALUE)
-        {
+        for (i, item) in self.indexed_ref_val.iter().enumerate() {
             cb.condition(
                 1.expr() - self.indexed_ref_val_mask[i].expression.clone(),
                 |cb| {
