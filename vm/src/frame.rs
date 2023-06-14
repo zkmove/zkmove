@@ -5,7 +5,7 @@ use crate::interpreter::Interpreter;
 use crate::locals;
 use crate::locals::Locals;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
@@ -471,12 +471,12 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(field_ref.into(), rw_operations)
                     }
                     Bytecode::LdTrue => {
-                        let constant = F::one();
+                        let constant = F::ONE;
                         let value = Value::new(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
-                        let constant = F::zero();
+                        let constant = F::ZERO;
                         let value = Value::new(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
@@ -486,7 +486,7 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::one() {
+                        if cond == F::ONE {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
@@ -501,7 +501,7 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::zero() {
+                        if cond == F::ZERO {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;

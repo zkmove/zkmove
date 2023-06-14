@@ -6,7 +6,7 @@ use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
@@ -135,7 +135,7 @@ impl<F: FieldExt> StepChip<F> {
     //     cells: &StepChipCells<F>,
     //     constraints: &mut Vec<(&str, Expression<F>)>,
     // ) {
-    //     let one = Expression::Constant(F::one());
+    //     let one = Expression::Constant(F::ONE);
     //
     //     let mut zero_or_one = cells
     //         .conditions

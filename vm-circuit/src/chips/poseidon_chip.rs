@@ -1,9 +1,9 @@
 // Copyright (c) zkMove Authors
 
+use fields::FieldExt;
 use halo2_gadgets::poseidon::primitives::{ConstantLength, Spec};
 use halo2_gadgets::poseidon::{Hash, Pow5Chip, Pow5Config};
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{AssignedCell, Layouter},
     plonk::{Advice, Column, ConstraintSystem, Error},
 };
@@ -103,11 +103,11 @@ impl<
 mod tests {
     use super::{PoseidonChip, PoseidonConfig};
     use crypto::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
+    use fields::FieldExt;
     use halo2_gadgets::poseidon::primitives::Spec;
     use halo2_proofs::dev::MockProver;
     use halo2_proofs::halo2curves::pasta::Fp;
     use halo2_proofs::{
-        arithmetic::FieldExt,
         circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
         plonk::{Advice, Circuit, Column, ConstraintSystem, Error},
     };

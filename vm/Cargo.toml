@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
+fields = {path = "../common/fields"}
 vm-circuit = { path = "../vm-circuit" }
 movelang = { path = "../movelang"}
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }

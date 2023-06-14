@@ -1,0 +1,10 @@
+[package]
+name = "fields"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+
+#halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20"}
+ff = "0.13"
+pasta_curves = "0.5"

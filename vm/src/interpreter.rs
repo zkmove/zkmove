@@ -4,7 +4,7 @@ use crate::frame::{ExitStatus, Frame};
 use crate::locals::Locals;
 use crate::stack::{CallStack, EvalStack};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_vm_runtime::loader::Function;

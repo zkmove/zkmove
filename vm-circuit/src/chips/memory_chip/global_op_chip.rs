@@ -4,7 +4,7 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
@@ -104,7 +104,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = GlobalOpCells {
@@ -451,7 +451,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
         }
 
         let (prev_address, prev_sd_index, prev_addr_ext_0, prev_addr_ext_1) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero(), F::zero()),
+            None => (F::ZERO, F::ZERO, F::ZERO, F::ZERO),
             Some(v) => (
                 v.address.0,
                 v.sd_index.0,
@@ -481,7 +481,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             op.address_ext_1.0.delta_invert(prev_addr_ext_1),
         )?;
 
-        let is_empty = if is_empty { F::one() } else { F::zero() };
+        let is_empty = if is_empty { F::ONE } else { F::ZERO };
         self.config
             .cells
             .is_empty

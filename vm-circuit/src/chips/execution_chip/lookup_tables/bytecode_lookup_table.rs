@@ -1,5 +1,6 @@
+use fields::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
 pub struct BytecodeLookupTable {

@@ -1,5 +1,5 @@
 use crate::witness::input_type_elements::InputTypeElement;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
@@ -48,7 +48,7 @@ impl InputTypeElementTable {
                         || format!("input_type_element_table[{}][0]", column_index),
                         column,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                     for (idx, data) in items.iter().enumerate() {
                         region.assign_advice(

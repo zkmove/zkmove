@@ -18,7 +18,7 @@ use crate::account_address::AccountAddress;
 use crate::loader::MoveLoader;
 use crate::value::GlobalValue;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use logger::prelude::*;
 use move_core_types::gas_algebra::NumBytes;
 use move_core_types::language_storage::TypeTag;

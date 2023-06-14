@@ -4,7 +4,8 @@ use crate::chips::execution_chip::step_chip::StepConfig;
 use crate::chips::execution_chip::utils::CellType;
 use crate::chips::utilities::{Cell, Expr};
 
-use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+use fields::FieldExt;
+use halo2_proofs::plonk::Expression;
 
 pub(crate) struct ConstraintBuilder<F: FieldExt> {
     opcode: Opcode,

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
@@ -13,9 +13,9 @@ pub fn convert_to_field<F: FieldExt>(value: MoveValue) -> F {
         U128(u) => F::from_u128(u),
         Bool(b) => {
             if b {
-                F::one()
+                F::ONE
             } else {
-                F::zero()
+                F::ZERO
             }
         }
         _ => unimplemented!(),
@@ -51,7 +51,7 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
 #[cfg(test)]
 mod tests {
     use crate::utility::convert_to_field;
-    use halo2_proofs::arithmetic::FieldExt;
+    use halo2_proofs::halo2curves::ff::PrimeField;
     use halo2_proofs::halo2curves::pasta::Fp;
     use move_core_types::value::MoveValue::{Bool, U128, U64, U8};
 

@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 logger = { path = "../common/logger" }
 error = { path = "../common/error" }
+fields = {path = "../common/fields"}
 move-compiler = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }

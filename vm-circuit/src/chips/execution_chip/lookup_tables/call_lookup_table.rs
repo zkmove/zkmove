@@ -1,8 +1,9 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::function_calls::FunctionCall;
+use fields::FieldExt;
 use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Error, Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
 pub struct CallLookupTable {

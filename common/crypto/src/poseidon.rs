@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::Result;
-use halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Spec};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
+use halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Mds, Spec};
 use std::marker::PhantomData;
 
 /// The same Poseidon specification as poseidon::P128Pow5T3
@@ -30,6 +30,11 @@ impl<F: FieldExt, const SECURE_MDS: usize> Spec<F, 3, 2> for SmtP128Pow5T3<F, SE
 
     fn secure_mds() -> usize {
         SECURE_MDS
+    }
+
+    fn constants() -> (Vec<[F; 3]>, Mds<F, 3>, Mds<F, 3>) {
+        // FIXME
+        todo!()
     }
 }
 
@@ -79,7 +84,7 @@ mod tests {
     // use crate::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
     // use halo2_gadgets::poseidon::primitives::{permute, Spec};
     // use halo2_gadgets::poseidon::primitives::Spec;
-    // use halo2_proofs::arithmetic::FieldExt;
+    // use fields::FieldExt;
     // use halo2_proofs::halo2curves::pasta::Fp;
 
     #[test]

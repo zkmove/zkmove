@@ -27,10 +27,10 @@ use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
+use fields::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
@@ -362,7 +362,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         || format!("rw_table[{}][0]", column_idx),
                         column,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
 
                     // assign stack operations

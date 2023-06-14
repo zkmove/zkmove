@@ -9,7 +9,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::circuit::Region;
@@ -688,7 +688,7 @@ impl<F: FieldExt> Word<F> {
         for (i, _) in cells.word.iter().enumerate().take(word_element_num) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
-            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
@@ -702,9 +702,9 @@ impl<F: FieldExt> Word<F> {
         }
 
         for (i, _) in cells.word.iter().enumerate().skip(word_element_num) {
-            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ONE))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::ZERO))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::ZERO))?;
         }
 
         Ok(())
@@ -724,7 +724,7 @@ impl<F: FieldExt> Word<F> {
         for i in 0..word_element_num {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
-            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
@@ -740,9 +740,9 @@ impl<F: FieldExt> Word<F> {
         debug_assert!(word_element_num <= capacity);
 
         for i in word_element_num..capacity {
-            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ONE))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::ZERO))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::ZERO))?;
         }
 
         Ok(())
@@ -760,10 +760,10 @@ impl<F: FieldExt> Word<F> {
         word_element_num: usize,
     ) -> Result<(), Error> {
         // leave word[0] empty
-        cells.word_mask[0].assign(region, offset, Some(F::one()))?;
-        cells.word_addr_ext_0[0].assign(region, offset, Some(F::zero()))?;
-        cells.word_addr_ext_1[0].assign(region, offset, Some(F::zero()))?;
-        word_address[0].assign(region, offset, Some(F::zero()))?;
+        cells.word_mask[0].assign(region, offset, Some(F::ONE))?;
+        cells.word_addr_ext_0[0].assign(region, offset, Some(F::ZERO))?;
+        cells.word_addr_ext_1[0].assign(region, offset, Some(F::ZERO))?;
+        word_address[0].assign(region, offset, Some(F::ZERO))?;
 
         for (i, item) in word_address
             .iter()
@@ -776,7 +776,7 @@ impl<F: FieldExt> Word<F> {
                 .get(op_index + i - 1)
                 .ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
-            cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext_0[i].assign(
                 region,
                 offset,
@@ -791,10 +791,10 @@ impl<F: FieldExt> Word<F> {
         }
 
         for (i, item) in word_address.iter().enumerate().skip(word_element_num + 1) {
-            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-            item.assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ONE))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::ZERO))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::ZERO))?;
+            item.assign(region, offset, Some(F::ZERO))?;
         }
 
         Ok(())
@@ -818,7 +818,7 @@ impl<F: FieldExt> Word<F> {
         while i < word_element_num {
             if op.rw() == filter {
                 cells.word[i].assign(region, offset, op.value().value())?;
-                cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
+                cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
                 cells.word_addr_ext_0[i].assign(
                     region,
                     offset,
@@ -839,10 +839,10 @@ impl<F: FieldExt> Word<F> {
         }
 
         for (i, item) in word_address.iter().enumerate().skip(word_element_num) {
-            cells.word_mask[i].assign(region, offset, Some(F::one()))?;
-            cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
-            item.assign(region, offset, Some(F::zero()))?;
+            cells.word_mask[i].assign(region, offset, Some(F::ONE))?;
+            cells.word_addr_ext_0[i].assign(region, offset, Some(F::ZERO))?;
+            cells.word_addr_ext_1[i].assign(region, offset, Some(F::ZERO))?;
+            item.assign(region, offset, Some(F::ZERO))?;
         }
 
         Ok(())
@@ -860,11 +860,11 @@ impl<F: FieldExt> Word<F> {
         for i in 0..word_element_num.min(LEN_OF_REFERENCE_VALUE) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.ref_val[i].assign(region, offset, op.value().value())?;
-            cells.ref_val_mask[i].assign(region, offset, Some(F::zero()))?;
+            cells.ref_val_mask[i].assign(region, offset, Some(F::ZERO))?;
         }
 
         for i in word_element_num..LEN_OF_REFERENCE_VALUE {
-            cells.ref_val_mask[i].assign(region, offset, Some(F::one()))?;
+            cells.ref_val_mask[i].assign(region, offset, Some(F::ONE))?;
         }
 
         Ok(())
@@ -905,7 +905,7 @@ impl<F: FieldExt> AddrExt<F> {
         n: Expression<F>,
         total_len: Expression<F>,
     ) {
-        let one = Expression::Constant(F::one());
+        let one = Expression::Constant(F::ONE);
 
         // every entry is 0 or 1 for mask_a
         let zero_or_one = mask_a
@@ -959,17 +959,17 @@ impl<F: FieldExt> AddrExt<F> {
     ) -> Result<(), Error> {
         // assign bytes mask
         for (_i, item) in mask_a.iter().enumerate().take(n) {
-            item.assign(region, offset, Some(F::zero()))?;
+            item.assign(region, offset, Some(F::ZERO))?;
         }
         for (_i, item) in mask_a.iter().enumerate().skip(n) {
-            item.assign(region, offset, Some(F::one()))?;
+            item.assign(region, offset, Some(F::ONE))?;
         }
 
         for (_i, item) in mask_b.iter().enumerate().take(n + 1) {
-            item.assign(region, offset, Some(F::zero()))?;
+            item.assign(region, offset, Some(F::ZERO))?;
         }
         for (_i, item) in mask_b.iter().enumerate().skip(n + 1) {
-            item.assign(region, offset, Some(F::one()))?;
+            item.assign(region, offset, Some(F::ONE))?;
         }
 
         Ok(())

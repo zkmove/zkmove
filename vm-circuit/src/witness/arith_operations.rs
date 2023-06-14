@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{

@@ -4,7 +4,7 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
@@ -111,7 +111,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = LocalsOpCells {
@@ -555,7 +555,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
         }
 
         let (prev_frame_index, prev_index, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero(), F::zero()),
+            None => (F::ZERO, F::ZERO, F::ZERO, F::ZERO),
             Some(v) => (
                 v.frame_index.0,
                 v.address.0,
@@ -584,7 +584,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             op.address_ext_1.0.delta_invert(pre_addr_ext_1),
         )?;
 
-        let is_empty = if is_empty { F::one() } else { F::zero() };
+        let is_empty = if is_empty { F::ONE } else { F::ZERO };
         self.config
             .cells
             .is_empty

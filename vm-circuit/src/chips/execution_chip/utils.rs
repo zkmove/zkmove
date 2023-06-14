@@ -1,10 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
-};
+use fields::FieldExt;
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells};
 use std::hash::Hash;
 
 pub mod base_constaint_builder;

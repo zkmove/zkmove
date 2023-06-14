@@ -69,11 +69,11 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
+use fields::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value};
 use halo2_proofs::plonk::Constraints;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
@@ -577,13 +577,13 @@ impl<F: FieldExt> ExecutionChip<F> {
                     || "step height",
                     self.config.num_rows_until_next_step,
                     offset + 1,
-                    || Value::known(F::zero()),
+                    || Value::known(F::ZERO),
                 )?;
                 region.assign_advice(
                     || "step height inv",
                     self.config.num_rows_inv,
                     offset + 1,
-                    || Value::known(F::zero()),
+                    || Value::known(F::ZERO),
                 )?;
 
                 Ok(last_step_gc_cell)
@@ -620,10 +620,10 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step selector",
                 self.config.s_step,
                 offset + idx,
-                || Value::known(if idx == 0 { F::one() } else { F::zero() }),
+                || Value::known(if idx == 0 { F::ONE } else { F::ZERO }),
             )?;
             let num_rows_until_next_step = if idx == 0 {
-                F::zero()
+                F::ZERO
             } else {
                 F::from((height - idx) as u64)
             };
@@ -637,7 +637,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step height inv",
                 self.config.num_rows_inv,
                 offset + idx,
-                || Value::known(num_rows_until_next_step.invert().unwrap_or(F::zero())),
+                || Value::known(num_rows_until_next_step.invert().unwrap_or(F::ZERO)),
             )?;
         }
         Ok(())

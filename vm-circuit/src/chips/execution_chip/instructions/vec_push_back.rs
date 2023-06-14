@@ -10,7 +10,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::DEPTH_OF_LOCATION_PATH;
@@ -361,7 +361,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // assign the pushed-back value
         let index = step.gc + value_flattened_len + LEN_OF_REFERENCE_VALUE;
         let op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
-        if is_global == F::zero() {
+        if is_global == F::ZERO {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,

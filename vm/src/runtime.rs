@@ -2,7 +2,7 @@
 
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::dev::{MockProver, VerifyFailure};
 use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};

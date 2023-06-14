@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::{Region, Value as CircuitValue};
 use halo2_proofs::plonk::{Error, Expression};
 
@@ -50,12 +50,12 @@ impl<F: FieldExt> IsZeroGadget<F> {
         offset: usize,
         value: F,
     ) -> Result<F, Error> {
-        let inverse = value.invert().unwrap_or(F::zero());
+        let inverse = value.invert().unwrap_or(F::ZERO);
         self.inverse.assign(region, offset, Some(inverse))?;
         Ok(if value.is_zero().into() {
-            F::one()
+            F::ONE
         } else {
-            F::zero()
+            F::ZERO
         })
     }
 

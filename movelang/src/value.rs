@@ -6,7 +6,7 @@ use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
 use crate::word::{ContainerValueWord, Word};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
@@ -111,7 +111,7 @@ impl<F: FieldExt> From<PrimitiveValue<F>> for MoveValue {
             PrimitiveValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
             PrimitiveValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
             PrimitiveValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
-            PrimitiveValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
+            PrimitiveValue::Bool(field) => MoveValue::Bool(field.0 == F::ONE),
             PrimitiveValue::Address(field) => {
                 // FIXME: f -> bytes for address
                 let mut bytes = 0u128.to_be_bytes().to_vec();
@@ -826,7 +826,7 @@ impl<F: FieldExt> From<MoveValue> for PrimitiveValue<F> {
 
 impl<F: FieldExt> PrimitiveValue<F> {
     pub fn bool(x: bool) -> Self {
-        let value = if x { F::one() } else { F::zero() };
+        let value = if x { F::ONE } else { F::ZERO };
         Self::Bool(Bool(value))
     }
     pub fn u8(x: u8) -> Self {
@@ -879,7 +879,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn bool(x: bool) -> Self {
-        let value = if x { F::one() } else { F::zero() };
+        let value = if x { F::ONE } else { F::ZERO };
         Self::Bool(Bool(value))
     }
     pub fn u8(x: u8) -> Self {
@@ -1075,7 +1075,7 @@ impl<F: FieldExt> Not for Value<F> {
     type Output = VmResult<Self>;
 
     fn not(self) -> Self::Output {
-        let value = if self.is_zero() { F::one() } else { F::zero() };
+        let value = if self.is_zero() { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -1222,12 +1222,12 @@ impl<F: FieldExt> Value<F> {
         let value = match (a.value(), b.value()) {
             (Some(a), Some(b)) => {
                 if a == b {
-                    F::one()
+                    F::ONE
                 } else {
-                    F::zero()
+                    F::ZERO
                 }
             }
-            _ => F::zero(),
+            _ => F::ZERO,
         };
 
         let c = Value::new(value, MoveValueType::Bool)?;
@@ -1235,35 +1235,35 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn neq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if !a.equals(&b) { F::one() } else { F::zero() };
+        let value = if !a.equals(&b) { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn lt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let lt = a.less_than(&b)?;
-        let value = if lt { F::one() } else { F::zero() };
+        let value = if lt { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn le(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let le = a.less_equal(&b)?;
-        let value = if le { F::one() } else { F::zero() };
+        let value = if le { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn gt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let gt = a.greater_than(&b)?;
-        let value = if gt { F::one() } else { F::zero() };
+        let value = if gt { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn ge(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let ge = a.greater_equal(&b)?;
-        let value = if ge { F::one() } else { F::zero() };
+        let value = if ge { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -1347,9 +1347,9 @@ impl<F: FieldExt> Value<F> {
 
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() || b.is_zero() {
-            F::zero()
+            F::ZERO
         } else {
-            F::one()
+            F::ONE
         };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
@@ -1357,9 +1357,9 @@ impl<F: FieldExt> Value<F> {
 
     pub fn or(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() && b.is_zero() {
-            F::zero()
+            F::ZERO
         } else {
-            F::one()
+            F::ONE
         };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
@@ -1367,7 +1367,7 @@ impl<F: FieldExt> Value<F> {
 
     pub fn delta_invert(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let delta_invert = if a.value() == b.value() {
-            F::one()
+            F::ONE
         } else {
             let delta = a.value().unwrap() - b.value().unwrap();
             delta.invert().unwrap()
@@ -1381,7 +1381,7 @@ impl<F: FieldExt> Value<F> {
         let lhs = a.value().unwrap();
         let rhs = b.value().unwrap();
         let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
-        let range_or_zero = if lhs < rhs { range } else { F::zero() };
+        let range_or_zero = if lhs < rhs { range } else { F::ZERO };
         let diff = (lhs - rhs) + range_or_zero;
         let value = Value::new(diff, a.ty())?;
         Ok(value)

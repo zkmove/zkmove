@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
 use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
@@ -97,7 +97,7 @@ impl<F: FieldExt> From<Vec<Cell<F>>> for FieldBytes<F> {
 impl<F: FieldExt> Expr<F> for FieldBytes<F> {
     fn expr(&self) -> Expression<F> {
         let mut value = 0.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter() {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(256);
@@ -109,7 +109,7 @@ impl<F: FieldExt> Expr<F> for FieldBytes<F> {
 impl<F: FieldExt> FieldBytes<F> {
     pub fn expr_with_n(&self, num: usize) -> Expression<F> {
         let mut value = 0.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(256);
@@ -119,7 +119,7 @@ impl<F: FieldExt> FieldBytes<F> {
 
     pub fn expr_16bit(&self, num: usize) -> Expression<F> {
         let mut value = 0.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(1 << 16);
@@ -135,7 +135,7 @@ pub(crate) trait SubInvert<F: FieldExt> {
 impl<F: FieldExt> SubInvert<F> for usize {
     fn sub_invert(&self, other: usize) -> Option<F> {
         if *self == other {
-            Some(F::one())
+            Some(F::ONE)
         } else {
             let delta = F::from_u128(*self as u128) - F::from_u128(other as u128);
             delta.invert().into()
@@ -149,7 +149,7 @@ pub(crate) trait DeltaInvert<F: FieldExt> {
 impl<F: FieldExt> DeltaInvert<F> for F {
     fn delta_invert(&self, other: F) -> Option<F> {
         if *self == other {
-            Some(F::one())
+            Some(F::ONE)
         } else {
             let delta = *self - other;
             delta.invert().into()

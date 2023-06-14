@@ -2,8 +2,8 @@
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
+use fields::FieldExt;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };

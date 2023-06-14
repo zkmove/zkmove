@@ -1,7 +1,7 @@
 // Copyright (c) The Move Contributors
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 
 #[derive(Default, Clone, Copy, Ord, PartialOrd, PartialEq, Eq, Debug)]

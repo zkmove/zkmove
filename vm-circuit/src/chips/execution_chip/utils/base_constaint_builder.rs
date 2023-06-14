@@ -1,5 +1,5 @@
 use crate::chips::utilities::Expr;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::plonk::Expression;
 
 #[derive(Default)]

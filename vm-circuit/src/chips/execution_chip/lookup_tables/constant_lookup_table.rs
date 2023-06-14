@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::const_table::ConstantInfo;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
 use movelang::value::PrimitiveValue;

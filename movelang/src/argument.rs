@@ -2,7 +2,7 @@
 
 use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use move_binary_format::normalized::Type;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::parser::parse_transaction_arguments;
@@ -61,7 +61,7 @@ pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
         ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U128(v) => Ok(F::from_u128(v)),
-        ScriptArgument::Bool(v) => Ok(if v { F::one() } else { F::zero() }),
+        ScriptArgument::Bool(v) => Ok(if v { F::ONE } else { F::ZERO }),
         ScriptArgument::Address(v) => Ok(AccountAddress::from(v).value()),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
     }

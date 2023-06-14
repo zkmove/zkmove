@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use std::iter;
@@ -85,16 +85,12 @@ impl<F: FieldExt> DynamicSelectorHalf<F> {
         let odd = target % 2 == 1;
         let pair_index = target / 2;
         self.target_odd
-            .assign(region, offset, Some(if odd { F::one() } else { F::zero() }))?;
+            .assign(region, offset, Some(if odd { F::ONE } else { F::ZERO }))?;
         for (index, cell) in self.target_pairs.iter().enumerate() {
             cell.assign(
                 region,
                 offset,
-                Some(if index == pair_index {
-                    F::one()
-                } else {
-                    F::zero()
-                }),
+                Some(if index == pair_index { F::ONE } else { F::ZERO }),
             )?;
         }
         Ok(())

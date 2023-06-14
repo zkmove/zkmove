@@ -3,13 +3,13 @@
 use crate::chips::memory_chip::global_op_chip::{GlobalOpChip, GlobalOpChipConfig};
 use crate::witness::rw_operations::{ConvertedRWOperation, RWOperation};
 use crate::witness::{CircuitConfig, Witness};
+use fields::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
@@ -162,7 +162,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_stack",
                         self.config.advices[0],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -182,7 +182,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_locals",
                         self.config.advices[1],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -202,7 +202,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_global",
                         self.config.advices[2],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -235,7 +235,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "gc_table[0]".to_string(),
                         self.config.gc_table,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 } else {
                     (0..=last_step_gc)

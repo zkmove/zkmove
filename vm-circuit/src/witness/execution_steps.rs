@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::opcode::Opcode;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use movelang::value::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

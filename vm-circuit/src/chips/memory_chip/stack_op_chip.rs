@@ -4,7 +4,7 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
@@ -106,7 +106,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = StackOpCells {
@@ -453,7 +453,7 @@ impl<F: FieldExt> StackOpChip<F> {
         //     self.config
         //         .cells
         //         .is_empty
-        //         .assign(region, offset, Some(F::one()))?;
+        //         .assign(region, offset, Some(F::ONE))?;
         // } else
         {
             self.config.cells.gc.assign_equality(
@@ -517,7 +517,7 @@ impl<F: FieldExt> StackOpChip<F> {
             )?;
 
             let (prev_address, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
-                None => (F::zero(), F::zero(), F::zero()),
+                None => (F::ZERO, F::ZERO, F::ZERO),
                 Some(v) => (v.address.0, v.address_ext_0.0, v.address_ext_1.0),
             };
             self.config.cells.delta_invert_address.assign(
@@ -539,7 +539,7 @@ impl<F: FieldExt> StackOpChip<F> {
             self.config.cells.is_empty.assign(
                 region,
                 offset,
-                Some(if is_empty { F::one() } else { F::zero() }),
+                Some(if is_empty { F::ONE } else { F::ZERO }),
             )?;
         }
 

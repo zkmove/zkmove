@@ -11,7 +11,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::is_zero::IsZeroGadget;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::{GenericTypeData, MaterializedTypeInfo};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
@@ -123,9 +123,9 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             let ty_mask = &cells.ty_mask;
 
             let mask_value = if i < data.generic_types.len() {
-                F::zero()
+                F::ZERO
             } else {
-                F::one()
+                F::ONE
             };
             ty_mask.assign(region, offset, Some(mask_value))?;
 
@@ -135,7 +135,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             inst_ty_pos_max_inverse.assign(
                 region,
                 offset,
-                Some(pos_max.invert().unwrap_or(F::zero())),
+                Some(pos_max.invert().unwrap_or(F::ZERO)),
             )?;
             referred_param_index.assign(
                 region,

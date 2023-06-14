@@ -4,7 +4,7 @@ use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
     Location, PrimitiveValue, Reference, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
 };
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::plonk::Expression;
 use std::convert::{From, TryFrom, TryInto};
 use std::marker::PhantomData;

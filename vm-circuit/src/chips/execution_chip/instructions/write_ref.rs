@@ -10,7 +10,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
@@ -215,7 +215,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             .auxiliary_5
             .assign(region, offset, is_global.value())?;
 
-        if is_global.value() == Some(F::zero()) {
+        if is_global.value() == Some(F::ZERO) {
             // assign the frame_index of the frame we refer to
             let aux_value = step.auxiliary_2.as_ref().ok_or_else(|| {
                 error!("auxiliary_2 is None");

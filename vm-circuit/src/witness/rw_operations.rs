@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use movelang::account_address::AccountAddress;
 use movelang::value::{PrimitiveValue, Value};
@@ -157,7 +157,7 @@ impl<F: FieldExt> Ord for LocalsOp<F> {
 impl<F: FieldExt> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &LocalsOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
         ConvertedRWOperation {
@@ -224,7 +224,7 @@ impl<F: FieldExt> Ord for StackOp<F> {
 impl<F: FieldExt> From<&StackOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &StackOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
         ConvertedRWOperation {
@@ -295,7 +295,7 @@ impl<F: FieldExt> Ord for GlobalOp<F> {
 impl<F: FieldExt> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &GlobalOp<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
-            None => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
             Some(v) => v.value(),
         };
         ConvertedRWOperation {
@@ -418,7 +418,7 @@ impl<F: FieldExt> RWOperation<F> {
 impl<F: FieldExt> From<&RWOperation<F>> for ConvertedRWOperation<F> {
     fn from(rw_op: &RWOperation<F>) -> ConvertedRWOperation<F> {
         let value = match rw_op.value() {
-            Value::Invalid => Some(F::zero()), // todo: how to distinguish with Value::Constant(0)
+            Value::Invalid => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
             _ => rw_op.value().value(),
         };
 

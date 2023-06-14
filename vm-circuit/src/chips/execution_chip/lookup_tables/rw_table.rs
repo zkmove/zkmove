@@ -1,8 +1,9 @@
 use crate::chips::utilities::Expr;
 use crate::witness::rw_operations::RW;
+use fields::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Advice, Column, Expression, VirtualCells};
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 #[derive(Clone, Debug)]
 pub struct RWTable {

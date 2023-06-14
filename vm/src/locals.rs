@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use movelang::value::{
     AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, PrimitiveValue, Value,
     ValueLocation,

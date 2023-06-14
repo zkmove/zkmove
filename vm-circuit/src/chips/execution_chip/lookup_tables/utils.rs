@@ -1,4 +1,4 @@
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Error, TableColumn};
 
@@ -16,7 +16,7 @@ pub(crate) fn assign_table<F: FieldExt>(
                     || format!("{:?}[{}][0]", table_name, column_idx),
                     column,
                     0,
-                    || Value::known(F::zero()),
+                    || Value::known(F::ZERO),
                 )?;
                 (0..values.len())
                     .map(|i| {

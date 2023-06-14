@@ -10,7 +10,7 @@ use crate::witness::function_calls::FunctionCall;
 use crate::witness::input_type_elements::InputTypeElementTableData;
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use std::fmt;
 
 pub mod arith_operations;

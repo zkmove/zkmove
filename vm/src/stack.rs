@@ -2,7 +2,7 @@
 
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
+use fields::FieldExt;
 use movelang::account_address::AccountAddress;
 use movelang::value::{
     Container, ContainerValue, LocatedValue, Reference, StackLocation, Value, ValueLocation,
