@@ -10,10 +10,55 @@ pub(crate) struct ConstraintBuilder<F: FieldExt> {
     opcode: Opcode,
     pub(crate) curr: StepConfig<F>,
     pub(crate) next: StepConfig<F>,
-    constraints: Vec<(&'static str, Expression<F>)>,
+    constraints: Vec<(&'static str, ConditionalExpression<F>)>,
     conditions: Vec<Expression<F>>,
-    lookups: Vec<(&'static str, Lookup<F>)>,
+    lookups: Vec<(&'static str, ConditionalLookup<F>)>,
     in_next_step: bool,
+}
+
+pub struct ConditionalConstraint<F, T> {
+    conds: Vec<Expression<F>>,
+    expr: T,
+}
+
+impl<F, T> ConditionalConstraint<F, T> {
+    pub fn new(constraint: T) -> Self {
+        Self::with_conditions(vec![], constraint)
+    }
+    pub fn with_conditions(conds: Vec<Expression<F>>, constraint: T) -> Self {
+        Self {
+            conds,
+            expr: constraint,
+        }
+    }
+
+    pub fn add_conditions(&mut self, mut conds: Vec<Expression<F>>) {
+        self.conds.append(&mut conds);
+    }
+}
+
+impl<F, T> From<ConditionalConstraint<F, T>> for (Vec<Expression<F>>, T) {
+    fn from(c: ConditionalConstraint<F, T>) -> Self {
+        (c.conds, c.expr)
+    }
+}
+
+impl<F, T> AsRef<T> for ConditionalConstraint<F, T> {
+    fn as_ref(&self) -> &T {
+        &self.expr
+    }
+}
+
+pub type ConditionalExpression<F> = ConditionalConstraint<F, Expression<F>>;
+pub type ConditionalLookup<F> = ConditionalConstraint<F, Lookup<F>>;
+
+impl<F: FieldExt> Expr<F> for ConditionalExpression<F> {
+    fn expr(&self) -> Expression<F> {
+        match mul_exprs(&self.conds) {
+            Some(c) => c * self.expr.clone(),
+            None => self.expr.clone(),
+        }
+    }
 }
 
 impl<F: FieldExt> ConstraintBuilder<F> {
@@ -33,8 +78,8 @@ impl<F: FieldExt> ConstraintBuilder<F> {
     pub(crate) fn build(
         self,
     ) -> (
-        Vec<(&'static str, Expression<F>)>,
-        Vec<(&'static str, Lookup<F>)>,
+        Vec<(&'static str, ConditionalExpression<F>)>,
+        Vec<(&'static str, ConditionalLookup<F>)>,
         usize,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
@@ -42,11 +87,17 @@ impl<F: FieldExt> ConstraintBuilder<F> {
         (
             self.constraints
                 .into_iter()
-                .map(|(name, constraint)| (name, op_sel.clone() * constraint))
+                .map(|(name, mut constraint)| {
+                    constraint.add_conditions(vec![op_sel.clone()]);
+                    (name, constraint)
+                })
                 .collect(),
             self.lookups
                 .into_iter()
-                .map(|(name, lookup)| (name, Lookup::Conditional(op_sel.clone(), Box::new(lookup))))
+                .map(|(name, mut lookup)| {
+                    lookup.add_conditions(vec![op_sel.clone()]);
+                    (name, lookup)
+                })
                 .collect(),
             self.curr.cell_manager.get_height(),
         )
@@ -78,10 +129,7 @@ impl<F: FieldExt> ConstraintBuilder<F> {
 
     pub(crate) fn add_lookup<L: Into<Lookup<F>>>(&mut self, name: &'static str, lookup: L) {
         let lookup = lookup.into();
-        let lookup = match self.condition_expr_opt() {
-            Some(c) => Lookup::Conditional(c, Box::new(lookup)),
-            None => lookup,
-        };
+        let lookup = ConditionalLookup::with_conditions(self.conditions.clone(), lookup);
         self.lookups.push((name, lookup))
     }
 
@@ -105,13 +153,22 @@ impl<F: FieldExt> ConstraintBuilder<F> {
     }
 
     pub(crate) fn add_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
-        self.push_constraint(name, constraint * self.condition_expr());
+        self.push_constraint(name, self.conditions.clone(), constraint);
     }
 
-    fn push_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
-        self.constraints.push((name, constraint));
+    fn push_constraint(
+        &mut self,
+        name: &'static str,
+        conds: Vec<Expression<F>>,
+        constraint: Expression<F>,
+    ) {
+        self.constraints.push((
+            name,
+            ConditionalExpression::with_conditions(conds, constraint),
+        ));
     }
 
+    #[allow(dead_code)]
     fn condition_expr_opt(&self) -> Option<Expression<F>> {
         let mut iter = self.conditions.iter();
         let first = match iter.next() {
@@ -120,10 +177,32 @@ impl<F: FieldExt> ConstraintBuilder<F> {
         };
         Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
     }
-    fn condition_expr(&self) -> Expression<F> {
-        match self.condition_expr_opt() {
-            Some(condition) => condition,
-            None => 1.expr(),
-        }
-    }
 }
+
+pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+    let mut iter = iter.as_ref().iter();
+    let first = match iter.next() {
+        Some(e) => e,
+        None => return None,
+    };
+    Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
+}
+
+// pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+//     //let mut iter = self.conditions.iter();
+//     let iter = iter.as_ref();
+//     if iter.is_empty() {
+//         None
+//     } else if iter.len() == 1 {
+//         Some(iter[0].clone())
+//     } else {
+//         let (left, right) = iter.split_at(iter.len() / 2);
+//
+//         Some(match (mul_exprs(left), mul_exprs(right)) {
+//             (Some(l), Some(r)) => l * r,
+//             (Some(l), None) => l,
+//             (None, Some(r)) => r,
+//             _ => unreachable!(),
+//         })
+//     }
+// }
