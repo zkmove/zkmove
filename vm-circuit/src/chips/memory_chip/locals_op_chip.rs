@@ -14,15 +14,14 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const LOCALS_OP_CHIP_WIDTH: usize = 13;
+pub const LOCALS_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct LocalsOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of locals operations
     pub frame_index: Cell<F>,
     pub index: Cell<F>,
-    pub addr_ext_0: Cell<F>,
-    pub addr_ext_1: Cell<F>,
+    pub addr_ext: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -31,14 +30,12 @@ pub struct LocalsOpCells<F: FieldExt> {
     // increment of gc for the same locals
     pub delta_invert_frame_index: Cell<F>,
     pub delta_invert_idx: Cell<F>,
-    pub delta_invert_addr_ext_0: Cell<F>,
-    pub delta_invert_addr_ext_1: Cell<F>,
+    pub delta_invert_addr_ext: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_frame_index: Cell<F>,
     pub prev_index: Cell<F>,
-    pub prev_addr_ext_0: Cell<F>,
-    pub prev_addr_ext_1: Cell<F>,
+    pub prev_addr_ext: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -53,8 +50,7 @@ pub struct LocalsOpChipConfig<F: FieldExt> {
     pub s_locals_op: Selector,
     frame_index_table: TableColumn,
     locals_index_table: TableColumn,
-    addr_ext_0_table: TableColumn,
-    addr_ext_1_table: TableColumn,
+    addr_ext_table: TableColumn,
 }
 
 pub struct LocalsOpChip<F: FieldExt> {
@@ -93,8 +89,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
     ) -> <Self as Chip<F>>::Config {
         let frame_index_table = meta.lookup_table_column();
         let locals_index_table = meta.lookup_table_column();
-        let addr_ext_0_table = meta.lookup_table_column();
-        let addr_ext_1_table = meta.lookup_table_column();
+        let addr_ext_table = meta.lookup_table_column();
 
         let mut cells = VecDeque::with_capacity(LOCALS_OP_CHIP_WIDTH * 2);
         meta.create_gate("locals op chip", |meta| {
@@ -105,7 +100,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             }
 
             // previous op, without delta_invert cells
-            for i in 0..(LOCALS_OP_CHIP_WIDTH - 4) {
+            for i in 0..(LOCALS_OP_CHIP_WIDTH - 3) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -118,22 +113,19 @@ impl<F: FieldExt> LocalsOpChip<F> {
             counter: cells.pop_front().unwrap(),
             frame_index: cells.pop_front().unwrap(),
             index: cells.pop_front().unwrap(),
-            addr_ext_0: cells.pop_front().unwrap(),
-            addr_ext_1: cells.pop_front().unwrap(),
+            addr_ext: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             delta_invert_frame_index: cells.pop_front().unwrap(),
             delta_invert_idx: cells.pop_front().unwrap(),
-            delta_invert_addr_ext_0: cells.pop_front().unwrap(),
-            delta_invert_addr_ext_1: cells.pop_front().unwrap(),
+            delta_invert_addr_ext: cells.pop_front().unwrap(),
 
             prev_counter: cells.pop_front().unwrap(),
             prev_frame_index: cells.pop_front().unwrap(),
             prev_index: cells.pop_front().unwrap(),
-            prev_addr_ext_0: cells.pop_front().unwrap(),
-            prev_addr_ext_1: cells.pop_front().unwrap(),
+            prev_addr_ext: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
@@ -149,8 +141,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc_table,
             &frame_index_table,
             &locals_index_table,
-            &addr_ext_0_table,
-            &addr_ext_1_table,
+            &addr_ext_table,
         );
 
         let s_locals_op = meta.complex_selector();
@@ -162,8 +153,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             gc_table,
             &frame_index_table,
             &locals_index_table,
-            &addr_ext_0_table,
-            &addr_ext_1_table,
+            &addr_ext_table,
         );
 
         LocalsOpChipConfig {
@@ -173,8 +163,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             s_locals_op,
             frame_index_table,
             locals_index_table,
-            addr_ext_0_table,
-            addr_ext_1_table,
+            addr_ext_table,
         }
     }
 
@@ -187,15 +176,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
         gc_table: &TableColumn,
         frame_index_table: &TableColumn,
         locals_index_table: &TableColumn,
-        addr_ext_0_table: &TableColumn,
-        addr_ext_1_table: &TableColumn,
+        addr_ext_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
         let mut frame_index_lookups = Vec::new();
         let mut locals_index_lookups = Vec::new();
-        let mut addr_ext_0_lookups = Vec::new();
-        let mut addr_ext_1_lookups = Vec::new();
+        let mut addr_ext_lookups = Vec::new();
         Self::constrain_locals_op(
             cells,
             &mut constraints,
@@ -203,8 +190,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             &mut gc_lookups,
             &mut frame_index_lookups,
             &mut locals_index_lookups,
-            &mut addr_ext_0_lookups,
-            &mut addr_ext_1_lookups,
+            &mut addr_ext_lookups,
         );
 
         meta.create_gate("constrain locals op", |meta| {
@@ -235,17 +221,10 @@ impl<F: FieldExt> LocalsOpChip<F> {
             });
         }
 
-        for lookup in addr_ext_0_lookups {
+        for lookup in addr_ext_lookups {
             meta.lookup("locals address ext_0", |meta| {
                 let selector = meta.query_selector(selector);
-                vec![(selector * lookup, *addr_ext_0_table)]
-            });
-        }
-
-        for lookup in addr_ext_1_lookups {
-            meta.lookup("locals address ext_1", |meta| {
-                let selector = meta.query_selector(selector);
-                vec![(selector * lookup, *addr_ext_1_table)]
+                vec![(selector * lookup, *addr_ext_table)]
             });
         }
     }
@@ -258,9 +237,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
         gc_lookups: &mut Vec<Expression<F>>,
         frame_index_lookups: &mut Vec<Expression<F>>,
         locals_index_lookups: &mut Vec<Expression<F>>,
-        //addr_ext_0_lookups: &mut <Expression<F>>,
-        _addr_ext_0_lookups: &mut [Expression<F>],
-        addr_ext_1_lookups: &mut Vec<Expression<F>>,
+        //addr_ext_lookups: &mut <Expression<F>>,
+        _addr_ext_lookups: &mut [Expression<F>],
     ) {
         constraints.push((
             "is_empty is bool",
@@ -323,22 +301,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     * delt_index.clone()
                     * (delt_index.clone() * cells.delta_invert_idx.expression.clone() - 1.expr()),
             ));
-            let delt_addr_ext_0 =
-                cells.addr_ext_0.expression.clone() - cells.prev_addr_ext_0.expression.clone();
+            let delt_addr_ext =
+                cells.addr_ext.expression.clone() - cells.prev_addr_ext.expression.clone();
             constraints.push((
-                "delt_invert_address_ext_0",
+                "delt_invert_address_ext",
                 cond.clone()
-                    * delt_addr_ext_0.clone()
-                    * (delt_addr_ext_0.clone() * cells.delta_invert_addr_ext_0.expression.clone()
-                        - 1.expr()),
-            ));
-            let delt_addr_ext_1 =
-                cells.addr_ext_1.expression.clone() - cells.prev_addr_ext_1.expression.clone();
-            constraints.push((
-                "delt_invert_address_ext_1",
-                cond.clone()
-                    * delt_addr_ext_1.clone()
-                    * (delt_addr_ext_1.clone() * cells.delta_invert_addr_ext_1.expression.clone()
+                    * delt_addr_ext.clone()
+                    * (delt_addr_ext.clone() * cells.delta_invert_addr_ext.expression.clone()
                         - 1.expr()),
             ));
 
@@ -365,35 +334,17 @@ impl<F: FieldExt> LocalsOpChip<F> {
             ));
             // case C: if frame_index == prev_frame_index  and
             //            index == prev_index and
-            //            addr_ext_0 != prev_addr_ext_0
+            //            addr_ext != prev_addr_ext
             //         then rw == Write
             constraints.push((
-                "addr_ext_0_change",
+                "addr_ext_change",
                 cond.clone()
                     * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
                     * (1.expr()
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
                     * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                    * delt_addr_ext_0.clone(),
-            ));
-            // case D: if frame_index == prev_frame_index  and
-            //            index == prev_index and
-            //            addr_ext_0 == prev_addr_ext_0
-            //            addr_ext_1 != prev_addr_ext_1
-            //         then rw == Write
-            constraints.push((
-                "addr_ext_1_change",
-                cond.clone()
-                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * (1.expr()
-                        - delt_frame_index.clone()
-                            * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0.clone()
-                            * cells.delta_invert_addr_ext_0.expression.clone())
-                    * delt_addr_ext_1.clone(),
+                    * delt_addr_ext.clone(),
             ));
 
             // for ops with same address, gc must be great than prev_gc
@@ -404,12 +355,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
                     * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0.clone()
-                            * cells.delta_invert_addr_ext_0.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_1.clone()
-                            * cells.delta_invert_addr_ext_1.expression.clone())
+                    * (1.expr() - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -418,44 +364,30 @@ impl<F: FieldExt> LocalsOpChip<F> {
             frame_index_lookups.push(cond.clone() * cells.frame_index.expression.clone());
             // index must be less than max_locals_size
             locals_index_lookups.push(cond.clone() * cells.index.expression.clone());
-            // address_ext_0 must be less than max_locals_size
+            // address_ext must be less than max_locals_size
             // TODO. address extend validation
-            // addr_ext_0_lookups.push(cond.clone() * cells.addr_ext_0.expression.clone());
-            // addr_ext_1 must be less than max_locals_size
-            addr_ext_1_lookups.push(cond.clone() * cells.addr_ext_1.expression.clone());
+            // addr_ext_lookups.push(cond.clone() * cells.addr_ext.expression.clone());
 
             // address monotonic increment
             // Case A: frame_index must be great than or equal to prev_frame_index
             frame_index_lookups.push(cond.clone() * delt_frame_index.clone());
             // Case B: if same frame_index, index must be great than or equal to prev_index
             locals_index_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_frame_index.clone()
-                            * cells.delta_invert_frame_index.expression.clone())
-                    * delt_index.clone(),
+                cond * (1.expr()
+                    - delt_frame_index * cells.delta_invert_frame_index.expression.clone())
+                    * delt_index,
             );
             // Case C: if same frame_index/index,
-            //         addr_ext_0 must be great than or equal to prev_addr_ext_0
+            //         addr_ext must be great than or equal to prev_addr_ext
             // TODO. address extend validation
-            // addr_ext_0_lookups.push(
+            // addr_ext_lookups.push(
             //     cond.clone()
             //         * (1.expr()
             //             - delt_frame_index.clone()
             //                 * cells.delta_invert_frame_index.expression.clone())
             //         * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-            //         * delt_addr_ext_0.clone(),
+            //         * delt_addr_ext.clone(),
             // );
-            // Case D: if same frame_index/index/addr_ext_0,
-            //         addr_ext_1 must be great than or equal to prev_addr_ext_1
-            addr_ext_1_lookups.push(
-                cond * (1.expr()
-                    - delt_frame_index * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index * cells.delta_invert_idx.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
-                    * delt_addr_ext_1,
-            );
 
             // empty op
             constraints.push((
@@ -523,24 +455,14 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 "index",
             )?;
 
-            self.config.cells.addr_ext_0.assign_equality(
+            self.config.cells.addr_ext.assign_equality(
                 region,
                 offset,
-                op.address_ext_0.1.clone().ok_or_else(|| {
-                    error!("address_ext_0 assigned cell is None");
+                op.address_ext.1.clone().ok_or_else(|| {
+                    error!("address_ext assigned cell is None");
                     Error::Synthesis
                 })?,
-                "address_ext_0",
-            )?;
-
-            self.config.cells.addr_ext_1.assign_equality(
-                region,
-                offset,
-                op.address_ext_1.1.clone().ok_or_else(|| {
-                    error!("address_ext_1 assigned cell is None");
-                    Error::Synthesis
-                })?,
-                "address_ext_1",
+                "address_ext",
             )?;
 
             self.config.cells.value.assign_equality(
@@ -554,14 +476,9 @@ impl<F: FieldExt> LocalsOpChip<F> {
             )?;
         }
 
-        let (prev_frame_index, prev_index, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero(), F::zero()),
-            Some(v) => (
-                v.frame_index.0,
-                v.address.0,
-                v.address_ext_0.0,
-                v.address_ext_1.0,
-            ),
+        let (prev_frame_index, prev_index, prev_addr_ext) = match prev_op {
+            None => (F::zero(), F::zero(), F::zero()),
+            Some(v) => (v.frame_index.0, v.address.0, v.address_ext.0),
         };
         self.config.cells.delta_invert_frame_index.assign(
             region,
@@ -573,15 +490,10 @@ impl<F: FieldExt> LocalsOpChip<F> {
             offset,
             op.address.0.delta_invert(prev_index),
         )?;
-        self.config.cells.delta_invert_addr_ext_0.assign(
+        self.config.cells.delta_invert_addr_ext.assign(
             region,
             offset,
-            op.address_ext_0.0.delta_invert(prev_addr_ext_0),
-        )?;
-        self.config.cells.delta_invert_addr_ext_1.assign(
-            region,
-            offset,
-            op.address_ext_1.0.delta_invert(pre_addr_ext_1),
+            op.address_ext.0.delta_invert(prev_addr_ext),
         )?;
 
         let is_empty = if is_empty { F::one() } else { F::zero() };
@@ -698,14 +610,8 @@ impl<F: FieldExt> LocalsOpChip<F> {
         )?;
         self.assign_index_table(
             layouter,
-            "addr_ext_0_table",
-            self.config.addr_ext_0_table,
-            circuit_config.word_size,
-        )?;
-        self.assign_index_table(
-            layouter,
-            "addr_ext_1_table",
-            self.config.addr_ext_1_table,
+            "addr_ext_table",
+            self.config.addr_ext_table,
             circuit_config.word_size,
         )?;
 

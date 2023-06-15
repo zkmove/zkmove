@@ -71,7 +71,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -81,7 +80,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 self.index.expression.clone(),
             ),
         );
@@ -95,7 +93,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                         cells.gc.expression.clone() + 2.expr() + (i as u64).expr(),
                         cells.stack_size.expression.clone() - 1.expr(),
                         (i as u64).expr(),
-                        0.expr(),
                         item.expression.clone(),
                     ),
                 );
@@ -115,7 +112,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                                 + (i as u64).expr(),
                             cells.stack_size.expression.clone() - 2.expr(),
                             (i as u64).expr(),
-                            0.expr(),
                             item.expression.clone(),
                         ),
                     );

@@ -23,8 +23,7 @@ use logger::prelude::*;
 pub struct Call<const GENERIC: bool, F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
+    word_a_addr_ext: Vec<Cell<F>>,
     word_address: Vec<Cell<F>>,
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -69,8 +68,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
                     RWLookup::stack_pop(
                         cells.gc.expression.clone() + (i as u64).expr(),
                         self.word_address[i].expression.clone() + offset.clone() + 1.expr(),
-                        self.word_a_addr_ext_0[i].expression.clone(),
-                        self.word_a_addr_ext_1[i].expression.clone(),
+                        self.word_a_addr_ext[i].expression.clone(),
                         item.expression.clone(),
                     ),
                 );
@@ -84,8 +82,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
                         rw: (RW::WRITE as u64).expr(),
                         frame_index: cells.frame_index.expression.clone() + 1.expr(), // frame_index increase for callee
                         address: self.word_address[i].expression.clone(),
-                        address_ext_0: self.word_a_addr_ext_0[i].expression.clone(),
-                        address_ext_1: self.word_a_addr_ext_1[i].expression.clone(),
+                        address_ext: self.word_a_addr_ext[i].expression.clone(),
                         value: item.expression.clone(),
                         sd_index: 0.expr(),
                     },
@@ -145,8 +142,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         let word = Word {
             word: self.word_a.clone(),
             word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+            word_addr_ext: self.word_a_addr_ext.clone(),
         };
         Word::assign_word_with_address_and_filter(
             region,
@@ -187,8 +183,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         // alloc cell
         let word_a = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
         let word_a_mask = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
+        let word_a_addr_ext = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
         let word_address = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
 
         let type_cells = if GENERIC {
@@ -213,8 +208,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         Self {
             word_a,
             word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
+            word_a_addr_ext,
             word_address,
             type_cells,
         }

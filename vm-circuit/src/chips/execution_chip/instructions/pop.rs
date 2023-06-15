@@ -18,8 +18,7 @@ use halo2_proofs::plonk::Error;
 pub struct Pop<F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
+    word_a_addr_ext: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
@@ -57,8 +56,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
                     RWLookup::stack_pop(
                         cells.gc.expression.clone() + (i as u64).expr(),
                         cells.stack_size.expression.clone(),
-                        self.word_a_addr_ext_0[i].expression.clone(),
-                        self.word_a_addr_ext_1[i].expression.clone(),
+                        self.word_a_addr_ext[i].expression.clone(),
                         self.word_a[i].expression.clone(),
                     ),
                 );
@@ -81,8 +79,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
         let word = Word {
             word: self.word_a.clone(),
             word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+            word_addr_ext: self.word_a_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -102,14 +99,12 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
         // alloc cell
         let word_a = cb.alloc_n_cells(word_cap);
         let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext = cb.alloc_n_cells(word_cap);
 
         Self {
             word_a,
             word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
+            word_a_addr_ext,
         }
     }
 }

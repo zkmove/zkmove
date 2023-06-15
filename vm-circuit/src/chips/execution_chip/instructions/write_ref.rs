@@ -21,12 +21,10 @@ use movelang::word::LEN_OF_REFERENCE_VALUE;
 pub struct WriteRef<F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
+    word_a_addr_ext: Vec<Cell<F>>,
     word_b: Vec<Cell<F>>,
     word_b_mask: Vec<Cell<F>>,
-    word_b_addr_ext_0: Vec<Cell<F>>,
-    word_b_addr_ext_1: Vec<Cell<F>>,
+    word_b_addr_ext: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 }
@@ -72,7 +70,6 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     (i as u64).expr(),
-                    0.expr(),
                     item.expression.clone(),
                 ),
             );
@@ -87,8 +84,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                         + (LEN_OF_REFERENCE_VALUE as u64).expr()
                         + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
-                    self.word_a_addr_ext_0[i].expression.clone(),
-                    self.word_a_addr_ext_1[i].expression.clone(),
+                    self.word_a_addr_ext[i].expression.clone(),
                     item.expression.clone(),
                 );
                 cb.add_lookup("write_ref(stack pop 1)", read);
@@ -104,8 +100,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                             + (i as u64).expr(),
                         cells.auxiliary_2.expression.clone(),
                         cells.locals_index.expression.clone(),
-                        self.word_b_addr_ext_0[i].expression.clone(),
-                        self.word_b_addr_ext_1[i].expression.clone(),
+                        self.word_b_addr_ext[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("write_ref(locals write)", write);
@@ -119,8 +114,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                         cells.auxiliary_2.expression.clone(), //address
                         self.word_b[i].expression.clone(),
                         cells.auxiliary_4.expression.clone(), //sd_index
-                        self.word_b_addr_ext_0[i].expression.clone(),
-                        self.word_b_addr_ext_1[i].expression.clone(),
+                        self.word_b_addr_ext[i].expression.clone(),
                     );
                     cb.add_lookup("write_ref(global write)", write);
                 });
@@ -144,9 +138,9 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             is_global * (self.ref_val[2].expression.clone() - cells.auxiliary_4.expression.clone());
         cb.add_constraint("write_ref_eq_2", constraint);
 
-        // ref_val[3] equals to addr_ext_0
+        // ref_val[3] equals to addr_ext
         let constraint =
-            self.ref_val[3].expression.clone() - self.word_b_addr_ext_0[0].expression.clone();
+            self.ref_val[3].expression.clone() - self.word_b_addr_ext[0].expression.clone();
         cb.add_constraint("write_ref_eq_3", constraint);
 
         LookupBytecode::lookup_bytecode(cb, cells, Opcode::WriteRef, 0.expr());
@@ -178,8 +172,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         let word_a = Word {
             word: self.word_a.clone(),
             word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
+            word_addr_ext: self.word_a_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -194,8 +187,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         let word_b = Word {
             word: self.word_b.clone(),
             word_mask: self.word_b_mask.clone(),
-            word_addr_ext_0: self.word_b_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_b_addr_ext_1.clone(),
+            word_addr_ext: self.word_b_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -248,12 +240,10 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         // alloc cell
         let word_a = cb.alloc_n_cells(word_cap);
         let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext = cb.alloc_n_cells(word_cap);
         let word_b = cb.alloc_n_cells(word_cap);
         let word_b_mask = cb.alloc_n_cells(word_cap);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext = cb.alloc_n_cells(word_cap);
 
         let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
@@ -261,12 +251,10 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         Self {
             word_a,
             word_a_mask,
-            word_a_addr_ext_0,
-            word_a_addr_ext_1,
+            word_a_addr_ext,
             word_b,
             word_b_mask,
-            word_b_addr_ext_0,
-            word_b_addr_ext_1,
+            word_b_addr_ext,
             ref_val,
             ref_val_mask,
         }

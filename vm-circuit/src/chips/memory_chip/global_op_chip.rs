@@ -13,15 +13,14 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const GLOBAL_OP_CHIP_WIDTH: usize = 13;
+pub const GLOBAL_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct GlobalOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of global rw operations
     pub address: Cell<F>,
     pub sd_index: Cell<F>, // struct definition index
-    pub address_ext_0: Cell<F>,
-    pub address_ext_1: Cell<F>,
+    pub address_ext: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -31,14 +30,12 @@ pub struct GlobalOpCells<F: FieldExt> {
     // increment of gc for the same global address
     pub delta_invert_address: Cell<F>,
     pub delta_invert_sd_index: Cell<F>,
-    pub delta_invert_addr_ext_0: Cell<F>,
-    pub delta_invert_addr_ext_1: Cell<F>,
+    pub delta_invert_addr_ext: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
     pub prev_sd_index: Cell<F>,
-    pub prev_address_ext_0: Cell<F>,
-    pub prev_address_ext_1: Cell<F>,
+    pub prev_address_ext: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -51,8 +48,7 @@ pub struct GlobalOpChipConfig<F: FieldExt> {
     pub cells: GlobalOpCells<F>,
     pub s_first_global_op: Selector,
     pub s_global_op: Selector,
-    addr_ext_0_table: TableColumn,
-    addr_ext_1_table: TableColumn,
+    addr_ext_table: TableColumn,
 }
 
 pub struct GlobalOpChip<F: FieldExt> {
@@ -98,7 +94,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             }
 
             // previous op, without delta_invert cells
-            for i in 0..(GLOBAL_OP_CHIP_WIDTH - 4) {
+            for i in 0..(GLOBAL_OP_CHIP_WIDTH - 3) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -110,8 +106,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
         let cells = GlobalOpCells {
             counter: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
-            address_ext_0: cells.pop_front().unwrap(),
-            address_ext_1: cells.pop_front().unwrap(),
+            address_ext: cells.pop_front().unwrap(),
             sd_index: cells.pop_front().unwrap(),
             gc: cells.pop_front().unwrap(),
             rw: cells.pop_front().unwrap(),
@@ -119,12 +114,10 @@ impl<F: FieldExt> GlobalOpChip<F> {
             is_empty: cells.pop_front().unwrap(),
             delta_invert_address: cells.pop_front().unwrap(),
             delta_invert_sd_index: cells.pop_front().unwrap(),
-            delta_invert_addr_ext_0: cells.pop_front().unwrap(),
-            delta_invert_addr_ext_1: cells.pop_front().unwrap(),
+            delta_invert_addr_ext: cells.pop_front().unwrap(),
             prev_counter: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
-            prev_address_ext_0: cells.pop_front().unwrap(),
-            prev_address_ext_1: cells.pop_front().unwrap(),
+            prev_address_ext: cells.pop_front().unwrap(),
             prev_sd_index: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
@@ -132,8 +125,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             prev_is_empty: cells.pop_front().unwrap(),
         };
 
-        let addr_ext_0_table = meta.lookup_table_column();
-        let addr_ext_1_table = meta.lookup_table_column();
+        let addr_ext_table = meta.lookup_table_column();
 
         let s_first_global_op = meta.complex_selector();
         Self::config_global_op(
@@ -142,28 +134,18 @@ impl<F: FieldExt> GlobalOpChip<F> {
             &cells,
             true,
             gc_table,
-            &addr_ext_0_table,
-            &addr_ext_1_table,
+            &addr_ext_table,
         );
 
         let s_global_op = meta.complex_selector();
-        Self::config_global_op(
-            meta,
-            s_global_op,
-            &cells,
-            false,
-            gc_table,
-            &addr_ext_0_table,
-            &addr_ext_1_table,
-        );
+        Self::config_global_op(meta, s_global_op, &cells, false, gc_table, &addr_ext_table);
 
         GlobalOpChipConfig {
             advices,
             cells,
             s_first_global_op,
             s_global_op,
-            addr_ext_0_table,
-            addr_ext_1_table,
+            addr_ext_table,
         }
     }
 
@@ -173,20 +155,17 @@ impl<F: FieldExt> GlobalOpChip<F> {
         cells: &GlobalOpCells<F>,
         is_first_op: bool,
         gc_table: &TableColumn,
-        addr_ext0_table: &TableColumn,
-        addr_ext1_table: &TableColumn,
+        addr_ext_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
-        let mut addr_ext0_lookup = Vec::new();
-        let mut addr_ext1_lookup = Vec::new();
+        let mut addr_ext_lookup = Vec::new();
         Self::constrain_global_op(
             cells,
             &mut constraints,
             is_first_op,
             &mut gc_lookups,
-            &mut addr_ext0_lookup,
-            &mut addr_ext1_lookup,
+            &mut addr_ext_lookup,
         );
 
         meta.create_gate("constrain global op", |meta| {
@@ -202,19 +181,13 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 vec![(selector * lookup, *gc_table)]
             });
         }
-        for lookup in addr_ext0_lookup {
+        for lookup in addr_ext_lookup {
             meta.lookup("global address ext_0", |meta| {
                 let selector = meta.query_selector(selector);
-                vec![(selector * lookup, *addr_ext0_table)]
+                vec![(selector * lookup, *addr_ext_table)]
             });
         }
-        for lookup in addr_ext1_lookup {
-            meta.lookup("global address ext_1", |meta| {
-                let selector = meta.query_selector(selector);
-                vec![(selector * lookup, *addr_ext1_table)]
-            });
-        }
-        // todo: lookup address_ext_0, address_ext_1 for range check
+        // todo: lookup address_ext for range check
     }
 
     fn constrain_global_op(
@@ -222,9 +195,8 @@ impl<F: FieldExt> GlobalOpChip<F> {
         constraints: &mut Vec<(&str, Expression<F>)>,
         is_first: bool,
         gc_lookups: &mut Vec<Expression<F>>,
-        // addr_ext0_lookups: &mut Vec<Expression<F>>,
-        _addr_ext0_lookups: &mut [Expression<F>],
-        addr_ext1_lookups: &mut Vec<Expression<F>>,
+        // addr_ext_lookups: &mut Vec<Expression<F>>,
+        _addr_ext_lookups: &mut [Expression<F>],
     ) {
         constraints.push((
             "is_empty is bool",
@@ -267,9 +239,9 @@ impl<F: FieldExt> GlobalOpChip<F> {
                     * (cells.rw.expression.clone() - 1.expr()),
             ));
 
-            // for ops with same address/sd_index/addr_ext0/addr_ext1, gc must be great than prev_gc
+            // for ops with same address/sd_index/addr_ext, gc must be great than prev_gc
             // 1.constrain delta_invert: (a - b) * inverse(a - b) must be 1 or 0
-            // 2.lookup gc_table when address/sd_index/addr_ext0/addr_ext1 is same with previous
+            // 2.lookup gc_table when address/sd_index/addr_ext is same with previous
 
             let delt_address =
                 cells.address.expression.clone() - cells.prev_address.expression.clone();
@@ -289,36 +261,19 @@ impl<F: FieldExt> GlobalOpChip<F> {
                     * (delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone()
                         - 1.expr()),
             ));
-            let delt_addr_ext_0 = cells.address_ext_0.expression.clone()
-                - cells.prev_address_ext_0.expression.clone();
+            let delt_addr_ext =
+                cells.address_ext.expression.clone() - cells.prev_address_ext.expression.clone();
             constraints.push((
-                "delt_invert_address_ext_0: (a - b) * inverse(a - b) = 0|1",
+                "delt_invert_address_ext: (a - b) * inverse(a - b) = 0|1",
                 cond.clone()
-                    * delt_addr_ext_0.clone()
-                    * (delt_addr_ext_0.clone() * cells.delta_invert_addr_ext_0.expression.clone()
-                        - 1.expr()),
-            ));
-            let delt_addr_ext_1 = cells.address_ext_1.expression.clone()
-                - cells.prev_address_ext_1.expression.clone();
-            constraints.push((
-                "delt_invert_address_ext_1: (a - b) * inverse(a - b) = 0|1",
-                cond.clone()
-                    * delt_addr_ext_1.clone()
-                    * (delt_addr_ext_1.clone() * cells.delta_invert_addr_ext_1.expression.clone()
+                    * delt_addr_ext.clone()
+                    * (delt_addr_ext.clone() * cells.delta_invert_addr_ext.expression.clone()
                         - 1.expr()),
             ));
             gc_lookups.push(
-                cond.clone()
-                    * (1.expr()
-                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
-                    * (1.expr()
-                        - delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0.clone()
-                            * cells.delta_invert_addr_ext_0.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_1.clone()
-                            * cells.delta_invert_addr_ext_1.expression.clone())
+                cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
+                    * (1.expr() - delt_sd_index * cells.delta_invert_sd_index.expression.clone())
+                    * (1.expr() - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -326,33 +281,23 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // todo: address must belong to the address list?
             // todo: sd_index must belong to the sd_index list?
             // address_ext_* range check
-            // addr_ext0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
-            addr_ext1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
+            // addr_ext_lookups.push(cond.clone() * cells.address_ext.expression.clone());
 
             // TODO: address monotonic check.  should we make a common `gte` gadget instead of those lookup?
             // -[ ] address must be great than or equal to prev_address?
             // -[ ] for same address, sd_index must be great than or equal to prev_sd_index
-            // -[x] for same address/sd_index, must have `addr_ext_0 >= prev_addr_ext_0`
-            // -[x] for same address/sd_index/addr_ext0, must have `addr_ext_1 >= prev_addr_ext_1`
+            // -[x] for same address/sd_index, must have `addr_ext >= prev_addr_ext`
 
-            // if same address/sd_index, addr_ext_0 must be great than or equal to prev_addr_ext_0
+            // if same address/sd_index, addr_ext must be great than or equal to prev_addr_ext
             // TODO. addr_ext range check
-            // addr_ext0_lookups.push(
+            // addr_ext_lookups.push(
             //     cond.clone()
             //         * (1.expr()
             //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
             //         * (1.expr()
             //             - delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone())
-            //         * delt_addr_ext_0.clone(),
+            //         * delt_addr_ext.clone(),
             // );
-            // if same address/sd_index/addr_ext_0, addr_ext_1 must be great than or equal to prev_addr_ext_1
-            addr_ext1_lookups.push(
-                cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
-                    * (1.expr() - delt_sd_index * cells.delta_invert_sd_index.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
-                    * delt_addr_ext_1,
-            );
 
             // empty op
             constraints.push((
@@ -419,24 +364,14 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 })?,
                 "sd_index",
             )?;
-            self.config.cells.address_ext_0.assign_equality(
+            self.config.cells.address_ext.assign_equality(
                 region,
                 offset,
-                op.address_ext_0.1.clone().ok_or_else(|| {
-                    error!("address_ext_0 assigned cell is None");
+                op.address_ext.1.clone().ok_or_else(|| {
+                    error!("address_ext assigned cell is None");
                     Error::Synthesis
                 })?,
-                "address_ext_0",
-            )?;
-
-            self.config.cells.address_ext_1.assign_equality(
-                region,
-                offset,
-                op.address_ext_1.1.clone().ok_or_else(|| {
-                    error!("address_ext_1 assigned cell is None");
-                    Error::Synthesis
-                })?,
-                "address_ext_1",
+                "address_ext",
             )?;
 
             self.config.cells.value.assign_equality(
@@ -450,14 +385,9 @@ impl<F: FieldExt> GlobalOpChip<F> {
             )?;
         }
 
-        let (prev_address, prev_sd_index, prev_addr_ext_0, prev_addr_ext_1) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero(), F::zero()),
-            Some(v) => (
-                v.address.0,
-                v.sd_index.0,
-                v.address_ext_0.0,
-                v.address_ext_1.0,
-            ),
+        let (prev_address, prev_sd_index, prev_addr_ext) = match prev_op {
+            None => (F::zero(), F::zero(), F::zero()),
+            Some(v) => (v.address.0, v.sd_index.0, v.address_ext.0),
         };
 
         self.config.cells.delta_invert_address.assign(
@@ -470,15 +400,10 @@ impl<F: FieldExt> GlobalOpChip<F> {
             offset,
             op.sd_index.0.delta_invert(prev_sd_index),
         )?;
-        self.config.cells.delta_invert_addr_ext_0.assign(
+        self.config.cells.delta_invert_addr_ext.assign(
             region,
             offset,
-            op.address_ext_0.0.delta_invert(prev_addr_ext_0),
-        )?;
-        self.config.cells.delta_invert_addr_ext_1.assign(
-            region,
-            offset,
-            op.address_ext_1.0.delta_invert(prev_addr_ext_1),
+            op.address_ext.0.delta_invert(prev_addr_ext),
         )?;
 
         let is_empty = if is_empty { F::one() } else { F::zero() };
@@ -543,21 +468,14 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 .ok()?;
         }
 
-        // TODO: we should only need one addr_ext table. refactor this.
         assign_index_table(
             layouter,
-            "addr_ext0_table",
-            self.config.addr_ext_0_table,
+            "addr_ext_table",
+            self.config.addr_ext_table,
             circuit_config.word_size,
         )
         .ok()?;
-        assign_index_table(
-            layouter,
-            "addr_ext1_table",
-            self.config.addr_ext_1_table,
-            circuit_config.word_size,
-        )
-        .ok()?;
+
         last_global_counter
     }
 }

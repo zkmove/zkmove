@@ -26,8 +26,7 @@ pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
     account_address: Cell<F>,
     word: Vec<Cell<F>>,
     word_mask: Vec<Cell<F>>,
-    word_addr_ext_0: Vec<Cell<F>>,
-    word_addr_ext_1: Vec<Cell<F>>,
+    word_addr_ext: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
     type_cells: Option<GenericTypeGadget<F>>,
@@ -84,7 +83,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -94,7 +92,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 account_address_expr.clone(),
             ),
         );
@@ -112,8 +109,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                         } else {
                             sd_index_expr.clone()
                         },
-                        self.word_addr_ext_0[i].expression.clone(),
-                        self.word_addr_ext_1[i].expression.clone(),
+                        self.word_addr_ext[i].expression.clone(),
                     ),
                 );
             });
@@ -128,7 +124,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                         + (i as u64 + 2).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
-                    0.expr(),
                     item.expression.clone(),
                 ),
             );
@@ -187,8 +182,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let global_value = Word {
             word: self.word.clone(),
             word_mask: self.word_mask.clone(),
-            word_addr_ext_0: self.word_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_addr_ext_1.clone(),
+            word_addr_ext: self.word_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -250,8 +244,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let account_address = cb.alloc_cell();
         let word = cb.alloc_n_cells(word_cap);
         let word_mask = cb.alloc_n_cells(word_cap);
-        let word_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_addr_ext = cb.alloc_n_cells(word_cap);
         let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let type_cells = if GENERIC {
@@ -282,8 +275,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             account_address,
             word,
             word_mask,
-            word_addr_ext_0,
-            word_addr_ext_1,
+            word_addr_ext,
             ref_val,
             ref_val_mask,
             type_cells,
