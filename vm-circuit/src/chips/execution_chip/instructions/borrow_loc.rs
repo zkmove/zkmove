@@ -1,13 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::{Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -15,14 +14,13 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::word::ValueHeader;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext: Vec<Cell<F>>,
-    ref_val: Vec<Cell<F>>,
-    ref_val_mask: Vec<Cell<F>>,
+    value: WordGadget<F>,
+    ref_val: RefValGadget<F>,
 }
 
 impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABLE, F> {
@@ -58,21 +56,24 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             ("function index", func_index),
         ]);
 
-        for (i, _) in self.word_a.iter().enumerate() {
-            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+        self.value.configure(cb, word_element_num.clone());
+        self.ref_val.configure(cb);
+
+        for (i, _) in self.value.cells.word.iter().enumerate() {
+            cb.condition(1.expr() - self.value.cells.word_mask[i].expression.clone(), |cb| {
                 let read = RWLookup::locals_read(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.frame_index.expression.clone(),
                     cells.locals_index.expression.clone(),
-                    self.word_a_addr_ext[i].expression.clone(),
-                    self.word_a[i].expression.clone(),
+                    self.value.cells.word_addr_ext[i].expression.clone(),
+                    self.value.cells.word[i].expression.clone(),
                 );
 
                 cb.add_lookup("borrow_local(read locals)", read);
             });
         }
 
-        for (i, item) in self.ref_val.iter().enumerate() {
+        for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
                 "borrow_local(stack push ref_val)",
                 RWLookup::stack_push(
@@ -87,17 +88,17 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         // ref_val[1] == frame_index && ref_val[2] == locals_index;
         cb.add_constraint(
             "borrow_locals_ref_eq_0",
-            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr(),
+            self.ref_val.cells[0].expression.clone() - ValueHeader::default_for_ref_val().expr(),
         );
         cb.add_constraint(
             "borrow_locals_ref_eq_1",
-            self.ref_val[1].expression.clone() - cells.frame_index.expression.clone(),
+            self.ref_val.cells[1].expression.clone() - cells.frame_index.expression.clone(),
         );
         cb.add_constraint(
             "borrow_locals_ref_eq_2",
-            self.ref_val[2].expression.clone() - cells.locals_index.expression.clone(),
+            self.ref_val.cells[2].expression.clone() - cells.locals_index.expression.clone(),
         );
-        cb.add_constraint("borrow_locals_ref_eq_3", self.ref_val[3].expression.clone());
+        cb.add_constraint("borrow_locals_ref_eq_3", self.ref_val.cells[3].expression.clone());
 
         LookupBytecode::lookup_bytecode(
             cb,
@@ -115,54 +116,35 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext: self.word_a_addr_ext.clone(),
-        };
-        Word::assign_word(
+        let word_element_num =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
+
+        self.value.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &word,
             step.gc,
             word_element_num,
         )?;
 
-        let ref_val = RefVal {
-            ref_val: self.ref_val.clone(),
-            ref_val_mask: self.ref_val_mask.clone(),
-        };
-        Word::assign_ref_val(
+        self.ref_val.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &ref_val,
             step.gc + word_element_num,
-            LEN_OF_REFERENCE_VALUE,
         )?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        let word_cap = word_capacity();
-
         // alloc cell
-        let word_a = cb.alloc_n_cells(word_cap);
-        let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext = cb.alloc_n_cells(word_cap);
-        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let value = WordGadget::construct(cb);
+        let ref_val = RefValGadget::construct(cb);
 
         Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext,
+            value,
             ref_val,
-            ref_val_mask,
         }
     }
 }

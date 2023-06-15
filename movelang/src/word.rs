@@ -10,6 +10,7 @@ use std::convert::{From, TryFrom, TryInto};
 use std::marker::PhantomData;
 
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
+pub const LEN_OF_SIMPLE_VALUE: usize = 2;
 
 /// To efficiently represent a complex value in the circuit, we defined 'word', a uniform
 /// flattened value representation, to flatten the complex value into simple values.
@@ -34,7 +35,7 @@ impl<F: FieldExt> From<&Value<F>> for Word<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, PrimitiveValue<F>); 2]);
+pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, PrimitiveValue<F>); LEN_OF_SIMPLE_VALUE]);
 
 impl<F: FieldExt> From<PrimitiveValue<F>> for SimpleValueWord<F> {
     fn from(value: PrimitiveValue<F>) -> SimpleValueWord<F> {
@@ -261,6 +262,10 @@ impl<F: FieldExt> ValueHeader<F> {
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u16 {
         self.len
+    }
+
+    pub fn members(&self) -> (u16, u16) {
+        (self.flattened_len, self.len)
     }
 
     // default ValueHeader for any simple value
