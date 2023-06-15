@@ -14,14 +14,13 @@ use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-pub const STACK_OP_CHIP_WIDTH: usize = 11;
+pub const STACK_OP_CHIP_WIDTH: usize = 9;
 
 #[derive(Clone, Debug)]
 pub struct StackOpCells<F: FieldExt> {
     pub counter: Cell<F>, // the total number of stack operations
     pub address: Cell<F>,
     pub address_ext_0: Cell<F>,
-    pub address_ext_1: Cell<F>,
     pub gc: Cell<F>,
     pub rw: Cell<F>,
     pub value: Cell<F>,
@@ -30,12 +29,10 @@ pub struct StackOpCells<F: FieldExt> {
     // increment of gc for the same locals
     pub delta_invert_address: Cell<F>,
     pub delta_invert_addr_ext_0: Cell<F>,
-    pub delta_invert_addr_ext_1: Cell<F>,
 
     pub prev_counter: Cell<F>,
     pub prev_address: Cell<F>,
     pub prev_address_ext_0: Cell<F>,
-    pub prev_address_ext_1: Cell<F>,
     pub prev_gc: Cell<F>,
     pub prev_rw: Cell<F>,
     pub prev_value: Cell<F>,
@@ -50,7 +47,6 @@ pub struct StackOpChipConfig<F: FieldExt> {
     pub s_stack_op: Selector,
     stack_address_table: TableColumn,
     addr_ext_0_table: TableColumn,
-    addr_ext_1_table: TableColumn,
 }
 
 pub struct StackOpChip<F: FieldExt> {
@@ -89,7 +85,6 @@ impl<F: FieldExt> StackOpChip<F> {
     ) -> <Self as Chip<F>>::Config {
         let stack_address_table = meta.lookup_table_column();
         let addr_ext_0_table = meta.lookup_table_column();
-        let addr_ext_1_table = meta.lookup_table_column();
 
         let mut cells = VecDeque::with_capacity(STACK_OP_CHIP_WIDTH * 2);
         meta.create_gate("stack op chip", |meta| {
@@ -100,7 +95,7 @@ impl<F: FieldExt> StackOpChip<F> {
             }
 
             // previous op, without delta_invert cells
-            for i in 0..(STACK_OP_CHIP_WIDTH - 3) {
+            for i in 0..(STACK_OP_CHIP_WIDTH - 2) {
                 let column_index = i;
                 let rotation = -1;
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
@@ -115,19 +110,16 @@ impl<F: FieldExt> StackOpChip<F> {
             rw: cells.pop_front().unwrap(),
             address: cells.pop_front().unwrap(),
             address_ext_0: cells.pop_front().unwrap(),
-            address_ext_1: cells.pop_front().unwrap(),
             value: cells.pop_front().unwrap(),
             is_empty: cells.pop_front().unwrap(),
             delta_invert_address: cells.pop_front().unwrap(),
             delta_invert_addr_ext_0: cells.pop_front().unwrap(),
-            delta_invert_addr_ext_1: cells.pop_front().unwrap(),
 
             prev_counter: cells.pop_front().unwrap(),
             prev_gc: cells.pop_front().unwrap(),
             prev_rw: cells.pop_front().unwrap(),
             prev_address: cells.pop_front().unwrap(),
             prev_address_ext_0: cells.pop_front().unwrap(),
-            prev_address_ext_1: cells.pop_front().unwrap(),
             prev_value: cells.pop_front().unwrap(),
             prev_is_empty: cells.pop_front().unwrap(),
         };
@@ -141,7 +133,6 @@ impl<F: FieldExt> StackOpChip<F> {
             gc_table,
             &stack_address_table,
             &addr_ext_0_table,
-            &addr_ext_1_table,
         );
 
         let s_stack_op = meta.complex_selector();
@@ -153,7 +144,6 @@ impl<F: FieldExt> StackOpChip<F> {
             gc_table,
             &stack_address_table,
             &addr_ext_0_table,
-            &addr_ext_1_table,
         );
 
         StackOpChipConfig {
@@ -163,7 +153,6 @@ impl<F: FieldExt> StackOpChip<F> {
             s_stack_op,
             stack_address_table,
             addr_ext_0_table,
-            addr_ext_1_table,
         }
     }
 
@@ -176,13 +165,11 @@ impl<F: FieldExt> StackOpChip<F> {
         gc_table: &TableColumn,
         stack_address_table: &TableColumn,
         addr_ext_0_table: &TableColumn,
-        addr_ext_1_table: &TableColumn,
     ) {
         let mut constraints = Vec::new();
         let mut gc_lookups = Vec::new();
         let mut stack_address_lookups = Vec::new();
         let mut addr_ext_0_lookups = Vec::new();
-        let mut addr_ext_1_lookups = Vec::new();
 
         Self::constrain_stack_op(
             cells,
@@ -191,7 +178,6 @@ impl<F: FieldExt> StackOpChip<F> {
             &mut gc_lookups,
             &mut stack_address_lookups,
             &mut addr_ext_0_lookups,
-            &mut addr_ext_1_lookups,
         );
 
         meta.create_gate("constrain stack op", |meta| {
@@ -221,13 +207,6 @@ impl<F: FieldExt> StackOpChip<F> {
                 vec![(selector * lookup, *addr_ext_0_table)]
             });
         }
-
-        for lookup in addr_ext_1_lookups {
-            meta.lookup("stack address ext_1", |meta| {
-                let selector = meta.query_selector(selector);
-                vec![(selector * lookup, *addr_ext_1_table)]
-            });
-        }
     }
 
     fn constrain_stack_op(
@@ -238,7 +217,6 @@ impl<F: FieldExt> StackOpChip<F> {
         stack_address_lookups: &mut Vec<Expression<F>>,
         //addr_ext_0_lookups: &mut <Expression<F>>,
         _addr_ext_0_lookups: &mut [Expression<F>],
-        addr_ext_1_lookups: &mut Vec<Expression<F>>,
     ) {
         constraints.push((
             "is_empty is bool",
@@ -305,15 +283,6 @@ impl<F: FieldExt> StackOpChip<F> {
                     * (delt_addr_ext_0.clone() * cells.delta_invert_addr_ext_0.expression.clone()
                         - 1.expr()),
             ));
-            let delt_addr_ext_1 = cells.address_ext_1.expression.clone()
-                - cells.prev_address_ext_1.expression.clone();
-            constraints.push((
-                "stack_delt_invert_address_ext_1",
-                cond.clone()
-                    * delt_addr_ext_1.clone()
-                    * (delt_addr_ext_1.clone() * cells.delta_invert_addr_ext_1.expression.clone()
-                        - 1.expr()),
-            ));
 
             // address change, then rw must be Write
             // Case A: if address != prev_address
@@ -335,21 +304,6 @@ impl<F: FieldExt> StackOpChip<F> {
                         - delt_address.clone() * cells.delta_invert_address.expression.clone())
                     * delt_addr_ext_0.clone(),
             ));
-            // Case C: if address == prev_address and
-            //            address_ext_0 == prev_address_ext_0
-            //            address_ext_1 != prev_address_ext_1
-            //         then rw == Write
-            constraints.push((
-                "stack_addr_ext_1_change",
-                cond.clone()
-                    * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * (1.expr()
-                        - delt_address.clone() * cells.delta_invert_address.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0.clone()
-                            * cells.delta_invert_addr_ext_0.expression.clone())
-                    * delt_addr_ext_1.clone(),
-            ));
 
             // for ops with same address, gc must be greater than prev_gc
             // lookup gc_table when address is same with previous
@@ -358,11 +312,7 @@ impl<F: FieldExt> StackOpChip<F> {
                     * (1.expr()
                         - delt_address.clone() * cells.delta_invert_address.expression.clone())
                     * (1.expr()
-                        - delt_addr_ext_0.clone()
-                            * cells.delta_invert_addr_ext_0.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_1.clone()
-                            * cells.delta_invert_addr_ext_1.expression.clone())
+                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -372,12 +322,10 @@ impl<F: FieldExt> StackOpChip<F> {
             // address_ext_0 must be less than max_locals_size
             // TODO. address extend validation
             // addr_ext_0_lookups.push(cond.clone() * cells.address_ext_0.expression.clone());
-            // addr_ext_1 must be less than max_locals_size
-            addr_ext_1_lookups.push(cond.clone() * cells.address_ext_1.expression.clone());
 
             // address monotonic increment
             // Case A: address must be great than or equal to prev_address
-            stack_address_lookups.push(cond.clone() * delt_address.clone());
+            stack_address_lookups.push(cond * delt_address);
 
             // Case B: if same address,
             //            addr_ext_0 must be great than or equal to prev_addr_ext_0
@@ -388,15 +336,6 @@ impl<F: FieldExt> StackOpChip<F> {
             //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
             //         * delt_addr_ext_0.clone(),
             // );
-
-            // Case C: if same address/addr_ext_0,
-            //            addr_ext_1 must be great than or equal to prev_addr_ext_1
-            addr_ext_1_lookups.push(
-                cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
-                    * (1.expr()
-                        - delt_addr_ext_0 * cells.delta_invert_addr_ext_0.expression.clone())
-                    * delt_addr_ext_1,
-            );
 
             // empty op
             constraints.push((
@@ -437,11 +376,6 @@ impl<F: FieldExt> StackOpChip<F> {
         //         .cells
         //         .address_ext_0
         //         .assign(region, offset, Some(op.address_ext_0.0))?;
-        //
-        //     self.config
-        //         .cells
-        //         .address_ext_1
-        //         .assign(region, offset, Some(op.address_ext_1.0))?;
         //
         //     self.config.cells.value.assign(region, offset, op.value.0)?;
         //
@@ -496,16 +430,6 @@ impl<F: FieldExt> StackOpChip<F> {
                 "address_ext_0",
             )?;
 
-            self.config.cells.address_ext_1.assign_equality(
-                region,
-                offset,
-                op.address_ext_1.1.clone().ok_or_else(|| {
-                    error!("address_ext_1 assigned cell is None");
-                    Error::Synthesis
-                })?,
-                "address_ext_1",
-            )?;
-
             self.config.cells.value.assign_equality(
                 region,
                 offset,
@@ -516,9 +440,9 @@ impl<F: FieldExt> StackOpChip<F> {
                 "value",
             )?;
 
-            let (prev_address, prev_addr_ext_0, pre_addr_ext_1) = match prev_op {
-                None => (F::zero(), F::zero(), F::zero()),
-                Some(v) => (v.address.0, v.address_ext_0.0, v.address_ext_1.0),
+            let (prev_address, prev_addr_ext_0) = match prev_op {
+                None => (F::zero(), F::zero()),
+                Some(v) => (v.address.0, v.address_ext_0.0),
             };
             self.config.cells.delta_invert_address.assign(
                 region,
@@ -529,11 +453,6 @@ impl<F: FieldExt> StackOpChip<F> {
                 region,
                 offset,
                 op.address_ext_0.0.delta_invert(prev_addr_ext_0),
-            )?;
-            self.config.cells.delta_invert_addr_ext_1.assign(
-                region,
-                offset,
-                op.address_ext_1.0.delta_invert(pre_addr_ext_1),
             )?;
 
             self.config.cells.is_empty.assign(
@@ -647,12 +566,7 @@ impl<F: FieldExt> StackOpChip<F> {
             self.config.addr_ext_0_table,
             circuit_config.word_size,
         )?;
-        self.assign_index_table(
-            layouter,
-            "addr_ext_1_table",
-            self.config.addr_ext_1_table,
-            circuit_config.word_size,
-        )?;
+
         Ok(())
     }
 }

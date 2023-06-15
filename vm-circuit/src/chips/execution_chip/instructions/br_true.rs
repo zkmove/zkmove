@@ -61,7 +61,6 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -71,7 +70,6 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 self.value.expression.clone(),
             ),
         );

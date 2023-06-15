@@ -26,7 +26,6 @@ pub struct VecPushBack<F: FieldExt> {
     value: Vec<Cell<F>>,
     value_mask: Vec<Cell<F>>,
     value_addr_ext_0: Vec<Cell<F>>,
-    value_addr_ext_1: Vec<Cell<F>>,
 
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
@@ -36,12 +35,10 @@ pub struct VecPushBack<F: FieldExt> {
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
     new_value_addr_ext_0: Vec<Cell<F>>,
-    new_value_addr_ext_1: Vec<Cell<F>>,
 
     headers_value: Vec<Cell<F>>,
     headers_value_mask: Vec<Cell<F>>,
     headers_value_addr_ext_0: Vec<Cell<F>>,
-    headers_value_addr_ext_1: Vec<Cell<F>>,
 
     new_headers_value: Vec<Cell<F>>,
 }
@@ -94,7 +91,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     self.value_addr_ext_0[i].expression.clone(),
-                    self.value_addr_ext_1[i].expression.clone(),
                     item.expression.clone(),
                 );
                 cb.add_lookup("vec_push_back(read value)", read);
@@ -108,7 +104,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.new_value_addr_ext_0[i].expression.clone(),
-                        self.new_value_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("vec_push_back(write value)", locals_write);
@@ -123,7 +118,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                         item.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.new_value_addr_ext_0[i].expression.clone(),
-                        self.new_value_addr_ext_1[i].expression.clone(),
                     );
                     cb.add_lookup("vec_push_back(write value)", global_write);
                 });
@@ -141,7 +135,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                             + (i as u64).expr(),
                         cells.stack_size.expression.clone() - 1.expr(),
                         (i as u64).expr(),
-                        0.expr(),
                         item.expression.clone(),
                     ),
                 );
@@ -167,7 +160,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                             self.vec_frame_index_or_global_address.expression.clone(),
                             self.vec_locals_index_or_global_sd_idx.expression.clone(),
                             self.headers_value_addr_ext_0[i].expression.clone(),
-                            self.headers_value_addr_ext_1[i].expression.clone(),
                             item.expression.clone(),
                         );
                         cb.add_lookup("vec_push_back(read headers)", locals_read);
@@ -176,7 +168,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                             self.vec_frame_index_or_global_address.expression.clone(),
                             self.vec_locals_index_or_global_sd_idx.expression.clone(),
                             self.headers_value_addr_ext_0[i].expression.clone(),
-                            self.headers_value_addr_ext_1[i].expression.clone(),
                             self.new_headers_value[i].expression.clone(),
                         );
                         cb.add_lookup("vec_push_back(write headers)", locals_write);
@@ -188,7 +179,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                             item.expression.clone(),
                             self.vec_locals_index_or_global_sd_idx.expression.clone(),
                             self.headers_value_addr_ext_0[i].expression.clone(),
-                            self.headers_value_addr_ext_1[i].expression.clone(),
                         );
                         cb.add_lookup("vec_push_back(read headers)", global_read);
                         let global_write = RWLookup::global_write(
@@ -197,7 +187,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                             self.new_headers_value[i].expression.clone(),
                             self.vec_locals_index_or_global_sd_idx.expression.clone(),
                             self.headers_value_addr_ext_0[i].expression.clone(),
-                            self.headers_value_addr_ext_1[i].expression.clone(),
                         );
                         cb.add_lookup("vec_push_back(write headers)", global_write);
                     });
@@ -331,7 +320,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             word: self.value.clone(),
             word_mask: self.value_mask.clone(),
             word_addr_ext_0: self.value_addr_ext_0.clone(),
-            word_addr_ext_1: self.value_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -389,7 +377,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             word: self.value.clone(),
             word_mask: self.value_mask.clone(),
             word_addr_ext_0: self.new_value_addr_ext_0.clone(),
-            word_addr_ext_1: self.new_value_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -412,7 +399,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             word: self.headers_value.clone(),
             word_mask: self.headers_value_mask.clone(),
             word_addr_ext_0: self.headers_value_addr_ext_0.clone(),
-            word_addr_ext_1: self.headers_value_addr_ext_1.clone(),
         };
         Word::assign_word_with_capacity(
             region,
@@ -449,7 +435,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         let value = cb.alloc_n_cells(word_cap);
         let value_mask = cb.alloc_n_cells(word_cap);
         let value_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
@@ -459,12 +444,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
         let new_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let new_value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let headers_value_mask = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
         let headers_value_addr_ext_0 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
-        let headers_value_addr_ext_1 = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
 
         let new_headers_value = cb.alloc_n_cells(MAX_ADDRESS_EXT_LENGTH);
 
@@ -476,7 +459,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             value,
             value_mask,
             value_addr_ext_0,
-            value_addr_ext_1,
 
             ref_val,
             ref_val_mask,
@@ -486,12 +468,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             vec_frame_index_or_global_address,
             vec_locals_index_or_global_sd_idx,
             new_value_addr_ext_0,
-            new_value_addr_ext_1,
 
             headers_value,
             headers_value_mask,
             headers_value_addr_ext_0,
-            headers_value_addr_ext_1,
 
             new_headers_value,
         }

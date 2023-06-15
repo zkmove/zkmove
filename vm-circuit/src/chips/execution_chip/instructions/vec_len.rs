@@ -29,7 +29,6 @@ pub struct VecLen<F: FieldExt> {
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
     vec_header_addr_ext_0: Cell<F>,
-    vec_header_addr_ext_1: Cell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
@@ -72,7 +71,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     (i as u64).expr(),
-                    0.expr(),
                     item.expression.clone(),
                 ),
             );
@@ -85,7 +83,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_frame_index_or_global_address.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
-            self.vec_header_addr_ext_1.expression.clone(),
             self.vec_header_value.expression.clone(),
         );
         cb.condition(1.expr() - is_global.clone(), |cb| {
@@ -99,7 +96,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_header_value.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
             self.vec_header_addr_ext_0.expression.clone(),
-            self.vec_header_addr_ext_1.expression.clone(),
         );
         // global read
         cb.condition(is_global.clone(), |cb| {
@@ -111,7 +107,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 1.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
             0.expr(),
-            0.expr(),
             ValueHeader::default_for_simple().expr(),
         );
         cb.add_lookup("vec_len(push value header to stack)", write);
@@ -119,7 +114,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 2.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
             1.expr(),
-            0.expr(),
             self.vec_len.expression.clone(),
         );
         cb.add_lookup("vec_len(push len to stack)", write);
@@ -209,11 +203,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             offset,
             Some(F::from(op.address_ext_0() as u64)),
         )?;
-        self.vec_header_addr_ext_1.assign(
-            region,
-            offset,
-            Some(F::from(op.address_ext_1() as u64)),
-        )?;
         if is_global == F::zero() {
             self.vec_frame_index_or_global_address.assign(
                 region,
@@ -259,7 +248,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
         let vec_header_addr_ext_0 = cb.alloc_cell();
-        let vec_header_addr_ext_1 = cb.alloc_cell();
 
         Self {
             ref_val,
@@ -271,7 +259,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             vec_frame_index_or_global_address,
             vec_locals_index_or_global_sd_idx,
             vec_header_addr_ext_0,
-            vec_header_addr_ext_1,
         }
     }
 }

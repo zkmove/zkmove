@@ -24,7 +24,6 @@ pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
     global_value: Vec<Cell<F>>,
     global_value_mask: Vec<Cell<F>>,
     global_value_addr_ext_0: Vec<Cell<F>>,
-    global_value_addr_ext_1: Vec<Cell<F>>,
 
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -73,7 +72,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -83,7 +81,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 account_address_expr.clone(),
             ),
         );
@@ -101,7 +98,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                     },
                     cells.stack_size.expression.clone(),
                     self.global_value_addr_ext_0[i].expression.clone(),
-                    self.global_value_addr_ext_1[i].expression.clone(),
                     self.global_value[i].expression.clone(),
                     word_elem_num.clone(),
                 );
@@ -141,7 +137,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             word: self.global_value.clone(),
             word_mask: self.global_value_mask.clone(),
             word_addr_ext_0: self.global_value_addr_ext_0.clone(),
-            word_addr_ext_1: self.global_value_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -198,7 +193,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let global_value = cb.alloc_n_cells(word_cap);
         let global_value_mask = cb.alloc_n_cells(word_cap);
         let global_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let global_value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
@@ -225,7 +219,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             global_value,
             global_value_mask,
             global_value_addr_ext_0,
-            global_value_addr_ext_1,
             type_cells,
         }
     }

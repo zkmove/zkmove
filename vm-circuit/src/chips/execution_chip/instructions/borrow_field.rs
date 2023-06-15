@@ -76,7 +76,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                         cells.gc.expression.clone() + (i as u64).expr(),
                         cells.stack_size.expression.clone(),
                         (i as u64).expr(),
-                        0.expr(),
                         item.expression.clone(),
                     ),
                 )
@@ -95,7 +94,6 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                                 + (i as u64).expr(),
                             cells.stack_size.expression.clone() - 1.expr(),
                             (i as u64).expr(),
-                            0.expr(),
                             item.expression.clone(),
                         ),
                     )

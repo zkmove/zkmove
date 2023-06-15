@@ -20,14 +20,12 @@ pub struct VecPack<F: FieldExt> {
     values: Vec<Cell<F>>,
     values_mask: Vec<Cell<F>>,
     values_addr_ext_0: Vec<Cell<F>>,
-    values_addr_ext_1: Vec<Cell<F>>,
     values_address: Vec<Cell<F>>,
 
     // cells for the vector pushed back
     vector: Vec<Cell<F>>,
     vector_mask: Vec<Cell<F>>,
     vector_addr_ext_0: Vec<Cell<F>>,
-    vector_addr_ext_1: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
@@ -80,7 +78,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                         frame_index: 0.expr(),
                         address: self.values_address[i].expression.clone(),
                         address_ext_0: self.values_addr_ext_0[i].expression.clone(),
-                        address_ext_1: self.values_addr_ext_1[i].expression.clone(),
                         value: item.expression.clone(),
                         sd_index: 0.expr(),
                     },
@@ -95,7 +92,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                             + (i as u64).expr(),
                         cells.stack_size.expression.clone() - values_num.clone(),
                         self.vector_addr_ext_0[i].expression.clone(),
-                        self.vector_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     ),
                 );
@@ -108,24 +104,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                     cells.gc.expression.clone() + values_flattened_len,
                     cells.stack_size.expression.clone() - values_num,
                     self.vector_addr_ext_0[0].expression.clone(),
-                    self.vector_addr_ext_1[0].expression.clone(),
                     self.vector[0].expression.clone(),
                 ),
             );
         });
         // values_address is equal to vector_addr_ext_0
-        // values_addr_ext_0 is equal to vector_addr_ext_1
         for (i, _) in self.values.iter().enumerate().skip(1) {
             let constraint = self.vector_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
                     - self.vector_addr_ext_0[i].expression.clone());
             cb.add_constraint("vec_pack_address_eq", constraint);
-            let constraint = self.vector_mask[i].expression.clone()
-                * (self.values_addr_ext_0[i].expression.clone()
-                    - self.vector_addr_ext_1[i].expression.clone());
-            cb.add_constraint("vec_pack_address_ext_0_eq", constraint);
         }
-        //fixme: addr_ext_0, addr_ext_1... have been folded.
+        //fixme: addr_ext_0, have been folded.
 
         // todo: add the second operand
         LookupBytecode::lookup_bytecode(
@@ -156,7 +146,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             word: self.values.clone(),
             word_mask: self.values_mask.clone(),
             word_addr_ext_0: self.values_addr_ext_0.clone(),
-            word_addr_ext_1: self.values_addr_ext_1.clone(),
         };
         // assign the values into a word
         // NOTICE: assign word[0] to be empty, to make the constraints simple
@@ -174,7 +163,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             word: self.vector.clone(),
             word_mask: self.vector_mask.clone(),
             word_addr_ext_0: self.vector_addr_ext_0.clone(),
-            word_addr_ext_1: self.vector_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -196,25 +184,21 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         let values = cb.alloc_n_cells(word_cap);
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let values_addr_ext_1 = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
 
         let vector = cb.alloc_n_cells(word_cap);
         let vector_mask = cb.alloc_n_cells(word_cap);
         let vector_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let vector_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             values,
             values_mask,
             values_addr_ext_0,
-            values_addr_ext_1,
             values_address,
 
             vector,
             vector_mask,
             vector_addr_ext_0,
-            vector_addr_ext_1,
         }
     }
 }

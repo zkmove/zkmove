@@ -19,7 +19,6 @@ pub struct MoveLoc<F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
     word_a_addr_ext_0: Vec<Cell<F>>,
-    word_a_addr_ext_1: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
@@ -57,7 +56,6 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
                 cells.locals_index.expression.clone(),
                 cells.stack_size.expression.clone(),
                 self.word_a_addr_ext_0[i].expression.clone(),
-                self.word_a_addr_ext_1[i].expression.clone(),
                 self.word_a[i].expression.clone(),
                 word_element_num.clone(), // word_element_num
             );
@@ -88,7 +86,6 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             word: self.word_a.clone(),
             word_mask: self.word_a_mask.clone(),
             word_addr_ext_0: self.word_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_a_addr_ext_1.clone(),
         };
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
@@ -112,13 +109,11 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
         let word_a = cb.alloc_n_cells(word_cap);
         let word_a_mask = cb.alloc_n_cells(word_cap);
         let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             word_a,
             word_a_mask,
             word_a_addr_ext_0,
-            word_a_addr_ext_1,
         }
     }
 }

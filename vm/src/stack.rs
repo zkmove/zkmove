@@ -32,7 +32,6 @@ impl<F: FieldExt> EvalStack<F> {
             let stack_op = StackOp {
                 address: *address_path.0.get(1).expect("address should not be None") as usize,
                 address_ext_0: address_path.addr_ext(),
-                address_ext_1: 0_usize,
                 value: Some(val),
                 rw,
                 gc: rw_operations.len(),

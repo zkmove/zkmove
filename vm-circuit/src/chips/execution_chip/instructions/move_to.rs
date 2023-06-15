@@ -24,7 +24,6 @@ pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
     word: Vec<Cell<F>>,
     word_mask: Vec<Cell<F>>,
     word_addr_ext_0: Vec<Cell<F>>,
-    word_addr_ext_1: Vec<Cell<F>>,
     signer_ref: Vec<Cell<F>>,
     signer_ref_mask: Vec<Cell<F>>,
     type_cells: Option<GenericTypeGadget<F>>,
@@ -82,7 +81,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                     sd_index.clone()
                 },
                 self.word_addr_ext_0[i].expression.clone(),
-                self.word_addr_ext_1[i].expression.clone(),
                 self.word[i].expression.clone(),
                 word_elem_num.clone(),
                 (LEN_OF_REFERENCE_VALUE as u64).expr(),
@@ -101,7 +99,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                     cells.gc.expression.clone() + word_elem_num.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
-                    0.expr(),
                     item.expression.clone(),
                 ),
             );
@@ -129,7 +126,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             word: self.word.clone(),
             word_mask: self.word_mask.clone(),
             word_addr_ext_0: self.word_addr_ext_0.clone(),
-            word_addr_ext_1: self.word_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -212,7 +208,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let word = cb.alloc_n_cells(word_cap);
         let word_mask = cb.alloc_n_cells(word_cap);
         let word_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let word_addr_ext_1 = cb.alloc_n_cells(word_cap);
         let signer_ref = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let signer_ref_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let type_cells = if GENERIC {
@@ -240,7 +235,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             word,
             word_mask,
             word_addr_ext_0,
-            word_addr_ext_1,
             signer_ref,
             signer_ref_mask,
             type_cells,

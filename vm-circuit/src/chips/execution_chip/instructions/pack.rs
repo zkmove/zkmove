@@ -19,12 +19,10 @@ pub struct Pack<const GENERIC: bool, F: FieldExt> {
     values: Vec<Cell<F>>,
     values_mask: Vec<Cell<F>>,
     values_addr_ext_0: Vec<Cell<F>>,
-    values_addr_ext_1: Vec<Cell<F>>,
     values_address: Vec<Cell<F>>,
     struct_value: Vec<Cell<F>>,
     struct_value_mask: Vec<Cell<F>>,
     struct_value_addr_ext_0: Vec<Cell<F>>,
-    struct_value_addr_ext_1: Vec<Cell<F>>,
 }
 
 impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F> {
@@ -79,7 +77,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
                         frame_index: 0.expr(),
                         address: self.values_address[i].expression.clone(),
                         address_ext_0: self.values_addr_ext_0[i].expression.clone(),
-                        address_ext_1: self.values_addr_ext_1[i].expression.clone(),
                         value: item.expression.clone(),
                         sd_index: 0.expr(),
                     },
@@ -97,7 +94,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
                                 + (i as u64).expr(),
                             cells.stack_size.expression.clone() - field_num.clone(),
                             self.struct_value_addr_ext_0[i].expression.clone(),
-                            self.struct_value_addr_ext_1[i].expression.clone(),
                             item.expression.clone(),
                         ),
                     );
@@ -113,23 +109,17 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
                         cells.gc.expression.clone() + values_element_num,
                         cells.stack_size.expression.clone() - field_num,
                         self.struct_value_addr_ext_0[0].expression.clone(),
-                        self.struct_value_addr_ext_1[0].expression.clone(),
                         self.struct_value[0].expression.clone(),
                     ),
                 );
             },
         );
         // word_b.address is equal to word_a.address_ext_0
-        // word_b.address_ext_0 is equal to word_a.address_ext_1
         for (i, _) in self.struct_value.iter().enumerate().skip(1) {
             let constraint = self.struct_value_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
                     - self.struct_value_addr_ext_0[i].expression.clone());
             cb.add_constraint("pack_address_eq", constraint);
-            let constraint = self.struct_value_mask[i].expression.clone()
-                * (self.values_addr_ext_0[i].expression.clone()
-                    - self.struct_value_addr_ext_1[i].expression.clone());
-            cb.add_constraint("pack_address_ext_0_eq", constraint);
         }
 
         LookupBytecode::lookup_bytecode(
@@ -161,7 +151,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             word: self.values.clone(),
             word_mask: self.values_mask.clone(),
             word_addr_ext_0: self.values_addr_ext_0.clone(),
-            word_addr_ext_1: self.values_addr_ext_1.clone(),
         };
         Word::assign_word_with_address(
             region,
@@ -177,7 +166,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             word: self.struct_value.clone(),
             word_mask: self.struct_value_mask.clone(),
             word_addr_ext_0: self.struct_value_addr_ext_0.clone(),
-            word_addr_ext_1: self.struct_value_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -199,23 +187,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         let values = cb.alloc_n_cells(word_cap);
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let values_addr_ext_1 = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
         let struct_value = cb.alloc_n_cells(word_cap);
         let struct_value_mask = cb.alloc_n_cells(word_cap);
         let struct_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let struct_value_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             values,
             values_mask,
             values_addr_ext_0,
-            values_addr_ext_1,
             values_address,
             struct_value,
             struct_value_mask,
             struct_value_addr_ext_0,
-            struct_value_addr_ext_1,
         }
     }
 }

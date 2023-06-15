@@ -32,12 +32,10 @@ pub struct VecSwap<F: FieldExt> {
     value_a: Vec<Cell<F>>,
     value_a_mask: Vec<Cell<F>>,
     value_a_addr_ext_0: Vec<Cell<F>>,
-    value_a_addr_ext_1: Vec<Cell<F>>,
 
     value_b: Vec<Cell<F>>,
     value_b_mask: Vec<Cell<F>>,
     value_b_addr_ext_0: Vec<Cell<F>>,
-    value_b_addr_ext_1: Vec<Cell<F>>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
@@ -93,7 +91,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -103,7 +100,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 self.idx_b.expression.clone(),
             ),
         );
@@ -112,7 +108,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
@@ -123,7 +118,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cells.gc.expression.clone() + 3.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                0.expr(),
                 self.idx_a.expression.clone(),
             ),
         );
@@ -137,7 +131,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         cells.gc.expression.clone() + 4.expr() + (i as u64).expr(),
                         cells.stack_size.expression.clone() - 2.expr(),
                         (i as u64).expr(),
-                        0.expr(),
                         item.expression.clone(),
                     ),
                 );
@@ -158,7 +151,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_a_addr_ext_0[i].expression.clone(),
-                        self.value_a_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("vec_swap(read value_a)", locals_read);
@@ -173,7 +165,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_b_addr_ext_0[i].expression.clone(),
-                        self.value_b_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("vec_swap(write value_a)", locals_write);
@@ -188,7 +179,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         item.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_a_addr_ext_0[i].expression.clone(),
-                        self.value_a_addr_ext_1[i].expression.clone(),
                     );
                     cb.add_lookup("vec_swap(read value_a)", global_read);
 
@@ -203,7 +193,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         item.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_b_addr_ext_0[i].expression.clone(),
-                        self.value_b_addr_ext_1[i].expression.clone(),
                     );
                     cb.add_lookup("vec_swap(write value_a)", global_write);
                 });
@@ -223,7 +212,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_b_addr_ext_0[i].expression.clone(),
-                        self.value_b_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("vec_swap(read value_b)", locals_read);
@@ -238,7 +226,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         self.vec_frame_index_or_global_address.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_a_addr_ext_0[i].expression.clone(),
-                        self.value_a_addr_ext_1[i].expression.clone(),
                         item.expression.clone(),
                     );
                     cb.add_lookup("vec_swap(write value_b)", locals_write);
@@ -254,7 +241,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         item.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_b_addr_ext_0[i].expression.clone(),
-                        self.value_b_addr_ext_1[i].expression.clone(),
                     );
                     cb.add_lookup("vec_swap(read value_b)", global_read);
                     let global_write = RWLookup::global_write(
@@ -268,7 +254,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                         item.expression.clone(),
                         self.vec_locals_index_or_global_sd_idx.expression.clone(),
                         self.value_a_addr_ext_0[i].expression.clone(),
-                        self.value_a_addr_ext_1[i].expression.clone(),
                     );
                     cb.add_lookup("vec_swap(write value_b)", global_write);
                 });
@@ -395,7 +380,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             word: self.value_a.clone(),
             word_mask: self.value_a_mask.clone(),
             word_addr_ext_0: self.value_a_addr_ext_0.clone(),
-            word_addr_ext_1: self.value_a_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -412,7 +396,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             word: self.value_b.clone(),
             word_mask: self.value_b_mask.clone(),
             word_addr_ext_0: self.value_b_addr_ext_0.clone(),
-            word_addr_ext_1: self.value_b_addr_ext_1.clone(),
         };
         Word::assign_word(
             region,
@@ -444,12 +427,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let value_a = cb.alloc_n_cells(word_cap);
         let value_a_mask = cb.alloc_n_cells(word_cap);
         let value_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let value_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         let value_b = cb.alloc_n_cells(word_cap);
         let value_b_mask = cb.alloc_n_cells(word_cap);
         let value_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
-        let value_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             idx_a,
@@ -465,12 +446,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             value_a,
             value_a_mask,
             value_a_addr_ext_0,
-            value_a_addr_ext_1,
 
             value_b,
             value_b_mask,
             value_b_addr_ext_0,
-            value_b_addr_ext_1,
         }
     }
 }

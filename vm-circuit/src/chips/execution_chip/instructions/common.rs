@@ -65,7 +65,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -75,7 +74,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 binary_op.value_b.expression.clone(),
             ),
         );
@@ -84,7 +82,6 @@ impl<F: FieldExt> BinaryOp<F> {
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
@@ -95,7 +92,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone() + 3.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                0.expr(),
                 binary_op.value_a.expression.clone(),
             ),
         );
@@ -104,7 +100,6 @@ impl<F: FieldExt> BinaryOp<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 4.expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
-                0.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
@@ -115,7 +110,6 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone() + 5.expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 1.expr(),
-                0.expr(),
                 binary_op.value_c.expression.clone(),
             ),
         );
@@ -315,7 +309,6 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -325,7 +318,6 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 unary_op.value_a.expression.clone(),
             ),
         );
@@ -334,7 +326,6 @@ impl<F: FieldExt> UnaryOp<F> {
             RWLookup::stack_push(
                 cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
@@ -345,7 +336,6 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.gc.expression.clone() + 3.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                0.expr(),
                 unary_op.value_c.expression.clone(),
             ),
         );
@@ -412,7 +402,6 @@ impl<F: FieldExt> LoadOp<F> {
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
-                0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -422,7 +411,6 @@ impl<F: FieldExt> LoadOp<F> {
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                0.expr(),
                 value.expression.clone(),
             ),
         );
@@ -593,7 +581,6 @@ pub struct Word<F: FieldExt> {
     pub word: Vec<Cell<F>>,
     pub word_mask: Vec<Cell<F>>,
     pub word_addr_ext_0: Vec<Cell<F>>,
-    pub word_addr_ext_1: Vec<Cell<F>>,
 }
 
 pub struct RefVal<F: FieldExt> {
@@ -694,17 +681,11 @@ impl<F: FieldExt> Word<F> {
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
         }
 
         for (i, _) in cells.word.iter().enumerate().skip(word_element_num) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
@@ -730,11 +711,6 @@ impl<F: FieldExt> Word<F> {
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
         }
 
         debug_assert!(word_element_num <= capacity);
@@ -742,7 +718,6 @@ impl<F: FieldExt> Word<F> {
         for i in word_element_num..capacity {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
         }
 
         Ok(())
@@ -762,7 +737,6 @@ impl<F: FieldExt> Word<F> {
         // leave word[0] empty
         cells.word_mask[0].assign(region, offset, Some(F::one()))?;
         cells.word_addr_ext_0[0].assign(region, offset, Some(F::zero()))?;
-        cells.word_addr_ext_1[0].assign(region, offset, Some(F::zero()))?;
         word_address[0].assign(region, offset, Some(F::zero()))?;
 
         for (i, item) in word_address
@@ -782,18 +756,12 @@ impl<F: FieldExt> Word<F> {
                 offset,
                 Some(F::from(op.address_ext_0() as u64)),
             )?;
-            cells.word_addr_ext_1[i].assign(
-                region,
-                offset,
-                Some(F::from(op.address_ext_1() as u64)),
-            )?;
             item.assign(region, offset, Some(F::from(op.address() as u64)))?;
         }
 
         for (i, item) in word_address.iter().enumerate().skip(word_element_num + 1) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
         }
 
@@ -824,11 +792,6 @@ impl<F: FieldExt> Word<F> {
                     offset,
                     Some(F::from(op.address_ext_0() as u64)),
                 )?;
-                cells.word_addr_ext_1[i].assign(
-                    region,
-                    offset,
-                    Some(F::from(op.address_ext_1() as u64)),
-                )?;
                 // assign index of Locals to word_address
                 word_address[i].assign(region, offset, Some(F::from(op.address() as u64)))?;
 
@@ -841,7 +804,6 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address.iter().enumerate().skip(word_element_num) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext_0[i].assign(region, offset, Some(F::zero()))?;
-            cells.word_addr_ext_1[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
         }
 
