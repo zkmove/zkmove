@@ -8,6 +8,8 @@ use halo2_proofs::poly::Rotation;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
 
+use super::execution_chip::param::MAX_ADDRESS_EXT_LENGTH;
+
 #[derive(Clone, Debug)]
 pub struct Cell<F> {
     pub expression: Expression<F>,
@@ -148,6 +150,16 @@ pub(crate) trait Expr<F: FieldExt> {
 impl<F: FieldExt> Expr<F> for u64 {
     fn expr(&self) -> Expression<F> {
         Expression::Constant(F::from(*self))
+    }
+}
+
+pub(crate) trait AddrExtExpr<F: FieldExt> {
+    fn addr_ext_offset_expr(&self) -> Expression<F>;
+}
+
+impl<F: FieldExt> AddrExtExpr<F> for u128 {
+    fn addr_ext_offset_expr(&self) -> Expression<F> {
+        Expression::Constant(F::from_u128(*self << (16 * (MAX_ADDRESS_EXT_LENGTH - 1))))
     }
 }
 

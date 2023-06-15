@@ -1,8 +1,8 @@
 //! circuit: vm
 //! args: 8u64
 //! step_max_row: 300
-//! stack_ops_num: 200
-//! locals_ops_num: 150
+//! stack_ops_num: 400
+//! locals_ops_num: 250
 script {
     fun main(n: u64) {
         let value1 = 0u64;

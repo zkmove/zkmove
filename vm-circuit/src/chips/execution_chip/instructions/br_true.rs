@@ -2,21 +2,22 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::{AddrExtExpr, Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
+use movelang::word::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct BrTrue<F: FieldExt> {
-    value_a: Cell<F>,
+    value: Cell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
@@ -24,22 +25,14 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
 
     const OPCODE: Opcode = Opcode::BrTrue;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
-        // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        // branch target is assigned in the auxiliary_1, condition is popped form stack as value
         let aux = cells.auxiliary_1.expression.clone();
-        //let value_a = value_a.expression.clone();
         let pc = cells.pc.expression.clone();
         let next_pc = cb.next.cells.pc.expression.clone();
-        // auxiliary_1 * value_a + (pc + 1) * (1 - value_a) - next_pc = 0
-        let pc_expr = aux * self.value_a.expression.clone()
-            + (pc + 1.expr()) * (1.expr() - self.value_a.expression.clone())
+        // auxiliary_1 * value + (pc + 1) * (1 - value) - next_pc = 0
+        let pc_expr = aux * self.value.expression.clone()
+            + (pc + 1.expr()) * (1.expr() - self.value.expression.clone())
             - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -47,39 +40,47 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 1.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
 
         cb.add_constraints(vec![
-            ("BrTrue pc", cond.clone() * pc_expr),
-            ("BrTrue stack size", cond.clone() * stack_size_expr),
-            ("BrTrue frame index", cond.clone() * frame_index_expr),
-            ("BrTrue gc", cond.clone() * gc_expr),
-            ("BrFalse module index", cond.clone() * module_index),
-            ("BrFalse function index", cond.clone() * func_index),
+            ("BrTrue pc", pc_expr),
+            ("BrTrue stack size", stack_size_expr),
+            ("BrTrue frame index", frame_index_expr),
+            ("BrTrue gc", gc_expr),
+            ("BrFalse module index", module_index),
+            ("BrFalse function index", func_index),
         ]);
 
-        lookups.rw_lookups.push((
-            "br_true(stack pop)",
+        cb.add_lookup(
+            "br_true(stack pop value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                self.value_a.expression.clone(),
+                ValueHeader::default_for_simple().expr(),
             ),
-            cond.clone(),
-        ));
+        );
+        cb.add_lookup(
+            "br_true(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.addr_ext_offset_expr(),
+                0.expr(),
+                self.value.expression.clone(),
+            ),
+        );
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::BrTrue,
             cells.auxiliary_1.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 
@@ -100,16 +101,17 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
             .auxiliary_1
             .assign(region, offset, aux_value.value())?;
 
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        // get value
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
-        self.value_a.assign(region, offset, op.value().value())?;
+        self.value.assign(region, offset, op.value().value())?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
+        let value = cb.alloc_cell();
 
-        Self { value_a }
+        Self { value }
     }
 }

@@ -36,3 +36,9 @@ pub struct Pow2Lookup<F: FieldExt> {
     pub pow: Expression<F>,
     pub pow_result: Expression<F>,
 }
+
+impl<F: FieldExt> Pow2Lookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![self.pow.clone(), self.pow_result.clone()]
+    }
+}

@@ -50,40 +50,122 @@ pub mod rw_table;
 pub mod type_instantiation_table;
 pub mod utils;
 
-#[derive(Default)]
-pub struct LookupsWithCondition<F: FieldExt> {
-    pub rw_lookups: Vec<(&'static str, RWLookup<F>, /*condition*/ Expression<F>)>,
-    pub constant_lookup: Vec<(&'static str, ConstantLookup<F>, Expression<F>)>,
-    pub bytecode_lookups: Vec<(
-        &'static str,
-        BytecodeLookup<F>,
-        /*condition*/ Expression<F>,
-    )>,
-    pub call_lookups: Vec<(
-        &'static str,
-        CallLookup<F>,
-        /*condition*/ Expression<F>,
-    )>,
-    pub arith_op_lookups: Vec<(
-        &'static str,
-        ArithOpLookup<F>,
-        /*condition*/ Expression<F>,
-    )>,
-    pub bitwise_lookups: Vec<(
-        &'static str,
-        BitwiseLookup<F>,
-        /*condition*/ Expression<F>,
-    )>,
-    pub pow2_lookups: Vec<(&'static str, Pow2Lookup<F>, Expression<F>)>,
-    pub call_trace_lookups: Vec<(&'static str, CallTraceLookup<F>, Expression<F>)>,
-    pub type_instantiation_type_lookups:
-        Vec<(&'static str, TypeInstantiationLookup<F>, Expression<F>)>,
-    pub input_type_element_lookups: Vec<(&'static str, InputTypeElementLookup<F>, Expression<F>)>,
+#[derive(Clone, Debug)]
+pub enum Lookup<F: FieldExt> {
+    RW(RWLookup<F>),
+    MoveConstant(ConstantLookup<F>),
+    Bytecode(BytecodeLookup<F>),
+    Call(CallLookup<F>),
+    ArithOp(ArithOpLookup<F>),
+    Bitwise(BitwiseLookup<F>),
+    Pow2(Pow2Lookup<F>),
+    CallTrace(CallTraceLookup<F>),
+    TypeInstantiation(TypeInstantiationLookup<F>),
+    InputTypeArg(InputTypeElementLookup<F>),
+    Conditional(Expression<F>, Box<Lookup<F>>),
 }
 
-impl<F: FieldExt> LookupsWithCondition<F> {
-    pub fn new() -> Self {
-        Self::default()
+impl<F: FieldExt> From<BytecodeLookup<F>> for Lookup<F> {
+    fn from(l: BytecodeLookup<F>) -> Self {
+        Self::Bytecode(l)
+    }
+}
+impl<F: FieldExt> From<RWLookup<F>> for Lookup<F> {
+    fn from(l: RWLookup<F>) -> Self {
+        Self::RW(l)
+    }
+}
+impl<F: FieldExt> From<ConstantLookup<F>> for Lookup<F> {
+    fn from(l: ConstantLookup<F>) -> Self {
+        Self::MoveConstant(l)
+    }
+}
+impl<F: FieldExt> From<CallLookup<F>> for Lookup<F> {
+    fn from(l: CallLookup<F>) -> Self {
+        Self::Call(l)
+    }
+}
+
+impl<F: FieldExt> From<ArithOpLookup<F>> for Lookup<F> {
+    fn from(l: ArithOpLookup<F>) -> Self {
+        Self::ArithOp(l)
+    }
+}
+
+impl<F: FieldExt> From<BitwiseLookup<F>> for Lookup<F> {
+    fn from(l: BitwiseLookup<F>) -> Self {
+        Self::Bitwise(l)
+    }
+}
+
+impl<F: FieldExt> From<Pow2Lookup<F>> for Lookup<F> {
+    fn from(l: Pow2Lookup<F>) -> Self {
+        Self::Pow2(l)
+    }
+}
+impl<F: FieldExt> From<CallTraceLookup<F>> for Lookup<F> {
+    fn from(l: CallTraceLookup<F>) -> Self {
+        Self::CallTrace(l)
+    }
+}
+impl<F: FieldExt> From<TypeInstantiationLookup<F>> for Lookup<F> {
+    fn from(l: TypeInstantiationLookup<F>) -> Self {
+        Self::TypeInstantiation(l)
+    }
+}
+impl<F: FieldExt> From<InputTypeElementLookup<F>> for Lookup<F> {
+    fn from(l: InputTypeElementLookup<F>) -> Self {
+        Self::InputTypeArg(l)
+    }
+}
+
+pub enum TableKind {
+    RW,
+    MoveConstant,
+    Bytecode,
+    Call,
+    ArithOp,
+    Bitwise,
+    Pow2,
+    CallTrace,
+    TypeInstantiation,
+    InputTypeArg,
+}
+
+impl<F: FieldExt> Lookup<F> {
+    pub fn input_exprs(&self) -> Vec<Expression<F>> {
+        match self {
+            Lookup::RW(rw) => rw.exprs(),
+            Lookup::MoveConstant(c) => c.exprs(),
+            Lookup::Bytecode(v) => v.exprs(),
+            Lookup::Call(c) => c.exprs(),
+            Lookup::ArithOp(l) => l.exprs(),
+            Lookup::Bitwise(l) => l.exprs(),
+            Lookup::Pow2(l) => l.exprs(),
+            Lookup::CallTrace(l) => l.exprs(),
+            Lookup::TypeInstantiation(l) => l.exprs(),
+            Lookup::InputTypeArg(l) => l.exprs(),
+            Lookup::Conditional(cond, inner) => inner
+                .input_exprs()
+                .into_iter()
+                .map(|e| e * cond.clone())
+                .collect(),
+        }
+    }
+    pub fn table(&self) -> TableKind {
+        match self {
+            Lookup::RW(_) => TableKind::RW,
+            Lookup::MoveConstant(_) => TableKind::MoveConstant,
+            Lookup::Bytecode(_) => TableKind::Bytecode,
+            Lookup::Call(_) => TableKind::Call,
+            Lookup::ArithOp(_) => TableKind::ArithOp,
+            Lookup::Bitwise(_) => TableKind::Bitwise,
+            Lookup::Pow2(_) => TableKind::Pow2,
+            Lookup::CallTrace(_) => TableKind::CallTrace,
+            Lookup::TypeInstantiation(_) => TableKind::TypeInstantiation,
+            Lookup::InputTypeArg(_) => TableKind::InputTypeArg,
+            Lookup::Conditional(_, inner) => inner.table(),
+        }
     }
 }
 
@@ -130,260 +212,68 @@ impl<F: FieldExt> LookupTableConfig<F> {
 
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        lookups: &LookupsWithCondition<F>,
+        lookups: &Vec<(&'static str, Lookup<F>)>,
         s_usable: Selector,
         s_step: Column<Advice>,
     ) -> LookupTableConfig<F> {
         let lookup_table = Self::construct(meta);
 
-        // for (i, item) in lookups.rw_lookups.iter().enumerate() {
-        //     debug!("rw lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.rw_lookups {
-            meta.lookup_any(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.gc.clone() * cond.clone(),
-                        meta.query_advice(lookup_table.rw_table.gc_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.rw_target.clone() * cond.clone(),
-                        meta.query_advice(lookup_table.rw_table.rw_target_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.rw.clone() * cond.clone(),
-                        meta.query_advice(lookup_table.rw_table.rw_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step.clone() * lookup.frame_index.clone() * cond.clone(),
-                        meta.query_advice(
-                            lookup_table.rw_table.frame_index_column,
-                            Rotation::cur(),
-                        ),
-                    ),
-                    (
-                        s_step.clone() * lookup.address.clone() * cond.clone(),
-                        meta.query_advice(lookup_table.rw_table.address_column, Rotation::cur()),
-                    ),
-                    (
-                        s_step * lookup.value.clone() * cond,
-                        meta.query_advice(lookup_table.rw_table.value_column, Rotation::cur()),
-                    ),
-                ]
-            });
-        }
+        for (name, lookup) in lookups {
+            let mut fixed_table_columns = Vec::new();
+            let mut advice_table_columns = Vec::new();
+            match lookup.table() {
+                TableKind::RW => advice_table_columns = lookup_table.rw_table.columns(),
+                TableKind::InputTypeArg => {
+                    advice_table_columns = lookup_table.input_type_element_table.columns()
+                }
+                TableKind::MoveConstant => {
+                    fixed_table_columns = lookup_table.constant_table.columns()
+                }
+                TableKind::Bytecode => fixed_table_columns = lookup_table.bytecode_table.columns(),
+                TableKind::Call => fixed_table_columns = lookup_table.calls_table.columns(),
+                TableKind::ArithOp => fixed_table_columns = lookup_table.arith_op_table.columns(),
 
-        // for (i, item) in lookups.bytecode_lookups.iter().enumerate() {
-        //     debug!("bytecode lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.bytecode_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
-                        lookup_table.bytecode_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
-                        lookup_table.bytecode_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc.clone() * cond.clone(),
-                        lookup_table.bytecode_table.pc_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.opcode.clone() * cond.clone(),
-                        lookup_table.bytecode_table.opcode_column,
-                    ),
-                    (
-                        s_step * lookup.operand.clone() * cond,
-                        lookup_table.bytecode_table.operand_column,
-                    ),
-                ]
-            });
-        }
-        for (name, lookup, cond) in &lookups.constant_lookup {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                lookup
-                    .expressions()
-                    .into_iter()
-                    .map(|e| s_step.clone() * cond.clone() * e)
-                    .zip(lookup_table.constant_table.columns())
-                    .collect()
-            });
-        }
-        // for (i, item) in lookups.call_lookups.iter().enumerate() {
-        //     debug!("call lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.call_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.type_.clone() * cond.clone(),
-                        lookup_table.calls_table.type_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
-                        lookup_table.calls_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
-                        lookup_table.calls_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc.clone() * cond.clone(),
-                        lookup_table.calls_table.pc_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.next_module_index.clone() * cond.clone(),
-                        lookup_table.calls_table.callee_module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.next_function_index.clone() * cond.clone(),
-                        lookup_table.calls_table.callee_function_index_column,
-                    ),
-                    (
-                        s_step * lookup.next_pc.clone() * cond,
-                        lookup_table.calls_table.next_pc_column,
-                    ),
-                ]
-            });
-        }
-        for (name, lookup, cond) in &lookups.call_trace_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                lookup
-                    .expressions()
-                    .into_iter()
-                    .map(|e| s_step.clone() * cond.clone() * e)
-                    .zip(lookup_table.call_trace_table.columns())
-                    .collect()
-            });
-        }
-        for (name, lookup, cond) in &lookups.type_instantiation_type_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                lookup
-                    .expressions()
-                    .into_iter()
-                    .map(|e| s_step.clone() * cond.clone() * e)
-                    .zip(lookup_table.type_instantiation_table.columns())
-                    .collect()
-            });
-        }
-        for (name, lookup, cond) in &lookups.input_type_element_lookups {
-            meta.lookup_any(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                lookup
-                    .expressions()
-                    .into_iter()
-                    .map(|e| s_step.clone() * cond.clone() * e)
-                    .zip(
-                        lookup_table
-                            .input_type_element_table
-                            .columns()
-                            .into_iter()
-                            .map(|c| meta.query_advice(c, Rotation::cur())),
-                    )
-                    .collect()
-            });
-        }
-
-        // for (i, item) in lookups.arith_op_lookups.iter().enumerate() {
-        //     debug!("arith lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.arith_op_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.module_index.clone() * cond.clone(),
-                        lookup_table.arith_op_table.module_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.function_index.clone() * cond.clone(),
-                        lookup_table.arith_op_table.function_index_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.pc.clone() * cond.clone(),
-                        lookup_table.arith_op_table.pc_column,
-                    ),
-                    (
-                        s_step * lookup.num_of_bytes.clone() * cond,
-                        lookup_table.arith_op_table.num_of_bytes_column,
-                    ),
-                ]
-            });
-        }
-
-        // for (i, item) in lookups.bitwise_lookups.iter().enumerate() {
-        //      debug!("bitwise lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.bitwise_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.opcode.clone() * cond.clone(),
-                        lookup_table.bitwise_table.opcode_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.value_1.clone() * cond.clone(),
-                        lookup_table.bitwise_table.value_1_column,
-                    ),
-                    (
-                        s_step.clone() * lookup.value_2.clone() * cond.clone(),
-                        lookup_table.bitwise_table.value_2_column,
-                    ),
-                    (
-                        s_step * lookup.result.clone() * cond,
-                        lookup_table.bitwise_table.result_column,
-                    ),
-                ]
-            });
-        }
-
-        // for (i, item) in lookups.pow2_lookups.iter().enumerate() {
-        //      debug!("pow2 lookup {}, {:?}", i, item);
-        // }
-        for (name, lookup, cond) in &lookups.pow2_lookups {
-            meta.lookup(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let s_step = meta.query_advice(s_step, Rotation::cur());
-                let cond = cond.clone() * s_usable;
-                vec![
-                    (
-                        s_step.clone() * lookup.pow.clone() * cond.clone(),
-                        lookup_table.pow2_table.pow_column,
-                    ),
-                    (
-                        s_step * lookup.pow_result.clone() * cond,
-                        lookup_table.pow2_table.pow_result_column,
-                    ),
-                ]
-            });
+                TableKind::Bitwise => fixed_table_columns = lookup_table.bitwise_table.columns(),
+                TableKind::Pow2 => fixed_table_columns = lookup_table.pow2_table.columns(),
+                TableKind::CallTrace => {
+                    fixed_table_columns = lookup_table.call_trace_table.columns()
+                }
+                TableKind::TypeInstantiation => {
+                    fixed_table_columns = lookup_table.type_instantiation_table.columns()
+                }
+            };
+            if !advice_table_columns.is_empty() {
+                debug_assert_eq!(advice_table_columns.len(), lookup.input_exprs().len());
+                meta.lookup_any(name, |meta| {
+                    let s_usable = meta.query_selector(s_usable);
+                    let s_step = meta.query_advice(s_step, Rotation::cur());
+                    let cond = s_step * s_usable;
+                    lookup
+                        .input_exprs()
+                        .into_iter()
+                        .map(|e| cond.clone() * e)
+                        .zip(
+                            advice_table_columns
+                                .into_iter()
+                                .map(|col| meta.query_advice(col, Rotation::cur())),
+                        )
+                        .collect()
+                });
+            } else {
+                debug_assert!(!fixed_table_columns.is_empty());
+                debug_assert_eq!(fixed_table_columns.len(), lookup.input_exprs().len());
+                meta.lookup(name, |meta| {
+                    let s_usable = meta.query_selector(s_usable);
+                    let s_step = meta.query_advice(s_step, Rotation::cur());
+                    let cond = s_step * s_usable;
+                    lookup
+                        .input_exprs()
+                        .into_iter()
+                        .map(|e| cond.clone() * e)
+                        .zip(fixed_table_columns)
+                        .collect()
+                });
+            }
         }
 
         lookup_table
@@ -429,21 +319,36 @@ impl<F: FieldExt> LookupTableConfig<F> {
         );
         if stack_ops_num > 0 {
             if stack_operations.len() > stack_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "stack operations length {:?} exceeds stack_ops_num {:?}",
+                    stack_operations.len(),
+                    stack_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 stack_operations.resize(stack_ops_num, ConvertedRWOperation::empty());
             }
         }
         if locals_ops_num > 0 {
             if locals_operations.len() > locals_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "locals operations length {:?} exceeds locals_ops_num {:?}",
+                    locals_operations.len(),
+                    locals_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 locals_operations.resize(locals_ops_num, ConvertedRWOperation::empty());
             }
         }
         if global_ops_num > 0 {
             if global_operations.len() > global_ops_num {
-                return Err(Error::InstanceTooLarge);
+                error!(
+                    "global operations length {:?} exceeds global_ops_num {:?}",
+                    global_operations.len(),
+                    global_ops_num
+                );
+                return Err(Error::Synthesis);
             } else {
                 global_operations.resize(global_ops_num, ConvertedRWOperation::empty());
             }

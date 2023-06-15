@@ -2,9 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{
-    call_lookup_table::CallLookup, LookupsWithCondition,
-};
+use crate::chips::execution_chip::lookup_tables::call_lookup_table::CallLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -26,13 +24,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
     const NAME: &'static str = "RET";
 
     const OPCODE: Opcode = Opcode::Ret;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let frame_index = cells.frame_index.expression.clone();
         let inverse = cells.auxiliary_1.expression.clone();
 
@@ -49,35 +41,31 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
         // gc should not change
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone();
         cb.add_constraints(vec![
-            ("frame_index", cond.clone() * frame_index_expr),
-            ("pc", cond.clone() * pc_expr),
-            ("gc", cond.clone() * gc_expr),
+            ("frame_index", frame_index_expr),
+            ("pc", pc_expr),
+            ("gc", gc_expr),
         ]);
 
         // if frame_index != 0, the next step will be a normal bytecode,
         // (type_, module_index, function_index, pc, next_module_index, next_function_index, next_pc)
         // must be in calls table.
-        lookups.call_lookups.push((
-            "opcode ret",
-            CallLookup {
-                type_: (EntryType::RET as u64).expr(),
-                module_index: cells.module_index.expression.clone(),
-                function_index: cells.function_index.expression.clone(),
-                pc: cells.pc.expression.clone(),
-                next_module_index: cb.next.cells.module_index.expression.clone(),
-                next_function_index: cb.next.cells.function_index.expression.clone(),
-                next_pc: cb.next.cells.pc.expression.clone(),
-            },
-            frame_index * inverse * cond.clone(), // only take effect when frame_index != 0
-        ));
+        // only take effect when frame_index != 0,
+        cb.condition(frame_index * inverse, |cb| {
+            cb.add_lookup(
+                "opcode ret",
+                CallLookup {
+                    type_: (EntryType::RET as u64).expr(),
+                    module_index: cells.module_index.expression.clone(),
+                    function_index: cells.function_index.expression.clone(),
+                    pc: cells.pc.expression.clone(),
+                    next_module_index: cb.next.cells.module_index.expression.clone(),
+                    next_function_index: cb.next.cells.function_index.expression.clone(),
+                    next_pc: cb.next.cells.pc.expression.clone(),
+                },
+            );
+        });
 
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Ret,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Ret, 0.expr());
     }
 
     fn assign(

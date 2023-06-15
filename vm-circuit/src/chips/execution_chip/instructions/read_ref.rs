@@ -2,19 +2,20 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::{AddrExtExpr, Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::word::ValueHeader;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct ReadRef<F: FieldExt> {
@@ -35,17 +36,11 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
 
     const OPCODE: Opcode = Opcode::ReadRef;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction readref, there are 3 pipeline stages here:
-        // 1. read reference from stack. [gc, DEPTH_OF_ADDRESS_PATH]
-        // 2. read value from lobals or global. [gc+DEPTH_OF_ADDRESS_PATH, word_element_num]
-        // 3. store value into stack. [gc+DEPTH_OF_ADDRESS_PATH+word_element_num, word_element_num]
-        let cond = cells.opcode_selector([Self::OPCODE]);
+        // 1. read reference from stack. [gc, LEN_OF_REFERENCE_VALUE]
+        // 2. read value from lobals or global. [gc+LEN_OF_REFERENCE_VALUE, word_element_num]
+        // 3. store value into stack. [gc+LEN_OF_REFERENCE_VALUE+word_element_num, word_element_num]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -53,75 +48,75 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let word_element_num = cells.auxiliary_3.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + depth_of_addr_path_expr.clone()
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + 2.expr() * word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            lookups.rw_lookups.push((
+        for (i, item) in self.ref_val.iter().enumerate() {
+            cb.add_lookup(
                 "read_ref(stack pop)",
                 RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
-                    (i as u64).expr(),
+                    (i as u128).addr_ext_offset_expr(),
                     0.expr(),
                     item.expression.clone(),
                 ),
-                cond.clone(),
-            ));
+            );
         }
 
         let is_global = cells.auxiliary_5.expression.clone();
-        for (i, item) in self.word_b.iter().enumerate().take(WORD_CAPACITY) {
-            // locals read or global read
-            let read = RWLookup::locals_read(
-                cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
-                cells.auxiliary_2.expression.clone(), // frame_index
-                cells.locals_index.expression.clone(), // index
-                self.word_a_addr_ext_0[i].expression.clone(),
-                self.word_a_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "read_ref(locals read)",
-                read,
-                cond.clone()
-                    * (1.expr() - is_global.clone())    // locals read
-                    * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            let read = RWLookup::global_read(
-                cells.gc.expression.clone() + depth_of_addr_path_expr.clone() + (i as u64).expr(),
-                cells.auxiliary_2.expression.clone(), // account_address
-                item.expression.clone(),
-                cells.auxiliary_4.expression.clone(), //sd_index
-                self.word_a_addr_ext_0[i].expression.clone(),
-                self.word_a_addr_ext_1[i].expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "read_ref(global read)",
-                read,
-                cond.clone()
-                    * is_global.clone()              // global read
-                    * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
+        for (i, item) in self.word_b.iter().enumerate() {
+            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+                // locals read or global read
+                let read = RWLookup::locals_read(
+                    cells.gc.expression.clone()
+                        + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                        + (i as u64).expr(),
+                    cells.auxiliary_2.expression.clone(), // frame_index
+                    cells.locals_index.expression.clone(), // index
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
+                    item.expression.clone(),
+                );
+                // locals read
+                cb.condition(1.expr() - is_global.clone(), |cb| {
+                    cb.add_lookup("read_ref(locals read)", read);
+                });
+
+                let read = RWLookup::global_read(
+                    cells.gc.expression.clone()
+                        + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                        + (i as u64).expr(),
+                    cells.auxiliary_2.expression.clone(), // account_address
+                    item.expression.clone(),
+                    cells.auxiliary_4.expression.clone(), //sd_index
+                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext_1[i].expression.clone(),
+                );
+                // global read
+                cb.condition(is_global.clone(), |cb| {
+                    cb.add_lookup("read_ref(global read)", read);
+                });
+            });
 
             // stack write
             let write = RWLookup::stack_push(
                 cells.gc.expression.clone()
-                    + depth_of_addr_path_expr.clone()
+                    + (LEN_OF_REFERENCE_VALUE as u64).expr()
                     + word_element_num.clone()
                     + (i as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
@@ -129,38 +124,34 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                 self.word_b_addr_ext_1[i].expression.clone(),
                 item.expression.clone(),
             );
-            lookups.rw_lookups.push((
-                "read_ref(stack push)",
-                write,
-                cond.clone() * (1.expr() - self.word_b_mask[i].expression.clone()),
-            ));
+            cb.condition(1.expr() - self.word_b_mask[i].expression.clone(), |cb| {
+                cb.add_lookup("read_ref(stack push)", write);
+            });
         }
 
-        // cells.ref_val[0] equel to frame_index(Locals) or account_address(Global)
-        let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone() - cells.auxiliary_2.expression.clone());
+        // ref_val[0] equals to ref value header
+        let constraint =
+            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr();
         cb.add_constraint("read_ref_eq_0", constraint);
-        // cells.ref_val[1] equel to local_index(Locals) or sd_index(Global)
-        constraint = cond.clone()
-            * (1.expr() - is_global.clone())
-            * (self.ref_val[1].expression.clone() - cells.locals_index.expression.clone());
+
+        // ref_val[1] equals to frame_index(Locals) or account_address(Global)
+        let constraint = self.ref_val[1].expression.clone() - cells.auxiliary_2.expression.clone();
         cb.add_constraint("read_ref_eq_1", constraint);
-        constraint = cond.clone()
-            * is_global
-            * (self.ref_val[1].expression.clone() - cells.auxiliary_4.expression.clone());
-        cb.add_constraint("read_ref_eq_1", constraint);
-        // cells.ref_val[2] equal to word_a_addr_ext_0
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone() - self.word_a_addr_ext_0[0].expression.clone());
+
+        // ref_val[2] equel to local_index(Locals) or sd_index(Global)
+        let constraint = (1.expr() - is_global.clone())
+            * (self.ref_val[2].expression.clone() - cells.locals_index.expression.clone());
+        cb.add_constraint("read_ref_eq_2", constraint);
+        let constraint =
+            is_global * (self.ref_val[2].expression.clone() - cells.auxiliary_4.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
 
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::ReadRef,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        // ref_val[3] equal to word_a_addr_ext_0
+        let constraint =
+            self.ref_val[3].expression.clone() - self.word_a_addr_ext_0[0].expression.clone();
+        cb.add_constraint("read_ref_eq_3", constraint);
+
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::ReadRef, 0.expr());
     }
 
     fn assign(
@@ -182,7 +173,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             rw_operations,
             &ref_val,
             step.gc,
-            DEPTH_OF_ADDRESS_PATH,
+            LEN_OF_REFERENCE_VALUE,
         )?;
 
         let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
@@ -198,7 +189,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             step,
             rw_operations,
             &word_a,
-            step.gc + DEPTH_OF_ADDRESS_PATH,
+            step.gc + LEN_OF_REFERENCE_VALUE,
             word_element_num,
         )?;
 
@@ -214,7 +205,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             step,
             rw_operations,
             &word_b,
-            step.gc + DEPTH_OF_ADDRESS_PATH + word_element_num,
+            step.gc + LEN_OF_REFERENCE_VALUE + word_element_num,
             word_element_num,
         )?;
 
@@ -254,18 +245,20 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_cap = word_capacity();
 
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        // alloc cell
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let word_b = cb.alloc_n_cells(word_cap);
+        let word_b_mask = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
+
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
 
         Self {
             word_a,

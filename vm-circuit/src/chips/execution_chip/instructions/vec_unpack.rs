@@ -2,11 +2,9 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{
-    rw_table::RWLookup, rw_table::RWTarget, LookupsWithCondition,
-};
+use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -37,16 +35,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
 
     const OPCODE: Opcode = Opcode::VecUnpack;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecUnpack, there are 2 steps here:
         // 1. read vector from stack. [gc, vector_flattened_len]
         // 2. write n values to stack. [gc + vector_flattened_len, , values_flattened_len]
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let values_num = cells.auxiliary_1.expression.clone();
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
@@ -66,83 +58,82 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
-
         // read the vector header
-        lookups.rw_lookups.push((
-            "vec_unpack(read vec header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                self.vector_addr_ext_0[0].expression.clone(),
-                self.vector_addr_ext_1[0].expression.clone(),
-                self.vector[0].expression.clone(),
-            ),
-            cond.clone() * (1.expr() - self.vector_mask[0].expression.clone()),
-        ));
+        cb.condition(1.expr() - self.vector_mask[0].expression.clone(), |cb| {
+            cb.add_lookup(
+                "vec_unpack(read vec header)",
+                RWLookup::stack_pop(
+                    cells.gc.expression.clone(),
+                    cells.stack_size.expression.clone(),
+                    self.vector_addr_ext_0[0].expression.clone(),
+                    self.vector_addr_ext_1[0].expression.clone(),
+                    self.vector[0].expression.clone(),
+                ),
+            );
+        });
 
         // read the vector from stack, write back the n unpacked values
         // vector[0] is the header. To make the constraint simple, we have already
         // assigned the values[0] to be empty, now we just skip 'i=0'.
-        for (i, item) in self.values.iter().enumerate().take(WORD_CAPACITY).skip(1) {
-            lookups.rw_lookups.push((
-                "vec_unpack(read vec)",
-                RWLookup::stack_pop(
-                    cells.gc.expression.clone() + (i as u64).expr(),
-                    cells.stack_size.expression.clone(),
-                    self.vector_addr_ext_0[i].expression.clone(),
-                    self.vector_addr_ext_1[i].expression.clone(),
-                    item.expression.clone(),
-                ),
-                cond.clone() * (1.expr() - self.vector_mask[i].expression.clone()),
-            ));
-
-            lookups.rw_lookups.push((
-                "vec_unpack(write n values)",
-                RWLookup {
-                    gc: cells.gc.expression.clone()
-                        + vector_flattened_len.clone()
-                        + ((i - 1) as u64).expr(),
-                    rw_target: (RWTarget::Stack as u64).expr(),
-                    rw: (RW::WRITE as u64).expr(),
-                    frame_index: 0.expr(),
-                    address: self.values_address[i].expression.clone(),
-                    address_ext_0: self.values_addr_ext_0[i].expression.clone(),
-                    address_ext_1: self.values_addr_ext_1[i].expression.clone(),
-                    value: item.expression.clone(),
-                    sd_index: 0.expr(),
-                },
-                cond.clone() * (1.expr() - self.values_mask[i].expression.clone()),
-            ));
+        for (i, item) in self.values.iter().enumerate().skip(1) {
+            cb.condition(1.expr() - self.vector_mask[i].expression.clone(), |cb| {
+                cb.add_lookup(
+                    "vec_unpack(read vec)",
+                    RWLookup::stack_pop(
+                        cells.gc.expression.clone() + (i as u64).expr(),
+                        cells.stack_size.expression.clone(),
+                        self.vector_addr_ext_0[i].expression.clone(),
+                        self.vector_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    ),
+                );
+            });
+            cb.condition(1.expr() - self.values_mask[i].expression.clone(), |cb| {
+                cb.add_lookup(
+                    "vec_unpack(write n values)",
+                    RWLookup {
+                        gc: cells.gc.expression.clone()
+                            + vector_flattened_len.clone()
+                            + ((i - 1) as u64).expr(),
+                        rw_target: (RWTarget::Stack as u64).expr(),
+                        rw: (RW::WRITE as u64).expr(),
+                        frame_index: 0.expr(),
+                        address: self.values_address[i].expression.clone(),
+                        address_ext_0: self.values_addr_ext_0[i].expression.clone(),
+                        address_ext_1: self.values_addr_ext_1[i].expression.clone(),
+                        value: item.expression.clone(),
+                        sd_index: 0.expr(),
+                    },
+                );
+            });
         }
 
         // vector_addr_ext_0 is equal to values_address
         // vector_addr_ext_1 is equal to values_addr_ext_0
-        for i in 1..WORD_CAPACITY {
-            let constraint = cond.clone()
-                * self.vector_mask[i].expression.clone()
+        // fixme: addr_ext_0, addr_ext_1... have been folded.
+        for (i, _) in self.values.iter().enumerate().skip(1) {
+            let constraint = self.vector_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
                     - self.vector_addr_ext_0[i].expression.clone());
             cb.add_constraint("vec_unpack_address_eq", constraint);
-            let constraint = cond.clone()
-                * self.vector_mask[i].expression.clone()
+            let constraint = self.vector_mask[i].expression.clone()
                 * (self.values_addr_ext_0[i].expression.clone()
                     - self.vector_addr_ext_1[i].expression.clone());
             cb.add_constraint("vec_unpack_address_ext_0_eq", constraint);
         }
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::VecUnpack,
             cells.auxiliary_2.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 
@@ -198,16 +189,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let vector = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let vector_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
-        let values_address = cb.alloc_n_cells(WORD_CAPACITY);
+        let vector = cb.alloc_n_cells(word_cap);
+        let vector_mask = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let vector_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let values = cb.alloc_n_cells(word_cap);
+        let values_mask = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let values_addr_ext_1 = cb.alloc_n_cells(word_cap);
+        let values_address = cb.alloc_n_cells(word_cap);
 
         Self {
             vector,

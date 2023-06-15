@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -23,24 +23,12 @@ impl<F: FieldExt> InstructionGadget<F> for LdFalse<F> {
 
     const OPCODE: Opcode = Opcode::LdFalse;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //LdFalse
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
-        LoadOp::constrain_ld_op(cells, cb, cond.clone());
-        LoadOp::lookup_ld_op(cells, &self.value_a, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::LdFalse,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        LoadOp::constrain_ld_op(cells, cb);
+        LoadOp::lookup_ld_op(cb, cells, &self.value_a);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::LdFalse, 0.expr());
     }
 
     fn assign(
@@ -51,7 +39,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdFalse<F> {
         rw_operations: &RWOperations<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.value_a.assign(region, offset, op.value().value())?;
         Ok(())

@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBitwise, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -28,41 +28,23 @@ impl<F: FieldExt> InstructionGadget<F> for BitAnd<F> {
     const NAME: &'static str = "BITAND";
 
     const OPCODE: Opcode = Opcode::BitAnd;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //bit and
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
         let lookup_bitwise = LookupBitwise {
             bytes: self.bytes.clone(),
             bytes_operand_1: self.bytes_operand_1.clone(),
             bytes_operand_2: self.bytes_operand_2.clone(),
         };
-        LookupBitwise::lookup_bitwise(
-            &lookup_bitwise,
-            Opcode::BitAnd,
-            &mut lookups.bitwise_lookups,
-            cond.clone(),
-        );
+        LookupBitwise::lookup_bitwise(cb, &lookup_bitwise, Opcode::BitAnd);
 
         let binary_op = BinaryOp {
             value_a: self.value_a.clone(),
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::BitAnd,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::BitAnd, 0.expr());
     }
 
     fn assign(

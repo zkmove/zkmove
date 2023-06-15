@@ -2,9 +2,9 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
@@ -27,14 +27,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
 
     const OPCODE: Opcode = Opcode::MoveLoc;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
@@ -49,15 +42,15 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
 
-        for i in 0..WORD_CAPACITY {
+        for (i, _) in self.word_a.iter().enumerate() {
             let (read, write_locals, write_stack) = RWLookup::locals_move(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
@@ -68,30 +61,18 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
                 self.word_a[i].expression.clone(),
                 word_element_num.clone(), // word_element_num
             );
-
-            lookups.rw_lookups.push((
-                "move_loc(locals read)",
-                read,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            lookups.rw_lookups.push((
-                "move_loc(locals write)",
-                write_locals,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
-            lookups.rw_lookups.push((
-                "move_loc(stack write)",
-                write_stack,
-                cond.clone() * (1.expr() - self.word_a_mask[i].expression.clone()),
-            ));
+            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
+                cb.add_lookup("move_loc(locals read)", read);
+                cb.add_lookup("move_loc(locals write)", write_locals);
+                cb.add_lookup("move_loc(stack write)", write_stack);
+            });
         }
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::MoveLoc,
             cells.locals_index.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 
@@ -125,11 +106,13 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
-        let word_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let word_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let word_a = cb.alloc_n_cells(word_cap);
+        let word_a_mask = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             word_a,

@@ -37,3 +37,14 @@ pub struct ArithOpLookup<F: FieldExt> {
     pub pc: Expression<F>,
     pub num_of_bytes: Expression<F>,
 }
+
+impl<F: FieldExt> ArithOpLookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.module_index.clone(),
+            self.function_index.clone(),
+            self.pc.clone(),
+            self.num_of_bytes.clone(),
+        ]
+    }
+}

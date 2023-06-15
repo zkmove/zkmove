@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{ArithOverflow, BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -27,43 +27,25 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
 
     const OPCODE: Opcode = Opcode::Add;
 
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Add
-        let cond = cells.opcode_selector([Self::OPCODE]);
-
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();
         let out = self.value_c.expression.clone();
-        let constraint = cond.clone() * (lhs + rhs - out.clone());
+        let constraint = lhs + rhs - out.clone();
         cb.add_constraint("add constraint", constraint);
 
-        ArithOverflow::constrain_range_check(cells, self.bytes.clone(), cb, cond.clone(), out);
-        ArithOverflow::lookup_arith_op(
-            cells,
-            &mut lookups.arith_op_lookups,
-            cond.clone(),
-            cells.auxiliary_1.expression.clone(),
-        );
+        ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out);
+        ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
 
         let binary_op = BinaryOp {
             value_a: self.value_a.clone(),
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Add,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Add, 0.expr());
     }
 
     fn assign(
@@ -81,7 +63,8 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
-        let op = rw_operations.0.get(step.gc + 2).ok_or(Error::Synthesis)?;
+        // get value_c
+        let op = rw_operations.0.get(step.gc + 5).ok_or(Error::Synthesis)?;
         let value = op.value();
         ArithOverflow::assign_num_of_bytes(region, offset, cells, self.bytes.clone(), value)?;
 

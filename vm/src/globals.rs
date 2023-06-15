@@ -6,6 +6,7 @@ use movelang::value::{
     AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, PrimitiveValue, Value,
     ValueLocation,
 };
+use movelang::word::LocatedWord;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
@@ -33,11 +34,11 @@ pub fn emit_global_op<F: FieldExt>(
 
 #[allow(clippy::type_complexity)]
 pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: Vec<(AddressPath<F>, PrimitiveValue<F>)>,
+    word: LocatedWord<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val) in word {
+    for (address_path, val) in word.0 {
         emit_global_op(address_path, val, rw, rw_operations);
     }
 }
@@ -53,9 +54,10 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         address: addr,
         sd_index,
     };
-    let word = LocatedValue(ValueLocation::Global(value_addr), &resource_value).flatten();
-    let word_len = word.len();
-    for (address_path, val) in word.clone() {
+    let word: LocatedWord<F> =
+        LocatedValue(ValueLocation::Global(value_addr), &resource_value).into();
+    let word_len = word.0.len();
+    for (address_path, val) in word.0.clone() {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
@@ -69,7 +71,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     }
     // if this is move_from, we need to write an invalid back.
     if write_invalid {
-        for (address_path, _) in word {
+        for (address_path, _) in word.0 {
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,

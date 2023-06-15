@@ -69,6 +69,7 @@ impl InputTypeElementTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct InputTypeElementLookup<F: FieldExt> {
     pub ty_arg_pos: Expression<F>,
     pub ty_arg_module: Expression<F>,
@@ -76,7 +77,7 @@ pub struct InputTypeElementLookup<F: FieldExt> {
 }
 
 impl<F: FieldExt> InputTypeElementLookup<F> {
-    pub fn expressions(&self) -> Vec<Expression<F>> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.ty_arg_pos.clone(),
             self.ty_arg_module.clone(),

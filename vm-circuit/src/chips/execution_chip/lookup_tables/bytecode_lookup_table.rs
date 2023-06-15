@@ -41,3 +41,15 @@ pub struct BytecodeLookup<F: FieldExt> {
     pub opcode: Expression<F>,
     pub operand: Expression<F>,
 }
+
+impl<F: FieldExt> BytecodeLookup<F> {
+    pub fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.module_index.clone(),
+            self.function_index.clone(),
+            self.pc.clone(),
+            self.opcode.clone(),
+            self.operand.clone(),
+        ]
+    }
+}

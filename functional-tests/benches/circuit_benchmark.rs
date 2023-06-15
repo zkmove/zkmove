@@ -12,6 +12,7 @@ use movelang::state::StateStore;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use vm::runtime::Runtime;
+
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
@@ -57,7 +58,8 @@ fn setup(
         .max_step_row(config.step_max_row)
         .stack_ops_num(config.stack_ops_num)
         .locals_ops_num(config.locals_ops_num)
-        .global_ops_num(config.global_ops_num);
+        .global_ops_num(config.global_ops_num)
+        .word_size(config.word_capacity);
 
     let witness = runtime.execute_script(
         script,
@@ -121,7 +123,7 @@ fn circuit_benchmark(c: &mut Criterion) {
 
 criterion_group!(
     name = circuit_benches;
-    config = Criterion::default().sample_size(10).measurement_time(Duration::from_secs(60*10)).without_plots();
+    config = Criterion::default().sample_size(2).measurement_time(Duration::from_secs(90)).without_plots();
     targets = circuit_benchmark
 );
 

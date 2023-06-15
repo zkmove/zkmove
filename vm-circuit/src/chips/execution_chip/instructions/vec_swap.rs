@@ -2,9 +2,9 @@
 
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, LookupsWithCondition};
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::WORD_CAPACITY;
+use crate::chips::execution_chip::param::word_capacity;
 
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
@@ -14,7 +14,8 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value::DEPTH_OF_ADDRESS_PATH;
+use movelang::word::ValueHeader;
+use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecSwap<F: FieldExt> {
@@ -43,28 +44,21 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
     const NAME: &'static str = "VEC_SWAP";
 
     const OPCODE: Opcode = Opcode::VecSwap;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecSwap, there are 7 steps here:
-        // 1. read idx_b from stack [gc, 1]
-        // 2. read idx_a from stack [gc + 1, 1]
-        // 3. read vec ref from stack. [gc + 2, DEPTH_OF_ADDRESS_PATH]
+        // 1. read idx_b from stack [gc, 2]
+        // 2. read idx_a from stack [gc + 2, 2]
+        // 3. read vec ref from stack. [gc + 4, LEN_OF_REFERENCE_VALUE]
         // 4. read value_a from vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH, value_a_flattened_len]
+        // [gc + 4 + LEN_OF_REFERENCE_VALUE, value_a_flattened_len]
         // 5. read value_b from vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len, value_b_flattened_len]
+        // [gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len, value_b_flattened_len]
         // 6. write value_a to vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len + value_b_flattened_len,
+        // [gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len + value_b_flattened_len,
         // value_a_flattened_len]
         // 7. write value_b to vec (in locals or global).
-        // [gc + 2 + DEPTH_OF_ADDRESS_PATH + 2 * value_a_flattened_len + value_b_flattened_len,
+        // [gc + 4 + LEN_OF_REFERENCE_VALUE + 2 * value_a_flattened_len + value_b_flattened_len,
         // value_b_flattened_len]
-
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -74,10 +68,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let value_a_flattened_len = cells.auxiliary_2.expression.clone();
         let value_b_flattened_len = cells.auxiliary_3.expression.clone();
-        let depth_of_addr_path_expr = (DEPTH_OF_ADDRESS_PATH as u64).expr();
+
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr()
-            + depth_of_addr_path_expr.clone()
+            + 4.expr()
+            + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + value_a_flattened_len.clone() * 2.expr()
             + value_b_flattened_len.clone() * 2.expr();
         let module_index =
@@ -85,259 +79,242 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let func_index = cells.function_index.expression.clone()
             - cb.next.cells.function_index.expression.clone();
         cb.add_constraints(vec![
-            ("pc", cond.clone() * pc_expr),
-            ("stack size", cond.clone() * stack_size_expr),
-            ("frame index", cond.clone() * frame_index_expr),
-            ("gc", cond.clone() * gc_expr),
-            ("module index", cond.clone() * module_index),
-            ("function index", cond.clone() * func_index),
+            ("pc", pc_expr),
+            ("stack size", stack_size_expr),
+            ("frame index", frame_index_expr),
+            ("gc", gc_expr),
+            ("module index", module_index),
+            ("function index", func_index),
         ]);
 
-        lookups.rw_lookups.push((
-            "vec_swap(pop idx_b)",
+        cb.add_lookup(
+            "vec_borrow(read idx_b value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
                 0.expr(),
                 0.expr(),
-                self.idx_b.expression.clone(),
+                ValueHeader::default_for_simple().expr(),
             ),
-            cond.clone(),
-        ));
-        lookups.rw_lookups.push((
-            "vec_swap(pop idx_a)",
+        );
+        cb.add_lookup(
+            "vec_swap(pop idx_b)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone() + 1.expr(),
+                cells.stack_size.expression.clone(),
+                1.addr_ext_offset_expr(),
+                0.expr(),
+                self.idx_b.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "vec_borrow(read idx_a value header)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 2.expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "vec_swap(pop idx_a)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + 3.expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                1.addr_ext_offset_expr(),
+                0.expr(),
                 self.idx_a.expression.clone(),
             ),
-            cond.clone(),
-        ));
+        );
 
         // read reference from stack
-        for (i, item) in self.ref_val.iter().enumerate().take(DEPTH_OF_ADDRESS_PATH) {
-            lookups.rw_lookups.push((
-                "vec_swap(read vec ref)",
-                RWLookup::stack_pop(
-                    cells.gc.expression.clone() + 2.expr() + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 2.expr(),
-                    (i as u64).expr(),
-                    0.expr(),
-                    item.expression.clone(),
-                ),
-                cond.clone() * (1.expr() - self.ref_val_mask[i].expression.clone()),
-            ));
+        for (i, item) in self.ref_val.iter().enumerate() {
+            cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
+                cb.add_lookup(
+                    "vec_swap(read vec ref)",
+                    RWLookup::stack_pop(
+                        cells.gc.expression.clone() + 4.expr() + (i as u64).expr(),
+                        cells.stack_size.expression.clone() - 2.expr(),
+                        (i as u128).addr_ext_offset_expr(),
+                        0.expr(),
+                        item.expression.clone(),
+                    ),
+                );
+            });
         }
 
         let is_global = cells.auxiliary_5.expression.clone();
 
-        for (i, item) in self.value_a.iter().enumerate().take(WORD_CAPACITY) {
-            // read value_a
-            let locals_read = RWLookup::locals_read(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_a_addr_ext_0[i].expression.clone(),
-                self.value_a_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(read value_a)",
-                locals_read,
-                cond.clone()
-                    * (1.expr() - self.value_a_mask[i].expression.clone())
-                    * (1.expr() - is_global.clone()),
-            ));
-            let global_read = RWLookup::global_read(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                item.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_a_addr_ext_0[i].expression.clone(),
-                self.value_a_addr_ext_1[i].expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(read value_a)",
-                global_read,
-                cond.clone()
-                    * (1.expr() - self.value_a_mask[i].expression.clone())
-                    * is_global.clone(),
-            ));
+        for (i, item) in self.value_a.iter().enumerate() {
+            cb.condition(1.expr() - self.value_a_mask[i].expression.clone(), |cb| {
+                cb.condition(1.expr() - is_global.clone(), |cb| {
+                    // read value_a
+                    let locals_read = RWLookup::locals_read(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_a_addr_ext_0[i].expression.clone(),
+                        self.value_a_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(read value_a)", locals_read);
+                    // write value_a
+                    let locals_write = RWLookup::locals_write(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + value_a_flattened_len.clone()
+                            + value_b_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_b_addr_ext_0[i].expression.clone(),
+                        self.value_b_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(write value_a)", locals_write);
+                });
+                cb.condition(is_global.clone(), |cb| {
+                    let global_read = RWLookup::global_read(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        item.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_a_addr_ext_0[i].expression.clone(),
+                        self.value_a_addr_ext_1[i].expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(read value_a)", global_read);
 
-            // write value_a
-            let locals_write = RWLookup::locals_write(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + value_a_flattened_len.clone()
-                    + value_b_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_b_addr_ext_0[i].expression.clone(),
-                self.value_b_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(write value_a)",
-                locals_write,
-                cond.clone()
-                    * (1.expr() - self.value_a_mask[i].expression.clone())
-                    * (1.expr() - is_global.clone()),
-            ));
-            let global_write = RWLookup::global_write(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + value_a_flattened_len.clone()
-                    + value_b_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                item.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_b_addr_ext_0[i].expression.clone(),
-                self.value_b_addr_ext_1[i].expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(write value_a)",
-                global_write,
-                cond.clone()
-                    * (1.expr() - self.value_a_mask[i].expression.clone())
-                    * is_global.clone(),
-            ));
+                    let global_write = RWLookup::global_write(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + value_a_flattened_len.clone()
+                            + value_b_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        item.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_b_addr_ext_0[i].expression.clone(),
+                        self.value_b_addr_ext_1[i].expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(write value_a)", global_write);
+                });
+            });
         }
 
-        for (i, item) in self.value_b.iter().enumerate().take(WORD_CAPACITY) {
-            // read value_b
-            let locals_read = RWLookup::locals_read(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + value_a_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_b_addr_ext_0[i].expression.clone(),
-                self.value_b_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(read value_b)",
-                locals_read,
-                cond.clone()
-                    * (1.expr() - self.value_b_mask[i].expression.clone())
-                    * (1.expr() - is_global.clone()),
-            ));
-            let global_read = RWLookup::global_read(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + value_a_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                item.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_b_addr_ext_0[i].expression.clone(),
-                self.value_b_addr_ext_1[i].expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(read value_b)",
-                global_read,
-                cond.clone()
-                    * (1.expr() - self.value_b_mask[i].expression.clone())
-                    * is_global.clone(),
-            ));
-
-            // write value_b
-            let locals_write = RWLookup::locals_write(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + 2.expr() * value_a_flattened_len.clone()
-                    + value_b_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_a_addr_ext_0[i].expression.clone(),
-                self.value_a_addr_ext_1[i].expression.clone(),
-                item.expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(write value_b)",
-                locals_write,
-                cond.clone()
-                    * (1.expr() - self.value_b_mask[i].expression.clone())
-                    * (1.expr() - is_global.clone()),
-            ));
-            let global_write = RWLookup::global_write(
-                cells.gc.expression.clone()
-                    + 2.expr()
-                    + depth_of_addr_path_expr.clone()
-                    + 2.expr() * value_a_flattened_len.clone()
-                    + value_b_flattened_len.clone()
-                    + (i as u64).expr(),
-                self.vec_frame_index_or_global_address.expression.clone(),
-                item.expression.clone(),
-                self.vec_locals_index_or_global_sd_idx.expression.clone(),
-                self.value_a_addr_ext_0[i].expression.clone(),
-                self.value_a_addr_ext_1[i].expression.clone(),
-            );
-            lookups.rw_lookups.push((
-                "vec_swap(write value_b)",
-                global_write,
-                cond.clone()
-                    * (1.expr() - self.value_b_mask[i].expression.clone())
-                    * is_global.clone(),
-            ));
+        for (i, item) in self.value_b.iter().enumerate() {
+            cb.condition(1.expr() - self.value_b_mask[i].expression.clone(), |cb| {
+                cb.condition(1.expr() - is_global.clone(), |cb| {
+                    // read value_b
+                    let locals_read = RWLookup::locals_read(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + value_a_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_b_addr_ext_0[i].expression.clone(),
+                        self.value_b_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(read value_b)", locals_read);
+                    // write value_b
+                    let locals_write = RWLookup::locals_write(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + 2.expr() * value_a_flattened_len.clone()
+                            + value_b_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_a_addr_ext_0[i].expression.clone(),
+                        self.value_a_addr_ext_1[i].expression.clone(),
+                        item.expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(write value_b)", locals_write);
+                });
+                cb.condition(is_global.clone(), |cb| {
+                    let global_read = RWLookup::global_read(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + value_a_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        item.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_b_addr_ext_0[i].expression.clone(),
+                        self.value_b_addr_ext_1[i].expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(read value_b)", global_read);
+                    let global_write = RWLookup::global_write(
+                        cells.gc.expression.clone()
+                            + 4.expr()
+                            + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                            + 2.expr() * value_a_flattened_len.clone()
+                            + value_b_flattened_len.clone()
+                            + (i as u64).expr(),
+                        self.vec_frame_index_or_global_address.expression.clone(),
+                        item.expression.clone(),
+                        self.vec_locals_index_or_global_sd_idx.expression.clone(),
+                        self.value_a_addr_ext_0[i].expression.clone(),
+                        self.value_a_addr_ext_1[i].expression.clone(),
+                    );
+                    cb.add_lookup("vec_swap(write value_b)", global_write);
+                });
+            });
         }
 
-        // Constrains ref_val[0] == vec_frame_index_or_global_address.
-        let mut constraint = cond.clone()
-            * (self.ref_val[0].expression.clone()
-                - self.vec_frame_index_or_global_address.expression.clone())
+        // Constrains ref_val[0] equals to ref value header
+        let constraint = (self.ref_val[0].expression.clone()
+            - ValueHeader::default_for_ref_val().expr())
             * (1.expr() - self.ref_val_mask[0].expression.clone());
-        cb.add_constraint("ref_check_0", constraint);
+        cb.add_constraint("read_ref_eq_0", constraint);
 
-        // Constrains ref_val[1] == vec_locals_index_or_global_sd_idx.
-        constraint = cond.clone()
-            * (self.ref_val[1].expression.clone()
-                - self.vec_locals_index_or_global_sd_idx.expression.clone())
+        // Constrains ref_val[1] == vec_frame_index_or_global_address.
+        let constraint = (self.ref_val[1].expression.clone()
+            - self.vec_frame_index_or_global_address.expression.clone())
             * (1.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("ref_check_1", constraint);
 
-        // Constrains ref_val[2] == value_a_address_path[2, ref_val_flattened_len].
-        // Constrains ref_val[2] == value_b_address_path[2, ref_val_flattened_len].
+        // Constrains ref_val[2] == vec_locals_index_or_global_sd_idx.
+        let constraint = (self.ref_val[2].expression.clone()
+            - self.vec_locals_index_or_global_sd_idx.expression.clone())
+            * (1.expr() - self.ref_val_mask[2].expression.clone());
+        cb.add_constraint("ref_check_2", constraint);
+
+        // Constrains ref_val[3] == value_a_address_path[2, ref_val_flattened_len].
+        // Constrains ref_val[3] == value_b_address_path[2, ref_val_flattened_len].
         // value_a is read from idx_a, value_b is read from idx_b
         // idx_a + 1 == value_a_address_path[last]
         // idx_b + 1 == value_b_address_path[last]
         // counting the header, it's 1 larger than the real offset
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone()
-                + (self.idx_a.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
-                - self.value_a_addr_ext_0[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
-        cb.add_constraint("value_a's address check with ref_val[2]", constraint);
-        constraint = cond.clone()
-            * (self.ref_val[2].expression.clone()
-                + (self.idx_b.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
-                - self.value_b_addr_ext_0[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
-        cb.add_constraint("value_b's address check with ref_val[2]", constraint);
+        let constraint = (self.ref_val[3].expression.clone()
+            + (self.idx_a.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            - self.value_a_addr_ext_0[0].expression.clone())
+            * (1.expr() - self.ref_val_mask[3].expression.clone());
+        cb.add_constraint("value_a's address check with ref_val[3]", constraint);
+        let constraint = (self.ref_val[3].expression.clone()
+            + (self.idx_b.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            - self.value_b_addr_ext_0[0].expression.clone())
+            * (1.expr() - self.ref_val_mask[3].expression.clone());
+        cb.add_constraint("value_b's address check with ref_val[3]", constraint);
 
         LookupBytecode::lookup_bytecode(
+            cb,
             cells,
             Opcode::VecSwap,
             cells.auxiliary_1.expression.clone(),
-            &mut lookups.bytecode_lookups,
-            cond,
         );
     }
 
@@ -364,9 +341,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
-        let op = rw_operations.0.get(step.gc).ok_or(Error::Synthesis)?;
-        self.idx_b.assign(region, offset, op.value().value())?;
         let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        self.idx_b.assign(region, offset, op.value().value())?;
+        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
         self.idx_a.assign(region, offset, op.value().value())?;
 
         // assign vector ref
@@ -380,13 +357,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &ref_val,
-            step.gc + 2,
+            step.gc + 4,
             ref_val_flattened_len,
         )?;
 
         let op = rw_operations
             .0
-            .get(step.gc + 2 + DEPTH_OF_ADDRESS_PATH)
+            .get(step.gc + 4 + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
 
         if is_global == F::zero() {
@@ -426,7 +403,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &value_a,
-            step.gc + 2 + DEPTH_OF_ADDRESS_PATH,
+            step.gc + 4 + LEN_OF_REFERENCE_VALUE,
             value_a_flattened_len,
         )?;
 
@@ -443,7 +420,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &value_b,
-            step.gc + 2 + DEPTH_OF_ADDRESS_PATH + value_a_flattened_len,
+            step.gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len,
             value_b_flattened_len,
         )?;
 
@@ -451,26 +428,28 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        let word_cap = word_capacity();
+
         // alloc cell
         let idx_a = cb.alloc_cell();
         let idx_b = cb.alloc_cell();
         let offset_pow2 = cb.alloc_cell();
 
-        let ref_val = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
-        let ref_val_mask = cb.alloc_n_cells(DEPTH_OF_ADDRESS_PATH);
+        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
 
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
 
-        let value_a = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_a_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value_a = cb.alloc_n_cells(word_cap);
+        let value_a_mask = cb.alloc_n_cells(word_cap);
+        let value_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let value_a_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
-        let value_b = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_mask = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_addr_ext_0 = cb.alloc_n_cells(WORD_CAPACITY);
-        let value_b_addr_ext_1 = cb.alloc_n_cells(WORD_CAPACITY);
+        let value_b = cb.alloc_n_cells(word_cap);
+        let value_b_mask = cb.alloc_n_cells(word_cap);
+        let value_b_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let value_b_addr_ext_1 = cb.alloc_n_cells(word_cap);
 
         Self {
             idx_a,

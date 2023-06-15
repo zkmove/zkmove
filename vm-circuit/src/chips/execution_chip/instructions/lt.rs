@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupsWithCondition;
+
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
@@ -28,14 +28,8 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
     const NAME: &'static str = "LT";
 
     const OPCODE: Opcode = Opcode::Lt;
-    fn configure(
-        &self,
-        cells: &StepChipCells<F>,
-        cb: &mut ConstraintBuilder<F>,
-        lookups: &mut LookupsWithCondition<F>,
-    ) {
+    fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Lt
-        let cond = cells.opcode_selector([Self::OPCODE]);
 
         let lhs = self.value_a.expression.clone();
         let rhs = self.value_b.expression.clone();
@@ -44,13 +38,13 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
         let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
 
         // out is 0 or 1
-        let constraint = cond.clone() * out.clone() * (1.expr() - out.clone());
+        let constraint = out.clone() * (1.expr() - out.clone());
         cb.add_constraint("out value is bool", constraint);
 
         // there is only 16 bytes for diff, so diff is in range 2 ^ 128
         // if lhs >= rhs, then out = 0, diff = lhs - rhs
         // if lhs < rhs, then out == 1, diff = lhs - rhs + range
-        let constraint = cond.clone() * ((lhs - rhs) + out * range - diff);
+        let constraint = (lhs - rhs) + out * range - diff;
         cb.add_constraint("Lt", constraint);
 
         let binary_op = BinaryOp {
@@ -58,15 +52,9 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-        BinaryOp::constrain_binary_op(cells, cb, cond.clone());
-        BinaryOp::lookup_binary_op(cells, &binary_op, &mut lookups.rw_lookups, cond.clone());
-        LookupBytecode::lookup_bytecode(
-            cells,
-            Opcode::Lt,
-            0.expr(),
-            &mut lookups.bytecode_lookups,
-            cond,
-        );
+        BinaryOp::constrain_binary_op(cb, cells);
+        BinaryOp::lookup_binary_op(cb, cells, &binary_op);
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Lt, 0.expr());
     }
 
     fn assign(
