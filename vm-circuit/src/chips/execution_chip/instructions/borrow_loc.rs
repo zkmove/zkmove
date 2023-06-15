@@ -20,7 +20,7 @@ use movelang::word::LEN_OF_REFERENCE_VALUE;
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext_0: Vec<Cell<F>>,
+    word_a_addr_ext: Vec<Cell<F>>,
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 }
@@ -64,7 +64,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
                     cells.gc.expression.clone() + (i as u64).expr(),
                     cells.frame_index.expression.clone(),
                     cells.locals_index.expression.clone(),
-                    self.word_a_addr_ext_0[i].expression.clone(),
+                    self.word_a_addr_ext[i].expression.clone(),
                     self.word_a[i].expression.clone(),
                 );
 
@@ -119,7 +119,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         let word = Word {
             word: self.word_a.clone(),
             word_mask: self.word_a_mask.clone(),
-            word_addr_ext_0: self.word_a_addr_ext_0.clone(),
+            word_addr_ext: self.word_a_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -153,14 +153,14 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         // alloc cell
         let word_a = cb.alloc_n_cells(word_cap);
         let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let word_a_addr_ext = cb.alloc_n_cells(word_cap);
         let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
         let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
 
         Self {
             word_a,
             word_a_mask,
-            word_a_addr_ext_0,
+            word_a_addr_ext,
             ref_val,
             ref_val_mask,
         }

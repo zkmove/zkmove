@@ -28,7 +28,7 @@ pub struct VecLen<F: FieldExt> {
     vec_len: Cell<F>,
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
-    vec_header_addr_ext_0: Cell<F>,
+    vec_header_addr_ext: Cell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
@@ -82,7 +82,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr(),
             self.vec_frame_index_or_global_address.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
-            self.vec_header_addr_ext_0.expression.clone(),
+            self.vec_header_addr_ext.expression.clone(),
             self.vec_header_value.expression.clone(),
         );
         cb.condition(1.expr() - is_global.clone(), |cb| {
@@ -95,7 +95,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_frame_index_or_global_address.expression.clone(),
             self.vec_header_value.expression.clone(),
             self.vec_locals_index_or_global_sd_idx.expression.clone(),
-            self.vec_header_addr_ext_0.expression.clone(),
+            self.vec_header_addr_ext.expression.clone(),
         );
         // global read
         cb.condition(is_global.clone(), |cb| {
@@ -134,9 +134,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
                 - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
 
-        // ref_val[3] equal to vec_header_addr_ext_0
+        // ref_val[3] equal to vec_header_addr_ext
         constraint =
-            self.ref_val[3].expression.clone() - self.vec_header_addr_ext_0.expression.clone();
+            self.ref_val[3].expression.clone() - self.vec_header_addr_ext.expression.clone();
         cb.add_constraint("read_ref_eq_3", constraint);
 
         // check vec header
@@ -198,11 +198,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         self.vec_flattened_len
             .assign(region, offset, Some(F::from(vec_flattened_len as u64)))?;
 
-        self.vec_header_addr_ext_0.assign(
-            region,
-            offset,
-            Some(F::from(op.address_ext_0() as u64)),
-        )?;
+        self.vec_header_addr_ext
+            .assign(region, offset, Some(F::from(op.address_ext() as u64)))?;
         if is_global == F::zero() {
             self.vec_frame_index_or_global_address.assign(
                 region,
@@ -247,7 +244,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let vec_len = cb.alloc_cell();
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
-        let vec_header_addr_ext_0 = cb.alloc_cell();
+        let vec_header_addr_ext = cb.alloc_cell();
 
         Self {
             ref_val,
@@ -258,7 +255,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             vec_len,
             vec_frame_index_or_global_address,
             vec_locals_index_or_global_sd_idx,
-            vec_header_addr_ext_0,
+            vec_header_addr_ext,
         }
     }
 }

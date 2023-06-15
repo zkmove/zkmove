@@ -23,7 +23,7 @@ pub fn emit_global_op<F: FieldExt>(
                 .expect("account address should not be None"),
         )),
         sd_index: *address_path.0.get(1).expect("sd_index should not be None") as usize,
-        address_ext_0: address_path.addr_ext(),
+        address_ext: address_path.addr_ext(),
         value: Some(value),
         rw,
         gc: rw_operations.len(),
@@ -60,7 +60,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
-            address_ext_0: address_path.addr_ext(),
+            address_ext: address_path.addr_ext(),
             value: Some(val),
             rw,
             gc: rw_operations.len(),
@@ -73,7 +73,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,
-                address_ext_0: address_path.addr_ext(),
+                address_ext: address_path.addr_ext(),
                 value: None,
                 rw: RW::WRITE,
                 gc: rw_operations.len(),

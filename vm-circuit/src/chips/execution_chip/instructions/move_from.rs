@@ -23,7 +23,7 @@ pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
     account_address: Cell<F>,
     global_value: Vec<Cell<F>>,
     global_value_mask: Vec<Cell<F>>,
-    global_value_addr_ext_0: Vec<Cell<F>>,
+    global_value_addr_ext: Vec<Cell<F>>,
 
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -97,7 +97,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                         sd_index.clone()
                     },
                     cells.stack_size.expression.clone(),
-                    self.global_value_addr_ext_0[i].expression.clone(),
+                    self.global_value_addr_ext[i].expression.clone(),
                     self.global_value[i].expression.clone(),
                     word_elem_num.clone(),
                 );
@@ -136,7 +136,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let word = Word {
             word: self.global_value.clone(),
             word_mask: self.global_value_mask.clone(),
-            word_addr_ext_0: self.global_value_addr_ext_0.clone(),
+            word_addr_ext: self.global_value_addr_ext.clone(),
         };
         Word::assign_word(
             region,
@@ -192,7 +192,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let account_address = cb.alloc_cell();
         let global_value = cb.alloc_n_cells(word_cap);
         let global_value_mask = cb.alloc_n_cells(word_cap);
-        let global_value_addr_ext_0 = cb.alloc_n_cells(word_cap);
+        let global_value_addr_ext = cb.alloc_n_cells(word_cap);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
@@ -218,7 +218,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             account_address,
             global_value,
             global_value_mask,
-            global_value_addr_ext_0,
+            global_value_addr_ext,
             type_cells,
         }
     }
