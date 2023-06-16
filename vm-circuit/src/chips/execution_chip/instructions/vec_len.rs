@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
+use crate::chips::execution_chip::instructions::common::simple_value_gadget::SimpleValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, ValueHeaderGadget, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -14,8 +15,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::word::ValueHeader;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::word::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {
@@ -23,7 +24,7 @@ pub struct VecLen<F: FieldExt> {
 
     vec_header_value: Cell<F>,
     vec_flattened_len: Cell<F>,
-    vec_len: Cell<F>,
+    vec_len: SimpleValueGadget<F>,
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
     vec_header_addr_ext: Cell<F>,
@@ -48,7 +49,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
-            + 3.expr();
+            + 1.expr()
+            + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -63,6 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         ]);
 
         self.ref_val.configure(cb);
+        self.vec_len.configure(cb);
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
@@ -114,7 +117,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 2.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
             1.expr(),
-            self.vec_len.expression.clone(),
+            self.vec_len.cells.value().expression.clone(),
         );
         cb.add_lookup("vec_len(push len to stack)", write);
 
@@ -143,7 +146,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         ValueHeaderGadget::construct(
             self.vec_header_value.expression.clone(),
             self.vec_flattened_len.expression.clone(),
-            self.vec_len.expression.clone(),
+            self.vec_len.cells.value().expression.clone(),
         )
         .constrain(cb, "check_vec_header");
 
@@ -214,11 +217,12 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         }
 
         // assign vec_len
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_REFERENCE_VALUE + 2)
-            .ok_or(Error::Synthesis)?;
-        self.vec_len.assign(region, offset, op.value().value())?;
+        self.vec_len.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc + LEN_OF_REFERENCE_VALUE + 1,
+        )?;
 
         Ok(())
     }
@@ -228,7 +232,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let ref_val = RefValGadget::construct(cb);
         let vec_header_value = cb.alloc_cell();
         let vec_flattened_len = cb.alloc_cell();
-        let vec_len = cb.alloc_cell();
+        let vec_len = SimpleValueGadget::construct(cb);
         let vec_frame_index_or_global_address = cb.alloc_cell();
         let vec_locals_index_or_global_sd_idx = cb.alloc_cell();
         let vec_header_addr_ext = cb.alloc_cell();

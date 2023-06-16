@@ -7,7 +7,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use logger::error;
+use logger::prelude::*;
 use movelang::word::LEN_OF_SIMPLE_VALUE;
 use std::convert::TryInto;
 
@@ -79,7 +79,7 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         // check word header
         self.constrain_header(cb, self.cells.0[0].expression.clone());
 
-        // check ref val length
+        // check simple val length
         let constraint = (2_u64).expr() - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check simple value length", constraint);
     }

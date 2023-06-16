@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -23,9 +24,7 @@ pub struct VecPack<F: FieldExt> {
     values_address: Vec<Cell<F>>,
 
     // cells for the vector pushed back
-    vector: Vec<Cell<F>>,
-    vector_mask: Vec<Cell<F>>,
-    vector_addr_ext: Vec<Cell<F>>,
+    vector: WordGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
@@ -50,7 +49,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         let values_flattened_len = vector_flattened_len.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_flattened_len.clone()
-            + vector_flattened_len;
+            + vector_flattened_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -63,6 +62,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             ("module index", module_index),
             ("function index", func_index),
         ]);
+
+        self.vector.configure(cb, vector_flattened_len);
 
         // read values from stack, write back the packed vector
         // vector[0] is the header. To make the constraint simple, we have already
@@ -83,36 +84,42 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
                     },
                 );
             });
-            cb.condition(1.expr() - self.vector_mask[i].expression.clone(), |cb| {
+            cb.condition(
+                1.expr() - self.vector.cells.word_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup(
+                        "vec_pack(write vector)",
+                        RWLookup::stack_push(
+                            cells.gc.expression.clone()
+                                + values_flattened_len.clone()
+                                + (i as u64).expr(),
+                            cells.stack_size.expression.clone() - values_num.clone(),
+                            self.vector.cells.word_addr_ext[i].expression.clone(),
+                            item.expression.clone(),
+                        ),
+                    );
+                },
+            );
+        }
+        cb.condition(
+            1.expr() - self.vector.cells.word_mask[0].expression.clone(),
+            |cb| {
                 cb.add_lookup(
-                    "vec_pack(write vector)",
+                    "vec_pack(write vec header)",
                     RWLookup::stack_push(
-                        cells.gc.expression.clone()
-                            + values_flattened_len.clone()
-                            + (i as u64).expr(),
-                        cells.stack_size.expression.clone() - values_num.clone(),
-                        self.vector_addr_ext[i].expression.clone(),
-                        item.expression.clone(),
+                        cells.gc.expression.clone() + values_flattened_len,
+                        cells.stack_size.expression.clone() - values_num,
+                        self.vector.cells.word_addr_ext[0].expression.clone(),
+                        self.vector.cells.word[0].expression.clone(),
                     ),
                 );
-            });
-        }
-        cb.condition(1.expr() - self.vector_mask[0].expression.clone(), |cb| {
-            cb.add_lookup(
-                "vec_pack(write vec header)",
-                RWLookup::stack_push(
-                    cells.gc.expression.clone() + values_flattened_len,
-                    cells.stack_size.expression.clone() - values_num,
-                    self.vector_addr_ext[0].expression.clone(),
-                    self.vector[0].expression.clone(),
-                ),
-            );
-        });
+            },
+        );
         // values_address is equal to vector_addr_ext
         for (i, _) in self.values.iter().enumerate().skip(1) {
-            let constraint = self.vector_mask[i].expression.clone()
+            let constraint = self.vector.cells.word_mask[i].expression.clone()
                 * (self.values_address[i].expression.clone()
-                    - self.vector_addr_ext[i].expression.clone());
+                    - self.vector.cells.word_addr_ext[i].expression.clone());
             cb.add_constraint("vec_pack_address_eq", constraint);
         }
         //fixme: addr_ext have been folded.
@@ -159,17 +166,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             values_flattened_len,
         )?;
 
-        let vector = Word {
-            word: self.vector.clone(),
-            word_mask: self.vector_mask.clone(),
-            word_addr_ext: self.vector_addr_ext.clone(),
-        };
-        Word::assign_word(
+        self.vector.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &vector,
             step.gc + values_flattened_len,
             vector_flattened_len,
         )?;
@@ -186,9 +186,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         let values_addr_ext = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
 
-        let vector = cb.alloc_n_cells(word_cap);
-        let vector_mask = cb.alloc_n_cells(word_cap);
-        let vector_addr_ext = cb.alloc_n_cells(word_cap);
+        let vector = WordGadget::construct(cb);
 
         Self {
             values,
@@ -197,8 +195,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             values_address,
 
             vector,
-            vector_mask,
-            vector_addr_ext,
         }
     }
 }

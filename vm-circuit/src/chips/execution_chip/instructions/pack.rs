@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -20,9 +21,7 @@ pub struct Pack<const GENERIC: bool, F: FieldExt> {
     values_mask: Vec<Cell<F>>,
     values_addr_ext: Vec<Cell<F>>,
     values_address: Vec<Cell<F>>,
-    struct_value: Vec<Cell<F>>,
-    struct_value_mask: Vec<Cell<F>>,
-    struct_value_addr_ext: Vec<Cell<F>>,
+    struct_value: WordGadget<F>,
 }
 
 impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F> {
@@ -49,7 +48,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         let values_element_num = struct_value_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_element_num.clone()
-            + struct_value_element_num;
+            + struct_value_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -62,6 +61,8 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             ("module index", module_index),
             ("function index", func_index),
         ]);
+
+        self.struct_value.configure(cb, struct_value_element_num);
 
         // read values from stack, write back the packed struct
         // struct_value[0] is the header. To make the constraint simple, we have already
@@ -84,7 +85,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             });
 
             cb.condition(
-                1.expr() - self.struct_value_mask[i].expression.clone(),
+                1.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "pack(stack push)",
@@ -93,7 +94,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
                                 + values_element_num.clone()
                                 + (i as u64).expr(),
                             cells.stack_size.expression.clone() - field_num.clone(),
-                            self.struct_value_addr_ext[i].expression.clone(),
+                            self.struct_value.cells.word_addr_ext[i].expression.clone(),
                             item.expression.clone(),
                         ),
                     );
@@ -101,26 +102,27 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             );
         }
         cb.condition(
-            1.expr() - self.struct_value_mask[0].expression.clone(),
+            1.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
             |cb| {
                 cb.add_lookup(
                     "pack(write struct header)",
                     RWLookup::stack_push(
                         cells.gc.expression.clone() + values_element_num,
                         cells.stack_size.expression.clone() - field_num,
-                        self.struct_value_addr_ext[0].expression.clone(),
-                        self.struct_value[0].expression.clone(),
+                        self.struct_value.cells.word_addr_ext[0].expression.clone(),
+                        self.struct_value.cells.word[0].expression.clone(),
                     ),
                 );
             },
         );
-        // word_b.address is equal to word_a.address_ext
-        for (i, _) in self.struct_value.iter().enumerate().skip(1) {
-            let constraint = self.struct_value_mask[i].expression.clone()
-                * (self.values_address[i].expression.clone()
-                    - self.struct_value_addr_ext[i].expression.clone());
-            cb.add_constraint("pack_address_eq", constraint);
-        }
+        // TODO:
+        // // word_b.address is equal to word_a.address_ext
+        // for (i, _) in self.struct_value.cells.word.iter().enumerate().skip(1) {
+        //     let constraint = (1.expr() - self.struct_value.cells.word_mask[i].expression.clone())
+        //         * (self.values_address[i].expression.clone()
+        //             - self.struct_value.cells.word_addr_ext[i].expression.clone());
+        //     cb.add_constraint("pack_address_eq", constraint);
+        // }
 
         LookupBytecode::lookup_bytecode(
             cb,
@@ -162,17 +164,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             values_element_num,
         )?;
 
-        let struct_value = Word {
-            word: self.struct_value.clone(),
-            word_mask: self.struct_value_mask.clone(),
-            word_addr_ext: self.struct_value_addr_ext.clone(),
-        };
-        Word::assign_word(
+        self.struct_value.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &struct_value,
             step.gc + values_element_num,
             struct_value_element_num,
         )?;
@@ -188,9 +183,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
-        let struct_value = cb.alloc_n_cells(word_cap);
-        let struct_value_mask = cb.alloc_n_cells(word_cap);
-        let struct_value_addr_ext = cb.alloc_n_cells(word_cap);
+        let struct_value = WordGadget::construct(cb);
 
         Self {
             values,
@@ -198,8 +191,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             values_addr_ext,
             values_address,
             struct_value,
-            struct_value_mask,
-            struct_value_addr_ext,
         }
     }
 }

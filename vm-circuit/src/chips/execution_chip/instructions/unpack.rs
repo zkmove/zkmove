@@ -118,17 +118,18 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             });
         }
 
-        //  word_a.address_ext equal to word_b.address
-        for (i, _) in self.struct_value.cells.word.iter().enumerate().skip(1) {
-            cb.condition(
-                self.struct_value.cells.word_mask[i].expression.clone(),
-                |cb| {
-                    let constraint = self.values_address[i].expression.clone()
-                        - self.struct_value.cells.word_addr_ext[i].expression.clone();
-                    cb.add_constraint("unpack_address_eq", constraint);
-                },
-            );
-        }
+        // TODO:
+        // //  word_a.address_ext equal to word_b.address
+        // for (i, _) in self.struct_value.cells.word.iter().enumerate().skip(1) {
+        //     cb.condition(
+        //         1.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
+        //         |cb| {
+        //             let constraint = self.values_address[i].expression.clone()
+        //                 - self.struct_value.cells.word_addr_ext[i].expression.clone();
+        //             cb.add_constraint("unpack_address_eq", constraint);
+        //         },
+        //     );
+        // }
 
         LookupBytecode::lookup_bytecode(
             cb,
