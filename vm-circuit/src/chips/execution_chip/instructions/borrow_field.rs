@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
 use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -13,7 +14,6 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
-use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
 
 #[derive(Clone, Debug)]
 pub struct BorrowField<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
@@ -97,8 +97,12 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         }
 
         // location check between ref_val and indexed_ref_val
-        AddrExt::location_val_constrain(cb, self.ref_val.cells.as_inner(), self.indexed_ref_val.cells.as_inner())
-            .expect("location check failed");
+        AddrExt::location_val_constrain(
+            cb,
+            self.ref_val.cells.as_inner(),
+            self.indexed_ref_val.cells.as_inner(),
+        )
+        .expect("location check failed");
 
         // addr_ext check between ref_val and indexed_ref_val
         // field_offset is pushed into the last element of indexed_ref_val,
@@ -131,8 +135,14 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
         let _pow2 = Word::assign_offset_pow2(region, offset, &step.auxiliary_3, &self.offset_pow2)?;
 
-        self.ref_val.assign(region, offset, rw_operations, step.gc)?;
-        self.indexed_ref_val.assign(region, offset, rw_operations, step.gc + LEN_OF_REFERENCE_VALUE)?;
+        self.ref_val
+            .assign(region, offset, rw_operations, step.gc)?;
+        self.indexed_ref_val.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc + LEN_OF_REFERENCE_VALUE,
+        )?;
 
         Ok(())
     }

@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::HeaderCells;
 use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -8,7 +9,6 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
-use crate::chips::execution_chip::instructions::common::HeaderCells;
 
 #[derive(Clone, Debug)]
 pub(crate) struct WordCells<F> {
@@ -42,10 +42,7 @@ impl<F: FieldExt> WordCells<F> {
         word_element_num: usize,
     ) -> Result<(), Error> {
         for (i, _) in self.word.iter().enumerate().take(word_element_num) {
-            let op = rw_operations
-                .0
-                .get(op_index + i)
-                .ok_or(Error::Synthesis)?;
+            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             self.word[i].assign(region, offset, op.value().value())?;
             self.word_mask[i].assign(region, offset, Some(F::zero()))?;
             self.word_addr_ext[i].assign(region, offset, Some(F::from(op.address_ext() as u64)))?;
@@ -81,22 +78,14 @@ impl<F: FieldExt> WordGadget<F> {
         op_index: usize,
         word_element_num: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations
-            .0
-            .get(op_index)
-            .ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
         let header_value = op.value().value().ok_or_else(|| {
             error!("header value is None");
             Error::Synthesis
         })?;
 
-        self.cells.assign(
-            region,
-            offset,
-            rw_operations,
-            op_index,
-            word_element_num,
-        )?;
+        self.cells
+            .assign(region, offset, rw_operations, op_index, word_element_num)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())
     }
@@ -113,8 +102,11 @@ impl<F: FieldExt> WordGadget<F> {
         );
 
         // check word element number
-        let constraint = word_elem_num.clone() - self.header_cells.flattened_len.expression.clone();
+        let constraint = word_elem_num - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check word element number", constraint);
+
+        // TODO: check addr_ext
+        // 1.strict monotonic increment (exclude item not been masked)
     }
 
     fn constrain_mask(
@@ -143,7 +135,7 @@ impl<F: FieldExt> WordGadget<F> {
         }
 
         //  sum of mask is flattened_len
-        let sum = (word_capacity() as u64).expr() - flattened_len.clone();
+        let sum = (word_capacity() as u64).expr() - flattened_len;
         let constraint = masks
             .iter()
             .fold(sum, |acc, mask| acc - mask.expression.clone());

@@ -1,11 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, RefVal, Word};
 use crate::chips::execution_chip::instructions::common::generic_gadget::GenericTypeGadget;
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -20,12 +21,9 @@ use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
+    value: WordGadget<F>,
+    signer_ref: RefValGadget<F>,
     account_address: Cell<F>,
-    word: Vec<Cell<F>>,
-    word_mask: Vec<Cell<F>>,
-    word_addr_ext: Vec<Cell<F>>,
-    signer_ref: Vec<Cell<F>>,
-    signer_ref_mask: Vec<Cell<F>>,
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
@@ -52,7 +50,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         let word_elem_num = cells.auxiliary_3.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * word_elem_num
+            + 2.expr() * word_elem_num.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -66,11 +64,14 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             ("module index", module_index),
             ("function index", func_index),
         ]);
-        let global_address = self.account_address.expression.clone();
-        let sd_index = cells.auxiliary_1.expression.clone();
-        let word_elem_num = cells.auxiliary_3.expression.clone();
 
-        for (i, _) in self.word.iter().enumerate() {
+        self.value.configure(cb, word_elem_num.clone());
+        self.signer_ref.configure(cb);
+        let global_address = self.account_address.expression.clone();
+
+        let sd_index = cells.auxiliary_1.expression.clone();
+
+        for (i, _) in self.value.cells.word.iter().enumerate() {
             let (read_stack, write_global) = RWLookup::move_to_global(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.stack_size.expression.clone(),
@@ -80,19 +81,22 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                 } else {
                     sd_index.clone()
                 },
-                self.word_addr_ext[i].expression.clone(),
-                self.word[i].expression.clone(),
+                self.value.cells.word_addr_ext[i].expression.clone(),
+                self.value.cells.word[i].expression.clone(),
                 word_elem_num.clone(),
                 (LEN_OF_REFERENCE_VALUE as u64).expr(),
             );
-            cb.condition(1.expr() - self.word_mask[i].expression.clone(), |cb| {
-                cb.add_lookup("move_to(stack read)", read_stack);
-                cb.add_lookup("move_to(global write)", write_global);
-            });
+            cb.condition(
+                1.expr() - self.value.cells.word_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup("move_to(stack read)", read_stack);
+                    cb.add_lookup("move_to(global write)", write_global);
+                },
+            );
         }
 
         // lookup the signer reference is popped
-        for (i, item) in self.signer_ref.iter().enumerate() {
+        for (i, item) in self.signer_ref.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
                 "move_to(signer stack pop)",
                 RWLookup::stack_pop(
@@ -104,7 +108,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             );
         }
 
-        // todo: constrain the relationship between value_b (signer reference) and value_c (address)
+        // todo: constrain the relationship between signer_ref and account_address
 
         LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, sd_index);
         if let Some(g) = &self.type_cells {
@@ -120,55 +124,25 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        // word is resource on stack
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
-        let word = Word {
-            word: self.word.clone(),
-            word_mask: self.word_mask.clone(),
-            word_addr_ext: self.word_addr_ext.clone(),
-        };
-        Word::assign_word(
-            region,
-            offset,
-            step,
-            rw_operations,
-            &word,
-            step.gc,
-            word_element_num,
-        )?;
+        let _sd_idx =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+        let word_elem_num =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
 
-        // assign the signer reference
-        let signer_ref = RefVal {
-            ref_val: self.signer_ref.clone(),
-            ref_val_mask: self.signer_ref_mask.clone(),
-        };
-        Word::assign_ref_val(
-            region,
-            offset,
-            step,
-            rw_operations,
-            &signer_ref,
-            step.gc + word_element_num,
-            LEN_OF_REFERENCE_VALUE,
-        )?;
+        self.value
+            .assign(region, offset, rw_operations, step.gc, word_elem_num)?;
+        self.signer_ref
+            .assign(region, offset, rw_operations, step.gc + word_elem_num)?;
 
         // global account address
         let op = rw_operations
             .0
-            .get(step.gc + word_element_num + LEN_OF_REFERENCE_VALUE)
+            .get(step.gc + word_elem_num + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.account_address
             .assign(region, offset, Some(op.account_address().value()))?;
-
-        cells.auxiliary_1.assign(
-            region,
-            offset,
-            step.auxiliary_1
-                .as_ref()
-                .expect("sd_index id should not be none")
-                .value(),
-        )?;
 
         if GENERIC {
             cells.auxiliary_2.assign(
@@ -201,15 +175,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        let word_cap = word_capacity();
-
-        // alloc cell
+        let value = WordGadget::construct(cb);
+        let signer_ref = RefValGadget::construct(cb);
         let account_address = cb.alloc_cell();
-        let word = cb.alloc_n_cells(word_cap);
-        let word_mask = cb.alloc_n_cells(word_cap);
-        let word_addr_ext = cb.alloc_n_cells(word_cap);
-        let signer_ref = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let signer_ref_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
             let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
@@ -231,12 +200,9 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             None
         };
         Self {
-            account_address,
-            word,
-            word_mask,
-            word_addr_ext,
+            value,
             signer_ref,
-            signer_ref_mask,
+            account_address,
             type_cells,
         }
     }

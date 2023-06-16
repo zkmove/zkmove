@@ -1,8 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{
-    LookupBytecode, RefVal, ValueHeaderGadget, Word,
-};
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, ValueHeaderGadget, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
@@ -20,8 +19,7 @@ use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {
-    ref_val: Vec<Cell<F>>,
-    ref_val_mask: Vec<Cell<F>>,
+    ref_val: RefValGadget<F>,
 
     vec_header_value: Cell<F>,
     vec_flattened_len: Cell<F>,
@@ -40,7 +38,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // for instruction VecLen, there are 3 steps here:
         // 1. read reference from stack. [gc, LEN_OF_REFERENCE_VALUE]
         // 2. read vec header from locals or global. [gc+LEN_OF_REFERENCE_VALUE, 1]
-        // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, 1]
+        // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, 2]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -64,7 +62,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             ("function index", func_index),
         ]);
 
-        for (i, item) in self.ref_val.iter().enumerate() {
+        self.ref_val.configure(cb);
+
+        for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
                 "vec_len(stack pop ref_val)",
                 RWLookup::stack_pop(
@@ -120,23 +120,23 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         // ref_val[0] equals to ref value header
         let mut constraint =
-            self.ref_val[0].expression.clone() - ValueHeader::default_for_ref_val().expr();
+            self.ref_val.cells[0].expression.clone() - ValueHeader::default_for_ref_val().expr();
         cb.add_constraint("read_ref_eq_0", constraint);
 
         // ref_val[1] equel to frame_index(Locals) or account_address(Global)
-        constraint = self.ref_val[1].expression.clone()
+        constraint = self.ref_val.cells[1].expression.clone()
             - self.vec_frame_index_or_global_address.expression.clone();
         cb.add_constraint("read_ref_eq_1", constraint);
 
         // ref_val[2] equel to local_index(Locals) or sd_index(Global)
         constraint = (1.expr() - is_global)
-            * (self.ref_val[2].expression.clone()
+            * (self.ref_val.cells[2].expression.clone()
                 - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
 
         // ref_val[3] equal to vec_header_addr_ext
         constraint =
-            self.ref_val[3].expression.clone() - self.vec_header_addr_ext.expression.clone();
+            self.ref_val.cells[3].expression.clone() - self.vec_header_addr_ext.expression.clone();
         cb.add_constraint("read_ref_eq_3", constraint);
 
         // check vec header
@@ -167,19 +167,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
 
-        let ref_val = RefVal {
-            ref_val: self.ref_val.clone(),
-            ref_val_mask: self.ref_val_mask.clone(),
-        };
-        Word::assign_ref_val(
-            region,
-            offset,
-            step,
-            rw_operations,
-            &ref_val,
-            step.gc,
-            LEN_OF_REFERENCE_VALUE,
-        )?;
+        self.ref_val
+            .assign(region, offset, rw_operations, step.gc)?;
 
         let op = rw_operations
             .0
@@ -236,9 +225,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-
+        let ref_val = RefValGadget::construct(cb);
         let vec_header_value = cb.alloc_cell();
         let vec_flattened_len = cb.alloc_cell();
         let vec_len = cb.alloc_cell();
@@ -248,8 +235,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         Self {
             ref_val,
-            ref_val_mask,
-
             vec_header_value,
             vec_flattened_len,
             vec_len,

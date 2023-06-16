@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
@@ -85,7 +85,9 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_element_num =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
 
         self.value
             .assign(region, offset, rw_operations, step.gc, word_element_num)?;

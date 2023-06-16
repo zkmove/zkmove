@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, RefVal, Word};
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
+use crate::chips::execution_chip::instructions::common::simple_value_gadget::SimpleValueGadget;
+use crate::chips::execution_chip::instructions::common::{AddrExt, LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
@@ -12,17 +14,15 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::word::ValueHeader;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::word::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
-    index: Cell<F>,
+    index: SimpleValueGadget<F>,
     offset_pow2: Cell<F>,
-    ref_val: Vec<Cell<F>>,
-    ref_val_mask: Vec<Cell<F>>,
-    indexed_ref_val: Vec<Cell<F>>,
-    indexed_ref_val_mask: Vec<Cell<F>>,
+    ref_val: RefValGadget<F>,
+    indexed_ref_val: RefValGadget<F>,
 }
 
 impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABLE, F> {
@@ -64,6 +64,10 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
             ("function index", func_index),
         ]);
 
+        self.index.configure(cb);
+        self.ref_val.configure(cb);
+        self.indexed_ref_val.configure(cb);
+
         // lookup "read index"
         cb.add_lookup(
             "vec_borrow(read value header)",
@@ -80,56 +84,55 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                 cells.gc.expression.clone() + 1.expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                self.index.expression.clone(),
+                self.index.cells.value().expression.clone(),
             ),
         );
 
-        for (i, item) in self.ref_val.iter().enumerate() {
+        for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             // lookup "read vec ref"
-            cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
-                cb.add_lookup(
-                    "vec_borrow(read vec ref)",
-                    RWLookup::stack_pop(
-                        cells.gc.expression.clone() + 2.expr() + (i as u64).expr(),
-                        cells.stack_size.expression.clone() - 1.expr(),
-                        (i as u64).expr(),
-                        item.expression.clone(),
-                    ),
-                );
-            });
+            cb.add_lookup(
+                "vec_borrow(read vec ref)",
+                RWLookup::stack_pop(
+                    cells.gc.expression.clone()
+                        + (LEN_OF_SIMPLE_VALUE as u64).expr()
+                        + (i as u64).expr(),
+                    cells.stack_size.expression.clone() - 1.expr(),
+                    (i as u64).expr(),
+                    item.expression.clone(),
+                ),
+            );
         }
-        for (i, item) in self.indexed_ref_val.iter().enumerate() {
+        for (i, item) in self.indexed_ref_val.cells.as_inner().iter().enumerate() {
             // lookup "write indexed ref"
-            cb.condition(
-                1.expr() - self.indexed_ref_val_mask[i].expression.clone(),
-                |cb| {
-                    cb.add_lookup(
-                        "vec_borrow(write indexed ref)",
-                        RWLookup::stack_push(
-                            cells.gc.expression.clone()
-                                + 2.expr()
-                                + (LEN_OF_REFERENCE_VALUE as u64).expr()
-                                + (i as u64).expr(),
-                            cells.stack_size.expression.clone() - 2.expr(),
-                            (i as u64).expr(),
-                            item.expression.clone(),
-                        ),
-                    );
-                },
+            cb.add_lookup(
+                "vec_borrow(write indexed ref)",
+                RWLookup::stack_push(
+                    cells.gc.expression.clone()
+                        + (LEN_OF_SIMPLE_VALUE as u64).expr()
+                        + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                        + (i as u64).expr(),
+                    cells.stack_size.expression.clone() - 2.expr(),
+                    (i as u64).expr(),
+                    item.expression.clone(),
+                ),
             );
         }
 
         // location check between ref_val and indexed_ref_val
-        AddrExt::location_val_constrain(cb, &self.ref_val, &self.indexed_ref_val)
-            .expect("location chck failed");
+        AddrExt::location_val_constrain(
+            cb,
+            self.ref_val.cells.as_inner(),
+            self.indexed_ref_val.cells.as_inner(),
+        )
+        .expect("location chck failed");
 
         // addr_ext comparation between ref_val and indexed_ref_val
         // field_offset is pushed into the last element of indexed_ref_val,
         // and it's larger than the real offset by 1
-        let constraint = (self.ref_val[3].expression.clone()
-            + (self.index.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
-            - self.indexed_ref_val[3].expression.clone())
-            * (1.expr() - self.ref_val_mask[3].expression.clone());
+        let constraint = self.ref_val.cells[3].expression.clone()
+            + (self.index.cells.value().expression.clone() + 1.expr())
+                * self.offset_pow2.expression.clone()
+            - self.indexed_ref_val.cells[3].expression.clone();
         cb.add_constraint("field_offset check with ref_val[3]", constraint);
 
         LookupBytecode::lookup_bytecode(
@@ -155,35 +158,14 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         let _pow2 = Word::assign_offset_pow2(region, offset, &step.auxiliary_3, &self.offset_pow2)?
             .get_lower_128() as usize;
 
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
-        self.index.assign(region, offset, op.value().value())?;
-
-        let ref_val = RefVal {
-            ref_val: self.ref_val.clone(),
-            ref_val_mask: self.ref_val_mask.clone(),
-        };
-        Word::assign_ref_val(
+        self.index.assign(region, offset, rw_operations, step.gc)?;
+        self.ref_val
+            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        self.indexed_ref_val.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &ref_val,
-            step.gc + 2,
-            LEN_OF_REFERENCE_VALUE,
-        )?;
-
-        let indexed_ref_val = RefVal {
-            ref_val: self.indexed_ref_val.clone(),
-            ref_val_mask: self.indexed_ref_val_mask.clone(),
-        };
-        Word::assign_ref_val(
-            region,
-            offset,
-            step,
-            rw_operations,
-            &indexed_ref_val,
-            step.gc + 2 + LEN_OF_REFERENCE_VALUE,
-            LEN_OF_REFERENCE_VALUE,
+            step.gc + LEN_OF_SIMPLE_VALUE + LEN_OF_REFERENCE_VALUE,
         )?;
 
         Ok(())
@@ -191,21 +173,17 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let index = cb.alloc_cell();
+        let index = SimpleValueGadget::construct(cb);
         let offset_pow2 = cb.alloc_cell();
 
-        let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let indexed_ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
-        let indexed_ref_val_mask = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);
+        let ref_val = RefValGadget::construct(cb);
+        let indexed_ref_val = RefValGadget::construct(cb);
 
         Self {
             index,
             offset_pow2,
             ref_val,
-            ref_val_mask,
             indexed_ref_val,
-            indexed_ref_val_mask,
         }
     }
 }

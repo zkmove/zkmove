@@ -23,10 +23,10 @@ use movelang::word::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
+pub(crate) mod generic_gadget;
 pub(crate) mod reference_value_gadget;
 pub(crate) mod simple_value_gadget;
 pub(crate) mod word_gadget;
-pub(crate) mod generic_gadget;
 
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
@@ -1027,7 +1027,7 @@ impl<F: FieldExt> AddrExt<F> {
         Ok(())
     }
 }
-
+// TODO: merge with the struct HeaderCells below
 #[derive(Clone, Debug)]
 pub struct ValueHeaderGadget<F: FieldExt> {
     pub header_value: Expression<F>,

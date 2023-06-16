@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::HeaderCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
@@ -7,9 +8,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
-use crate::chips::execution_chip::instructions::common::HeaderCells;
-use std::convert::{ TryInto};
 use movelang::word::LEN_OF_SIMPLE_VALUE;
+use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SimpleValueCells<F>([Cell<F>; LEN_OF_SIMPLE_VALUE]);
@@ -17,8 +17,10 @@ pub(crate) struct SimpleValueCells<F>([Cell<F>; LEN_OF_SIMPLE_VALUE]);
 impl<F: FieldExt> SimpleValueCells<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let cells: [Cell<F>; LEN_OF_SIMPLE_VALUE]= cb.alloc_n_cells(LEN_OF_SIMPLE_VALUE)
-            .try_into().expect("allocate cells for simple value should not fail.");
+        let cells: [Cell<F>; LEN_OF_SIMPLE_VALUE] = cb
+            .alloc_n_cells(LEN_OF_SIMPLE_VALUE)
+            .try_into()
+            .expect("allocate cells for simple value should not fail.");
         Self(cells)
     }
 
@@ -35,14 +37,6 @@ impl<F: FieldExt> SimpleValueCells<F> {
         }
 
         Ok(())
-    }
-
-    pub(crate) fn as_inner(&self) -> &[Cell<F>; LEN_OF_SIMPLE_VALUE] {
-        &self.0
-    }
-
-    pub(crate) fn header(&self) -> &Cell<F> {
-        self.0.first().expect("header should not be None.")
     }
 
     pub(crate) fn value(&self) -> &Cell<F> {
@@ -70,21 +64,13 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         rw_operations: &RWOperations<F>,
         op_index: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations
-            .0
-            .get(op_index)
-            .ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
         let header_value = op.value().value().ok_or_else(|| {
             error!("header value is None");
             Error::Synthesis
         })?;
 
-        self.cells.assign(
-            region,
-            offset,
-            rw_operations,
-            op_index,
-        )?;
+        self.cells.assign(region, offset, rw_operations, op_index)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())
     }
@@ -94,7 +80,7 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         self.constrain_header(cb, self.cells.0[0].expression.clone());
 
         // check ref val length
-        let constraint = (2 as u64).expr() - self.header_cells.flattened_len.expression.clone();
+        let constraint = (2_u64).expr() - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check simple value length", constraint);
     }
 

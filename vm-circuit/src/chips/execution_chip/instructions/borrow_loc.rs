@@ -1,12 +1,14 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -14,8 +16,6 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::word::ValueHeader;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
-use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
@@ -60,17 +60,20 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         self.ref_val.configure(cb);
 
         for (i, _) in self.value.cells.word.iter().enumerate() {
-            cb.condition(1.expr() - self.value.cells.word_mask[i].expression.clone(), |cb| {
-                let read = RWLookup::locals_read(
-                    cells.gc.expression.clone() + (i as u64).expr(),
-                    cells.frame_index.expression.clone(),
-                    cells.locals_index.expression.clone(),
-                    self.value.cells.word_addr_ext[i].expression.clone(),
-                    self.value.cells.word[i].expression.clone(),
-                );
+            cb.condition(
+                1.expr() - self.value.cells.word_mask[i].expression.clone(),
+                |cb| {
+                    let read = RWLookup::locals_read(
+                        cells.gc.expression.clone() + (i as u64).expr(),
+                        cells.frame_index.expression.clone(),
+                        cells.locals_index.expression.clone(),
+                        self.value.cells.word_addr_ext[i].expression.clone(),
+                        self.value.cells.word[i].expression.clone(),
+                    );
 
-                cb.add_lookup("borrow_local(read locals)", read);
-            });
+                    cb.add_lookup("borrow_local(read locals)", read);
+                },
+            );
         }
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
@@ -98,7 +101,10 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             "borrow_locals_ref_eq_2",
             self.ref_val.cells[2].expression.clone() - cells.locals_index.expression.clone(),
         );
-        cb.add_constraint("borrow_locals_ref_eq_3", self.ref_val.cells[3].expression.clone());
+        cb.add_constraint(
+            "borrow_locals_ref_eq_3",
+            self.ref_val.cells[3].expression.clone(),
+        );
 
         LookupBytecode::lookup_bytecode(
             cb,
@@ -120,20 +126,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
-        self.value.assign(
-            region,
-            offset,
-            rw_operations,
-            step.gc,
-            word_element_num,
-        )?;
+        self.value
+            .assign(region, offset, rw_operations, step.gc, word_element_num)?;
 
-        self.ref_val.assign(
-            region,
-            offset,
-            rw_operations,
-            step.gc + word_element_num,
-        )?;
+        self.ref_val
+            .assign(region, offset, rw_operations, step.gc + word_element_num)?;
         Ok(())
     }
 
@@ -142,9 +139,6 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         let value = WordGadget::construct(cb);
         let ref_val = RefValGadget::construct(cb);
 
-        Self {
-            value,
-            ref_val,
-        }
+        Self { value, ref_val }
     }
 }

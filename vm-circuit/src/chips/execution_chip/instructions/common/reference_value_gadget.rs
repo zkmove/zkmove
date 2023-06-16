@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::HeaderCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
@@ -7,9 +8,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
-use crate::chips::execution_chip::instructions::common::HeaderCells;
 use movelang::word::LEN_OF_REFERENCE_VALUE;
-use std::convert::{ TryInto};
+use std::convert::TryInto;
 use std::ops::Index;
 
 #[derive(Clone, Debug)]
@@ -18,8 +18,10 @@ pub(crate) struct RefValCells<F>([Cell<F>; LEN_OF_REFERENCE_VALUE]);
 impl<F: FieldExt> RefValCells<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let cells: [Cell<F>; LEN_OF_REFERENCE_VALUE]= cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE)
-            .try_into().expect("allocate cells for ref val should not fail.");
+        let cells: [Cell<F>; LEN_OF_REFERENCE_VALUE] = cb
+            .alloc_n_cells(LEN_OF_REFERENCE_VALUE)
+            .try_into()
+            .expect("allocate cells for ref val should not fail.");
         Self(cells)
     }
 
@@ -50,7 +52,7 @@ impl<F: FieldExt> RefValCells<F> {
 impl<F: FieldExt> Index<usize> for RefValCells<F> {
     type Output = Cell<F>;
 
-    fn index<'a>(&'a self, i: usize) -> &'a Cell<F> {
+    fn index(&self, i: usize) -> &Cell<F> {
         &self.0[i]
     }
 }
@@ -75,21 +77,13 @@ impl<F: FieldExt> RefValGadget<F> {
         rw_operations: &RWOperations<F>,
         op_index: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations
-            .0
-            .get(op_index)
-            .ok_or(Error::Synthesis)?;
+        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
         let header_value = op.value().value().ok_or_else(|| {
             error!("header value is None");
             Error::Synthesis
         })?;
 
-        self.cells.assign(
-            region,
-            offset,
-            rw_operations,
-            op_index,
-        )?;
+        self.cells.assign(region, offset, rw_operations, op_index)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())
     }
@@ -99,7 +93,8 @@ impl<F: FieldExt> RefValGadget<F> {
         self.constrain_header(cb, self.cells.0[0].expression.clone());
 
         // check ref val length
-        let constraint = (LEN_OF_REFERENCE_VALUE as u64).expr() - self.header_cells.flattened_len.expression.clone();
+        let constraint = (LEN_OF_REFERENCE_VALUE as u64).expr()
+            - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check ref val length", constraint);
     }
 

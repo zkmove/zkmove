@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::common::generic_gadget::GenericTypeGadget;
+use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{
     call_lookup_table::CallLookup, rw_table::RWLookup, rw_table::RWTarget,
