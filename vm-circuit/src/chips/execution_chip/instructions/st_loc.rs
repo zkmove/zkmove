@@ -1,13 +1,13 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::word_capacity;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -16,9 +16,7 @@ use halo2_proofs::plonk::Error;
 
 #[derive(Clone, Debug)]
 pub struct StLoc<F: FieldExt> {
-    word_a: Vec<Cell<F>>,
-    word_a_mask: Vec<Cell<F>>,
-    word_a_addr_ext: Vec<Cell<F>>,
+    value: WordGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
@@ -49,20 +47,24 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
             ("function index", func_index),
         ]);
 
-        for (i, _) in self.word_a.iter().enumerate() {
+        self.value.configure(cb, word_element_num.clone());
+        for (i, _) in self.value.cells.word.iter().enumerate() {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64).expr(),
                 cells.frame_index.expression.clone(),
                 cells.locals_index.expression.clone(),
                 cells.stack_size.expression.clone(),
-                self.word_a_addr_ext[i].expression.clone(),
-                self.word_a[i].expression.clone(),
+                self.value.cells.word_addr_ext[i].expression.clone(),
+                self.value.cells.word[i].expression.clone(),
                 word_element_num.clone(), // word_element_num
             );
-            cb.condition(1.expr() - self.word_a_mask[i].expression.clone(), |cb| {
-                cb.add_lookup("st_loc(stack read)", read);
-                cb.add_lookup("st_loc(locals write)", write);
-            });
+            cb.condition(
+                1.expr() - self.value.cells.word_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup("st_loc(stack read)", read);
+                    cb.add_lookup("st_loc(locals write)", write);
+                },
+            );
         }
 
         LookupBytecode::lookup_bytecode(
@@ -81,38 +83,19 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let word_element_num =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
 
-        let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext: self.word_a_addr_ext.clone(),
-        };
-        Word::assign_word(
-            region,
-            offset,
-            step,
-            rw_operations,
-            &word,
-            step.gc,
-            word_element_num,
-        )?;
+        self.value
+            .assign(region, offset, rw_operations, step.gc, word_element_num)?;
 
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        let word_cap = word_capacity();
+        let value = WordGadget::construct(cb);
 
-        // alloc cell
-        let word_a = cb.alloc_n_cells(word_cap);
-        let word_a_mask = cb.alloc_n_cells(word_cap);
-        let word_a_addr_ext = cb.alloc_n_cells(word_cap);
-
-        Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext,
-        }
+        Self { value }
     }
 }

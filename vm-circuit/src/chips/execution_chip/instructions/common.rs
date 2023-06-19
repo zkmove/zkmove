@@ -23,6 +23,11 @@ use movelang::word::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
+pub(crate) mod generic_gadget;
+pub(crate) mod reference_value_gadget;
+pub(crate) mod simple_value_gadget;
+pub(crate) mod word_gadget;
+
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
     pub value_a: Cell<F>,
@@ -1022,7 +1027,7 @@ impl<F: FieldExt> AddrExt<F> {
         Ok(())
     }
 }
-
+// TODO: merge with the struct HeaderCells below
 #[derive(Clone, Debug)]
 pub struct ValueHeaderGadget<F: FieldExt> {
     pub header_value: Expression<F>,
@@ -1047,5 +1052,35 @@ impl<F: FieldExt> ValueHeaderGadget<F> {
             - self.flattened_len.clone()
             - self.len.clone() * 2u64.pow(16).expr();
         cb.add_constraint(name, constraint);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct HeaderCells<F> {
+    // should align with ValueHeader
+    pub(crate) flattened_len: Cell<F>,
+    pub(crate) len: Cell<F>,
+}
+
+impl<F: FieldExt> HeaderCells<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let flattened_len = cb.alloc_cell();
+        let len = cb.alloc_cell();
+
+        Self { flattened_len, len }
+    }
+    pub(crate) fn assign(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        header_value: F,
+    ) -> Result<(), Error> {
+        let (flattened_len, len) = ValueHeader::from(header_value).members();
+        self.flattened_len
+            .assign(region, offset, Some(F::from(flattened_len as u64)))?;
+        self.len.assign(region, offset, Some(F::from(len as u64)))?;
+
+        Ok(())
     }
 }

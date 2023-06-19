@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -16,9 +17,7 @@ use halo2_proofs::plonk::Error;
 
 #[derive(Clone, Debug)]
 pub struct Unpack<const GENERIC: bool, F: FieldExt> {
-    struct_value: Vec<Cell<F>>,
-    struct_value_mask: Vec<Cell<F>>,
-    struct_value_addr_ext: Vec<Cell<F>>,
+    struct_value: WordGadget<F>,
     values: Vec<Cell<F>>,
     values_mask: Vec<Cell<F>>,
     values_addr_ext: Vec<Cell<F>>,
@@ -63,16 +62,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             ("function index", func_index),
         ]);
 
+        self.struct_value
+            .configure(cb, struct_value_element_num.clone());
+
         cb.condition(
-            1.expr() - self.struct_value_mask[0].expression.clone(),
+            1.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
             |cb| {
                 cb.add_lookup(
                     "unpack(struct header)",
                     RWLookup::stack_pop(
                         cells.gc.expression.clone(),
                         cells.stack_size.expression.clone(),
-                        self.struct_value_addr_ext[0].expression.clone(),
-                        self.struct_value[0].expression.clone(),
+                        self.struct_value.cells.word_addr_ext[0].expression.clone(),
+                        self.struct_value.cells.word[0].expression.clone(),
                     ),
                 );
             },
@@ -84,14 +86,14 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
         // assigned the values[0] to be empty, now we just skip 'i=0'.
         for (i, item) in self.values.iter().enumerate().skip(1) {
             cb.condition(
-                1.expr() - self.struct_value_mask[i].expression.clone(),
+                1.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "unpack(stack pop)",
                         RWLookup::stack_pop(
                             cells.gc.expression.clone() + (i as u64).expr(),
                             cells.stack_size.expression.clone(),
-                            self.struct_value_addr_ext[i].expression.clone(),
+                            self.struct_value.cells.word_addr_ext[i].expression.clone(),
                             item.expression.clone(),
                         ),
                     );
@@ -116,14 +118,18 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             });
         }
 
-        //  word_a.address_ext equal to word_b.address
-        for (i, _) in self.struct_value.iter().enumerate().skip(1) {
-            cb.condition(self.struct_value_mask[i].expression.clone(), |cb| {
-                let constraint = self.values_address[i].expression.clone()
-                    - self.struct_value_addr_ext[i].expression.clone();
-                cb.add_constraint("unpack_address_eq", constraint);
-            });
-        }
+        // TODO:
+        // //  word_a.address_ext equal to word_b.address
+        // for (i, _) in self.struct_value.cells.word.iter().enumerate().skip(1) {
+        //     cb.condition(
+        //         1.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
+        //         |cb| {
+        //             let constraint = self.values_address[i].expression.clone()
+        //                 - self.struct_value.cells.word_addr_ext[i].expression.clone();
+        //             cb.add_constraint("unpack_address_eq", constraint);
+        //         },
+        //     );
+        // }
 
         LookupBytecode::lookup_bytecode(
             cb,
@@ -150,19 +156,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
                 .get_lower_128() as usize;
         let values_element_num = struct_value_element_num - 1;
 
-        // assign
-        let struct_value = Word {
-            word: self.struct_value.clone(),
-            word_mask: self.struct_value_mask.clone(),
-            word_addr_ext: self.struct_value_addr_ext.clone(),
-        };
-
-        Word::assign_word(
+        self.struct_value.assign(
             region,
             offset,
-            step,
             rw_operations,
-            &struct_value,
             step.gc,
             struct_value_element_num,
         )?;
@@ -189,9 +186,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
         let word_cap = word_capacity();
 
         // alloc cell
-        let struct_value = cb.alloc_n_cells(word_cap);
-        let struct_value_mask = cb.alloc_n_cells(word_cap);
-        let struct_value_addr_ext = cb.alloc_n_cells(word_cap);
+        let struct_value = WordGadget::construct(cb);
         let values = cb.alloc_n_cells(word_cap);
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext = cb.alloc_n_cells(word_cap);
@@ -199,8 +194,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
 
         Self {
             struct_value,
-            struct_value_mask,
-            struct_value_addr_ext,
             values,
             values_mask,
             values_addr_ext,

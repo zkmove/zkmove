@@ -23,6 +23,7 @@ pub struct VecPopBack<F: FieldExt> {
     value_index: Cell<F>,
     offset_pow2: Cell<F>,
 
+    // TODO: adopt RefValGadget
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
     ref_val_addr_ext_mask_0: Vec<Cell<F>>,
@@ -31,6 +32,7 @@ pub struct VecPopBack<F: FieldExt> {
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
 
+    // TODO: adopt WordGadget
     value: Vec<Cell<F>>,
     value_mask: Vec<Cell<F>>,
     value_addr_ext: Vec<Cell<F>>,

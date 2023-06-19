@@ -19,20 +19,24 @@ use movelang::word::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecSwap<F: FieldExt> {
+    // TODO: adopt SimpleValueGadget
     idx_a: Cell<F>,
     idx_b: Cell<F>,
     offset_pow2: Cell<F>,
 
+    // TODO: adopt RefValGadget
     ref_val: Vec<Cell<F>>,
     ref_val_mask: Vec<Cell<F>>,
 
     vec_frame_index_or_global_address: Cell<F>,
     vec_locals_index_or_global_sd_idx: Cell<F>,
 
+    // TODO: adopt WordGadget
     value_a: Vec<Cell<F>>,
     value_a_mask: Vec<Cell<F>>,
     value_a_addr_ext: Vec<Cell<F>>,
 
+    // TODO: adopt WordGadget
     value_b: Vec<Cell<F>>,
     value_b_mask: Vec<Cell<F>>,
     value_b_addr_ext: Vec<Cell<F>>,
