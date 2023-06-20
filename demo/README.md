@@ -57,7 +57,7 @@ zkmove run -s examples/scripts/call_u8.move -m examples/modules/ --new-args 3u8 
 ```
 
 ### Generics
-Zkmove also supports generics. just passing `ty_args` along with arguments. For example: ./examples/scripts/generic_type.move
+zkMove also supports generics. just passing `ty_args` along with arguments. For example: ./examples/scripts/generic_type.move
 
 run it with zkmove:
 
