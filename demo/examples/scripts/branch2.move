@@ -1,5 +1,5 @@
 //! args: 1u8, 2u8
-//! steps_num: 50
+//! step_max_row: 100
 //! stack_ops_num: 50
 //! locals_ops_num: 50
 script {

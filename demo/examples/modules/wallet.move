@@ -15,6 +15,16 @@ module Wallet {
         token_2: Token_2,
     }
 
+    struct WalletSet has copy, drop {
+        wallet_1: Wallet,
+        wallet_2: Wallet,
+    }
+
+    struct WalletSet2 has copy, drop {
+        wallet_1: WalletSet,
+        wallet_2: WalletSet,
+    }
+
     public fun new_token(value: u64): Token {
         Token { value }
     }
@@ -25,6 +35,13 @@ module Wallet {
 
     public fun create(token: Token, token_2: Token_2): Wallet {
         Wallet { token, token_2 }
+    }
+
+    public fun walletset_create(wallet_1: Wallet, wallet_2: Wallet): WalletSet {
+        WalletSet { wallet_1, wallet_2 }
+    }
+    public fun walletset_create2(w_1: WalletSet, w_2: WalletSet): WalletSet2 {
+        WalletSet2 { wallet_1: w_1, wallet_2: w_2 }
     }
 
     public fun value(wallet: &Wallet): u64 {
