@@ -1,5 +1,5 @@
 //! circuit: vm
-//! steps_num: 50
+//! step_max_row: 200
 //! stack_ops_num: 50
 //! locals_ops_num: 50
 //! args: 5u64
