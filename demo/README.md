@@ -105,3 +105,10 @@ script {
 ```bash
 zkmove run -s examples/scripts/fibonacci.move
 ```
+
+### Word capacity
+
+
+To efficiently represent a complex value in the circuit, Version 0.2.0 introduces the concept of 'word', a uniform flattened value representation, to flatten the complex value into simple values. and developers can configure the circuit param `word_capacity` to specify the max number of simple values that a complex value can include.
+
+for example, in `examples/scripts/vector3.move`, we set the param to 26, and you can run it with `zkmove run -s examples/scripts/vectors.move`.
