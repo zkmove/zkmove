@@ -16,15 +16,9 @@ A zero-knowledge Move language runtime environment. Safe, Efficient, and Privacy
 
 **Scaling and privacy solution rolled into one**. Based on zkMove, we will provide a safe and efficient zk rollup solution. We are also exploring adding more privacy properties to the solution.
 
-### Example
+### Documents
 
-We have prepared a [demo](./demo/README.md) with some examples to demonstrate the latest functionality of zkMove virtual machine.
-
-For example, the following command will first compile add.move into bytecode, execute the bytecode to generate an execution trace, then build the circuit and setup the proving/verifying key, and then generate a zkp for the execution with the proving key and finally verify the proof with the verifying key.
-
-```bash
-zkmove run -s examples/scripts/add.move
-```
+A project description can be found [here (This document is still WIP)](./docs/overview.md).
 
 ### Source code
 
@@ -33,6 +27,15 @@ https://github.com/young-rocks/zkmove-lite
 
 **zkMove VM:** The core of zkMove VM is a general-purpose VM circuit. Like a generic VM circuit, it is Turing-complete. Unlike a normal VM circuit, the zkMove circuit can be application specific. This makes it has smaller size and shorter proving time. Its code is still in rapid iteration, and we will make the source code available as it becomes more stable.
 
+### Example
+
+We have a binary release for each development iteration to show the progress we have made. There is a [demo](./demo/README.md) with some examples in the package to demonstrate the latest functionality of zkMove virtual machine.
+
+For example, the following command will first compile add.move into bytecode, execute the bytecode to generate an execution trace, then build the circuit and setup the proving/verifying key, and then generate a zkp for the execution with the proving key and finally verify the proof with the verifying key.
+
+```bash
+zkmove run -s examples/scripts/add.move
+```
 
 ## License
 
