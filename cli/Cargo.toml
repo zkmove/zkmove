@@ -9,10 +9,11 @@ error = { path = "../common/error" }
 functional-tests = { path = "../functional-tests" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
+rand = "0.8"
+structopt = "0.3.25"
 vm = { path = "../vm" }
 vm-circuit = { path = "../vm-circuit" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
-structopt = "0.3.25"
 
 [dev-dependencies]
 

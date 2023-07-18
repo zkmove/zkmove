@@ -1,8 +1,7 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
-use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::ipa::commitment::ParamsIPA;
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_script;
@@ -14,6 +13,8 @@ use structopt::StructOpt;
 use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
+
+use rand::{rngs::StdRng, SeedableRng};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -97,7 +98,7 @@ impl Arguments {
         let (compiled_script, compiled_modules) = compile_script(targets)?;
 
         let script = compiled_script.expect("script is missing");
-        let runtime = Runtime::<Fp>::new();
+        let runtime = Runtime::<Fr>::new();
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);
@@ -135,7 +136,8 @@ impl Arguments {
         }
 
         info!("setup vm circuit...");
-        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
+        let rng = StdRng::from_entropy();
+        let params = ParamsKZG::<Bn256>::setup(k, rng);
         let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");

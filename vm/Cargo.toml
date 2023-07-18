@@ -17,7 +17,7 @@ move-vm-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" 
 move-vm-runtime = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", features = ["dev-graph"]}
 plotters = { version = "0.3.0" }
-rand_core = { version = "0.6", default-features = false }
+rand = "0.8"
 petgraph = "0.6"
 
 [dev-dependencies]

@@ -1,9 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use functional_tests::run_config::{Circuit, RunConfig};
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
-use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::ipa::commitment::ParamsIPA;
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::compiler::compile_script;
 use movelang::state::StateStore;
@@ -12,6 +11,8 @@ use vm::runtime::Runtime;
 
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
+
+use rand::{rngs::StdRng, SeedableRng};
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -37,7 +38,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     let (compiled_script, compiled_modules) = compile_script(targets)?;
     let script = compiled_script.expect("script is missing");
-    let runtime = Runtime::<Fp>::new();
+    let runtime = Runtime::<Fr>::new();
     let mut state = StateStore::new();
 
     for module in compiled_modules.clone().into_iter() {
@@ -77,7 +78,8 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
 
         debug!("Generate parameters for execution trace");
-        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
+        let rng = StdRng::from_entropy();
+        let params = ParamsKZG::<Bn256>::setup(k, rng);
         let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
