@@ -1,6 +1,9 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+use halo2_proofs::poly::commitment::ParamsProver;
+use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
@@ -59,6 +62,9 @@ pub enum Command {
 
         #[structopt(long = "print-layout")]
         print_layout: bool,
+
+        #[structopt(long = "pcs", help = "polynomial commitment scheme")]
+        pcs: Option<String>,
     },
     #[structopt(name = "graph", about = "generate generic call graph")]
     CallGraph { module: PathBuf, output: PathBuf },
@@ -74,9 +80,38 @@ impl Arguments {
         new_args: &Option<Vec<ScriptArgument>>,
         verbose: bool,
         print_layout: bool,
+        pcs: &Option<String>,
     ) -> VmResult<()> {
         logger::init_for_main(verbose);
 
+        let ty = {
+            if let Some(s) = pcs {
+                s.to_lowercase()
+            } else {
+                String::from("kzg")
+            }
+        };
+        if ty.eq(&String::from("ipa")) {
+            info!("PCS is implemented with IPA");
+            self.run_ipa(script, module_dir, use_mock, new_args, print_layout)
+        } else if ty.eq(&String::from("kzg")) {
+            info!("PCS is implemented with KZG");
+            self.run_kzg(script, module_dir, use_mock, new_args, print_layout)
+        } else {
+            error!("only IPA and KZG supported");
+            Ok(())
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_kzg(
+        &self,
+        script: &Path,
+        module_dir: &Option<PathBuf>,
+        use_mock: bool,
+        new_args: &Option<Vec<ScriptArgument>>,
+        print_layout: bool,
+    ) -> VmResult<()> {
         let script_file = script.to_str().expect("path is None.");
 
         // compile script and depended modules
@@ -171,6 +206,109 @@ impl Arguments {
 
         Ok(())
     }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_ipa(
+        &self,
+        script: &Path,
+        module_dir: &Option<PathBuf>,
+        use_mock: bool,
+        new_args: &Option<Vec<ScriptArgument>>,
+        print_layout: bool,
+    ) -> VmResult<()> {
+        let script_file = script.to_str().expect("path is None.");
+
+        // compile script and depended modules
+        let mut targets = vec![script_file.to_string()];
+        let config = RunConfig::new(script)?;
+
+        for module in config.modules.into_iter() {
+            let path = module_dir
+                .clone()
+                .expect("module_dir is missing")
+                .as_path()
+                .join(module)
+                .to_str()
+                .unwrap()
+                .to_string();
+            targets.push(path);
+        }
+        info!("compile script...");
+        let (compiled_script, compiled_modules) = compile_script(targets)?;
+
+        let script = compiled_script.expect("script is missing");
+        let runtime = Runtime::<Fp>::new();
+        let mut state = StateStore::new();
+        for module in compiled_modules.clone().into_iter() {
+            state.add_module(module);
+        }
+
+        info!("generate execution trace...");
+        let circuit_config = CircuitConfig::default()
+            .max_step_row(config.step_max_row)
+            .stack_ops_num(config.stack_ops_num)
+            .locals_ops_num(config.locals_ops_num)
+            .global_ops_num(config.global_ops_num)
+            .word_size(config.word_capacity);
+        let witness = runtime.execute_script(
+            script.clone(),
+            compiled_modules.clone(),
+            config.ty_args.clone(),
+            config.signer.clone(),
+            config.args,
+            &mut state,
+            circuit_config.clone(),
+        )?;
+        let vm_circuit = VmCircuit { witness };
+        info!("find the best k...");
+        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        info!("k = {}", k);
+
+        if use_mock {
+            info!("run with mock prover...");
+            runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
+        }
+
+        if print_layout {
+            info!("print circuit layout into layout.svg ...");
+            runtime.print_circuit_layout(k, &vm_circuit);
+        }
+
+        info!("setup vm circuit...");
+        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
+        let pk = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
+
+        info!("prove vm circuit...");
+        runtime.prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;
+        #[allow(clippy::or_fun_call)]
+        if let Some(new_args) = new_args
+            .as_ref()
+            .or(config.new_args.as_ref().map(|t| t.as_inner()))
+        {
+            info!("execute script with new arguments");
+            let arguments = Some(ScriptArguments::new(new_args.clone()));
+            let new_witness = runtime.execute_script(
+                script,
+                compiled_modules,
+                if config.new_ty_args.is_empty() {
+                    config.ty_args
+                } else {
+                    config.new_ty_args
+                },
+                config.signer,
+                arguments,
+                &mut state,
+                circuit_config,
+            )?;
+            let new_vm_circuit = VmCircuit {
+                witness: new_witness,
+            };
+            info!("prove the new execution with old proving key...");
+            runtime.prove_vm_circuit_ipa(new_vm_circuit, &[], &params, pk)?;
+        }
+
+        Ok(())
+    }
 }
 
 fn main() {
@@ -184,6 +322,7 @@ fn main() {
             ref new_args,
             verbose,
             print_layout,
+            ref pcs,
         } => args.run(
             script.as_path(),
             modules,
@@ -191,6 +330,7 @@ fn main() {
             new_args,
             verbose,
             print_layout,
+            pcs,
         ),
         Command::CallGraph { module, output } => {
             std::fs::create_dir_all(output.as_path()).unwrap();
