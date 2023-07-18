@@ -173,10 +173,10 @@ impl Arguments {
         info!("setup vm circuit...");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
+        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
-        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
+        runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
         #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
@@ -201,7 +201,7 @@ impl Arguments {
                 witness: new_witness,
             };
             info!("prove the new execution with old proving key...");
-            runtime.prove_vm_circuit(new_vm_circuit, &[], &params, pk)?;
+            runtime.prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
         }
 
         Ok(())

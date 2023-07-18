@@ -291,7 +291,7 @@ impl<F: FieldExt> Runtime<F>
 where
     VmCircuit<F>: Circuit<Fr>,
 {
-    pub fn setup_vm_circuit(
+    pub fn setup_vm_circuit_kzg(
         &self,
         circuit: &VmCircuit<F>,
         params: &ParamsKZG<Bn256>,
@@ -309,7 +309,7 @@ where
         Ok(pk)
     }
 
-    pub fn prove_vm_circuit(
+    pub fn prove_vm_circuit_kzg(
         &self,
         circuit: VmCircuit<F>,
         instance: &[&[Fr]],

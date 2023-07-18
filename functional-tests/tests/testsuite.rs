@@ -80,10 +80,10 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("Generate parameters for execution trace");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
+        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
-        runtime.prove_vm_circuit(vm_circuit, &[], &params, pk.clone())?;
+        runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
         if let Some(new_args) = config.new_args.as_ref() {
             info!("execute script with new arguments");
             let new_witness = runtime.execute_script(
@@ -103,7 +103,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                 witness: new_witness,
             };
             info!("prove the new execution with old proving key...");
-            runtime.prove_vm_circuit(new_vm_circuit, &[], &params, pk)?;
+            runtime.prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
         }
     }
 
