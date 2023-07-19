@@ -286,7 +286,7 @@ impl<F: FieldExt> Frame<F> {
                                 let word: LocatedWord<F> =
                                     LocatedValue(ValueLocation::Local(loc), &value).into();
                                 let word_element_count = word.0.len();
-                                execution_step.locals_index = index as usize;
+                                execution_step.locals_index = index;
                                 execution_step.auxiliary_2 = Some(Value::u64(frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
                                     Some(Value::u64(word_element_count as u64)); // word_elem_count
@@ -335,7 +335,7 @@ impl<F: FieldExt> Frame<F> {
                                         );
                                         let word: LocatedWord<F> = indexed_value.into();
                                         let word_element_count = word.0.len();
-                                        execution_step.locals_index = index as usize;
+                                        execution_step.locals_index = index;
                                         execution_step.auxiliary_2 =
                                             Some(Value::u64(frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
@@ -364,7 +364,7 @@ impl<F: FieldExt> Frame<F> {
                                 let word: LocatedWord<F> =
                                     LocatedValue(ValueLocation::Local(loc), &value).into();
                                 let word_element_count = Word::from(&value).0.len();
-                                execution_step.locals_index = loc.index as usize;
+                                execution_step.locals_index = loc.index;
                                 execution_step.auxiliary_2 =
                                     Some(Value::u64(loc.frame_index.0 as u64));
                                 execution_step.auxiliary_3 =
@@ -402,7 +402,7 @@ impl<F: FieldExt> Frame<F> {
                                         )
                                         .into();
                                         let word_element_count = Word::from(&value).0.len();
-                                        execution_step.locals_index = vloc.index as usize;
+                                        execution_step.locals_index = vloc.index;
                                         execution_step.auxiliary_2 =
                                             Some(Value::u64(vloc.frame_index.0 as u64));
                                         execution_step.auxiliary_3 =
@@ -907,7 +907,7 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(global_ref.into(), rw_operations)
                     }
                     Bytecode::VecPack(si, num) => {
-                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_1 = Some(Value::u64(*num));
                         execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
                         //fixme: need type check?
                         let _ty = resolver
@@ -1152,7 +1152,7 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.push(value, rw_operations)?;
                         }
 
-                        execution_step.auxiliary_1 = Some(Value::u64(*num as u64));
+                        execution_step.auxiliary_1 = Some(Value::u64(*num));
                         execution_step.auxiliary_2 = Some(Value::u64(si.0 as u64));
                         execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
                         Ok(())

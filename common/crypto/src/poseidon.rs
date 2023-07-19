@@ -25,7 +25,7 @@ impl<F: FieldExt, const SECURE_MDS: usize> Spec<F, 3, 2> for SmtP128Pow5T3<F, SE
     }
 
     fn sbox(val: F) -> F {
-        val.pow_vartime(&[5])
+        val.pow_vartime([5])
     }
 
     fn secure_mds() -> usize {

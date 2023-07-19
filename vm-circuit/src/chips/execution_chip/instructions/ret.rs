@@ -78,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
     ) -> Result<(), Error> {
         cells
             .auxiliary_1
-            .assign(region, offset, (step.frame_index as usize).sub_invert(0))?;
+            .assign(region, offset, (step.frame_index).sub_invert(0))?;
 
         Ok(())
     }

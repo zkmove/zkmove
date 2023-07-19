@@ -23,7 +23,6 @@ impl Pow2FixedTable {
 
     pub fn assign_table<F: FieldExt>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         let rows = (0u32..128)
-            .into_iter()
             .map(|p| vec![F::from_u128(p as u128), F::from_u128(2u128.pow(p))])
             .collect();
         assign_table(layouter, self.columns(), &rows, "pow2_table")?;
