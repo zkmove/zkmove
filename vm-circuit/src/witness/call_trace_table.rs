@@ -150,7 +150,7 @@ impl NameToIdxMapping {
                     FunctionName::MutBorrowGlobalGeneric => MUT_BORROW_GLOBAL_GENERIC_AS_FIELD,
                     FunctionName::General(_) => 0,
                 };
-                (0, FunctionDefinitionIndex(fn_index as u16))
+                (0, FunctionDefinitionIndex(fn_index))
             }
         }
     }
@@ -221,7 +221,7 @@ impl TraceBuilder {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            caller_callin_pc: caller_pc as usize,
+                            caller_callin_pc: caller_pc,
                             callee_id: target_node.pos().to_vec(),
                             callee_module: callee.module_id.clone(),
                             callee_function: callee.fn_name.clone().into(),
@@ -237,7 +237,7 @@ impl TraceBuilder {
                             caller_id: caller_node.pos().to_vec(),
                             caller_module: caller.module_id.clone(),
                             caller_function: caller.fn_name.clone().into(),
-                            caller_callin_pc: caller_pc as usize,
+                            caller_callin_pc: caller_pc,
                             callee_id: target_node.pos().to_vec(),
                             callee_module: None,
                             callee_function: unpack.op.clone().into(),

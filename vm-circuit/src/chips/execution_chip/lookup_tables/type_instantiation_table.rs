@@ -74,12 +74,12 @@ impl TypeInstantiationTable {
             .into_iter()
             .map(|v| {
                 vec![
-                    F::from_u128(v.caller_id as u128),
+                    F::from_u128(v.caller_id),
                     F::from_u128(v.caller_module as u128),
                     F::from_u128(v.caller_function as u128),
                     F::from_u128(v.caller_callin_pc as u128),
                     F::from_u128(v.instantiation_index as u128),
-                    F::from_u128(v.instantiation_id as u128),
+                    F::from_u128(v.instantiation_id),
                     F::from_u128(v.instantiation_point_module as u128),
                     F::from_u128(v.instantiation_point_function as u128),
                     F::from_u128(v.instantiation_point_pc as u128),

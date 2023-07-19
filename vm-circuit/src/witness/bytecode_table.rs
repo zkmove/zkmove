@@ -42,7 +42,7 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
         ),
         Bytecode::LdU128(v) => (
             F::from_u128(Opcode::LdU128.index() as u128),
-            F::from_u128(v as u128),
+            F::from_u128(v),
         ),
         Bytecode::LdConst(v) => (
             F::from_u128(Opcode::LdConst.index() as u128),

@@ -2,10 +2,9 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode};
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::plonk::ProvingKey;
-use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::ipa::commitment::ParamsIPA;
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::{debug, info};
 use movelang::compiler::compile_script;
 use movelang::state::StateStore;
@@ -16,15 +15,17 @@ use vm::runtime::Runtime;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
+use rand::{rngs::StdRng, SeedableRng};
+
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 #[allow(clippy::type_complexity)]
 fn setup(
     path: &Path,
 ) -> datatest_stable::Result<(
-    Runtime<Fp>,
-    VmCircuit<Fp>,
-    ParamsIPA<EqAffine>,
-    ProvingKey<EqAffine>,
+    Runtime<Fr>,
+    VmCircuit<Fr>,
+    ParamsKZG<Bn256>,
+    ProvingKey<G1Affine>,
 )> {
     let script_file = path.to_str().expect("path is None.");
     debug!("Run test {:?}", script_file);
@@ -46,7 +47,7 @@ fn setup(
 
     let (compiled_script, compiled_modules) = compile_script(targets)?;
     let script = compiled_script.expect("script is missing");
-    let runtime = Runtime::<Fp>::new();
+    let runtime = Runtime::<Fr>::new();
     let mut state = StateStore::new();
 
     for module in compiled_modules.clone().into_iter() {
@@ -79,8 +80,9 @@ fn setup(
     runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
 
     debug!("Generate parameters for execution trace");
-    let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
-    let pk = runtime.setup_vm_circuit(&vm_circuit, &params)?;
+    let rng = StdRng::from_entropy();
+    let params = ParamsKZG::<Bn256>::setup(k, rng);
+    let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
     Ok((runtime, vm_circuit, params, pk))
 }
 
@@ -111,7 +113,7 @@ fn circuit_benchmark(c: &mut Criterion) {
                     || {},
                     |_| {
                         runtime
-                            .prove_vm_circuit(vm_circuit.clone(), &[], params, pk.clone())
+                            .prove_vm_circuit_kzg(vm_circuit.clone(), &[], params, pk.clone())
                             .unwrap();
                     },
                     BatchSize::PerIteration,

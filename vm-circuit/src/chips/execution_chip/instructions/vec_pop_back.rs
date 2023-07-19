@@ -378,7 +378,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
 
         // assign bytes mask
         // skip DEPTH_OF_LOCATION_PATH bits tophead.
-        let n = ref_val_flattened_len as usize - DEPTH_OF_LOCATION_PATH;
+        let n = ref_val_flattened_len - DEPTH_OF_LOCATION_PATH;
         let mask_a = &self.ref_val_addr_ext_mask_0;
         let mask_b = &self.ref_val_addr_ext_mask_1;
         AddrExt::assign_byte_n_mask(region, offset, mask_a, mask_b, n)?;
