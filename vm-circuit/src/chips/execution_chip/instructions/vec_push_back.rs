@@ -23,7 +23,7 @@ pub struct VecPushBack<F: FieldExt> {
     value_index: Cell<F>,
     offset_pow2: Cell<F>,
 
-    // TODO: adopt WordGadget
+    // TODO: adopt ValueGadget
     value: Vec<Cell<F>>,
     value_mask: Vec<Cell<F>>,
     value_addr_ext: Vec<Cell<F>>,

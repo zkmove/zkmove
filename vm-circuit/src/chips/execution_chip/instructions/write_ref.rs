@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -20,8 +20,8 @@ use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
 #[derive(Clone, Debug)]
 pub struct WriteRef<F: FieldExt> {
     ref_val: RefValGadget<F>,
-    value_a: WordGadget<F>,
-    value_b: WordGadget<F>,
+    value_a: ValueGadget<F>,
+    value_b: ValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
@@ -204,8 +204,8 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let ref_val = RefValGadget::construct(cb);
-        let value_a = WordGadget::construct(cb);
-        let value_b = WordGadget::construct(cb);
+        let value_a = ValueGadget::construct(cb);
+        let value_b = ValueGadget::construct(cb);
 
         Self {
             ref_val,

@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::common::simple_value_gadget::SimpleValueGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -22,7 +22,7 @@ use movelang::extended_value::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 #[derive(Clone, Debug)]
 pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
     account_address: SimpleValueGadget<F>,
-    global_value: WordGadget<F>,
+    global_value: ValueGadget<F>,
 
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -177,7 +177,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let account_address = SimpleValueGadget::construct(cb);
-        let global_value = WordGadget::construct(cb);
+        let global_value = ValueGadget::construct(cb);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();

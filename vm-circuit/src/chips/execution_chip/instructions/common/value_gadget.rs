@@ -11,13 +11,13 @@ use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
 
 #[derive(Clone, Debug)]
-pub(crate) struct WordCells<F> {
+pub(crate) struct GadgetCells<F> {
     pub(crate) word: Vec<Cell<F>>,
     pub(crate) word_mask: Vec<Cell<F>>,
     pub(crate) word_addr_ext: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> WordCells<F> {
+impl<F: FieldExt> GadgetCells<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         let word_cap = word_capacity();
 
@@ -69,15 +69,15 @@ impl<F: FieldExt> WordCells<F> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct WordGadget<F> {
-    pub(crate) cells: WordCells<F>,
+pub(crate) struct ValueGadget<F> {
+    pub(crate) cells: GadgetCells<F>,
     pub(crate) header_cells: HeaderCells<F>,
 }
 
-impl<F: FieldExt> WordGadget<F> {
+impl<F: FieldExt> ValueGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
-            cells: WordCells::construct(cb),
+            cells: GadgetCells::construct(cb),
             header_cells: HeaderCells::construct(cb),
         }
     }

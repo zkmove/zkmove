@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -19,7 +19,7 @@ use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
-    value: WordGadget<F>,
+    value: ValueGadget<F>,
     ref_val: RefValGadget<F>,
 }
 
@@ -136,7 +136,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value = WordGadget::construct(cb);
+        let value = ValueGadget::construct(cb);
         let ref_val = RefValGadget::construct(cb);
 
         Self { value, ref_val }

@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -21,7 +21,7 @@ use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
-    value: WordGadget<F>,
+    value: ValueGadget<F>,
     signer_ref: RefValGadget<F>,
     account_address: Cell<F>,
     type_cells: Option<GenericTypeGadget<F>>,
@@ -175,7 +175,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        let value = WordGadget::construct(cb);
+        let value = ValueGadget::construct(cb);
         let signer_ref = RefValGadget::construct(cb);
         let account_address = cb.alloc_cell();
 

@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -16,7 +16,7 @@ use halo2_proofs::plonk::Error;
 
 #[derive(Clone, Debug)]
 pub struct MoveLoc<F: FieldExt> {
-    value: WordGadget<F>,
+    value: ValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
@@ -97,7 +97,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
-            value: WordGadget::construct(cb),
+            value: ValueGadget::construct(cb),
         }
     }
 }

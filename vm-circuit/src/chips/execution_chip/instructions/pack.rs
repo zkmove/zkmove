@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -21,7 +21,7 @@ pub struct Pack<const GENERIC: bool, F: FieldExt> {
     values_mask: Vec<Cell<F>>,
     values_addr_ext: Vec<Cell<F>>,
     values_address: Vec<Cell<F>>,
-    struct_value: WordGadget<F>,
+    struct_value: ValueGadget<F>,
 }
 
 impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F> {
@@ -44,11 +44,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let struct_value_element_num = cells.auxiliary_3.expression.clone();
-        let values_element_num = struct_value_element_num.clone() - 1.expr();
+        let struct_word_element_num = cells.auxiliary_3.expression.clone();
+        let values_element_num = struct_word_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_element_num.clone()
-            + struct_value_element_num.clone();
+            + struct_word_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -62,7 +62,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             ("function index", func_index),
         ]);
 
-        self.struct_value.configure(cb, struct_value_element_num);
+        self.struct_value.configure(cb, struct_word_element_num);
 
         // read values from stack, write back the packed struct
         // struct_value[0] is the header. To make the constraint simple, we have already
@@ -144,10 +144,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
-        let struct_value_element_num =
+        let struct_word_element_num =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
-        let values_element_num = struct_value_element_num - 1;
+        let values_element_num = struct_word_element_num - 1;
 
         let values = Word {
             word: self.values.clone(),
@@ -169,7 +169,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             offset,
             rw_operations,
             step.gc + values_element_num,
-            struct_value_element_num,
+            struct_word_element_num,
         )?;
 
         Ok(())
@@ -183,7 +183,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
-        let struct_value = WordGadget::construct(cb);
+        let struct_value = ValueGadget::construct(cb);
 
         Self {
             values,
