@@ -47,10 +47,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             - 2.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_elem_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * word_elem_num.clone()
+            + 2.expr() * flattened_value_len.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -65,7 +65,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb, word_elem_num.clone());
+        self.value.configure(cb, flattened_value_len.clone());
         self.signer_ref.configure(cb);
         let global_address = self.account_address.expression.clone();
 
@@ -83,7 +83,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
                 },
                 self.value.cells.word_addr_ext[i].expression.clone(),
                 self.value.cells.word[i].expression.clone(),
-                word_elem_num.clone(),
+                flattened_value_len.clone(),
                 (LEN_OF_REFERENCE_VALUE as u64).expr(),
             );
             cb.condition(
@@ -100,7 +100,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             cb.add_lookup(
                 "move_to(signer stack pop)",
                 RWLookup::stack_pop(
-                    cells.gc.expression.clone() + word_elem_num.clone() + (i as u64).expr(),
+                    cells.gc.expression.clone() + flattened_value_len.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone() - 1.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
@@ -126,19 +126,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
     ) -> Result<(), Error> {
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let word_elem_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
         self.value
-            .assign(region, offset, rw_operations, step.gc, word_elem_num)?;
+            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
         self.signer_ref
-            .assign(region, offset, rw_operations, step.gc + word_elem_num)?;
+            .assign(region, offset, rw_operations, step.gc + flattened_value_len)?;
 
         // global account address
         let op = rw_operations
             .0
-            .get(step.gc + word_elem_num + LEN_OF_REFERENCE_VALUE)
+            .get(step.gc + flattened_value_len + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.account_address

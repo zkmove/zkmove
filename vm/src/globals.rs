@@ -55,7 +55,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     };
     let flattened_value: LocatedFlattenedValue<F> =
         LocatedValue(ValueLocation::Global(value_addr), &resource_value).into();
-    let word_elem_num = flattened_value.0.len();
+    let flattened_value_len = flattened_value.0.len();
     for (address_path, val) in flattened_value.0.clone() {
         let op = GlobalOp {
             address: addr,
@@ -81,5 +81,5 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
             rw_operations.push(RWOperation::GlobalOp(op));
         }
     }
-    Ok(word_elem_num)
+    Ok(flattened_value_len)
 }

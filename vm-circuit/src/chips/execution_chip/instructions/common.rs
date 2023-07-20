@@ -594,32 +594,6 @@ pub struct RefVal<F: FieldExt> {
 }
 
 impl<F: FieldExt> Word<F> {
-    pub fn get_word_element_num(
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        cells: &StepChipCells<F>,
-    ) -> VmResult<usize> {
-        let word_element_num = step.auxiliary_3.as_ref().ok_or_else(|| {
-            error!("auxiliary_3 is None");
-            Error::Synthesis
-        })?;
-
-        // assign to cells.auxiliary_3
-        cells
-            .auxiliary_3
-            .assign(region, offset, word_element_num.value())?;
-
-        // return word_element_num
-        Ok(word_element_num
-            .value()
-            .ok_or_else(|| {
-                error!("failed to get word_element_num");
-                Error::Synthesis
-            })?
-            .get_lower_128() as usize)
-    }
-
     pub fn assign_step_value(
         region: &mut Region<'_, F>,
         offset: usize,
@@ -675,9 +649,9 @@ impl<F: FieldExt> Word<F> {
         rw_operations: &RWOperations<F>,
         cells: &Word<F>,
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
-        for (i, _) in cells.word.iter().enumerate().take(word_element_num) {
+        for (i, _) in cells.word.iter().enumerate().take(flattened_value_len) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
             cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
@@ -688,7 +662,7 @@ impl<F: FieldExt> Word<F> {
             )?;
         }
 
-        for (i, _) in cells.word.iter().enumerate().skip(word_element_num) {
+        for (i, _) in cells.word.iter().enumerate().skip(flattened_value_len) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
         }
@@ -704,10 +678,10 @@ impl<F: FieldExt> Word<F> {
         rw_operations: &RWOperations<F>,
         cells: &Word<F>,
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
         capacity: usize,
     ) -> Result<(), Error> {
-        for i in 0..word_element_num {
+        for i in 0..flattened_value_len {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.word[i].assign(region, offset, op.value().value())?;
             cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
@@ -718,9 +692,9 @@ impl<F: FieldExt> Word<F> {
             )?;
         }
 
-        debug_assert!(word_element_num <= capacity);
+        debug_assert!(flattened_value_len <= capacity);
 
-        for i in word_element_num..capacity {
+        for i in flattened_value_len..capacity {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
         }
@@ -737,7 +711,7 @@ impl<F: FieldExt> Word<F> {
         cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
         // leave word[0] empty
         cells.word_mask[0].assign(region, offset, Some(F::one()))?;
@@ -747,7 +721,7 @@ impl<F: FieldExt> Word<F> {
         for (i, item) in word_address
             .iter()
             .enumerate()
-            .take(word_element_num + 1)
+            .take(flattened_value_len + 1)
             .skip(1)
         {
             let op = rw_operations
@@ -764,7 +738,7 @@ impl<F: FieldExt> Word<F> {
             item.assign(region, offset, Some(F::from(op.address() as u64)))?;
         }
 
-        for (i, item) in word_address.iter().enumerate().skip(word_element_num + 1) {
+        for (i, item) in word_address.iter().enumerate().skip(flattened_value_len + 1) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
@@ -781,14 +755,14 @@ impl<F: FieldExt> Word<F> {
         cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
         filter: RW,
     ) -> Result<(), Error> {
         let mut index = op_index;
         let mut op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         let mut i = 0;
 
-        while i < word_element_num {
+        while i < flattened_value_len {
             if op.rw() == filter {
                 cells.word[i].assign(region, offset, op.value().value())?;
                 cells.word_mask[i].assign(region, offset, Some(F::zero()))?;
@@ -806,7 +780,7 @@ impl<F: FieldExt> Word<F> {
             op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
         }
 
-        for (i, item) in word_address.iter().enumerate().skip(word_element_num) {
+        for (i, item) in word_address.iter().enumerate().skip(flattened_value_len) {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;
@@ -822,15 +796,15 @@ impl<F: FieldExt> Word<F> {
         rw_operations: &RWOperations<F>,
         cells: &RefVal<F>,
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
-        for i in 0..word_element_num.min(LEN_OF_REFERENCE_VALUE) {
+        for i in 0..flattened_value_len.min(LEN_OF_REFERENCE_VALUE) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             cells.ref_val[i].assign(region, offset, op.value().value())?;
             cells.ref_val_mask[i].assign(region, offset, Some(F::zero()))?;
         }
 
-        for i in word_element_num..LEN_OF_REFERENCE_VALUE {
+        for i in flattened_value_len..LEN_OF_REFERENCE_VALUE {
             cells.ref_val_mask[i].assign(region, offset, Some(F::one()))?;
         }
 

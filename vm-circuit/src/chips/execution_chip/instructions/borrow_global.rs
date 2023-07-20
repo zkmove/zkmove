@@ -177,7 +177,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
     ) -> Result<(), Error> {
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let word_elem_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
@@ -188,13 +188,13 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
             offset,
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE,
-            word_elem_num,
+            flattened_value_len,
         )?;
         self.ref_val.assign(
             region,
             offset,
             rw_operations,
-            step.gc + LEN_OF_SIMPLE_VALUE + word_elem_num,
+            step.gc + LEN_OF_SIMPLE_VALUE + flattened_value_len,
         )?;
 
         if GENERIC {

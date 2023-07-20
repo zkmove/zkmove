@@ -39,27 +39,27 @@ impl<F: FieldExt> GadgetCells<F> {
         offset: usize,
         rw_operations: &RWOperations<F>,
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
-        if word_element_num > word_capacity() {
+        if flattened_value_len > word_capacity() {
             // TODO: a better place to do word cap check is in "fn from(value: &Value<F>) -> Word<F>"
             // but we have no capacity set at the moment. Considering move word.rs to the folder "witness".
             error!(
                 "word element num is {:?}, exceeds word capacity {:?}",
-                word_element_num,
+                flattened_value_len,
                 word_capacity()
             );
             return Err(Error::Synthesis);
         }
 
-        for (i, _) in self.word.iter().enumerate().take(word_element_num) {
+        for (i, _) in self.word.iter().enumerate().take(flattened_value_len) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
             self.word[i].assign(region, offset, op.value().value())?;
             self.word_mask[i].assign(region, offset, Some(F::zero()))?;
             self.word_addr_ext[i].assign(region, offset, Some(F::from(op.address_ext() as u64)))?;
         }
 
-        for (i, _) in self.word.iter().enumerate().skip(word_element_num) {
+        for (i, _) in self.word.iter().enumerate().skip(flattened_value_len) {
             self.word_mask[i].assign(region, offset, Some(F::one()))?;
             self.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
         }
@@ -87,7 +87,7 @@ impl<F: FieldExt> ValueGadget<F> {
         offset: usize,
         rw_operations: &RWOperations<F>,
         op_index: usize,
-        word_element_num: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
         let header_value = op.value().value().ok_or_else(|| {
@@ -96,12 +96,12 @@ impl<F: FieldExt> ValueGadget<F> {
         })?;
 
         self.cells
-            .assign(region, offset, rw_operations, op_index, word_element_num)?;
+            .assign(region, offset, rw_operations, op_index, flattened_value_len)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())
     }
 
-    pub(crate) fn configure(&self, cb: &mut ConstraintBuilder<F>, word_elem_num: Expression<F>) {
+    pub(crate) fn configure(&self, cb: &mut ConstraintBuilder<F>, flattened_value_len: Expression<F>) {
         // check word header
         self.constrain_header(cb, self.cells.word[0].expression.clone());
 
@@ -113,7 +113,7 @@ impl<F: FieldExt> ValueGadget<F> {
         );
 
         // check word element number
-        let constraint = word_elem_num - self.header_cells.flattened_len.expression.clone();
+        let constraint = flattened_value_len - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check word element number", constraint);
 
         // TODO: check addr_ext

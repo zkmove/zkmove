@@ -233,8 +233,8 @@ impl<F: FieldExt> Interpreter<F> {
                         frame_index + 1,
                         rw_operations,
                     )?;
-                    let word_element_count = (rw_operations.len() - rw_op_count) / 2;
-                    execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                    let flattened_value_len = (rw_operations.len() - rw_op_count) / 2;
+                    execution_step.auxiliary_3 = Some(Value::u64(flattened_value_len as u64));
                     exec_steps.push(execution_step);
 
                     callee_frame.print_frame();
@@ -275,8 +275,8 @@ impl<F: FieldExt> Interpreter<F> {
                         frame_index + 1,
                         rw_operations,
                     )?;
-                    let word_element_count = (rw_operations.len() - rw_op_count) / 2;
-                    execution_step.auxiliary_3 = Some(Value::u64(word_element_count as u64));
+                    let flattened_value_len = (rw_operations.len() - rw_op_count) / 2;
+                    execution_step.auxiliary_3 = Some(Value::u64(flattened_value_len as u64));
                     let caller_pc = if self.frames.size() == 0 {
                         0
                     } else {

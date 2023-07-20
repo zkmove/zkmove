@@ -933,7 +933,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     /// Cast the value into simple value if it's simple
-    /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
+    /// NOTICE: restrict access to `pub(self)` so that outside use flatten or flattened_value_len instead of this.
     pub fn cast_simple(&self) -> Option<SimpleValue<F>> {
         Some(match self {
             Value::U8(v) => SimpleValue::U8(*v),

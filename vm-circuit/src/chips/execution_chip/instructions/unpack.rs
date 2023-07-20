@@ -44,10 +44,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let struct_word_element_num = cells.auxiliary_3.expression.clone();
-        let values_element_num = struct_word_element_num.clone() - 1.expr();
+        let struct_element_num = cells.auxiliary_3.expression.clone();
+        let values_element_num = struct_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + struct_word_element_num.clone()
+            + struct_element_num.clone()
             + values_element_num;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -63,7 +63,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
         ]);
 
         self.struct_value
-            .configure(cb, struct_word_element_num.clone());
+            .configure(cb, struct_element_num.clone());
 
         cb.condition(
             1.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
@@ -104,7 +104,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
                     "unpack(stack push)",
                     RWLookup {
                         gc: cells.gc.expression.clone()
-                            + struct_word_element_num.clone()
+                            + struct_element_num.clone()
                             + ((i - 1) as u64).expr(),
                         rw_target: (RWTarget::Stack as u64).expr(),
                         rw: (RW::WRITE as u64).expr(),
@@ -151,17 +151,17 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
-        let struct_word_element_num =
+        let struct_element_num =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
-        let values_element_num = struct_word_element_num - 1;
+        let values_element_num = struct_element_num - 1;
 
         self.struct_value.assign(
             region,
             offset,
             rw_operations,
             step.gc,
-            struct_word_element_num,
+            struct_element_num,
         )?;
 
         let values = Word {
@@ -175,7 +175,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             rw_operations,
             &values,
             &self.values_address,
-            step.gc + struct_word_element_num,
+            step.gc + struct_element_num,
             values_element_num,
         )?;
 

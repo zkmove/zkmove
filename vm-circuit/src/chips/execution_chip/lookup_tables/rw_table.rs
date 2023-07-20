@@ -144,7 +144,7 @@ impl<F: FieldExt> RWLookup<F> {
         stack_size: Expression<F>,
         address_ext: Expression<F>,
         value: Expression<F>,
-        word_element_num: Expression<F>,
+        flattened_value_len: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -158,7 +158,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + word_element_num,
+                gc: gc + flattened_value_len,
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -178,7 +178,7 @@ impl<F: FieldExt> RWLookup<F> {
         stack_size: Expression<F>,
         address_ext: Expression<F>,
         value: Expression<F>,
-        word_element_num: Expression<F>,
+        flattened_value_len: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -192,7 +192,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc.clone() + word_element_num.clone(),
+                gc: gc.clone() + flattened_value_len.clone(),
                 rw_target: (RWTarget::Locals as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index,
@@ -202,7 +202,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + word_element_num * 2.expr(),
+                gc: gc + flattened_value_len * 2.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -222,7 +222,7 @@ impl<F: FieldExt> RWLookup<F> {
         stack_size: Expression<F>,
         address_ext: Expression<F>,
         value: Expression<F>,
-        word_element_num: Expression<F>,
+        flattened_value_len: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -236,7 +236,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + word_element_num,
+                gc: gc + flattened_value_len,
                 rw_target: (RWTarget::Locals as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index,
@@ -312,7 +312,7 @@ impl<F: FieldExt> RWLookup<F> {
         stack_size: Expression<F>,
         address_ext: Expression<F>,
         value: Expression<F>,
-        word_element_num: Expression<F>,
+        flattened_value_len: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>, RWLookup<F>) {
         (
             RWLookup {
@@ -326,7 +326,7 @@ impl<F: FieldExt> RWLookup<F> {
                 value: value.clone(),
             },
             RWLookup {
-                gc: gc.clone() + word_element_num.clone(),
+                gc: gc.clone() + flattened_value_len.clone(),
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -336,7 +336,7 @@ impl<F: FieldExt> RWLookup<F> {
                 value: 0.expr(),
             },
             RWLookup {
-                gc: gc + word_element_num * 2.expr(),
+                gc: gc + flattened_value_len * 2.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),
@@ -356,7 +356,7 @@ impl<F: FieldExt> RWLookup<F> {
         sd_index: Expression<F>,
         address_ext: Expression<F>,
         value: Expression<F>,
-        word_elem_num: Expression<F>,
+        flattened_value_len: Expression<F>,
         depth_of_addr_path: Expression<F>,
     ) -> (RWLookup<F>, RWLookup<F>) {
         (
@@ -371,7 +371,7 @@ impl<F: FieldExt> RWLookup<F> {
                 sd_index: 0.expr(),
             },
             RWLookup {
-                gc: gc + depth_of_addr_path + word_elem_num, // + depth_of_addr_path, because, in the middle, a signer reference is popped.
+                gc: gc + depth_of_addr_path + flattened_value_len, // + depth_of_addr_path, because, in the middle, a signer reference is popped.
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
                 frame_index: 0.expr(),

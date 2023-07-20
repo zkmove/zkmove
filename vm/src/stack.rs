@@ -119,7 +119,7 @@ impl<F: FieldExt> EvalStack<F> {
                 stack_index: self.0.len(),
             };
             let flattened_value: LocatedFlattenedValue<F> = LocatedValue(ValueLocation::Stack(loc), &value).into();
-            let word_element_count = flattened_value.0.len();
+            let flattened_value_len = flattened_value.0.len();
             Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
@@ -132,7 +132,7 @@ impl<F: FieldExt> EvalStack<F> {
                         )
                         .with_message(format!("moving value {:?} with dangling references", v))),
                     };
-                    Ok((ContainerValue::pack(fields?), word_element_count))
+                    Ok((ContainerValue::pack(fields?), flattened_value_len))
                 }
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct", v))),

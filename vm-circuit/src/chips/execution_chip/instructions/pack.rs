@@ -44,11 +44,11 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let struct_word_element_num = cells.auxiliary_3.expression.clone();
-        let values_element_num = struct_word_element_num.clone() - 1.expr();
+        let struct_element_num = cells.auxiliary_3.expression.clone();
+        let values_element_num = struct_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_element_num.clone()
-            + struct_word_element_num.clone();
+            + struct_element_num.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -62,7 +62,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             ("function index", func_index),
         ]);
 
-        self.struct_value.configure(cb, struct_word_element_num);
+        self.struct_value.configure(cb, struct_element_num);
 
         // read values from stack, write back the packed struct
         // struct_value[0] is the header. To make the constraint simple, we have already
@@ -144,10 +144,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
-        let struct_word_element_num =
+        let struct_element_num =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
-        let values_element_num = struct_word_element_num - 1;
+        let values_element_num = struct_element_num - 1;
 
         let values = Word {
             word: self.values.clone(),
@@ -169,7 +169,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             offset,
             rw_operations,
             step.gc + values_element_num,
-            struct_word_element_num,
+            struct_element_num,
         )?;
 
         Ok(())
