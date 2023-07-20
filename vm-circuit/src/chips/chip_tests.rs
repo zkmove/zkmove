@@ -12,7 +12,7 @@ use halo2_proofs::halo2curves::pasta::Fp;
 use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
-use movelang::value::{PrimitiveValue, Value};
+use movelang::value::{SimpleValue, Value};
 use movelang::word::ValueHeader;
 
 #[test]
@@ -180,7 +180,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_1 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(SimpleValue::u64(1)),
 
         rw: WRITE,
         gc: 1,
@@ -196,7 +196,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_3 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(SimpleValue::u64(2)),
 
         rw: WRITE,
         gc: 3,
@@ -212,7 +212,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_5 = RWOperation::<Fp>::StackOp(StackOp {
         address: 1,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(2)),
+        value: Some(SimpleValue::u64(2)),
 
         rw: READ,
         gc: 5,
@@ -228,7 +228,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_7 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(1)),
+        value: Some(SimpleValue::u64(1)),
 
         rw: READ,
         gc: 7,
@@ -244,7 +244,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_9 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(3)),
+        value: Some(SimpleValue::u64(3)),
 
         rw: WRITE,
         gc: 9,
@@ -260,7 +260,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let rw_op_11 = RWOperation::<Fp>::StackOp(StackOp {
         address: 0,
         address_ext: 1,
-        value: Some(PrimitiveValue::u64(3)),
+        value: Some(SimpleValue::u64(3)),
 
         rw: READ,
         gc: 11,
@@ -269,7 +269,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         frame_index: 0,
         index: 0,
         address_ext: 0,
-        value: Some(PrimitiveValue::u64(3)),
+        value: Some(SimpleValue::u64(3)),
 
         rw: WRITE,
         gc: 12,

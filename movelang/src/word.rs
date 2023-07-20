@@ -2,7 +2,7 @@
 
 use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
-    Location, PrimitiveValue, Reference, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
+    Location, SimpleValue, Reference, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
 };
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
@@ -15,14 +15,14 @@ pub const LEN_OF_SIMPLE_VALUE: usize = 2;
 /// To efficiently represent a complex value in the circuit, we defined 'word', a uniform
 /// flattened value representation, to flatten the complex value into simple values.
 #[derive(Clone, Debug)]
-pub struct Word<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
+pub struct Word<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
 impl<F: FieldExt> From<&Value<F>> for Word<F> {
     fn from(value: &Value<F>) -> Self {
         match value {
             Value::Invalid => Word(vec![]), // TODO: Issue #52
             Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) | Value::Address(_) => {
-                let simple = PrimitiveValue::try_from(value).expect("should not fail");
+                let simple = SimpleValue::try_from(value).expect("should not fail");
                 SimpleValueWord::from(simple).into()
             }
             Value::Container(c) => ContainerValueWord::from(c).into(),
@@ -35,10 +35,10 @@ impl<F: FieldExt> From<&Value<F>> for Word<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, PrimitiveValue<F>); LEN_OF_SIMPLE_VALUE]);
+pub struct SimpleValueWord<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
 
-impl<F: FieldExt> From<PrimitiveValue<F>> for SimpleValueWord<F> {
-    fn from(value: PrimitiveValue<F>) -> SimpleValueWord<F> {
+impl<F: FieldExt> From<SimpleValue<F>> for SimpleValueWord<F> {
+    fn from(value: SimpleValue<F>) -> SimpleValueWord<F> {
         SimpleValueWord([
             (vec![0u128], ValueHeader::default_for_simple().into()),
             (vec![1u128], value),
@@ -54,11 +54,11 @@ impl<F: FieldExt> From<SimpleValueWord<F>> for Word<F> {
 
 #[derive(Clone, Debug)]
 pub struct ReferenceValueWord<F: FieldExt>(
-    pub [(Vec<u128>, PrimitiveValue<F>); LEN_OF_REFERENCE_VALUE],
+    pub [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE],
 );
 
 impl<F: FieldExt> ReferenceValueWord<F> {
-    fn fold(word: Vec<(Vec<u128>, PrimitiveValue<F>)>) -> Self {
+    fn fold(word: Vec<(Vec<u128>, SimpleValue<F>)>) -> Self {
         let mut value: u128 = 0;
         for (i, (_, val)) in word.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
             // fold addr_ext into one cell
@@ -75,10 +75,10 @@ impl<F: FieldExt> ReferenceValueWord<F> {
             .collect::<Vec<_>>();
 
         let (address_path, _) = new_ref_value.pop().expect("value should not be None.");
-        new_ref_value.push((address_path, PrimitiveValue::u128(value)));
-        let new_word: [(Vec<u128>, PrimitiveValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
+        new_ref_value.push((address_path, SimpleValue::u128(value)));
+        let new_word: [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
             .try_into()
-            .unwrap_or_else(|v: Vec<(Vec<u128>, PrimitiveValue<F>)>| {
+            .unwrap_or_else(|v: Vec<(Vec<u128>, SimpleValue<F>)>| {
                 panic!(
                     "Expected a Vec of length {} but it was {}",
                     LEN_OF_REFERENCE_VALUE,
@@ -125,7 +125,7 @@ impl<F: FieldExt> From<Reference<F>> for ReferenceValueWord<F> {
 
         let mut simples = ref_paths
             .into_iter()
-            .map(|v| PrimitiveValue::U128(U128(F::from_u128(v))))
+            .map(|v| SimpleValue::U128(U128(F::from_u128(v))))
             .collect::<Vec<_>>();
 
         simples.insert(0, ValueHeader::default_for_ref_val().into());
@@ -145,7 +145,7 @@ impl<F: FieldExt> From<ReferenceValueWord<F>> for Word<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ContainerValueWord<F: FieldExt>(pub Vec<(Vec<u128>, PrimitiveValue<F>)>);
+pub struct ContainerValueWord<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
 impl<F: FieldExt> From<&Container<F>> for ContainerValueWord<F> {
     fn from(container: &Container<F>) -> ContainerValueWord<F> {
@@ -175,7 +175,7 @@ impl<F: FieldExt> From<ContainerValueWord<F>> for Word<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct LocatedWord<F: FieldExt>(pub Vec<(AddressPath<F>, PrimitiveValue<F>)>);
+pub struct LocatedWord<F: FieldExt>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
 
 impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for LocatedWord<F> {
     fn from(located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>) -> LocatedWord<F> {
@@ -279,9 +279,9 @@ impl<F: FieldExt> ValueHeader<F> {
     }
 }
 
-impl<F: FieldExt> From<ValueHeader<F>> for PrimitiveValue<F> {
-    fn from(value: ValueHeader<F>) -> PrimitiveValue<F> {
-        PrimitiveValue::U128(U128(value.value()))
+impl<F: FieldExt> From<ValueHeader<F>> for SimpleValue<F> {
+    fn from(value: ValueHeader<F>) -> SimpleValue<F> {
+        SimpleValue::U128(U128(value.value()))
     }
 }
 

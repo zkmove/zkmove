@@ -3,7 +3,7 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
-    AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, PrimitiveValue, Value,
+    AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
 use movelang::word::LocatedWord;
@@ -206,7 +206,7 @@ impl<F: FieldExt> Locals<F> {
 
 pub fn emit_locals_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: PrimitiveValue<F>,
+    value: SimpleValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {

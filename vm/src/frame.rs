@@ -15,7 +15,7 @@ use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
-    PrimitiveValue, Reference, Value, ValueLocation,
+    SimpleValue, Reference, Value, ValueLocation,
 };
 use movelang::word::{LocatedWord, Word};
 use petgraph::prelude::EdgeRef;
@@ -154,7 +154,7 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdConst(const_index) => {
                         let constant = resolver.constant_at(*const_index);
-                        let val: PrimitiveValue<_> = constant
+                        let val: SimpleValue<_> = constant
                             .deserialize_constant()
                             .ok_or_else(|| {
                                 RuntimeError::new(StatusCode::UnknownInvariantViolationError)

@@ -97,7 +97,7 @@ impl<F: FieldExt> AddressPath<F> {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum PrimitiveValue<F: FieldExt> {
+pub enum SimpleValue<F: FieldExt> {
     U8(U8<F>),
     U64(U64<F>),
     U128(U128<F>),
@@ -105,14 +105,14 @@ pub enum PrimitiveValue<F: FieldExt> {
     Address(AccountAddress<F>),
 }
 
-impl<F: FieldExt> From<PrimitiveValue<F>> for MoveValue {
-    fn from(value: PrimitiveValue<F>) -> MoveValue {
+impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
+    fn from(value: SimpleValue<F>) -> MoveValue {
         match value {
-            PrimitiveValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
-            PrimitiveValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
-            PrimitiveValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
-            PrimitiveValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
-            PrimitiveValue::Address(field) => {
+            SimpleValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
+            SimpleValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
+            SimpleValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
+            SimpleValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
+            SimpleValue::Address(field) => {
                 // FIXME: f -> bytes for address
                 let mut bytes = 0u128.to_be_bytes().to_vec();
                 bytes.append(&mut field.value().get_lower_128().to_be_bytes().to_vec());
@@ -498,7 +498,7 @@ impl<F: FieldExt> VectorRef<F> {
 
     pub fn current_and_parent_container_headers(
         &self,
-    ) -> VmResult<Vec<(Location<F>, PrimitiveValue<F>)>> {
+    ) -> VmResult<Vec<(Location<F>, SimpleValue<F>)>> {
         let mut res = Vec::new();
         match self {
             VectorRef::LocalRef(l) => {
@@ -784,47 +784,47 @@ impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>
     }
 }
 
-impl<F: FieldExt> From<PrimitiveValue<F>> for Value<F> {
-    fn from(simple: PrimitiveValue<F>) -> Self {
+impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
+    fn from(simple: SimpleValue<F>) -> Self {
         match simple {
-            PrimitiveValue::U8(v) => Value::U8(v),
-            PrimitiveValue::U64(v) => Value::U64(v),
-            PrimitiveValue::U128(v) => Value::U128(v),
-            PrimitiveValue::Bool(v) => Value::Bool(v),
-            PrimitiveValue::Address(v) => Value::Address(v),
+            SimpleValue::U8(v) => Value::U8(v),
+            SimpleValue::U64(v) => Value::U64(v),
+            SimpleValue::U128(v) => Value::U128(v),
+            SimpleValue::Bool(v) => Value::Bool(v),
+            SimpleValue::Address(v) => Value::Address(v),
         }
     }
 }
 
-impl<F: FieldExt> TryFrom<&Value<F>> for PrimitiveValue<F> {
+impl<F: FieldExt> TryFrom<&Value<F>> for SimpleValue<F> {
     type Error = RuntimeError;
 
-    fn try_from(value: &Value<F>) -> VmResult<PrimitiveValue<F>> {
+    fn try_from(value: &Value<F>) -> VmResult<SimpleValue<F>> {
         match value {
-            Value::U8(v) => Ok(PrimitiveValue::U8(*v)),
-            Value::U64(v) => Ok(PrimitiveValue::U64(*v)),
-            Value::U128(v) => Ok(PrimitiveValue::U128(*v)),
-            Value::Bool(v) => Ok(PrimitiveValue::Bool(*v)),
-            Value::Address(v) => Ok(PrimitiveValue::Address(*v)),
+            Value::U8(v) => Ok(SimpleValue::U8(*v)),
+            Value::U64(v) => Ok(SimpleValue::U64(*v)),
+            Value::U128(v) => Ok(SimpleValue::U128(*v)),
+            Value::Bool(v) => Ok(SimpleValue::Bool(*v)),
+            Value::Address(v) => Ok(SimpleValue::Address(*v)),
             _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
         }
     }
 }
 
-impl<F: FieldExt> From<MoveValue> for PrimitiveValue<F> {
+impl<F: FieldExt> From<MoveValue> for SimpleValue<F> {
     fn from(value: MoveValue) -> Self {
         match value {
-            MoveValue::U8(v) => PrimitiveValue::u8(v),
-            MoveValue::U64(v) => PrimitiveValue::u64(v),
-            MoveValue::U128(v) => PrimitiveValue::u128(v),
-            MoveValue::Bool(v) => PrimitiveValue::bool(v),
-            MoveValue::Address(v) => PrimitiveValue::address(v.into()),
+            MoveValue::U8(v) => SimpleValue::u8(v),
+            MoveValue::U64(v) => SimpleValue::u64(v),
+            MoveValue::U128(v) => SimpleValue::u128(v),
+            MoveValue::Bool(v) => SimpleValue::bool(v),
+            MoveValue::Address(v) => SimpleValue::address(v.into()),
             _ => unimplemented!("not supported"),
         }
     }
 }
 
-impl<F: FieldExt> PrimitiveValue<F> {
+impl<F: FieldExt> SimpleValue<F> {
     pub fn bool(x: bool) -> Self {
         let value = if x { F::one() } else { F::zero() };
         Self::Bool(Bool(value))
@@ -934,13 +934,13 @@ impl<F: FieldExt> Value<F> {
 
     /// Cast the value into simple value if it's simple
     /// NOTICE: restrict access to `pub(self)` so that outside use flatten or word_element_count instead of this.
-    pub fn cast_simple(&self) -> Option<PrimitiveValue<F>> {
+    pub fn cast_simple(&self) -> Option<SimpleValue<F>> {
         Some(match self {
-            Value::U8(v) => PrimitiveValue::U8(*v),
-            Value::U64(v) => PrimitiveValue::U64(*v),
-            Value::U128(v) => PrimitiveValue::U128(*v),
-            Value::Bool(v) => PrimitiveValue::Bool(*v),
-            Value::Address(v) => PrimitiveValue::Address(*v),
+            Value::U8(v) => SimpleValue::U8(*v),
+            Value::U64(v) => SimpleValue::U64(*v),
+            Value::U128(v) => SimpleValue::U128(*v),
+            Value::Bool(v) => SimpleValue::Bool(*v),
+            Value::Address(v) => SimpleValue::Address(*v),
             _ => return None,
         })
     }

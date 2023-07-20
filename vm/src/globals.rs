@@ -3,7 +3,7 @@ use halo2_proofs::arithmetic::FieldExt;
 
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, PrimitiveValue, Value,
+    AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
 use movelang::word::LocatedWord;
@@ -11,7 +11,7 @@ use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: PrimitiveValue<F>,
+    value: SimpleValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
