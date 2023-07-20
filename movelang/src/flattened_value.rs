@@ -12,53 +12,53 @@ use std::marker::PhantomData;
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
 pub const LEN_OF_SIMPLE_VALUE: usize = 2;
 
-/// To efficiently represent a complex value in the circuit, we defined 'ExtendedValue', an
-/// extended value representation. It starts with a value header carrying type information,
-/// followed by simple values flattened from the complex value.
+/// To efficiently represent a complex value in the circuit, we defined 'FlattenedValue'.
+/// It starts with a value header carrying type information, followed by simple values
+/// flattened from the complex value.
 #[derive(Clone, Debug)]
-pub struct ExtendedValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
+pub struct FlattenedValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
-impl<F: FieldExt> From<&Value<F>> for ExtendedValue<F> {
+impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
     fn from(value: &Value<F>) -> Self {
         match value {
-            Value::Invalid => ExtendedValue(vec![]), // TODO: Issue #52
+            Value::Invalid => FlattenedValue(vec![]), // TODO: Issue #52
             Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) | Value::Address(_) => {
                 let simple = SimpleValue::try_from(value).expect("should not fail");
-                ExtendedSimpleValue::from(simple).into()
+                FlattenedSimpleValue::from(simple).into()
             }
-            Value::Container(c) => ExtendedContainerValue::from(c).into(),
+            Value::Container(c) => FlattenedContainerValue::from(c).into(),
             Value::GlobalRef(_) | Value::IndexedRef(_) | Value::LocalRef(_) => {
                 let reference = Reference::try_from(value).expect("should not fail");
-                ExtendedReferenceValue::from(reference).into()
+                FlattenedReferenceValue::from(reference).into()
             }
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ExtendedSimpleValue<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
+pub struct FlattenedSimpleValue<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
 
-impl<F: FieldExt> From<SimpleValue<F>> for ExtendedSimpleValue<F> {
-    fn from(value: SimpleValue<F>) -> ExtendedSimpleValue<F> {
-        ExtendedSimpleValue([
+impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
+    fn from(value: SimpleValue<F>) -> FlattenedSimpleValue<F> {
+        FlattenedSimpleValue([
             (vec![0u128], ValueHeader::default_for_simple().into()),
             (vec![1u128], value),
         ])
     }
 }
 
-impl<F: FieldExt> From<ExtendedSimpleValue<F>> for ExtendedValue<F> {
-    fn from(value: ExtendedSimpleValue<F>) -> ExtendedValue<F> {
-        ExtendedValue(value.0.to_vec())
+impl<F: FieldExt> From<FlattenedSimpleValue<F>> for FlattenedValue<F> {
+    fn from(value: FlattenedSimpleValue<F>) -> FlattenedValue<F> {
+        FlattenedValue(value.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ExtendedReferenceValue<F: FieldExt>(
+pub struct FlattenedReferenceValue<F: FieldExt>(
     pub [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE],
 );
 
-impl<F: FieldExt> ExtendedReferenceValue<F> {
+impl<F: FieldExt> FlattenedReferenceValue<F> {
     fn fold(simples: Vec<(Vec<u128>, SimpleValue<F>)>) -> Self {
         let mut value: u128 = 0;
         for (i, (_, val)) in simples.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
@@ -77,7 +77,7 @@ impl<F: FieldExt> ExtendedReferenceValue<F> {
 
         let (address_path, _) = new_ref_value.pop().expect("value should not be None.");
         new_ref_value.push((address_path, SimpleValue::u128(value)));
-        let extended_ref_value: [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
+        let flattened_ref_value: [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
             .try_into()
             .unwrap_or_else(|v: Vec<(Vec<u128>, SimpleValue<F>)>| {
                 panic!(
@@ -86,12 +86,12 @@ impl<F: FieldExt> ExtendedReferenceValue<F> {
                     v.len()
                 )
             });
-        ExtendedReferenceValue(extended_ref_value)
+        FlattenedReferenceValue(flattened_ref_value)
     }
 }
 
-impl<F: FieldExt> From<Reference<F>> for ExtendedReferenceValue<F> {
-    fn from(value: Reference<F>) -> ExtendedReferenceValue<F> {
+impl<F: FieldExt> From<Reference<F>> for FlattenedReferenceValue<F> {
+    fn from(value: Reference<F>) -> FlattenedReferenceValue<F> {
         let ref_paths = match value {
             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                 // NOTICE: here, we fillup address_path for reference, as reference needs fillup-ed values.
@@ -135,24 +135,24 @@ impl<F: FieldExt> From<Reference<F>> for ExtendedReferenceValue<F> {
             .enumerate()
             .map(|(i, v)| (vec![i as u128], v))
             .collect::<Vec<_>>();
-        ExtendedReferenceValue::fold(new_simples)
+        FlattenedReferenceValue::fold(new_simples)
     }
 }
 
-impl<F: FieldExt> From<ExtendedReferenceValue<F>> for ExtendedValue<F> {
-    fn from(value: ExtendedReferenceValue<F>) -> ExtendedValue<F> {
-        ExtendedValue(value.0.to_vec())
+impl<F: FieldExt> From<FlattenedReferenceValue<F>> for FlattenedValue<F> {
+    fn from(value: FlattenedReferenceValue<F>) -> FlattenedValue<F> {
+        FlattenedValue(value.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ExtendedContainerValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
+pub struct FlattenedContainerValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
-impl<F: FieldExt> From<&Container<F>> for ExtendedContainerValue<F> {
-    fn from(container: &Container<F>) -> ExtendedContainerValue<F> {
+impl<F: FieldExt> From<&Container<F>> for FlattenedContainerValue<F> {
+    fn from(container: &Container<F>) -> FlattenedContainerValue<F> {
         let mut simples = Vec::new();
         for (idx, val) in container.0.borrow().iter().enumerate() {
-            let mut sub_values = ExtendedValue::from(val).0;
+            let mut sub_values = FlattenedValue::from(val).0;
             sub_values.iter_mut().for_each(|(v, _)| {
                 // prepend value idx to the sub-struct
                 // to leave a place for the header, the index is increased by 1
@@ -165,32 +165,32 @@ impl<F: FieldExt> From<&Container<F>> for ExtendedContainerValue<F> {
         // the flattened length includes the header itself.
         let header = ValueHeader::new(simples.len() + 1, container.len());
         simples.insert(0, (vec![0u128], header.into()));
-        ExtendedContainerValue(simples)
+        FlattenedContainerValue(simples)
     }
 }
 
-impl<F: FieldExt> From<ExtendedContainerValue<F>> for ExtendedValue<F> {
-    fn from(value: ExtendedContainerValue<F>) -> ExtendedValue<F> {
-        ExtendedValue(value.0)
+impl<F: FieldExt> From<FlattenedContainerValue<F>> for FlattenedValue<F> {
+    fn from(value: FlattenedContainerValue<F>) -> FlattenedValue<F> {
+        FlattenedValue(value.0)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct LocatedExtendedValue<F: FieldExt>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
+pub struct LocatedFlattenedValue<F: FieldExt>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for LocatedExtendedValue<F> {
-    fn from(located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>) -> LocatedExtendedValue<F> {
+impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for LocatedFlattenedValue<F> {
+    fn from(located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>) -> LocatedFlattenedValue<F> {
         let v_loc = Location::ValueLocation(located_value.0)
             .to_address_path()
             .into_inner();
-        let mut values = ExtendedValue::from(located_value.1).0;
+        let mut values = FlattenedValue::from(located_value.1).0;
         values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
         });
         // in flatten, returned address_path should be filled up.
-        LocatedExtendedValue(
+        LocatedFlattenedValue(
             values
                 .into_iter()
                 .map(|(p, v)| (AddressPath::from(p).fill_up(), v))
@@ -199,8 +199,8 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for Loc
     }
 }
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>> for LocatedExtendedValue<F> {
-    fn from(located_value: LocatedValue<'v, IndexedLocation<F>, Value<F>>) -> LocatedExtendedValue<F> {
+impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>> for LocatedFlattenedValue<F> {
+    fn from(located_value: LocatedValue<'v, IndexedLocation<F>, Value<F>>) -> LocatedFlattenedValue<F> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = located_value
             .0
@@ -212,13 +212,13 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>> for L
             .to_address_path()
             .with_subpath(sub_indexes)
             .into_inner();
-        let mut values = ExtendedValue::from(located_value.1).0;
+        let mut values = FlattenedValue::from(located_value.1).0;
         values.iter_mut().for_each(|(p, _)| {
             let mut new_loc = v_loc.clone();
             new_loc.append(p);
             *p = new_loc;
         });
-        LocatedExtendedValue(
+        LocatedFlattenedValue(
             values
                 .into_iter()
                 .map(|(p, v)| (AddressPath::from(p).fill_up(), v))

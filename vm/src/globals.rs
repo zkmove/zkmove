@@ -6,7 +6,7 @@ use movelang::value::{
     AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
-use movelang::extended_value::LocatedExtendedValue;
+use movelang::flattened_value::LocatedFlattenedValue;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
@@ -33,11 +33,11 @@ pub fn emit_global_op<F: FieldExt>(
 
 #[allow(clippy::type_complexity)]
 pub fn emit_global_ops<F: FieldExt>(
-    extended_value: LocatedExtendedValue<F>,
+    flattened_value: LocatedFlattenedValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val) in extended_value.0 {
+    for (address_path, val) in flattened_value.0 {
         emit_global_op(address_path, val, rw, rw_operations);
     }
 }
@@ -53,10 +53,10 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         address: addr,
         sd_index,
     };
-    let extended_value: LocatedExtendedValue<F> =
+    let flattened_value: LocatedFlattenedValue<F> =
         LocatedValue(ValueLocation::Global(value_addr), &resource_value).into();
-    let word_elem_num = extended_value.0.len();
-    for (address_path, val) in extended_value.0.clone() {
+    let word_elem_num = flattened_value.0.len();
+    for (address_path, val) in flattened_value.0.clone() {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
@@ -69,7 +69,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     }
     // if this is move_from, we need to write an invalid back.
     if write_invalid {
-        for (address_path, _) in extended_value.0 {
+        for (address_path, _) in flattened_value.0 {
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,

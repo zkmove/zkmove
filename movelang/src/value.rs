@@ -4,7 +4,7 @@
 use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
-use crate::extended_value::{ExtendedContainerValue, ExtendedValue};
+use crate::flattened_value::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
@@ -505,7 +505,7 @@ impl<F: FieldExt> VectorRef<F> {
                 let ref_val = l.read_ref()?;
                 match ref_val {
                     Value::Container(_) => {
-                        let flattened_value = ExtendedValue::from(&ref_val).0;
+                        let flattened_value = FlattenedValue::from(&ref_val).0;
                         let (_, header_value) =
                             flattened_value.first().expect("header should not be none");
                         res.push((
@@ -523,7 +523,7 @@ impl<F: FieldExt> VectorRef<F> {
             VectorRef::IndexedRef(i) => {
                 let value_loc = i.container_ref.location();
                 let mut cur_value = i.container_ref.container();
-                let flattened_value = ExtendedContainerValue::from(&cur_value).0;
+                let flattened_value = FlattenedContainerValue::from(&cur_value).0;
                 let (_, header_value) = flattened_value.first().expect("header should not be none");
                 res.push((Location::ValueLocation(value_loc), *header_value));
 
@@ -546,7 +546,7 @@ impl<F: FieldExt> VectorRef<F> {
                         sub_indexes: cur_sub_indexes.clone(),
                         value_loc,
                     };
-                    let flattened_value = ExtendedContainerValue::from(&cur_value).0;
+                    let flattened_value = FlattenedContainerValue::from(&cur_value).0;
                     let (_, header_value) =
                         flattened_value.first().expect("header should not be none");
                     res.push((Location::IndexedLocation(loc), *header_value));

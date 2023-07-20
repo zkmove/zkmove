@@ -20,8 +20,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
-use movelang::extended_value::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::flattened_value::LEN_OF_REFERENCE_VALUE;
+use movelang::flattened_value::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {

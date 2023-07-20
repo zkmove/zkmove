@@ -11,7 +11,7 @@ use move_binary_format::file_format::Bytecode as MoveBytecode;
 use move_binary_format::CompiledModule;
 use movelang::state::StateStore;
 use movelang::value::{SimpleValue, Value};
-use movelang::extended_value::ValueHeader;
+use movelang::flattened_value::ValueHeader;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::arith_operations::ArithOperations;
