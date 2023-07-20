@@ -15,8 +15,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
-use movelang::word::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
+use movelang::extended_value::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {

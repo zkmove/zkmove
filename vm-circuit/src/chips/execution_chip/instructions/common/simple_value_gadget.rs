@@ -8,7 +8,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::prelude::*;
-use movelang::word::LEN_OF_SIMPLE_VALUE;
+use movelang::extended_value::LEN_OF_SIMPLE_VALUE;
 use std::convert::TryInto;
 
 #[derive(Clone, Debug)]

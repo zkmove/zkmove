@@ -13,7 +13,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::word::ValueHeader;
+use movelang::extended_value::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct BrFalse<F: FieldExt> {

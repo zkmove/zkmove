@@ -14,8 +14,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::DEPTH_OF_LOCATION_PATH;
-use movelang::word::ValueHeader;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::extended_value::ValueHeader;
+use movelang::extended_value::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecPushBack<F: FieldExt> {
