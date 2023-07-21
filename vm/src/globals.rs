@@ -3,15 +3,15 @@ use halo2_proofs::arithmetic::FieldExt;
 
 use movelang::account_address::AccountAddress;
 use movelang::value::{
-    AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, PrimitiveValue, Value,
+    AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
-use movelang::word::LocatedWord;
+use movelang::value_ext::LocatedFlattenedValue;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: PrimitiveValue<F>,
+    value: SimpleValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
@@ -32,12 +32,12 @@ pub fn emit_global_op<F: FieldExt>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_global_ops_for_word<F: FieldExt>(
-    word: LocatedWord<F>,
+pub fn emit_global_ops<F: FieldExt>(
+    flattened_value: LocatedFlattenedValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val) in word.0 {
+    for (address_path, val) in flattened_value.0 {
         emit_global_op(address_path, val, rw, rw_operations);
     }
 }
@@ -53,10 +53,10 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
         address: addr,
         sd_index,
     };
-    let word: LocatedWord<F> =
+    let flattened_value: LocatedFlattenedValue<F> =
         LocatedValue(ValueLocation::Global(value_addr), &resource_value).into();
-    let word_len = word.0.len();
-    for (address_path, val) in word.0.clone() {
+    let flattened_value_len = flattened_value.0.len();
+    for (address_path, val) in flattened_value.0.clone() {
         let op = GlobalOp {
             address: addr,
             sd_index: sd_index.to_u128() as usize,
@@ -69,7 +69,7 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
     }
     // if this is move_from, we need to write an invalid back.
     if write_invalid {
-        for (address_path, _) in word.0 {
+        for (address_path, _) in flattened_value.0 {
             let op = GlobalOp {
                 address: addr,
                 sd_index: sd_index.to_u128() as usize,
@@ -81,5 +81,5 @@ pub fn emit_ops_for_global_value<F: FieldExt>(
             rw_operations.push(RWOperation::GlobalOp(op));
         }
     }
-    Ok(word_len)
+    Ok(flattened_value_len)
 }

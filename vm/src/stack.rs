@@ -8,7 +8,7 @@ use movelang::value::{
     Container, ContainerValue, LocatedValue, Reference, StackLocation, Value, ValueLocation,
     VectorRef,
 };
-use movelang::word::LocatedWord;
+use movelang::value_ext::LocatedFlattenedValue;
 use std::rc::Rc;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
@@ -23,12 +23,12 @@ impl<F: FieldExt> EvalStack<F> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn emit_stack_ops_for_word(
-        word: LocatedWord<F>,
+    pub fn emit_stack_ops(
+        flattened_value: LocatedFlattenedValue<F>,
         rw: RW,
         rw_operations: &mut Vec<RWOperation<F>>,
     ) {
-        for (address_path, val) in word.0 {
+        for (address_path, val) in flattened_value.0 {
             let stack_op = StackOp {
                 address: *address_path.0.get(1).expect("address should not be None") as usize,
                 address_ext: address_path.addr_ext(),
@@ -46,14 +46,14 @@ impl<F: FieldExt> EvalStack<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
     ) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            let word: LocatedWord<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
                 &value,
             )
             .into();
-            Self::emit_stack_ops_for_word(word, RW::WRITE, rw_operations);
+            Self::emit_stack_ops(flattened_value, RW::WRITE, rw_operations);
 
             self.0.push(value);
             Ok(())
@@ -67,14 +67,14 @@ impl<F: FieldExt> EvalStack<F> {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
-            let word: LocatedWord<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
                 &value,
             )
             .into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             Ok(value)
         }
@@ -93,20 +93,20 @@ impl<F: FieldExt> EvalStack<F> {
         let values = self.0.split_off(remaining_stack_size);
 
         for (i, value) in values.iter().enumerate() {
-            let word: LocatedWord<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: (remaining_stack_size + i),
                 }),
                 value,
             )
             .into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
         }
 
         Ok(values)
     }
 
-    // return values of a container and its word field count
+    // return values of a container and its flattened_value field count
     pub fn pop_as_container(
         &mut self,
         rw_operations: &mut Vec<RWOperation<F>>,
@@ -118,9 +118,10 @@ impl<F: FieldExt> EvalStack<F> {
             let loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let word: LocatedWord<F> = LocatedValue(ValueLocation::Stack(loc), &value).into();
-            let word_element_count = word.0.len();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            let flattened_value: LocatedFlattenedValue<F> =
+                LocatedValue(ValueLocation::Stack(loc), &value).into();
+            let flattened_value_len = flattened_value.0.len();
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
                 Value::Container(Container(struct_)) => {
@@ -132,7 +133,7 @@ impl<F: FieldExt> EvalStack<F> {
                         )
                         .with_message(format!("moving value {:?} with dangling references", v))),
                     };
-                    Ok((ContainerValue::pack(fields?), word_element_count))
+                    Ok((ContainerValue::pack(fields?), flattened_value_len))
                 }
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as struct", v))),
@@ -149,14 +150,14 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let word: LocatedWord<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
                 &value,
             )
             .into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
                 Value::GlobalRef(r) => Ok(Reference::GlobalRef(r)),
@@ -177,14 +178,14 @@ impl<F: FieldExt> EvalStack<F> {
         } else {
             let value = self.0.pop().unwrap();
 
-            let word: LocatedWord<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
                 &value,
             )
             .into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
                 Value::LocalRef(r) => Ok(VectorRef::LocalRef(r)),
@@ -206,8 +207,9 @@ impl<F: FieldExt> EvalStack<F> {
             let v_loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let word: LocatedWord<F> = LocatedValue(ValueLocation::Stack(v_loc), &value).into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            let flattened_value: LocatedFlattenedValue<F> =
+                LocatedValue(ValueLocation::Stack(v_loc), &value).into();
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
                 Value::Address(addr) => Ok(addr),
@@ -225,8 +227,9 @@ impl<F: FieldExt> EvalStack<F> {
             let v_loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let word: LocatedWord<F> = LocatedValue(ValueLocation::Stack(v_loc), &value).into();
-            Self::emit_stack_ops_for_word(word, RW::READ, rw_operations);
+            let flattened_value: LocatedFlattenedValue<F> =
+                LocatedValue(ValueLocation::Stack(v_loc), &value).into();
+            Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
                 Value::U64(v) => Ok(v.0.get_lower_128() as u64),

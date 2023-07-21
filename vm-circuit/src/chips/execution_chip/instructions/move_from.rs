@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::instructions::common::generic_gadget::GenericTypeGadget;
 use crate::chips::execution_chip::instructions::common::simple_value_gadget::SimpleValueGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -17,12 +17,12 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::word::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
     account_address: SimpleValueGadget<F>,
-    global_value: WordGadget<F>,
+    global_value: ValueGadget<F>,
 
     type_cells: Option<GenericTypeGadget<F>>,
 }
@@ -46,9 +46,9 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_elem_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_elem_num.clone() * 3.expr() // two for global read resource, one for stack push value
+            + flattened_value_len.clone() * 3.expr() // two for global read resource, one for stack push value
             + 2.expr(); // stack pop account_address
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -64,7 +64,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         ]);
 
         self.account_address.configure(cb);
-        self.global_value.configure(cb, word_elem_num.clone());
+        self.global_value.configure(cb, flattened_value_len.clone());
 
         let account_address_expr = self.account_address.cells.value().expression.clone();
         let sd_index_expr = cells.auxiliary_1.expression.clone();
@@ -102,7 +102,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                     cells.stack_size.expression.clone(),
                     self.global_value.cells.word_addr_ext[i].expression.clone(),
                     self.global_value.cells.word[i].expression.clone(),
-                    word_elem_num.clone(),
+                    flattened_value_len.clone(),
                 );
             cb.condition(
                 1.expr() - self.global_value.cells.word_mask[i].expression.clone(),
@@ -130,7 +130,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     ) -> Result<(), Error> {
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let word_element_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
@@ -141,7 +141,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             offset,
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE,
-            word_element_num,
+            flattened_value_len,
         )?;
 
         if GENERIC {
@@ -177,7 +177,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let account_address = SimpleValueGadget::construct(cb);
-        let global_value = WordGadget::construct(cb);
+        let global_value = ValueGadget::construct(cb);
 
         let type_cells = if GENERIC {
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();

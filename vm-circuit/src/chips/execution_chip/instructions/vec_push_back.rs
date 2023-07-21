@@ -14,8 +14,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::DEPTH_OF_LOCATION_PATH;
-use movelang::word::ValueHeader;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::ValueHeader;
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct VecPushBack<F: FieldExt> {
@@ -23,7 +23,7 @@ pub struct VecPushBack<F: FieldExt> {
     value_index: Cell<F>,
     offset_pow2: Cell<F>,
 
-    // TODO: adopt WordGadget
+    // TODO: adopt ValueGadget
     value: Vec<Cell<F>>,
     value_mask: Vec<Cell<F>>,
     value_addr_ext: Vec<Cell<F>>,

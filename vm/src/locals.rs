@@ -3,10 +3,10 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
-    AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, PrimitiveValue, Value,
+    AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
-use movelang::word::LocatedWord;
+use movelang::value_ext::LocatedFlattenedValue;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
@@ -36,7 +36,7 @@ impl<F: FieldExt> Locals<F> {
                     Err(RuntimeError::new(StatusCode::CopyLocalError))
                 } else {
                     let copied_value = v.borrow().copy_value();
-                    let word: LocatedWord<F> = LocatedValue(
+                    let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                         ValueLocation::Local(LocalLocation {
                             frame_index: FrameIndex(frame_index),
                             index,
@@ -45,7 +45,7 @@ impl<F: FieldExt> Locals<F> {
                     )
                     .into();
 
-                    emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                    emit_locals_ops(flattened_value, RW::READ, rw_operations);
                     Ok(copied_value)
                 }
             }
@@ -72,7 +72,7 @@ impl<F: FieldExt> Locals<F> {
                         );
                     }
                 }
-                let word: LocatedWord<F> = LocatedValue(
+                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
                         index,
@@ -80,7 +80,7 @@ impl<F: FieldExt> Locals<F> {
                     &value,
                 )
                 .into();
-                emit_locals_ops_for_word(word, RW::WRITE, rw_operations);
+                emit_locals_ops(flattened_value, RW::WRITE, rw_operations);
                 *v.borrow_mut() = value;
                 Ok(())
             }
@@ -102,7 +102,7 @@ impl<F: FieldExt> Locals<F> {
         match old_value {
             Value::Invalid => Err(RuntimeError::new(StatusCode::MoveLocalError)),
             v => {
-                let word: LocatedWord<F> = LocatedValue(
+                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
                         index,
@@ -111,9 +111,9 @@ impl<F: FieldExt> Locals<F> {
                 )
                 .into();
                 // LocalsOP Read
-                emit_locals_ops_for_word(word.clone(), RW::READ, rw_operations);
+                emit_locals_ops(flattened_value.clone(), RW::READ, rw_operations);
                 // LocalsOP Write
-                for (address_path, _) in word.0 {
+                for (address_path, _) in flattened_value.0 {
                     let locals_op_2 = LocalsOp {
                         frame_index: *address_path
                             .0
@@ -158,8 +158,9 @@ impl<F: FieldExt> Locals<F> {
                     frame_index: FrameIndex(frame_index),
                     index,
                 };
-                let word: LocatedWord<F> = LocatedValue(ValueLocation::Local(loc), v).into();
-                emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                let flattened_value: LocatedFlattenedValue<F> =
+                    LocatedValue(ValueLocation::Local(loc), v).into();
+                emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(LocalRef {
                     loc,
                     refer: value_cell.clone(),
@@ -186,8 +187,9 @@ impl<F: FieldExt> Locals<F> {
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             v => {
-                let word: LocatedWord<F> = LocatedValue(ValueLocation::Local(loc), v).into();
-                emit_locals_ops_for_word(word, RW::READ, rw_operations);
+                let flattened_value: LocatedFlattenedValue<F> =
+                    LocatedValue(ValueLocation::Local(loc), v).into();
+                emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(v.copy_value())
             }
         }
@@ -206,7 +208,7 @@ impl<F: FieldExt> Locals<F> {
 
 pub fn emit_locals_op<F: FieldExt>(
     address_path: AddressPath<F>,
-    value: PrimitiveValue<F>,
+    value: SimpleValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
@@ -225,12 +227,12 @@ pub fn emit_locals_op<F: FieldExt>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_locals_ops_for_word<F: FieldExt>(
-    word: LocatedWord<F>,
+pub fn emit_locals_ops<F: FieldExt>(
+    value: LocatedFlattenedValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
 ) {
-    for (address_path, val) in word.0 {
+    for (address_path, val) in value.0 {
         emit_locals_op(address_path, val, rw, rw_operations)
     }
 }

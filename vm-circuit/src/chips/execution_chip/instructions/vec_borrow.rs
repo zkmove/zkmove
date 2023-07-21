@@ -14,8 +14,8 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
-use movelang::word::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {

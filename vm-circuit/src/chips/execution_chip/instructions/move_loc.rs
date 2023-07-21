@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -16,7 +16,7 @@ use halo2_proofs::plonk::Error;
 
 #[derive(Clone, Debug)]
 pub struct MoveLoc<F: FieldExt> {
-    value: WordGadget<F>,
+    value: ValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
@@ -31,9 +31,9 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 3.expr() * word_element_num.clone();
+            + 3.expr() * flattened_value_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -47,7 +47,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb, word_element_num.clone());
+        self.value.configure(cb, flattened_value_len.clone());
 
         for (i, _) in self.value.cells.word.iter().enumerate() {
             let (read, write_locals, write_stack) = RWLookup::locals_move(
@@ -57,7 +57,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
                 cells.stack_size.expression.clone(),
                 self.value.cells.word_addr_ext[i].expression.clone(),
                 self.value.cells.word[i].expression.clone(),
-                word_element_num.clone(), // word_element_num
+                flattened_value_len.clone(), // flattened_value_len
             );
             cb.condition(
                 1.expr() - self.value.cells.word_mask[i].expression.clone(),
@@ -85,19 +85,19 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
         self.value
-            .assign(region, offset, rw_operations, step.gc, word_element_num)?;
+            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
 
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
-            value: WordGadget::construct(cb),
+            value: ValueGadget::construct(cb),
         }
     }
 }

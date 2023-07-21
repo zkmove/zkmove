@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -14,14 +14,14 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::word::ValueHeader;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::ValueHeader;
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct WriteRef<F: FieldExt> {
     ref_val: RefValGadget<F>,
-    value_a: WordGadget<F>,
-    value_b: WordGadget<F>,
+    value_a: ValueGadget<F>,
+    value_b: ValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
@@ -31,8 +31,8 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction readref, there are 3 pipeline stages here:
         // 1. read reference from stack. [gc, LEN_OF_REFERENCE_VALUE]
-        // 2. read value into stack. [gc+LEN_OF_REFERENCE_VALUE, word_element_num]
-        // 3. write value to lobals or global. [gc+LEN_OF_REFERENCE_VALUE+word_element_num, word_element_num]
+        // 2. read value into stack. [gc+LEN_OF_REFERENCE_VALUE, flattened_value_len]
+        // 3. write value to lobals or global. [gc+LEN_OF_REFERENCE_VALUE+flattened_value_len, flattened_value_len]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -40,11 +40,11 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             - 2.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
-            + 2.expr() * word_element_num.clone();
+            + 2.expr() * flattened_value_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -59,8 +59,8 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         ]);
 
         self.ref_val.configure(cb);
-        self.value_a.configure(cb, word_element_num.clone());
-        self.value_b.configure(cb, word_element_num.clone());
+        self.value_a.configure(cb, flattened_value_len.clone());
+        self.value_b.configure(cb, flattened_value_len.clone());
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
@@ -100,7 +100,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                         let write = RWLookup::locals_write(
                             cells.gc.expression.clone()
                                 + (LEN_OF_REFERENCE_VALUE as u64).expr()
-                                + word_element_num.clone()
+                                + flattened_value_len.clone()
                                 + (i as u64).expr(),
                             cells.auxiliary_2.expression.clone(),
                             cells.locals_index.expression.clone(),
@@ -113,7 +113,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
                         let write = RWLookup::global_write(
                             cells.gc.expression.clone()
                                 + (LEN_OF_REFERENCE_VALUE as u64).expr()
-                                + word_element_num.clone()
+                                + flattened_value_len.clone()
                                 + (i as u64).expr(),
                             cells.auxiliary_2.expression.clone(), //address
                             self.value_b.cells.word[i].expression.clone(),
@@ -160,7 +160,7 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
@@ -172,15 +172,15 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             offset,
             rw_operations,
             step.gc + LEN_OF_REFERENCE_VALUE,
-            word_element_num,
+            flattened_value_len,
         )?;
 
         self.value_b.assign(
             region,
             offset,
             rw_operations,
-            step.gc + LEN_OF_REFERENCE_VALUE + word_element_num,
-            word_element_num,
+            step.gc + LEN_OF_REFERENCE_VALUE + flattened_value_len,
+            flattened_value_len,
         )?;
 
         let is_global =
@@ -204,8 +204,8 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let ref_val = RefValGadget::construct(cb);
-        let value_a = WordGadget::construct(cb);
-        let value_b = WordGadget::construct(cb);
+        let value_a = ValueGadget::construct(cb);
+        let value_b = ValueGadget::construct(cb);
 
         Self {
             ref_val,

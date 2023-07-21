@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::reference_value_gadget::RefValGadget;
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
@@ -14,12 +14,12 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::word::ValueHeader;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::ValueHeader;
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
-    value: WordGadget<F>,
+    value: ValueGadget<F>,
     ref_val: RefValGadget<F>,
 }
 
@@ -39,9 +39,9 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_element_num.clone()
+            + flattened_value_len.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -56,7 +56,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb, word_element_num.clone());
+        self.value.configure(cb, flattened_value_len.clone());
         self.ref_val.configure(cb);
 
         for (i, _) in self.value.cells.word.iter().enumerate() {
@@ -80,7 +80,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
             cb.add_lookup(
                 "borrow_local(stack push ref_val)",
                 RWLookup::stack_push(
-                    cells.gc.expression.clone() + word_element_num.clone() + (i as u64).expr(),
+                    cells.gc.expression.clone() + flattened_value_len.clone() + (i as u64).expr(),
                     cells.stack_size.expression.clone(),
                     (i as u64).expr(),
                     item.expression.clone(),
@@ -122,21 +122,21 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let word_element_num =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
         self.value
-            .assign(region, offset, rw_operations, step.gc, word_element_num)?;
+            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
 
         self.ref_val
-            .assign(region, offset, rw_operations, step.gc + word_element_num)?;
+            .assign(region, offset, rw_operations, step.gc + flattened_value_len)?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value = WordGadget::construct(cb);
+        let value = ValueGadget::construct(cb);
         let ref_val = RefValGadget::construct(cb);
 
         Self { value, ref_val }

@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -24,7 +24,7 @@ pub struct VecPack<F: FieldExt> {
     values_address: Vec<Cell<F>>,
 
     // cells for the vector pushed back
-    vector: WordGadget<F>,
+    vector: ValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
@@ -186,7 +186,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         let values_addr_ext = cb.alloc_n_cells(word_cap);
         let values_address = cb.alloc_n_cells(word_cap);
 
-        let vector = WordGadget::construct(cb);
+        let vector = ValueGadget::construct(cb);
 
         Self {
             values,

@@ -8,7 +8,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
-use movelang::word::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use std::convert::TryInto;
 use std::ops::Index;
 

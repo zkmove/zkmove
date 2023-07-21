@@ -49,9 +49,9 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
             - cb.next.cells.frame_index.expression.clone()
             + 1.expr();
         // each argument has 2 rw operations
-        let word_element_num = cells.auxiliary_3.expression.clone();
+        let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + word_element_num.clone() * 2.expr();
+            + flattened_value_len.clone() * 2.expr();
         cb.add_constraints(vec![
             ("Call pc", pc_expr),
             ("Call stack_size", stack_size_expr),
@@ -76,7 +76,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
                     "call(locals write)",
                     RWLookup {
                         gc: cells.gc.expression.clone()
-                            + word_element_num.clone()
+                            + flattened_value_len.clone()
                             + (i as u64).expr(),
                         rw_target: (RWTarget::Locals as u64).expr(),
                         rw: (RW::WRITE as u64).expr(),
@@ -121,23 +121,13 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign arg_num
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, aux_value.value())?;
-
-        let func_handle_idx = step.auxiliary_2.as_ref().ok_or_else(|| {
-            error!("auxiliary_2 is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_2
-            .assign(region, offset, func_handle_idx.value())?;
-
-        let word_element_num = Word::get_word_element_num(region, offset, step, cells)?;
+        let _aux_value =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+        let _func_handle_idx =
+            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
+        let flattened_value_len =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
 
         let word = Word {
             word: self.word_a.clone(),
@@ -151,7 +141,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
             &word,
             &self.word_address,
             step.gc,
-            word_element_num,
+            flattened_value_len,
             RW::WRITE,
         )?;
         if GENERIC {

@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::word_gadget::WordGadget;
+use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadget;
 use crate::chips::execution_chip::instructions::common::{LookupBytecode, Word};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{rw_table::RWLookup, rw_table::RWTarget};
@@ -18,7 +18,7 @@ use halo2_proofs::plonk::Error;
 #[derive(Clone, Debug)]
 pub struct VecUnpack<F: FieldExt> {
     // word for the popped vector
-    vector: WordGadget<F>,
+    vector: ValueGadget<F>,
 
     // word for the unpacked values
     values: Vec<Cell<F>>,
@@ -176,7 +176,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         let word_cap = word_capacity();
 
         // alloc cell
-        let vector = WordGadget::construct(cb);
+        let vector = ValueGadget::construct(cb);
         let values = cb.alloc_n_cells(word_cap);
         let values_mask = cb.alloc_n_cells(word_cap);
         let values_addr_ext = cb.alloc_n_cells(word_cap);

@@ -3,7 +3,7 @@ use crate::witness::const_table::ConstantInfo;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
-use movelang::value::PrimitiveValue;
+use movelang::value::SimpleValue;
 
 #[derive(Clone, Debug)]
 pub struct ConstantLookupTable {
@@ -34,7 +34,7 @@ impl ConstantLookupTable {
         let values = traces
             .into_iter()
             .map(|t| {
-                let v: PrimitiveValue<F> = t.value.into();
+                let v: SimpleValue<F> = t.value.into();
                 vec![
                     F::from_u128(t.module_index as u128),
                     F::from_u128(t.constant_index as u128),
