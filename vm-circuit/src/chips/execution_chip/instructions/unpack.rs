@@ -62,8 +62,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
             ("function index", func_index),
         ]);
 
-        self.struct_value
-            .configure(cb, struct_element_num.clone());
+        self.struct_value.configure(cb, struct_element_num.clone());
 
         cb.condition(
             1.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
@@ -156,13 +155,8 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, 
                 .get_lower_128() as usize;
         let values_element_num = struct_element_num - 1;
 
-        self.struct_value.assign(
-            region,
-            offset,
-            rw_operations,
-            step.gc,
-            struct_element_num,
-        )?;
+        self.struct_value
+            .assign(region, offset, rw_operations, step.gc, struct_element_num)?;
 
         let values = Word {
             word: self.values.clone(),

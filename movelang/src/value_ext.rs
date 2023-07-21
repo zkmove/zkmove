@@ -2,7 +2,7 @@
 
 use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
-    Location, SimpleValue, Reference, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
+    Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
 };
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
@@ -36,7 +36,9 @@ impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedSimpleValue<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
+pub struct FlattenedSimpleValue<F: FieldExt>(
+    pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE],
+);
 
 impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
     fn from(value: SimpleValue<F>) -> FlattenedSimpleValue<F> {
@@ -77,15 +79,16 @@ impl<F: FieldExt> FlattenedReferenceValue<F> {
 
         let (address_path, _) = new_ref_value.pop().expect("value should not be None.");
         new_ref_value.push((address_path, SimpleValue::u128(value)));
-        let flattened_ref_value: [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE] = new_ref_value
-            .try_into()
-            .unwrap_or_else(|v: Vec<(Vec<u128>, SimpleValue<F>)>| {
-                panic!(
-                    "Expected a Vec of length {} but it was {}",
-                    LEN_OF_REFERENCE_VALUE,
-                    v.len()
-                )
-            });
+        let flattened_ref_value: [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE] =
+            new_ref_value
+                .try_into()
+                .unwrap_or_else(|v: Vec<(Vec<u128>, SimpleValue<F>)>| {
+                    panic!(
+                        "Expected a Vec of length {} but it was {}",
+                        LEN_OF_REFERENCE_VALUE,
+                        v.len()
+                    )
+                });
         FlattenedReferenceValue(flattened_ref_value)
     }
 }
@@ -178,8 +181,12 @@ impl<F: FieldExt> From<FlattenedContainerValue<F>> for FlattenedValue<F> {
 #[derive(Clone, Debug)]
 pub struct LocatedFlattenedValue<F: FieldExt>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for LocatedFlattenedValue<F> {
-    fn from(located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>) -> LocatedFlattenedValue<F> {
+impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>>
+    for LocatedFlattenedValue<F>
+{
+    fn from(
+        located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>,
+    ) -> LocatedFlattenedValue<F> {
         let v_loc = Location::ValueLocation(located_value.0)
             .to_address_path()
             .into_inner();
@@ -199,8 +206,12 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for Loc
     }
 }
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>> for LocatedFlattenedValue<F> {
-    fn from(located_value: LocatedValue<'v, IndexedLocation<F>, Value<F>>) -> LocatedFlattenedValue<F> {
+impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>>
+    for LocatedFlattenedValue<F>
+{
+    fn from(
+        located_value: LocatedValue<'v, IndexedLocation<F>, Value<F>>,
+    ) -> LocatedFlattenedValue<F> {
         // increase the sub index by 1, because position 0 is occupied by the container header.
         let sub_indexes = located_value
             .0

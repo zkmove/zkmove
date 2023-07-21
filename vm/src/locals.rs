@@ -6,7 +6,7 @@ use movelang::value::{
     AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
-use movelang::flattened_value::LocatedFlattenedValue;
+use movelang::value_ext::LocatedFlattenedValue;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
@@ -158,7 +158,8 @@ impl<F: FieldExt> Locals<F> {
                     frame_index: FrameIndex(frame_index),
                     index,
                 };
-                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(ValueLocation::Local(loc), v).into();
+                let flattened_value: LocatedFlattenedValue<F> =
+                    LocatedValue(ValueLocation::Local(loc), v).into();
                 emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(LocalRef {
                     loc,
@@ -186,7 +187,8 @@ impl<F: FieldExt> Locals<F> {
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             v => {
-                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(ValueLocation::Local(loc), v).into();
+                let flattened_value: LocatedFlattenedValue<F> =
+                    LocatedValue(ValueLocation::Local(loc), v).into();
                 emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(v.copy_value())
             }

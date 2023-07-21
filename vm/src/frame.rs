@@ -15,9 +15,9 @@ use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
-    SimpleValue, Reference, Value, ValueLocation,
+    Reference, SimpleValue, Value, ValueLocation,
 };
-use movelang::flattened_value::{LocatedFlattenedValue, FlattenedValue};
+use movelang::value_ext::{FlattenedValue, LocatedFlattenedValue};
 use petgraph::prelude::EdgeRef;
 use petgraph::Direction;
 use std::convert::From;
@@ -252,7 +252,9 @@ impl<F: FieldExt> Frame<F> {
                             self.locals
                                 .borrow_locals(*v as usize, frame_index, rw_operations)?;
                         let flattened_value_len =
-                            FlattenedValue::from(local_ref.refer.borrow().deref()).0.len();
+                            FlattenedValue::from(local_ref.refer.borrow().deref())
+                                .0
+                                .len();
                         execution_step.auxiliary_3 = Some(Value::u64(flattened_value_len as u64));
                         interp.stack.push(local_ref.into(), rw_operations)
                     }
@@ -308,7 +310,8 @@ impl<F: FieldExt> Frame<F> {
                                             },
                                             &value,
                                         );
-                                        let flattened_value: LocatedFlattenedValue<F> = indexed_value.into();
+                                        let flattened_value: LocatedFlattenedValue<F> =
+                                            indexed_value.into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.auxiliary_2 =
                                             Some(Value::Address(account_addr));
@@ -333,7 +336,8 @@ impl<F: FieldExt> Frame<F> {
                                             },
                                             &value,
                                         );
-                                        let flattened_value: LocatedFlattenedValue<F> = indexed_value.into();
+                                        let flattened_value: LocatedFlattenedValue<F> =
+                                            indexed_value.into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.locals_index = index;
                                         execution_step.auxiliary_2 =
@@ -378,7 +382,8 @@ impl<F: FieldExt> Frame<F> {
                                     LocatedValue(ValueLocation::Global(loc), &value).into();
 
                                 execution_step.auxiliary_2 = Some(Value::address(account_addr));
-                                execution_step.auxiliary_3 = Some(Value::u64(flattened_value.0.len() as u64)); // word_elem_count
+                                execution_step.auxiliary_3 =
+                                    Some(Value::u64(flattened_value.0.len() as u64)); // word_elem_count
                                 execution_step.auxiliary_4 = Some(Value::u128(sd_idx.to_u128()));
                                 execution_step.auxiliary_5 = Some(Value::bool(true)); // is global
                                 globals::emit_global_ops(
@@ -393,14 +398,15 @@ impl<F: FieldExt> Frame<F> {
                             }) => {
                                 match container_ref {
                                     ContainerRef::Local(vloc, _) => {
-                                        let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
-                                            IndexedLocation {
-                                                sub_indexes,
-                                                value_loc: ValueLocation::Local(vloc),
-                                            },
-                                            &value,
-                                        )
-                                        .into();
+                                        let flattened_value: LocatedFlattenedValue<F> =
+                                            LocatedValue(
+                                                IndexedLocation {
+                                                    sub_indexes,
+                                                    value_loc: ValueLocation::Local(vloc),
+                                                },
+                                                &value,
+                                            )
+                                            .into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.locals_index = vloc.index;
                                         execution_step.auxiliary_2 =
@@ -416,14 +422,15 @@ impl<F: FieldExt> Frame<F> {
                                     }
                                     ContainerRef::Global(vloc, _) => {
                                         let (account_addr, sd_idx) = (vloc.address, vloc.sd_index);
-                                        let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
-                                            IndexedLocation {
-                                                sub_indexes,
-                                                value_loc: ValueLocation::Global(vloc),
-                                            },
-                                            &value,
-                                        )
-                                        .into();
+                                        let flattened_value: LocatedFlattenedValue<F> =
+                                            LocatedValue(
+                                                IndexedLocation {
+                                                    sub_indexes,
+                                                    value_loc: ValueLocation::Global(vloc),
+                                                },
+                                                &value,
+                                            )
+                                            .into();
 
                                         execution_step.auxiliary_2 =
                                             Some(Value::address(account_addr));
@@ -939,8 +946,10 @@ impl<F: FieldExt> Frame<F> {
                             Location::IndexedLocation(l) => LocatedValue(l, &vec).into(),
                         };
                         if vec_ref.is_global() {
-                            let (header_address_path, header_value) =
-                                flattened_value.0.first().expect("header address should not be none");
+                            let (header_address_path, header_value) = flattened_value
+                                .0
+                                .first()
+                                .expect("header address should not be none");
                             globals::emit_global_op(
                                 header_address_path.clone(),
                                 *header_value,
@@ -949,8 +958,10 @@ impl<F: FieldExt> Frame<F> {
                             );
                             execution_step.auxiliary_1 = Some(Value::bool(true));
                         } else {
-                            let (header_address_path, header_value) =
-                                flattened_value.0.first().expect("header address should not be none");
+                            let (header_address_path, header_value) = flattened_value
+                                .0
+                                .first()
+                                .expect("header address should not be none");
                             locals::emit_locals_op(
                                 header_address_path.clone(),
                                 *header_value,
@@ -1001,7 +1012,8 @@ impl<F: FieldExt> Frame<F> {
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
                         let (value_loc, value) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
-                        let flattened_value: LocatedFlattenedValue<F> = LocatedValue(value_loc, &value).into();
+                        let flattened_value: LocatedFlattenedValue<F> =
+                            LocatedValue(value_loc, &value).into();
                         let is_global = vec_ref.is_global();
                         if is_global {
                             globals::emit_global_ops(flattened_value, RW::WRITE, rw_operations);
@@ -1076,7 +1088,8 @@ impl<F: FieldExt> Frame<F> {
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
                         let (value_loc, value) =
                             VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
-                        let flattened_value: LocatedFlattenedValue<F> = LocatedValue(value_loc, &value).into();
+                        let flattened_value: LocatedFlattenedValue<F> =
+                            LocatedValue(value_loc, &value).into();
                         let is_global = vec_ref.is_global();
                         if is_global {
                             globals::emit_global_ops(flattened_value, RW::READ, rw_operations);

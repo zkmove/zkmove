@@ -19,7 +19,7 @@ use logger::prelude::*;
 use movelang::value::{
     Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
-use movelang::flattened_value::{ValueHeader, LEN_OF_REFERENCE_VALUE};
+use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -738,7 +738,11 @@ impl<F: FieldExt> Word<F> {
             item.assign(region, offset, Some(F::from(op.address() as u64)))?;
         }
 
-        for (i, item) in word_address.iter().enumerate().skip(flattened_value_len + 1) {
+        for (i, item) in word_address
+            .iter()
+            .enumerate()
+            .skip(flattened_value_len + 1)
+        {
             cells.word_mask[i].assign(region, offset, Some(F::one()))?;
             cells.word_addr_ext[i].assign(region, offset, Some(F::zero()))?;
             item.assign(region, offset, Some(F::zero()))?;

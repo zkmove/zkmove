@@ -9,4 +9,4 @@ pub mod state;
 pub mod type_transition;
 pub mod utility;
 pub mod value;
-pub mod flattened_value;
+pub mod value_ext;

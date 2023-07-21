@@ -13,7 +13,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::value::{SimpleValue, Value};
-use movelang::flattened_value::ValueHeader;
+use movelang::value_ext::ValueHeader;
 
 #[test]
 fn test_fake_rw_operation() -> VmResult<()> {

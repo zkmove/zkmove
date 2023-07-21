@@ -101,7 +101,11 @@ impl<F: FieldExt> ValueGadget<F> {
         Ok(())
     }
 
-    pub(crate) fn configure(&self, cb: &mut ConstraintBuilder<F>, flattened_value_len: Expression<F>) {
+    pub(crate) fn configure(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        flattened_value_len: Expression<F>,
+    ) {
         // check word header
         self.constrain_header(cb, self.cells.word[0].expression.clone());
 

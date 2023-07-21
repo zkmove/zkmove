@@ -6,7 +6,7 @@ use movelang::value::{
     AddressPath, GlobalLocation, GlobalResourceDefIndex, LocatedValue, SimpleValue, Value,
     ValueLocation,
 };
-use movelang::flattened_value::LocatedFlattenedValue;
+use movelang::value_ext::LocatedFlattenedValue;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
 pub fn emit_global_op<F: FieldExt>(

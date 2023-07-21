@@ -121,8 +121,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign arg_num
-        let _aux_value = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let _func_handle_idx = Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
+        let _aux_value =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+        let _func_handle_idx =
+            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
         let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;

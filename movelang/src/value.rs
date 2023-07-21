@@ -4,7 +4,7 @@
 use crate::account_address::AccountAddress;
 use crate::utility::{convert_to_field, move_div, move_rem};
 use crate::utility::{MoveValue, MoveValueType};
-use crate::flattened_value::{FlattenedContainerValue, FlattenedValue};
+use crate::value_ext::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
