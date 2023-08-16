@@ -247,7 +247,9 @@ impl<F: FieldExt> Container<F> {
     pub fn rc_count(&self) -> usize {
         Rc::strong_count(&self.0)
     }
-
+    pub fn vector(elems: impl IntoIterator<Item = Value<F>>) -> Self {
+        Container(Rc::new(RefCell::new(elems.into_iter().collect())))
+    }
     pub fn signer(x: AccountAddress<F>) -> Self {
         Container(Rc::new(RefCell::new(vec![Value::Address(x)])))
     }
@@ -901,8 +903,11 @@ impl<F: FieldExt> Value<F> {
     pub fn signer(x: AccountAddress<F>) -> Self {
         Self::Container(Container::signer(x))
     }
+    pub fn vector_u8(elems: impl IntoIterator<Item = u8>) -> Self {
+        Self::Container(Container::vector(elems.into_iter().map(|e| Self::u8(e))))
+    }
     pub fn container(elements: Vec<Value<F>>) -> Self {
-        Self::Container(Container(Rc::new(RefCell::new(elements))))
+        Self::Container(Container::vector(elements))
     }
 
     pub fn value(&self) -> Option<F> {

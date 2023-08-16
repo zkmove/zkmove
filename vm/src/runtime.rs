@@ -27,13 +27,14 @@ use halo2_proofs::poly::{
     VerificationStrategy,
 };
 
+use crate::loader::MoveLoader;
+use crate::native_functions::NativeFunctions;
+use crate::state::StateStore;
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_binary_format::CompiledModule;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
-use movelang::loader::MoveLoader;
-use movelang::state::StateStore;
 use movelang::value::TypeTag;
 use plotters::prelude::*;
 use rand::{rngs::StdRng, SeedableRng};
@@ -58,6 +59,7 @@ pub const MIN_K: u32 = 1;
 
 pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
+    natives: NativeFunctions<F>,
     _marker: PhantomData<F>,
 }
 
@@ -70,7 +72,8 @@ impl<F: FieldExt> Default for Runtime<F> {
 impl<F: FieldExt> Runtime<F> {
     pub fn new() -> Self {
         Runtime {
-            loader: MoveLoader::new(),
+            loader: MoveLoader::new_with_natives(crate::natives::make_all()),
+            natives: NativeFunctions::new(crate::natives::make_all_field_version()).unwrap(),
             _marker: PhantomData,
         }
     }
@@ -123,6 +126,7 @@ impl<F: FieldExt> Runtime<F> {
             arg_types,
             self.loader(),
             data_store,
+            &self.natives,
             &mut exec_steps,
             &mut rw_operations,
             &mut generic_types,

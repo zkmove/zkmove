@@ -2,6 +2,8 @@
 
 use move_binary_format::errors::VMResult;
 use move_binary_format::file_format::FunctionHandleIndex;
+use move_core_types::account_address::AccountAddress;
+use move_core_types::identifier::Identifier;
 use move_core_types::language_storage::TypeTag;
 use move_vm_runtime::config::VMConfig;
 use move_vm_runtime::loader::{Function, Loader};
@@ -17,7 +19,21 @@ pub struct MoveLoader {
 
 impl MoveLoader {
     pub fn new() -> Self {
-        let native_functions = NativeFunctions::new(vec![]).expect("should never failed.");
+        Self::new_with_natives(vec![])
+    }
+
+    pub fn new_with_natives<I>(natives: I) -> Self
+    where
+        I: IntoIterator<
+            Item = (
+                AccountAddress,
+                Identifier,
+                Identifier,
+                move_vm_runtime::native_functions::NativeFunction,
+            ),
+        >,
+    {
+        let native_functions = NativeFunctions::new(natives).expect("should never failed.");
         MoveLoader {
             loader: Loader::new(native_functions, VMConfig::default()),
         }

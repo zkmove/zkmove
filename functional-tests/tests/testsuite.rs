@@ -5,9 +5,9 @@ use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::compiler::compile_script;
-use movelang::state::StateStore;
 use std::path::Path;
 use vm::runtime::Runtime;
+use vm::state::StateStore;
 
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;

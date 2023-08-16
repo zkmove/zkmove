@@ -2,6 +2,7 @@
 
 use crate::interpreter::Interpreter;
 use crate::runtime::Runtime;
+use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::pasta::Fp;
@@ -9,7 +10,6 @@ use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use move_binary_format::CompiledModule;
-use movelang::state::StateStore;
 use movelang::value::{SimpleValue, Value};
 use movelang::value_ext::ValueHeader;
 use vm_circuit::chips::execution_chip::opcode::Opcode;

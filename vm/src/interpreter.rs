@@ -1,29 +1,31 @@
 // Copyright (c) zkMove Authors
 
 use crate::frame::{ExitStatus, Frame};
+use crate::loader::MoveLoader;
 use crate::locals::Locals;
 use crate::stack::{CallStack, EvalStack};
+use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
-use move_vm_runtime::loader::Function;
+use move_vm_runtime::loader::{Function, Resolver};
+use move_vm_runtime::native_extensions::NativeContextExtensions;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
 use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
 use movelang::generic_call_graph::{generate_for_script, Node, NodeInternal};
-use movelang::loader::MoveLoader;
-use movelang::state::StateStore;
 use movelang::utility::MoveValueType;
 use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
 use petgraph::prelude::NodeIndex;
-
+use std::collections::VecDeque;
 use std::sync::Arc;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 
+use crate::native_functions::{NativeContext, NativeFunctions};
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
@@ -144,6 +146,7 @@ impl<F: FieldExt> Interpreter<F> {
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
         data_store: &mut StateStore<F>,
+        natives: &NativeFunctions<F>,
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
@@ -220,6 +223,25 @@ impl<F: FieldExt> Interpreter<F> {
                     trace!("step #{}, {:?}", self.step, execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
+
+                    // we need this to write different circuit for native call.
+                    execution_step.auxiliary_5 = Some(Value::bool(func.is_native()));
+                    if func.is_native() {
+                        let resolver = frame.func().get_resolver(loader.inner());
+                        self.call_native(
+                            &resolver,
+                            data_store,
+                            natives,
+                            &mut NativeContextExtensions::default(),
+                            func.clone(),
+                            vec![],
+                            rw_operations,
+                        )?;
+                        exec_steps.push(execution_step);
+
+                        frame.add_pc();
+                        continue;
+                    }
                     let rw_op_count = rw_operations.len();
                     let callee_frame = self.make_frame(
                         next_node_index,
@@ -235,6 +257,7 @@ impl<F: FieldExt> Interpreter<F> {
                     )?;
                     let flattened_value_len = (rw_operations.len() - rw_op_count) / 2;
                     execution_step.auxiliary_3 = Some(Value::u64(flattened_value_len as u64));
+
                     exec_steps.push(execution_step);
 
                     callee_frame.print_frame();
@@ -262,6 +285,22 @@ impl<F: FieldExt> Interpreter<F> {
                     trace!("step #{}, {:?}", self.step, execution_step);
                     self.step += 1;
                     trace!("Call into function: {:?}", func.name());
+                    execution_step.auxiliary_5 = Some(Value::bool(func.is_native()));
+                    if func.is_native() {
+                        self.call_native(
+                            &resolver,
+                            data_store,
+                            natives,
+                            &mut NativeContextExtensions::default(),
+                            func.clone(),
+                            ty_args,
+                            rw_operations,
+                        )?;
+                        exec_steps.push(execution_step);
+
+                        frame.add_pc();
+                        continue;
+                    }
                     let rw_op_count = rw_operations.len();
                     let callee_frame = self.make_frame(
                         next_node_index,
@@ -320,6 +359,60 @@ impl<F: FieldExt> Interpreter<F> {
                 }
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn call_native(
+        &mut self,
+        resolver: &Resolver,
+        data_store: &mut StateStore<F>,
+        natives: &NativeFunctions<F>,
+        extensions: &mut NativeContextExtensions,
+        function: Arc<Function>,
+        ty_args: Vec<Type>,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
+        self.call_native_impl(
+            resolver,
+            data_store,
+            natives,
+            extensions,
+            function.clone(),
+            ty_args,
+            rw_operations,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn call_native_impl(
+        &mut self,
+        resolver: &Resolver,
+        data_store: &mut StateStore<F>,
+        natives: &NativeFunctions<F>,
+        extensions: &mut NativeContextExtensions,
+        function: Arc<Function>,
+        ty_args: Vec<Type>,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
+        let mut args = VecDeque::new();
+        let expected_args = function.arg_count();
+        for _ in 0..expected_args {
+            let v = self.stack.pop(rw_operations)?;
+            args.push_front(v);
+        }
+        let module_id = function.module_id().unwrap();
+        let module_address = module_id.address();
+        let module_name = module_id.name().as_str();
+        let func_name = function.name();
+        let native_function = natives
+            .resolve(module_address, module_name, func_name)
+            .unwrap();
+        let ret_ = native_function(
+            &mut NativeContext::new(self, data_store, resolver, extensions),
+            ty_args,
+            args,
+        )?;
+        self.stack.push(ret_, rw_operations)?;
+        Ok(())
     }
 
     pub fn binary_op<Fn>(

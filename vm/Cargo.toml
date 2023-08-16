@@ -15,10 +15,13 @@ movelang = { path = "../movelang"}
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-vm-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-vm-runtime = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
+move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", features = ["dev-graph"]}
+hex = { version = "0.4" }
 plotters = { version = "0.3.0" }
 rand = "0.8"
 petgraph = "0.6"
+smallvec = "1.11"
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
