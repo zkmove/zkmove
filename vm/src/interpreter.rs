@@ -378,7 +378,7 @@ impl<F: FieldExt> Interpreter<F> {
             data_store,
             natives,
             extensions,
-            function.clone(),
+            function,
             ty_args,
             rw_operations,
         )

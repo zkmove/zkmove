@@ -63,6 +63,8 @@ fn test_execution_step() -> VmResult<()> {
             arg_types,
             runtime.loader(),
             &mut data_store,
+            runtime.get_natives(),
+            runtime.get_native_context_exts(),
             &mut exec_steps,
             &mut rw_operations,
             &mut generic_type_infos,

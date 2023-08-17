@@ -103,6 +103,9 @@ impl<F: FieldExt> Runtime<F> {
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
     }
+    pub fn get_natives(&self) -> &NativeFunctions<F> {
+        &self.natives
+    }
     pub fn get_native_context_exts(&self) -> NativeContextExtensions {
         let mut exts = NativeContextExtensions::default();
         if let Some(ext) = &self.native_context.web3 {
