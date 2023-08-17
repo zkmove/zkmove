@@ -38,7 +38,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     let (compiled_script, compiled_modules) = compile_script(targets)?;
     let script = compiled_script.expect("script is missing");
-    let runtime = Runtime::<Fr>::new();
+    let runtime = Runtime::<Fr>::new()
+        .ext_web3("https://cloudflare-eth.com")
+        .unwrap();
     let mut state = StateStore::new();
 
     for module in compiled_modules.clone().into_iter() {

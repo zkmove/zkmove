@@ -821,7 +821,7 @@ impl<F: FieldExt> From<MoveValue> for SimpleValue<F> {
             MoveValue::U128(v) => SimpleValue::u128(v),
             MoveValue::Bool(v) => SimpleValue::bool(v),
             MoveValue::Address(v) => SimpleValue::address(v.into()),
-            _ => unimplemented!("not supported"),
+            _ => unimplemented!("not supported move value, {}", value),
         }
     }
 }
@@ -906,6 +906,21 @@ impl<F: FieldExt> Value<F> {
     pub fn vector_u8(elems: impl IntoIterator<Item = u8>) -> Self {
         Self::Container(Container::vector(elems.into_iter().map(|e| Self::u8(e))))
     }
+
+    /// TODO: figure out a better way to convert to rust value.
+    pub fn as_vector_u8(&self) -> VmResult<Vec<u8>> {
+        match self {
+            Self::Container(Container(vs)) => {
+                let mut ret_ = vec![];
+                for v in vs.borrow().iter() {
+                    ret_.push(v.copy_value().castu8()?.value().unwrap().get_lower_128() as u8);
+                }
+                Ok(ret_)
+            }
+            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)),
+        }
+    }
+
     pub fn container(elements: Vec<Value<F>>) -> Self {
         Self::Container(Container::vector(elements))
     }

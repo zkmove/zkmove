@@ -34,6 +34,7 @@ use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_binary_format::CompiledModule;
+use move_vm_runtime::native_extensions::NativeContextExtensions;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::value::TypeTag;
 use plotters::prelude::*;
@@ -52,6 +53,8 @@ use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
 };
 use vm_circuit::witness::{CircuitConfig, Witness};
+use web3::transports::Http;
+use web3::Web3;
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
@@ -60,7 +63,14 @@ pub const MIN_K: u32 = 1;
 pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
     natives: NativeFunctions<F>,
+    native_context: NativeContext,
     _marker: PhantomData<F>,
+}
+
+#[derive(Default)]
+struct NativeContext {
+    web3: Option<Web3<Http>>,
+    tokio_rt: Option<tokio::runtime::Runtime>,
 }
 
 impl<F: FieldExt> Default for Runtime<F> {
@@ -74,14 +84,35 @@ impl<F: FieldExt> Runtime<F> {
         Runtime {
             loader: MoveLoader::new_with_natives(crate::natives::make_all()),
             natives: NativeFunctions::new(crate::natives::make_all_field_version()).unwrap(),
+            native_context: NativeContext::default(),
             _marker: PhantomData,
         }
+    }
+    pub fn ext_web3(mut self, web3_url: impl AsRef<str>) -> Result<Self, web3::Error> {
+        let w = Web3::new(Http::new(web3_url.as_ref())?);
+        self.native_context.web3 = Some(w);
+        self.native_context.tokio_rt = Some(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_io()
+                .enable_time()
+                .build()?,
+        );
+        Ok(self)
     }
 
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
     }
-
+    pub fn get_native_context_exts(&self) -> NativeContextExtensions {
+        let mut exts = NativeContextExtensions::default();
+        if let Some(ext) = &self.native_context.web3 {
+            exts.add(ext);
+        }
+        if let Some(rt) = &self.native_context.tokio_rt {
+            exts.add(rt);
+        }
+        exts
+    }
     #[allow(clippy::too_many_arguments)]
     pub fn execute_script(
         &self,
@@ -127,6 +158,7 @@ impl<F: FieldExt> Runtime<F> {
             self.loader(),
             data_store,
             &self.natives,
+            self.get_native_context_exts(),
             &mut exec_steps,
             &mut rw_operations,
             &mut generic_types,
