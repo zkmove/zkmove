@@ -9,11 +9,11 @@ use logger::prelude::*;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_script;
 use movelang::generic_call_graph::generate;
-use movelang::state::StateStore;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
 use vm::runtime::Runtime;
+use vm::state::StateStore;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 

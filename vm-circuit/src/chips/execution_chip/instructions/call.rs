@@ -36,8 +36,123 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
     } else {
         Opcode::Call
     };
-
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        let is_native = cells.auxiliary_5.expression.clone();
+        // config non-native function call
+        cb.condition(1.expr() - is_native, |cb| {
+            self.configure_non_native_call(cells, cb);
+        });
+    }
+
+    fn assign(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        step: &ExecutionStep<F>,
+        rw_operations: &RWOperations<F>,
+        cells: &StepChipCells<F>,
+    ) -> Result<(), Error> {
+        let is_native = step
+            .auxiliary_5
+            .as_ref()
+            .ok_or_else(|| {
+                error!("auxiliary_5 is None");
+                Error::Synthesis
+            })?
+            .value();
+        cells.auxiliary_5.assign(region, offset, is_native)?;
+        match &is_native {
+            Some(v) if v == &F::one() => return Ok(()),
+            _ => {}
+        }
+        // assign arg_num
+        let _aux_value =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
+        let _func_handle_idx =
+            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
+        let flattened_value_len =
+            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
+                .get_lower_128() as usize;
+
+        let word = Word {
+            word: self.word_a.clone(),
+            word_mask: self.word_a_mask.clone(),
+            word_addr_ext: self.word_a_addr_ext.clone(),
+        };
+        Word::assign_word_with_address_and_filter(
+            region,
+            offset,
+            rw_operations,
+            &word,
+            &self.word_address,
+            step.gc,
+            flattened_value_len,
+            RW::WRITE,
+        )?;
+        if GENERIC {
+            cells.auxiliary_4.assign(
+                region,
+                offset,
+                step.auxiliary_4
+                    .as_ref()
+                    .ok_or_else(|| {
+                        error!("auxiliary_4 is None");
+                        Error::Synthesis
+                    })?
+                    .value(),
+            )?;
+            if let Some(ExecutionData::CallGeneric(data)) = &step.data {
+                self.type_cells
+                    .as_ref()
+                    .unwrap()
+                    .assign(region, offset, data.clone())?;
+            } else {
+                error!("expect execution data in {} gadget", Self::NAME);
+                return Err(Error::Synthesis);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        let word_a = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
+        let word_a_mask = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
+        let word_a_addr_ext = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
+        let word_address = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
+
+        let type_cells = if GENERIC {
+            let callee_id = cb.next.cells.context_id.expr();
+            let callee_module = cb.next.cells.module_index.expr();
+            let callee_function = cb.next.cells.function_index.expr();
+            let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
+            let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
+            let type_cells = GenericTypeGadget::construct(
+                Self::NAME,
+                cb,
+                caller_callin_pc,
+                callee_id,
+                callee_module,
+                callee_function,
+                function_instantiation_index,
+            );
+            Some(type_cells)
+        } else {
+            None
+        };
+        Self {
+            word_a,
+            word_a_mask,
+            word_a_addr_ext,
+            word_address,
+            type_cells,
+        }
+    }
+}
+
+impl<const GENERIC: bool, F: FieldExt> Call<GENERIC, F> {
+    fn configure_non_native_call(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0
         let pc_expr = cb.next.cells.pc.expression.clone();
@@ -109,98 +224,6 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         if GENERIC {
             // configure generic gadget
             self.type_cells.as_ref().unwrap().configure(cells, cb);
-        }
-    }
-
-    fn assign(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
-        cells: &StepChipCells<F>,
-    ) -> Result<(), Error> {
-        // assign arg_num
-        let _aux_value =
-            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let _func_handle_idx =
-            Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
-        let flattened_value_len =
-            Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
-                .get_lower_128() as usize;
-
-        let word = Word {
-            word: self.word_a.clone(),
-            word_mask: self.word_a_mask.clone(),
-            word_addr_ext: self.word_a_addr_ext.clone(),
-        };
-        Word::assign_word_with_address_and_filter(
-            region,
-            offset,
-            rw_operations,
-            &word,
-            &self.word_address,
-            step.gc,
-            flattened_value_len,
-            RW::WRITE,
-        )?;
-        if GENERIC {
-            cells.auxiliary_4.assign(
-                region,
-                offset,
-                step.auxiliary_4
-                    .as_ref()
-                    .ok_or_else(|| {
-                        error!("auxiliary_4 is None");
-                        Error::Synthesis
-                    })?
-                    .value(),
-            )?;
-            if let Some(ExecutionData::CallGeneric(data)) = &step.data {
-                self.type_cells
-                    .as_ref()
-                    .unwrap()
-                    .assign(region, offset, data.clone())?;
-            } else {
-                error!("expect execution data in {} gadget", Self::NAME);
-                return Err(Error::Synthesis);
-            }
-        }
-        Ok(())
-    }
-
-    fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
-        // alloc cell
-        let word_a = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-        let word_a_mask = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-        let word_a_addr_ext = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-        let word_address = cb.alloc_n_cells(NUM_OF_ARGS_CELLS);
-
-        let type_cells = if GENERIC {
-            let callee_id = cb.next.cells.context_id.expr();
-            let callee_module = cb.next.cells.module_index.expr();
-            let callee_function = cb.next.cells.function_index.expr();
-            let function_instantiation_index = cb.curr.cells.auxiliary_2.expr();
-            let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
-            let type_cells = GenericTypeGadget::construct(
-                Self::NAME,
-                cb,
-                caller_callin_pc,
-                callee_id,
-                callee_module,
-                callee_function,
-                function_instantiation_index,
-            );
-            Some(type_cells)
-        } else {
-            None
-        };
-        Self {
-            word_a,
-            word_a_mask,
-            word_a_addr_ext,
-            word_address,
-            type_cells,
         }
     }
 }

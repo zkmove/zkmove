@@ -83,7 +83,13 @@ impl RunConfig {
                 config.new_ty_args = parse_type_tags(s)?;
             }
             if let Some(s) = s.strip_prefix("//!mods:") {
-                config.modules.push(s.to_string()); //todo: support multiple modules
+                let mut ms: Vec<String> = s
+                    .to_string()
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                config.modules.append(&mut ms);
             }
             if let Some(s) = s.strip_prefix("//!circuit:") {
                 config.circuit = Some(s.parse::<Circuit>()?);
