@@ -22,7 +22,13 @@ impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
     fn from(value: &Value<F>) -> Self {
         match value {
             Value::Invalid => FlattenedValue(vec![]), // TODO: Issue #52
-            Value::U8(_) | Value::U64(_) | Value::U128(_) | Value::Bool(_) | Value::Address(_) => {
+            Value::U8(_)
+            | Value::U16(_)
+            | Value::U32(_)
+            | Value::U64(_)
+            | Value::U128(_)
+            | Value::Bool(_)
+            | Value::Address(_) => {
                 let simple = SimpleValue::try_from(value).expect("should not fail");
                 FlattenedSimpleValue::from(simple).into()
             }

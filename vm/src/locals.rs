@@ -149,6 +149,8 @@ impl<F: FieldExt> Locals<F> {
         match v {
             Value::Invalid => Err(RuntimeError::new(StatusCode::MutBorrowLocalError)),
             Value::U8(_)
+            | Value::U16(_)
+            | Value::U32(_)
             | Value::U64(_)
             | Value::U128(_)
             | Value::Bool(_)
