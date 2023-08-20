@@ -17,7 +17,7 @@ use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
 use movelang::value::{
-    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
@@ -460,19 +460,29 @@ impl<F: FieldExt> ArithOverflow<F> {
     ) {
         // arithmetic overflow check
         // if bytes_len = NUM_OF_BYTES_U8, then bytes_1 == out
+        // else if bytes_len = NUM_OF_BYTES_U16, then bytes_2 == out
+        // else if bytes_len = NUM_OF_BYTES_U32, then bytes_4 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
         let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
+        let bytes_2 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U16);
+        let bytes_4 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U32);
         let bytes_8 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
         let bytes_16 = FieldBytes::from(bytes).expr_with_n(NUM_OF_BYTES_U128);
 
         let num_of_bytes = cells.auxiliary_1.expression.clone();
         let delta_inverse_1 = cells.auxiliary_2.expression.clone();
-        let delta_inverse_8 = cells.auxiliary_3.expression.clone();
-        let delta_inverse_16 = cells.auxiliary_4.expression.clone();
+        let delta_inverse_2 = cells.auxiliary_3.expression.clone();
+        let delta_inverse_4 = cells.auxiliary_4.expression.clone();
+        let delta_inverse_8 = cells.auxiliary_5.expression.clone();
+        let delta_inverse_16 = cells.auxiliary_6.expression.clone();
 
         let cond_1 =
             1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr()) * delta_inverse_1;
+        let cond_2 =
+            1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U16 as u64).expr()) * delta_inverse_2;
+        let cond_4 =
+            1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr()) * delta_inverse_4;
         let cond_8 =
             1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8;
         let cond_16 =
@@ -480,6 +490,10 @@ impl<F: FieldExt> ArithOverflow<F> {
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
         cb.add_constraint("range check 1", constraint_1);
+        let constraint_2 = cond_2 * (bytes_2 - out.clone());
+        cb.add_constraint("range check 2", constraint_2);
+        let constraint_4 = cond_4 * (bytes_4 - out.clone());
+        cb.add_constraint("range check 4", constraint_4);
         let constraint_8 = cond_8 * (bytes_8 - out.clone());
         cb.add_constraint("range check 8", constraint_8);
         let constraint_16 = cond_16 * (bytes_16 - out);
@@ -531,6 +545,8 @@ impl<F: FieldExt> ArithOverflow<F> {
         // assign auxiliary cell with number of bytes
         let num_of_bytes = match value {
             Value::U8(_) => NUM_OF_BYTES_U8 as u128,
+            Value::U16(_) => NUM_OF_BYTES_U16 as u128,
+            Value::U32(_) => NUM_OF_BYTES_U32 as u128,
             Value::U64(_) => NUM_OF_BYTES_U64 as u128,
             Value::U128(_) => NUM_OF_BYTES_U128 as u128,
             _ => unreachable!(),
@@ -539,16 +555,22 @@ impl<F: FieldExt> ArithOverflow<F> {
             .auxiliary_1
             .assign(region, offset, Some(F::from_u128(num_of_bytes)))?;
 
-        // assign delta_inverse(num_of_bytes, NUM_OF_BYTES_U8/U64/U128)
+        // assign delta_inverse(num_of_bytes, NUM_OF_BYTES_U8/U16/U32/U64/U128)
         let delta_inverse_1 =
             F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U8 as u128));
+        let delta_inverse_2 =
+            F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U16 as u128));
+        let delta_inverse_4 =
+            F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U32 as u128));
         let delta_inverse_8 =
             F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U64 as u128));
         let delta_inverse_16 =
             F::from_u128(num_of_bytes).delta_invert(F::from_u128(NUM_OF_BYTES_U128 as u128));
         cells.auxiliary_2.assign(region, offset, delta_inverse_1)?;
-        cells.auxiliary_3.assign(region, offset, delta_inverse_8)?;
-        cells.auxiliary_4.assign(region, offset, delta_inverse_16)?;
+        cells.auxiliary_3.assign(region, offset, delta_inverse_2)?;
+        cells.auxiliary_4.assign(region, offset, delta_inverse_4)?;
+        cells.auxiliary_5.assign(region, offset, delta_inverse_8)?;
+        cells.auxiliary_6.assign(region, offset, delta_inverse_16)?;
 
         Ok(())
     }
