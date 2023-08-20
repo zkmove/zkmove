@@ -59,6 +59,8 @@ impl Signer {
 pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
     match arg {
         ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
+        ScriptArgument::U16(v) => Ok(F::from_u128(v as u128)),
+        ScriptArgument::U32(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U128(v) => Ok(F::from_u128(v)),
         ScriptArgument::Bool(v) => Ok(if v { F::one() } else { F::zero() }),
@@ -70,6 +72,8 @@ pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
 pub fn argument_type(arg: &ScriptArgument) -> VmResult<MoveValueType> {
     match arg {
         ScriptArgument::U8(_) => Ok(MoveValueType::U8),
+        ScriptArgument::U16(_) => Ok(MoveValueType::U16),
+        ScriptArgument::U32(_) => Ok(MoveValueType::U32),
         ScriptArgument::U64(_) => Ok(MoveValueType::U64),
         ScriptArgument::U128(_) => Ok(MoveValueType::U128),
         ScriptArgument::Bool(_) => Ok(MoveValueType::Bool),

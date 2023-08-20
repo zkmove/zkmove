@@ -172,6 +172,16 @@ impl<F: FieldExt> Frame<F> {
                         let value = Value::new(constant, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
+                    Bytecode::LdU16(v) => {
+                        let constant = F::from_u128(*v as u128);
+                        let value = Value::new(constant, MoveValueType::U16)?;
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::LdU32(v) => {
+                        let constant = F::from_u128(*v as u128);
+                        let value = Value::new(constant, MoveValueType::U32)?;
+                        interp.stack.push(value, rw_operations)
+                    }
                     Bytecode::LdU64(v) => {
                         let constant = F::from_u128(*v as u128);
                         let value = Value::new(constant, MoveValueType::U64)?;
@@ -609,6 +619,8 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Not => interp.unary_op(Value::not, rw_operations),
                     Bytecode::CastU8 => interp.unary_op(Value::castu8, rw_operations),
+                    Bytecode::CastU16 => interp.unary_op(Value::castu16, rw_operations),
+                    Bytecode::CastU32 => interp.unary_op(Value::castu32, rw_operations),
                     Bytecode::CastU64 => interp.unary_op(Value::castu64, rw_operations),
                     Bytecode::CastU128 => interp.unary_op(Value::castu128, rw_operations),
                     Bytecode::Pack(sd_idx) => {

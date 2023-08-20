@@ -36,6 +36,14 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::LdU8.index() as u128),
             F::from_u128(v as u128),
         ),
+        Bytecode::LdU16(v) => (
+            F::from_u128(Opcode::LdU16.index() as u128),
+            F::from_u128(v as u128),
+        ),
+        Bytecode::LdU32(v) => (
+            F::from_u128(Opcode::LdU32.index() as u128),
+            F::from_u128(v as u128),
+        ),
         Bytecode::LdU64(v) => (
             F::from_u128(Opcode::LdU64.index() as u128),
             F::from_u128(v as u128),
@@ -49,6 +57,8 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(v.0 as u128),
         ),
         Bytecode::CastU8 => (F::from_u128(Opcode::CastU8.index() as u128), F::zero()),
+        Bytecode::CastU16 => (F::from_u128(Opcode::CastU16.index() as u128), F::zero()),
+        Bytecode::CastU32 => (F::from_u128(Opcode::CastU32.index() as u128), F::zero()),
         Bytecode::CastU64 => (F::from_u128(Opcode::CastU64.index() as u128), F::zero()),
         Bytecode::CastU128 => (F::from_u128(Opcode::CastU128.index() as u128), F::zero()),
         Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::zero()),

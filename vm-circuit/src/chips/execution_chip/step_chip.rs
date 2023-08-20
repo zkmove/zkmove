@@ -29,6 +29,7 @@ pub struct StepChipCells<F: FieldExt> {
     pub auxiliary_3: Cell<F>,
     pub auxiliary_4: Cell<F>,
     pub auxiliary_5: Cell<F>,
+    pub auxiliary_6: Cell<F>,
 
     pub(crate) conditions: DynamicSelectorHalf<F>,
 }
@@ -116,6 +117,7 @@ impl<F: FieldExt> StepChip<F> {
                 auxiliary_3: cell_manager.alloc_cell(CellType::CustomGate),
                 auxiliary_4: cell_manager.alloc_cell(CellType::CustomGate),
                 auxiliary_5: cell_manager.alloc_cell(CellType::CustomGate),
+                auxiliary_6: cell_manager.alloc_cell(CellType::CustomGate),
 
                 conditions: DynamicSelectorHalf::new(&mut cell_manager, Opcode::total_numbers()),
             }

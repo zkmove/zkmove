@@ -241,6 +241,8 @@ fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
                 let data = match ty {
                     Type::Bool => TypeElem::Bool,
                     Type::U8 => TypeElem::U8,
+                    Type::U16 => TypeElem::U16,
+                    Type::U32 => TypeElem::U32,
                     Type::U64 => TypeElem::U64,
                     Type::U128 => TypeElem::U128,
                     Type::Address => TypeElem::Address,
@@ -263,6 +265,8 @@ fn flatten_type(ty: &Type, pos: Vec<u8>) -> Vec<TypeElement> {
 pub enum TypeElem {
     Bool,
     U8,
+    U16,
+    U32,
     U64,
     U128,
     Address,
@@ -277,11 +281,13 @@ pub fn map_type_name(
     match type_elem {
         TypeElem::Bool => (0, StructDefinitionIndex(1)),
         TypeElem::U8 => (0, StructDefinitionIndex(2)),
-        TypeElem::U64 => (0, StructDefinitionIndex(3)),
-        TypeElem::U128 => (0, StructDefinitionIndex(4)),
-        TypeElem::Address => (0, StructDefinitionIndex(5)),
-        TypeElem::Signer => (0, StructDefinitionIndex(6)),
-        TypeElem::Vector => (0, StructDefinitionIndex(7)),
+        TypeElem::U16 => (0, StructDefinitionIndex(3)),
+        TypeElem::U32 => (0, StructDefinitionIndex(4)),
+        TypeElem::U64 => (0, StructDefinitionIndex(5)),
+        TypeElem::U128 => (0, StructDefinitionIndex(6)),
+        TypeElem::Address => (0, StructDefinitionIndex(7)),
+        TypeElem::Signer => (0, StructDefinitionIndex(8)),
+        TypeElem::Vector => (0, StructDefinitionIndex(9)),
         TypeElem::Struct { module_id, name } => mapping.map_struct_name(module_id, name),
     }
 }
