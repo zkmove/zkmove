@@ -79,7 +79,7 @@ use halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
-use logger::{error, trace};
+use logger::{debug, error, trace};
 use std::collections::HashMap;
 
 pub mod instructions;
@@ -512,7 +512,9 @@ impl<F: FieldExt> ExecutionChip<F> {
                 // part2: if padding is needed, assign Opcode::Nop in the padding range.
                 // This happened when an execution path is not fixed, for example, if there
                 // is loop in the code.
+
                 if let Some(max_row) = self.witness.circuit_config.max_step_row {
+                    debug!("offset={:?}, max_row={:?}", offset, max_row);
                     if offset >= max_row {
                         error!(
                             "execution circuit offset larger than max rows: {} > {}",
