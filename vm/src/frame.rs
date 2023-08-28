@@ -12,7 +12,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
-use movelang::utility::MoveValueType;
+use movelang::utility::{convert_u256_to_field, MoveValueType};
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
     Reference, SimpleValue, Value, ValueLocation,
@@ -190,6 +190,11 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::LdU128(v) => {
                         let constant = F::from_u128(*v);
                         let value = Value::new(constant, MoveValueType::U128)?;
+                        interp.stack.push(value, rw_operations)
+                    }
+                    Bytecode::LdU256(v) => {
+                        let constant = convert_u256_to_field::<F>(v);
+                        let value = Value::new_u256(constant);
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::Pop => {
@@ -623,6 +628,7 @@ impl<F: FieldExt> Frame<F> {
                     Bytecode::CastU32 => interp.unary_op(Value::castu32, rw_operations),
                     Bytecode::CastU64 => interp.unary_op(Value::castu64, rw_operations),
                     Bytecode::CastU128 => interp.unary_op(Value::castu128, rw_operations),
+                    Bytecode::CastU256 => interp.unary_op(Value::castu256, rw_operations),
                     Bytecode::Pack(sd_idx) => {
                         let field_count = resolver.field_count(*sd_idx);
                         execution_step.auxiliary_1 = Some(Value::u64(field_count as u64));

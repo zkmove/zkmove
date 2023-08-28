@@ -2,12 +2,16 @@
 // Copyright (c) zkMove Authors
 
 use crate::account_address::AccountAddress;
-use crate::utility::{convert_to_field, move_div, move_rem};
+use crate::utility::{
+    convert_to_field, convert_u256_to_fe, convert_u256_to_field, decode_field_to_u256, move_div,
+    move_rem, u256,
+};
 use crate::utility::{MoveValue, MoveValueType};
 use crate::value_ext::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
+use logger::prelude::*;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 pub use move_core_types::language_storage::TypeTag;
@@ -21,6 +25,7 @@ pub const NUM_OF_BYTES_U16: usize = 2;
 pub const NUM_OF_BYTES_U32: usize = 4;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
 pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
 pub const DEPTH_OF_ADDRESS_PATH: usize = DEPTH_OF_LOCATION_PATH + 8;
 
@@ -38,6 +43,9 @@ pub struct U64<F: FieldExt>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U128<F: FieldExt>(pub F);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct U256<F: FieldExt>(pub F, pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Bool<F: FieldExt>(pub F);
@@ -104,6 +112,12 @@ impl<F: FieldExt> AddressPath<F> {
     }
 }
 
+// impl<F: FieldExt> U256<F> {
+//     fn from(value: U256<F>) -> MoveValue {
+//         MoveValue::U256(decode_field_to_u256(&[value.0, value.1]))
+//     }
+// }
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SimpleValue<F: FieldExt> {
     U8(U8<F>),
@@ -145,6 +159,8 @@ pub enum Value<F: FieldExt> {
     U128(U128<F>),
     Bool(Bool<F>),
     Address(AccountAddress<F>),
+    /// u256
+    U256(U256<F>),
     /// struct representation
     Container(Container<F>),
     /// borrow global
@@ -686,6 +702,9 @@ impl<F: FieldExt> LocalRef<F> {
             (Value::U128(t), Value::U128(v)) => {
                 *t = v;
             }
+            (Value::U256(t), Value::U256(v)) => {
+                *t = v;
+            }
             (Value::Address(t), Value::Address(v)) => {
                 *t = v;
             }
@@ -806,6 +825,51 @@ impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>
     }
 }
 
+impl<F: FieldExt> From<U256<F>> for Value<F> {
+    fn from(v: U256<F>) -> Self {
+        Value::U256(v)
+    }
+}
+
+impl<F: FieldExt> TryFrom<&Value<F>> for U256<F> {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value<F>) -> VmResult<U256<F>> {
+        match value {
+            Value::U256(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl<F: FieldExt> From<MoveValue> for U256<F> {
+    fn from(value: MoveValue) -> Self {
+        match value {
+            MoveValue::U256(v) => {
+                let f = convert_u256_to_field::<F>(&v);
+                U256(f[0], f[1])
+            }
+            _ => unimplemented!("not supported move value, {}", value),
+        }
+    }
+}
+
+impl<F: FieldExt> U256<F> {
+    pub fn new(x: u256::U256) -> Self {
+        let v = convert_u256_to_field::<F>(&x);
+        Self(v[0], v[1])
+    }
+
+    pub fn value(&self) -> Option<(F, F)> {
+        match self {
+            Self(v0, v1) => Some((*v0, *v1)),
+        }
+    }
+
+    pub fn ty(&self) -> MoveValueType {
+        MoveValueType::U256
+    }
+}
+
 impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
     fn from(simple: SimpleValue<F>) -> Self {
         match simple {
@@ -920,6 +984,11 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
+    /// convert from Field into Value<F>
+    pub fn new_u256(value: [F; 2]) -> Self {
+        Self::U256(U256(value[0], value[1]))
+    }
+
     pub fn bool(x: bool) -> Self {
         let value = if x { F::one() } else { F::zero() };
         Self::Bool(Bool(value))
@@ -944,6 +1013,12 @@ impl<F: FieldExt> Value<F> {
         let value = F::from_u128(x);
         Self::U128(U128(value))
     }
+    /// convert from u256::U256 into Value<F>
+    pub fn u256(x: u256::U256) -> Self {
+        let value = convert_u256_to_field::<F>(&x);
+        Self::U256(U256(value[0], value[1]))
+    }
+
     pub fn address(x: AccountAddress<F>) -> Self {
         Self::Address(x)
     }
@@ -983,9 +1058,14 @@ impl<F: FieldExt> Value<F> {
             Self::U128(v) => Some(v.0),
             Self::Bool(v) => Some(v.0),
             Self::Address(addr) => Some(addr.value()),
-            Self::GlobalRef(_) | Self::IndexedRef(_) | Self::LocalRef(_) | Self::Container(_) => {
-                unreachable!()
-            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn value_u256(&self) -> Option<[F; 2]> {
+        match self {
+            Self::U256(v) => Some([v.0, v.1]),
+            _ => unreachable!(),
         }
     }
 
@@ -999,6 +1079,7 @@ impl<F: FieldExt> Value<F> {
             Self::U32(_) => MoveValueType::U32,
             Self::U64(_) => MoveValueType::U64,
             Self::U128(_) => MoveValueType::U128,
+            Self::U256(_) => MoveValueType::U256,
             Self::Bool(_) => MoveValueType::Bool,
             _ => unimplemented!(),
         }
@@ -1032,34 +1113,144 @@ impl<F: FieldExt> PartialEq for Value<F> {
 
 impl<F: FieldExt> Eq for Value<F> {}
 
+impl<F: FieldExt> Add for U256<F> {
+    type Output = VmResult<Self>;
+
+    fn add(self, b: U256<F>) -> Self::Output {
+        // implement add based on checked_add API to check arithmetic overflow
+        let v = self.value().unwrap();
+        let lhs = decode_field_to_u256(&[v.0, v.1]);
+        let v = b.value().unwrap();
+        let rhs = decode_field_to_u256(&[v.0, v.1]);
+
+        let res = u256::U256::checked_add(lhs, rhs).expect("arithmetic error found");
+        let c = U256::new(res);
+        Ok(c)
+    }
+}
+impl<F: FieldExt> Sub for U256<F> {
+    type Output = VmResult<Self>;
+
+    fn sub(self, b: U256<F>) -> Self::Output {
+        // implement sub based on checked_sub API to check arithmetic overflow
+        let v = self.value().unwrap();
+        let lhs = decode_field_to_u256(&[v.0, v.1]);
+        let v = b.value().unwrap();
+        let rhs = decode_field_to_u256(&[v.0, v.1]);
+
+        let res = u256::U256::checked_sub(lhs, rhs).expect("arithmetic error found");
+        let c = U256::new(res);
+        Ok(c)
+    }
+}
+impl<F: FieldExt> Mul for U256<F> {
+    type Output = VmResult<Self>;
+
+    fn mul(self, b: U256<F>) -> Self::Output {
+        // implement mul based on checked_mul API to check arithmetic overflow
+        let v = self.value().unwrap();
+        let lhs = decode_field_to_u256(&[v.0, v.1]);
+        let v = b.value().unwrap();
+        let rhs = decode_field_to_u256(&[v.0, v.1]);
+
+        let res = u256::U256::checked_mul(lhs, rhs).expect("arithmetic error found");
+        let c = U256::new(res);
+        Ok(c)
+    }
+}
+impl<F: FieldExt> Div for U256<F> {
+    type Output = VmResult<Self>;
+
+    fn div(self, b: U256<F>) -> Self::Output {
+        // implement div based on checked_div API to check arithmetic overflow
+        let v = self.value().unwrap();
+        let lhs = decode_field_to_u256(&[v.0, v.1]);
+        let v = b.value().unwrap();
+        let rhs = decode_field_to_u256(&[v.0, v.1]);
+
+        let res = u256::U256::checked_div(lhs, rhs).expect("arithmetic error found");
+        let c = U256::new(res);
+        Ok(c)
+    }
+}
+
+impl<F: FieldExt> Rem for U256<F> {
+    type Output = VmResult<Self>;
+
+    fn rem(self, b: U256<F>) -> Self::Output {
+        // implement rem based on checked_rem API to check arithmetic overflow
+        let v = self.value().unwrap();
+        let lhs = decode_field_to_u256(&[v.0, v.1]);
+        let v = b.value().unwrap();
+        let rhs = decode_field_to_u256(&[v.0, v.1]);
+
+        let res = u256::U256::checked_rem(lhs, rhs).expect("arithmetic error found");
+        let c = U256::new(res);
+        Ok(c)
+    }
+}
+impl<F: FieldExt> Not for U256<F> {
+    type Output = VmResult<Value<F>>;
+
+    fn not(self) -> Self::Output {
+        let v = self.value().expect("arithmetic error found");
+        let res = if v.0.is_zero_vartime() && v.1.is_zero_vartime() {
+            F::one()
+        } else {
+            F::zero()
+        };
+
+        let c = Value::new(res, MoveValueType::Bool)?;
+        Ok(c)
+    }
+}
+
 impl<F: FieldExt> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
-        // implement add based on checked_add API to check arithmetic overflow
-        // let value = self.value().and_then(|a| b.value().map(|b| a + b));
-        let lhs = self.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = match (self.ty(), b.ty()) {
-            (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
-                u8::checked_add(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
-                u16::checked_add(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
-                u32::checked_add(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
-                u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U128, MoveValueType::U128) => {
-                F::from_u128(u128::checked_add(lhs, rhs).expect("arithmetic error found"))
+        if self.ty() == MoveValueType::U256 {
+            let l_move: Option<MoveValue> = self.into();
+            let r_move: Option<MoveValue> = b.into();
+
+            debug!("b: {:?}", l_move);
+            match (l_move, r_move) {
+                (Some(MoveValue::U256(l)), Some(MoveValue::U256(r))) => {
+                    let v = u256::U256::checked_add(l, r).expect("arithmetic error found");
+                    Ok(Value::u256(v))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Add operand should be U256".to_string())),
             }
-            (_, _) => unimplemented!(),
-        };
-        let c = Value::new(value, self.ty())?;
-        Ok(c)
+        } else {
+            // implement add based on checked_add API to check arithmetic overflow
+            // let value = self.value().and_then(|a| b.value().map(|b| a + b));
+            let lhs = self.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = match (self.ty(), b.ty()) {
+                (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
+                    u8::checked_add(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+                ),
+                (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                    u16::checked_add(lhs as u16, rhs as u16).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                    u32::checked_add(lhs as u32, rhs as u32).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
+                    u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U128, MoveValueType::U128) => {
+                    F::from_u128(u128::checked_add(lhs, rhs).expect("arithmetic error found"))
+                }
+                (_, _) => unimplemented!(),
+            };
+            let c = Value::new(value, self.ty())?;
+            Ok(c)
+        }
     }
 }
 
@@ -1067,30 +1258,47 @@ impl<F: FieldExt> Sub for Value<F> {
     type Output = VmResult<Self>;
 
     fn sub(self, b: Value<F>) -> Self::Output {
-        // implement sub based on checked_sub API to check arithmetic overflow
-        // let value = self.value().and_then(|a| b.value().map(|b| a - b));
-        let lhs = self.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = match (self.ty(), b.ty()) {
-            (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
-                u8::checked_sub(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
-                u16::checked_sub(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
-                u32::checked_sub(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
-                u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U128, MoveValueType::U128) => {
-                F::from_u128(u128::checked_sub(lhs, rhs).expect("arithmetic error found"))
+        if self.ty() == MoveValueType::U256 {
+            let l_move: Option<MoveValue> = self.into();
+            let r_move: Option<MoveValue> = b.into();
+
+            match (l_move, r_move) {
+                (Some(MoveValue::U256(l)), Some(MoveValue::U256(r))) => {
+                    let v = u256::U256::checked_sub(l, r).expect("arithmetic error found");
+                    Ok(Value::u256(v))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should be U256".to_string())),
             }
-            (_, _) => unimplemented!(),
-        };
-        let c = Value::new(value, self.ty())?;
-        Ok(c)
+        } else {
+            // implement sub based on checked_sub API to check arithmetic overflow
+            // let value = self.value().and_then(|a| b.value().map(|b| a - b));
+            let lhs = self.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = match (self.ty(), b.ty()) {
+                (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
+                    u8::checked_sub(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+                ),
+                (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                    u16::checked_sub(lhs as u16, rhs as u16).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                    u32::checked_sub(lhs as u32, rhs as u32).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
+                    u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U128, MoveValueType::U128) => {
+                    F::from_u128(u128::checked_sub(lhs, rhs).expect("arithmetic error found"))
+                }
+                (_, _) => unimplemented!(),
+            };
+            let c = Value::new(value, self.ty())?;
+            Ok(c)
+        }
     }
 }
 
@@ -1098,30 +1306,47 @@ impl<F: FieldExt> Mul for Value<F> {
     type Output = VmResult<Self>;
 
     fn mul(self, b: Value<F>) -> Self::Output {
-        // implement mul based on checked_mul API to check arithmetic overflow
-        // let value = self.value().and_then(|a| b.value().map(|b| a * b));
-        let lhs = self.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = match (self.ty(), b.ty()) {
-            (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
-                u8::checked_mul(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
-                u16::checked_mul(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
-                u32::checked_mul(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
-                u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
-            ),
-            (MoveValueType::U128, MoveValueType::U128) => {
-                F::from_u128(u128::checked_mul(lhs, rhs).expect("arithmetic error found"))
+        if self.ty() == MoveValueType::U256 {
+            let l_move: Option<MoveValue> = self.into();
+            let r_move: Option<MoveValue> = b.into();
+
+            match (l_move, r_move) {
+                (Some(MoveValue::U256(l)), Some(MoveValue::U256(r))) => {
+                    let v = u256::U256::checked_mul(l, r).expect("arithmetic error found");
+                    Ok(Value::u256(v))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should be U256".to_string())),
             }
-            (_, _) => unimplemented!(),
-        };
-        let c = Value::new(value, self.ty())?;
-        Ok(c)
+        } else {
+            // implement mul based on checked_mul API to check arithmetic overflow
+            // let value = self.value().and_then(|a| b.value().map(|b| a * b));
+            let lhs = self.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = match (self.ty(), b.ty()) {
+                (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
+                    u8::checked_mul(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+                ),
+                (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                    u16::checked_mul(lhs as u16, rhs as u16).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                    u32::checked_mul(lhs as u32, rhs as u32).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
+                    u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found")
+                        as u128,
+                ),
+                (MoveValueType::U128, MoveValueType::U128) => {
+                    F::from_u128(u128::checked_mul(lhs, rhs).expect("arithmetic error found"))
+                }
+                (_, _) => unimplemented!(),
+            };
+            let c = Value::new(value, self.ty())?;
+            Ok(c)
+        }
     }
 }
 
@@ -1129,17 +1354,31 @@ impl<F: FieldExt> Div for Value<F> {
     type Output = VmResult<Self>;
 
     fn div(self, b: Value<F>) -> Self::Output {
-        let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-        let r_move: Option<MoveValue> = b.into();
-        match (l_move, r_move) {
-            (Some(l), Some(r)) => {
-                let quo = move_div(l, r)?;
-                let v = convert_to_field::<F>(quo);
-                let value = Value::new(v, self.ty())?;
-                Ok(value)
+        if self.ty() == MoveValueType::U256 {
+            let l_move: Option<MoveValue> = self.into();
+            let r_move: Option<MoveValue> = b.into();
+
+            match (l_move, r_move) {
+                (Some(MoveValue::U256(l)), Some(MoveValue::U256(r))) => {
+                    let v = u256::U256::checked_div(l, r).expect("arithmetic error found");
+                    Ok(Value::u256(v))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should be U256".to_string())),
             }
-            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string())),
+        } else {
+            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
+            let r_move: Option<MoveValue> = b.into();
+            match (l_move, r_move) {
+                (Some(l), Some(r)) => {
+                    let quo = move_div(l, r)?;
+                    let v = convert_to_field::<F>(quo);
+                    let value = Value::new(v, self.ty())?;
+                    Ok(value)
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should not be None".to_string())),
+            }
         }
     }
 }
@@ -1148,17 +1387,31 @@ impl<F: FieldExt> Rem for Value<F> {
     type Output = VmResult<Self>;
 
     fn rem(self, b: Value<F>) -> Self::Output {
-        let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-        let r_move: Option<MoveValue> = b.into();
-        match (l_move, r_move) {
-            (Some(l), Some(r)) => {
-                let rem = move_rem(l, r)?;
-                let v = convert_to_field::<F>(rem);
-                let value = Value::new(v, self.ty())?;
-                Ok(value)
+        if self.ty() == MoveValueType::U256 {
+            let l_move: Option<MoveValue> = self.into();
+            let r_move: Option<MoveValue> = b.into();
+
+            match (l_move, r_move) {
+                (Some(MoveValue::U256(l)), Some(MoveValue::U256(r))) => {
+                    let v = u256::U256::checked_rem(l, r).expect("arithmetic error found");
+                    Ok(Value::u256(v))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should not be None".to_string())),
             }
-            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string())),
+        } else {
+            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
+            let r_move: Option<MoveValue> = b.into();
+            match (l_move, r_move) {
+                (Some(l), Some(r)) => {
+                    let rem = move_rem(l, r)?;
+                    let v = convert_to_field::<F>(rem);
+                    let value = Value::new(v, self.ty())?;
+                    Ok(value)
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should not be None".to_string())),
+            }
         }
     }
 }
@@ -1182,50 +1435,97 @@ impl<F: FieldExt> Value<F> {
             (Self::U32(v1), Self::U32(v2)) => v1.0 == v2.0,
             (Self::U64(v1), Self::U64(v2)) => v1.0 == v2.0,
             (Self::U128(v1), Self::U128(v2)) => v1.0 == v2.0,
+            (Self::U256(v1), Self::U256(v2)) => (v1.0 == v2.0) && (v1.1 == v2.1),
             (Self::Bool(v1), Self::Bool(v2)) => v1.0 == v2.0,
             _ => false,
         }
     }
 
     pub fn less_than(&self, other: &Self) -> VmResult<bool> {
-        match (self.value(), other.value()) {
-            (Some(v1), Some(v2)) => Ok(v1 < v2),
-            _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        // fixme. maybe there is better implemtentation here.
+        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = other.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            Ok(lhs < rhs)
+        } else {
+            match (self.value(), other.value()) {
+                (Some(v1), Some(v2)) => Ok(v1 < v2),
+                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+            }
         }
     }
 
     pub fn less_equal(&self, other: &Self) -> VmResult<bool> {
-        match (self.value(), other.value()) {
-            (Some(v1), Some(v2)) => Ok(v1 <= v2),
-            _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        // fixme. maybe there is better implemtentation here.
+        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = other.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            Ok(lhs <= rhs)
+        } else {
+            match (self.value(), other.value()) {
+                (Some(v1), Some(v2)) => Ok(v1 <= v2),
+                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+            }
         }
     }
 
     pub fn greater_than(&self, other: &Self) -> VmResult<bool> {
-        match (self.value(), other.value()) {
-            (Some(v1), Some(v2)) => Ok(v1 > v2),
-            _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        // fixme. maybe there is better implemtentation here.
+        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = other.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            Ok(lhs > rhs)
+        } else {
+            match (self.value(), other.value()) {
+                (Some(v1), Some(v2)) => Ok(v1 > v2),
+                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+            }
         }
     }
 
     pub fn greater_equal(&self, other: &Self) -> VmResult<bool> {
-        match (self.value(), other.value()) {
-            (Some(v1), Some(v2)) => Ok(v1 >= v2),
-            _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        // fixme. maybe there is better implemtentation here.
+        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = other.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            Ok(lhs >= rhs)
+        } else {
+            match (self.value(), other.value()) {
+                (Some(v1), Some(v2)) => Ok(v1 >= v2),
+                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+            }
         }
     }
 
     pub fn is_zero(&self) -> bool {
-        match self.value() {
-            Some(v) => v.is_zero_vartime(),
-            None => false,
+        if self.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            v[0].is_zero_vartime() && v[1].is_zero_vartime()
+        } else {
+            match self.value() {
+                Some(v) => v.is_zero_vartime(),
+                None => false,
+            }
         }
     }
 
     pub fn is_integer(&self) -> bool {
         matches!(
             self,
-            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_)
+            Self::U8(_)
+                | Self::U16(_)
+                | Self::U32(_)
+                | Self::U64(_)
+                | Self::U128(_)
+                | Self::U256(_)
         )
     }
 
@@ -1234,20 +1534,20 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as u8".to_string()));
         }
-        let val = self.value().unwrap().get_lower_128();
 
         match self {
             Self::U8(_) => Ok(self),
             Self::U16(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u16({}) to u8", val)))
                 } else {
-                    // Self::u16(val as u16, None)
                     Value::new(F::from_u128(val), MoveValueType::U8)
                 }
             }
             Self::U32(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u32({}) to u8", val)))
@@ -1257,6 +1557,7 @@ impl<F: FieldExt> Value<F> {
                 }
             }
             Self::U64(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u8", val)))
@@ -1266,12 +1567,25 @@ impl<F: FieldExt> Value<F> {
                 }
             }
             Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u8", val)))
                 } else {
                     // Self::u128(val, None)
                     Value::new(F::from_u128(val), MoveValueType::U8)
+                }
+            }
+            Self::U256(x) => {
+                let val = decode_field_to_u256(&[x.0, x.1]);
+                if val > u256::U256::from(std::u8::MAX) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u256({}) to u8", val)))
+                } else {
+                    Value::new(
+                        F::from_u128(val.unchecked_as_u8() as u128),
+                        MoveValueType::U8,
+                    )
                 }
             }
             _ => unreachable!(),
@@ -1283,11 +1597,14 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as u16".to_string()));
         }
-        let val = self.value().unwrap().get_lower_128();
 
         match self {
-            Self::U8(_) | Self::U16(_) => Value::new(F::from_u128(val), MoveValueType::U16),
+            Self::U8(_) | Self::U16(_) => {
+                let val = self.value().unwrap().get_lower_128();
+                Value::new(F::from_u128(val), MoveValueType::U16)
+            }
             Self::U32(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u16::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u32({}) to u16", val)))
@@ -1296,6 +1613,7 @@ impl<F: FieldExt> Value<F> {
                 }
             }
             Self::U64(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u16::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u16", val)))
@@ -1304,11 +1622,24 @@ impl<F: FieldExt> Value<F> {
                 }
             }
             Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u16::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u16", val)))
                 } else {
                     Value::new(F::from_u128(val), MoveValueType::U16)
+                }
+            }
+            Self::U256(x) => {
+                let val = decode_field_to_u256(&[x.0, x.1]);
+                if val > u256::U256::from(std::u16::MAX) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u256({}) to u16", val)))
+                } else {
+                    Value::new(
+                        F::from_u128(val.unchecked_as_u16() as u128),
+                        MoveValueType::U16,
+                    )
                 }
             }
             _ => unreachable!(),
@@ -1320,13 +1651,14 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as u32".to_string()));
         }
-        let val = self.value().unwrap().get_lower_128();
 
         match self {
             Self::U8(_) | Self::U16(_) | Self::U32(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 Value::new(F::from_u128(val), MoveValueType::U32)
             }
             Self::U64(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u32::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u32", val)))
@@ -1335,11 +1667,24 @@ impl<F: FieldExt> Value<F> {
                 }
             }
             Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u32::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u32", val)))
                 } else {
                     Value::new(F::from_u128(val), MoveValueType::U32)
+                }
+            }
+            Self::U256(x) => {
+                let val = decode_field_to_u256(&[x.0, x.1]);
+                if val > u256::U256::from(std::u32::MAX) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u256({}) to u32", val)))
+                } else {
+                    Value::new(
+                        F::from_u128(val.unchecked_as_u32() as u128),
+                        MoveValueType::U32,
+                    )
                 }
             }
             _ => unreachable!(),
@@ -1351,19 +1696,32 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as u64".to_string()));
         }
-        let val = self.value().unwrap().get_lower_128();
 
         match self {
             Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 Value::new(F::from_u128(val), MoveValueType::U64)
             }
             Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 if val > (std::u64::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u64", val)))
                 } else {
                     // Self::u128(val, None)
                     Value::new(F::from_u128(val), MoveValueType::U64)
+                }
+            }
+            Self::U256(x) => {
+                let val = decode_field_to_u256(&[x.0, x.1]);
+                if val > u256::U256::from(std::u64::MAX) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u256({}) to u64", val)))
+                } else {
+                    Value::new(
+                        F::from_u128(val.unchecked_as_u64() as u128),
+                        MoveValueType::U64,
+                    )
                 }
             }
             _ => unreachable!(),
@@ -1375,46 +1733,85 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
                 .with_message("the value can not be cast as u128".to_string()));
         }
-        let val = self.value().unwrap().get_lower_128();
 
         match self {
             Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
                 Value::new(F::from_u128(val), MoveValueType::U128)
+            }
+            Self::U256(x) => {
+                let val = decode_field_to_u256(&[x.0, x.1]);
+                if val > u256::U256::from(std::u128::MAX) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u256({}) to u128", val)))
+                } else {
+                    Value::new(F::from_u128(val.unchecked_as_u128()), MoveValueType::U128)
+                }
             }
             _ => unreachable!(),
         }
     }
 
-    pub fn div_rem(&self, other: Value<F>) -> VmResult<(Value<F>, Value<F>)> {
-        let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-        let r_move: Option<MoveValue> = other.into();
-        match (l_move, r_move) {
-            (Some(l), Some(r)) => {
-                let quo = move_div(l.clone(), r.clone())?;
-                let rem = move_rem(l, r)?;
-                let quo_field = convert_to_field::<F>(quo);
-                let rem_field = convert_to_field::<F>(rem);
-                let quo_value = Value::new(quo_field, self.ty())?;
-                let rem_value = Value::new(rem_field, self.ty())?;
-                Ok((quo_value, rem_value))
+    pub fn castu256(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u256".to_string()));
+        }
+
+        match self {
+            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_) => {
+                let val = self.value().unwrap().get_lower_128();
+                let x = u256::U256::from(val);
+                Ok(Self::u256(x))
             }
-            _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                .with_message("Move value should not be None".to_string())),
+            Self::U256(_) => Ok(self),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn div_rem(&self, other: Value<F>) -> VmResult<(Value<F>, Value<F>)> {
+        if self.ty() == MoveValueType::U256 {
+            let v = self.value_u256().unwrap();
+            let l_move = Some(MoveValue::U256(decode_field_to_u256(&v)));
+            let r_move: Option<MoveValue> = other.into();
+            match (l_move, r_move) {
+                (Some(l), Some(r)) => {
+                    let quo = move_div(l.clone(), r.clone())?;
+                    let rem = move_rem(l, r)?;
+                    match (quo, rem) {
+                        (MoveValue::U256(q), MoveValue::U256(r)) => {
+                            let quo_value = Value::u256(q);
+                            let rem_value = Value::u256(r);
+                            Ok((quo_value, rem_value))
+                        }
+                        _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                            .with_message("Move value should not be None".to_string())),
+                    }
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should not be None".to_string())),
+            }
+        } else {
+            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
+            let r_move: Option<MoveValue> = other.into();
+            match (l_move, r_move) {
+                (Some(l), Some(r)) => {
+                    let quo = move_div(l.clone(), r.clone())?;
+                    let rem = move_rem(l, r)?;
+                    let quo_field = convert_to_field::<F>(quo);
+                    let rem_field = convert_to_field::<F>(rem);
+                    let quo_value = Value::new(quo_field, self.ty())?;
+                    let rem_value = Value::new(rem_field, self.ty())?;
+                    Ok((quo_value, rem_value))
+                }
+                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
+                    .with_message("Move value should not be None".to_string())),
+            }
         }
     }
 
     pub fn eq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = match (a.value(), b.value()) {
-            (Some(a), Some(b)) => {
-                if a == b {
-                    F::one()
-                } else {
-                    F::zero()
-                }
-            }
-            _ => F::zero(),
-        };
-
+        let value = if a.equals(&b) { F::one() } else { F::zero() };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -1464,24 +1861,38 @@ impl<F: FieldExt> Value<F> {
             return Err(RuntimeError::new(StatusCode::InvalidValue)
                 .with_message("expect value of u8 type".to_string()));
         }
-        let lhs = a.value().unwrap().get_lower_128();
         let n_bits = b.value().unwrap().get_lower_128() as u8;
         let max_bits = match a.ty() {
-            MoveValueType::U8 => 8,
-            MoveValueType::U64 => 64,
-            MoveValueType::U128 => 128,
+            MoveValueType::U8 => 7,
+            MoveValueType::U16 => 15,
+            MoveValueType::U32 => 31,
+            MoveValueType::U64 => 63,
+            MoveValueType::U128 => 127,
+            MoveValueType::U256 => 255,
             _ => unreachable!(),
         };
         if n_bits >= max_bits {
             return Err(RuntimeError::new(StatusCode::ArithmeticError)
                 .with_message("exceed max shift bits".to_string()));
         }
-        let shift_value = if shift_left {
-            lhs << n_bits
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let shift_value = if shift_left {
+                lhs << n_bits
+            } else {
+                lhs >> n_bits
+            };
+            Ok(Value::u256(shift_value))
         } else {
-            lhs >> n_bits
-        };
-        Value::new(F::from_u128(shift_value), a.ty())
+            let lhs = a.value().unwrap().get_lower_128();
+            let shift_value = if shift_left {
+                lhs << n_bits
+            } else {
+                lhs >> n_bits
+            };
+            Value::new(F::from_u128(shift_value), a.ty())
+        }
     }
 
     pub fn shl_checked(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
@@ -1492,42 +1903,69 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn bit_and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        // Bitwise AND the 2 u64
-        if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
-            return Err(RuntimeError::new(StatusCode::UnsupportedMoveType)
-                .with_message("the value should be u64".to_string()));
+        if !a.is_integer() || !b.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
         }
-        let lhs = a.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = F::from_u128(lhs & rhs);
-        let value = Value::new(value, a.ty())?;
-        Ok(value)
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = b.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            let result = convert_u256_to_field::<F>(&(lhs & rhs));
+            let value = Value::new_u256(result);
+            Ok(value)
+        } else {
+            let lhs = a.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = F::from_u128(lhs & rhs);
+            let value = Value::new(value, a.ty())?;
+            Ok(value)
+        }
     }
 
     pub fn bit_or(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        // Bitwise OR the 2 u64
-        if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
-            return Err(RuntimeError::new(StatusCode::UnsupportedMoveType)
-                .with_message("the value should be u64".to_string()));
+        if !a.is_integer() || !b.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
         }
-        let lhs = a.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = F::from_u128(lhs | rhs);
-        let value = Value::new(value, a.ty())?;
-        Ok(value)
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = b.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            let result = convert_u256_to_field::<F>(&(lhs | rhs));
+            let value = Value::new_u256(result);
+            Ok(value)
+        } else {
+            let lhs = a.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = F::from_u128(lhs | rhs);
+            let value = Value::new(value, a.ty())?;
+            Ok(value)
+        }
     }
 
     pub fn xor(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        // Bitwise XOR the 2 u64
-        if a.ty() != MoveValueType::U64 || b.ty() != MoveValueType::U64 {
-            return Err(RuntimeError::new(StatusCode::UnsupportedMoveType)
-                .with_message("the value should be u64".to_string()));
+        if !a.is_integer() || !b.is_integer() {
+            return Err(RuntimeError::new(StatusCode::TypeMismatch)
+                .with_message("expect value of integer type".to_string()));
         }
-        let lhs = a.value().unwrap().get_lower_128();
-        let rhs = b.value().unwrap().get_lower_128();
-        let value = F::from_u128(lhs ^ rhs);
-        let value = Value::new(value, a.ty())?;
-        Ok(value)
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = b.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            let result = convert_u256_to_field::<F>(&(lhs ^ rhs));
+            let value = Value::new_u256(result);
+            Ok(value)
+        } else {
+            let lhs = a.value().unwrap().get_lower_128();
+            let rhs = b.value().unwrap().get_lower_128();
+            let value = F::from_u128(lhs ^ rhs);
+            let value = Value::new(value, a.ty())?;
+            Ok(value)
+        }
     }
 
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
@@ -1551,25 +1989,51 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn delta_invert(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let delta_invert = if a.value() == b.value() {
-            F::one()
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = b.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            let del_invert = if lhs == rhs {
+                F::one()
+            } else {
+                // fixme. how to deal with two fields here?
+                let delta = convert_u256_to_fe::<F>(lhs - rhs);
+                delta.invert().unwrap()
+            };
+            let value = Value::new(del_invert, MoveValueType::U128)?;
+            Ok(value)
         } else {
-            let delta = a.value().unwrap() - b.value().unwrap();
-            delta.invert().unwrap()
-        };
+            let delta_invert = if a.value() == b.value() {
+                F::one()
+            } else {
+                let delta = a.value().unwrap() - b.value().unwrap();
+                delta.invert().unwrap()
+            };
 
-        let value = Value::new(delta_invert, a.ty())?;
-        Ok(value)
+            let value = Value::new(delta_invert, a.ty())?;
+            Ok(value)
+        }
     }
 
     pub fn diff(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let lhs = a.value().unwrap();
-        let rhs = b.value().unwrap();
-        let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
-        let range_or_zero = if lhs < rhs { range } else { F::zero() };
-        let diff = (lhs - rhs) + range_or_zero;
-        let value = Value::new(diff, a.ty())?;
-        Ok(value)
+        if a.ty() == MoveValueType::U256 {
+            let v = a.value_u256().unwrap();
+            let lhs = decode_field_to_u256(&v);
+            let v = b.value_u256().unwrap();
+            let rhs = decode_field_to_u256(&v);
+            let diff = lhs.wrapping_sub(rhs);
+            let value = Value::new_u256(convert_u256_to_field::<F>(&diff));
+            Ok(value)
+        } else {
+            let lhs = a.value().unwrap();
+            let rhs = b.value().unwrap();
+            let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
+            let range_or_zero = if lhs < rhs { range } else { F::zero() };
+            let diff = (lhs - rhs) + range_or_zero;
+            let value = Value::new(diff, a.ty())?;
+            Ok(value)
+        }
     }
 }
 
@@ -1601,6 +2065,7 @@ impl<F: FieldExt> Value<F> {
             Self::U32(v) => Self::U32(*v),
             Self::U64(v) => Self::U64(*v),
             Self::U128(v) => Self::U128(*v),
+            Self::U256(v) => Self::U256(*v),
             Self::Bool(v) => Self::Bool(*v),
 
             Self::GlobalRef(r) => Self::GlobalRef(r.clone()),

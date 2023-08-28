@@ -2,7 +2,7 @@
 
 use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
-    Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128,
+    Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128, U256,
 };
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
@@ -11,6 +11,7 @@ use std::marker::PhantomData;
 
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
 pub const LEN_OF_SIMPLE_VALUE: usize = 2;
+pub const LEN_OF_U256_VALUE: usize = 3;
 
 /// To efficiently represent a complex value in the circuit, we defined 'FlattenedValue'.
 /// It starts with a value header carrying type information, followed by simple values
@@ -32,6 +33,7 @@ impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
                 let simple = SimpleValue::try_from(value).expect("should not fail");
                 FlattenedSimpleValue::from(simple).into()
             }
+            Value::U256(u) => FlattenedU256::from(*u).into(),
             Value::Container(c) => FlattenedContainerValue::from(c).into(),
             Value::GlobalRef(_) | Value::IndexedRef(_) | Value::LocalRef(_) => {
                 let reference = Reference::try_from(value).expect("should not fail");
@@ -57,6 +59,24 @@ impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
 
 impl<F: FieldExt> From<FlattenedSimpleValue<F>> for FlattenedValue<F> {
     fn from(value: FlattenedSimpleValue<F>) -> FlattenedValue<F> {
+        FlattenedValue(value.0.to_vec())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FlattenedU256<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_U256_VALUE]);
+
+impl<F: FieldExt> From<U256<F>> for FlattenedU256<F> {
+    fn from(value: U256<F>) -> FlattenedU256<F> {
+        FlattenedU256([
+            (vec![0u128], ValueHeader::default_for_u256().into()),
+            (vec![1u128], SimpleValue::U128(U128(value.0))),
+            (vec![2u128], SimpleValue::U128(U128(value.1))),
+        ])
+    }
+}
+impl<F: FieldExt> From<FlattenedU256<F>> for FlattenedValue<F> {
+    fn from(value: FlattenedU256<F>) -> FlattenedValue<F> {
         FlattenedValue(value.0.to_vec())
     }
 }
@@ -289,6 +309,11 @@ impl<F: FieldExt> ValueHeader<F> {
     // default ValueHeader for any simple value
     pub fn default_for_simple() -> Self {
         Self::new(2, 1)
+    }
+
+    // default ValueHeader for U256 value
+    pub fn default_for_u256() -> Self {
+        Self::new(3, 2)
     }
 
     // default ValueHeader for any reference value

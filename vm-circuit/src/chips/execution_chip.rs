@@ -14,6 +14,7 @@ use crate::chips::execution_chip::instructions::branch::Branch;
 use crate::chips::execution_chip::instructions::call::Call;
 use crate::chips::execution_chip::instructions::castu128::CastU128;
 use crate::chips::execution_chip::instructions::castu16::CastU16;
+use crate::chips::execution_chip::instructions::castu256::CastU256;
 use crate::chips::execution_chip::instructions::castu32::CastU32;
 use crate::chips::execution_chip::instructions::castu64::CastU64;
 use crate::chips::execution_chip::instructions::castu8::CastU8;
@@ -29,6 +30,7 @@ use crate::chips::execution_chip::instructions::ld_false::LdFalse;
 use crate::chips::execution_chip::instructions::ld_true::LdTrue;
 use crate::chips::execution_chip::instructions::ldu128::LdU128;
 use crate::chips::execution_chip::instructions::ldu16::LdU16;
+use crate::chips::execution_chip::instructions::ldu256::LdU256;
 use crate::chips::execution_chip::instructions::ldu32::LdU32;
 use crate::chips::execution_chip::instructions::ldu64::LdU64;
 use crate::chips::execution_chip::instructions::ldu8::LdU8;
@@ -109,12 +111,14 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_ldu32: Box<LdU32<F>>,
     op_ldu64: Box<LdU64<F>>,
     op_ldu128: Box<LdU128<F>>,
+    op_ldu256: Box<LdU256<F>>,
     op_ld_const: Box<LdConst<F>>,
     op_castu8: Box<CastU8<F>>,
     op_castu16: Box<CastU16<F>>,
     op_castu32: Box<CastU32<F>>,
     op_castu64: Box<CastU64<F>>,
     op_castu128: Box<CastU128<F>>,
+    op_castu256: Box<CastU256<F>>,
     op_pop: Box<Pop<F>>,
     op_ret: Box<Ret<F>>,
     op_add: Box<Add<F>>,
@@ -317,12 +321,14 @@ impl<F: FieldExt> ExecutionChip<F> {
             op_ldu32: configure_opcode_gadget!(),
             op_ldu64: configure_opcode_gadget!(),
             op_ldu128: configure_opcode_gadget!(),
+            op_ldu256: configure_opcode_gadget!(),
             op_ld_const: configure_opcode_gadget!(),
             op_castu8: configure_opcode_gadget!(),
             op_castu16: configure_opcode_gadget!(),
             op_castu32: configure_opcode_gadget!(),
             op_castu64: configure_opcode_gadget!(),
             op_castu128: configure_opcode_gadget!(),
+            op_castu256: configure_opcode_gadget!(),
             op_pop: configure_opcode_gadget!(),
             op_ret: configure_opcode_gadget!(),
             op_add: configure_opcode_gadget!(),
@@ -680,12 +686,14 @@ impl<F: FieldExt> ExecutionChip<F> {
             Opcode::LdU32 => assign_opcode_gadget!(self.config.op_ldu32),
             Opcode::LdU64 => assign_opcode_gadget!(self.config.op_ldu64),
             Opcode::LdU128 => assign_opcode_gadget!(self.config.op_ldu128),
+            Opcode::LdU256 => assign_opcode_gadget!(self.config.op_ldu256),
             Opcode::LdConst => assign_opcode_gadget!(self.config.op_ld_const),
             Opcode::CastU8 => assign_opcode_gadget!(self.config.op_castu8),
             Opcode::CastU16 => assign_opcode_gadget!(self.config.op_castu16),
             Opcode::CastU32 => assign_opcode_gadget!(self.config.op_castu32),
             Opcode::CastU64 => assign_opcode_gadget!(self.config.op_castu64),
             Opcode::CastU128 => assign_opcode_gadget!(self.config.op_castu128),
+            Opcode::CastU256 => assign_opcode_gadget!(self.config.op_castu256),
             Opcode::Pop => assign_opcode_gadget!(self.config.op_pop),
             Opcode::Ret => assign_opcode_gadget!(self.config.op_ret),
             Opcode::Xor => assign_opcode_gadget!(self.config.op_xor),

@@ -52,6 +52,11 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::LdU128.index() as u128),
             F::from_u128(v),
         ),
+        Bytecode::LdU256(_v) => (
+            F::from_u128(Opcode::LdU256.index() as u128),
+            // TODO for u256(2 fields)
+            F::zero(),
+        ),
         Bytecode::LdConst(v) => (
             F::from_u128(Opcode::LdConst.index() as u128),
             F::from_u128(v.0 as u128),
@@ -61,6 +66,8 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
         Bytecode::CastU32 => (F::from_u128(Opcode::CastU32.index() as u128), F::zero()),
         Bytecode::CastU64 => (F::from_u128(Opcode::CastU64.index() as u128), F::zero()),
         Bytecode::CastU128 => (F::from_u128(Opcode::CastU128.index() as u128), F::zero()),
+        // TODO for u256(2 fields).
+        Bytecode::CastU256 => (F::from_u128(Opcode::CastU256.index() as u128), F::zero()),
         Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::zero()),
         Bytecode::Ret => (F::from_u128(Opcode::Ret.index() as u128), F::zero()),
         Bytecode::Add => (F::from_u128(Opcode::Add.index() as u128), F::zero()),

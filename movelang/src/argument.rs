@@ -10,6 +10,7 @@ use move_core_types::parser::parse_transaction_arguments;
 use std::str::FromStr;
 
 use crate::account_address::AccountAddress;
+use crate::utility::convert_u256_to_field;
 use crate::utility::MoveValueType;
 pub use move_core_types::parser::parse_transaction_argument;
 pub use move_core_types::parser::parse_type_tags;
@@ -69,6 +70,16 @@ pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
     }
 }
 
+pub fn convert_from_u256<F: FieldExt>(arg: ScriptArgument) -> VmResult<[F; 2]> {
+    match arg {
+        ScriptArgument::U256(v) => {
+            let res = convert_u256_to_field::<F>(&v);
+            Ok(res)
+        }
+        _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
+    }
+}
+
 pub fn argument_type(arg: &ScriptArgument) -> VmResult<MoveValueType> {
     match arg {
         ScriptArgument::U8(_) => Ok(MoveValueType::U8),
@@ -76,6 +87,7 @@ pub fn argument_type(arg: &ScriptArgument) -> VmResult<MoveValueType> {
         ScriptArgument::U32(_) => Ok(MoveValueType::U32),
         ScriptArgument::U64(_) => Ok(MoveValueType::U64),
         ScriptArgument::U128(_) => Ok(MoveValueType::U128),
+        ScriptArgument::U256(_) => Ok(MoveValueType::U256),
         ScriptArgument::Bool(_) => Ok(MoveValueType::Bool),
         ScriptArgument::Address(_) => Ok(MoveValueType::Address),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
