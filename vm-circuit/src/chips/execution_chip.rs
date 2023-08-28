@@ -493,6 +493,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                 // part1: assign normal steps before Opcode::Stop.
                 for step in &exec_steps {
                     let step_height = self.step_height_get(&step.opcode);
+                    debug!("step={:?}, step_height={:?}, offset={:?}", step.opcode, step_height, offset);
                     self.assign_s_step(&mut region, offset, step_height)?;
 
                     // assign step state
@@ -513,8 +514,9 @@ impl<F: FieldExt> ExecutionChip<F> {
                 // This happened when an execution path is not fixed, for example, if there
                 // is loop in the code.
 
+                debug!("offset={:?}", offset);
                 if let Some(max_row) = self.witness.circuit_config.max_step_row {
-                    debug!("offset={:?}, max_row={:?}", offset, max_row);
+                    debug!("max_row={:?}", max_row);
                     if offset >= max_row {
                         error!(
                             "execution circuit offset larger than max rows: {} > {}",
