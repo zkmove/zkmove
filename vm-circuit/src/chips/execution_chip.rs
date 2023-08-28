@@ -493,7 +493,10 @@ impl<F: FieldExt> ExecutionChip<F> {
                 // part1: assign normal steps before Opcode::Stop.
                 for step in &exec_steps {
                     let step_height = self.step_height_get(&step.opcode);
-                    debug!("step={:?}, step_height={:?}, offset={:?}", step.opcode, step_height, offset);
+                    debug!(
+                        "step={:?}, step_height={:?}, offset={:?}",
+                        step.opcode, step_height, offset
+                    );
                     self.assign_s_step(&mut region, offset, step_height)?;
 
                     // assign step state
