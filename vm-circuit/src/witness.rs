@@ -95,6 +95,8 @@ impl CircuitConfig {
             self.word_size = cap;
             // put it here to keep word_size and global word_cap in sync.
             set_word_capacity(cap);
+        } else {
+            set_word_capacity(DEFAULT_WORD_CAPACITY);
         }
         self
     }

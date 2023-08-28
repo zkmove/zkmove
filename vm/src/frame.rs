@@ -15,7 +15,7 @@ use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, Node
 use movelang::utility::{convert_u256_to_field, MoveValueType};
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
-    Reference, SimpleValue, Value, ValueLocation,
+    Reference, Value, ValueLocation,
 };
 use movelang::value_ext::{FlattenedValue, LocatedFlattenedValue};
 use petgraph::prelude::EdgeRef;
@@ -154,7 +154,7 @@ impl<F: FieldExt> Frame<F> {
                 match instruction {
                     Bytecode::LdConst(const_index) => {
                         let constant = resolver.constant_at(*const_index);
-                        let val: SimpleValue<_> = constant
+                        let val: Value<_> = constant
                             .deserialize_constant()
                             .ok_or_else(|| {
                                 RuntimeError::new(StatusCode::UnknownInvariantViolationError)
@@ -165,7 +165,9 @@ impl<F: FieldExt> Frame<F> {
                             })?
                             .into();
                         execution_step.auxiliary_1 = Some(Value::u64(const_index.0 as u64));
-                        interp.stack.push(val.into(), rw_operations)
+                        let flattened_value_len = FlattenedValue::from(&val).0.len();
+                        execution_step.auxiliary_2 = Some(Value::u64(flattened_value_len as u64));
+                        interp.stack.push(val, rw_operations)
                     }
                     Bytecode::LdU8(v) => {
                         let constant = F::from_u128(*v as u128);
