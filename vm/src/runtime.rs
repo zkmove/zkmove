@@ -235,7 +235,7 @@ impl<F: FieldExt> Runtime<F> {
         let call_traces = CallTraceTable::from((&script, modules.as_slice()));
         let type_instantiations =
             GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
-        let constants = ConstantTable::from(modules.as_slice());
+        let constants = ConstantTable::from((&script, modules.as_slice()));
         let bytecodes = BytecodeTable::from((script.clone(), modules));
 
         Ok(Witness::new(

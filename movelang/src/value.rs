@@ -94,6 +94,14 @@ impl<F: FieldExt> AddressPath<F> {
             .sum();
         ret as usize
     }
+    /// fold AddressPath into u128
+    pub fn fold(self) -> u128 {
+        self.into_inner()
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (*v << (16 * i)))
+            .sum()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -867,6 +875,23 @@ impl<F: FieldExt> SimpleValue<F> {
         }
     }
 }
+
+impl<F: FieldExt> From<MoveValue> for Value<F> {
+    fn from(value: MoveValue) -> Self {
+        match value {
+            MoveValue::U8(v) => Value::u8(v),
+            MoveValue::U64(v) => Value::u64(v),
+            MoveValue::U128(v) => Value::u128(v),
+            MoveValue::Bool(v) => Value::bool(v),
+            MoveValue::Address(v) => Value::address(v.into()),
+            MoveValue::Vector(v) => {
+                Value::Container(Container::vector(v.into_iter().map(Into::into)))
+            }
+            _ => unimplemented!("not supported move value, {}", value),
+        }
+    }
+}
+
 impl<F: FieldExt> Value<F> {
     pub fn new(value: F, ty: MoveValueType) -> VmResult<Self> {
         match ty {

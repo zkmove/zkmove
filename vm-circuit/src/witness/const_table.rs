@@ -1,4 +1,5 @@
 use move_binary_format::access::ModuleAccess;
+use move_binary_format::file_format::CompiledScript;
 use move_binary_format::CompiledModule;
 use move_core_types::value::MoveValue;
 
@@ -12,32 +13,47 @@ pub struct ConstantInfo {
 #[derive(Clone, Debug, Default)]
 pub struct ConstantTable(pub Vec<ConstantInfo>);
 
-impl<T: AsRef<[CompiledModule]>> From<T> for ConstantTable {
-    fn from(modules: T) -> Self {
-        ConstantTable(parse_consts(modules.as_ref()))
+impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for ConstantTable {
+    fn from((script, deps): (&'a CompiledScript, &'a [CompiledModule])) -> Self {
+        ConstantTable(parse_consts(script, deps))
     }
 }
 
-fn parse_consts(mods: &[CompiledModule]) -> Vec<ConstantInfo> {
-    mods.iter()
+fn parse_consts(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<ConstantInfo> {
+    let module_const_info = deps.iter().enumerate().flat_map(|(idx, m)| {
+        m.constant_pool()
+            .iter()
+            .enumerate()
+            .map(move |(constant_idx, constant)| {
+                #[allow(clippy::expect_fun_call)]
+                let value = constant.deserialize_constant().expect(&format!(
+                    "deserialize_constant {} at module {:?}",
+                    constant_idx,
+                    m.self_id()
+                ));
+                ConstantInfo {
+                    module_index: idx as u16 + 1, // 0 is preserved for the script
+                    constant_index: constant_idx as u16,
+                    value,
+                }
+            })
+    });
+
+    script
+        .constant_pool
+        .iter()
         .enumerate()
-        .flat_map(|(idx, m)| {
-            m.constant_pool()
-                .iter()
-                .enumerate()
-                .map(move |(constant_idx, constant)| {
-                    #[allow(clippy::expect_fun_call)]
-                    let value = constant.deserialize_constant().expect(&format!(
-                        "deserialize_constant {} at module {:?}",
-                        constant_idx,
-                        m.self_id()
-                    ));
-                    ConstantInfo {
-                        module_index: idx as u16 + 1,
-                        constant_index: constant_idx as u16,
-                        value,
-                    }
-                })
+        .map(move |(constant_idx, constant)| {
+            #[allow(clippy::expect_fun_call)]
+            let value = constant
+                .deserialize_constant()
+                .expect(&format!("deserialize_constant {} at script", constant_idx));
+            ConstantInfo {
+                module_index: 0u16,
+                constant_index: constant_idx as u16,
+                value,
+            }
         })
+        .chain(module_const_info)
         .collect()
 }
