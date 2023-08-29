@@ -291,6 +291,18 @@ impl<F: FieldExt> Container<F> {
         c[element_idx] = v;
         Ok(())
     }
+
+    pub fn equals(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        for (v1, v2) in self.0.borrow().iter().zip(other.0.borrow().iter()) {
+            if !v1.equals(v2) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl<F: FieldExt> From<LocalRef<F>> for Value<F> {
@@ -647,6 +659,9 @@ impl<F: FieldExt> GlobalRef<F> {
             container_ref: ContainerRef::Global(self.loc, self.refer.clone()),
         })
     }
+    pub fn equals(&self, other: &Self) -> bool {
+        self.refer.equals(&other.refer)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -708,6 +723,9 @@ impl<F: FieldExt> LocalRef<F> {
                 "cannot borrow field from a reference to non container value".to_string(),
             )),
         }
+    }
+    pub fn equals(&self, other: &Self) -> bool {
+        self.refer.borrow().equals(&other.refer.borrow())
     }
 }
 
@@ -780,6 +798,10 @@ impl<F: FieldExt> IndexedRef<F> {
             };
         }
         cur_value.write_field(*last, v)
+    }
+    pub fn equals(&self, other: &Self) -> bool {
+        let v = self.read_ref().expect("read_ref should not fail");
+        v.equals(&other.read_ref().expect("read_ref should not fail"))
     }
 }
 
@@ -1134,6 +1156,11 @@ impl<F: FieldExt> Value<F> {
             (Self::U64(v1), Self::U64(v2)) => v1.0 == v2.0,
             (Self::U128(v1), Self::U128(v2)) => v1.0 == v2.0,
             (Self::Bool(v1), Self::Bool(v2)) => v1.0 == v2.0,
+            (Self::Address(a1), Self::Address(a2)) => a1.value() == a2.value(),
+            (Self::Container(c1), Self::Container(c2)) => c1.equals(c2),
+            (Self::GlobalRef(r1), Self::GlobalRef(r2)) => r1.equals(r2),
+            (Self::LocalRef(r1), Self::LocalRef(r2)) => r1.equals(r2),
+            (Self::IndexedRef(r1), Self::IndexedRef(r2)) => r1.equals(r2),
             _ => false,
         }
     }
@@ -1264,17 +1291,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn eq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = match (a.value(), b.value()) {
-            (Some(a), Some(b)) => {
-                if a == b {
-                    F::one()
-                } else {
-                    F::zero()
-                }
-            }
-            _ => F::zero(),
-        };
-
+        let value = if a.equals(&b) { F::one() } else { F::zero() };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }

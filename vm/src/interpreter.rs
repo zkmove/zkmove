@@ -462,6 +462,23 @@ impl<F: FieldExt> Interpreter<F> {
         self.stack.push(result, rw_operations)
     }
 
+    pub fn equality_op(
+        &mut self,
+        is_equal: bool,
+        rw_operations: &mut Vec<RWOperation<F>>,
+    ) -> VmResult<()> {
+        let right = self.stack.pop(rw_operations)?;
+        let left = self.stack.pop(rw_operations)?;
+        let result = if is_equal {
+            Value::eq(left, right)?
+        } else {
+            Value::neq(left, right)?
+        };
+        self.stack.push(result, rw_operations)?;
+
+        Ok(())
+    }
+
     fn load_resource<'a>(
         data_store: &'a mut StateStore<F>,
         loader: &MoveLoader,
