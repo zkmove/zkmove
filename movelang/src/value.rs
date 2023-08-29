@@ -1929,7 +1929,7 @@ impl<F: FieldExt> Value<F> {
             MoveValueType::U256 => 255,
             _ => unreachable!(),
         };
-        if n_bits >= max_bits {
+        if n_bits > max_bits {
             return Err(RuntimeError::new(StatusCode::ArithmeticError)
                 .with_message("exceed max shift bits".to_string()));
         }
