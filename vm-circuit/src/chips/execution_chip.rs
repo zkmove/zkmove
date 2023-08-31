@@ -17,7 +17,7 @@ use crate::chips::execution_chip::instructions::castu64::CastU64;
 use crate::chips::execution_chip::instructions::castu8::CastU8;
 use crate::chips::execution_chip::instructions::copy_loc::CopyLoc;
 use crate::chips::execution_chip::instructions::div::Div;
-use crate::chips::execution_chip::instructions::eq::Eq;
+use crate::chips::execution_chip::instructions::equality::Equality;
 use crate::chips::execution_chip::instructions::exists::Exists;
 use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
@@ -34,7 +34,6 @@ use crate::chips::execution_chip::instructions::move_from::MoveFrom;
 use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
 use crate::chips::execution_chip::instructions::move_to::MoveTo;
 use crate::chips::execution_chip::instructions::mul::Mul;
-use crate::chips::execution_chip::instructions::neq::Neq;
 use crate::chips::execution_chip::instructions::nop::Nop;
 use crate::chips::execution_chip::instructions::not::Not;
 use crate::chips::execution_chip::instructions::or::Or;
@@ -117,8 +116,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_mod: Box<Mod<F>>,
     op_ld_true: Box<LdTrue<F>>,
     op_ld_false: Box<LdFalse<F>>,
-    op_eq: Box<Eq<F>>,
-    op_neq: Box<Neq<F>>,
+    op_eq: Box<Equality<true, F>>,
+    op_neq: Box<Equality<false, F>>,
     op_shl: Box<Shl<F>>,
     op_shr: Box<Shr<F>>,
     op_bit_and: Box<BitAnd<F>>,

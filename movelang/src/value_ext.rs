@@ -36,19 +36,19 @@ impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
 }
 
 impl<F: FieldExt> FlattenedValue<F> {
-
     // Compare with another flattened value. Return the position where
     // the first difference occurs, or return None, means that the two
     // values are the same.
-    pub fn diff(&self, other: &Self) -> Option<usize>
-    {
+    pub fn diff(&self, other: &Self) -> Option<usize> {
         if self.0.len() != other.0.len() {
             return Some(0); // header must be different
         }
 
         for (i, (addr_ext, value)) in self.0.iter().enumerate() {
             let (other_addr_ext, other_value) = &other.0[i];
-            if addr_ext != other_addr_ext || value != other_value { return Some(i); }
+            if addr_ext != other_addr_ext || value != other_value {
+                return Some(i);
+            }
         }
         None
     }

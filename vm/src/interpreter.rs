@@ -26,9 +26,9 @@ use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 
 use crate::native_functions::{NativeContext, NativeFunctions};
+use movelang::value_ext::FlattenedValue;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
-use movelang::value_ext::FlattenedValue;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -480,7 +480,11 @@ impl<F: FieldExt> Interpreter<F> {
         step.auxiliary_2 = Some(Value::u64(flattened_value_len_left as u64));
         step.auxiliary_3 = Some(Value::bool(left.is_reference()));
         if let Some(row) = &flattened_right.diff(&flattened_left) {
-            let column = if flattened_right.0[*row].0 != flattened_left.0[*row].0 { 0 } else { 1 };
+            let column = if flattened_right.0[*row].0 != flattened_left.0[*row].0 {
+                0
+            } else {
+                1
+            };
             step.auxiliary_4 = Some(Value::u64(*row as u64));
             step.auxiliary_5 = Some(Value::u64(column as u64));
         }

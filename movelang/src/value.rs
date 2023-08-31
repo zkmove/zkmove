@@ -1204,7 +1204,10 @@ impl<F: FieldExt> Value<F> {
         matches!(self, Self::U8(_) | Self::U64(_) | Self::U128(_))
     }
     pub fn is_reference(&self) -> bool {
-        matches!(self, Self::GlobalRef(_) | Self::LocalRef(_) | Self::IndexedRef(_))
+        matches!(
+            self,
+            Self::GlobalRef(_) | Self::LocalRef(_) | Self::IndexedRef(_)
+        )
     }
 
     pub fn castu8(self) -> VmResult<Self> {
