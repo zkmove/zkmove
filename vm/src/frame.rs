@@ -544,8 +544,8 @@ impl<F: FieldExt> Frame<F> {
                             ),
                         ));
                     }
-                    Bytecode::Eq => interp.equality_op(true, rw_operations),
-                    Bytecode::Neq => interp.equality_op(false, rw_operations),
+                    Bytecode::Eq => interp.equality_op(true, rw_operations, &mut execution_step),
+                    Bytecode::Neq => interp.equality_op(false, rw_operations, &mut execution_step),
                     Bytecode::Le => interp.binary_op_auxiliary(
                         Value::le,
                         Value::diff,

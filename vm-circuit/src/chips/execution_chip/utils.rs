@@ -7,7 +7,7 @@ use halo2_proofs::{
 };
 use std::hash::Hash;
 
-pub mod base_constaint_builder;
+pub mod base_constraint_builder;
 pub mod constraint_builder;
 pub mod dynamic_selector_half;
 pub(crate) fn query_expression<F: FieldExt, T>(

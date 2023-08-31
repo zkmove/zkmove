@@ -1203,6 +1203,9 @@ impl<F: FieldExt> Value<F> {
     pub fn is_integer(&self) -> bool {
         matches!(self, Self::U8(_) | Self::U64(_) | Self::U128(_))
     }
+    pub fn is_reference(&self) -> bool {
+        matches!(self, Self::GlobalRef(_) | Self::LocalRef(_) | Self::IndexedRef(_))
+    }
 
     pub fn castu8(self) -> VmResult<Self> {
         if !self.is_integer() {

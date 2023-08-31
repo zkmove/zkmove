@@ -28,6 +28,7 @@ use vm_circuit::witness::execution_steps::ExecutionStep;
 use crate::native_functions::{NativeContext, NativeFunctions};
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
+use movelang::value_ext::FlattenedValue;
 
 pub struct Interpreter<F: FieldExt> {
     pub stack: EvalStack<F>,
@@ -464,18 +465,32 @@ impl<F: FieldExt> Interpreter<F> {
 
     pub fn equality_op(
         &mut self,
-        is_equal: bool,
+        is_eq_op: bool,
         rw_operations: &mut Vec<RWOperation<F>>,
+        step: &mut ExecutionStep<F>,
     ) -> VmResult<()> {
         let right = self.stack.pop(rw_operations)?;
         let left = self.stack.pop(rw_operations)?;
-        let result = if is_equal {
+
+        let flattened_right = FlattenedValue::from(&right);
+        let flattened_left = FlattenedValue::from(&left);
+        let flattened_value_len_right = flattened_right.0.len();
+        let flattened_value_len_left = flattened_left.0.len();
+        step.auxiliary_1 = Some(Value::u64(flattened_value_len_right as u64));
+        step.auxiliary_2 = Some(Value::u64(flattened_value_len_left as u64));
+        step.auxiliary_3 = Some(Value::bool(left.is_reference()));
+        if let Some(row) = &flattened_right.diff(&flattened_left) {
+            let column = if flattened_right.0[*row].0 != flattened_left.0[*row].0 { 0 } else { 1 };
+            step.auxiliary_4 = Some(Value::u64(*row as u64));
+            step.auxiliary_5 = Some(Value::u64(column as u64));
+        }
+
+        let result = if is_eq_op {
             Value::eq(left, right)?
         } else {
             Value::neq(left, right)?
         };
         self.stack.push(result, rw_operations)?;
-
         Ok(())
     }
 

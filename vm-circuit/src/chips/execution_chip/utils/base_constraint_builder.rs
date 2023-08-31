@@ -33,7 +33,6 @@ impl<F: FieldExt> BaseConstraintBuilder<F> {
     ) {
         self.add_constraint(name, lhs - rhs);
     }
-    #[allow(dead_code)]
     pub(crate) fn require_boolean(&mut self, name: &'static str, value: Expression<F>) {
         self.add_constraint(name, value.clone() * (1.expr() - value));
     }
