@@ -14,7 +14,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 
 #[derive(Clone, Debug)]
-pub struct Div<F: FieldExt> {
+pub struct Neq<F: FieldExt> {
     value_a_hi: Cell<F>,
     value_a_lo: Cell<F>,
     value_b_hi: Cell<F>,
@@ -23,17 +23,31 @@ pub struct Div<F: FieldExt> {
     value_c_lo: Cell<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Div<F> {
-    const NAME: &'static str = "DIV";
+impl<F: FieldExt> InstructionGadget<F> for Neq<F> {
+    const NAME: &'static str = "NEQ";
 
-    const OPCODE: Opcode = Opcode::Div;
+    const OPCODE: Opcode = Opcode::Neq;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        //Neq
+
         let lhs = self.value_a_lo.expression.clone();
         let rhs = self.value_b_lo.expression.clone();
-        let quotient = self.value_c_lo.expression.clone();
-        let remainder = cells.auxiliary_1.expression.clone();
-        let constraint = lhs - rhs * quotient - remainder;
-        cb.add_constraint("Div", constraint);
+        let out = self.value_c_lo.expression.clone();
+        let delta_invert = cells.auxiliary_1.expression.clone();
+
+        // out is 0 or 1
+        let constraint = out.clone() * (1.expr() - out.clone());
+        cb.add_constraint("out value is bool", constraint);
+
+        // constrain delta_invert
+        let constraint = ((lhs.clone() - rhs.clone()) * delta_invert.clone() - 1.expr())
+            * (lhs.clone() - rhs.clone());
+        cb.add_constraint("delta_invert", constraint);
+
+        // if a != b then (a - b) * inverse(a - b) == out
+        // if a == b then (a - b) * 1 == out
+        let constraint = (lhs - rhs) * delta_invert - out;
+        cb.add_constraint("Neq", constraint);
 
         let binary_op = BinaryOp {
             value_a_hi: self.value_a_hi.clone(),
@@ -45,7 +59,7 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Div, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Neq, 0.expr());
     }
 
     fn assign(
@@ -73,6 +87,7 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
             &binary_op,
         )
     }
+
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let value_a_hi = cb.alloc_cell();

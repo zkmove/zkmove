@@ -13,7 +13,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value_ext::ValueHeader;
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct BrFalse<F: FieldExt> {
@@ -40,7 +40,8 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
+            + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -67,9 +68,10 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         cb.add_lookup(
             "br_false(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                // lower filed is used for bool
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
-                1.expr(),
+                2.expr(),
                 self.value.expression.clone(),
             ),
         );
@@ -100,10 +102,13 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             .assign(region, offset, aux_value.value())?;
 
         // get value
-        let op = rw_operations.0.get(step.gc + 1).ok_or_else(|| {
-            error!("gc is is None");
-            Error::Synthesis
-        })?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or_else(|| {
+                error!("gc is is None");
+                Error::Synthesis
+            })?;
         debug_assert!(op.rw() == RW::READ);
         self.value.assign(region, offset, op.value().value())?;
         Ok(())

@@ -12,6 +12,7 @@ use crate::witness::rw_operations::{RWOperations, RW};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use movelang::value_ext::LOWER_FIELD_OFFSET;
 
 #[derive(Clone, Debug)]
 pub struct LdTrue<F: FieldExt> {
@@ -39,7 +40,10 @@ impl<F: FieldExt> InstructionGadget<F> for LdTrue<F> {
         rw_operations: &RWOperations<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.value_a.assign(region, offset, op.value().value())?;
         Ok(())

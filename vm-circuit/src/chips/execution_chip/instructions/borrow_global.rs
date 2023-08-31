@@ -20,8 +20,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
@@ -48,6 +48,12 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         (false, false) => Opcode::ImmBorrowGlobal,
     };
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        // for instruction Mut(Imm)BorrowGlobal, there are 3 steps here:
+        // 1. read account_address from stack. [gc, LEN_OF_SIMPLE_VALUE]
+        // 2. read global data. [gc + LEN_OF_SIMPLE_VALUE, word_elem_num]
+        // 3. write reference to element into stack.
+        // [gc + LEN_OF_SIMPLE_VALUE + word_elem_num, LEN_OF_REFERENCE_VALUE]
+
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
@@ -92,9 +98,9 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         cb.add_lookup(
             "borrow global(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
-                1.expr(),
+                2.expr(),
                 account_address_expr.clone(),
             ),
         );

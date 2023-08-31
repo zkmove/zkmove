@@ -15,8 +15,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {
@@ -39,7 +39,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // for instruction VecLen, there are 3 steps here:
         // 1. read reference from stack. [gc, LEN_OF_REFERENCE_VALUE]
         // 2. read vec header from locals or global. [gc+LEN_OF_REFERENCE_VALUE, 1]
-        // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, 2]
+        // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, LEN_OF_SIMPLE_VALUE]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
         let stack_size_expr =
@@ -106,6 +106,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         });
 
         // stack write
+        // len is stored at lower field
         let write = RWLookup::stack_push(
             cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 1.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
@@ -114,9 +115,12 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         );
         cb.add_lookup("vec_len(push value header to stack)", write);
         let write = RWLookup::stack_push(
-            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 2.expr(),
+            cells.gc.expression.clone()
+                + (LEN_OF_REFERENCE_VALUE as u64).expr()
+                + 1.expr()
+                + (LOWER_FIELD_OFFSET as u64).expr(),
             cells.stack_size.expression.clone() - 1.expr(),
-            1.expr(),
+            2.expr(),
             self.vec_len.cells.value().expression.clone(),
         );
         cb.add_lookup("vec_len(push len to stack)", write);

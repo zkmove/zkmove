@@ -10,8 +10,10 @@ use std::convert::{From, TryFrom, TryInto};
 use std::marker::PhantomData;
 
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
-pub const LEN_OF_SIMPLE_VALUE: usize = 2;
-pub const LEN_OF_U256_VALUE: usize = 3;
+pub const LEN_OF_SIMPLE_VALUE: usize = 3;
+pub const HEADER_OFFSET: usize = 0;
+pub const UPPER_FIELD_OFFSET: usize = 1;
+pub const LOWER_FIELD_OFFSET: usize = 2;
 
 /// To efficiently represent a complex value in the circuit, we defined 'FlattenedValue'.
 /// It starts with a value header carrying type information, followed by simple values
@@ -71,7 +73,8 @@ impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
     fn from(value: SimpleValue<F>) -> FlattenedSimpleValue<F> {
         FlattenedSimpleValue([
             (vec![0u128], ValueHeader::default_for_simple().into()),
-            (vec![1u128], value),
+            (vec![1u128], SimpleValue::u128(0u128)),
+            (vec![2u128], value),
         ])
     }
 }
@@ -83,7 +86,7 @@ impl<F: FieldExt> From<FlattenedSimpleValue<F>> for FlattenedValue<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedU256<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_U256_VALUE]);
+pub struct FlattenedU256<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
 
 impl<F: FieldExt> From<U256<F>> for FlattenedU256<F> {
     fn from(value: U256<F>) -> FlattenedU256<F> {
@@ -327,7 +330,7 @@ impl<F: FieldExt> ValueHeader<F> {
 
     // default ValueHeader for any simple value
     pub fn default_for_simple() -> Self {
-        Self::new(2, 1)
+        Self::new(3, 2)
     }
 
     // default ValueHeader for U256 value

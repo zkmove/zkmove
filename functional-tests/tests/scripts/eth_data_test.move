@@ -1,5 +1,5 @@
 //! mods: eth_data.move,vector.move
-//! word_capacity: 65
+//! word_capacity: 97
 script {
     use 0x1::EthData;
     use 0x1::vector;

@@ -1,5 +1,5 @@
 //! mods: arith.move, vector.move
-//! word_capacity: 9
+//! word_capacity: 12 
 //! args: 10u8
 script {
     use 0x1::M;
