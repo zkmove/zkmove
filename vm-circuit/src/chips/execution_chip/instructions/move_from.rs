@@ -17,7 +17,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
@@ -49,7 +49,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + flattened_value_len.clone() * 3.expr() // two for global read resource, one for stack push value
-            + 2.expr(); // stack pop account_address
+            + (LEN_OF_SIMPLE_VALUE as u64).expr(); // stack pop account_address
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -82,9 +82,9 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         cb.add_lookup(
             "move_from(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
-                1.expr(),
+                2.expr(),
                 account_address_expr.clone(),
             ),
         );
@@ -92,7 +92,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         for (i, _) in self.global_value.cells.word.iter().enumerate() {
             let (read_global, write_invalid_to_global, write_stack) =
                 RWLookup::move_from_global_to_stack(
-                    cells.gc.expression.clone() + (i as u64 + 2).expr(),
+                    cells.gc.expression.clone() + ((i + LEN_OF_SIMPLE_VALUE) as u64).expr(),
                     account_address_expr.clone(),
                     if GENERIC {
                         sd_index_expr.clone() * 2u64.pow(16).expr()

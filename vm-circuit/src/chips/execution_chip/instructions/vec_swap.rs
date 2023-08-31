@@ -14,8 +14,8 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::ValueHeader;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct VecSwap<F: FieldExt> {
@@ -48,18 +48,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
     const OPCODE: Opcode = Opcode::VecSwap;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // for instruction VecSwap, there are 7 steps here:
-        // 1. read idx_b from stack [gc, 2]
-        // 2. read idx_a from stack [gc + 2, 2]
-        // 3. read vec ref from stack. [gc + 4, LEN_OF_REFERENCE_VALUE]
+        // 1. read idx_b from stack [gc, LEN_OF_SIMPLE_VALUE]
+        // 2. read idx_a from stack [gc + LEN_OF_SIMPLE_VALUE, LEN_OF_SIMPLE_VALUE]
+        // 3. read vec ref from stack. [gc + LEN_OF_SIMPLE_VALUE*2, LEN_OF_REFERENCE_VALUE]
         // 4. read value_a from vec (in locals or global).
-        // [gc + 4 + LEN_OF_REFERENCE_VALUE, value_a_flattened_len]
+        // [gc + LEN_OF_SIMPLE_VALUE*2 + LEN_OF_REFERENCE_VALUE, value_a_flattened_len]
         // 5. read value_b from vec (in locals or global).
-        // [gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len, value_b_flattened_len]
+        // [gc + LEN_OF_SIMPLE_VALUE*2 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len, value_b_flattened_len]
         // 6. write value_a to vec (in locals or global).
-        // [gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len + value_b_flattened_len,
+        // [gc + LEN_OF_SIMPLE_VALUE*2 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len + value_b_flattened_len,
         // value_a_flattened_len]
         // 7. write value_b to vec (in locals or global).
-        // [gc + 4 + LEN_OF_REFERENCE_VALUE + 2 * value_a_flattened_len + value_b_flattened_len,
+        // [gc + LEN_OF_SIMPLE_VALUE*2 + LEN_OF_REFERENCE_VALUE + 2 * value_a_flattened_len + value_b_flattened_len,
         // value_b_flattened_len]
 
         let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
@@ -72,7 +72,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let value_b_flattened_len = cells.auxiliary_3.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 4.expr()
+            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
             + value_a_flattened_len.clone() * 2.expr()
             + value_b_flattened_len.clone() * 2.expr();
@@ -90,7 +90,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         ]);
 
         cb.add_lookup(
-            "vec_borrow(read idx_b value header)",
+            "vec_swap(read idx_b value header)",
             RWLookup::stack_pop(
                 cells.gc.expression.clone(),
                 cells.stack_size.expression.clone(),
@@ -101,16 +101,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_lookup(
             "vec_swap(pop idx_b)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
-                1.expr(),
+                2.expr(),
                 self.idx_b.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "vec_borrow(read idx_a value header)",
+            "vec_swap(read idx_a value header)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 2.expr(),
+                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
@@ -119,9 +119,10 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_lookup(
             "vec_swap(pop idx_a)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 3.expr(),
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                1.expr(),
+                2.expr(),
                 self.idx_a.expression.clone(),
             ),
         );
@@ -132,7 +133,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cb.add_lookup(
                     "vec_swap(read vec ref)",
                     RWLookup::stack_pop(
-                        cells.gc.expression.clone() + 4.expr() + (i as u64).expr(),
+                        cells.gc.expression.clone()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
+                            + (i as u64).expr(),
                         cells.stack_size.expression.clone() - 2.expr(),
                         (i as u64).expr(),
                         item.expression.clone(),
@@ -149,7 +152,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     // read value_a
                     let locals_read = RWLookup::locals_read(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + (i as u64).expr(),
                         self.vec_frame_index_or_global_address.expression.clone(),
@@ -161,7 +164,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     // write value_a
                     let locals_write = RWLookup::locals_write(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + value_a_flattened_len.clone()
                             + value_b_flattened_len.clone()
@@ -176,7 +179,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cb.condition(is_global.clone(), |cb| {
                     let global_read = RWLookup::global_read(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + (i as u64).expr(),
                         self.vec_frame_index_or_global_address.expression.clone(),
@@ -188,7 +191,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
 
                     let global_write = RWLookup::global_write(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + value_a_flattened_len.clone()
                             + value_b_flattened_len.clone()
@@ -209,7 +212,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     // read value_b
                     let locals_read = RWLookup::locals_read(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + value_a_flattened_len.clone()
                             + (i as u64).expr(),
@@ -222,7 +225,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     // write value_b
                     let locals_write = RWLookup::locals_write(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + 2.expr() * value_a_flattened_len.clone()
                             + value_b_flattened_len.clone()
@@ -237,7 +240,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                 cb.condition(is_global.clone(), |cb| {
                     let global_read = RWLookup::global_read(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + value_a_flattened_len.clone()
                             + (i as u64).expr(),
@@ -249,7 +252,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
                     cb.add_lookup("vec_swap(read value_b)", global_read);
                     let global_write = RWLookup::global_write(
                         cells.gc.expression.clone()
-                            + 4.expr()
+                            + (LEN_OF_SIMPLE_VALUE as u64).expr() * 2.expr()
                             + (LEN_OF_REFERENCE_VALUE as u64).expr()
                             + 2.expr() * value_a_flattened_len.clone()
                             + value_b_flattened_len.clone()
@@ -330,9 +333,15 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         self.idx_b.assign(region, offset, op.value().value())?;
-        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         self.idx_a.assign(region, offset, op.value().value())?;
 
         // assign vector ref
@@ -346,13 +355,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &ref_val,
-            step.gc + 4,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2,
             ref_val_flattened_len,
         )?;
 
         let op = rw_operations
             .0
-            .get(step.gc + 4 + LEN_OF_REFERENCE_VALUE)
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
 
         if is_global == F::zero() {
@@ -391,7 +400,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &value_a,
-            step.gc + 4 + LEN_OF_REFERENCE_VALUE,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2 + LEN_OF_REFERENCE_VALUE,
             value_a_flattened_len,
         )?;
 
@@ -407,7 +416,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             step,
             rw_operations,
             &value_b,
-            step.gc + 4 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2 + LEN_OF_REFERENCE_VALUE + value_a_flattened_len,
             value_b_flattened_len,
         )?;
 
