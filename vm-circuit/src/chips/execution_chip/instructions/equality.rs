@@ -201,7 +201,10 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         );
         cb.add_lookup("equality(push result header)", write);
         let write = RWLookup::stack_push(
-            cells.gc.expression.clone() + flattened_value_len_a + flattened_value_len_b + (LOWER_FIELD_OFFSET as u64).expr(),
+            cells.gc.expression.clone()
+                + flattened_value_len_a
+                + flattened_value_len_b
+                + (LOWER_FIELD_OFFSET as u64).expr(),
             cells.stack_size.expression.clone() - 2.expr(),
             2.expr(),
             self.result.cells.value().expression.clone(),
