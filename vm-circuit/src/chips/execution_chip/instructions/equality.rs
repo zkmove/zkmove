@@ -85,10 +85,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
             true => self.result.cells.value().expression.clone(),
             false => 1.expr() - self.result.cells.value().expression.clone(),
         };
-        let a_unequal_b_expr = match EQUALITY {
-            true => 1.expr() - self.result.cells.value().expression.clone(),
-            false => self.result.cells.value().expression.clone(),
-        };
+        let a_unequal_b_expr = 1.expr() - a_equal_b_expr.clone();
 
         for (i, item) in self.value_a.cells.word.iter().enumerate() {
             cb.condition(
@@ -151,7 +148,6 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         // value_a is unequal to value_b
         cb.condition((1.expr() - is_reference) * a_unequal_b_expr, |cb| {
             let unequal_row = cells.auxiliary_4.expression.clone();
-            let unequal_column = cells.auxiliary_5.expression.clone();
 
             cb.add_lookup(
                 "equality(right unequal row)",
@@ -180,42 +176,16 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
                 },
             );
 
-            // column addr_ext unequal
-            cb.condition(1.expr() - unequal_column.clone(), |cb| {
-                // constrain delta_invert
-                let constraint_1 = ((self.unequal_row_addr_ext_a.expression.clone()
-                    - self.unequal_row_addr_ext_b.expression.clone())
-                    * self.delta_invert.expression.clone()
-                    - 1.expr())
-                    * (self.unequal_row_addr_ext_a.expression.clone()
-                        - self.unequal_row_addr_ext_b.expression.clone());
-                // constrain "unequal_row_addr_ext_a != unequal_row_addr_ext_b"
-                let constraint_2 = (self.unequal_row_addr_ext_a.expression.clone()
-                    - self.unequal_row_addr_ext_b.expression.clone())
-                    * self.delta_invert.expression.clone()
-                    - 1.expr();
+            let constraint_addr = (self.unequal_row_addr_ext_a.expression.clone()
+                - self.unequal_row_addr_ext_b.expression.clone())
+                * self.delta_invert.expression.clone()
+                - 1.expr();
 
-                cb.add_constraint("delta_invert", constraint_1);
-                cb.add_constraint("unequal addr_ext", constraint_2);
-            });
-
-            // column value unequal
-            cb.condition(unequal_column, |cb| {
-                // constrain delta_invert
-                let constraint_1 = ((self.unequal_row_value_a.expression.clone()
-                    - self.unequal_row_value_b.expression.clone())
-                    * self.delta_invert.expression.clone()
-                    - 1.expr())
-                    * (self.unequal_row_value_a.expression.clone()
-                        - self.unequal_row_value_b.expression.clone());
-                let constraint_2 = (self.unequal_row_value_a.expression.clone()
-                    - self.unequal_row_value_b.expression.clone())
-                    * self.delta_invert.expression.clone()
-                    - 1.expr();
-                // constrain "unequal_row_value_a != unequal_row_value_b"
-                cb.add_constraint("delta_invert", constraint_1);
-                cb.add_constraint("unequal value", constraint_2);
-            });
+            let constraint_value = (self.unequal_row_value_a.expression.clone()
+                - self.unequal_row_value_b.expression.clone())
+                * self.delta_invert.expression.clone()
+                - 1.expr();
+            cb.add_constraint("unequal constraint", constraint_addr * constraint_value);
         });
 
         // TODO: handle "is_reference == true"
