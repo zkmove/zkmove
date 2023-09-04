@@ -18,7 +18,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::error;
-use movelang::value_ext::ValueHeader;
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct Equality<const EQUALITY: bool, F: FieldExt> {
@@ -56,7 +56,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + flattened_value_len_a.clone()
             + flattened_value_len_b.clone()
-            + 2.expr(); // bool result
+            + (LEN_OF_SIMPLE_VALUE as u64).expr(); // bool result
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -201,9 +201,9 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         );
         cb.add_lookup("equality(push result header)", write);
         let write = RWLookup::stack_push(
-            cells.gc.expression.clone() + flattened_value_len_a + flattened_value_len_b + 1.expr(),
+            cells.gc.expression.clone() + flattened_value_len_a + flattened_value_len_b + (LOWER_FIELD_OFFSET as u64).expr(),
             cells.stack_size.expression.clone() - 2.expr(),
-            1.expr(),
+            2.expr(),
             self.result.cells.value().expression.clone(),
         );
         cb.add_lookup("equality(push result value)", write);
@@ -255,7 +255,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         // assign unequal_row_xxx, delta_invert
         let result_op = rw_operations
             .0
-            .get(step.gc + flattened_value_len_a + flattened_value_len_b + 1)
+            .get(step.gc + flattened_value_len_a + flattened_value_len_b + LOWER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?;
         let a_unequal_b = if EQUALITY { F::zero() } else { F::one() };
         if result_op.value().value() == Some(a_unequal_b) {
