@@ -173,7 +173,7 @@ impl Arguments {
         info!("setup vm circuit...");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
@@ -276,7 +276,7 @@ impl Arguments {
 
         info!("setup vm circuit...");
         let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
-        let pk = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;

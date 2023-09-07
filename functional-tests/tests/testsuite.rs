@@ -82,7 +82,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("Generate parameters for execution trace");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
         runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;

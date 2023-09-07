@@ -7,7 +7,7 @@ use halo2_proofs::dev::{MockProver, VerifyFailure};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
 };
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
 use halo2_proofs::transcript::{TranscriptReadBuffer, TranscriptWriterBuffer};
@@ -334,18 +334,18 @@ where
         &self,
         circuit: &VmCircuit<F>,
         params: &ParamsKZG<Bn256>,
-    ) -> VmResult<ProvingKey<G1Affine>> {
+    ) -> VmResult<(VerifyingKey<G1Affine>, ProvingKey<G1Affine>)> {
         debug!("Generate vk");
         let vk = keygen_vk(params, circuit).map_err(|e| {
             RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_vk should not fail".to_string())
         })?;
         debug!("Generate pk");
-        let pk = keygen_pk(params, vk, circuit).map_err(|e| {
+        let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
             RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_pk should not fail".to_string())
         })?;
-        Ok(pk)
+        Ok((vk, pk))
     }
 
     pub fn prove_vm_circuit_kzg(
@@ -414,18 +414,18 @@ where
         &self,
         circuit: &VmCircuit<F>,
         params: &ParamsIPA<EqAffine>,
-    ) -> VmResult<ProvingKey<EqAffine>> {
+    ) -> VmResult<(VerifyingKey<EqAffine>, ProvingKey<EqAffine>)> {
         debug!("Generate vk");
         let vk = keygen_vk(params, circuit).map_err(|e| {
             RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_vk should not fail".to_string())
         })?;
         debug!("Generate pk");
-        let pk = keygen_pk(params, vk, circuit).map_err(|e| {
+        let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
             RuntimeError::new(StatusCode::ProofSystemError(e))
                 .with_message("keygen_pk should not fail".to_string())
         })?;
-        Ok(pk)
+        Ok((vk, pk))
     }
 
     pub fn prove_vm_circuit_ipa(

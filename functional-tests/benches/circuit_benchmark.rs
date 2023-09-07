@@ -82,7 +82,7 @@ fn setup(
     debug!("Generate parameters for execution trace");
     let rng = StdRng::from_entropy();
     let params = ParamsKZG::<Bn256>::setup(k, rng);
-    let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+    let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
     Ok((runtime, vm_circuit, params, pk))
 }
 
