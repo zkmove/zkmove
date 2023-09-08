@@ -1,9 +1,27 @@
 use error::{RuntimeError, StatusCode, VmResult};
+use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::dev::{MockProver, VerifyFailure};
+use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
+
+use halo2_proofs::halo2curves::serde::SerdeObject;
 use halo2_proofs::halo2curves::FieldExt;
-use halo2_proofs::plonk::{Circuit, Error};
-use logger::{debug, trace};
+use halo2_proofs::plonk::{
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
+};
+use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
+use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
+use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
+use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
+use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
+use halo2_proofs::transcript::{
+    Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+};
+use logger::{debug, info, trace};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
+use rand::prelude::StdRng;
+use rand::SeedableRng;
+use std::fmt::Debug;
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
@@ -74,4 +92,113 @@ pub fn print_circuit_layout<F: FieldExt, ConcreteCircuit: Circuit<F>>(
         .show_equality_constraints(true)
         .render(k, circuit, &root)
         .unwrap();
+}
+
+pub fn setup_vm_circuit<'params, C, P, ConcreteCircuit>(
+    circuit: &ConcreteCircuit,
+    params: &P,
+) -> VmResult<(VerifyingKey<C>, ProvingKey<C>)>
+where
+    C: CurveAffine,
+    P: Params<'params, C>,
+    ConcreteCircuit: Circuit<C::Scalar>,
+{
+    debug!("Generate vk");
+    let vk = keygen_vk(params, circuit).map_err(|e| {
+        RuntimeError::new(StatusCode::ProofSystemError(e))
+            .with_message("keygen_vk should not fail".to_string())
+    })?;
+    debug!("Generate pk");
+    let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
+        RuntimeError::new(StatusCode::ProofSystemError(e))
+            .with_message("keygen_pk should not fail".to_string())
+    })?;
+    Ok((vk, pk))
+}
+
+pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::Scalar>>(
+    circuit: ConcreteCircuit,
+    instance: &[&[C::Scalar]],
+    params: &ParamsIPA<C>,
+    pk: ProvingKey<C>,
+) -> VmResult<()> {
+    prove_vm_circuit::<
+        IPACommitmentScheme<C>,
+        ProverIPA<C>,
+        VerifierIPA<C>,
+        ipa::strategy::SingleStrategy<C>,
+        _,
+    >(circuit, instance, params, pk)
+}
+pub fn prove_vm_circuit_kzg<E, ConcreteCircuit>(
+    circuit: ConcreteCircuit,
+    instance: &[&[E::Scalar]],
+    params: &ParamsKZG<E>,
+    pk: ProvingKey<E::G1Affine>,
+) -> VmResult<()>
+where
+    E: Engine + Debug + MultiMillerLoop,
+    E::G1Affine: SerdeObject,
+    E::G2Affine: SerdeObject,
+    ConcreteCircuit: Circuit<E::Scalar>,
+{
+    prove_vm_circuit::<
+        KZGCommitmentScheme<E>,
+        ProverSHPLONK<E>,
+        VerifierSHPLONK<E>,
+        kzg::strategy::SingleStrategy<E>,
+        _,
+    >(circuit, instance, params, pk)
+}
+
+fn prove_vm_circuit<
+    'params,
+    Scheme: CommitmentScheme,
+    P: Prover<'params, Scheme>,
+    V: Verifier<'params, Scheme>,
+    Strategy: VerificationStrategy<'params, Scheme, V>,
+    ConcreteCircuit: Circuit<Scheme::Scalar>,
+>(
+    circuit: ConcreteCircuit,
+    instance: &[&[Scheme::Scalar]],
+    params: &'params Scheme::ParamsProver,
+    pk: ProvingKey<Scheme::Curve>,
+) -> VmResult<()>
+where
+    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
+{
+    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    // Create a proof
+    let prove_start = std::time::Instant::now();
+    let rng = StdRng::from_entropy();
+    create_proof::<Scheme, P, _, _, _, _>(
+        params,
+        &pk,
+        &[circuit],
+        &[instance],
+        rng,
+        &mut transcript,
+    )
+    .expect("proof generation should not fail");
+    let proof: Vec<u8> = transcript.finalize();
+    info!("proof size {} bytes", proof.len());
+    let prove_time = std::time::Instant::now().duration_since(prove_start);
+    info!("prove time: {} ms", prove_time.as_millis());
+
+    let verifier_params = params.verifier_params();
+    let strategy = Strategy::new(verifier_params);
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let verify_start = std::time::Instant::now();
+    let result = verify_proof(
+        verifier_params,
+        pk.get_vk(),
+        strategy,
+        &[instance],
+        &mut transcript,
+    );
+
+    let verify_time = std::time::Instant::now().duration_since(verify_start);
+    info!("verify time: {} ms", verify_time.as_millis());
+    assert!(result.is_ok());
+    Ok(())
 }

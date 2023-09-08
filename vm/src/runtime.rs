@@ -6,27 +6,6 @@ use crate::native_functions::NativeFunctions;
 use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
-use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
-};
-use halo2_proofs::poly::{
-    commitment::ParamsProver,
-    ipa::{
-        commitment::{IPACommitmentScheme, ParamsIPA},
-        multiopen::ProverIPA,
-        strategy::SingleStrategy as SingleStrategyIPA,
-    },
-    kzg::{
-        commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG},
-        multiopen::{ProverSHPLONK, VerifierSHPLONK},
-        strategy::SingleStrategy as SingleStrategyKZG,
-    },
-    VerificationStrategy,
-};
-use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
-use halo2_proofs::transcript::{TranscriptReadBuffer, TranscriptWriterBuffer};
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
@@ -34,10 +13,8 @@ use move_binary_format::CompiledModule;
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::value::TypeTag;
-use rand::{rngs::StdRng, SeedableRng};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::arith_operations::ArithOperations;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
@@ -242,146 +219,5 @@ impl<F: FieldExt> Runtime<F> {
             InputTypeElementTableData(input_type_element_table_data),
             circuit_config,
         ))
-    }
-}
-
-/// setup prove system's PCS with KZG
-impl<F: FieldExt> Runtime<F>
-where
-    VmCircuit<F>: Circuit<Fr>,
-{
-    pub fn setup_vm_circuit_kzg(
-        &self,
-        circuit: &VmCircuit<F>,
-        params: &ParamsKZG<Bn256>,
-    ) -> VmResult<(VerifyingKey<G1Affine>, ProvingKey<G1Affine>)> {
-        debug!("Generate vk");
-        let vk = keygen_vk(params, circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_vk should not fail".to_string())
-        })?;
-        debug!("Generate pk");
-        let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_pk should not fail".to_string())
-        })?;
-        Ok((vk, pk))
-    }
-
-    pub fn prove_vm_circuit_kzg(
-        &self,
-        circuit: VmCircuit<F>,
-        instance: &[&[Fr]],
-        params: &ParamsKZG<Bn256>,
-        pk: ProvingKey<G1Affine>,
-    ) -> VmResult<()> {
-        // Create a proof
-        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
-
-        // Bench proof generation time
-        let prove_start = std::time::Instant::now();
-        let rng = StdRng::from_entropy();
-        create_proof::<
-            KZGCommitmentScheme<Bn256>,
-            ProverSHPLONK<'_, Bn256>,
-            Challenge255<G1Affine>,
-            _,
-            Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
-            _,
-        >(params, &pk, &[circuit], &[instance], rng, &mut transcript)
-        .expect("proof generation should not fail");
-        let proof = transcript.finalize();
-
-        info!("proof size {} bytes", proof.len());
-        let prove_time = std::time::Instant::now().duration_since(prove_start);
-        info!("prove time: {} ms", prove_time.as_millis());
-
-        // verify the proof
-        let verifier_params: ParamsVerifierKZG<Bn256> = params.verifier_params().clone();
-        let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
-        let strategy = SingleStrategyKZG::new(params);
-
-        // Bench verification time
-        let verify_start = std::time::Instant::now();
-        let result = verify_proof::<
-            KZGCommitmentScheme<Bn256>,
-            VerifierSHPLONK<'_, Bn256>,
-            Challenge255<G1Affine>,
-            Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
-            SingleStrategyKZG<'_, Bn256>,
-        >(
-            &verifier_params,
-            pk.get_vk(),
-            strategy,
-            &[instance],
-            &mut verifier_transcript,
-        );
-
-        let verify_time = std::time::Instant::now().duration_since(verify_start);
-        info!("verify time: {} ms", verify_time.as_millis());
-        debug!("{:?}", result);
-        assert!(result.is_ok());
-        Ok(())
-    }
-}
-
-/// setup prove system's PCS with IPA
-impl<F: FieldExt> Runtime<F>
-where
-    VmCircuit<F>: Circuit<Fp>,
-{
-    pub fn setup_vm_circuit_ipa(
-        &self,
-        circuit: &VmCircuit<F>,
-        params: &ParamsIPA<EqAffine>,
-    ) -> VmResult<(VerifyingKey<EqAffine>, ProvingKey<EqAffine>)> {
-        debug!("Generate vk");
-        let vk = keygen_vk(params, circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_vk should not fail".to_string())
-        })?;
-        debug!("Generate pk");
-        let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-                .with_message("keygen_pk should not fail".to_string())
-        })?;
-        Ok((vk, pk))
-    }
-
-    pub fn prove_vm_circuit_ipa(
-        &self,
-        circuit: VmCircuit<F>,
-        instance: &[&[Fp]],
-        params: &ParamsIPA<EqAffine>,
-        pk: ProvingKey<EqAffine>,
-    ) -> VmResult<()> {
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<EqAffine>>::init(vec![]);
-        // Create a proof
-        let prove_start = std::time::Instant::now();
-        let rng = StdRng::from_entropy();
-        create_proof::<IPACommitmentScheme<EqAffine>, ProverIPA<EqAffine>, _, _, _, _>(
-            params,
-            &pk,
-            &[circuit],
-            &[instance],
-            rng,
-            &mut transcript,
-        )
-        .expect("proof generation should not fail");
-        let proof: Vec<u8> = transcript.finalize();
-        info!("proof size {} bytes", proof.len());
-        let prove_time = std::time::Instant::now().duration_since(prove_start);
-        info!("prove time: {} ms", prove_time.as_millis());
-
-        let strategy = SingleStrategyIPA::new(params);
-        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-        let verify_start = std::time::Instant::now();
-        let result = verify_proof(params, pk.get_vk(), strategy, &[instance], &mut transcript);
-
-        let verify_time = std::time::Instant::now().duration_since(verify_start);
-        info!("verify time: {} ms", verify_time.as_millis());
-        debug!("{:?}", result);
-        assert!(result.is_ok());
-        Ok(())
     }
 }
