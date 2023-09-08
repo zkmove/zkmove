@@ -1,17 +1,16 @@
 // Copyright (c) zkMove Authors
 
 use crate::interpreter::Interpreter;
+use crate::loader::MoveLoader;
+use crate::native_functions::NativeFunctions;
+use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::dev::{MockProver, VerifyFailure};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
 };
-use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
-use halo2_proofs::transcript::{TranscriptReadBuffer, TranscriptWriterBuffer};
-
 use halo2_proofs::poly::{
     commitment::ParamsProver,
     ipa::{
@@ -26,10 +25,8 @@ use halo2_proofs::poly::{
     },
     VerificationStrategy,
 };
-
-use crate::loader::MoveLoader;
-use crate::native_functions::NativeFunctions;
-use crate::state::StateStore;
+use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
+use halo2_proofs::transcript::{TranscriptReadBuffer, TranscriptWriterBuffer};
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
@@ -37,7 +34,6 @@ use move_binary_format::CompiledModule;
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::value::TypeTag;
-use plotters::prelude::*;
 use rand::{rngs::StdRng, SeedableRng};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -55,10 +51,6 @@ use vm_circuit::witness::type_instantiation_table::{
 use vm_circuit::witness::{CircuitConfig, Witness};
 use web3::transports::Http;
 use web3::Web3;
-
-// number of circuit rows cannot exceed 2^MAX_K
-pub const MAX_K: u32 = 18;
-pub const MIN_K: u32 = 1;
 
 pub struct Runtime<F: FieldExt> {
     loader: MoveLoader,
@@ -250,78 +242,6 @@ impl<F: FieldExt> Runtime<F> {
             InputTypeElementTableData(input_type_element_table_data),
             circuit_config,
         ))
-    }
-}
-
-impl<F: FieldExt> Runtime<F> {
-    // find the minimum k that satisfies the circuit row number less than 2^k
-    pub fn find_best_k<ConcreteCircuit: Circuit<F>>(
-        &self,
-        circuit: &ConcreteCircuit,
-        instance: Vec<Vec<F>>,
-    ) -> VmResult<u32> {
-        let mut k = MIN_K;
-        while k <= MAX_K {
-            trace!("Try k={}...", k);
-            let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
-            let result = MockProver::run(k, circuit, instance.clone());
-            match result {
-                Ok(r) => {
-                    // Ensure that no constraints will get poisoned.
-                    // This can happen if the circuit is principally big enough, but the
-                    // constraint count exceeds the number of usable rows
-                    // (2^k - 1 - blinding_factors).
-                    let _ = r.verify().map_err(|e| {
-                        if e.iter()
-                            .any(|e| matches!(e, VerifyFailure::ConstraintPoisoned { .. }))
-                        {
-                            k += 1;
-                        }
-                    });
-                    break;
-                }
-                Err(e) => {
-                    if e.to_string() == not_enough_rows_error.to_string() {
-                        k += 1;
-                    } else {
-                        debug!("Prover Error: {:?}", e);
-                        return Err(RuntimeError::new(StatusCode::ProofSystemError(e)));
-                    }
-                }
-            }
-        }
-        Ok(k)
-    }
-
-    pub fn mock_prove_circuit<ConcreteCircuit: Circuit<F>>(
-        &self,
-        circuit: &ConcreteCircuit,
-        instance: Vec<Vec<F>>,
-        k: u32,
-    ) -> VmResult<()> {
-        let prover = MockProver::run(k, circuit, instance).map_err(|e| {
-            debug!("Prover Error: {:?}", e);
-            RuntimeError::new(StatusCode::ProofSystemError(e))
-        })?;
-        assert_eq!(prover.verify(), Ok(()));
-
-        Ok(())
-    }
-
-    pub fn print_circuit_layout<ConcreteCircuit: Circuit<F>>(
-        &self,
-        k: u32,
-        circuit: &ConcreteCircuit,
-    ) {
-        let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
-        root.fill(&WHITE).unwrap();
-        let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
-
-        halo2_proofs::dev::CircuitLayout::default()
-            .mark_equality_cells(true)
-            .show_equality_constraints(true)
-            .render(k, circuit, &root)
-            .unwrap();
     }
 }
 
