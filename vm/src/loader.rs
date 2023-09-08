@@ -3,10 +3,11 @@
 use move_binary_format::errors::VMResult;
 use move_binary_format::file_format::FunctionHandleIndex;
 use move_core_types::account_address::AccountAddress;
+use move_core_types::identifier::IdentStr;
 use move_core_types::identifier::Identifier;
-use move_core_types::language_storage::TypeTag;
+use move_core_types::language_storage::{ModuleId, TypeTag};
 use move_vm_runtime::config::VMConfig;
-use move_vm_runtime::loader::{Function, Loader};
+use move_vm_runtime::loader::{Function, Loader, Module};
 use move_vm_runtime::native_functions::NativeFunctions;
 use move_vm_runtime::session::LoadedFunctionInstantiation;
 use move_vm_types::data_store::DataStore;
@@ -43,6 +44,35 @@ impl MoveLoader {
         &self.loader
     }
 
+    pub fn load_function(
+        &self,
+        module_id: &ModuleId,
+        function_name: &IdentStr,
+        ty_args: &[TypeTag],
+        data_store: &impl DataStore,
+    ) -> VMResult<(Arc<Module>, Arc<Function>, LoadedFunctionInst)> {
+        let (
+            module,
+            func,
+            LoadedFunctionInstantiation {
+                type_arguments,
+                parameters,
+                return_,
+            },
+        ) = self
+            .loader
+            .load_function(module_id, function_name, ty_args, data_store)?;
+        Ok((
+            module,
+            func,
+            LoadedFunctionInst {
+                type_arguments,
+                parameters,
+                return_,
+            },
+        ))
+    }
+
     pub fn load_script(
         &self,
         script_blob: &[u8],
@@ -74,4 +104,10 @@ impl Default for MoveLoader {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub struct LoadedFunctionInst {
+    pub type_arguments: Vec<Type>,
+    pub parameters: Vec<Type>,
+    pub return_: Vec<Type>,
 }

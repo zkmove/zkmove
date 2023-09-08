@@ -98,9 +98,8 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
 }
 
 /// Generate generic call graph for module's public function
-pub fn generate(module_bytes: impl AsRef<[u8]>) -> HashMap<String, GenericCallGraph> {
-    let module = CompiledModule::deserialize(module_bytes.as_ref()).unwrap();
-    let graphs = GenericCallGraphBuilder::new(&module).build_graph();
+pub fn generate(module: &CompiledModule) -> HashMap<String, GenericCallGraph> {
+    let graphs = GenericCallGraphBuilder::new(module).build_graph();
 
     graphs
         .into_iter()

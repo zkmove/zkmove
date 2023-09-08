@@ -7,7 +7,7 @@ use crate::witness::call_trace_table::CallTraceTable;
 use crate::witness::const_table::ConstantTable;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::FunctionCall;
-use crate::witness::input_type_elements::InputTypeElementTableData;
+use crate::witness::input_type_elements::{GenericTypeMaterialization, InputTypeElementTableData};
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use halo2_proofs::arithmetic::FieldExt;
@@ -100,6 +100,13 @@ impl CircuitConfig {
         }
         self
     }
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutionTrace<F: FieldExt> {
+    pub exec_steps: Vec<ExecutionStep<F>>,
+    pub rw_operations: Vec<RWOperation<F>>,
+    pub generic_types: Vec<GenericTypeMaterialization>,
 }
 
 #[derive(Clone, Default)]

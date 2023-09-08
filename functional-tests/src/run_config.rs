@@ -1,8 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::{anyhow, Error, Result};
-use movelang::argument::{parse_type_tags, ScriptArguments, Signer};
-use movelang::value::TypeTag;
+use move_core_types::account_address::AccountAddress;
+use movelang::argument::{parse_type_tags, Identifier, ScriptArguments, Signer};
+use movelang::value::{ModuleId, TypeTag};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -40,6 +41,8 @@ pub struct RunConfig {
     pub locals_ops_num: Option<usize>,
     pub global_ops_num: Option<usize>,
     pub word_capacity: Option<usize>,
+    pub module_id: Option<ModuleId>,
+    pub entry_fun_name: Option<Identifier>,
 }
 
 impl RunConfig {
@@ -57,6 +60,8 @@ impl RunConfig {
             locals_ops_num: None,
             global_ops_num: None,
             word_capacity: None,
+            module_id: None,
+            entry_fun_name: None,
         };
         let file_str = script_file.to_str().expect("path is None.");
 
@@ -109,8 +114,29 @@ impl RunConfig {
             if let Some(s) = s.strip_prefix("//!word_capacity:") {
                 config.word_capacity = Some(s.parse::<usize>()?);
             }
+            if let Some(s) = s.strip_prefix("//!module_id:") {
+                config.module_id = Some(Self::parse_module_id(s)?);
+            }
+            if let Some(s) = s.strip_prefix("//!entry_fun:") {
+                config.entry_fun_name = Some(s.parse::<Identifier>()?);
+            }
         }
         Ok(config)
+    }
+
+    fn parse_module_id(input: &str) -> Result<ModuleId> {
+        let mut items = input.trim().split("::");
+        let address_literal = items.next().expect("Could not find address").to_string();
+        let module_name = items
+            .next()
+            .expect("Could not find module name")
+            .to_string();
+
+        Ok(ModuleId::new(
+            AccountAddress::from_hex_literal(&address_literal)
+                .expect("Unable to parse module address"),
+            Identifier::new(module_name).expect("Invalid module name encountered"),
+        ))
     }
 }
 

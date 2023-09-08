@@ -8,13 +8,13 @@ use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
-use move_binary_format::file_format::{Bytecode, CompiledScript};
+use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::{Function, Resolver};
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
 use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
-use movelang::generic_call_graph::{generate_for_script, Node, NodeInternal};
+use movelang::generic_call_graph::{GenericCallGraph, Node, NodeInternal};
 use movelang::utility::MoveValueType;
 use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
 use petgraph::prelude::NodeIndex;
@@ -137,9 +137,8 @@ impl<F: FieldExt> Interpreter<F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn run_script(
+    pub fn execute_function(
         &mut self,
-        script: &CompiledScript,
         entry: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
         signer: Option<Signer>,
@@ -152,8 +151,8 @@ impl<F: FieldExt> Interpreter<F> {
         exec_steps: &mut Vec<ExecutionStep<F>>,
         rw_operations: &mut Vec<RWOperation<F>>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
+        generic_graph: &GenericCallGraph,
     ) -> VmResult<()> {
-        let generic_graph = generate_for_script(script, data_store);
         //println!("{}", generic_graph.to_dot());
 
         let mut locals = Locals::new(entry.local_count());
@@ -175,7 +174,7 @@ impl<F: FieldExt> Interpreter<F> {
         loop {
             let status = frame.execute(
                 self,
-                &generic_graph,
+                generic_graph,
                 loader,
                 data_store,
                 exec_steps,
@@ -216,7 +215,7 @@ impl<F: FieldExt> Interpreter<F> {
                     let frame_index = self.frames.size();
                     let func = loader.function_from_handle(frame.func(), index);
                     let next_node_index = frame.get_next_call_node(
-                        &generic_graph,
+                        generic_graph,
                         frame.func().module_id() == func.module_id(),
                     );
                     execution_step.auxiliary_1 = Some(Value::u64(func.arg_count() as u64));
@@ -277,7 +276,7 @@ impl<F: FieldExt> Interpreter<F> {
                     let func = resolver.function_from_instantiation(index);
 
                     let next_node_index = frame.get_next_call_node(
-                        &generic_graph,
+                        generic_graph,
                         frame.func().module_id() == func.module_id(),
                     );
 
