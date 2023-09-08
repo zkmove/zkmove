@@ -121,7 +121,7 @@ pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::Scalar>>
     instance: &[&[C::Scalar]],
     params: &ParamsIPA<C>,
     pk: ProvingKey<C>,
-) -> VmResult<()> {
+) -> VmResult<Vec<u8>> {
     prove_vm_circuit::<
         IPACommitmentScheme<C>,
         ProverIPA<C>,
@@ -135,7 +135,7 @@ pub fn prove_vm_circuit_kzg<E, ConcreteCircuit>(
     instance: &[&[E::Scalar]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
-) -> VmResult<()>
+) -> VmResult<Vec<u8>>
 where
     E: Engine + Debug + MultiMillerLoop,
     E::G1Affine: SerdeObject,
@@ -151,6 +151,7 @@ where
     >(circuit, instance, params, pk)
 }
 
+// prove circuit,return it proof.
 fn prove_vm_circuit<
     'params,
     Scheme: CommitmentScheme,
@@ -163,7 +164,7 @@ fn prove_vm_circuit<
     instance: &[&[Scheme::Scalar]],
     params: &'params Scheme::ParamsProver,
     pk: ProvingKey<Scheme::Curve>,
-) -> VmResult<()>
+) -> VmResult<Vec<u8>>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
 {
@@ -200,5 +201,5 @@ where
     let verify_time = std::time::Instant::now().duration_since(verify_start);
     info!("verify time: {} ms", verify_time.as_millis());
     assert!(result.is_ok());
-    Ok(())
+    Ok(proof)
 }
