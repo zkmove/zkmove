@@ -9,7 +9,7 @@ use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_source_files;
-use movelang::generic_call_graph::generate;
+use movelang::generic_call_graph::{generate, RemoteStore};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
@@ -367,7 +367,12 @@ fn main() {
             let module =
                 CompiledModule::deserialize(std::fs::read(module.as_path()).unwrap().as_ref())
                     .unwrap();
-            let graphs = generate(&module);
+            let store = {
+                let mut s = RemoteStore::default();
+                s.add_module(&module);
+                s
+            };
+            let graphs = generate(&module.self_id(), &store);
             for (fname, graph) in graphs {
                 std::fs::write(output.join(fname).with_extension("dot"), graph.to_dot()).unwrap();
             }

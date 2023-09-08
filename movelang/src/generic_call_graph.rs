@@ -98,9 +98,17 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
 }
 
 /// Generate generic call graph for module's public function
-pub fn generate(module: &CompiledModule) -> HashMap<String, GenericCallGraph> {
-    let graphs = GenericCallGraphBuilder::new(module).build_graph();
-
+pub fn generate<'s, S: ModuleResolver>(
+    module_id: &ModuleId,
+    s: &'s S,
+) -> HashMap<String, GenericCallGraph> {
+    let module = CompiledModule::deserialize(
+        &s.get_module(module_id)
+            .unwrap()
+            .expect(format!("cannot find module {:?}", module_id).as_str()),
+    )
+    .unwrap();
+    let graphs = GenericCallGraphBuilder::new(&module, s).build_graph();
     graphs
         .into_iter()
         .map(|(idx, graph)| {
@@ -114,13 +122,14 @@ pub fn generate(module: &CompiledModule) -> HashMap<String, GenericCallGraph> {
         .collect()
 }
 
-pub struct GenericCallGraphBuilder<'a> {
+pub struct GenericCallGraphBuilder<'a, S: ModuleResolver> {
     module: &'a CompiledModule,
+    deps: &'a S,
 }
 
-impl<'a> GenericCallGraphBuilder<'a> {
-    pub fn new(module: &'a CompiledModule) -> Self {
-        Self { module }
+impl<'a, S: ModuleResolver> GenericCallGraphBuilder<'a, S> {
+    pub fn new(module: &'a CompiledModule, s: &'a S) -> Self {
+        Self { module, deps: s }
     }
 
     pub fn build_graph(&mut self) -> HashMap<FunctionDefinitionIndex, GenericCallGraph> {
@@ -151,11 +160,9 @@ impl<'a> GenericCallGraphBuilder<'a> {
             let node = Node::new(vec![1], node_data.clone());
             let node_idx = graph.graph.add_node(node.clone());
             graph.head = node_idx;
-            let mut store = RemoteStore::default();
-            store.add_module(self.module);
             Visitor {
-                expand_external: false,
-                store: &store,
+                expand_external: true,
+                store: self.deps,
                 call_stack: vec![(node_idx, node)],
             }
             .visit(&mut graph);

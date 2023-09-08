@@ -118,8 +118,7 @@ impl<F: FieldExt> Runtime<F> {
                 error!("load entry function failed: {:?}", e);
                 RuntimeError::new(StatusCode::EntryFunctionLoadingError)
             })?;
-
-        let generic_graph_map = generate(module.module());
+        let generic_graph_map = generate(&module.module().self_id(), data_store);
         let generic_graph = generic_graph_map
             .get(entry.name())
             .expect("generic graph should not be None");
