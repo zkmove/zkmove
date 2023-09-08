@@ -14,6 +14,7 @@ use movelang::value::{SimpleValue, Value};
 use movelang::value_ext::ValueHeader;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 use vm_circuit::circuit::VmCircuit;
+use vm_circuit::find_best_k;
 use vm_circuit::witness::arith_operations::ArithOperations;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::rw_operations::RW::{READ, WRITE};
@@ -636,7 +637,7 @@ fn test_nop_steps() -> VmResult<()> {
     )?;
 
     let vm_circuit = VmCircuit { witness };
-    let k = runtime.find_best_k(&vm_circuit, vec![])?;
+    let k = find_best_k(&vm_circuit, vec![])?;
 
     let expected_step_0 = ExecutionStep {
         context_id: 1,
@@ -904,7 +905,7 @@ fn test_empty_ops() -> VmResult<()> {
     )?;
 
     let vm_circuit = VmCircuit { witness };
-    let k = runtime.find_best_k(&vm_circuit, vec![])?;
+    let k = find_best_k(&vm_circuit, vec![])?;
 
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

@@ -18,6 +18,6 @@ halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.gi
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
 itertools = "0.8"
 petgraph = "0.6"
-
+plotters = { version = "0.3.0" }
 [dev-dependencies]
 datatest-stable = "0.1.1"

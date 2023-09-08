@@ -8,3 +8,4 @@ pub mod type_transition;
 pub mod utility;
 pub mod value;
 pub mod value_ext;
+pub use move_binary_format;

@@ -13,6 +13,7 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
 use rand::{rngs::StdRng, SeedableRng};
+use vm_circuit::{find_best_k, mock_prove_circuit};
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 
@@ -74,15 +75,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("{:?}", witness);
 
         let vm_circuit = VmCircuit { witness };
-        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        let k = find_best_k(&vm_circuit, vec![])?;
         info!("use vm circuit, k = {}", k);
 
-        runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
+        mock_prove_circuit(&vm_circuit, vec![], k)?;
 
         debug!("Generate parameters for execution trace");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         debug!("Generate zk proof for execution trace");
         runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;

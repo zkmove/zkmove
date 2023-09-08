@@ -18,6 +18,7 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
 use rand::{rngs::StdRng, SeedableRng};
+use vm_circuit::{find_best_k, mock_prove_circuit, print_circuit_layout};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -157,23 +158,23 @@ impl Arguments {
         )?;
         let vm_circuit = VmCircuit { witness };
         info!("find the best k...");
-        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        let k = find_best_k(&vm_circuit, vec![])?;
         info!("k = {}", k);
 
         if use_mock {
             info!("run with mock prover...");
-            runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
+            mock_prove_circuit(&vm_circuit, vec![], k)?;
         }
 
         if print_layout {
             info!("print circuit layout into layout.svg ...");
-            runtime.print_circuit_layout(k, &vm_circuit);
+            print_circuit_layout(k, &vm_circuit);
         }
 
         info!("setup vm circuit...");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let pk = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
@@ -261,22 +262,22 @@ impl Arguments {
         )?;
         let vm_circuit = VmCircuit { witness };
         info!("find the best k...");
-        let k = runtime.find_best_k(&vm_circuit, vec![])?;
+        let k = find_best_k(&vm_circuit, vec![])?;
         info!("k = {}", k);
 
         if use_mock {
             info!("run with mock prover...");
-            runtime.mock_prove_circuit(&vm_circuit, vec![], k)?;
+            mock_prove_circuit(&vm_circuit, vec![], k)?;
         }
 
         if print_layout {
             info!("print circuit layout into layout.svg ...");
-            runtime.print_circuit_layout(k, &vm_circuit);
+            print_circuit_layout(k, &vm_circuit);
         }
 
         info!("setup vm circuit...");
         let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
-        let pk = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
+        let (_, pk) = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
         runtime.prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;
