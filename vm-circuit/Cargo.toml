@@ -19,5 +19,6 @@ halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.g
 itertools = "0.8"
 petgraph = "0.6"
 plotters = { version = "0.3.0" }
+rand = { version = "0.8" }
 [dev-dependencies]
 datatest-stable = "0.1.1"

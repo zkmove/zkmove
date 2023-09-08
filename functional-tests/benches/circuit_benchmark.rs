@@ -16,7 +16,7 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
 use rand::{rngs::StdRng, SeedableRng};
-use vm_circuit::{find_best_k, mock_prove_circuit};
+use vm_circuit::{find_best_k, mock_prove_circuit, prove_vm_circuit_kzg, setup_vm_circuit};
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
 #[allow(clippy::type_complexity)]
@@ -83,7 +83,7 @@ fn setup(
     debug!("Generate parameters for execution trace");
     let rng = StdRng::from_entropy();
     let params = ParamsKZG::<Bn256>::setup(k, rng);
-    let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+    let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
     Ok((runtime, vm_circuit, params, pk))
 }
 
@@ -109,13 +109,11 @@ fn circuit_benchmark(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(&case_path.display()),
             &inputs,
-            |b, (runtime, vm_circuit, params, pk)| {
+            |b, (_runtime, vm_circuit, params, pk)| {
                 b.iter_batched(
                     || {},
                     |_| {
-                        runtime
-                            .prove_vm_circuit_kzg(vm_circuit.clone(), &[], params, pk.clone())
-                            .unwrap();
+                        prove_vm_circuit_kzg(vm_circuit.clone(), &[], params, pk.clone()).unwrap();
                     },
                     BatchSize::PerIteration,
                 );
