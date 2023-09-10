@@ -63,7 +63,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
             ("function index", func_index),
         ]);
 
-        self.vector.configure(cb, vector_flattened_len.clone());
+        self.vector.configure(cb);
 
         // read the vector header
         cb.condition(
@@ -152,8 +152,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         let values_flattened_len = vector_flattened_len - 1;
 
         // assign
-        self.vector
-            .assign(region, offset, rw_operations, step.gc, vector_flattened_len)?;
+        self.vector.assign(region, offset, rw_operations, step.gc)?;
 
         let values = Word {
             word: self.values.clone(),

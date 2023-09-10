@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LoadOp;
+use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
@@ -28,10 +28,14 @@ impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
         //LdU256
 
         LoadOp::constrain_ld_op(cells, cb);
-        // TODO. need to process 2 fields
-        // LoadOp::lookup_ld_op(cb, cells, &self.value_hi, &self.value_lo);
-        LoadOp::lookup_ld_op(cb, cells, &self.value_lo);
-        // LookupBytecode::lookup_bytecode(cb, cells, Opcode::LdU256, self.value_lo.expression.clone());
+        LoadOp::lookup_ldu256_op(cb, cells, &self.value_hi, &self.value_lo);
+        // TODO for u256(2 fields)
+        LookupBytecode::lookup_bytecode(
+            cb,
+            cells,
+            Opcode::LdU256,
+            self.value_lo.expression.clone(),
+        );
     }
 
     fn assign(

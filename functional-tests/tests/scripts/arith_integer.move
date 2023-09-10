@@ -1,4 +1,4 @@
-//! args: 1u16, 11u32, 111u256, 2u64,
+//! args: 1111u16, 11111u32, 340282366920938463463374607431768211455u256, 200u64,
 script {
     fun main(x1: u16, x2: u32, x3: u256, y: u64) {
         // u16 test case
@@ -27,14 +27,14 @@ script {
 
         // u256 test case
         // add operation
-        let x = x3 + 20u256;
+        let x = x3 + 2u256;
         // cast operation
         let y = x - (y as u256);
         // multiple operation
-        let z = y * 2u256;
+        let z = y * 100u256;
         // divide operation
         let z = z / 3u256;
         // modulo operation
-        let _w = z % 2u256; 
+        let _w = z % 7u256; 
     }
 }

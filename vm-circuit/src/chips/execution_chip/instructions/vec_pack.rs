@@ -49,7 +49,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
         let values_flattened_len = vector_flattened_len.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_flattened_len.clone()
-            + vector_flattened_len.clone();
+            + vector_flattened_len;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -63,7 +63,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             ("function index", func_index),
         ]);
 
-        self.vector.configure(cb, vector_flattened_len);
+        self.vector.configure(cb);
 
         // read values from stack, write back the packed vector
         // vector[0] is the header. To make the constraint simple, we have already
@@ -171,7 +171,6 @@ impl<F: FieldExt> InstructionGadget<F> for VecPack<F> {
             offset,
             rw_operations,
             step.gc + values_flattened_len,
-            vector_flattened_len,
         )?;
 
         Ok(())

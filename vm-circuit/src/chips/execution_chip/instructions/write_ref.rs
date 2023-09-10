@@ -59,8 +59,8 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
         ]);
 
         self.ref_val.configure(cb);
-        self.value_a.configure(cb, flattened_value_len.clone());
-        self.value_b.configure(cb, flattened_value_len.clone());
+        self.value_a.configure(cb);
+        self.value_b.configure(cb);
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
             cb.add_lookup(
@@ -172,7 +172,6 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             offset,
             rw_operations,
             step.gc + LEN_OF_REFERENCE_VALUE,
-            flattened_value_len,
         )?;
 
         self.value_b.assign(
@@ -180,7 +179,6 @@ impl<F: FieldExt> InstructionGadget<F> for WriteRef<F> {
             offset,
             rw_operations,
             step.gc + LEN_OF_REFERENCE_VALUE + flattened_value_len,
-            flattened_value_len,
         )?;
 
         let is_global =

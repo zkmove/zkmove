@@ -48,7 +48,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         let values_element_num = struct_element_num.clone() - 1.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_element_num.clone()
-            + struct_element_num.clone();
+            + struct_element_num;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -62,7 +62,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             ("function index", func_index),
         ]);
 
-        self.struct_value.configure(cb, struct_element_num);
+        self.struct_value.configure(cb);
 
         // read values from stack, write back the packed struct
         // struct_value[0] is the header. To make the constraint simple, we have already
@@ -164,13 +164,8 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             values_element_num,
         )?;
 
-        self.struct_value.assign(
-            region,
-            offset,
-            rw_operations,
-            step.gc + values_element_num,
-            struct_element_num,
-        )?;
+        self.struct_value
+            .assign(region, offset, rw_operations, step.gc + values_element_num)?;
 
         Ok(())
     }

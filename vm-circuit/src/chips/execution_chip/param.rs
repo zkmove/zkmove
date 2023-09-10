@@ -31,3 +31,7 @@ pub fn set_word_capacity(word_capacity: usize) {
 // and assign them to a set of cells. This constant is used to represent
 // the maximum number of the cells.
 pub const NUM_OF_ARGS_CELLS: usize = 32;
+
+/// Maximum number of bytes that an integer can fit in field without wrapping
+/// around.
+pub const MAX_N_BYTES_INTEGER: usize = 31;
