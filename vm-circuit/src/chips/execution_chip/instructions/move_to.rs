@@ -65,7 +65,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb, flattened_value_len.clone());
+        self.value.configure(cb);
         self.signer_ref.configure(cb);
         let global_address = self.account_address.expression.clone();
 
@@ -130,8 +130,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, 
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
-        self.value
-            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
+        self.value.assign(region, offset, rw_operations, step.gc)?;
         self.signer_ref
             .assign(region, offset, rw_operations, step.gc + flattened_value_len)?;
 

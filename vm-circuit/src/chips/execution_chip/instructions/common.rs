@@ -16,10 +16,10 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::utility::MoveValueType;
+use movelang::utility::{decode_field_to_u256, MoveValueType, U256};
 use movelang::value::{
-    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256,
-    NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use movelang::value_ext::{
     ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET,
@@ -237,14 +237,17 @@ impl<F: FieldExt> BinaryOp<F> {
             error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        // TODO. need to deal with U256's 2 fields
+
+        // auxiliary_1 is lower field. auxiliary_2 is upper field
         if aux_value.ty() == MoveValueType::U256 {
             let v = aux_value.value_u256().expect("should U256 value");
             cells.auxiliary_1.assign(region, offset, Some(v[1]))?;
+            cells.auxiliary_2.assign(region, offset, Some(v[0]))?;
         } else {
             cells
                 .auxiliary_1
                 .assign(region, offset, aux_value.value())?;
+            cells.auxiliary_2.assign(region, offset, Some(F::zero()))?;
         }
         Ok(())
     }
@@ -539,15 +542,41 @@ impl<F: FieldExt> LoadOp<F> {
                 ValueHeader::default_for_simple().expr(),
             ),
         );
-        // cb.add_lookup(
-        //     "ld op(stack push value upper)",
-        //     RWLookup::stack_push(
-        //         cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
-        //         cells.stack_size.expression.clone(),
-        //         1.expr(),
-        //         value_hi.expression.clone(),
-        //     ),
-        // );
+        cb.add_lookup(
+            "ld op(stack push value low)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                2.expr(),
+                value_lo.expression.clone(),
+            ),
+        );
+    }
+
+    pub(crate) fn lookup_ldu256_op(
+        cb: &mut ConstraintBuilder<F>,
+        cells: &StepChipCells<F>,
+        value_hi: &Cell<F>,
+        value_lo: &Cell<F>,
+    ) {
+        cb.add_lookup(
+            "ld op(stack push value header)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "ld op(stack push value upper)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                1.expr(),
+                value_hi.expression.clone(),
+            ),
+        );
         cb.add_lookup(
             "ld op(stack push value low)",
             RWLookup::stack_push(
@@ -602,13 +631,12 @@ impl<F: FieldExt> ArithOverflow<F> {
         // else if bytes_len = NUM_OF_BYTES_U32, then bytes_4 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
-        // else if bytes_len = NUM_OF_BYTES_U256, then bytes_32 == out
+        // fixme. u256 need range check here?
         let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
         let bytes_2 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U16);
         let bytes_4 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U32);
         let bytes_8 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U64);
-        let bytes_16 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U128);
-        let bytes_32 = FieldBytes::from(bytes).expr_with_n(NUM_OF_BYTES_U256);
+        let bytes_16 = FieldBytes::from(bytes).expr_with_n(NUM_OF_BYTES_U128);
 
         let num_of_bytes = cells.auxiliary_1.expression.clone();
         let delta_inverse_1 = cells.auxiliary_2.expression.clone();
@@ -616,7 +644,6 @@ impl<F: FieldExt> ArithOverflow<F> {
         let delta_inverse_4 = cells.auxiliary_4.expression.clone();
         let delta_inverse_8 = cells.auxiliary_5.expression.clone();
         let delta_inverse_16 = cells.auxiliary_6.expression.clone();
-        let delta_inverse_32 = cells.auxiliary_7.expression.clone();
 
         let cond_1 =
             1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr()) * delta_inverse_1;
@@ -626,10 +653,8 @@ impl<F: FieldExt> ArithOverflow<F> {
             1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr()) * delta_inverse_4;
         let cond_8 =
             1.expr() - (num_of_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr()) * delta_inverse_8;
-        let cond_16 = 1.expr()
-            - (num_of_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16;
-        let cond_32 =
-            1.expr() - (num_of_bytes - (NUM_OF_BYTES_U256 as u64).expr()) * delta_inverse_32;
+        let cond_16 =
+            1.expr() - (num_of_bytes - (NUM_OF_BYTES_U128 as u64).expr()) * delta_inverse_16;
 
         let constraint_1 = cond_1 * (bytes_1 - out.clone());
         cb.add_constraint("range check 1", constraint_1);
@@ -639,11 +664,8 @@ impl<F: FieldExt> ArithOverflow<F> {
         cb.add_constraint("range check 4", constraint_4);
         let constraint_8 = cond_8 * (bytes_8 - out.clone());
         cb.add_constraint("range check 8", constraint_8);
-        let constraint_16 = cond_16 * (bytes_16 - out.clone());
+        let constraint_16 = cond_16 * (bytes_16 - out);
         cb.add_constraint("range check 16", constraint_16);
-        // TODO. necessary to range check for U256?
-        let _constraint_32 = cond_32 * (bytes_32 - out);
-        // cb.add_constraint("range check 32", constraint_32);
     }
 
     // lookup (module_index, function_index, pc, num_of_bytes) in the arith op table.
@@ -1238,4 +1260,45 @@ pub(crate) fn header_value_parse<F: FieldExt>(
     let flattened_len = (header_value.get_lower_128() & 0xFFFF) as usize;
     let len = ((header_value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
     Ok((flattened_len, len))
+}
+
+pub(crate) fn get_u256_from_op<F: FieldExt>(
+    rw_operations: &RWOperations<F>,
+    op_index: usize,
+) -> Result<U256, Error> {
+    let op = rw_operations
+        .0
+        .get(op_index + UPPER_FIELD_OFFSET)
+        .ok_or(Error::Synthesis)?;
+    let upper = op.value().value().ok_or_else(|| {
+        error!("upper field is None");
+        Error::Synthesis
+    })?;
+    let op = rw_operations
+        .0
+        .get(op_index + LOWER_FIELD_OFFSET)
+        .ok_or(Error::Synthesis)?;
+    let lower = op.value().value().ok_or_else(|| {
+        error!("lower field is None");
+        Error::Synthesis
+    })?;
+    let v = decode_field_to_u256(&[upper, lower]);
+    Ok(v)
+}
+
+pub(crate) fn get_u256_from_value<F: FieldExt>(value: Value<F>) -> Result<U256, Error> {
+    if value.ty() == MoveValueType::U256 {
+        let f = value.value_u256().unwrap();
+        Ok(decode_field_to_u256(&f))
+    } else {
+        let v = value
+            .value()
+            .ok_or_else(|| {
+                error!("upper field is None");
+                Error::Synthesis
+            })?
+            .get_lower_128();
+        let v = U256::from(v);
+        Ok(v)
+    }
 }

@@ -35,8 +35,8 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + flattened_value_len.clone();
+        let gc_expr =
+            cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + flattened_value_len;
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -50,7 +50,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
             ("function index", func_index),
         ]);
 
-        self.const_value.configure(cb, flattened_value_len);
+        self.const_value.configure(cb);
 
         for (i, _) in self.const_value.cells.word.iter().enumerate() {
             let write = RWLookup::stack_push(
@@ -89,11 +89,11 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
     ) -> Result<(), Error> {
         let _const_index =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let flattened_value_len =
+        let _flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?
                 .get_lower_128() as usize;
         self.const_value
-            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
+            .assign(region, offset, rw_operations, step.gc)?;
         Ok(())
     }
 

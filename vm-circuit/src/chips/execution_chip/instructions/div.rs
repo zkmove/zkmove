@@ -1,20 +1,26 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{
+    get_u256_from_op, get_u256_from_value, BinaryOp, LookupBytecode,
+};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::math_gadget::mul_add_words::MulAddWordsGadget;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use logger::prelude::*;
+use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct Div<F: FieldExt> {
+    muladd_words_gadget: MulAddWordsGadget<F>,
     value_a_hi: Cell<F>,
     value_a_lo: Cell<F>,
     value_b_hi: Cell<F>,
@@ -28,12 +34,7 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
 
     const OPCODE: Opcode = Opcode::Div;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let lhs = self.value_a_lo.expression.clone();
-        let rhs = self.value_b_lo.expression.clone();
-        let quotient = self.value_c_lo.expression.clone();
-        let remainder = cells.auxiliary_1.expression.clone();
-        let constraint = lhs - rhs * quotient - remainder;
-        cb.add_constraint("Div", constraint);
+        self.muladd_words_gadget.configure(cb);
 
         let binary_op = BinaryOp {
             value_a_hi: self.value_a_hi.clone(),
@@ -71,10 +72,29 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
             rw_operations,
             cells,
             &binary_op,
-        )
+        )?;
+
+        // muladd_gadget assign
+        let divisor = get_u256_from_op(rw_operations, step.gc)?;
+        let divident = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let quotient = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let v = step
+            .auxiliary_1
+            .as_ref()
+            .ok_or_else(|| {
+                error!("auxiliary_1 is None");
+                Error::Synthesis
+            })?
+            .clone();
+        let reminder = get_u256_from_value(v)?;
+        let words = [divisor, quotient, reminder, divident];
+        self.muladd_words_gadget.assign(region, offset, words)?;
+
+        Ok(())
     }
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
+        let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
         let value_a_hi = cb.alloc_cell();
         let value_a_lo = cb.alloc_cell();
         let value_b_hi = cb.alloc_cell();
@@ -83,6 +103,7 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
         let value_c_lo = cb.alloc_cell();
 
         Self {
+            muladd_words_gadget,
             value_a_hi,
             value_a_lo,
             value_b_hi,

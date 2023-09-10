@@ -1,22 +1,27 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{ArithOverflow, BinaryOp, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{
+    get_u256_from_op, ArithOverflow, BinaryOp, LookupBytecode,
+};
 use crate::chips::execution_chip::instructions::InstructionGadget;
-
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::math_gadget::mul_add_words::MulAddWordsGadget;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use movelang::utility::U256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+// use super::common::get_u256_from_op;
 
 #[derive(Clone, Debug)]
 pub struct Mul<F: FieldExt> {
+    muladd_words_gadget: MulAddWordsGadget<F>,
     value_a_hi: Cell<F>,
     value_a_lo: Cell<F>,
     value_b_hi: Cell<F>,
@@ -31,12 +36,9 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
 
     const OPCODE: Opcode = Opcode::Mul;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let lhs = self.value_a_lo.expression.clone();
-        let rhs = self.value_b_lo.expression.clone();
-        let out = self.value_c_lo.expression.clone();
-        let constraint = lhs * rhs - out.clone();
-        cb.add_constraint("mul", constraint);
+        self.muladd_words_gadget.configure(cb);
 
+        let out = self.value_c_lo.expression.clone();
         ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out);
         ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
 
@@ -69,11 +71,9 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
             value_c_hi: self.value_c_hi.clone(),
             value_c_lo: self.value_c_lo.clone(),
         };
-
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
-        // get value_c
-        // TODO. need to take care 2 fields.
+        // result into bytes representation
         let op = rw_operations
             .0
             .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
@@ -81,11 +81,18 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
         let value = op.value();
         ArithOverflow::assign_num_of_bytes(region, offset, step, cells, self.bytes.clone(), value)?;
 
+        // muladd_gadget assign
+        let b = get_u256_from_op(rw_operations, step.gc)?;
+        let a = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let res = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let words = [a, b, U256::zero(), res];
+        self.muladd_words_gadget.assign(region, offset, words)?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
+        let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
         let value_a_hi = cb.alloc_cell();
         let value_a_lo = cb.alloc_cell();
         let value_b_hi = cb.alloc_cell();
@@ -95,6 +102,7 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
         let bytes = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
+            muladd_words_gadget,
             value_a_hi,
             value_a_lo,
             value_b_hi,

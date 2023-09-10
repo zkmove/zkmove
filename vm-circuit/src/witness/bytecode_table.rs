@@ -3,6 +3,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
+use movelang::utility::convert_u256_to_field;
 use std::convert::From;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -52,10 +53,13 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::LdU128.index() as u128),
             F::from_u128(v),
         ),
-        Bytecode::LdU256(_v) => (
+        Bytecode::LdU256(v) => (
             F::from_u128(Opcode::LdU256.index() as u128),
             // TODO for u256(2 fields)
-            F::zero(),
+            {
+                let f = convert_u256_to_field::<F>(&v);
+                f[1]
+            },
         ),
         Bytecode::LdConst(v) => (
             F::from_u128(Opcode::LdConst.index() as u128),
@@ -66,7 +70,6 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
         Bytecode::CastU32 => (F::from_u128(Opcode::CastU32.index() as u128), F::zero()),
         Bytecode::CastU64 => (F::from_u128(Opcode::CastU64.index() as u128), F::zero()),
         Bytecode::CastU128 => (F::from_u128(Opcode::CastU128.index() as u128), F::zero()),
-        // TODO for u256(2 fields).
         Bytecode::CastU256 => (F::from_u128(Opcode::CastU256.index() as u128), F::zero()),
         Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::zero()),
         Bytecode::Ret => (F::from_u128(Opcode::Ret.index() as u128), F::zero()),

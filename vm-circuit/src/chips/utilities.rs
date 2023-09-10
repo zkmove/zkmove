@@ -128,6 +128,42 @@ impl<F: FieldExt> FieldBytes<F> {
     }
 }
 
+// Decodes a field element from its byte representation
+pub(crate) mod from_bytes {
+    use super::Expr;
+    use crate::chips::execution_chip::param::MAX_N_BYTES_INTEGER;
+    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+
+    pub(crate) fn expr<F: FieldExt, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+        debug_assert!(
+            bytes.len() <= MAX_N_BYTES_INTEGER,
+            "Too many bytes to compose an integer in field"
+        );
+        let mut value = 0.expr();
+        let mut multiplier = F::one();
+        for byte in bytes.iter() {
+            value = value + byte.expr() * multiplier;
+            multiplier *= F::from(256);
+        }
+        value
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn value<F: FieldExt>(bytes: &[u8]) -> F {
+        debug_assert!(
+            bytes.len() <= MAX_N_BYTES_INTEGER,
+            "Too many bytes to compose an integer in field"
+        );
+        let mut value = F::zero();
+        let mut multiplier = F::one();
+        for byte in bytes.iter() {
+            value += F::from(*byte as u64) * multiplier;
+            multiplier *= F::from(256);
+        }
+        value
+    }
+}
+
 pub(crate) trait SubInvert<F: FieldExt> {
     fn sub_invert(&self, other: usize) -> Option<F>;
 }
