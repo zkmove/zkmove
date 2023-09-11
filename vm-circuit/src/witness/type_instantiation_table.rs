@@ -5,6 +5,7 @@ use move_binary_format::normalized::Type;
 
 use move_binary_format::CompiledModule;
 
+use move_core_types::identifier::IdentStr;
 use move_core_types::language_storage::ModuleId;
 use movelang::generic_call_graph::{
     generate_for_script, GenericCallGraph, NodeInternal, RemoteStore,
@@ -47,11 +48,44 @@ impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for GenericTypeInstant
         GenericTypeInstantiationTableData(generate(script, deps))
     }
 }
+impl<'a> From<(&'a ModuleId, &'a IdentStr, &'a [CompiledModule])>
+    for GenericTypeInstantiationTableData
+{
+    fn from(
+        (entry_module, entry_function_name, deps): (
+            &'a ModuleId,
+            &'a IdentStr,
+            &'a [CompiledModule],
+        ),
+    ) -> Self {
+        Self(generate_for_entry_function(
+            entry_module,
+            entry_function_name,
+            deps,
+        ))
+    }
+}
+fn generate_for_entry_function(
+    entry_module: &ModuleId,
+    entry_function: &IdentStr,
+    deps: &[CompiledModule],
+) -> Vec<GenericTypeInstantiation> {
+    let mut store = RemoteStore::default();
+    deps.iter().for_each(|dep| store.add_module(dep));
+    let trace_graph = movelang::generic_call_graph::generate(entry_module, &store)
+        .remove(entry_function.as_str())
+        .unwrap();
+    build(trace_graph, deps)
+}
 
 fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<GenericTypeInstantiation> {
     let mut store = RemoteStore::default();
     deps.iter().for_each(|dep| store.add_module(dep));
     let trace_graph = generate_for_script(script, &store);
+    build(trace_graph, deps)
+}
+
+fn build(trace_graph: GenericCallGraph, deps: &[CompiledModule]) -> Vec<GenericTypeInstantiation> {
     let name_mapping = NameToIdxMapping::build(deps);
     TypeInstantiationBuilder::default()
         .build(&trace_graph)

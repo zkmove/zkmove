@@ -35,7 +35,7 @@ fn test_execution_step() -> VmResult<()> {
     ];
     let bytecodes = (script.clone(), vec![]).into();
     let deps: &[CompiledModule] = &[];
-    let arith_operations = ArithOperations::from((&script, deps)).0;
+    let arith_operations = ArithOperations::from((Some(&script), deps)).0;
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
 
@@ -629,8 +629,14 @@ fn test_nop_steps() -> VmResult<()> {
     let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default().max_step_row(Some(100));
     let trace = runtime.execute_script(script.clone(), vec![], None, None, &mut data_store)?;
-    let witness =
-        runtime.process_execution_trace(vec![], Some(script), vec![], trace, circuit_config)?;
+    let witness = runtime.process_execution_trace(
+        vec![],
+        Some(script),
+        None,
+        vec![],
+        trace,
+        circuit_config,
+    )?;
 
     let vm_circuit = VmCircuit { witness };
     let k = find_best_k(&vm_circuit, vec![])?;
@@ -891,8 +897,14 @@ fn test_empty_ops() -> VmResult<()> {
         .stack_ops_num(Some(20))
         .locals_ops_num(Some(20));
     let trace = runtime.execute_script(script.clone(), vec![], None, None, &mut data_store)?;
-    let witness =
-        runtime.process_execution_trace(vec![], Some(script), vec![], trace, circuit_config)?;
+    let witness = runtime.process_execution_trace(
+        vec![],
+        Some(script),
+        None,
+        vec![],
+        trace,
+        circuit_config,
+    )?;
 
     let vm_circuit = VmCircuit { witness };
     let k = find_best_k(&vm_circuit, vec![])?;

@@ -73,6 +73,7 @@ fn setup(
     let witness = runtime.process_execution_trace(
         config.ty_args,
         Some(script),
+        None,
         compiled_modules,
         trace,
         circuit_config,

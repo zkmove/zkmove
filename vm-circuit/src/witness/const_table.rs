@@ -13,13 +13,13 @@ pub struct ConstantInfo {
 #[derive(Clone, Debug, Default)]
 pub struct ConstantTable(pub Vec<ConstantInfo>);
 
-impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for ConstantTable {
-    fn from((script, deps): (&'a CompiledScript, &'a [CompiledModule])) -> Self {
+impl<'a> From<(Option<&'a CompiledScript>, &'a [CompiledModule])> for ConstantTable {
+    fn from((script, deps): (Option<&'a CompiledScript>, &'a [CompiledModule])) -> Self {
         ConstantTable(parse_consts(script, deps))
     }
 }
 
-fn parse_consts(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<ConstantInfo> {
+fn parse_consts(script: Option<&CompiledScript>, deps: &[CompiledModule]) -> Vec<ConstantInfo> {
     let module_const_info = deps.iter().enumerate().flat_map(|(idx, m)| {
         m.constant_pool()
             .iter()
@@ -38,22 +38,25 @@ fn parse_consts(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<Constan
                 }
             })
     });
-
-    script
-        .constant_pool
-        .iter()
-        .enumerate()
-        .map(move |(constant_idx, constant)| {
-            #[allow(clippy::expect_fun_call)]
-            let value = constant
-                .deserialize_constant()
-                .expect(&format!("deserialize_constant {} at script", constant_idx));
-            ConstantInfo {
-                module_index: 0u16,
-                constant_index: constant_idx as u16,
-                value,
-            }
-        })
-        .chain(module_const_info)
-        .collect()
+    if let Some(script) = script {
+        script
+            .constant_pool
+            .iter()
+            .enumerate()
+            .map(move |(constant_idx, constant)| {
+                #[allow(clippy::expect_fun_call)]
+                let value = constant
+                    .deserialize_constant()
+                    .expect(&format!("deserialize_constant {} at script", constant_idx));
+                ConstantInfo {
+                    module_index: 0u16,
+                    constant_index: constant_idx as u16,
+                    value,
+                }
+            })
+            .chain(module_const_info)
+            .collect()
+    } else {
+        module_const_info.collect()
+    }
 }

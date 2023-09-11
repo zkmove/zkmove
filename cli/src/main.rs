@@ -163,6 +163,7 @@ impl Arguments {
         let witness = runtime.process_execution_trace(
             config.ty_args.clone(),
             Some(script.clone()),
+            None,
             compiled_modules.clone(),
             trace,
             circuit_config.clone(),
@@ -212,6 +213,7 @@ impl Arguments {
             let new_witness = runtime.process_execution_trace(
                 new_ty_args,
                 Some(script),
+                None,
                 compiled_modules,
                 new_trace,
                 circuit_config,
@@ -279,6 +281,7 @@ impl Arguments {
         let witness = runtime.process_execution_trace(
             config.ty_args.clone(),
             Some(script.clone()),
+            None,
             compiled_modules.clone(),
             trace,
             circuit_config.clone(),
@@ -323,9 +326,11 @@ impl Arguments {
                 arguments,
                 &mut state,
             )?;
+
             let new_witness = runtime.process_execution_trace(
                 new_ty_args,
                 Some(script),
+                None,
                 compiled_modules,
                 new_trace,
                 circuit_config,

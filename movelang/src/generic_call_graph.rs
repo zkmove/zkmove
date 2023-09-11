@@ -98,14 +98,14 @@ pub fn generate_for_script<'a, S: ModuleResolver>(
 }
 
 /// Generate generic call graph for module's public function
-pub fn generate<'s, S: ModuleResolver>(
+pub fn generate<S: ModuleResolver>(
     module_id: &ModuleId,
-    s: &'s S,
+    s: &S,
 ) -> HashMap<String, GenericCallGraph> {
     let module = CompiledModule::deserialize(
         &s.get_module(module_id)
             .unwrap()
-            .expect(format!("cannot find module {:?}", module_id).as_str()),
+            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id)),
     )
     .unwrap();
     let graphs = GenericCallGraphBuilder::new(&module, s).build_graph();

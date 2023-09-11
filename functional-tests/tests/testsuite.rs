@@ -64,6 +64,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             runtime.process_execution_trace(
                 config.ty_args.clone(),
                 Some(script),
+                None,
                 compiled_modules.clone(),
                 trace,
                 circuit_config.clone(),
@@ -86,6 +87,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                 runtime.process_execution_trace(
                     config.ty_args.clone(),
                     None,
+                    Some((&module_id, &function_name)),
                     compiled_modules.clone(),
                     trace,
                     circuit_config.clone(),
@@ -130,6 +132,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                 runtime.process_execution_trace(
                     new_ty_args,
                     Some(script),
+                    None,
                     compiled_modules,
                     trace,
                     circuit_config,
@@ -152,6 +155,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                     runtime.process_execution_trace(
                         new_ty_args,
                         None,
+                        Some((&module_id, &function_name)),
                         compiled_modules,
                         trace,
                         circuit_config,

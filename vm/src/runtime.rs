@@ -8,7 +8,6 @@ use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
-use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_binary_format::CompiledModule;
 use move_core_types::identifier::IdentStr;
@@ -211,6 +210,7 @@ impl<F: FieldExt> Runtime<F> {
         &self,
         ty_args: Vec<TypeTag>,
         script_opt: Option<CompiledScript>,
+        entry_function: Option<(&ModuleId, &IdentStr)>,
         modules: Vec<CompiledModule>,
         mut trace: ExecutionTrace<F>,
         circuit_config: CircuitConfig,
@@ -281,33 +281,55 @@ impl<F: FieldExt> Runtime<F> {
                 .data = Some(data);
         });
 
-        // Using an empty script to generate witness allows us to use the same code
-        // when executing the entry function and when executing script.
-        let script = if let Some(sc) = script_opt {
-            sc
+        if let Some(script) = script_opt {
+            let arith_operations = ArithOperations::from((Some(&script), modules.as_slice())).0;
+            let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
+            let call_traces = CallTraceTable::from((&script, modules.as_slice()));
+            let type_instantiations =
+                GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
+            let constants = ConstantTable::from((Some(&script), modules.as_slice()));
+            let bytecodes = BytecodeTable::from((script, modules));
+
+            Ok(Witness::new(
+                trace.exec_steps,
+                trace.rw_operations,
+                bytecodes,
+                constants,
+                func_calls,
+                arith_operations,
+                call_traces,
+                type_instantiations,
+                InputTypeElementTableData(input_type_element_table_data),
+                circuit_config,
+            ))
+        } else if let Some((entry_module, entry_function_name)) = entry_function {
+            let arith_operations = ArithOperations::from((None, modules.as_slice())).0;
+            let func_calls =
+                FunctionCalls::from((entry_module, entry_function_name, modules.as_slice())).0;
+            let call_traces =
+                CallTraceTable::from((entry_module, entry_function_name, modules.as_slice()));
+            let type_instantiations = GenericTypeInstantiationTableData::from((
+                entry_module,
+                entry_function_name,
+                modules.as_slice(),
+            ));
+            let constants = ConstantTable::from((None, modules.as_slice()));
+            let bytecodes = BytecodeTable::from(modules);
+
+            Ok(Witness::new(
+                trace.exec_steps,
+                trace.rw_operations,
+                bytecodes,
+                constants,
+                func_calls,
+                arith_operations,
+                call_traces,
+                type_instantiations,
+                InputTypeElementTableData(input_type_element_table_data),
+                circuit_config,
+            ))
         } else {
-            empty_script()
-        };
-
-        let arith_operations = ArithOperations::from((&script, modules.as_slice())).0;
-        let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
-        let call_traces = CallTraceTable::from((&script, modules.as_slice()));
-        let type_instantiations =
-            GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
-        let constants = ConstantTable::from((&script, modules.as_slice()));
-        let bytecodes = BytecodeTable::from((script, modules));
-
-        Ok(Witness::new(
-            trace.exec_steps,
-            trace.rw_operations,
-            bytecodes,
-            constants,
-            func_calls,
-            arith_operations,
-            call_traces,
-            type_instantiations,
-            InputTypeElementTableData(input_type_element_table_data),
-            circuit_config,
-        ))
+            unreachable!()
+        }
     }
 }
