@@ -18,7 +18,10 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
 use rand::{rngs::StdRng, SeedableRng};
-use vm_circuit::{find_best_k, mock_prove_circuit, print_circuit_layout};
+use vm_circuit::{
+    find_best_k, mock_prove_circuit, print_circuit_layout, prove_vm_circuit_ipa,
+    prove_vm_circuit_kzg, setup_vm_circuit,
+};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove Virtual Machine")]
@@ -176,10 +179,10 @@ impl Arguments {
         info!("setup vm circuit...");
         let rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (_, pk) = runtime.setup_vm_circuit_kzg(&vm_circuit, &params)?;
+        let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
-        runtime.prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
+        prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
         #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
@@ -204,7 +207,7 @@ impl Arguments {
                 witness: new_witness,
             };
             info!("prove the new execution with old proving key...");
-            runtime.prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
+            prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
         }
 
         Ok(())
@@ -279,10 +282,10 @@ impl Arguments {
 
         info!("setup vm circuit...");
         let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
-        let (_, pk) = runtime.setup_vm_circuit_ipa(&vm_circuit, &params)?;
+        let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
-        runtime.prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;
+        prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;
         #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
@@ -307,7 +310,7 @@ impl Arguments {
                 witness: new_witness,
             };
             info!("prove the new execution with old proving key...");
-            runtime.prove_vm_circuit_ipa(new_vm_circuit, &[], &params, pk)?;
+            prove_vm_circuit_ipa(new_vm_circuit, &[], &params, pk)?;
         }
 
         Ok(())
