@@ -259,9 +259,38 @@ impl<F: FieldExt> BinaryOp<F> {
         rw_operations: &RWOperations<F>,
         lookup_bitwise: &LookupBitwise<F>,
     ) -> Result<(), Error> {
-        // TODO. need to take care 2 fields
         // store operand 1 at bytes_operand_1 cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
+        let result = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_1[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(32).enumerate() {
+            // seperate one byte into 2 fields.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
         let result = rw_operations
             .0
             .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
@@ -274,9 +303,15 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(16).enumerate() {
-            // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+        // bytes_operand_1[32; 32] for lower filed
+        for (index, byte) in lookup_bitwise
+            .bytes_operand_1
+            .iter()
+            .skip(32)
+            .take(32)
+            .enumerate()
+        {
+            // seperate one byte into 2 fields.
             if index % 2 == 0 {
                 byte.assign(
                     region,
@@ -293,7 +328,37 @@ impl<F: FieldExt> BinaryOp<F> {
         }
 
         // store operand 2 at bytes_operand_2 cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for upper 128 bit.
+        let result = rw_operations
+            .0
+            .get(step.gc + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_2[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(32).enumerate() {
+            // seperate one byte into 2 fields
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
         let result = rw_operations
             .0
             .get(step.gc + LOWER_FIELD_OFFSET)
@@ -306,9 +371,15 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(16).enumerate() {
+        // bytes_operand_2[32; 32] for lower filed
+        for (index, byte) in lookup_bitwise
+            .bytes_operand_2
+            .iter()
+            .skip(32)
+            .take(32)
+            .enumerate()
+        {
             // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
                 byte.assign(
                     region,
@@ -325,7 +396,36 @@ impl<F: FieldExt> BinaryOp<F> {
         }
 
         // store result at bytes cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for upper 128 bit.
+        let result = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_2[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes.iter().take(32).enumerate() {
+            // seperate one byte into 2 fields
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
         let result = rw_operations
             .0
             .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
@@ -338,9 +438,9 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes.iter().take(16).enumerate() {
+        // bytes_operand_2[32; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes.iter().skip(32).take(32).enumerate() {
             // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
             if index % 2 == 0 {
                 byte.assign(
                     region,

@@ -4,7 +4,6 @@ use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBitwise
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -13,6 +12,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use movelang::value::NUM_OF_BYTES_U256;
 
 #[derive(Clone, Debug)]
 pub struct BitAnd<F: FieldExt> {
@@ -89,9 +89,12 @@ impl<F: FieldExt> InstructionGadget<F> for BitAnd<F> {
         let value_b_lo = cb.alloc_cell();
         let value_c_hi = cb.alloc_cell();
         let value_c_lo = cb.alloc_cell();
-        let bytes = cb.alloc_n_cells(BYTES_NUM);
-        let bytes_operand_1 = cb.alloc_n_cells(BYTES_NUM);
-        let bytes_operand_2 = cb.alloc_n_cells(BYTES_NUM);
+
+        // bytes[i] = bytes_operand_1[i] & bytes_operand_2[i]
+        // each bytes need 2 fields(4 bit each) and totally 64 cells
+        let bytes = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
+        let bytes_operand_1 = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
+        let bytes_operand_2 = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
 
         Self {
             value_a_hi,
