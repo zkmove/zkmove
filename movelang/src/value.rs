@@ -17,6 +17,8 @@ use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
 
 pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
@@ -24,6 +26,12 @@ pub const DEPTH_OF_ADDRESS_PATH: usize = DEPTH_OF_LOCATION_PATH + 8;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U8<F: FieldExt>(pub F);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct U16<F: FieldExt>(pub F);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct U32<F: FieldExt>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U64<F: FieldExt>(pub F);
@@ -107,6 +115,8 @@ impl<F: FieldExt> AddressPath<F> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SimpleValue<F: FieldExt> {
     U8(U8<F>),
+    U16(U16<F>),
+    U32(U32<F>),
     U64(U64<F>),
     U128(U128<F>),
     Bool(Bool<F>),
@@ -117,6 +127,8 @@ impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
     fn from(value: SimpleValue<F>) -> MoveValue {
         match value {
             SimpleValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
+            SimpleValue::U16(field) => MoveValue::U16(field.0.get_lower_128() as u16),
+            SimpleValue::U32(field) => MoveValue::U32(field.0.get_lower_128() as u32),
             SimpleValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
             SimpleValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
             SimpleValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
@@ -135,6 +147,8 @@ pub enum Value<F: FieldExt> {
     Invalid,
     /// The following is simple value
     U8(U8<F>),
+    U16(U16<F>),
+    U32(U32<F>),
     U64(U64<F>),
     U128(U128<F>),
     Bool(Bool<F>),
@@ -683,6 +697,12 @@ impl<F: FieldExt> LocalRef<F> {
             (Value::U8(t), Value::U8(v)) => {
                 *t = v;
             }
+            (Value::U16(t), Value::U16(v)) => {
+                *t = v;
+            }
+            (Value::U32(t), Value::U32(v)) => {
+                *t = v;
+            }
             (Value::U64(t), Value::U64(v)) => {
                 *t = v;
             }
@@ -820,6 +840,8 @@ impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
     fn from(simple: SimpleValue<F>) -> Self {
         match simple {
             SimpleValue::U8(v) => Value::U8(v),
+            SimpleValue::U16(v) => Value::U16(v),
+            SimpleValue::U32(v) => Value::U32(v),
             SimpleValue::U64(v) => Value::U64(v),
             SimpleValue::U128(v) => Value::U128(v),
             SimpleValue::Bool(v) => Value::Bool(v),
@@ -834,6 +856,8 @@ impl<F: FieldExt> TryFrom<&Value<F>> for SimpleValue<F> {
     fn try_from(value: &Value<F>) -> VmResult<SimpleValue<F>> {
         match value {
             Value::U8(v) => Ok(SimpleValue::U8(*v)),
+            Value::U16(v) => Ok(SimpleValue::U16(*v)),
+            Value::U32(v) => Ok(SimpleValue::U32(*v)),
             Value::U64(v) => Ok(SimpleValue::U64(*v)),
             Value::U128(v) => Ok(SimpleValue::U128(*v)),
             Value::Bool(v) => Ok(SimpleValue::Bool(*v)),
@@ -847,6 +871,8 @@ impl<F: FieldExt> From<MoveValue> for SimpleValue<F> {
     fn from(value: MoveValue) -> Self {
         match value {
             MoveValue::U8(v) => SimpleValue::u8(v),
+            MoveValue::U16(v) => SimpleValue::u16(v),
+            MoveValue::U32(v) => SimpleValue::u32(v),
             MoveValue::U64(v) => SimpleValue::u64(v),
             MoveValue::U128(v) => SimpleValue::u128(v),
             MoveValue::Bool(v) => SimpleValue::bool(v),
@@ -865,6 +891,14 @@ impl<F: FieldExt> SimpleValue<F> {
         let value = F::from_u128(x as u128);
         Self::U8(U8(value))
     }
+    pub fn u16(x: u16) -> Self {
+        let value = F::from_u128(x as u128);
+        Self::U16(U16(value))
+    }
+    pub fn u32(x: u32) -> Self {
+        let value = F::from_u128(x as u128);
+        Self::U32(U32(value))
+    }
     pub fn u64(x: u64) -> Self {
         let value = F::from_u128(x as u128);
         Self::U64(U64(value))
@@ -880,6 +914,8 @@ impl<F: FieldExt> SimpleValue<F> {
     pub fn value(&self) -> Option<F> {
         match self {
             Self::U8(v) => Some(v.0),
+            Self::U16(v) => Some(v.0),
+            Self::U32(v) => Some(v.0),
             Self::U64(v) => Some(v.0),
             Self::U128(v) => Some(v.0),
             Self::Bool(v) => Some(v.0),
@@ -890,6 +926,8 @@ impl<F: FieldExt> SimpleValue<F> {
     pub fn ty(&self) -> MoveValueType {
         match self {
             Self::U8(_) => MoveValueType::U8,
+            Self::U16(_) => MoveValueType::U16,
+            Self::U32(_) => MoveValueType::U32,
             Self::U64(_) => MoveValueType::U64,
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
@@ -918,6 +956,8 @@ impl<F: FieldExt> Value<F> {
     pub fn new(value: F, ty: MoveValueType) -> VmResult<Self> {
         match ty {
             MoveValueType::U8 => Ok(Self::U8(U8(value))),
+            MoveValueType::U16 => Ok(Self::U16(U16(value))),
+            MoveValueType::U32 => Ok(Self::U32(U32(value))),
             MoveValueType::U64 => Ok(Self::U64(U64(value))),
             MoveValueType::U128 => Ok(Self::U128(U128(value))),
             MoveValueType::Bool => Ok(Self::Bool(Bool(value))),
@@ -934,6 +974,14 @@ impl<F: FieldExt> Value<F> {
     pub fn u8(x: u8) -> Self {
         let value = F::from_u128(x as u128);
         Self::U8(U8(value))
+    }
+    pub fn u16(x: u16) -> Self {
+        let value = F::from_u128(x as u128);
+        Self::U16(U16(value))
+    }
+    pub fn u32(x: u32) -> Self {
+        let value = F::from_u128(x as u128);
+        Self::U32(U32(value))
     }
     pub fn u64(x: u64) -> Self {
         let value = F::from_u128(x as u128);
@@ -976,6 +1024,8 @@ impl<F: FieldExt> Value<F> {
         match self {
             Self::Invalid => None,
             Self::U8(v) => Some(v.0),
+            Self::U16(v) => Some(v.0),
+            Self::U32(v) => Some(v.0),
             Self::U64(v) => Some(v.0),
             Self::U128(v) => Some(v.0),
             Self::Bool(v) => Some(v.0),
@@ -992,6 +1042,8 @@ impl<F: FieldExt> Value<F> {
                 unreachable!()
             }
             Self::U8(_) => MoveValueType::U8,
+            Self::U16(_) => MoveValueType::U16,
+            Self::U32(_) => MoveValueType::U32,
             Self::U64(_) => MoveValueType::U64,
             Self::U128(_) => MoveValueType::U128,
             Self::Bool(_) => MoveValueType::Bool,
@@ -1004,6 +1056,8 @@ impl<F: FieldExt> Value<F> {
     pub fn cast_simple(&self) -> Option<SimpleValue<F>> {
         Some(match self {
             Value::U8(v) => SimpleValue::U8(*v),
+            Value::U16(v) => SimpleValue::U16(*v),
+            Value::U32(v) => SimpleValue::U32(*v),
             Value::U64(v) => SimpleValue::U64(*v),
             Value::U128(v) => SimpleValue::U128(*v),
             Value::Bool(v) => SimpleValue::Bool(*v),
@@ -1037,6 +1091,12 @@ impl<F: FieldExt> Add for Value<F> {
             (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
                 u8::checked_add(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
             ),
+            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                u16::checked_add(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
+            ),
+            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                u32::checked_add(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
+            ),
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
             ),
@@ -1062,6 +1122,12 @@ impl<F: FieldExt> Sub for Value<F> {
             (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
                 u8::checked_sub(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
             ),
+            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                u16::checked_sub(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
+            ),
+            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                u32::checked_sub(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
+            ),
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
             ),
@@ -1086,6 +1152,12 @@ impl<F: FieldExt> Mul for Value<F> {
         let value = match (self.ty(), b.ty()) {
             (MoveValueType::U8, MoveValueType::U8) => F::from_u128(
                 u8::checked_mul(lhs as u8, rhs as u8).expect("arithmetic error found") as u128,
+            ),
+            (MoveValueType::U16, MoveValueType::U16) => F::from_u128(
+                u16::checked_mul(lhs as u16, rhs as u16).expect("arithmetic error found") as u128,
+            ),
+            (MoveValueType::U32, MoveValueType::U32) => F::from_u128(
+                u32::checked_mul(lhs as u32, rhs as u32).expect("arithmetic error found") as u128,
             ),
             (MoveValueType::U64, MoveValueType::U64) => F::from_u128(
                 u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found") as u128,
@@ -1153,6 +1225,8 @@ impl<F: FieldExt> Value<F> {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
             (Self::U8(v1), Self::U8(v2)) => v1.0 == v2.0,
+            (Self::U16(v1), Self::U16(v2)) => v1.0 == v2.0,
+            (Self::U32(v1), Self::U32(v2)) => v1.0 == v2.0,
             (Self::U64(v1), Self::U64(v2)) => v1.0 == v2.0,
             (Self::U128(v1), Self::U128(v2)) => v1.0 == v2.0,
             (Self::Bool(v1), Self::Bool(v2)) => v1.0 == v2.0,
@@ -1201,7 +1275,10 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn is_integer(&self) -> bool {
-        matches!(self, Self::U8(_) | Self::U64(_) | Self::U128(_))
+        matches!(
+            self,
+            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_)
+        )
     }
     pub fn is_reference(&self) -> bool {
         matches!(
@@ -1219,6 +1296,24 @@ impl<F: FieldExt> Value<F> {
 
         match self {
             Self::U8(_) => Ok(self),
+            Self::U16(_) => {
+                if val > (std::u8::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u16({}) to u8", val)))
+                } else {
+                    // Self::u16(val as u16, None)
+                    Value::new(F::from_u128(val), MoveValueType::U8)
+                }
+            }
+            Self::U32(_) => {
+                if val > (std::u8::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u32({}) to u8", val)))
+                } else {
+                    // Self::u32(val as u32, None)
+                    Value::new(F::from_u128(val), MoveValueType::U8)
+                }
+            }
             Self::U64(_) => {
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
@@ -1241,6 +1336,74 @@ impl<F: FieldExt> Value<F> {
         }
     }
 
+    pub fn castu16(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u16".to_string()));
+        }
+        let val = self.value().unwrap().get_lower_128();
+
+        match self {
+            Self::U8(_) | Self::U16(_) => Value::new(F::from_u128(val), MoveValueType::U16),
+            Self::U32(_) => {
+                if val > (std::u16::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u32({}) to u16", val)))
+                } else {
+                    Value::new(F::from_u128(val), MoveValueType::U16)
+                }
+            }
+            Self::U64(_) => {
+                if val > (std::u16::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u64({}) to u16", val)))
+                } else {
+                    Value::new(F::from_u128(val), MoveValueType::U16)
+                }
+            }
+            Self::U128(_) => {
+                if val > (std::u16::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u128({}) to u16", val)))
+                } else {
+                    Value::new(F::from_u128(val), MoveValueType::U16)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn castu32(self) -> VmResult<Self> {
+        if !self.is_integer() {
+            return Err(RuntimeError::new(StatusCode::ValueConversionError)
+                .with_message("the value can not be cast as u32".to_string()));
+        }
+        let val = self.value().unwrap().get_lower_128();
+
+        match self {
+            Self::U8(_) | Self::U16(_) | Self::U32(_) => {
+                Value::new(F::from_u128(val), MoveValueType::U32)
+            }
+            Self::U64(_) => {
+                if val > (std::u32::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u64({}) to u32", val)))
+                } else {
+                    Value::new(F::from_u128(val), MoveValueType::U32)
+                }
+            }
+            Self::U128(_) => {
+                if val > (std::u32::MAX as u128) {
+                    Err(RuntimeError::new(StatusCode::ArithmeticError)
+                        .with_message(format!("Cannot cast u128({}) to u32", val)))
+                } else {
+                    Value::new(F::from_u128(val), MoveValueType::U32)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub fn castu64(self) -> VmResult<Self> {
         if !self.is_integer() {
             return Err(RuntimeError::new(StatusCode::ValueConversionError)
@@ -1249,7 +1412,9 @@ impl<F: FieldExt> Value<F> {
         let val = self.value().unwrap().get_lower_128();
 
         match self {
-            Self::U8(_) | Self::U64(_) => Value::new(F::from_u128(val), MoveValueType::U64),
+            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) => {
+                Value::new(F::from_u128(val), MoveValueType::U64)
+            }
             Self::U128(_) => {
                 if val > (std::u64::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
@@ -1271,7 +1436,7 @@ impl<F: FieldExt> Value<F> {
         let val = self.value().unwrap().get_lower_128();
 
         match self {
-            Self::U8(_) | Self::U64(_) | Self::U128(_) => {
+            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_) => {
                 Value::new(F::from_u128(val), MoveValueType::U128)
             }
             _ => unreachable!(),
@@ -1480,6 +1645,8 @@ impl<F: FieldExt> Value<F> {
         match self {
             Self::Invalid => Self::Invalid,
             Self::U8(v) => Self::U8(*v),
+            Self::U16(v) => Self::U16(*v),
+            Self::U32(v) => Self::U32(*v),
             Self::U64(v) => Self::U64(*v),
             Self::U128(v) => Self::U128(*v),
             Self::Bool(v) => Self::Bool(*v),
@@ -1635,33 +1802,3 @@ impl<F: FieldExt> GlobalValue<F> {
         }
     }
 }
-
-// #[derive(Clone, Debug, Copy)]
-// pub enum IntegerType {
-//     U8,
-//     U64,
-//     U128,
-// }
-//
-// impl IntegerType {
-//     pub fn num_of_bytes(&self) -> usize {
-//         match self {
-//             Self::U8 => NUM_OF_BYTES_U8,
-//             Self::U64 => NUM_OF_BYTES_U64,
-//             Self::U128 => NUM_OF_BYTES_U128,
-//         }
-//     }
-// }
-//
-// impl TryFrom<MoveValueType> for IntegerType {
-//     type Error = RuntimeError;
-//
-//     fn try_from(move_ty: MoveValueType) -> VmResult<IntegerType> {
-//         match move_ty {
-//             MoveValueType::U8 => Ok(IntegerType::U8),
-//             MoveValueType::U64 => Ok(IntegerType::U64),
-//             MoveValueType::U128 => Ok(IntegerType::U128),
-//             _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
-//         }
-//     }
-// }

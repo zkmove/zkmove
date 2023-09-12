@@ -6,10 +6,14 @@ use std::fmt::Display;
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Opcode {
     LdU8 = 0,
+    LdU16,
+    LdU32,
     LdU64,
     LdU128,
     LdConst,
     CastU8,
+    CastU16,
+    CastU32,
     CastU64,
     CastU128,
     Pop,
@@ -99,10 +103,14 @@ impl Opcode {
     pub fn iter() -> impl Iterator<Item = Self> {
         [
             Self::LdU8,
+            Self::LdU16,
+            Self::LdU32,
             Self::LdU64,
             Self::LdU128,
             Self::LdConst,
             Self::CastU8,
+            Self::CastU16,
+            Self::CastU32,
             Self::CastU64,
             Self::CastU128,
             Self::Pop,
@@ -188,10 +196,14 @@ impl From<Bytecode> for Opcode {
     fn from(bytecode: Bytecode) -> Opcode {
         match bytecode {
             Bytecode::LdU8(_) => Opcode::LdU8,
+            Bytecode::LdU16(_) => Opcode::LdU16,
+            Bytecode::LdU32(_) => Opcode::LdU32,
             Bytecode::LdU64(_) => Opcode::LdU64,
             Bytecode::LdU128(_) => Opcode::LdU128,
             Bytecode::LdConst(_) => Opcode::LdConst,
             Bytecode::CastU8 => Opcode::CastU8,
+            Bytecode::CastU16 => Opcode::CastU16,
+            Bytecode::CastU32 => Opcode::CastU32,
             Bytecode::CastU64 => Opcode::CastU64,
             Bytecode::CastU128 => Opcode::CastU128,
             Bytecode::Pop => Opcode::Pop,
