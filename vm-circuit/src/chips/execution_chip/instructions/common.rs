@@ -17,7 +17,8 @@ use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
 use movelang::value::{
-    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE};
 use std::convert::TryInto;
