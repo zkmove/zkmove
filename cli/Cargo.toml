@@ -10,6 +10,7 @@ functional-tests = { path = "../functional-tests" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
+move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 rand = "0.8"
 structopt = "0.3.25"
 vm = { path = "../vm" }

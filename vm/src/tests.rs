@@ -10,6 +10,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use move_binary_format::CompiledModule;
+use movelang::generic_call_graph::generate_for_script;
 use movelang::value::{SimpleValue, Value};
 use movelang::value_ext::ValueHeader;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
@@ -34,13 +35,14 @@ fn test_execution_step() -> VmResult<()> {
     ];
     let bytecodes = (script.clone(), vec![]).into();
     let deps: &[CompiledModule] = &[];
-    let arith_operations = ArithOperations::from((&script, deps)).0;
+    let arith_operations = ArithOperations::from((Some(&script), deps)).0;
     let mut blob = vec![];
     script.serialize(&mut blob).expect("script must serialize");
 
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let mut interp = Interpreter::<Fp>::new();
+    let generic_graph = generate_for_script(&script, &data_store);
 
     let (entry, ty_arguments) = runtime
         .loader()
@@ -55,8 +57,7 @@ fn test_execution_step() -> VmResult<()> {
     let mut rw_operations = Vec::new();
     let mut generic_type_infos = Vec::new();
     interp
-        .run_script(
-            &script,
+        .execute_function(
             entry,
             ty_arguments,
             None,
@@ -69,6 +70,7 @@ fn test_execution_step() -> VmResult<()> {
             &mut exec_steps,
             &mut rw_operations,
             &mut generic_type_infos,
+            &generic_graph,
         )
         .unwrap();
 
@@ -626,13 +628,13 @@ fn test_nop_steps() -> VmResult<()> {
     let runtime = Runtime::<Fp>::new();
     let mut data_store = StateStore::new();
     let circuit_config = CircuitConfig::default().max_step_row(Some(100));
-    let witness = runtime.execute_script(
-        script,
+    let trace = runtime.execute_script(script.clone(), vec![], None, None, &mut data_store)?;
+    let witness = runtime.process_execution_trace(
         vec![],
+        Some(script),
+        None,
         vec![],
-        None,
-        None,
-        &mut data_store,
+        trace,
         circuit_config,
     )?;
 
@@ -894,13 +896,13 @@ fn test_empty_ops() -> VmResult<()> {
     let circuit_config = CircuitConfig::default()
         .stack_ops_num(Some(20))
         .locals_ops_num(Some(20));
-    let witness = runtime.execute_script(
-        script,
+    let trace = runtime.execute_script(script.clone(), vec![], None, None, &mut data_store)?;
+    let witness = runtime.process_execution_trace(
         vec![],
+        Some(script),
+        None,
         vec![],
-        None,
-        None,
-        &mut data_store,
+        trace,
         circuit_config,
     )?;
 

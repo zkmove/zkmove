@@ -8,7 +8,7 @@ use move_compiler::shared::NumericalAddress;
 use move_compiler::{self, Compiler, Flags};
 use std::collections::BTreeMap;
 
-pub fn compile_script(
+pub fn compile_source_files(
     targets: Vec<String>,
 ) -> Result<(Option<CompiledScript>, Vec<CompiledModule>)> {
     let (_, compiled_units) =

@@ -13,6 +13,7 @@ pub enum StatusCode {
     StackOverflow,
     ValueConversionError,
     ScriptLoadingError,
+    EntryFunctionLoadingError,
     CopyLocalError,
     StoreLocalError,
     MoveLocalError,

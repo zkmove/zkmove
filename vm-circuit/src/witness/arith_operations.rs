@@ -36,23 +36,27 @@ impl<F: FieldExt> From<&ArithOperation> for Vec<F> {
 
 pub struct ArithOperations(pub Vec<ArithOperation>);
 
-impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for ArithOperations {
-    fn from((script, deps): (&'a CompiledScript, &'a [CompiledModule])) -> Self {
+impl<'a> From<(Option<&'a CompiledScript>, &'a [CompiledModule])> for ArithOperations {
+    fn from((script, deps): (Option<&'a CompiledScript>, &'a [CompiledModule])) -> Self {
         Self(generate(script, deps))
     }
 }
-
 /// TODO(improve): we may only generate arith info of what the script needs.
-fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<ArithOperation> {
-    std::iter::once((
-        0,
-        0,
-        type_transition::generate(
-            &BinaryIndexedView::Script(script),
-            &FunctionView::script(script),
-        )
-        .expect("generate type transition"),
-    ))
+fn generate(script: Option<&CompiledScript>, deps: &[CompiledModule]) -> Vec<ArithOperation> {
+    if let Some(script) = script {
+        vec![(
+            0,
+            0,
+            type_transition::generate(
+                &BinaryIndexedView::Script(script),
+                &FunctionView::script(script),
+            )
+            .expect("generate type transition"),
+        )]
+    } else {
+        vec![]
+    }
+    .into_iter()
     .chain(deps.iter().enumerate().flat_map(|(module_index, m)| {
         m.function_defs()
             .iter()

@@ -10,7 +10,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
-pub use move_core_types::language_storage::TypeTag;
+pub use move_core_types::language_storage::{ModuleId, TypeTag};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};

@@ -236,10 +236,10 @@ impl<F: FieldExt> ExecutionChip<F> {
                         "first step, frame_index = 0",
                         step_curr.cells.frame_index.expr(),
                     );
-                    cb.require_zero(
-                        "first step, module_index = 0",
-                        step_curr.cells.module_index.expr(),
-                    );
+                    // cb.require_zero(
+                    //     "first step, module_index = 0",
+                    //     step_curr.cells.module_index.expr(),
+                    // );
                     cb.require_zero(
                         "first step, function_index = 0",
                         step_curr.cells.function_index.expr(),

@@ -6,7 +6,7 @@ use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::{debug, info};
-use movelang::compiler::compile_script;
+use movelang::compiler::compile_source_files;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use vm::runtime::Runtime;
@@ -46,7 +46,7 @@ fn setup(
         config.args, targets
     );
 
-    let (compiled_script, compiled_modules) = compile_script(targets)?;
+    let (compiled_script, compiled_modules) = compile_source_files(targets)?;
     let script = compiled_script.expect("script is missing");
     let runtime = Runtime::<Fr>::new();
     let mut state = StateStore::new();
@@ -63,16 +63,21 @@ fn setup(
         .global_ops_num(config.global_ops_num)
         .word_size(config.word_capacity);
 
-    let witness = runtime.execute_script(
-        script,
-        compiled_modules,
+    let trace = runtime.execute_script(
+        script.clone(),
         config.ty_args.clone(),
         config.signer.clone(),
         config.args,
         &mut state,
+    )?;
+    let witness = runtime.process_execution_trace(
+        config.ty_args,
+        Some(script),
+        None,
+        compiled_modules,
+        trace,
         circuit_config,
     )?;
-    debug!("{:?}", witness);
 
     let vm_circuit = VmCircuit { witness };
     let k = find_best_k(&vm_circuit, vec![])?;

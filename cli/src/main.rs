@@ -6,9 +6,10 @@ use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
+use move_binary_format::CompiledModule;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
-use movelang::compiler::compile_script;
-use movelang::generic_call_graph::generate;
+use movelang::compiler::compile_source_files;
+use movelang::generic_call_graph::{generate, RemoteStore};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
@@ -134,7 +135,7 @@ impl Arguments {
             targets.push(path);
         }
         info!("compile script...{:?}", targets);
-        let (compiled_script, compiled_modules) = compile_script(targets)?;
+        let (compiled_script, compiled_modules) = compile_source_files(targets)?;
 
         let script = compiled_script.expect("script is missing");
         let runtime = Runtime::<Fr>::new()
@@ -152,15 +153,22 @@ impl Arguments {
             .locals_ops_num(config.locals_ops_num)
             .global_ops_num(config.global_ops_num)
             .word_size(config.word_capacity);
-        let witness = runtime.execute_script(
+        let trace = runtime.execute_script(
             script.clone(),
-            compiled_modules.clone(),
             config.ty_args.clone(),
             config.signer.clone(),
             config.args,
             &mut state,
+        )?;
+        let witness = runtime.process_execution_trace(
+            config.ty_args.clone(),
+            Some(script.clone()),
+            None,
+            compiled_modules.clone(),
+            trace,
             circuit_config.clone(),
         )?;
+
         let vm_circuit = VmCircuit { witness };
         info!("find the best k...");
         let k = find_best_k(&vm_circuit, vec![])?;
@@ -190,17 +198,24 @@ impl Arguments {
         {
             info!("execute script with new arguments");
             let arguments = Some(ScriptArguments::new(new_args.clone()));
-            let new_witness = runtime.execute_script(
-                script,
-                compiled_modules,
-                if config.new_ty_args.is_empty() {
-                    config.ty_args
-                } else {
-                    config.new_ty_args
-                },
+            let new_ty_args = if config.new_ty_args.is_empty() {
+                config.ty_args
+            } else {
+                config.new_ty_args
+            };
+            let new_trace = runtime.execute_script(
+                script.clone(),
+                new_ty_args.clone(),
                 config.signer,
                 arguments,
                 &mut state,
+            )?;
+            let new_witness = runtime.process_execution_trace(
+                new_ty_args,
+                Some(script),
+                None,
+                compiled_modules,
+                new_trace,
                 circuit_config,
             )?;
             let new_vm_circuit = VmCircuit {
@@ -240,7 +255,7 @@ impl Arguments {
             targets.push(path);
         }
         info!("compile script...");
-        let (compiled_script, compiled_modules) = compile_script(targets)?;
+        let (compiled_script, compiled_modules) = compile_source_files(targets)?;
 
         let script = compiled_script.expect("script is missing");
         let runtime = Runtime::<Fp>::new();
@@ -256,13 +271,19 @@ impl Arguments {
             .locals_ops_num(config.locals_ops_num)
             .global_ops_num(config.global_ops_num)
             .word_size(config.word_capacity);
-        let witness = runtime.execute_script(
+        let trace = runtime.execute_script(
             script.clone(),
-            compiled_modules.clone(),
             config.ty_args.clone(),
             config.signer.clone(),
             config.args,
             &mut state,
+        )?;
+        let witness = runtime.process_execution_trace(
+            config.ty_args.clone(),
+            Some(script.clone()),
+            None,
+            compiled_modules.clone(),
+            trace,
             circuit_config.clone(),
         )?;
         let vm_circuit = VmCircuit { witness };
@@ -293,17 +314,25 @@ impl Arguments {
         {
             info!("execute script with new arguments");
             let arguments = Some(ScriptArguments::new(new_args.clone()));
-            let new_witness = runtime.execute_script(
-                script,
-                compiled_modules,
-                if config.new_ty_args.is_empty() {
-                    config.ty_args
-                } else {
-                    config.new_ty_args
-                },
+            let new_ty_args = if config.new_ty_args.is_empty() {
+                config.ty_args
+            } else {
+                config.new_ty_args
+            };
+            let new_trace = runtime.execute_script(
+                script.clone(),
+                new_ty_args.clone(),
                 config.signer,
                 arguments,
                 &mut state,
+            )?;
+
+            let new_witness = runtime.process_execution_trace(
+                new_ty_args,
+                Some(script),
+                None,
+                compiled_modules,
+                new_trace,
                 circuit_config,
             )?;
             let new_vm_circuit = VmCircuit {
@@ -340,7 +369,15 @@ fn main() {
         ),
         Command::CallGraph { module, output } => {
             std::fs::create_dir_all(output.as_path()).unwrap();
-            let graphs = generate(std::fs::read(module.as_path()).unwrap());
+            let module =
+                CompiledModule::deserialize(std::fs::read(module.as_path()).unwrap().as_ref())
+                    .unwrap();
+            let store = {
+                let mut s = RemoteStore::default();
+                s.add_module(&module);
+                s
+            };
+            let graphs = generate(&module.self_id(), &store);
             for (fname, graph) in graphs {
                 std::fs::write(output.join(fname).with_extension("dot"), graph.to_dot()).unwrap();
             }

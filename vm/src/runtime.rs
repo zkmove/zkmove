@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::interpreter::Interpreter;
-use crate::loader::MoveLoader;
+use crate::loader::{LoadedFunctionInst, MoveLoader};
 use crate::native_functions::NativeFunctions;
 use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -10,11 +10,18 @@ use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
 use move_binary_format::CompiledModule;
+use move_core_types::identifier::IdentStr;
+use move_vm_runtime::loader::Function;
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
-use movelang::value::TypeTag;
+use movelang::generic_call_graph::{generate, generate_for_script, GenericCallGraph};
+use movelang::utility::MoveValueType;
+use movelang::value::{ModuleId, TypeTag};
+
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
+
 use vm_circuit::witness::arith_operations::ArithOperations;
 use vm_circuit::witness::bytecode_table::BytecodeTable;
 use vm_circuit::witness::call_trace_table::{pos_to_id, CallTraceTable, NameToIdxMapping};
@@ -25,7 +32,7 @@ use vm_circuit::witness::input_type_elements::{InputTypeElement, InputTypeElemen
 use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
 };
-use vm_circuit::witness::{CircuitConfig, Witness};
+use vm_circuit::witness::{CircuitConfig, ExecutionTrace, Witness};
 use web3::transports::Http;
 use web3::Web3;
 
@@ -85,18 +92,55 @@ impl<F: FieldExt> Runtime<F> {
         }
         exts
     }
-    #[allow(clippy::too_many_arguments)]
-    pub fn execute_script(
+    pub fn execute_entry_function(
         &self,
-        script: CompiledScript,
-        modules: Vec<CompiledModule>,
+        module_id: &ModuleId,
+        function_name: &IdentStr,
         ty_args: Vec<TypeTag>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore<F>,
-        circuit_config: CircuitConfig,
-    ) -> VmResult<Witness<F>> {
-        let mut interp = Interpreter::<F>::new();
+    ) -> VmResult<ExecutionTrace<F>> {
+        // TODO return VMResult<SerializedReturnValues>
+        let (
+            module,
+            entry,
+            LoadedFunctionInst {
+                type_arguments,
+                parameters: _,
+                return_: _,
+            },
+        ) = self
+            .loader
+            .load_function(module_id, function_name, &ty_args, data_store)
+            .map_err(|e| {
+                error!("load entry function failed: {:?}", e);
+                RuntimeError::new(StatusCode::EntryFunctionLoadingError)
+            })?;
+        let generic_graph_map = generate(&module.module().self_id(), data_store);
+        let generic_graph = generic_graph_map
+            .get(entry.name())
+            .expect("generic graph should not be None");
+        self.execute_function(
+            entry,
+            type_arguments,
+            signer,
+            args,
+            data_store,
+            generic_graph,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn execute_script(
+        &self,
+        script: CompiledScript,
+        ty_args: Vec<TypeTag>,
+        signer: Option<Signer>,
+        args: Option<ScriptArguments>,
+        data_store: &mut StateStore<F>,
+    ) -> VmResult<ExecutionTrace<F>> {
+        let generic_graph = generate_for_script(&script, data_store);
+
         let mut script_bytes = vec![];
         script.serialize(&mut script_bytes)?;
 
@@ -108,6 +152,26 @@ impl<F: FieldExt> Runtime<F> {
                 RuntimeError::new(StatusCode::ScriptLoadingError)
             })?;
         trace!("script entry {:?}", entry.name());
+        self.execute_function(
+            entry,
+            type_arguments,
+            signer,
+            args,
+            data_store,
+            &generic_graph,
+        )
+    }
+
+    pub fn execute_function(
+        &self,
+        entry: Arc<Function>,
+        type_arguments: Vec<MoveValueType>,
+        signer: Option<Signer>,
+        args: Option<ScriptArguments>,
+        data_store: &mut StateStore<F>,
+        generic_graph: &GenericCallGraph,
+    ) -> VmResult<ExecutionTrace<F>> {
+        let mut interp = Interpreter::<F>::new();
         let arg_types = entry
             .parameter_types()
             .iter()
@@ -120,8 +184,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
         let mut generic_types = Vec::new();
-        interp.run_script(
-            &script,
+        interp.execute_function(
             entry,
             type_arguments,
             signer,
@@ -134,7 +197,24 @@ impl<F: FieldExt> Runtime<F> {
             &mut exec_steps,
             &mut rw_operations,
             &mut generic_types,
+            generic_graph,
         )?;
+        Ok(ExecutionTrace {
+            exec_steps,
+            rw_operations,
+            generic_types,
+        })
+    }
+
+    pub fn process_execution_trace(
+        &self,
+        ty_args: Vec<TypeTag>,
+        script_opt: Option<CompiledScript>,
+        entry_function: Option<(&ModuleId, &IdentStr)>,
+        modules: Vec<CompiledModule>,
+        mut trace: ExecutionTrace<F>,
+        circuit_config: CircuitConfig,
+    ) -> VmResult<Witness<F>> {
         let mapping = NameToIdxMapping::build(&modules);
         let normalized_input_type_args: Vec<_> =
             ty_args.into_iter().map(convert_type_tag_to_type).collect();
@@ -153,7 +233,8 @@ impl<F: FieldExt> Runtime<F> {
             })
             .collect();
 
-        let exec_datas: HashMap<usize, ExecutionData> = generic_types
+        let exec_datas: HashMap<usize, ExecutionData> = trace
+            .generic_types
             .iter()
             .map(|ti| {
                 let materialized_type_elements = ti
@@ -193,31 +274,62 @@ impl<F: FieldExt> Runtime<F> {
             })
             .collect();
         exec_datas.into_iter().for_each(|(idx, data)| {
-            exec_steps
+            trace
+                .exec_steps
                 .get_mut(idx)
                 .unwrap_or_else(|| panic!("exec step at {} not exist", idx))
                 .data = Some(data);
         });
 
-        let arith_operations = ArithOperations::from((&script, modules.as_slice())).0;
-        let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
-        let call_traces = CallTraceTable::from((&script, modules.as_slice()));
-        let type_instantiations =
-            GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
-        let constants = ConstantTable::from((&script, modules.as_slice()));
-        let bytecodes = BytecodeTable::from((script.clone(), modules));
+        if let Some(script) = script_opt {
+            let arith_operations = ArithOperations::from((Some(&script), modules.as_slice())).0;
+            let func_calls = FunctionCalls::from((&script, modules.as_slice())).0;
+            let call_traces = CallTraceTable::from((&script, modules.as_slice()));
+            let type_instantiations =
+                GenericTypeInstantiationTableData::from((&script, modules.as_slice()));
+            let constants = ConstantTable::from((Some(&script), modules.as_slice()));
+            let bytecodes = BytecodeTable::from((script, modules));
 
-        Ok(Witness::new(
-            exec_steps,
-            rw_operations,
-            bytecodes,
-            constants,
-            func_calls,
-            arith_operations,
-            call_traces,
-            type_instantiations,
-            InputTypeElementTableData(input_type_element_table_data),
-            circuit_config,
-        ))
+            Ok(Witness::new(
+                trace.exec_steps,
+                trace.rw_operations,
+                bytecodes,
+                constants,
+                func_calls,
+                arith_operations,
+                call_traces,
+                type_instantiations,
+                InputTypeElementTableData(input_type_element_table_data),
+                circuit_config,
+            ))
+        } else if let Some((entry_module, entry_function_name)) = entry_function {
+            let arith_operations = ArithOperations::from((None, modules.as_slice())).0;
+            let func_calls =
+                FunctionCalls::from((entry_module, entry_function_name, modules.as_slice())).0;
+            let call_traces =
+                CallTraceTable::from((entry_module, entry_function_name, modules.as_slice()));
+            let type_instantiations = GenericTypeInstantiationTableData::from((
+                entry_module,
+                entry_function_name,
+                modules.as_slice(),
+            ));
+            let constants = ConstantTable::from((None, modules.as_slice()));
+            let bytecodes = BytecodeTable::from(modules);
+
+            Ok(Witness::new(
+                trace.exec_steps,
+                trace.rw_operations,
+                bytecodes,
+                constants,
+                func_calls,
+                arith_operations,
+                call_traces,
+                type_instantiations,
+                InputTypeElementTableData(input_type_element_table_data),
+                circuit_config,
+            ))
+        } else {
+            unreachable!()
+        }
     }
 }

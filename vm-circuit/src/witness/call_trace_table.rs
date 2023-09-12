@@ -5,6 +5,7 @@ use move_binary_format::file_format::{
 };
 
 use move_binary_format::CompiledModule;
+use move_core_types::identifier::IdentStr;
 use move_core_types::language_storage::ModuleId;
 use movelang::generic_call_graph::{
     generate_for_script, GenericCallGraph, NodeInternal, RemoteStore,
@@ -39,7 +40,53 @@ impl<'a> From<(&'a CompiledScript, &'a [CompiledModule])> for CallTraceTable {
         CallTraceTable(generate(script, deps))
     }
 }
-
+impl<'a> From<(&'a ModuleId, &'a IdentStr, &'a [CompiledModule])> for CallTraceTable {
+    fn from(
+        (entry_module, entry_function_name, deps): (
+            &'a ModuleId,
+            &'a IdentStr,
+            &'a [CompiledModule],
+        ),
+    ) -> Self {
+        Self(generate_for_entry_function(
+            entry_module,
+            entry_function_name,
+            deps,
+        ))
+    }
+}
+fn generate_for_entry_function(
+    entry_module: &ModuleId,
+    entry_function: &IdentStr,
+    deps: &[CompiledModule],
+) -> Vec<CallTrace> {
+    let mut store = RemoteStore::default();
+    deps.iter().for_each(|dep| store.add_module(dep));
+    let trace_graph = movelang::generic_call_graph::generate(entry_module, &store)
+        .remove(entry_function.as_str())
+        .unwrap();
+    let name_mapping = NameToIdxMapping::build(deps);
+    TraceBuilder::default()
+        .build(&trace_graph)
+        .into_iter()
+        .map(|t| {
+            let (caller_module, caller_function) =
+                name_mapping.map_fn_name(t.caller_module.as_ref(), &t.caller_function);
+            let (callee_module, callee_function) =
+                name_mapping.map_fn_name(t.callee_module.as_ref(), &t.callee_function);
+            CallTrace {
+                caller_id: pos_to_id(&t.caller_id),
+                caller_module,
+                caller_function: caller_function.0,
+                caller_callin_pc: t.caller_callin_pc as u64,
+                callee_id: pos_to_id(&t.callee_id),
+                callee_module,
+                callee_function: callee_function.0,
+                callee_callin_pc: t.callee_callin_pc as u64,
+            }
+        })
+        .collect()
+}
 fn generate(script: &CompiledScript, deps: &[CompiledModule]) -> Vec<CallTrace> {
     let mut store = RemoteStore::default();
     deps.iter().for_each(|dep| store.add_module(dep));
