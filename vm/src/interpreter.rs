@@ -13,7 +13,7 @@ use move_vm_runtime::loader::{Function, Resolver};
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
-use movelang::argument::{argument_type, convert_from, ScriptArguments, Signer};
+use movelang::argument::{argument_type, convert_from, convert_from_u256, ScriptArguments, Signer};
 use movelang::generic_call_graph::{GenericCallGraph, Node, NodeInternal};
 use movelang::utility::MoveValueType;
 use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
@@ -97,13 +97,18 @@ impl<F: FieldExt> Interpreter<F> {
                 }
             }
 
-            let arg_value = convert_from(arg.clone())?;
-            locals.store(
-                i,
-                Value::new(arg_value, expect_type.clone())?,
-                frame_index,
-                rw_operations,
-            )?;
+            if arg_type == MoveValueType::U256 {
+                let arg_value = convert_from_u256::<F>(arg.clone())?;
+                locals.store(i, Value::new_u256(arg_value), frame_index, rw_operations)?;
+            } else {
+                let arg_value = convert_from(arg.clone())?;
+                locals.store(
+                    i,
+                    Value::new(arg_value, expect_type.clone())?,
+                    frame_index,
+                    rw_operations,
+                )?;
+            }
         }
 
         Ok(())

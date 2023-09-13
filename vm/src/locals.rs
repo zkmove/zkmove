@@ -153,6 +153,7 @@ impl<F: FieldExt> Locals<F> {
             | Value::U32(_)
             | Value::U64(_)
             | Value::U128(_)
+            | Value::U256(_)
             | Value::Bool(_)
             | Value::Address(_)
             | Value::Container(_) => {
