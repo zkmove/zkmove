@@ -61,6 +61,8 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
             carry_lo,
             (0..2).map(|idx| idx.expr()).collect(),
         );
+        // Todo. need to constraint on carry_lo furthermore?
+        // carry_lo = if a > c {1.expr()} else 0.expr();
 
         ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out_lo);
         ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
@@ -76,6 +78,8 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
         LookupBytecode::lookup_bytecode(cb, cells, Opcode::Add, 0.expr());
+
+        cb.add_constraints(bcb.constraints);
     }
 
     fn assign(
@@ -115,7 +119,7 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         // get value_a_lo
         let op = rw_operations
             .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?;
         let value_a_lo = op.value().value().ok_or(Error::Synthesis)?;
 

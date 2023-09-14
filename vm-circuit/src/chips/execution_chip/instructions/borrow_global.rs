@@ -79,7 +79,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         ]);
 
         self.account_address.configure(cb);
-        self.value.configure(cb);
+        self.value.configure(cb, word_elem_num_expr.clone());
         self.ref_val.configure(cb);
 
         let account_address_expr = self.account_address.cells.value().expression.clone();
@@ -189,8 +189,13 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
 
         self.account_address
             .assign(region, offset, rw_operations, step.gc)?;
-        self.value
-            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        self.value.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE,
+            flattened_value_len,
+        )?;
         self.ref_val.assign(
             region,
             offset,

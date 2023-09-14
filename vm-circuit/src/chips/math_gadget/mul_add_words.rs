@@ -4,11 +4,24 @@ use crate::chips::execution_chip::utils::{pow_of_two_expr, split_u256, split_u25
 use crate::chips::utilities::{from_bytes, Cell, Expr};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::{Error, Expression};
 use move_core_types::u256::U256;
 
 pub const MAX_RADIX_BYTES: usize = 9;
 
+pub struct MulAddWordsOp<F: FieldExt> {
+    pub a_hi: Expression<F>,
+    pub a_lo: Expression<F>,
+    pub b_hi: Expression<F>,
+    pub b_lo: Expression<F>,
+    pub c_hi: Expression<F>,
+    pub c_lo: Expression<F>,
+    pub d_hi: Expression<F>,
+    pub d_lo: Expression<F>,
+}
+
+/// the algorithm is adapted from PSE's implementation.
+///
 /// Construct the gadget that checks a * b + c == d (modulo 2**256),
 /// where a, b, c, d are 256-bit words. This can be used by opcode MUL, DIV,
 /// and MOD. For opcode MUL, set c to 0. For opcode DIV and MOD, treat c as
@@ -81,7 +94,7 @@ impl<F: FieldExt> MulAddWordsGadget<F> {
         }
     }
 
-    pub(crate) fn configure(&self, _cb: &mut ConstraintBuilder<F>) {
+    pub(crate) fn configure(&self, cb: &mut ConstraintBuilder<F>, expr: MulAddWordsOp<F>) {
         let carry_lo_expr = from_bytes::expr(&self.carry_lo);
         let carry_hi_expr = from_bytes::expr(&self.carry_hi);
 
@@ -105,25 +118,37 @@ impl<F: FieldExt> MulAddWordsGadget<F> {
             + a_limbs[1].clone() * b_limbs[2].clone()
             + a_limbs[2].clone() * b_limbs[1].clone()
             + a_limbs[3].clone() * b_limbs[0].clone();
-        // let overflow = carry_hi_expr.clone()
-        //     + a_limbs[1].clone() * b_limbs[3].clone()
-        //     + a_limbs[2].clone() * b_limbs[2].clone()
-        //     + a_limbs[3].clone() * b_limbs[1].clone()
-        //     + a_limbs[2].clone() * b_limbs[3].clone()
-        //     + a_limbs[3].clone() * b_limbs[2].clone()
-        //     + a_limbs[3].clone() * b_limbs[3].clone();
 
         let mut bcb = BaseConstraintBuilder::default();
         bcb.require_equal(
             "(a * b)_lo + c_lo == d_lo + carry_lo ⋅ 2^128",
-            t0 + t1 * pow_of_two_expr(64) + c_lo,
-            d_lo + carry_lo_expr.clone() * pow_of_two_expr(128),
+            t0 + t1 * pow_of_two_expr(64) + c_lo.clone(),
+            d_lo.clone() + carry_lo_expr.clone() * pow_of_two_expr(128),
         );
         bcb.require_equal(
             "(a * b)_hi + c_hi + carry_lo == d_hi + carry_hi ⋅ 2^128",
-            t2 + t3 * pow_of_two_expr(64) + c_hi + carry_lo_expr,
-            d_hi + carry_hi_expr * pow_of_two_expr(128),
+            t2 + t3 * pow_of_two_expr(64) + c_hi.clone() + carry_lo_expr,
+            d_hi.clone() + carry_hi_expr * pow_of_two_expr(128),
         );
+
+        // constrain on each cell equal to outer cells.
+        let a_hi = a_limbs[3].clone() * pow_of_two_expr(64) + a_limbs[2].clone();
+        let a_lo = a_limbs[1].clone() * pow_of_two_expr(64) + a_limbs[0].clone();
+        cb.add_constraint("a_hi", a_hi - expr.a_hi);
+        cb.add_constraint("a_lo", a_lo - expr.a_lo);
+        let b_hi = b_limbs[3].clone() * pow_of_two_expr(64) + b_limbs[2].clone();
+        let b_lo = b_limbs[1].clone() * pow_of_two_expr(64) + b_limbs[0].clone();
+        cb.add_constraint("b_hi", b_hi - expr.b_hi);
+        cb.add_constraint("b_lo", b_lo - expr.b_lo);
+        cb.add_constraint("c_hi", c_hi - expr.c_hi);
+        cb.add_constraint("c_lo", c_lo - expr.c_lo);
+        cb.add_constraint("d_hi", d_hi - expr.d_hi);
+        cb.add_constraint("d_lo", d_lo - expr.d_lo);
+
+        // Todo. constrain a_limbs/b_limbs less than 2**64,and c_lo/d_lo less than 2**128
+        // Todo. need to constrain on carry_hi?
+
+        cb.add_constraints(bcb.constraints);
     }
 
     pub(crate) fn assign(
@@ -136,8 +161,8 @@ impl<F: FieldExt> MulAddWordsGadget<F> {
 
         let a_limbs = split_u256_limb64(&a);
         let b_limbs = split_u256_limb64(&b);
-        let (c_lo, c_hi) = split_u256(&c);
-        let (d_lo, d_hi) = split_u256(&d);
+        let (c_hi, c_lo) = split_u256(&c);
+        let (d_hi, d_lo) = split_u256(&d);
 
         let t0 = a_limbs[0] * b_limbs[0];
         let t1 = a_limbs[0] * b_limbs[1] + a_limbs[1] * b_limbs[0];
@@ -188,85 +213,4 @@ impl<F: FieldExt> MulAddWordsGadget<F> {
 
         Ok(())
     }
-
-    // pub(crate) fn overflow(&self) -> Expression<F> {
-    //     self.overflow.clone()
-    // }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::{super::test_util::*, *};
-//     use eth_types::{ToScalar, Word};
-//     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Error};
-
-//     #[derive(Clone)]
-//     /// MulAddGadgetContainer: require(a*b + c == d + carry*(2**256))
-//     struct MulAddGadgetContainer<F> {
-//         muladd_words_gadget: MulAddWordsGadget<F>,
-//         a: util::Word<F>,
-//         b: util::Word<F>,
-//         c: util::Word<F>,
-//         d: util::Word<F>,
-//         carry: Cell<F>,
-//     }
-
-//     impl<F: Field> MathGadgetContainer<F> for MulAddGadgetContainer<F> {
-//         fn configure_gadget_container(cb: &mut EVMConstraintBuilder<F>) -> Self {
-//             let a = cb.query_word_rlc();
-//             let b = cb.query_word_rlc();
-//             let c = cb.query_word_rlc();
-//             let d = cb.query_word_rlc();
-//             let carry = cb.query_cell();
-//             let math_gadget = MulAddWordsGadget::<F>::construct(cb, [&a, &b, &c, &d]);
-//             cb.require_equal("carry is correct", math_gadget.overflow(), carry.expr());
-//             MulAddGadgetContainer {
-//                 muladd_words_gadget: math_gadget,
-//                 a,
-//                 b,
-//                 c,
-//                 d,
-//                 carry,
-//             }
-//         }
-
-//         fn assign_gadget_container(
-//             &self,
-//             witnesses: &[Word],
-//             region: &mut CachedRegion<'_, '_, F>,
-//         ) -> Result<(), Error> {
-//             let offset = 0;
-//             self.a
-//                 .assign(region, offset, Some(witnesses[0].to_le_bytes()))?;
-//             self.b
-//                 .assign(region, offset, Some(witnesses[1].to_le_bytes()))?;
-//             self.c
-//                 .assign(region, offset, Some(witnesses[2].to_le_bytes()))?;
-//             self.d
-//                 .assign(region, offset, Some(witnesses[3].to_le_bytes()))?;
-//             self.carry.assign(
-//                 region,
-//                 offset,
-//                 Value::known(witnesses[4].to_scalar().unwrap()),
-//             )?;
-//             self.muladd_words_gadget
-//                 .assign(region, offset, witnesses[..4].try_into().unwrap())
-//         }
-//     }
-
-//     #[test]
-//     fn test_muladd_expect() {
-//         // 0 * 0 + 0 == 0
-//         try_test!(
-//             MulAddGadgetContainer<Fr>,
-//             vec![
-//                 Word::from(0),
-//                 Word::from(0),
-//                 Word::from(0),
-//                 Word::from(0),
-//                 Word::from(0)
-//             ],
-//             true,
-//         );
-//     }
-// }

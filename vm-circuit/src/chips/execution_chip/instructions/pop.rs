@@ -32,8 +32,8 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let flattened_value_len = cells.auxiliary_3.expression.clone();
-        let gc_expr =
-            cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + flattened_value_len;
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
+            + flattened_value_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -47,7 +47,7 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb);
+        self.value.configure(cb, flattened_value_len);
 
         for (i, _) in self.value.cells.word.iter().enumerate() {
             cb.condition(
@@ -77,11 +77,12 @@ impl<F: FieldExt> InstructionGadget<F> for Pop<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _flattened_value_len =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
-        self.value.assign(region, offset, rw_operations, step.gc)?;
+        self.value
+            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
         Ok(())
     }
 

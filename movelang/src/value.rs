@@ -43,6 +43,7 @@ pub struct U64<F: FieldExt>(pub F);
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U128<F: FieldExt>(pub F);
 
+/// (upper 128 bit, lower 128 bit)
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct U256<F: FieldExt>(pub F, pub F);
 

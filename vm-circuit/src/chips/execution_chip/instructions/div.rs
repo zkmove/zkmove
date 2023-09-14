@@ -8,7 +8,7 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::math_gadget::mul_add_words::MulAddWordsGadget;
+use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp};
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
@@ -34,7 +34,18 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
 
     const OPCODE: Opcode = Opcode::Div;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        self.muladd_words_gadget.configure(cb);
+        // equal to MulAddWordsGadget cells.
+        let expr = MulAddWordsOp {
+            a_hi: self.value_b_hi.expression.clone(),
+            a_lo: self.value_b_lo.expression.clone(),
+            b_hi: self.value_c_hi.expression.clone(),
+            b_lo: self.value_c_lo.expression.clone(),
+            c_hi: cells.auxiliary_2.expression.clone(),
+            c_lo: cells.auxiliary_1.expression.clone(),
+            d_hi: self.value_a_hi.expression.clone(),
+            d_lo: self.value_a_lo.expression.clone(),
+        };
+        self.muladd_words_gadget.configure(cb, expr);
 
         let binary_op = BinaryOp {
             value_a_hi: self.value_a_hi.clone(),

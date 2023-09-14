@@ -37,7 +37,7 @@ script {
         // modulo operation
         let _w = z % 7u256;
 
-        // bitwise operation
+        // u256 bitwise operation
         let l = x3 & 127u256;
         let m = x3 | 340282366920938463463374607431768211456u256;
         let n = x3 ^ 255u256;

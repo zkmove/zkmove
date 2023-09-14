@@ -47,7 +47,7 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
             ("function index", func_index),
         ]);
 
-        self.value.configure(cb);
+        self.value.configure(cb, flattened_value_len.clone());
         for (i, _) in self.value.cells.word.iter().enumerate() {
             let (read, write) = RWLookup::locals_store(
                 cells.gc.expression.clone() + (i as u64).expr(),
@@ -83,11 +83,12 @@ impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let _flattened_value_len =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
-        self.value.assign(region, offset, rw_operations, step.gc)?;
+        self.value
+            .assign(region, offset, rw_operations, step.gc, flattened_value_len)?;
 
         Ok(())
     }

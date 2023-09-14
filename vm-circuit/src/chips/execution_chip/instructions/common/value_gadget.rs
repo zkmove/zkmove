@@ -9,7 +9,6 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
-use movelang::value_ext::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub(crate) struct GadgetCells<F> {
@@ -88,6 +87,7 @@ impl<F: FieldExt> ValueGadget<F> {
         offset: usize,
         rw_operations: &RWOperations<F>,
         op_index: usize,
+        flattened_value_len: usize,
     ) -> Result<(), Error> {
         let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
         let header_value = op.value().value().ok_or_else(|| {
@@ -95,20 +95,17 @@ impl<F: FieldExt> ValueGadget<F> {
             Error::Synthesis
         })?;
 
+        self.cells
+            .assign(region, offset, rw_operations, op_index, flattened_value_len)?;
         self.header_cells.assign(region, offset, header_value)?;
-
-        let (flattened_len, _) = ValueHeader::from(header_value).members();
-        self.cells.assign(
-            region,
-            offset,
-            rw_operations,
-            op_index,
-            flattened_len as usize,
-        )?;
         Ok(())
     }
 
-    pub(crate) fn configure(&self, cb: &mut ConstraintBuilder<F>) {
+    pub(crate) fn configure(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        flattened_value_len: Expression<F>,
+    ) {
         // check word header
         self.constrain_header(cb, self.cells.word[0].expression.clone());
 
@@ -118,6 +115,10 @@ impl<F: FieldExt> ValueGadget<F> {
             &self.cells.word_mask,
             self.header_cells.flattened_len.expression.clone(),
         );
+
+        // check word element number
+        let constraint = flattened_value_len - self.header_cells.flattened_len.expression.clone();
+        cb.add_constraint("check word element number", constraint);
 
         // TODO: check addr_ext
         // 1.strict monotonic increment (exclude item not been masked)

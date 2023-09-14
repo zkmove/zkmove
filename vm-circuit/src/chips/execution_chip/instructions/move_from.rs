@@ -64,7 +64,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         ]);
 
         self.account_address.configure(cb);
-        self.global_value.configure(cb);
+        self.global_value.configure(cb, flattened_value_len.clone());
 
         let account_address_expr = self.account_address.cells.value().expression.clone();
         let sd_index_expr = cells.auxiliary_1.expression.clone();
@@ -130,14 +130,19 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     ) -> Result<(), Error> {
         let _sd_idx =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
-        let _flattened_value_len =
+        let flattened_value_len =
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
         self.account_address
             .assign(region, offset, rw_operations, step.gc)?;
-        self.global_value
-            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        self.global_value.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE,
+            flattened_value_len,
+        )?;
 
         if GENERIC {
             cells.auxiliary_2.assign(

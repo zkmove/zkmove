@@ -71,8 +71,8 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         ]);
 
         let mut bcb = BaseConstraintBuilder::default();
-        self.value_a.configure(cb);
-        self.value_b.configure(cb);
+        self.value_a.configure(cb, flattened_value_len_a.clone());
+        self.value_b.configure(cb, flattened_value_len_b.clone());
         self.result.configure(cb);
         bcb.require_boolean(
             "result is bool",
@@ -234,13 +234,19 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
             Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                 .get_lower_128() as usize;
 
-        self.value_a
-            .assign(region, offset, rw_operations, step.gc)?;
+        self.value_a.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc,
+            flattened_value_len_a,
+        )?;
         self.value_b.assign(
             region,
             offset,
             rw_operations,
             step.gc + flattened_value_len_a,
+            flattened_value_len_b,
         )?;
         self.result.assign(
             region,
