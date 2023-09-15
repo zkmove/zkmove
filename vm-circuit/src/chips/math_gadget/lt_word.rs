@@ -1,7 +1,7 @@
 use super::{comparison::ComparisonGadget, lt::LtGadget};
+use crate::chips::execution_chip::instructions::common::word_gadget::WordCell;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::split_u256;
-use crate::chips::utilities::U256Cell;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
@@ -19,8 +19,8 @@ impl<F: FieldExt> LtWordGadget<F> {
     #[allow(dead_code)]
     pub(crate) fn construct(
         cb: &mut ConstraintBuilder<F>,
-        lhs: &U256Cell<F>,
-        rhs: &U256Cell<F>,
+        lhs: &WordCell<F>,
+        rhs: &WordCell<F>,
     ) -> Self {
         let comparison_hi =
             ComparisonGadget::construct(cb, lhs.hi.expression.clone(), rhs.hi.expression.clone());

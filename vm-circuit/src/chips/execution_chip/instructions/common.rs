@@ -32,6 +32,7 @@ pub(crate) mod generic_gadget;
 pub(crate) mod reference_value_gadget;
 pub(crate) mod simple_value_gadget;
 pub(crate) mod value_gadget;
+pub(crate) mod word_gadget;
 
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {

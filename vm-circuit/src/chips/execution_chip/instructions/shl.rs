@@ -5,7 +5,7 @@ use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2Lookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -14,14 +14,13 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value_ext::LOWER_FIELD_OFFSET;
 
+use super::common::word_gadget::WordCell;
+
 #[derive(Clone, Debug)]
 pub struct Shl<F: FieldExt> {
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_b_hi: Cell<F>,
-    value_b_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    value_a: WordCell<F>,
+    value_b: WordCell<F>,
+    value_c: WordCell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
@@ -30,10 +29,10 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
     const OPCODE: Opcode = Opcode::Shl;
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let lhs = self.value_a_lo.expression.clone();
-        let rhs = self.value_b_lo.expression.clone();
+        let lhs = self.value_a.lo.expression.clone();
+        let rhs = self.value_b.lo.expression.clone();
         let divisor = cells.auxiliary_1.expression.clone();
-        let dividend = self.value_c_lo.expression.clone();
+        let dividend = self.value_c.lo.expression.clone();
 
         // TODO: should we constraint that rhs is in u8 range?
         // TODO: Add overflow constraints.
@@ -44,12 +43,12 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         );
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a_hi: self.value_a.hi.clone(),
+            value_a_lo: self.value_a.lo.clone(),
+            value_b_hi: self.value_b.hi.clone(),
+            value_b_lo: self.value_b.lo.clone(),
+            value_c_hi: self.value_c.hi.clone(),
+            value_c_lo: self.value_c.lo.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -73,12 +72,12 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a_hi: self.value_a.hi.clone(),
+            value_a_lo: self.value_a.lo.clone(),
+            value_b_hi: self.value_b.hi.clone(),
+            value_b_lo: self.value_b.lo.clone(),
+            value_c_hi: self.value_c.hi.clone(),
+            value_c_lo: self.value_c.lo.clone(),
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
@@ -99,20 +98,14 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_b_hi = cb.alloc_cell();
-        let value_b_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let value_a = WordCell::<F>::construct(cb);
+        let value_b = WordCell::<F>::construct(cb);
+        let value_c = WordCell::<F>::construct(cb);
 
         Self {
-            value_a_hi,
-            value_a_lo,
-            value_b_hi,
-            value_b_lo,
-            value_c_hi,
-            value_c_lo,
+            value_a,
+            value_b,
+            value_c,
         }
     }
 }

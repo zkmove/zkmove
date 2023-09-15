@@ -90,13 +90,6 @@ impl<F: FieldExt> Expr<F> for u64 {
     }
 }
 
-/// there are 2 cells to suport u256. each for 128 bit
-#[derive(Clone, Debug)]
-pub struct U256Cell<F: FieldExt> {
-    pub hi: Cell<F>,
-    pub lo: Cell<F>,
-}
-
 // The internal representation of FieldExt is four 64-bits unsigned integer in little-endian order,
 // This struct has 16 Cells, to hold the 16 bytes of the lower two u64.
 pub struct FieldBytes<F: FieldExt>(pub(crate) [Cell<F>; 16]);

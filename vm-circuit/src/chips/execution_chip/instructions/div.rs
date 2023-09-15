@@ -9,7 +9,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp};
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -18,15 +18,14 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
+use super::common::word_gadget::WordCell;
+
 #[derive(Clone, Debug)]
 pub struct Div<F: FieldExt> {
     muladd_words_gadget: MulAddWordsGadget<F>,
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_b_hi: Cell<F>,
-    value_b_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    value_a: WordCell<F>,
+    value_b: WordCell<F>,
+    value_c: WordCell<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Div<F> {
@@ -36,24 +35,24 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // equal to MulAddWordsGadget cells.
         let expr = MulAddWordsOp {
-            a_hi: self.value_b_hi.expression.clone(),
-            a_lo: self.value_b_lo.expression.clone(),
-            b_hi: self.value_c_hi.expression.clone(),
-            b_lo: self.value_c_lo.expression.clone(),
+            a_hi: self.value_b.hi.expression.clone(),
+            a_lo: self.value_b.lo.expression.clone(),
+            b_hi: self.value_c.hi.expression.clone(),
+            b_lo: self.value_c.lo.expression.clone(),
             c_hi: cells.auxiliary_2.expression.clone(),
             c_lo: cells.auxiliary_1.expression.clone(),
-            d_hi: self.value_a_hi.expression.clone(),
-            d_lo: self.value_a_lo.expression.clone(),
+            d_hi: self.value_a.hi.expression.clone(),
+            d_lo: self.value_a.lo.expression.clone(),
         };
         self.muladd_words_gadget.configure(cb, expr);
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a_hi: self.value_a.hi.clone(),
+            value_a_lo: self.value_a.lo.clone(),
+            value_b_hi: self.value_b.hi.clone(),
+            value_b_lo: self.value_b.lo.clone(),
+            value_c_hi: self.value_c.hi.clone(),
+            value_c_lo: self.value_c.lo.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -69,12 +68,12 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a_hi: self.value_a.hi.clone(),
+            value_a_lo: self.value_a.lo.clone(),
+            value_b_hi: self.value_b.hi.clone(),
+            value_b_lo: self.value_b.lo.clone(),
+            value_c_hi: self.value_c.hi.clone(),
+            value_c_lo: self.value_c.lo.clone(),
         };
         BinaryOp::assign_binary_op_with_auxiliary(
             region,
@@ -106,21 +105,15 @@ impl<F: FieldExt> InstructionGadget<F> for Div<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_b_hi = cb.alloc_cell();
-        let value_b_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let value_a = WordCell::<F>::construct(cb);
+        let value_b = WordCell::<F>::construct(cb);
+        let value_c = WordCell::<F>::construct(cb);
 
         Self {
             muladd_words_gadget,
-            value_a_hi,
-            value_a_lo,
-            value_b_hi,
-            value_b_lo,
-            value_c_hi,
-            value_c_lo,
+            value_a,
+            value_b,
+            value_c,
         }
     }
 }
