@@ -1131,7 +1131,7 @@ impl<F: FieldExt> Value<F> {
             _ => unimplemented!(),
         }
     }
-    pub fn ty_len(ty: MoveValueType) -> Self {
+    pub fn num_of_bytes(ty: MoveValueType) -> Self {
         let len = match ty {
             MoveValueType::U8 => NUM_OF_BYTES_U8,
             MoveValueType::U16 => NUM_OF_BYTES_U16,

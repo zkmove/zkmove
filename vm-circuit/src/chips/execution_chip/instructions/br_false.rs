@@ -68,7 +68,7 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         cb.add_lookup(
             "br_false(stack pop value)",
             RWLookup::stack_pop(
-                // lower filed is used for bool
+                // lower field is used for bool
                 cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 2.expr(),

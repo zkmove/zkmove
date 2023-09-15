@@ -207,17 +207,17 @@ impl<F: FieldExt> Frame<F> {
                     }
                     Bytecode::Add => {
                         let ty = interp.binary_op(Value::add, rw_operations)?;
-                        execution_step.auxiliary_1 = Some(Value::ty_len(ty));
+                        execution_step.auxiliary_1 = Some(Value::num_of_bytes(ty));
                         Ok(())
                     }
                     Bytecode::Sub => {
                         let ty = interp.binary_op(Value::sub, rw_operations)?;
-                        execution_step.auxiliary_1 = Some(Value::ty_len(ty));
+                        execution_step.auxiliary_1 = Some(Value::num_of_bytes(ty));
                         Ok(())
                     }
                     Bytecode::Mul => {
                         let ty = interp.binary_op(Value::mul, rw_operations)?;
-                        execution_step.auxiliary_1 = Some(Value::ty_len(ty));
+                        execution_step.auxiliary_1 = Some(Value::num_of_bytes(ty));
                         Ok(())
                     }
                     Bytecode::Div => interp.binary_op_auxiliary(
