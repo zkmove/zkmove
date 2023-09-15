@@ -28,6 +28,8 @@ use movelang::value_ext::{
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
+use self::word_gadget::WordCell;
+
 pub(crate) mod generic_gadget;
 pub(crate) mod reference_value_gadget;
 pub(crate) mod simple_value_gadget;
@@ -36,12 +38,9 @@ pub(crate) mod word_gadget;
 
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
-    pub value_a_hi: Cell<F>,
-    pub value_a_lo: Cell<F>,
-    pub value_b_hi: Cell<F>,
-    pub value_b_lo: Cell<F>,
-    pub value_c_hi: Cell<F>,
-    pub value_c_lo: Cell<F>,
+    pub value_a: WordCell<F>,
+    pub value_b: WordCell<F>,
+    pub value_c: WordCell<F>,
 }
 
 impl<F: FieldExt> BinaryOp<F> {
@@ -89,7 +88,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                binary_op.value_b_hi.expression.clone(),
+                binary_op.value_b.hi.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -98,7 +97,7 @@ impl<F: FieldExt> BinaryOp<F> {
                 cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 2.expr(),
-                binary_op.value_b_lo.expression.clone(),
+                binary_op.value_b.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -117,7 +116,7 @@ impl<F: FieldExt> BinaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                binary_op.value_a_hi.expression.clone(),
+                binary_op.value_a.hi.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -127,7 +126,7 @@ impl<F: FieldExt> BinaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 2.expr(),
-                binary_op.value_a_lo.expression.clone(),
+                binary_op.value_a.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -146,7 +145,7 @@ impl<F: FieldExt> BinaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 1.expr(),
-                binary_op.value_c_hi.expression.clone(),
+                binary_op.value_c.hi.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -156,7 +155,7 @@ impl<F: FieldExt> BinaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 2.expr(),
-                binary_op.value_c_lo.expression.clone(),
+                binary_op.value_c.lo.expression.clone(),
             ),
         );
     }
@@ -169,58 +168,21 @@ impl<F: FieldExt> BinaryOp<F> {
         binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
         // value_b
-        let op = rw_operations
-            .0
-            .get(step.gc + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
         binary_op
-            .value_b_hi
-            .assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        binary_op
-            .value_b_lo
-            .assign(region, offset, op.value().value())?;
-
+            .value_b
+            .assign(region, offset, rw_operations, step.gc)?;
         // value_a
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
         binary_op
-            .value_a_hi
-            .assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        binary_op
-            .value_a_lo
-            .assign(region, offset, op.value().value())?;
-
+            .value_a
+            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
         // value_c
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        binary_op
-            .value_c_hi
-            .assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        binary_op
-            .value_c_lo
-            .assign(region, offset, op.value().value())?;
+        binary_op.value_c.assign(
+            region,
+            offset,
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2,
+        )?;
+
         Ok(())
     }
 
@@ -462,10 +424,8 @@ impl<F: FieldExt> BinaryOp<F> {
 }
 
 pub struct UnaryOp<F: FieldExt> {
-    pub value_a_hi: Cell<F>,
-    pub value_a_lo: Cell<F>,
-    pub value_c_hi: Cell<F>,
-    pub value_c_lo: Cell<F>,
+    pub value_a: WordCell<F>,
+    pub value_c: WordCell<F>,
 }
 
 impl<F: FieldExt> UnaryOp<F> {
@@ -511,7 +471,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                unary_op.value_a_hi.expression.clone(),
+                unary_op.value_a.hi.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -520,7 +480,7 @@ impl<F: FieldExt> UnaryOp<F> {
                 cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 2.expr(),
-                unary_op.value_a_lo.expression.clone(),
+                unary_op.value_a.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -539,7 +499,7 @@ impl<F: FieldExt> UnaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                unary_op.value_c_hi.expression.clone(),
+                unary_op.value_c.hi.expression.clone(),
             ),
         );
         cb.add_lookup(
@@ -549,7 +509,7 @@ impl<F: FieldExt> UnaryOp<F> {
                     + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 2.expr(),
-                unary_op.value_c_lo.expression.clone(),
+                unary_op.value_c.lo.expression.clone(),
             ),
         );
     }
@@ -562,40 +522,13 @@ impl<F: FieldExt> UnaryOp<F> {
         unary_op: &UnaryOp<F>,
     ) -> Result<(), Error> {
         // value_a
-        let op = rw_operations
-            .0
-            .get(step.gc + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
         unary_op
-            .value_a_hi
-            .assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        unary_op
-            .value_a_lo
-            .assign(region, offset, op.value().value())?;
-
+            .value_a
+            .assign(region, offset, rw_operations, step.gc)?;
         // value_c
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
         unary_op
-            .value_c_hi
-            .assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        unary_op
-            .value_c_lo
-            .assign(region, offset, op.value().value())?;
+            .value_c
+            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
 
         Ok(())
     }

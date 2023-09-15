@@ -49,12 +49,9 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         // TODO: divisor != 0
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a.hi.clone(),
-            value_a_lo: self.value_a.lo.clone(),
-            value_b_hi: self.value_b.hi.clone(),
-            value_b_lo: self.value_b.lo.clone(),
-            value_c_hi: self.value_c.hi.clone(),
-            value_c_lo: self.value_c.lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -77,12 +74,9 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a.hi.clone(),
-            value_a_lo: self.value_a.lo.clone(),
-            value_b_hi: self.value_b.hi.clone(),
-            value_b_lo: self.value_b.lo.clone(),
-            value_c_hi: self.value_c.hi.clone(),
-            value_c_lo: self.value_c.lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
 
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;

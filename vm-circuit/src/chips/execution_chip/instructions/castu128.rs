@@ -45,10 +45,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU128<F> {
         cb.add_constraint("cast u128 range check", out_lo - bytes_16);
 
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a.hi.clone(),
-            value_a_lo: self.value_a.lo.clone(),
-            value_c_hi: self.value_c.hi.clone(),
-            value_c_lo: self.value_c.lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
@@ -64,10 +62,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU128<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a.hi.clone(),
-            value_a_lo: self.value_a.lo.clone(),
-            value_c_hi: self.value_c.hi.clone(),
-            value_c_lo: self.value_c.lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
 
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
