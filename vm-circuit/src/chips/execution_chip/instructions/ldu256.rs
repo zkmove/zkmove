@@ -28,7 +28,11 @@ impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
         //LdU256
 
         LoadOp::constrain_ld_op(cells, cb);
-        LoadOp::lookup_ldu256_op(cb, cells, &self.value.hi, &self.value.lo);
+        self.value.lookup_stack_push(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
+        );
         // TODO for u256(2 fields)
         LookupBytecode::lookup_bytecode(
             cb,
