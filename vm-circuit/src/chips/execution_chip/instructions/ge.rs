@@ -4,19 +4,20 @@ use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecod
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr, FieldBytes};
+use crate::chips::math_gadget::comparison::ComparisonGadget;
+use crate::chips::math_gadget::lt::LtGadget;
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
-use movelang::value::NUM_OF_BYTES_U128;
-use std::convert::TryInto;
+use movelang::utility::convert_u256_to_field;
+use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
+use super::common::get_u256_from_op;
 use super::common::word_gadget::WordCell;
 
 #[derive(Clone, Debug)]
@@ -24,7 +25,8 @@ pub struct Ge<F: FieldExt> {
     value_a: WordCell<F>,
     value_b: WordCell<F>,
     value_c: WordCell<F>,
-    bytes: Vec<Cell<F>>,
+    comparison_hi: ComparisonGadget<F, 16>,
+    lt_lo: LtGadget<F, 16>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
@@ -34,21 +36,21 @@ impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Ge
 
-        let lhs = self.value_a.lo.expression.clone();
-        let rhs = self.value_b.lo.expression.clone();
-        let out = self.value_c.lo.expression.clone();
-        let diff = FieldBytes::from(self.bytes.clone()).expr();
-        let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
+        // lt is 0 or 1
+        let (hi_lt, hi_eq) = self.comparison_hi.expr();
+        let lt = hi_lt + hi_eq * self.lt_lo.expr();
+        let constraint = lt.clone() * (1.expr() - lt.clone());
+        cb.add_constraint("Lt: output is bool", constraint);
 
-        // out is 0 or 1
-        let constraint = out.clone() * (1.expr() - out.clone());
-        cb.add_constraint("out value is bool", constraint);
-
-        // there is only 16 bytes for diff, so diff is in range 2 ^ 128
-        // if lhs >= rhs, then out = 1, diff = lhs - rhs
-        // if lhs < rhs, then out == 0, diff = lhs - rhs + range
-        let constraint = (lhs - rhs) + (1.expr() - out) * range - diff;
-        cb.add_constraint("Ge", constraint);
+        // value_c + lt == 1
+        cb.add_constraint(
+            "Lt: upper field is zero",
+            self.value_c.hi.expression.clone(),
+        );
+        cb.add_constraint(
+            "Lt: lower field add lt output equal to 1",
+            1.expr() - lt - self.value_c.lo.expression.clone(),
+        );
 
         let binary_op = BinaryOp {
             value_a: self.value_a.clone(),
@@ -73,28 +75,16 @@ impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
             value_b: self.value_b.clone(),
             value_c: self.value_c.clone(),
         };
-
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-
-        let diff = aux_value.value().ok_or_else(|| {
-            error!("auxiliary_1 value is None");
-            Error::Synthesis
-        })?;
-
-        let diff_bytes: [u8; 32] = diff
-            .to_repr()
-            .as_ref()
-            .try_into()
-            .expect("Field fits into 256 bits");
-        for (index, byte) in self.bytes.iter().enumerate() {
-            byte.assign(region, offset, Some(F::from(diff_bytes[index] as u64)))?;
-        }
-
+        // assign value to Lt/Comparison gadget
+        let lhs = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let rhs = get_u256_from_op(rw_operations, step.gc)?;
+        let lhs_fe = convert_u256_to_field::<F>(&lhs);
+        let rhs_fe = convert_u256_to_field::<F>(&rhs);
+        self.comparison_hi
+            .assign(region, offset, lhs_fe[0], rhs_fe[0])?;
+        self.lt_lo.assign(region, offset, lhs_fe[1], rhs_fe[1])?;
         Ok(())
     }
 
@@ -103,13 +93,23 @@ impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
         let value_a = WordCell::<F>::construct(cb);
         let value_b = WordCell::<F>::construct(cb);
         let value_c = WordCell::<F>::construct(cb);
-        let bytes = cb.alloc_n_cells(BYTES_NUM);
+        let comparison_hi = ComparisonGadget::construct(
+            cb,
+            value_a.hi.expression.clone(),
+            value_b.hi.expression.clone(),
+        );
+        let lt_lo = LtGadget::construct(
+            cb,
+            value_a.lo.expression.clone(),
+            value_b.lo.expression.clone(),
+        );
 
         Self {
             value_a,
             value_b,
             value_c,
-            bytes,
+            comparison_hi,
+            lt_lo,
         }
     }
 }
