@@ -48,12 +48,10 @@ impl<F: FieldExt, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         Self { lt, diff, range }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn expr(&self) -> Expression<F> {
         self.lt.expr()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn assign(
         &self,
         region: &mut Region<'_, F>,
