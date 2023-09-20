@@ -8,7 +8,8 @@ pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::*;
 pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
 
-/// Takes U256, converts to bytes32 (big endian) and returns (hash[..16], hash[16..]) represented as big endian numbers in the prime field
+/// Takes U256, converts to bytes32 (big endian) and
+/// returns (bytes[16..], bytes[..16]) represented as big endian numbers in the prime field
 pub fn convert_u256_to_field<F: FieldExt>(input: &U256) -> [F; 2] {
     let bytes = input.to_le_bytes();
     // repr is in little endian

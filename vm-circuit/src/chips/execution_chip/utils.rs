@@ -5,6 +5,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
+use movelang::utility::U256;
 use std::hash::Hash;
 
 pub mod base_constraint_builder;
@@ -20,6 +21,35 @@ pub(crate) fn query_expression<F: FieldExt, T>(
         Some(0.expr())
     });
     expr.unwrap()
+}
+
+/// Returns 2**by as FieldExt
+pub(crate) fn pow_of_two<F: FieldExt>(by: usize) -> F {
+    F::from(2).pow(&[by as u64, 0, 0, 0])
+}
+
+/// Returns 2**by as Expression
+pub(crate) fn pow_of_two_expr<F: FieldExt>(by: usize) -> Expression<F> {
+    Expression::Constant(pow_of_two(by))
+}
+
+/// Returns tuple consists of low and high part of U256
+pub(crate) fn split_u256(value: &U256) -> (U256, U256) {
+    let mask = U256::from(u128::MAX);
+    let lo = *value & mask;
+    let hi = (*value >> 128) & mask;
+    (hi, lo)
+}
+
+/// Split a U256 value into 4 64-bit limbs stored in U256 values.
+pub(crate) fn split_u256_limb64(value: &U256) -> [U256; 4] {
+    let mask = U256::from(u64::MAX);
+    [
+        *value & mask,
+        (*value >> 64) & mask,
+        (*value >> 128) & mask,
+        (*value >> 192) & mask,
+    ]
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

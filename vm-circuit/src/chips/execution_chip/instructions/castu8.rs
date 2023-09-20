@@ -15,12 +15,15 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U8;
+use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct CastU8<F: FieldExt> {
-    value_a: Cell<F>,
-    value_c: Cell<F>,
+    value_a_hi: Cell<F>,
+    value_a_lo: Cell<F>,
+    value_c_hi: Cell<F>,
+    value_c_lo: Cell<F>,
     bytes: Vec<Cell<F>>,
 }
 
@@ -29,17 +32,23 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
 
     const OPCODE: Opcode = Opcode::CastU8;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let x = self.value_a.expression.clone();
-        let out = self.value_c.expression.clone();
+        let input_hi = self.value_a_hi.expression.clone();
+        let input_lo = self.value_a_lo.expression.clone();
+        let out_hi = self.value_c_hi.expression.clone();
+        let out_lo = self.value_c_lo.expression.clone();
 
         // x = out
-        cb.add_constraint("cast u8", x - out.clone());
-        // range check for out
+        cb.add_constraint("cast u8 hi", input_hi);
+        cb.add_constraint("cast u8 hi", out_hi);
+        cb.add_constraint("cast u8 lo", input_lo - out_lo.clone());
+        // range check for out. u8 at out_lo
         let bytes_1 = FieldBytes::from(self.bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
-        cb.add_constraint("cast u8 range check", out - bytes_1);
+        cb.add_constraint("cast u8 range check", out_lo - bytes_1);
         let unary_op = UnaryOp {
-            value_a: self.value_a.clone(),
-            value_c: self.value_c.clone(),
+            value_a_hi: self.value_a_hi.clone(),
+            value_a_lo: self.value_a_lo.clone(),
+            value_c_hi: self.value_c_hi.clone(),
+            value_c_lo: self.value_c_lo.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
@@ -55,13 +64,19 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
-            value_a: self.value_a.clone(),
-            value_c: self.value_c.clone(),
+            value_a_hi: self.value_a_hi.clone(),
+            value_a_lo: self.value_a_lo.clone(),
+            value_c_hi: self.value_c_hi.clone(),
+            value_c_lo: self.value_c_lo.clone(),
         };
 
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
-        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
+        // only out_lo need to take care
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         let cast_result = op.value().value().ok_or_else(|| {
             error!("cast_result is None");
             Error::Synthesis
@@ -81,13 +96,17 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
-        let value_c = cb.alloc_cell();
+        let value_a_hi = cb.alloc_cell();
+        let value_a_lo = cb.alloc_cell();
+        let value_c_hi = cb.alloc_cell();
+        let value_c_lo = cb.alloc_cell();
         let bytes = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
-            value_a,
-            value_c,
+            value_a_hi,
+            value_a_lo,
+            value_c_hi,
+            value_c_lo,
             bytes,
         }
     }

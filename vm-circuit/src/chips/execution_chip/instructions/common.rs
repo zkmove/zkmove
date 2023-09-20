@@ -16,11 +16,15 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
+use movelang::utility::{decode_field_to_u256, MoveValueType, U256};
 use movelang::value::{
-    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256,
-    NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+    Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
-use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE};
+use movelang::value_ext::{
+    ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET,
+    UPPER_FIELD_OFFSET,
+};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -31,9 +35,12 @@ pub(crate) mod value_gadget;
 
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
-    pub value_a: Cell<F>,
-    pub value_b: Cell<F>,
-    pub value_c: Cell<F>,
+    pub value_a_hi: Cell<F>,
+    pub value_a_lo: Cell<F>,
+    pub value_b_hi: Cell<F>,
+    pub value_b_lo: Cell<F>,
+    pub value_c_hi: Cell<F>,
+    pub value_c_lo: Cell<F>,
 }
 
 impl<F: FieldExt> BinaryOp<F> {
@@ -44,8 +51,9 @@ impl<F: FieldExt> BinaryOp<F> {
             - 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        // Each stack push/pop have two rw_op, one is for the value header.
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 6.expr();
+        // Each stack push/pop have three rw_op, one is for the value header.
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
+            + ((LEN_OF_SIMPLE_VALUE as u64) * 3).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -75,36 +83,56 @@ impl<F: FieldExt> BinaryOp<F> {
             ),
         );
         cb.add_lookup(
-            "binary op(stack pop value_b)",
+            "binary op(stack pop value_b_hi)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                binary_op.value_b.expression.clone(),
+                binary_op.value_b_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack pop value_b_lo)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                2.expr(),
+                binary_op.value_b_lo.expression.clone(),
             ),
         );
         cb.add_lookup(
             "binary op(stack pop value_a's header)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 2.expr(),
+                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
         cb.add_lookup(
-            "binary op(stack pop value_a)",
+            "binary op(stack pop value_a_hi)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 3.expr(),
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                binary_op.value_a.expression.clone(),
+                binary_op.value_a_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack pop value_a_lo)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                2.expr(),
+                binary_op.value_a_lo.expression.clone(),
             ),
         );
         cb.add_lookup(
             "binary op(stack push value_c's header)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 4.expr(),
+                cells.gc.expression.clone() + ((LEN_OF_SIMPLE_VALUE * 2) as u64).expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
@@ -113,10 +141,21 @@ impl<F: FieldExt> BinaryOp<F> {
         cb.add_lookup(
             "binary op(stack push value_c)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 5.expr(),
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 2.expr(),
                 1.expr(),
-                binary_op.value_c.expression.clone(),
+                binary_op.value_c_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "binary op(stack push value_c)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET) as u64).expr(),
+                cells.stack_size.expression.clone() - 2.expr(),
+                2.expr(),
+                binary_op.value_c_lo.expression.clone(),
             ),
         );
     }
@@ -128,24 +167,59 @@ impl<F: FieldExt> BinaryOp<F> {
         rw_operations: &RWOperations<F>,
         binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        // value_b
+        let op = rw_operations
+            .0
+            .get(step.gc + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         binary_op
-            .value_b
+            .value_b_hi
             .assign(region, offset, op.value().value())?;
-
-        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         binary_op
-            .value_a
+            .value_b_lo
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_operations.0.get(step.gc + 5).ok_or(Error::Synthesis)?;
+        // value_a
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        binary_op
+            .value_a_hi
+            .assign(region, offset, op.value().value())?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        binary_op
+            .value_a_lo
+            .assign(region, offset, op.value().value())?;
+
+        // value_c
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         binary_op
-            .value_c
+            .value_c_hi
             .assign(region, offset, op.value().value())?;
-
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        binary_op
+            .value_c_lo
+            .assign(region, offset, op.value().value())?;
         Ok(())
     }
 
@@ -163,10 +237,18 @@ impl<F: FieldExt> BinaryOp<F> {
             error!("auxiliary_1 is None");
             Error::Synthesis
         })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, aux_value.value())?;
 
+        // auxiliary_1 is lower field. auxiliary_2 is upper field
+        if aux_value.ty() == MoveValueType::U256 {
+            let v = aux_value.value_u256().expect("should U256 value");
+            cells.auxiliary_1.assign(region, offset, Some(v[1]))?;
+            cells.auxiliary_2.assign(region, offset, Some(v[0]))?;
+        } else {
+            cells
+                .auxiliary_1
+                .assign(region, offset, aux_value.value())?;
+            cells.auxiliary_2.assign(region, offset, Some(F::zero()))?;
+        }
         Ok(())
     }
 
@@ -178,10 +260,10 @@ impl<F: FieldExt> BinaryOp<F> {
         lookup_bitwise: &LookupBitwise<F>,
     ) -> Result<(), Error> {
         // store operand 1 at bytes_operand_1 cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
         let result = rw_operations
             .0
-            .get(step.gc + 3)
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -191,9 +273,45 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(16).enumerate() {
-            // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+        // bytes_operand_1[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes_operand_1.iter().take(32).enumerate() {
+            // seperate one byte into 2 fields.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
+        let result = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_1[32; 32] for lower filed
+        for (index, byte) in lookup_bitwise
+            .bytes_operand_1
+            .iter()
+            .skip(32)
+            .take(32)
+            .enumerate()
+        {
+            // seperate one byte into 2 fields.
             if index % 2 == 0 {
                 byte.assign(
                     region,
@@ -210,10 +328,10 @@ impl<F: FieldExt> BinaryOp<F> {
         }
 
         // store operand 2 at bytes_operand_2 cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for upper 128 bit.
         let result = rw_operations
             .0
-            .get(step.gc + 1)
+            .get(step.gc + UPPER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -223,9 +341,45 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(16).enumerate() {
+        // bytes_operand_2[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes_operand_2.iter().take(32).enumerate() {
             // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+        // every 4 bits within one cell and cost 32 cells for lower 128 bit.
+        let result = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_2[32; 32] for lower filed
+        for (index, byte) in lookup_bitwise
+            .bytes_operand_2
+            .iter()
+            .skip(32)
+            .take(32)
+            .enumerate()
+        {
+            // seperate one byte into 2 fields
             if index % 2 == 0 {
                 byte.assign(
                     region,
@@ -242,10 +396,10 @@ impl<F: FieldExt> BinaryOp<F> {
         }
 
         // store result at bytes cell.
-        // every 4 bits within one cell and cost 16 cells.
+        // every 4 bits within one cell and cost 32 cells for upper 128 bit.
         let result = rw_operations
             .0
-            .get(step.gc + 5)
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + UPPER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?
             .value()
             .value()
@@ -255,9 +409,38 @@ impl<F: FieldExt> BinaryOp<F> {
             .as_ref()
             .try_into()
             .expect("Field fits into 256 bits");
-        for (index, byte) in lookup_bitwise.bytes.iter().take(16).enumerate() {
+        // bytes_operand_2[0; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes.iter().take(32).enumerate() {
             // seperate one byte into 2 fields
-            // for only u64 is supported and little-endian mode. so only first 8 bytes.
+            if index % 2 == 0 {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from((result_bytes[index / 2] & 0xF) as u64)),
+                )?;
+            } else {
+                byte.assign(
+                    region,
+                    offset,
+                    Some(F::from(((result_bytes[index / 2] & 0xF0) >> 4) as u64)),
+                )?;
+            }
+        }
+        let result = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?
+            .value()
+            .value()
+            .ok_or(Error::Synthesis)?;
+        let result_bytes: [u8; 32] = result
+            .to_repr()
+            .as_ref()
+            .try_into()
+            .expect("Field fits into 256 bits");
+        // bytes_operand_2[32; 32] for upper filed
+        for (index, byte) in lookup_bitwise.bytes.iter().skip(32).take(32).enumerate() {
+            // seperate one byte into 2 fields
             if index % 2 == 0 {
                 byte.assign(
                     region,
@@ -278,8 +461,10 @@ impl<F: FieldExt> BinaryOp<F> {
 }
 
 pub struct UnaryOp<F: FieldExt> {
-    pub value_a: Cell<F>,
-    pub value_c: Cell<F>,
+    pub value_a_hi: Cell<F>,
+    pub value_a_lo: Cell<F>,
+    pub value_c_hi: Cell<F>,
+    pub value_c_lo: Cell<F>,
 }
 
 impl<F: FieldExt> UnaryOp<F> {
@@ -289,7 +474,8 @@ impl<F: FieldExt> UnaryOp<F> {
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 4.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
+            + ((LEN_OF_SIMPLE_VALUE as u64) * 2).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -321,16 +507,25 @@ impl<F: FieldExt> UnaryOp<F> {
         cb.add_lookup(
             "unary op(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                unary_op.value_a.expression.clone(),
+                unary_op.value_a_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "unary op(stack pop value)",
+            RWLookup::stack_pop(
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                2.expr(),
+                unary_op.value_a_lo.expression.clone(),
             ),
         );
         cb.add_lookup(
             "unary op(stack push value header)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 2.expr(),
+                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 0.expr(),
                 ValueHeader::default_for_simple().expr(),
@@ -339,10 +534,21 @@ impl<F: FieldExt> UnaryOp<F> {
         cb.add_lookup(
             "unary op(stack push value)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 3.expr(),
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET) as u64).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
                 1.expr(),
-                unary_op.value_c.expression.clone(),
+                unary_op.value_c_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "unary op(stack push value)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone()
+                    + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
+                cells.stack_size.expression.clone() - 1.expr(),
+                2.expr(),
+                unary_op.value_c_lo.expression.clone(),
             ),
         );
     }
@@ -354,16 +560,40 @@ impl<F: FieldExt> UnaryOp<F> {
         rw_operations: &RWOperations<F>,
         unary_op: &UnaryOp<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(step.gc + 1).ok_or(Error::Synthesis)?;
+        // value_a
+        let op = rw_operations
+            .0
+            .get(step.gc + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::READ);
         unary_op
-            .value_a
+            .value_a_hi
+            .assign(region, offset, op.value().value())?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::READ);
+        unary_op
+            .value_a_lo
             .assign(region, offset, op.value().value())?;
 
-        let op = rw_operations.0.get(step.gc + 3).ok_or(Error::Synthesis)?;
+        // value_c
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         unary_op
-            .value_c
+            .value_c_hi
+            .assign(region, offset, op.value().value())?;
+        let op = rw_operations
+            .0
+            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        debug_assert!(op.rw() == RW::WRITE);
+        unary_op
+            .value_c_lo
             .assign(region, offset, op.value().value())?;
 
         Ok(())
@@ -382,7 +612,8 @@ impl<F: FieldExt> LoadOp<F> {
             + 1.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
-        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone() + 2.expr();
+        let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
+            + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -400,7 +631,7 @@ impl<F: FieldExt> LoadOp<F> {
     pub(crate) fn lookup_ld_op(
         cb: &mut ConstraintBuilder<F>,
         cells: &StepChipCells<F>,
-        value: &Cell<F>,
+        value_lo: &Cell<F>,
     ) {
         cb.add_lookup(
             "ld op(stack push value header)",
@@ -412,12 +643,47 @@ impl<F: FieldExt> LoadOp<F> {
             ),
         );
         cb.add_lookup(
-            "ld op(stack push value)",
+            "ld op(stack push value low)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + 1.expr(),
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                2.expr(),
+                value_lo.expression.clone(),
+            ),
+        );
+    }
+
+    pub(crate) fn lookup_ldu256_op(
+        cb: &mut ConstraintBuilder<F>,
+        cells: &StepChipCells<F>,
+        value_hi: &Cell<F>,
+        value_lo: &Cell<F>,
+    ) {
+        cb.add_lookup(
+            "ld op(stack push value header)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone(),
+                cells.stack_size.expression.clone(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "ld op(stack push value upper)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
                 cells.stack_size.expression.clone(),
                 1.expr(),
-                value.expression.clone(),
+                value_hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "ld op(stack push value low)",
+            RWLookup::stack_push(
+                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.stack_size.expression.clone(),
+                2.expr(),
+                value_lo.expression.clone(),
             ),
         );
     }
@@ -465,6 +731,7 @@ impl<F: FieldExt> ArithOverflow<F> {
         // else if bytes_len = NUM_OF_BYTES_U32, then bytes_4 == out
         // else if bytes_len = NUM_OF_BYTES_U64, then bytes_8 == out
         // else if bytes_len = NUM_OF_BYTES_U128, then bytes_16 == out
+        // fixme. u256 need range check here?
         let bytes_1 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U8);
         let bytes_2 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U16);
         let bytes_4 = FieldBytes::from(bytes.clone()).expr_with_n(NUM_OF_BYTES_U32);
@@ -525,6 +792,7 @@ impl<F: FieldExt> ArithOverflow<F> {
     pub fn assign_num_of_bytes(
         region: &mut Region<'_, F>,
         offset: usize,
+        step: &ExecutionStep<F>,
         cells: &StepChipCells<F>,
         bytes: Vec<Cell<F>>,
         value: Value<F>,
@@ -544,18 +812,9 @@ impl<F: FieldExt> ArithOverflow<F> {
         }
 
         // assign auxiliary cell with number of bytes
-        let num_of_bytes = match value {
-            Value::U8(_) => NUM_OF_BYTES_U8 as u128,
-            Value::U16(_) => NUM_OF_BYTES_U16 as u128,
-            Value::U32(_) => NUM_OF_BYTES_U32 as u128,
-            Value::U64(_) => NUM_OF_BYTES_U64 as u128,
-            Value::U128(_) => NUM_OF_BYTES_U128 as u128,
-            Value::U256(_) => NUM_OF_BYTES_U256 as u128,
-            _ => unreachable!(),
-        };
-        cells
-            .auxiliary_1
-            .assign(region, offset, Some(F::from_u128(num_of_bytes)))?;
+        let num_of_bytes =
+            Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?
+                .get_lower_128();
 
         // assign delta_inverse(num_of_bytes, NUM_OF_BYTES_U8/U16/U32/U64/U128)
         let delta_inverse_1 =
@@ -625,7 +884,7 @@ impl<F: FieldExt> Word<F> {
         cell: &Cell<F>,
     ) -> VmResult<F> {
         let value = step_value.as_ref().ok_or_else(|| {
-            error!("step value {:?} is None", step_value);
+            error!("step value {:?}", step_value);
             Error::Synthesis
         })?;
         cell.assign(region, offset, value.value())?;
@@ -1084,5 +1343,62 @@ impl<F: FieldExt> HeaderCells<F> {
         self.len.assign(region, offset, Some(F::from(len as u64)))?;
 
         Ok(())
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn header_value_parse<F: FieldExt>(
+    rw_operations: &RWOperations<F>,
+    op_index: usize,
+) -> Result<(usize, usize), Error> {
+    let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
+    let header_value = op.value().value().ok_or_else(|| {
+        error!("header value is None");
+        Error::Synthesis
+    })?;
+
+    let flattened_len = (header_value.get_lower_128() & 0xFFFF) as usize;
+    let len = ((header_value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
+    Ok((flattened_len, len))
+}
+
+pub(crate) fn get_u256_from_op<F: FieldExt>(
+    rw_operations: &RWOperations<F>,
+    op_index: usize,
+) -> Result<U256, Error> {
+    let op = rw_operations
+        .0
+        .get(op_index + UPPER_FIELD_OFFSET)
+        .ok_or(Error::Synthesis)?;
+    let upper = op.value().value().ok_or_else(|| {
+        error!("upper field is None");
+        Error::Synthesis
+    })?;
+    let op = rw_operations
+        .0
+        .get(op_index + LOWER_FIELD_OFFSET)
+        .ok_or(Error::Synthesis)?;
+    let lower = op.value().value().ok_or_else(|| {
+        error!("lower field is None");
+        Error::Synthesis
+    })?;
+    let v = decode_field_to_u256(&[upper, lower]);
+    Ok(v)
+}
+
+pub(crate) fn get_u256_from_value<F: FieldExt>(value: Value<F>) -> Result<U256, Error> {
+    if value.ty() == MoveValueType::U256 {
+        let f = value.value_u256().unwrap();
+        Ok(decode_field_to_u256(&f))
+    } else {
+        let v = value
+            .value()
+            .ok_or_else(|| {
+                error!("upper field is None");
+                Error::Synthesis
+            })?
+            .get_lower_128();
+        let v = U256::from(v);
+        Ok(v)
     }
 }

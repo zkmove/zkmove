@@ -80,7 +80,8 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         self.constrain_header(cb, self.cells.0[0].expression.clone());
 
         // check simple val length
-        let constraint = (2_u64).expr() - self.header_cells.flattened_len.expression.clone();
+        let constraint = (LEN_OF_SIMPLE_VALUE as u64).expr()
+            - self.header_cells.flattened_len.expression.clone();
         cb.add_constraint("check simple value length", constraint);
     }
 

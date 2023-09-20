@@ -4,7 +4,6 @@ use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBitwise
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
@@ -13,12 +12,16 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use movelang::value::NUM_OF_BYTES_U256;
 
 #[derive(Clone, Debug)]
 pub struct BitOr<F: FieldExt> {
-    value_a: Cell<F>,
-    value_b: Cell<F>,
-    value_c: Cell<F>,
+    value_a_hi: Cell<F>,
+    value_a_lo: Cell<F>,
+    value_b_hi: Cell<F>,
+    value_b_lo: Cell<F>,
+    value_c_hi: Cell<F>,
+    value_c_lo: Cell<F>,
     bytes: Vec<Cell<F>>,
     bytes_operand_1: Vec<Cell<F>>,
     bytes_operand_2: Vec<Cell<F>>,
@@ -39,9 +42,12 @@ impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
         LookupBitwise::lookup_bitwise(cb, &lookup_bitwise, Opcode::BitOr);
 
         let binary_op = BinaryOp {
-            value_a: self.value_a.clone(),
-            value_b: self.value_b.clone(),
-            value_c: self.value_c.clone(),
+            value_a_hi: self.value_a_hi.clone(),
+            value_a_lo: self.value_a_lo.clone(),
+            value_b_hi: self.value_b_hi.clone(),
+            value_b_lo: self.value_b_lo.clone(),
+            value_c_hi: self.value_c_hi.clone(),
+            value_c_lo: self.value_c_lo.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -57,9 +63,12 @@ impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a: self.value_a.clone(),
-            value_b: self.value_b.clone(),
-            value_c: self.value_c.clone(),
+            value_a_hi: self.value_a_hi.clone(),
+            value_a_lo: self.value_a_lo.clone(),
+            value_b_hi: self.value_b_hi.clone(),
+            value_b_lo: self.value_b_lo.clone(),
+            value_c_hi: self.value_c_hi.clone(),
+            value_c_lo: self.value_c_lo.clone(),
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
@@ -75,17 +84,25 @@ impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
-        let value_b = cb.alloc_cell();
-        let value_c = cb.alloc_cell();
-        let bytes = cb.alloc_n_cells(BYTES_NUM);
-        let bytes_operand_1 = cb.alloc_n_cells(BYTES_NUM);
-        let bytes_operand_2 = cb.alloc_n_cells(BYTES_NUM);
+        let value_a_hi = cb.alloc_cell();
+        let value_a_lo = cb.alloc_cell();
+        let value_b_hi = cb.alloc_cell();
+        let value_b_lo = cb.alloc_cell();
+        let value_c_hi = cb.alloc_cell();
+        let value_c_lo = cb.alloc_cell();
+        // bytes[i] = bytes_operand_1[i] | bytes_operand_2[i]
+        // each bytes need 2 fields(4 bit each) and totally 64 cells
+        let bytes = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
+        let bytes_operand_1 = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
+        let bytes_operand_2 = cb.alloc_n_cells(NUM_OF_BYTES_U256 * 2);
 
         Self {
-            value_a,
-            value_b,
-            value_c,
+            value_a_hi,
+            value_a_lo,
+            value_b_hi,
+            value_b_lo,
+            value_c_hi,
+            value_c_lo,
             bytes,
             bytes_operand_1,
             bytes_operand_2,
