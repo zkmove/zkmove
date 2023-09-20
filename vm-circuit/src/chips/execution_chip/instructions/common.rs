@@ -345,6 +345,28 @@ impl<F: FieldExt> LookupBytecode<F> {
                 function_index: cells.function_index.expression.clone(),
                 pc: cells.pc.expression.clone(),
                 opcode: (opcode.index() as u64).expr(),
+                operand2: 0.expr(), // reserve for upper 128 bit
+                operand: bytecode_operand,
+            },
+        );
+    }
+
+    pub(crate) fn lookup_bytecode_u256(
+        cb: &mut ConstraintBuilder<F>,
+        cells: &StepChipCells<F>,
+
+        opcode: Opcode,
+        bytecode_operand2: Expression<F>,
+        bytecode_operand: Expression<F>,
+    ) {
+        cb.add_lookup(
+            "bytecode(operand is u256) lookups",
+            BytecodeLookup {
+                module_index: cells.module_index.expression.clone(),
+                function_index: cells.function_index.expression.clone(),
+                pc: cells.pc.expression.clone(),
+                opcode: (opcode.index() as u64).expr(),
+                operand2: bytecode_operand2,
                 operand: bytecode_operand,
             },
         );

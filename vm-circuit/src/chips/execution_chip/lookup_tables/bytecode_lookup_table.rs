@@ -7,9 +7,10 @@ pub struct BytecodeLookupTable {
     pub function_index_column: TableColumn,
     pub pc_column: TableColumn,
     pub opcode_column: TableColumn,
+    pub operand2_column: TableColumn, // add for u256 upper 128 bit.
     pub operand_column: TableColumn,
 }
-pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 5;
+pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 6;
 
 impl BytecodeLookupTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
@@ -18,6 +19,7 @@ impl BytecodeLookupTable {
             function_index_column: meta.lookup_table_column(),
             pc_column: meta.lookup_table_column(),
             opcode_column: meta.lookup_table_column(),
+            operand2_column: meta.lookup_table_column(),
             operand_column: meta.lookup_table_column(),
         }
     }
@@ -28,6 +30,7 @@ impl BytecodeLookupTable {
             self.function_index_column,
             self.pc_column,
             self.opcode_column,
+            self.operand2_column,
             self.operand_column,
         ]
     }
@@ -39,6 +42,7 @@ pub struct BytecodeLookup<F: FieldExt> {
     pub function_index: Expression<F>,
     pub pc: Expression<F>,
     pub opcode: Expression<F>,
+    pub operand2: Expression<F>,
     pub operand: Expression<F>,
 }
 
@@ -49,6 +53,7 @@ impl<F: FieldExt> BytecodeLookup<F> {
             self.function_index.clone(),
             self.pc.clone(),
             self.opcode.clone(),
+            self.operand2.clone(),
             self.operand.clone(),
         ]
     }

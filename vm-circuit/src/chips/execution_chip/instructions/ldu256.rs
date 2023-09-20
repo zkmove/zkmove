@@ -33,11 +33,11 @@ impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
             cells.stack_size.expression.clone(),
             cells.gc.expression.clone(),
         );
-        // TODO for u256(2 fields)
-        LookupBytecode::lookup_bytecode(
+        LookupBytecode::lookup_bytecode_u256(
             cb,
             cells,
             Opcode::LdU256,
+            self.value.hi.expression.clone(),
             self.value.lo.expression.clone(),
         );
     }
