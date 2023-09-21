@@ -13,11 +13,11 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct LdU256<F: FieldExt> {
-    value: WordCell<F>,
+    value: WordCells<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
@@ -71,7 +71,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value = WordCell::<F>::construct(cb);
+        let value = WordCells::<F>::construct(cb);
 
         Self { value }
     }

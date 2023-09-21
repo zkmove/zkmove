@@ -19,14 +19,14 @@ use movelang::utility::decode_field_to_u256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 use super::common::get_u256_from_op;
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Shl<F: FieldExt> {
     muladd_words_gadget: MulAddWordsGadget<F>,
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
     rhs_less_than_128: LtGadget<F, 1>,
 }
 
@@ -154,9 +154,9 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let rhs_less_than_128 = LtGadget::construct(cb, value_b.lo.expression.clone(), 128.expr());
 
         Self {

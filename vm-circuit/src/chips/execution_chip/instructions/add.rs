@@ -17,13 +17,13 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Add<F: FieldExt> {
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    out: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    out: WordCells<F>,
     bytes: Vec<Cell<F>>,
     carry_lo: Cell<F>,
     // carry_hi: Cell<F>, // overflow
@@ -125,9 +125,9 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let out = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let out = WordCells::<F>::construct(cb);
         let bytes = cb.alloc_n_cells(BYTES_NUM);
         let carry_lo = cb.alloc_cell();
 

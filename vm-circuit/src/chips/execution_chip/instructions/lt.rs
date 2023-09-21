@@ -18,13 +18,13 @@ use movelang::utility::convert_u256_to_field;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
 use super::common::get_u256_from_op;
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Lt<F: FieldExt> {
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
     comparison_hi: ComparisonGadget<F, 16>,
     lt_lo: LtGadget<F, 16>,
 }
@@ -91,9 +91,9 @@ impl<F: FieldExt> InstructionGadget<F> for Lt<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let comparison_hi = ComparisonGadget::construct(
             cb,
             value_a.hi.expression.clone(),

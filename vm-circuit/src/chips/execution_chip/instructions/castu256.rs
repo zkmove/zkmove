@@ -18,12 +18,12 @@ use movelang::value::NUM_OF_BYTES_U128;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 use std::convert::TryInto;
 
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct CastU256<F: FieldExt> {
-    value_a: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_c: WordCells<F>,
     bytes_hi: Vec<Cell<F>>,
     bytes: Vec<Cell<F>>,
 }
@@ -112,8 +112,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let bytes_hi = cb.alloc_n_cells(BYTES_NUM);
         let bytes = cb.alloc_n_cells(BYTES_NUM);
 

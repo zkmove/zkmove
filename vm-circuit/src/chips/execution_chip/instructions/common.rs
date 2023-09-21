@@ -28,7 +28,7 @@ use movelang::value_ext::{
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
-use self::word_gadget::WordCell;
+use self::word_gadget::WordCells;
 
 pub(crate) mod generic_gadget;
 pub(crate) mod reference_value_gadget;
@@ -38,9 +38,9 @@ pub(crate) mod word_gadget;
 
 #[derive(Clone, Debug)]
 pub struct BinaryOp<F: FieldExt> {
-    pub value_a: WordCell<F>,
-    pub value_b: WordCell<F>,
-    pub value_c: WordCell<F>,
+    pub value_a: WordCells<F>,
+    pub value_b: WordCells<F>,
+    pub value_c: WordCells<F>,
 }
 
 impl<F: FieldExt> BinaryOp<F> {
@@ -208,8 +208,8 @@ impl<F: FieldExt> BinaryOp<F> {
 }
 
 pub struct UnaryOp<F: FieldExt> {
-    pub value_a: WordCell<F>,
-    pub value_c: WordCell<F>,
+    pub value_a: WordCells<F>,
+    pub value_c: WordCells<F>,
 }
 
 impl<F: FieldExt> UnaryOp<F> {

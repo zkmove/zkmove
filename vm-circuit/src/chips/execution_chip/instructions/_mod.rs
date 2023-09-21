@@ -18,14 +18,14 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Mod<F: FieldExt> {
     muladd_words_gadget: MulAddWordsGadget<F>,
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Mod<F> {
@@ -101,9 +101,9 @@ impl<F: FieldExt> InstructionGadget<F> for Mod<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
 
         Self {
             muladd_words_gadget,

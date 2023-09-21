@@ -11,12 +11,12 @@ use movelang::value_ext::{ValueHeader, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 
 /// there are 2 cells to suport u256. each for 128 bit
 #[derive(Clone, Debug)]
-pub struct WordCell<F: FieldExt> {
+pub struct WordCells<F: FieldExt> {
     pub hi: Cell<F>,
     pub lo: Cell<F>,
 }
 
-impl<F: FieldExt> WordCell<F> {
+impl<F: FieldExt> WordCells<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         Self {

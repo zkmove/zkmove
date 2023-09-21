@@ -17,13 +17,13 @@ use movelang::utility::convert_u256_to_field;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
 use super::common::get_u256_from_op;
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Gt<F: FieldExt> {
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
     comparison_hi: ComparisonGadget<F, 16>,
     comparison_lo: ComparisonGadget<F, 16>,
 }
@@ -35,21 +35,21 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Gt
 
-        // le is 0 or 1
+        // output is 0 or 1
         let (hi_lt, hi_eq) = self.comparison_hi.expr();
         let (lo_lt, lo_eq) = self.comparison_lo.expr();
-        let le = hi_lt + hi_eq * (lo_lt + lo_eq);
-        let constraint = le.clone() * (1.expr() - le.clone());
+        let output = hi_lt + hi_eq * (lo_lt + lo_eq);
+        let constraint = output.clone() * (1.expr() - output.clone());
         cb.add_constraint("Gt: outout is bool", constraint);
 
-        // value_c + le == 1
+        // value_c + output == 1
         cb.add_constraint(
             "Gt: upper field is zero",
             self.value_c.hi.expression.clone(),
         );
         cb.add_constraint(
-            "Gt: lower field equal to lt output",
-            1.expr() - le - self.value_c.lo.expression.clone(),
+            "Gt: lower field add output equal to 1 ",
+            1.expr() - output - self.value_c.lo.expression.clone(),
         );
 
         let binary_op = BinaryOp {
@@ -92,9 +92,9 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let comparison_hi = ComparisonGadget::construct(
             cb,
             value_a.hi.expression.clone(),

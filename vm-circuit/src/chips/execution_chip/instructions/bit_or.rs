@@ -14,13 +14,13 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::NUM_OF_BYTES_U256;
 
-use super::common::word_gadget::WordCell;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct BitOr<F: FieldExt> {
-    value_a: WordCell<F>,
-    value_b: WordCell<F>,
-    value_c: WordCell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
     bytes: Vec<Cell<F>>,
     bytes_operand_1: Vec<Cell<F>>,
     bytes_operand_2: Vec<Cell<F>>,
@@ -77,9 +77,9 @@ impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = WordCell::<F>::construct(cb);
-        let value_b = WordCell::<F>::construct(cb);
-        let value_c = WordCell::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
 
         // bytes[i] = bytes_operand_1[i] | bytes_operand_2[i]
         // each bytes need 2 fields(4 bit each) and totally 64 cells
