@@ -20,6 +20,8 @@ use halo2_proofs::plonk::Error;
 use logger::prelude::error;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
+use super::common::get_field_from_op;
+
 #[derive(Clone, Debug)]
 pub struct Equality<const EQUALITY: bool, F: FieldExt> {
     value_a: ValueGadget<F>, // right
@@ -256,12 +258,12 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         )?;
 
         // assign unequal_row_xxx, delta_invert
-        let result_op = rw_operations
-            .0
-            .get(step.gc + flattened_value_len_a + flattened_value_len_b + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
+        let result = get_field_from_op(
+            rw_operations,
+            step.gc + flattened_value_len_a + flattened_value_len_b + LOWER_FIELD_OFFSET,
+        )?;
         let a_unequal_b = if EQUALITY { F::zero() } else { F::one() };
-        if result_op.value().value() == Some(a_unequal_b) {
+        if result == a_unequal_b {
             // a and b are not equal
             let unequal_row =
                 Word::assign_step_value(region, offset, &step.auxiliary_4, &cells.auxiliary_4)?

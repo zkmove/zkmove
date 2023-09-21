@@ -18,8 +18,8 @@ use move_core_types::u256::U256;
 use movelang::utility::decode_field_to_u256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
-use super::common::get_u256_from_op;
 use super::common::word_gadget::WordCells;
+use super::common::{get_field_from_op, get_u256_from_op};
 
 #[derive(Clone, Debug)]
 pub struct Shl<F: FieldExt> {
@@ -102,18 +102,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // b is U8 type data, lower field used.
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let b = op
-            .value()
-            .value()
-            .ok_or_else(|| {
-                error!("header value is None");
-                Error::Synthesis
-            })?
-            .get_lower_32();
+        let b = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?.get_lower_32();
         let res = if b < 128 {
             // auxiliary_1 is for lower 128 bit
             let pow2_b_lo = F::from_u128(2).pow(&[b as u64, 0, 0, 0]);

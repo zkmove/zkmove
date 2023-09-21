@@ -17,6 +17,8 @@ use halo2_proofs::plonk::Error;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
+use super::common::get_field_from_op;
+
 #[derive(Clone, Debug)]
 pub struct VecSwap<F: FieldExt> {
     // TODO: adopt SimpleValueGadget
@@ -333,16 +335,13 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        self.idx_b.assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        self.idx_a.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
+        self.idx_b.assign(region, offset, Some(f))?;
+        let f = get_field_from_op(
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
+        )?;
+        self.idx_a.assign(region, offset, Some(f))?;
 
         // assign vector ref
         let ref_val = RefVal {

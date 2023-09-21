@@ -17,6 +17,8 @@ use movelang::value::DEPTH_OF_LOCATION_PATH;
 use movelang::value_ext::ValueHeader;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 
+use super::common::get_field_from_op;
+
 #[derive(Clone, Debug)]
 pub struct VecPushBack<F: FieldExt> {
     container_headers_count: Cell<F>,
@@ -416,11 +418,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         let new_headers_op_idx =
             step.gc + value_flattened_len * 2 + LEN_OF_REFERENCE_VALUE + container_headers_count;
         for i in 0..container_headers_count {
-            let op = rw_operations
-                .0
-                .get(new_headers_op_idx + i)
-                .ok_or(Error::Synthesis)?;
-            self.new_headers_value[i].assign(region, offset, op.value().value())?;
+            let f = get_field_from_op(rw_operations, new_headers_op_idx + i)?;
+            self.new_headers_value[i].assign(region, offset, Some(f))?;
         }
 
         Ok(())

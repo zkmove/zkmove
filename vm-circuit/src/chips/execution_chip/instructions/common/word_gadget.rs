@@ -9,6 +9,8 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 use movelang::value_ext::{ValueHeader, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 
+use super::get_field_from_op;
+
 /// there are 2 cells to suport u256. each for 128 bit
 #[derive(Clone, Debug)]
 pub struct WordCells<F: FieldExt> {
@@ -37,16 +39,10 @@ impl<F: FieldExt> WordCells<F> {
         rw_operations: &RWOperations<F>,
         op_index: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations
-            .0
-            .get(op_index + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        self.hi.assign(region, offset, op.value().value())?;
-        let op = rw_operations
-            .0
-            .get(op_index + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        self.lo.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, op_index + UPPER_FIELD_OFFSET)?;
+        self.hi.assign(region, offset, Some(f))?;
+        let f = get_field_from_op(rw_operations, op_index + LOWER_FIELD_OFFSET)?;
+        self.lo.assign(region, offset, Some(f))?;
         Ok(())
     }
 

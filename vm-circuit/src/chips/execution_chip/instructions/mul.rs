@@ -18,6 +18,7 @@ use halo2_proofs::plonk::Error;
 use movelang::utility::U256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
+use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
@@ -77,12 +78,18 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // result into bytes representation
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let value = op.value();
-        ArithOverflow::assign_num_of_bytes(region, offset, step, cells, self.bytes.clone(), value)?;
+        let v = get_field_from_op(
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET,
+        )?;
+        ArithOverflow::assign_num_of_bytes(
+            region,
+            offset,
+            step,
+            cells,
+            self.bytes.clone(),
+            Some(v),
+        )?;
 
         // muladd_gadget assign
         let b = get_u256_from_op(rw_operations, step.gc)?;

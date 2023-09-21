@@ -52,17 +52,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         rw_operations: &RWOperations<F>,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let is_native = step
-            .auxiliary_5
-            .as_ref()
-            .ok_or_else(|| {
-                error!("auxiliary_5 is None");
-                Error::Synthesis
-            })?
-            .value();
-        cells.auxiliary_5.assign(region, offset, is_native)?;
+        let is_native =
+            Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
         match &is_native {
-            Some(v) if v == &F::one() => return Ok(()),
+            v if v == &F::one() => return Ok(()),
             _ => {}
         }
         // assign arg_num

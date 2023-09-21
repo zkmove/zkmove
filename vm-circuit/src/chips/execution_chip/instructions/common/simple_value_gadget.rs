@@ -7,9 +7,10 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use logger::prelude::*;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 use std::convert::TryInto;
+
+use super::get_field_from_op;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SimpleValueCells<F>([Cell<F>; LEN_OF_SIMPLE_VALUE]);
@@ -32,8 +33,8 @@ impl<F: FieldExt> SimpleValueCells<F> {
         op_index: usize,
     ) -> Result<(), Error> {
         for i in 0..LEN_OF_SIMPLE_VALUE {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            self.0[i].assign(region, offset, op.value().value())?;
+            let f = get_field_from_op(rw_operations, op_index + i)?;
+            self.0[i].assign(region, offset, Some(f))?;
         }
 
         Ok(())
@@ -64,12 +65,7 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         rw_operations: &RWOperations<F>,
         op_index: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
-        let header_value = op.value().value().ok_or_else(|| {
-            error!("header value is None");
-            Error::Synthesis
-        })?;
-
+        let header_value = get_field_from_op(rw_operations, op_index)?;
         self.cells.assign(region, offset, rw_operations, op_index)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())

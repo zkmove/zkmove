@@ -454,10 +454,10 @@ impl<F: FieldExt> ArithOverflow<F> {
         step: &ExecutionStep<F>,
         cells: &StepChipCells<F>,
         bytes: Vec<Cell<F>>,
-        value: Value<F>,
+        value: Option<F>,
     ) -> Result<(), Error> {
         // assign value into bytes
-        let field = value.value().ok_or_else(|| {
+        let field = value.ok_or_else(|| {
             error!("result is None");
             Error::Synthesis
         })?;
@@ -1010,12 +1010,7 @@ pub(crate) fn header_value_parse<F: FieldExt>(
     rw_operations: &RWOperations<F>,
     op_index: usize,
 ) -> Result<(usize, usize), Error> {
-    let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
-    let header_value = op.value().value().ok_or_else(|| {
-        error!("header value is None");
-        Error::Synthesis
-    })?;
-
+    let header_value = get_field_from_op(rw_operations, op_index)?;
     let flattened_len = (header_value.get_lower_128() & 0xFFFF) as usize;
     let len = ((header_value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
     Ok((flattened_len, len))
@@ -1038,22 +1033,8 @@ pub(crate) fn get_u256_from_op<F: FieldExt>(
     rw_operations: &RWOperations<F>,
     op_index: usize,
 ) -> Result<U256, Error> {
-    let op = rw_operations
-        .0
-        .get(op_index + UPPER_FIELD_OFFSET)
-        .ok_or(Error::Synthesis)?;
-    let upper = op.value().value().ok_or_else(|| {
-        error!("upper field is None");
-        Error::Synthesis
-    })?;
-    let op = rw_operations
-        .0
-        .get(op_index + LOWER_FIELD_OFFSET)
-        .ok_or(Error::Synthesis)?;
-    let lower = op.value().value().ok_or_else(|| {
-        error!("lower field is None");
-        Error::Synthesis
-    })?;
+    let upper = get_field_from_op(rw_operations, op_index + UPPER_FIELD_OFFSET)?;
+    let lower = get_field_from_op(rw_operations, op_index + LOWER_FIELD_OFFSET)?;
     let v = decode_field_to_u256(&[upper, lower]);
     Ok(v)
 }

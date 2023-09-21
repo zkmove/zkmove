@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::LookupBytecode;
+use crate::chips::execution_chip::instructions::common::{get_field_from_op, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
@@ -8,12 +8,13 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+
+use super::common::Word;
 
 #[derive(Clone, Debug)]
 pub struct BrTrue<F: FieldExt> {
@@ -93,21 +94,11 @@ impl<F: FieldExt> InstructionGadget<F> for BrTrue<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign next_pc into the auxiliary_1
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, aux_value.value())?;
+        Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
 
         // get value
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::READ);
-        self.value.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
+        self.value.assign(region, offset, Some(f))?;
         Ok(())
     }
 

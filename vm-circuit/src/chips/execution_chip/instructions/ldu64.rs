@@ -8,11 +8,13 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Cell;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::LOWER_FIELD_OFFSET;
+
+use super::common::get_field_from_op;
 
 #[derive(Clone, Debug)]
 pub struct LdU64<F: FieldExt> {
@@ -40,12 +42,8 @@ impl<F: FieldExt> InstructionGadget<F> for LdU64<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let value_a = &self.value_a;
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        value_a.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
+        value_a.assign(region, offset, Some(f))?;
         Ok(())
     }
 

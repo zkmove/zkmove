@@ -11,8 +11,9 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use std::marker::PhantomData;
+
+use super::common::Word;
 
 #[derive(Clone, Debug)]
 pub struct Branch<F: FieldExt> {
@@ -62,13 +63,7 @@ impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign next_pc into the auxiliary_1
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-        cells
-            .auxiliary_1
-            .assign(region, offset, aux_value.value())?;
+        Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         Ok(())
     }
 

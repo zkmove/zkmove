@@ -13,11 +13,11 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
 use movelang::value::NUM_OF_BYTES_U8;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 use std::convert::TryInto;
 
+use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
@@ -63,18 +63,13 @@ impl<F: FieldExt> InstructionGadget<F> for CastU8<F> {
             value_a: self.value_a.clone(),
             value_c: self.value_c.clone(),
         };
-
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
         // only out_lo need to take care
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let cast_result = op.value().value().ok_or_else(|| {
-            error!("cast_result is None");
-            Error::Synthesis
-        })?;
+        let cast_result = get_field_from_op(
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
+        )?;
 
         let result_bytes: [u8; 32] = cast_result
             .to_repr()
