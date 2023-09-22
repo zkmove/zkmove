@@ -12,12 +12,8 @@ use crate::chips::execution_chip::instructions::br_false::BrFalse;
 use crate::chips::execution_chip::instructions::br_true::BrTrue;
 use crate::chips::execution_chip::instructions::branch::Branch;
 use crate::chips::execution_chip::instructions::call::Call;
-use crate::chips::execution_chip::instructions::castu128::CastU128;
-use crate::chips::execution_chip::instructions::castu16::CastU16;
+use crate::chips::execution_chip::instructions::castint::CastInt;
 use crate::chips::execution_chip::instructions::castu256::CastU256;
-use crate::chips::execution_chip::instructions::castu32::CastU32;
-use crate::chips::execution_chip::instructions::castu64::CastU64;
-use crate::chips::execution_chip::instructions::castu8::CastU8;
 use crate::chips::execution_chip::instructions::copy_loc::CopyLoc;
 use crate::chips::execution_chip::instructions::div::Div;
 use crate::chips::execution_chip::instructions::equality::Equality;
@@ -111,11 +107,11 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_ldu128: Box<LdInt<F, NUM_OF_BYTES_U128>>,
     op_ldu256: Box<LdU256<F>>,
     op_ld_const: Box<LdConst<F>>,
-    op_castu8: Box<CastU8<F>>,
-    op_castu16: Box<CastU16<F>>,
-    op_castu32: Box<CastU32<F>>,
-    op_castu64: Box<CastU64<F>>,
-    op_castu128: Box<CastU128<F>>,
+    op_castu8: Box<CastInt<F, NUM_OF_BYTES_U8>>,
+    op_castu16: Box<CastInt<F, NUM_OF_BYTES_U16>>,
+    op_castu32: Box<CastInt<F, NUM_OF_BYTES_U32>>,
+    op_castu64: Box<CastInt<F, NUM_OF_BYTES_U64>>,
+    op_castu128: Box<CastInt<F, NUM_OF_BYTES_U128>>,
     op_castu256: Box<CastU256<F>>,
     op_pop: Box<Pop<F>>,
     op_ret: Box<Ret<F>>,
