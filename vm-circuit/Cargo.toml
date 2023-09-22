@@ -20,5 +20,6 @@ itertools = "0.8"
 petgraph = "0.6"
 plotters = { version = "0.3.0" }
 rand = { version = "0.8" }
+serde = { version = "1",features=["derive"] }
 [dev-dependencies]
 datatest-stable = "0.1.1"

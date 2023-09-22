@@ -11,6 +11,7 @@ use crate::witness::input_type_elements::{GenericTypeMaterialization, InputTypeE
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use halo2_proofs::arithmetic::FieldExt;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub mod arith_operations;
@@ -27,7 +28,7 @@ pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;
 pub const DEFAULT_WORD_CAPACITY: usize = 8;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CircuitConfig {
     pub max_step_row: Option<usize>,
     pub stack_ops_num: Option<usize>,
