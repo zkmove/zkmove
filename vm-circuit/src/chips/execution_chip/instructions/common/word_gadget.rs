@@ -1,0 +1,122 @@
+// Copyright (c) zkMove Authors
+
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
+use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
+use crate::chips::utilities::{Cell, Expr};
+use crate::witness::rw_operations::RWOperations;
+use halo2_proofs::circuit::Region;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+use movelang::value_ext::{ValueHeader, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
+
+/// there are 2 cells to suport u256. each for 128 bit
+#[derive(Clone, Debug)]
+pub struct WordCells<F: FieldExt> {
+    pub hi: Cell<F>,
+    pub lo: Cell<F>,
+}
+
+impl<F: FieldExt> WordCells<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
+        // alloc cell
+        Self {
+            hi: cb.alloc_cell(),
+            lo: cb.alloc_cell(),
+        }
+    }
+
+    pub(crate) fn expr(&self) -> (Expression<F>, Expression<F>) {
+        (self.hi.expression.clone(), self.lo.expression.clone())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn assign(
+        &self,
+        region: &mut Region<'_, F>,
+        offset: usize,
+        rw_operations: &RWOperations<F>,
+        op_index: usize,
+    ) -> Result<(), Error> {
+        let op = rw_operations
+            .0
+            .get(op_index + UPPER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        self.hi.assign(region, offset, op.value().value())?;
+        let op = rw_operations
+            .0
+            .get(op_index + LOWER_FIELD_OFFSET)
+            .ok_or(Error::Synthesis)?;
+        self.lo.assign(region, offset, op.value().value())?;
+        Ok(())
+    }
+
+    pub(crate) fn lookup_stack_pop(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        stack_size: Expression<F>,
+        op_index: Expression<F>,
+    ) {
+        cb.add_lookup(
+            "stack pop word's header",
+            RWLookup::stack_pop(
+                op_index.clone(),
+                stack_size.clone(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "stack pop word upper field",
+            RWLookup::stack_pop(
+                op_index.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
+                stack_size.clone(),
+                1.expr(),
+                self.hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "stack pop word lower field",
+            RWLookup::stack_pop(
+                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                stack_size,
+                2.expr(),
+                self.lo.expression.clone(),
+            ),
+        );
+    }
+
+    pub(crate) fn lookup_stack_push(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        stack_size: Expression<F>,
+        op_index: Expression<F>,
+    ) {
+        cb.add_lookup(
+            "stack push word's header",
+            RWLookup::stack_push(
+                op_index.clone(),
+                stack_size.clone(),
+                0.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "stack push word upper field",
+            RWLookup::stack_push(
+                op_index.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
+                stack_size.clone(),
+                1.expr(),
+                self.hi.expression.clone(),
+            ),
+        );
+        cb.add_lookup(
+            "stack push word lower field",
+            RWLookup::stack_push(
+                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                stack_size,
+                2.expr(),
+                self.lo.expression.clone(),
+            ),
+        );
+    }
+}

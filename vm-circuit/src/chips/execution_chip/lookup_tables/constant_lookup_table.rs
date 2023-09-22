@@ -13,7 +13,7 @@ pub struct ConstantLookupTable {
     pub addr_ext: TableColumn,
     pub value: TableColumn,
 }
-//pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 4;
+//pub const CONSTANT_LOOKUP_TABLE_WIDTH: usize = 4;
 
 impl ConstantLookupTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {

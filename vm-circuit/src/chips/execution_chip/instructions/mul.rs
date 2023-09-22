@@ -17,17 +17,15 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::utility::U256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
-// use super::common::get_u256_from_op;
+
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Mul<F: FieldExt> {
     muladd_words_gadget: MulAddWordsGadget<F>,
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_b_hi: Cell<F>,
-    value_b_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
     bytes: Vec<Cell<F>>,
 }
 
@@ -38,28 +36,25 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         // equal to MulAddWordsGadget cells.
         let expr = MulAddWordsOp {
-            a_hi: self.value_a_hi.expression.clone(),
-            a_lo: self.value_a_lo.expression.clone(),
-            b_hi: self.value_b_hi.expression.clone(),
-            b_lo: self.value_b_lo.expression.clone(),
+            a_hi: self.value_a.hi.expression.clone(),
+            a_lo: self.value_a.lo.expression.clone(),
+            b_hi: self.value_b.hi.expression.clone(),
+            b_lo: self.value_b.lo.expression.clone(),
             c_hi: 0.expr(),
             c_lo: 0.expr(),
-            d_hi: self.value_c_hi.expression.clone(),
-            d_lo: self.value_c_lo.expression.clone(),
+            d_hi: self.value_c.hi.expression.clone(),
+            d_lo: self.value_c.lo.expression.clone(),
         };
         self.muladd_words_gadget.configure(cb, expr);
 
-        let out = self.value_c_lo.expression.clone();
+        let out = self.value_c.lo.expression.clone();
         ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out);
         ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -75,12 +70,9 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
@@ -104,22 +96,16 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_b_hi = cb.alloc_cell();
-        let value_b_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let bytes = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
             muladd_words_gadget,
-            value_a_hi,
-            value_a_lo,
-            value_b_hi,
-            value_b_lo,
-            value_c_hi,
-            value_c_lo,
+            value_a,
+            value_b,
+            value_c,
             bytes,
         }
     }

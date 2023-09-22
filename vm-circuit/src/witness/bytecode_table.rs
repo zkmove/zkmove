@@ -53,14 +53,9 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::LdU128.index() as u128),
             F::from_u128(v),
         ),
-        Bytecode::LdU256(v) => (
-            F::from_u128(Opcode::LdU256.index() as u128),
-            // TODO for u256(2 fields)
-            {
-                let f = convert_u256_to_field::<F>(&v);
-                f[1]
-            },
-        ),
+        // LdU256 is processed at another function
+        // Bytecode::LdU256(v) => (
+        // ),
         Bytecode::LdConst(v) => (
             F::from_u128(Opcode::LdConst.index() as u128),
             F::from_u128(v.0 as u128),
@@ -248,6 +243,17 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
     }
 }
 
+pub fn convert_bytecode_to_fields_operand2<F: FieldExt>(bytecode: Bytecode) -> (F, F, F) {
+    match bytecode {
+        Bytecode::LdU256(v) => {
+            let opcode = F::from_u128(Opcode::LdU256.index() as u128);
+            let f = convert_u256_to_field::<F>(&v);
+            (opcode, f[0], f[1])
+        }
+        _ => unimplemented!("{:?}", bytecode),
+    }
+}
+
 // convert BytecodeInfo into a vector of field values
 impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
     fn from(bytecode_info: &BytecodeInfo) -> Vec<F> {
@@ -257,9 +263,22 @@ impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
             F::from_u128(bytecode_info.pc as u128),
         ];
 
-        let (opcode, operand) = convert_bytecode_to_fields(bytecode_info.bytecode.clone());
-        field_values.push(opcode);
-        field_values.push(operand);
+        // most of opcode need to insert reserved value for upper field
+        let bc = bytecode_info.bytecode.clone();
+        match bytecode_info.bytecode.clone() {
+            Bytecode::LdU256(_) => {
+                let (opcode, operand2, operand) = convert_bytecode_to_fields_operand2(bc);
+                field_values.push(opcode);
+                field_values.push(operand2);
+                field_values.push(operand);
+            }
+            _ => {
+                let (opcode, operand) = convert_bytecode_to_fields(bc);
+                field_values.push(opcode);
+                field_values.push(F::zero());
+                field_values.push(operand);
+            }
+        }
 
         field_values
     }

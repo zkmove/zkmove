@@ -5,23 +5,29 @@ use crate::chips::execution_chip::lookup_tables::pow2_fixed_table::Pow2Lookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::math_gadget::lt::LtGadget;
+use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value_ext::LOWER_FIELD_OFFSET;
+use move_core_types::u256::U256;
+use movelang::utility::decode_field_to_u256;
+use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+
+use super::common::get_u256_from_op;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Shl<F: FieldExt> {
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_b_hi: Cell<F>,
-    value_b_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    muladd_words_gadget: MulAddWordsGadget<F>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
+    rhs_less_than_128: LtGadget<F, 1>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
@@ -30,38 +36,54 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
     const OPCODE: Opcode = Opcode::Shl;
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let lhs = self.value_a_lo.expression.clone();
-        let rhs = self.value_b_lo.expression.clone();
-        let divisor = cells.auxiliary_1.expression.clone();
-        let dividend = self.value_c_lo.expression.clone();
+        // for rhs is u8, only lower field is taken care.
+        let rhs = self.value_b.lo.expression.clone();
+        let divisor_hi = cells.auxiliary_2.expression.clone();
+        let divisor_lo = cells.auxiliary_1.expression.clone();
 
         // TODO: should we constraint that rhs is in u8 range?
         // TODO: Add overflow constraints.
-        // quotient * divisor + remainder = dividend
-        cb.add_constraint(
-            "shl: lhs * pow(2, rhs) = result",
-            lhs * divisor.clone() - dividend,
-        );
+
+        // equal to MulAddWordsGadget cells.
+        let expr = MulAddWordsOp {
+            a_hi: self.value_a.hi.expression.clone(),
+            a_lo: self.value_a.lo.expression.clone(),
+            b_hi: divisor_hi.clone(),
+            b_lo: divisor_lo.clone(),
+            c_hi: 0.expr(),
+            c_lo: 0.expr(),
+            d_hi: self.value_c.hi.expression.clone(),
+            d_lo: self.value_c.lo.expression.clone(),
+        };
+        self.muladd_words_gadget.configure(cb, expr);
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
         LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shl, 0.expr());
-
-        cb.add_lookup(
-            "pow2 lookups for opcode shl",
-            Pow2Lookup {
-                pow: rhs,
-                pow_result: divisor,
-            },
-        );
+        let cond = self.rhs_less_than_128.expr();
+        cb.condition(cond.clone(), |cb| {
+            cb.add_lookup(
+                "pow2 lookups for opcode shl 0",
+                Pow2Lookup {
+                    pow: rhs.clone(),
+                    pow_result: divisor_lo,
+                },
+            );
+        });
+        cb.condition(1.expr() - cond, |cb| {
+            cb.add_lookup(
+                "pow2 lookups for opcode shl 1",
+                Pow2Lookup {
+                    pow: rhs - 128u64.expr(),
+                    pow_result: divisor_hi,
+                },
+            );
+        });
     }
 
     fn assign(
@@ -73,12 +95,9 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
@@ -87,32 +106,65 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
             .0
             .get(step.gc + LOWER_FIELD_OFFSET)
             .ok_or(Error::Synthesis)?;
-        let b = op.value().value().ok_or_else(|| {
-            error!("header value is None");
-            Error::Synthesis
-        })?;
-        let pow2_of_b = F::from_u128(2).pow(&[b.get_lower_32() as u64, 0, 0, 0]);
-        cells.auxiliary_1.assign(region, offset, Some(pow2_of_b))?;
+        let b = op
+            .value()
+            .value()
+            .ok_or_else(|| {
+                error!("header value is None");
+                Error::Synthesis
+            })?
+            .get_lower_32();
+        let res = if b < 128 {
+            // auxiliary_1 is for lower 128 bit
+            let pow2_b_lo = F::from_u128(2).pow(&[b as u64, 0, 0, 0]);
+            cells.auxiliary_1.assign(region, offset, Some(pow2_b_lo))?;
+            cells.auxiliary_2.assign(region, offset, Some(F::zero()))?;
+
+            let v = decode_field_to_u256(&[F::zero(), pow2_b_lo]);
+            Ok(v)
+        } else if b < 256 {
+            // auxiliary_2 is for upper 128 bit
+            let pow2_b_hi = F::from_u128(2).pow(&[(b - 128) as u64, 0, 0, 0]);
+            cells.auxiliary_1.assign(region, offset, Some(F::zero()))?;
+            cells.auxiliary_2.assign(region, offset, Some(pow2_b_hi))?;
+            let v = decode_field_to_u256(&[pow2_b_hi, F::zero()]);
+            Ok(v)
+        } else {
+            error!("rhs value is out of bound");
+            Err(Error::Synthesis)
+        };
+        // rhs less than 128
+        self.rhs_less_than_128.assign(
+            region,
+            offset,
+            F::from_u128(b as u128),
+            F::from_u128(128u128),
+        )?;
+
+        // muladd_gadget assign
+        let quotient = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let divident = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let divisor = res.expect("divisor is out of bound");
+        let words = [quotient, divisor, U256::zero(), divident];
+        self.muladd_words_gadget.assign(region, offset, words)?;
 
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_b_hi = cb.alloc_cell();
-        let value_b_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let muladd_words_gadget = MulAddWordsGadget::<F>::construct(cb);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
+        let rhs_less_than_128 = LtGadget::construct(cb, value_b.lo.expression.clone(), 128.expr());
 
         Self {
-            value_a_hi,
-            value_a_lo,
-            value_b_hi,
-            value_b_lo,
-            value_c_hi,
-            value_c_lo,
+            muladd_words_gadget,
+            value_a,
+            value_b,
+            value_c,
+            rhs_less_than_128,
         }
     }
 }

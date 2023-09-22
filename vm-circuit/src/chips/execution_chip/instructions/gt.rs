@@ -4,28 +4,28 @@ use crate::chips::execution_chip::instructions::common::{BinaryOp, LookupBytecod
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr, FieldBytes};
+use crate::chips::math_gadget::comparison::ComparisonGadget;
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use logger::prelude::*;
-use movelang::value::NUM_OF_BYTES_U128;
-use std::convert::TryInto;
+use movelang::utility::convert_u256_to_field;
+use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+
+use super::common::get_u256_from_op;
+use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
 pub struct Gt<F: FieldExt> {
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_b_hi: Cell<F>,
-    value_b_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
-    bytes: Vec<Cell<F>>,
+    value_a: WordCells<F>,
+    value_b: WordCells<F>,
+    value_c: WordCells<F>,
+    comparison_hi: ComparisonGadget<F, 16>,
+    comparison_lo: ComparisonGadget<F, 16>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
@@ -35,29 +35,27 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         //Gt
 
-        let lhs = self.value_a_lo.expression.clone();
-        let rhs = self.value_b_lo.expression.clone();
-        let out = self.value_c_lo.expression.clone();
-        let diff = FieldBytes::from(self.bytes.clone()).expr();
-        let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
+        // output is 0 or 1
+        let (hi_lt, hi_eq) = self.comparison_hi.expr();
+        let (lo_lt, lo_eq) = self.comparison_lo.expr();
+        let output = hi_lt + hi_eq * (lo_lt + lo_eq);
+        let constraint = output.clone() * (1.expr() - output.clone());
+        cb.add_constraint("Gt: outout is bool", constraint);
 
-        // out is 0 or 1
-        let constraint = out.clone() * (1.expr() - out.clone());
-        cb.add_constraint("out value is bool", constraint);
-
-        // there is only 16 bytes for diff, so diff is in range 2 ^ 128
-        // if lhs > rhs, then out = 1, diff = lhs - rhs
-        // if lhs <= rhs, then out == 0, diff = lhs - rhs + range
-        let constraint = (lhs - rhs) + (1.expr() - out) * range - diff;
-        cb.add_constraint("Gt", constraint);
+        // value_c + output == 1
+        cb.add_constraint(
+            "Gt: upper field is zero",
+            self.value_c.hi.expression.clone(),
+        );
+        cb.add_constraint(
+            "Gt: lower field add output equal to 1 ",
+            1.expr() - output - self.value_c.lo.expression.clone(),
+        );
 
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
@@ -73,56 +71,47 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_b_hi: self.value_b_hi.clone(),
-            value_b_lo: self.value_b_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_b: self.value_b.clone(),
+            value_c: self.value_c.clone(),
         };
-
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
-        let aux_value = step.auxiliary_1.as_ref().ok_or_else(|| {
-            error!("auxiliary_1 is None");
-            Error::Synthesis
-        })?;
-
-        let diff = aux_value.value().ok_or_else(|| {
-            error!("auxiliary_1 value is None");
-            Error::Synthesis
-        })?;
-
-        let diff_bytes: [u8; 32] = diff
-            .to_repr()
-            .as_ref()
-            .try_into()
-            .expect("Field fits into 256 bits");
-        for (index, byte) in self.bytes.iter().enumerate() {
-            byte.assign(region, offset, Some(F::from(diff_bytes[index] as u64)))?;
-        }
+        // assign value to Comparison gadget
+        let lhs = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let rhs = get_u256_from_op(rw_operations, step.gc)?;
+        let lhs_fe = convert_u256_to_field::<F>(&lhs);
+        let rhs_fe = convert_u256_to_field::<F>(&rhs);
+        self.comparison_hi
+            .assign(region, offset, lhs_fe[0], rhs_fe[0])?;
+        self.comparison_lo
+            .assign(region, offset, lhs_fe[1], rhs_fe[1])?;
 
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_b_hi = cb.alloc_cell();
-        let value_b_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
-        let bytes = cb.alloc_n_cells(BYTES_NUM);
+        let value_a = WordCells::<F>::construct(cb);
+        let value_b = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
+        let comparison_hi = ComparisonGadget::construct(
+            cb,
+            value_a.hi.expression.clone(),
+            value_b.hi.expression.clone(),
+        );
+        let comparison_lo = ComparisonGadget::construct(
+            cb,
+            value_a.lo.expression.clone(),
+            value_b.lo.expression.clone(),
+        );
 
         Self {
-            value_a_hi,
-            value_a_lo,
-            value_b_hi,
-            value_b_lo,
-            value_c_hi,
-            value_c_lo,
-            bytes,
+            value_a,
+            value_b,
+            value_c,
+            comparison_hi,
+            comparison_lo,
         }
     }
 }

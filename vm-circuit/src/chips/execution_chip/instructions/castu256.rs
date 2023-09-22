@@ -18,12 +18,12 @@ use movelang::value::NUM_OF_BYTES_U128;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 use std::convert::TryInto;
 
+use super::common::word_gadget::WordCells;
+
 #[derive(Clone, Debug)]
 pub struct CastU256<F: FieldExt> {
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    value_a: WordCells<F>,
+    value_c: WordCells<F>,
     bytes_hi: Vec<Cell<F>>,
     bytes: Vec<Cell<F>>,
 }
@@ -33,10 +33,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
 
     const OPCODE: Opcode = Opcode::CastU256;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let input_hi = self.value_a_hi.expression.clone();
-        let input_lo = self.value_a_lo.expression.clone();
-        let out_hi = self.value_c_hi.expression.clone();
-        let out_lo = self.value_c_lo.expression.clone();
+        let (input_hi, input_lo) = self.value_a.expr();
+        let (out_hi, out_lo) = self.value_c.expr();
 
         // x = out
         cb.add_constraint("cast u256 hi", input_hi - out_hi.clone());
@@ -49,10 +47,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
         cb.add_constraint("cast u256 range check 1", out_lo - bytes_32);
 
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
@@ -68,10 +64,8 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
@@ -118,18 +112,14 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let value_a = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
         let bytes_hi = cb.alloc_n_cells(BYTES_NUM);
         let bytes = cb.alloc_n_cells(BYTES_NUM);
 
         Self {
-            value_a_hi,
-            value_a_lo,
-            value_c_hi,
-            value_c_lo,
+            value_a,
+            value_c,
             bytes_hi,
             bytes,
         }

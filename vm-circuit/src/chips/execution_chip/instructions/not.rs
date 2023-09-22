@@ -6,19 +6,19 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 
+use super::common::word_gadget::WordCells;
+
 #[derive(Clone, Debug)]
 pub struct Not<F: FieldExt> {
-    value_a_hi: Cell<F>,
-    value_a_lo: Cell<F>,
-    value_c_hi: Cell<F>,
-    value_c_lo: Cell<F>,
+    value_a: WordCells<F>,
+    value_c: WordCells<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for Not<F> {
@@ -26,10 +26,8 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
 
     const OPCODE: Opcode = Opcode::Not;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let input_hi = self.value_a_hi.expression.clone();
-        let input_lo = self.value_a_lo.expression.clone();
-        let out_hi = self.value_c_hi.expression.clone();
-        let out_lo = self.value_c_lo.expression.clone();
+        let (input_hi, input_lo) = self.value_a.expr();
+        let (out_hi, out_lo) = self.value_c.expr();
 
         // out is 0 or 1
         let constraint = out_lo.clone() * (1.expr() - out_lo.clone());
@@ -41,10 +39,8 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         cb.add_constraint("Not", constraint);
 
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
@@ -60,26 +56,17 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
-            value_a_hi: self.value_a_hi.clone(),
-            value_a_lo: self.value_a_lo.clone(),
-            value_c_hi: self.value_c_hi.clone(),
-            value_c_lo: self.value_c_lo.clone(),
+            value_a: self.value_a.clone(),
+            value_c: self.value_c.clone(),
         };
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a_hi = cb.alloc_cell();
-        let value_a_lo = cb.alloc_cell();
-        let value_c_hi = cb.alloc_cell();
-        let value_c_lo = cb.alloc_cell();
+        let value_a = WordCells::<F>::construct(cb);
+        let value_c = WordCells::<F>::construct(cb);
 
-        Self {
-            value_a_hi,
-            value_a_lo,
-            value_c_hi,
-            value_c_lo,
-        }
+        Self { value_a, value_c }
     }
 }
