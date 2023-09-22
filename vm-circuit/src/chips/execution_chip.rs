@@ -28,12 +28,8 @@ use crate::chips::execution_chip::instructions::gt::Gt;
 use crate::chips::execution_chip::instructions::ld_const::LdConst;
 use crate::chips::execution_chip::instructions::ld_false::LdFalse;
 use crate::chips::execution_chip::instructions::ld_true::LdTrue;
-use crate::chips::execution_chip::instructions::ldu128::LdU128;
-use crate::chips::execution_chip::instructions::ldu16::LdU16;
+use crate::chips::execution_chip::instructions::ldint::LdInt;
 use crate::chips::execution_chip::instructions::ldu256::LdU256;
-use crate::chips::execution_chip::instructions::ldu32::LdU32;
-use crate::chips::execution_chip::instructions::ldu64::LdU64;
-use crate::chips::execution_chip::instructions::ldu8::LdU8;
 use crate::chips::execution_chip::instructions::le::Le;
 use crate::chips::execution_chip::instructions::lt::Lt;
 use crate::chips::execution_chip::instructions::move_from::MoveFrom;
@@ -85,6 +81,9 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
 use logger::{error, trace};
+use movelang::value::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+};
 use std::collections::HashMap;
 
 pub mod instructions;
@@ -105,11 +104,11 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     pub(crate) height_map: HashMap<Opcode, usize>,
 
     // opcode gadget
-    op_ldu8: Box<LdU8<F>>,
-    op_ldu16: Box<LdU16<F>>,
-    op_ldu32: Box<LdU32<F>>,
-    op_ldu64: Box<LdU64<F>>,
-    op_ldu128: Box<LdU128<F>>,
+    op_ldu8: Box<LdInt<F, NUM_OF_BYTES_U8>>,
+    op_ldu16: Box<LdInt<F, NUM_OF_BYTES_U16>>,
+    op_ldu32: Box<LdInt<F, NUM_OF_BYTES_U32>>,
+    op_ldu64: Box<LdInt<F, NUM_OF_BYTES_U64>>,
+    op_ldu128: Box<LdInt<F, NUM_OF_BYTES_U128>>,
     op_ldu256: Box<LdU256<F>>,
     op_ld_const: Box<LdConst<F>>,
     op_castu8: Box<CastU8<F>>,
