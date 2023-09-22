@@ -118,9 +118,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             cells.gc.expression.clone()
                 + (LEN_OF_REFERENCE_VALUE as u64).expr()
                 + 1.expr()
-                + (LOWER_FIELD_OFFSET as u64).expr(),
+                + LOWER_FIELD_OFFSET.expr(),
             cells.stack_size.expression.clone() - 1.expr(),
-            2.expr(),
+            LOWER_FIELD_OFFSET.expr(),
             self.vec_len.cells.value().expression.clone(),
         );
         cb.add_lookup("vec_len(push len to stack)", write);

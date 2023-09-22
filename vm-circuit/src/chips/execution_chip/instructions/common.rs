@@ -317,9 +317,9 @@ impl<F: FieldExt> LoadOp<F> {
         cb.add_lookup(
             "ld op(stack push value low)",
             RWLookup::stack_push(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
                 cells.stack_size.expression.clone(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 value_lo.expression.clone(),
             ),
         );

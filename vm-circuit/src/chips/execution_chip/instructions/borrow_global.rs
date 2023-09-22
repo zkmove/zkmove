@@ -98,9 +98,9 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         cb.add_lookup(
             "borrow global(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
                 cells.stack_size.expression.clone(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 account_address_expr.clone(),
             ),
         );

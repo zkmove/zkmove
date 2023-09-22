@@ -81,9 +81,9 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         cb.add_lookup(
             "vec_borrow(read index)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
                 cells.stack_size.expression.clone(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.index.cells.value().expression.clone(),
             ),
         );

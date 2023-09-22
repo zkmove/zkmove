@@ -7,7 +7,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 use std::convert::TryInto;
 
 use super::get_field_from_op;
@@ -41,7 +41,9 @@ impl<F: FieldExt> SimpleValueCells<F> {
     }
 
     pub(crate) fn value(&self) -> &Cell<F> {
-        self.0.last().expect("value should not be None.")
+        // by so far, which is used with lower field by caller.
+        // TODO. need to take care upper field?
+        self.0.get(LOWER_FIELD_OFFSET).expect("value should not be None.")
     }
 }
 

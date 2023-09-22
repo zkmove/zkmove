@@ -84,6 +84,18 @@ impl<F: FieldExt> Expr<F> for &Expression<F> {
     }
 }
 
+impl<F: FieldExt> Expr<F> for i32 {
+    fn expr(&self) -> Expression<F> {
+        Expression::Constant(F::from(*self as u64))
+    }
+}
+
+impl<F: FieldExt> Expr<F> for usize {
+    fn expr(&self) -> Expression<F> {
+        Expression::Constant(F::from(*self as u64))
+    }
+}
+
 impl<F: FieldExt> Expr<F> for u64 {
     fn expr(&self) -> Expression<F> {
         Expression::Constant(F::from(*self))

@@ -82,9 +82,9 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         cb.add_lookup(
             "move_from(stack pop value)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
                 cells.stack_size.expression.clone(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 account_address_expr.clone(),
             ),
         );

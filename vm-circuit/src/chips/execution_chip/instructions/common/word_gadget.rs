@@ -62,21 +62,21 @@ impl<F: FieldExt> WordCells<F> {
             ),
         );
         cb.add_lookup(
-            "stack pop word upper field",
+            "stack pop word lower field",
             RWLookup::stack_pop(
-                op_index.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
+                op_index.clone() + LOWER_FIELD_OFFSET.expr(),
                 stack_size.clone(),
-                1.expr(),
-                self.hi.expression.clone(),
+                LOWER_FIELD_OFFSET.expr(),
+                self.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "stack pop word lower field",
+            "stack pop word upper field",
             RWLookup::stack_pop(
-                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index + UPPER_FIELD_OFFSET.expr(),
                 stack_size,
-                2.expr(),
-                self.lo.expression.clone(),
+                UPPER_FIELD_OFFSET.expr(),
+                self.hi.expression.clone(),
             ),
         );
     }
@@ -97,21 +97,21 @@ impl<F: FieldExt> WordCells<F> {
             ),
         );
         cb.add_lookup(
-            "stack push word upper field",
+            "stack push word lower field",
             RWLookup::stack_push(
-                op_index.clone() + (UPPER_FIELD_OFFSET as u64).expr(),
+                op_index.clone() + LOWER_FIELD_OFFSET.expr(),
                 stack_size.clone(),
-                1.expr(),
-                self.hi.expression.clone(),
+                LOWER_FIELD_OFFSET.expr(),
+                self.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
-            "stack push word lower field",
+            "stack push word upper field",
             RWLookup::stack_push(
-                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index + UPPER_FIELD_OFFSET.expr(),
                 stack_size,
-                2.expr(),
-                self.lo.expression.clone(),
+                UPPER_FIELD_OFFSET.expr(),
+                self.hi.expression.clone(),
             ),
         );
     }

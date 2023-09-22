@@ -206,9 +206,9 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
             cells.gc.expression.clone()
                 + flattened_value_len_a
                 + flattened_value_len_b
-                + (LOWER_FIELD_OFFSET as u64).expr(),
+                + LOWER_FIELD_OFFSET.expr(),
             cells.stack_size.expression.clone() - 2.expr(),
-            2.expr(),
+            LOWER_FIELD_OFFSET.expr(),
             self.result.cells.value().expression.clone(),
         );
         cb.add_lookup("equality(push result value)", write);

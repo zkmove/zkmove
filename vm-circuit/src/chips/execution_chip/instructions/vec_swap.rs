@@ -103,9 +103,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_lookup(
             "vec_swap(pop idx_b)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
                 cells.stack_size.expression.clone(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.idx_b.expression.clone(),
             ),
         );
@@ -121,10 +121,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         cb.add_lookup(
             "vec_swap(pop idx_a)",
             RWLookup::stack_pop(
-                cells.gc.expression.clone()
-                    + ((LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET) as u64).expr(),
+                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET).expr(),
                 cells.stack_size.expression.clone() - 1.expr(),
-                2.expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.idx_a.expression.clone(),
             ),
         );
