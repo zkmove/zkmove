@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::lookup_tables::{
     arith_op_lookup_table::ArithOpLookup, bitwise_lookup_table::BitwiseLookup,
-    bytecode_lookup_table::BytecodeLookup, rw_table::RWLookup,
+    bytecode_lookup_table::BytecodeLookup,
 };
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::MAX_ADDRESS_EXT_LENGTH;
@@ -298,31 +298,6 @@ impl<F: FieldExt> LoadOp<F> {
             ("module index", module_index),
             ("function index", func_index),
         ]);
-    }
-
-    pub(crate) fn lookup_ld_op(
-        cb: &mut ConstraintBuilder<F>,
-        cells: &StepChipCells<F>,
-        value_lo: &Cell<F>,
-    ) {
-        cb.add_lookup(
-            "ld op(stack push value header)",
-            RWLookup::stack_push(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "ld op(stack push value low)",
-            RWLookup::stack_push(
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                value_lo.expression.clone(),
-            ),
-        );
     }
 }
 

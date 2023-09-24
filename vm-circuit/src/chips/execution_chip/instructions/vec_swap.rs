@@ -14,16 +14,14 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
 
-use super::common::get_field_from_op;
+use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
 pub struct VecSwap<F: FieldExt> {
-    // TODO: adopt SimpleValueGadget
-    idx_a: Cell<F>,
-    idx_b: Cell<F>,
+    idx_a: SimpleValueGadget<F>,
+    idx_b: SimpleValueGadget<F>,
     offset_pow2: Cell<F>,
 
     // TODO: adopt RefValGadget
@@ -91,41 +89,18 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             ("function index", func_index),
         ]);
 
-        cb.add_lookup(
-            "vec_swap(read idx_b value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
+        self.idx_a.configure(cb);
+        self.idx_b.configure(cb);
+
+        self.idx_b.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
-        cb.add_lookup(
-            "vec_swap(pop idx_b)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                self.idx_b.expression.clone(),
-            ),
-        );
-        cb.add_lookup(
-            "vec_swap(read idx_a value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE as u64).expr(),
-                cells.stack_size.expression.clone() - 1.expr(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "vec_swap(pop idx_a)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET).expr(),
-                cells.stack_size.expression.clone() - 1.expr(),
-                LOWER_FIELD_OFFSET.expr(),
-                self.idx_a.expression.clone(),
-            ),
+        self.idx_a.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone() - 1.expr(),
+            cells.gc.expression.clone() + LEN_OF_SIMPLE_VALUE.expr(),
         );
 
         // read reference from stack
@@ -293,12 +268,14 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         // idx_b + 1 == value_b_address_path[last]
         // counting the header, it's 1 larger than the real offset
         let constraint = (self.ref_val[3].expression.clone()
-            + (self.idx_a.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            + (self.idx_a.cells.value().expression.clone() + 1.expr())
+                * self.offset_pow2.expression.clone()
             - self.value_a_addr_ext[0].expression.clone())
             * (1.expr() - self.ref_val_mask[3].expression.clone());
         cb.add_constraint("value_a's address check with ref_val[3]", constraint);
         let constraint = (self.ref_val[3].expression.clone()
-            + (self.idx_b.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            + (self.idx_b.cells.value().expression.clone() + 1.expr())
+                * self.offset_pow2.expression.clone()
             - self.value_b_addr_ext[0].expression.clone())
             * (1.expr() - self.ref_val_mask[3].expression.clone());
         cb.add_constraint("value_b's address check with ref_val[3]", constraint);
@@ -334,13 +311,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
 
-        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
-        self.idx_b.assign(region, offset, Some(f))?;
-        let f = get_field_from_op(
-            rw_operations,
-            step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
-        )?;
-        self.idx_a.assign(region, offset, Some(f))?;
+        self.idx_b.assign(region, offset, rw_operations, step.gc)?;
+        self.idx_a
+            .assign(region, offset, rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
 
         // assign vector ref
         let ref_val = RefVal {
@@ -425,8 +398,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         let word_cap = word_capacity();
 
         // alloc cell
-        let idx_a = cb.alloc_cell();
-        let idx_b = cb.alloc_cell();
+        let idx_a = SimpleValueGadget::construct(cb);
+        let idx_b = SimpleValueGadget::construct(cb);
         let offset_pow2 = cb.alloc_cell();
 
         let ref_val = cb.alloc_n_cells(LEN_OF_REFERENCE_VALUE);

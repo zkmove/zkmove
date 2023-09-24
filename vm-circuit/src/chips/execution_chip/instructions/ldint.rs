@@ -1,14 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{
-    get_field_from_op, LoadOp, LookupBytecode,
-};
+use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::Cell;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
@@ -17,11 +14,12 @@ use halo2_proofs::plonk::Error;
 use movelang::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
-use movelang::value_ext::LOWER_FIELD_OFFSET;
+
+use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
 pub struct LdInt<F: FieldExt, const N_BYTES: usize> {
-    value_a: Cell<F>,
+    value_a: SimpleValueGadget<F>,
 }
 
 impl<F: FieldExt, const N_BYTES: usize> InstructionGadget<F> for LdInt<F, N_BYTES> {
@@ -44,9 +42,20 @@ impl<F: FieldExt, const N_BYTES: usize> InstructionGadget<F> for LdInt<F, N_BYTE
     };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
+        self.value_a.configure(cb);
+
         LoadOp::constrain_ld_op(cells, cb);
-        LoadOp::lookup_ld_op(cb, cells, &self.value_a);
-        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, self.value_a.expression.clone());
+        self.value_a.lookup_stack_push(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
+        );
+        LookupBytecode::lookup_bytecode(
+            cb,
+            cells,
+            Self::OPCODE,
+            self.value_a.cells.value().expression.clone(),
+        );
     }
 
     fn assign(
@@ -57,15 +66,14 @@ impl<F: FieldExt, const N_BYTES: usize> InstructionGadget<F> for LdInt<F, N_BYTE
         rw_operations: &RWOperations<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let value_a = &self.value_a;
-        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
-        value_a.assign(region, offset, Some(f))?;
+        self.value_a
+            .assign(region, offset, rw_operations, step.gc)?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
+        let value_a = SimpleValueGadget::construct(cb);
 
         Self { value_a }
     }

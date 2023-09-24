@@ -15,8 +15,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
-use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F: FieldExt> {
@@ -107,23 +106,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         // stack write
         // len is stored at lower field
-        let write = RWLookup::stack_push(
-            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 1.expr(),
+        self.vec_len.lookup_stack_push(
+            cb,
             cells.stack_size.expression.clone() - 1.expr(),
-            0.expr(),
-            ValueHeader::default_for_simple().expr(),
+            cells.gc.expression.clone() + LEN_OF_REFERENCE_VALUE.expr() + 1.expr(),
         );
-        cb.add_lookup("vec_len(push value header to stack)", write);
-        let write = RWLookup::stack_push(
-            cells.gc.expression.clone()
-                + (LEN_OF_REFERENCE_VALUE as u64).expr()
-                + 1.expr()
-                + LOWER_FIELD_OFFSET.expr(),
-            cells.stack_size.expression.clone() - 1.expr(),
-            LOWER_FIELD_OFFSET.expr(),
-            self.vec_len.cells.value().expression.clone(),
-        );
-        cb.add_lookup("vec_len(push len to stack)", write);
 
         // ref_val[0] equals to ref value header
         let mut constraint =

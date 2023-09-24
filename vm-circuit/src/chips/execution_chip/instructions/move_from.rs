@@ -17,13 +17,12 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
 #[derive(Clone, Debug)]
 pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
     account_address: SimpleValueGadget<F>,
     global_value: ValueGadget<F>,
-
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
@@ -70,23 +69,10 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
         let sd_index_expr = cells.auxiliary_1.expression.clone();
 
         // pop account_address
-        cb.add_lookup(
-            "move_from(stack pop value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "move_from(stack pop value)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                account_address_expr.clone(),
-            ),
+        self.account_address.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
 
         for (i, _) in self.global_value.cells.word.iter().enumerate() {

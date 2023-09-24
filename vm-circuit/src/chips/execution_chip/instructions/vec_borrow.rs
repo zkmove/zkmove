@@ -14,8 +14,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
-use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
@@ -69,23 +68,10 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         self.indexed_ref_val.configure(cb);
 
         // lookup "read index"
-        cb.add_lookup(
-            "vec_borrow(read value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "vec_borrow(read index)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                self.index.cells.value().expression.clone(),
-            ),
+        self.index.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {

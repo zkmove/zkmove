@@ -18,7 +18,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
 use super::common::get_field_from_op;
 
@@ -193,25 +193,11 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         // TODO: handle "is_reference == true"
 
         // stack write
-        let write = RWLookup::stack_push(
-            cells.gc.expression.clone()
-                + flattened_value_len_a.clone()
-                + flattened_value_len_b.clone(),
+        self.result.lookup_stack_push(
+            cb,
             cells.stack_size.expression.clone() - 2.expr(),
-            0.expr(),
-            ValueHeader::default_for_simple().expr(),
+            cells.gc.expression.clone() + flattened_value_len_a + flattened_value_len_b,
         );
-        cb.add_lookup("equality(push result header)", write);
-        let write = RWLookup::stack_push(
-            cells.gc.expression.clone()
-                + flattened_value_len_a
-                + flattened_value_len_b
-                + LOWER_FIELD_OFFSET.expr(),
-            cells.stack_size.expression.clone() - 2.expr(),
-            LOWER_FIELD_OFFSET.expr(),
-            self.result.cells.value().expression.clone(),
-        );
-        cb.add_lookup("equality(push result value)", write);
 
         LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0.expr());
 

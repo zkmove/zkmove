@@ -20,8 +20,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
+use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
-use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
 
 #[derive(Clone, Debug)]
 pub struct BorrowGlobal<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
@@ -86,23 +86,10 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         let sd_index_expr = cells.auxiliary_1.expression.clone();
 
         // pop account_address
-        cb.add_lookup(
-            "borrow global(stack pop)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "borrow global(stack pop value)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                account_address_expr.clone(),
-            ),
+        self.account_address.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
 
         for (i, _) in self.value.cells.word.iter().enumerate() {

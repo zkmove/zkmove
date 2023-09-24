@@ -1,24 +1,24 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{get_field_from_op, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::LookupBytecode;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
 
+use super::common::simple_value_gadget::SimpleValueGadget;
 use super::common::Word;
 
 #[derive(Clone, Debug)]
 pub struct BrFalse<F: FieldExt> {
-    value: Cell<F>,
+    value: SimpleValueGadget<F>,
 }
 
 impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
@@ -32,8 +32,8 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         let pc = cells.pc.expression.clone();
         let next_pc = cb.next.cells.pc.expression.clone();
         // auxiliary_1 * (1 - value) + (pc + 1) * value - next_pc = 0
-        let pc_expr = aux * (1.expr() - self.value.expression.clone())
-            + (pc + 1.expr()) * self.value.expression.clone()
+        let pc_expr = aux * (1.expr() - self.value.cells.value().expression.clone())
+            + (pc + 1.expr()) * self.value.cells.value().expression.clone()
             - next_pc;
 
         let stack_size_expr = cells.stack_size.expression.clone()
@@ -57,24 +57,11 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             ("BrFalse function index", func_index),
         ]);
 
-        cb.add_lookup(
-            "br_false(stack pop value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "br_false(stack pop value)",
-            RWLookup::stack_pop(
-                // lower field is used for bool
-                cells.gc.expression.clone() + LOWER_FIELD_OFFSET.expr(),
-                cells.stack_size.expression.clone(),
-                LOWER_FIELD_OFFSET.expr(),
-                self.value.expression.clone(),
-            ),
+        self.value.configure(cb);
+        self.value.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
 
         LookupBytecode::lookup_bytecode(
@@ -97,14 +84,14 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
         Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
 
         // get value
-        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
-        self.value.assign(region, offset, Some(f))?;
+        self.value.assign(region, offset, rw_operations, step.gc)?;
+
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value = cb.alloc_cell();
+        let value = SimpleValueGadget::construct(cb);
 
         Self { value }
     }
