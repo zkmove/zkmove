@@ -17,24 +17,37 @@ use super::common::simple_value_gadget::SimpleValueGadget;
 use super::common::Word;
 
 #[derive(Clone, Debug)]
-pub struct BrFalse<F: FieldExt> {
+pub struct BrBool<F: FieldExt, const TRUE: bool> {
     value: SimpleValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
-    const NAME: &'static str = "BRFALSE";
+impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for BrBool<F, TRUE> {
+    const NAME: &'static str = match TRUE {
+        true => "BRTRUE",
+        false => "BRFALSE",
+    };
 
-    const OPCODE: Opcode = Opcode::BrFalse;
+    const OPCODE: Opcode = match TRUE {
+        true => Opcode::BrTrue,
+        false => Opcode::BrFalse,
+    };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        // branch target is assigned in the auxiliary_1, condition is popped form stack as value_a
+        // branch target is assigned in the auxiliary_1, condition is popped form stack as value
         let aux = cells.auxiliary_1.expression.clone();
         let pc = cells.pc.expression.clone();
         let next_pc = cb.next.cells.pc.expression.clone();
-        // auxiliary_1 * (1 - value) + (pc + 1) * value - next_pc = 0
-        let pc_expr = aux * (1.expr() - self.value.cells.value().expression.clone())
-            + (pc + 1.expr()) * self.value.cells.value().expression.clone()
-            - next_pc;
+        let pc_expr = if TRUE {
+            // auxiliary_1 * value + (pc + 1) * (1 - value) - next_pc = 0
+            aux * self.value.cells.value().expression.clone()
+                + (pc + 1.expr()) * (1.expr() - self.value.cells.value().expression.clone())
+                - next_pc
+        } else {
+            // auxiliary_1 * (1 - value) + (pc + 1) * value - next_pc = 0
+            aux * (1.expr() - self.value.cells.value().expression.clone())
+                + (pc + 1.expr()) * self.value.cells.value().expression.clone()
+                - next_pc
+        };
 
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
@@ -49,12 +62,12 @@ impl<F: FieldExt> InstructionGadget<F> for BrFalse<F> {
             - cb.next.cells.function_index.expression.clone();
 
         cb.add_constraints(vec![
-            ("BrFalse pc", pc_expr),
-            ("BrFalse stack size", stack_size_expr),
-            ("BrFalse frame index", frame_index_expr),
-            ("BrFalse gc", gc_expr),
-            ("BrFalse module index", module_index),
-            ("BrFalse function index", func_index),
+            ("BrBool pc", pc_expr),
+            ("BrBool stack size", stack_size_expr),
+            ("BrBool frame index", frame_index_expr),
+            ("BrBool gc", gc_expr),
+            ("BrBool module index", module_index),
+            ("BrBool function index", func_index),
         ]);
 
         self.value.configure(cb);

@@ -16,17 +16,22 @@ use halo2_proofs::plonk::Error;
 use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
-pub struct LdTrue<F: FieldExt> {
+pub struct LdBool<F: FieldExt, const TRUE: bool> {
     value: SimpleValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for LdTrue<F> {
-    const NAME: &'static str = "LDTRUE";
+impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
+    const NAME: &'static str = match TRUE {
+        true => "LDTRUE",
+        false => "LDFALSE",
+    };
 
-    const OPCODE: Opcode = Opcode::LdTrue;
+    const OPCODE: Opcode = match TRUE {
+        true => Opcode::LdTrue,
+        false => Opcode::LdFalse,
+    };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        //LdTrue
         self.value.configure(cb);
 
         LoadOp::constrain_ld_op(cells, cb);
@@ -35,7 +40,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdTrue<F> {
             cells.stack_size.expression.clone(),
             cells.gc.expression.clone(),
         );
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::LdTrue, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0.expr());
     }
 
     fn assign(

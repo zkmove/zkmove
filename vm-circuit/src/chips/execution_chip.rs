@@ -8,8 +8,7 @@ use crate::chips::execution_chip::instructions::bit_or::BitOr;
 use crate::chips::execution_chip::instructions::borrow_field::BorrowField;
 use crate::chips::execution_chip::instructions::borrow_global::BorrowGlobal;
 use crate::chips::execution_chip::instructions::borrow_loc::BorrowLoc;
-use crate::chips::execution_chip::instructions::br_false::BrFalse;
-use crate::chips::execution_chip::instructions::br_true::BrTrue;
+use crate::chips::execution_chip::instructions::br_bool::BrBool;
 use crate::chips::execution_chip::instructions::branch::Branch;
 use crate::chips::execution_chip::instructions::call::Call;
 use crate::chips::execution_chip::instructions::castint::CastInt;
@@ -21,9 +20,8 @@ use crate::chips::execution_chip::instructions::exists::Exists;
 use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
 use crate::chips::execution_chip::instructions::gt::Gt;
+use crate::chips::execution_chip::instructions::ld_bool::LdBool;
 use crate::chips::execution_chip::instructions::ld_const::LdConst;
-use crate::chips::execution_chip::instructions::ld_false::LdFalse;
-use crate::chips::execution_chip::instructions::ld_true::LdTrue;
 use crate::chips::execution_chip::instructions::ldint::LdInt;
 use crate::chips::execution_chip::instructions::ldu256::LdU256;
 use crate::chips::execution_chip::instructions::le::Le;
@@ -121,8 +119,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_sub: Box<Sub<F>>,
     op_div: Box<Div<F>>,
     op_mod: Box<Mod<F>>,
-    op_ld_true: Box<LdTrue<F>>,
-    op_ld_false: Box<LdFalse<F>>,
+    op_ld_true: Box<LdBool<F, true>>,
+    op_ld_false: Box<LdBool<F, false>>,
     op_eq: Box<Equality<true, F>>,
     op_neq: Box<Equality<false, F>>,
     op_shl: Box<Shl<F>>,
@@ -136,8 +134,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_move_loc: Box<MoveLoc<F>>,
     op_st_loc: Box<StLoc<F>>,
     op_branch: Box<Branch<F>>,
-    op_br_true: Box<BrTrue<F>>,
-    op_br_false: Box<BrFalse<F>>,
+    op_br_true: Box<BrBool<F, true>>,
+    op_br_false: Box<BrBool<F, false>>,
     op_call: Box<Call<false, F>>,
     op_abort: Box<Abort<F>>,
     op_le: Box<Le<F>>,
