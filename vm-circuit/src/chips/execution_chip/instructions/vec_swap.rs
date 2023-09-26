@@ -100,7 +100,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
         self.idx_a.lookup_stack_pop(
             cb,
             cells.stack_size.expression.clone() - 1.expr(),
-            cells.gc.expression.clone() + LEN_OF_SIMPLE_VALUE.expr(),
+            cells.gc.expression.clone() + (LEN_OF_SIMPLE_VALUE as u64).expr(),
         );
 
         // read reference from stack
