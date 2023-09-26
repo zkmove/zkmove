@@ -242,16 +242,16 @@ impl<F: FieldExt> LocalsOpChip<F> {
     ) {
         constraints.push((
             "is_empty is bool",
-            (cells.is_empty.expression.clone() - 1.expr()) * cells.is_empty.expression.clone(),
+            (cells.is_empty.expression.clone() - 1u64.expr()) * cells.is_empty.expression.clone(),
         ));
-        let cond = 1.expr() - cells.is_empty.expression.clone();
+        let cond = 1u64.expr() - cells.is_empty.expression.clone();
 
         if is_first {
             // for the first op: counter == 1, rw == Write
             // note, ether frame_index or index may NOT be 0
             constraints.push((
                 "first locals op",
-                cond.clone() * (cells.counter.expression.clone() - 1.expr()),
+                cond.clone() * (cells.counter.expression.clone() - 1u64.expr()),
             ));
             constraints.push((
                 "first locals op",
@@ -264,7 +264,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cond.clone()
                     * (cells.counter.expression.clone()
                         - cells.prev_counter.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
 
             // rw == 0 || rw == 1
@@ -272,7 +272,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 "rw",
                 cond.clone()
                     * cells.rw.expression.clone()
-                    * (cells.rw.expression.clone() - 1.expr()),
+                    * (cells.rw.expression.clone() - 1u64.expr()),
             ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
@@ -292,14 +292,15 @@ impl<F: FieldExt> LocalsOpChip<F> {
                     * delt_frame_index.clone()
                     * (delt_frame_index.clone()
                         * cells.delta_invert_frame_index.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             let delt_index = cells.index.expression.clone() - cells.prev_index.expression.clone();
             constraints.push((
                 "delt_invert_index",
                 cond.clone()
                     * delt_index.clone()
-                    * (delt_index.clone() * cells.delta_invert_idx.expression.clone() - 1.expr()),
+                    * (delt_index.clone() * cells.delta_invert_idx.expression.clone()
+                        - 1u64.expr()),
             ));
             let delt_addr_ext =
                 cells.addr_ext.expression.clone() - cells.prev_addr_ext.expression.clone();
@@ -308,7 +309,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cond.clone()
                     * delt_addr_ext.clone()
                     * (delt_addr_ext.clone() * cells.delta_invert_addr_ext.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
 
             // address change, then rw must be Write
@@ -327,7 +328,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 "index_change",
                 cond.clone()
                     * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * (1.expr()
+                    * (1u64.expr()
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
                     * delt_index.clone(),
@@ -340,10 +341,11 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 "addr_ext_change",
                 cond.clone()
                     * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * (1.expr()
+                    * (1u64.expr()
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * (1u64.expr()
+                        - delt_index.clone() * cells.delta_invert_idx.expression.clone())
                     * delt_addr_ext.clone(),
             ));
 
@@ -351,11 +353,13 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // lookup gc_table when frame_index/index is same with previous
             gc_lookups.push(
                 cond.clone()
-                    * (1.expr()
+                    * (1u64.expr()
                         - delt_frame_index.clone()
                             * cells.delta_invert_frame_index.expression.clone())
-                    * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
-                    * (1.expr() - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
+                    * (1u64.expr()
+                        - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+                    * (1u64.expr()
+                        - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -373,7 +377,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             frame_index_lookups.push(cond.clone() * delt_frame_index.clone());
             // Case B: if same frame_index, index must be great than or equal to prev_index
             locals_index_lookups.push(
-                cond * (1.expr()
+                cond * (1u64.expr()
                     - delt_frame_index * cells.delta_invert_frame_index.expression.clone())
                     * delt_index,
             );
@@ -382,10 +386,10 @@ impl<F: FieldExt> LocalsOpChip<F> {
             // TODO. address extend validation
             // addr_ext_lookups.push(
             //     cond.clone()
-            //         * (1.expr()
+            //         * (1u64.expr()
             //             - delt_frame_index.clone()
             //                 * cells.delta_invert_frame_index.expression.clone())
-            //         * (1.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
+            //         * (1u64.expr() - delt_index.clone() * cells.delta_invert_idx.expression.clone())
             //         * delt_addr_ext.clone(),
             // );
 

@@ -8,16 +8,11 @@ use crate::chips::execution_chip::instructions::bit_or::BitOr;
 use crate::chips::execution_chip::instructions::borrow_field::BorrowField;
 use crate::chips::execution_chip::instructions::borrow_global::BorrowGlobal;
 use crate::chips::execution_chip::instructions::borrow_loc::BorrowLoc;
-use crate::chips::execution_chip::instructions::br_false::BrFalse;
-use crate::chips::execution_chip::instructions::br_true::BrTrue;
+use crate::chips::execution_chip::instructions::br_bool::BrBool;
 use crate::chips::execution_chip::instructions::branch::Branch;
 use crate::chips::execution_chip::instructions::call::Call;
-use crate::chips::execution_chip::instructions::castu128::CastU128;
-use crate::chips::execution_chip::instructions::castu16::CastU16;
+use crate::chips::execution_chip::instructions::castint::CastInt;
 use crate::chips::execution_chip::instructions::castu256::CastU256;
-use crate::chips::execution_chip::instructions::castu32::CastU32;
-use crate::chips::execution_chip::instructions::castu64::CastU64;
-use crate::chips::execution_chip::instructions::castu8::CastU8;
 use crate::chips::execution_chip::instructions::copy_loc::CopyLoc;
 use crate::chips::execution_chip::instructions::div::Div;
 use crate::chips::execution_chip::instructions::equality::Equality;
@@ -25,15 +20,10 @@ use crate::chips::execution_chip::instructions::exists::Exists;
 use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
 use crate::chips::execution_chip::instructions::gt::Gt;
+use crate::chips::execution_chip::instructions::ld_bool::LdBool;
 use crate::chips::execution_chip::instructions::ld_const::LdConst;
-use crate::chips::execution_chip::instructions::ld_false::LdFalse;
-use crate::chips::execution_chip::instructions::ld_true::LdTrue;
-use crate::chips::execution_chip::instructions::ldu128::LdU128;
-use crate::chips::execution_chip::instructions::ldu16::LdU16;
+use crate::chips::execution_chip::instructions::ldint::LdInt;
 use crate::chips::execution_chip::instructions::ldu256::LdU256;
-use crate::chips::execution_chip::instructions::ldu32::LdU32;
-use crate::chips::execution_chip::instructions::ldu64::LdU64;
-use crate::chips::execution_chip::instructions::ldu8::LdU8;
 use crate::chips::execution_chip::instructions::le::Le;
 use crate::chips::execution_chip::instructions::lt::Lt;
 use crate::chips::execution_chip::instructions::move_from::MoveFrom;
@@ -85,6 +75,9 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
 use logger::{error, trace};
+use movelang::value::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+};
 use std::collections::HashMap;
 
 pub mod instructions;
@@ -105,18 +98,18 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     pub(crate) height_map: HashMap<Opcode, usize>,
 
     // opcode gadget
-    op_ldu8: Box<LdU8<F>>,
-    op_ldu16: Box<LdU16<F>>,
-    op_ldu32: Box<LdU32<F>>,
-    op_ldu64: Box<LdU64<F>>,
-    op_ldu128: Box<LdU128<F>>,
+    op_ldu8: Box<LdInt<F, NUM_OF_BYTES_U8>>,
+    op_ldu16: Box<LdInt<F, NUM_OF_BYTES_U16>>,
+    op_ldu32: Box<LdInt<F, NUM_OF_BYTES_U32>>,
+    op_ldu64: Box<LdInt<F, NUM_OF_BYTES_U64>>,
+    op_ldu128: Box<LdInt<F, NUM_OF_BYTES_U128>>,
     op_ldu256: Box<LdU256<F>>,
     op_ld_const: Box<LdConst<F>>,
-    op_castu8: Box<CastU8<F>>,
-    op_castu16: Box<CastU16<F>>,
-    op_castu32: Box<CastU32<F>>,
-    op_castu64: Box<CastU64<F>>,
-    op_castu128: Box<CastU128<F>>,
+    op_castu8: Box<CastInt<F, NUM_OF_BYTES_U8>>,
+    op_castu16: Box<CastInt<F, NUM_OF_BYTES_U16>>,
+    op_castu32: Box<CastInt<F, NUM_OF_BYTES_U32>>,
+    op_castu64: Box<CastInt<F, NUM_OF_BYTES_U64>>,
+    op_castu128: Box<CastInt<F, NUM_OF_BYTES_U128>>,
     op_castu256: Box<CastU256<F>>,
     op_pop: Box<Pop<F>>,
     op_ret: Box<Ret<F>>,
@@ -126,8 +119,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_sub: Box<Sub<F>>,
     op_div: Box<Div<F>>,
     op_mod: Box<Mod<F>>,
-    op_ld_true: Box<LdTrue<F>>,
-    op_ld_false: Box<LdFalse<F>>,
+    op_ld_true: Box<LdBool<F, true>>,
+    op_ld_false: Box<LdBool<F, false>>,
     op_eq: Box<Equality<true, F>>,
     op_neq: Box<Equality<false, F>>,
     op_shl: Box<Shl<F>>,
@@ -141,8 +134,8 @@ pub struct ExecutionChipConfig<F: FieldExt> {
     op_move_loc: Box<MoveLoc<F>>,
     op_st_loc: Box<StLoc<F>>,
     op_branch: Box<Branch<F>>,
-    op_br_true: Box<BrTrue<F>>,
-    op_br_false: Box<BrFalse<F>>,
+    op_br_true: Box<BrBool<F, true>>,
+    op_br_false: Box<BrBool<F, false>>,
     op_call: Box<Call<false, F>>,
     op_abort: Box<Abort<F>>,
     op_le: Box<Le<F>>,
@@ -242,7 +235,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
                 // s_step should be enabled on the first row
                 cb.condition(s_step_first, |cb| {
-                    cb.require_equal("s_step = 1", s_step.clone(), 1.expr());
+                    cb.require_equal("s_step = 1", s_step.clone(), 1u64.expr());
                     cb.require_zero("first step, pc = 0", step_curr.cells.pc.expr());
                     cb.require_zero(
                         "first step, frame_index = 0",
@@ -258,16 +251,16 @@ impl<F: FieldExt> ExecutionChip<F> {
                     );
                 });
                 // Except when step is enabled, the step counter needs to decrease by 1
-                cb.condition(1.expr() - s_step.clone(), |cb| {
+                cb.condition(1u64.expr() - s_step.clone(), |cb| {
                     cb.require_equal(
                         "num_rows_left_cur := num_rows_left_next + 1",
                         num_rows_left_cur.clone(),
-                        num_rows_left_next + 1.expr(),
+                        num_rows_left_next + 1u64.expr(),
                     );
                 });
                 // Enforce that s_step := num_rows_until_next_step == 0
                 let is_zero =
-                    1.expr() - (num_rows_left_cur.clone() * num_rows_left_inverse.clone());
+                    1u64.expr() - (num_rows_left_cur.clone() * num_rows_left_inverse.clone());
                 cb.require_zero(
                     "num_rows_left_cur * is_zero == 0",
                     num_rows_left_cur * is_zero.clone(),

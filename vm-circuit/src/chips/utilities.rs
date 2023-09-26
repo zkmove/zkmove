@@ -84,6 +84,18 @@ impl<F: FieldExt> Expr<F> for &Expression<F> {
     }
 }
 
+// impl<F: FieldExt> Expr<F> for i32 {
+//     fn expr(&self) -> Expression<F> {
+//         Expression::Constant(F::from(*self as u64))
+//     }
+// }
+
+impl<F: FieldExt> Expr<F> for usize {
+    fn expr(&self) -> Expression<F> {
+        Expression::Constant(F::from(*self as u64))
+    }
+}
+
 impl<F: FieldExt> Expr<F> for u64 {
     fn expr(&self) -> Expression<F> {
         Expression::Constant(F::from(*self))
@@ -109,7 +121,7 @@ impl<F: FieldExt> From<Vec<Cell<F>>> for FieldBytes<F> {
 
 impl<F: FieldExt> Expr<F> for FieldBytes<F> {
     fn expr(&self) -> Expression<F> {
-        let mut value = 0.expr();
+        let mut value = 0u64.expr();
         let mut multiplier = F::one();
         for byte in self.0.iter() {
             value = value + byte.expression.clone() * multiplier;
@@ -121,7 +133,7 @@ impl<F: FieldExt> Expr<F> for FieldBytes<F> {
 
 impl<F: FieldExt> FieldBytes<F> {
     pub fn expr_with_n(&self, num: usize) -> Expression<F> {
-        let mut value = 0.expr();
+        let mut value = 0u64.expr();
         let mut multiplier = F::one();
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
@@ -131,7 +143,7 @@ impl<F: FieldExt> FieldBytes<F> {
     }
 
     pub fn expr_16bit(&self, num: usize) -> Expression<F> {
-        let mut value = 0.expr();
+        let mut value = 0u64.expr();
         let mut multiplier = F::one();
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
@@ -152,7 +164,7 @@ pub(crate) mod from_bytes {
             bytes.len() <= MAX_N_BYTES_INTEGER,
             "Too many bytes to compose an integer in field"
         );
-        let mut value = 0.expr();
+        let mut value = 0u64.expr();
         let mut multiplier = F::one();
         for byte in bytes.iter() {
             value = value + byte.expr() * multiplier;
@@ -244,7 +256,7 @@ pub mod sum {
     ) -> Expression<F> {
         inputs
             .into_iter()
-            .fold(0.expr(), |acc, input| acc + input.expr())
+            .fold(0u64.expr(), |acc, input| acc + input.expr())
     }
 
     /// Returns the sum of the given list of values within the field.
@@ -269,7 +281,7 @@ pub mod and {
     ) -> Expression<F> {
         inputs
             .into_iter()
-            .fold(1.expr(), |acc, input| acc * input.expr())
+            .fold(1u64.expr(), |acc, input| acc * input.expr())
     }
 
     /// Returns the product of all given values.
@@ -308,7 +320,7 @@ pub mod not {
 
     /// Returns an expression that represents the NOT of the given expression.
     pub(crate) fn expr<F: FieldExt, E: Expr<F>>(b: E) -> Expression<F> {
-        1.expr() - b.expr()
+        1u64.expr() - b.expr()
     }
 
     /// Returns a value that represents the NOT of the given value.
@@ -326,7 +338,7 @@ pub mod xor {
     /// Returns an expression that represents the XOR of the given expression.
     #[allow(dead_code)]
     pub(crate) fn expr<F: FieldExt, E: Expr<F>>(a: E, b: E) -> Expression<F> {
-        a.expr() + b.expr() - 2.expr() * a.expr() * b.expr()
+        a.expr() + b.expr() - 2u64.expr() * a.expr() * b.expr()
     }
 
     /// Returns a value that represents the XOR of the given value.
@@ -348,7 +360,7 @@ pub mod select {
         when_true: Expression<F>,
         when_false: Expression<F>,
     ) -> Expression<F> {
-        selector.clone() * when_true + (1.expr() - selector) * when_false
+        selector.clone() * when_true + (1u64.expr() - selector) * when_false
     }
 
     /// Returns the `when_true` value when the selector is true, else returns

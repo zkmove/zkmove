@@ -10,6 +10,8 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use logger::error;
 
+use super::get_field_from_op;
+
 #[derive(Clone, Debug)]
 pub(crate) struct GadgetCells<F> {
     pub(crate) word: Vec<Cell<F>>,
@@ -89,12 +91,7 @@ impl<F: FieldExt> ValueGadget<F> {
         op_index: usize,
         flattened_value_len: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
-        let header_value = op.value().value().ok_or_else(|| {
-            error!("header value is None");
-            Error::Synthesis
-        })?;
-
+        let header_value = get_field_from_op(rw_operations, op_index)?;
         self.cells
             .assign(region, offset, rw_operations, op_index, flattened_value_len)?;
         self.header_cells.assign(region, offset, header_value)?;
@@ -136,7 +133,7 @@ impl<F: FieldExt> ValueGadget<F> {
             .map(|mask| {
                 (
                     "mask is zero or one",
-                    (mask.expression.clone() - 1.expr()) * mask.expression.clone(),
+                    (mask.expression.clone() - 1u64.expr()) * mask.expression.clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -145,7 +142,7 @@ impl<F: FieldExt> ValueGadget<F> {
         // mask is monotonic increasing
         for (i, _) in masks.iter().enumerate().skip(1) {
             let delta = masks[i].expression.clone() - masks[i - 1].expression.clone();
-            let constraint = delta.clone() * (1.expr() - delta);
+            let constraint = delta.clone() * (1u64.expr() - delta);
             cb.add_constraint("mask monotonic increase", constraint);
         }
 

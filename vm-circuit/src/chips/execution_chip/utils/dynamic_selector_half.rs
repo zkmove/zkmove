@@ -69,7 +69,7 @@ impl<F: FieldExt> DynamicSelectorHalf<F> {
                 (if odd {
                     self.target_odd.expr()
                 } else {
-                    1.expr() - self.target_odd.expr()
+                    1u64.expr() - self.target_odd.expr()
                 }) * self.target_pairs[pair_index].expr()
             })
             .reduce(|acc, expr| acc + expr)

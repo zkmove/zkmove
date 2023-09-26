@@ -17,6 +17,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
+use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
@@ -54,10 +55,10 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         bcb.require_in_set(
             "carry_lo in set",
             carry_lo,
-            (0..2).map(|idx| idx.expr()).collect(),
+            (0u64..2).map(|idx| idx.expr()).collect(),
         );
         // Todo. need to constraint on carry_lo furthermore?
-        // carry_lo = if a < c {1.expr()} else 0.expr();
+        // carry_lo = if a < c {1.expr()} else 0u64.expr();
 
         ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out_lo);
         ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
@@ -69,7 +70,7 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Sub, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Sub, 0u64.expr());
 
         cb.add_constraints(bcb.constraints);
     }
@@ -91,28 +92,24 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // get out_lo
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let v = op.value();
+        let out_lo = get_field_from_op(
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE * 2 + LOWER_FIELD_OFFSET,
+        )?;
         ArithOverflow::assign_num_of_bytes(
             region,
             offset,
             step,
             cells,
             self.bytes.clone(),
-            v.clone(),
+            Some(out_lo),
         )?;
-        let out_lo = v.value().ok_or(Error::Synthesis)?;
 
         // get value_a_lo
-        let op = rw_operations
-            .0
-            .get(step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let value_a_lo = op.value().value().ok_or(Error::Synthesis)?;
-
+        let value_a_lo = get_field_from_op(
+            rw_operations,
+            step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
+        )?;
         let carry_lo = if out_lo > value_a_lo {
             F::one()
         } else {

@@ -24,7 +24,7 @@ impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
 
     const OPCODE: Opcode = Opcode::Abort;
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Abort, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Abort, 0u64.expr());
     }
 
     fn assign(

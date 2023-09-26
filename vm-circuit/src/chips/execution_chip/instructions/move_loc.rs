@@ -25,15 +25,16 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
     const OPCODE: Opcode = Opcode::MoveLoc;
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            + 1.expr();
+            + 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 3.expr() * flattened_value_len.clone();
+            + 3u64.expr() * flattened_value_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -60,7 +61,7 @@ impl<F: FieldExt> InstructionGadget<F> for MoveLoc<F> {
                 flattened_value_len.clone(), // flattened_value_len
             );
             cb.condition(
-                1.expr() - self.value.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup("move_loc(locals read)", read);
                     cb.add_lookup("move_loc(locals write)", write_locals);

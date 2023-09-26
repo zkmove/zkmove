@@ -38,15 +38,16 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         // 2. write n values to stack. [gc + vector_flattened_len, , values_flattened_len]
 
         let values_num = cells.auxiliary_1.expression.clone();
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
             + values_num
-            - 1.expr();
+            - 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let vector_flattened_len = cells.auxiliary_3.expression.clone();
-        let values_flattened_len = vector_flattened_len.clone() - 1.expr();
+        let values_flattened_len = vector_flattened_len.clone() - 1u64.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + vector_flattened_len.clone()
             + values_flattened_len;
@@ -67,7 +68,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
 
         // read the vector header
         cb.condition(
-            1.expr() - self.vector.cells.word_mask[0].expression.clone(),
+            1u64.expr() - self.vector.cells.word_mask[0].expression.clone(),
             |cb| {
                 cb.add_lookup(
                     "vec_unpack(read vec header)",
@@ -86,7 +87,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
         // assigned the values[0] to be empty, now we just skip 'i=0'.
         for (i, item) in self.values.iter().enumerate().skip(1) {
             cb.condition(
-                1.expr() - self.vector.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.vector.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "vec_unpack(read vec)",
@@ -99,7 +100,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
                     );
                 },
             );
-            cb.condition(1.expr() - self.values_mask[i].expression.clone(), |cb| {
+            cb.condition(1u64.expr() - self.values_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "vec_unpack(write n values)",
                     RWLookup {
@@ -108,11 +109,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
                             + ((i - 1) as u64).expr(),
                         rw_target: (RWTarget::Stack as u64).expr(),
                         rw: (RW::WRITE as u64).expr(),
-                        frame_index: 0.expr(),
+                        frame_index: 0u64.expr(),
                         address: self.values_address[i].expression.clone(),
                         address_ext: self.values_addr_ext[i].expression.clone(),
                         value: item.expression.clone(),
-                        sd_index: 0.expr(),
+                        sd_index: 0u64.expr(),
                     },
                 );
             });

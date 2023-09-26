@@ -37,15 +37,16 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         //Pack
 
         let field_num = cells.auxiliary_1.expression.clone();
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
             - field_num.clone()
-            + 1.expr();
+            + 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let struct_element_num = cells.auxiliary_3.expression.clone();
-        let values_element_num = struct_element_num.clone() - 1.expr();
+        let values_element_num = struct_element_num.clone() - 1u64.expr();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + values_element_num.clone()
             + struct_element_num.clone();
@@ -68,24 +69,24 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         // struct_value[0] is the header. To make the constraint simple, we have already
         // assigned the values[0] to be empty, now we just skip 'i=0'.
         for (i, item) in self.values.iter().enumerate().skip(1) {
-            cb.condition(1.expr() - self.values_mask[i].expression.clone(), |cb| {
+            cb.condition(1u64.expr() - self.values_mask[i].expression.clone(), |cb| {
                 cb.add_lookup(
                     "pack(stack pop)",
                     RWLookup {
                         gc: cells.gc.expression.clone() + ((i - 1) as u64).expr(),
                         rw_target: (RWTarget::Stack as u64).expr(),
                         rw: (RW::READ as u64).expr(),
-                        frame_index: 0.expr(),
+                        frame_index: 0u64.expr(),
                         address: self.values_address[i].expression.clone(),
                         address_ext: self.values_addr_ext[i].expression.clone(),
                         value: item.expression.clone(),
-                        sd_index: 0.expr(),
+                        sd_index: 0u64.expr(),
                     },
                 );
             });
 
             cb.condition(
-                1.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.struct_value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "pack(stack push)",
@@ -102,7 +103,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
             );
         }
         cb.condition(
-            1.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
+            1u64.expr() - self.struct_value.cells.word_mask[0].expression.clone(),
             |cb| {
                 cb.add_lookup(
                     "pack(write struct header)",
@@ -118,7 +119,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Pack<GENERIC, F>
         // TODO:
         // // word_b.address is equal to word_a.address_ext
         // for (i, _) in self.struct_value.cells.word.iter().enumerate().skip(1) {
-        //     let constraint = (1.expr() - self.struct_value.cells.word_mask[i].expression.clone())
+        //     let constraint = (1u64.expr() - self.struct_value.cells.word_mask[i].expression.clone())
         //         * (self.values_address[i].expression.clone()
         //             - self.struct_value.cells.word_addr_ext[i].expression.clone());
         //     cb.add_constraint("pack_address_eq", constraint);

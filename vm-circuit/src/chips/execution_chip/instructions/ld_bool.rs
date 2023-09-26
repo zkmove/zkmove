@@ -6,30 +6,41 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::LOWER_FIELD_OFFSET;
+
+use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
-pub struct LdTrue<F: FieldExt> {
-    value_a: Cell<F>,
+pub struct LdBool<F: FieldExt, const TRUE: bool> {
+    value: SimpleValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for LdTrue<F> {
-    const NAME: &'static str = "LDTRUE";
+impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
+    const NAME: &'static str = match TRUE {
+        true => "LDTRUE",
+        false => "LDFALSE",
+    };
 
-    const OPCODE: Opcode = Opcode::LdTrue;
+    const OPCODE: Opcode = match TRUE {
+        true => Opcode::LdTrue,
+        false => Opcode::LdFalse,
+    };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        //LdTrue
+        self.value.configure(cb);
 
         LoadOp::constrain_ld_op(cells, cb);
-        LoadOp::lookup_ld_op(cb, cells, &self.value_a);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::LdTrue, 0.expr());
+        self.value.lookup_stack_push(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
+        );
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0u64.expr());
     }
 
     fn assign(
@@ -40,19 +51,14 @@ impl<F: FieldExt> InstructionGadget<F> for LdTrue<F> {
         rw_operations: &RWOperations<F>,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        self.value_a.assign(region, offset, op.value().value())?;
+        self.value.assign(region, offset, rw_operations, step.gc)?;
         Ok(())
     }
 
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
-        let value_a = cb.alloc_cell();
+        let value = SimpleValueGadget::construct(cb);
 
-        Self { value_a }
+        Self { value }
     }
 }

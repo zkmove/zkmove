@@ -1,15 +1,17 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::instructions::common::HeaderCells;
+use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
-use logger::prelude::*;
-use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 use std::convert::TryInto;
+
+use super::get_field_from_op;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SimpleValueCells<F>([Cell<F>; LEN_OF_SIMPLE_VALUE]);
@@ -32,15 +34,19 @@ impl<F: FieldExt> SimpleValueCells<F> {
         op_index: usize,
     ) -> Result<(), Error> {
         for i in 0..LEN_OF_SIMPLE_VALUE {
-            let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            self.0[i].assign(region, offset, op.value().value())?;
+            let f = get_field_from_op(rw_operations, op_index + i)?;
+            self.0[i].assign(region, offset, Some(f))?;
         }
 
         Ok(())
     }
 
     pub(crate) fn value(&self) -> &Cell<F> {
-        self.0.last().expect("value should not be None.")
+        // by so far, which is used with lower field by caller.
+        // TODO. need to take care upper field?
+        self.0
+            .get(LOWER_FIELD_OFFSET)
+            .expect("value should not be None.")
     }
 }
 
@@ -64,12 +70,7 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         rw_operations: &RWOperations<F>,
         op_index: usize,
     ) -> Result<(), Error> {
-        let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
-        let header_value = op.value().value().ok_or_else(|| {
-            error!("header value is None");
-            Error::Synthesis
-        })?;
-
+        let header_value = get_field_from_op(rw_operations, op_index)?;
         self.cells.assign(region, offset, rw_operations, op_index)?;
         self.header_cells.assign(region, offset, header_value)?;
         Ok(())
@@ -92,5 +93,77 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         cb.add_constraint("check word header", constraint);
 
         //TODO: flattened_len and len belong to [0, 2^16)
+    }
+
+    pub(crate) fn lookup_stack_pop(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        stack_size: Expression<F>,
+        op_index: Expression<F>,
+    ) {
+        cb.add_lookup(
+            "stack pop simple value's header",
+            RWLookup::stack_pop(
+                op_index.clone(),
+                stack_size.clone(),
+                0u64.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "stack pop simple value lower field",
+            RWLookup::stack_pop(
+                op_index + LOWER_FIELD_OFFSET.expr(),
+                stack_size,
+                LOWER_FIELD_OFFSET.expr(),
+                self.cells.value().expression.clone(),
+            ),
+        );
+        // TODO. need high filed?
+        // cb.add_lookup(
+        //     "stack pop simple value upper field",
+        //     RWLookup::stack_pop(
+        //         op_index + UPPER_FIELD_OFFSET.expr(),
+        //         stack_size,
+        //         UPPER_FIELD_OFFSET.expr(),
+        //         self.value().expression.clone(),
+        //     ),
+        // );
+    }
+
+    pub(crate) fn lookup_stack_push(
+        &self,
+        cb: &mut ConstraintBuilder<F>,
+        stack_size: Expression<F>,
+        op_index: Expression<F>,
+    ) {
+        cb.add_lookup(
+            "stack push simple vlaue's header",
+            RWLookup::stack_push(
+                op_index.clone(),
+                stack_size.clone(),
+                0u64.expr(),
+                ValueHeader::default_for_simple().expr(),
+            ),
+        );
+        cb.add_lookup(
+            "stack push simple value lower field",
+            RWLookup::stack_push(
+                op_index + LOWER_FIELD_OFFSET.expr(),
+                stack_size,
+                LOWER_FIELD_OFFSET.expr(),
+                self.cells.value().expression.clone(),
+            ),
+        );
+        // TODO. need to take care upper filed?
+        // cb.add_lookup(
+        //     "stack push simple value upper field",
+        //     RWLookup::stack_push(
+        //         op_index + UPPER_FIELD_OFFSET.expr(),
+        //         stack_size,
+        //         UPPER_FIELD_OFFSET.expr(),
+        //         self.hi.expression.clone(),
+        //     ),
+        // );
     }
 }

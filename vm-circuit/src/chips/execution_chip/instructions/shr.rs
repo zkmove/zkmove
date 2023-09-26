@@ -17,8 +17,8 @@ use logger::prelude::*;
 use movelang::utility::{convert_u256_to_field, decode_field_to_u256};
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 
-use super::common::get_u256_from_op;
 use super::common::word_gadget::WordCells;
+use super::common::{get_field_from_op, get_u256_from_op};
 
 #[derive(Clone, Debug)]
 pub struct Shr<F: FieldExt> {
@@ -66,7 +66,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shr, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shr, 0u64.expr());
 
         let cond = self.rhs_less_than_128.expr();
         cb.condition(cond.clone(), |cb| {
@@ -78,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
                 },
             );
         });
-        cb.condition(1.expr() - cond, |cb| {
+        cb.condition(1u64.expr() - cond, |cb| {
             cb.add_lookup(
                 "pow2 lookups for opcode shl 1",
                 Pow2Lookup {
@@ -105,18 +105,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // b is U8 type data, lower field used.
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        let b = op
-            .value()
-            .value()
-            .ok_or_else(|| {
-                error!("header value is None");
-                Error::Synthesis
-            })?
-            .get_lower_32();
+        let b = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?.get_lower_32();
         let res = if b < 128 {
             // auxiliary_1 is for lower 128 bit
             let pow2_b_lo = F::from_u128(2).pow(&[b as u64, 0, 0, 0]);
@@ -165,7 +154,8 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         let value_a = WordCells::<F>::construct(cb);
         let value_b = WordCells::<F>::construct(cb);
         let value_c = WordCells::<F>::construct(cb);
-        let rhs_less_than_128 = LtGadget::construct(cb, value_b.lo.expression.clone(), 128.expr());
+        let rhs_less_than_128 =
+            LtGadget::construct(cb, value_b.lo.expression.clone(), 128u64.expr());
 
         Self {
             muladd_words_gadget,

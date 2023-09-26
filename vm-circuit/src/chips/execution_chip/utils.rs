@@ -18,7 +18,7 @@ pub(crate) fn query_expression<F: FieldExt, T>(
     let mut expr = None;
     meta.create_gate("Query expression", |meta| {
         expr = Some(f(meta));
-        Some(0.expr())
+        Some(0u64.expr())
     });
     expr.unwrap()
 }

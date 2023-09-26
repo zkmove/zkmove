@@ -32,10 +32,10 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
         let out = self.value_c.lo.expression.clone();
 
         // out is 0 or 1
-        let constraint = out.clone() * (1.expr() - out.clone());
+        let constraint = out.clone() * (1u64.expr() - out.clone());
         cb.add_constraint("out value is bool", constraint);
 
-        let constraint = (1.expr() - lhs) * (1.expr() - rhs) - (1.expr() - out);
+        let constraint = (1u64.expr() - lhs) * (1u64.expr() - rhs) - (1u64.expr() - out);
         cb.add_constraint("Or", constraint);
 
         let binary_op = BinaryOp {
@@ -45,7 +45,7 @@ impl<F: FieldExt> InstructionGadget<F> for Or<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Or, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Or, 0u64.expr());
     }
 
     fn assign(

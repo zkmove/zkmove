@@ -30,7 +30,7 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         let (out_hi, out_lo) = self.value_c.expr();
 
         // out is 0 or 1
-        let constraint = out_lo.clone() * (1.expr() - out_lo.clone());
+        let constraint = out_lo.clone() * (1u64.expr() - out_lo.clone());
         cb.add_constraint("out value is bool", constraint);
         cb.add_constraint("out_hi is zero", out_hi);
 
@@ -44,7 +44,7 @@ impl<F: FieldExt> InstructionGadget<F> for Not<F> {
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Not, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Not, 0u64.expr());
     }
 
     fn assign(

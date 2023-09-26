@@ -200,15 +200,15 @@ impl<F: FieldExt> GlobalOpChip<F> {
     ) {
         constraints.push((
             "is_empty is bool",
-            (cells.is_empty.expression.clone() - 1.expr()) * cells.is_empty.expression.clone(),
+            (cells.is_empty.expression.clone() - 1u64.expr()) * cells.is_empty.expression.clone(),
         ));
-        let cond = 1.expr() - cells.is_empty.expression.clone();
+        let cond = 1u64.expr() - cells.is_empty.expression.clone();
 
         if is_first {
             // for the first op: counter == 1
             constraints.push((
                 "first global op",
-                cond * (cells.counter.expression.clone() - 1.expr()),
+                cond * (cells.counter.expression.clone() - 1u64.expr()),
             ));
         } else {
             // counter == prev_counter + 1
@@ -217,7 +217,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cond.clone()
                     * (cells.counter.expression.clone()
                         - cells.prev_counter.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
@@ -236,7 +236,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 "rw = 0|1",
                 cond.clone()
                     * cells.rw.expression.clone()
-                    * (cells.rw.expression.clone() - 1.expr()),
+                    * (cells.rw.expression.clone() - 1u64.expr()),
             ));
 
             // for ops with same address/sd_index/addr_ext, gc must be great than prev_gc
@@ -250,7 +250,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cond.clone()
                     * delt_address.clone()
                     * (delt_address.clone() * cells.delta_invert_address.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             let delt_sd_index =
                 cells.sd_index.expression.clone() - cells.prev_sd_index.expression.clone();
@@ -259,7 +259,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cond.clone()
                     * delt_sd_index.clone()
                     * (delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             let delt_addr_ext =
                 cells.address_ext.expression.clone() - cells.prev_address_ext.expression.clone();
@@ -268,12 +268,14 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cond.clone()
                     * delt_addr_ext.clone()
                     * (delt_addr_ext.clone() * cells.delta_invert_addr_ext.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             gc_lookups.push(
-                cond * (1.expr() - delt_address * cells.delta_invert_address.expression.clone())
-                    * (1.expr() - delt_sd_index * cells.delta_invert_sd_index.expression.clone())
-                    * (1.expr() - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
+                cond * (1u64.expr() - delt_address * cells.delta_invert_address.expression.clone())
+                    * (1u64.expr()
+                        - delt_sd_index * cells.delta_invert_sd_index.expression.clone())
+                    * (1u64.expr()
+                        - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -292,9 +294,9 @@ impl<F: FieldExt> GlobalOpChip<F> {
             // TODO. addr_ext range check
             // addr_ext_lookups.push(
             //     cond.clone()
-            //         * (1.expr()
+            //         * (1u64.expr()
             //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
-            //         * (1.expr()
+            //         * (1u64.expr()
             //             - delt_sd_index.clone() * cells.delta_invert_sd_index.expression.clone())
             //         * delt_addr_ext.clone(),
             // );

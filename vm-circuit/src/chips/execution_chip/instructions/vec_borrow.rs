@@ -14,8 +14,7 @@ use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};
-use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LOWER_FIELD_OFFSET};
+use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
@@ -41,15 +40,16 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         // 3. write reference to element into stack.
         // [gc + LEN_OF_SIMPLE_VALUE + LEN_OF_REFERENCE_VALUE, LEN_OF_REFERENCE_VALUE]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            - 1.expr();
+            - 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr()
+            + 2u64.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr()
             + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -69,23 +69,10 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         self.indexed_ref_val.configure(cb);
 
         // lookup "read index"
-        cb.add_lookup(
-            "vec_borrow(read value header)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone(),
-                cells.stack_size.expression.clone(),
-                0.expr(),
-                ValueHeader::default_for_simple().expr(),
-            ),
-        );
-        cb.add_lookup(
-            "vec_borrow(read index)",
-            RWLookup::stack_pop(
-                cells.gc.expression.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
-                cells.stack_size.expression.clone(),
-                2.expr(),
-                self.index.cells.value().expression.clone(),
-            ),
+        self.index.lookup_stack_pop(
+            cb,
+            cells.stack_size.expression.clone(),
+            cells.gc.expression.clone(),
         );
 
         for (i, item) in self.ref_val.cells.as_inner().iter().enumerate() {
@@ -96,7 +83,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                     cells.gc.expression.clone()
                         + (LEN_OF_SIMPLE_VALUE as u64).expr()
                         + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 1.expr(),
+                    cells.stack_size.expression.clone() - 1u64.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
                 ),
@@ -111,7 +98,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                         + (LEN_OF_SIMPLE_VALUE as u64).expr()
                         + (LEN_OF_REFERENCE_VALUE as u64).expr()
                         + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 2.expr(),
+                    cells.stack_size.expression.clone() - 2u64.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
                 ),
@@ -130,7 +117,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         // field_offset is pushed into the last element of indexed_ref_val,
         // and it's larger than the real offset by 1
         let constraint = self.ref_val.cells[3].expression.clone()
-            + (self.index.cells.value().expression.clone() + 1.expr())
+            + (self.index.cells.value().expression.clone() + 1u64.expr())
                 * self.offset_pow2.expression.clone()
             - self.indexed_ref_val.cells[3].expression.clone();
         cb.add_constraint("field_offset check with ref_val[3]", constraint);

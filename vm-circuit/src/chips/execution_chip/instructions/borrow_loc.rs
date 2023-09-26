@@ -33,10 +33,11 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
     };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            + 1.expr();
+            + 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let flattened_value_len = cells.auxiliary_3.expression.clone();
@@ -61,7 +62,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABL
 
         for (i, _) in self.value.cells.word.iter().enumerate() {
             cb.condition(
-                1.expr() - self.value.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     let read = RWLookup::locals_read(
                         cells.gc.expression.clone() + (i as u64).expr(),

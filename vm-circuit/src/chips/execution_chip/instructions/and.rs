@@ -32,7 +32,7 @@ impl<F: FieldExt> InstructionGadget<F> for And<F> {
         let out = self.value_c.lo.expression.clone();
 
         // out is 0 or 1
-        let constraint = out.clone() * (1.expr() - out.clone());
+        let constraint = out.clone() * (1u64.expr() - out.clone());
         cb.add_constraint("out value is bool", constraint);
 
         let constraint = lhs * rhs - out;
@@ -45,7 +45,7 @@ impl<F: FieldExt> InstructionGadget<F> for And<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::And, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::And, 0u64.expr());
     }
 
     fn assign(

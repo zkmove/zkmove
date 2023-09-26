@@ -1,13 +1,15 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::instructions::common::{LoadOp, LookupBytecode};
+use crate::chips::execution_chip::instructions::common::{
+    get_field_from_op, LoadOp, LookupBytecode,
+};
 use crate::chips::execution_chip::instructions::InstructionGadget;
 
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
-use crate::witness::rw_operations::{RWOperations, RW};
+use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
@@ -51,20 +53,12 @@ impl<F: FieldExt> InstructionGadget<F> for LdU256<F> {
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let value_hi = &self.value.hi;
-        let op = rw_operations
-            .0
-            .get(step.gc + UPPER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        value_hi.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, step.gc + UPPER_FIELD_OFFSET)?;
+        value_hi.assign(region, offset, Some(f))?;
 
         let value_lo = &self.value.lo;
-        let op = rw_operations
-            .0
-            .get(step.gc + LOWER_FIELD_OFFSET)
-            .ok_or(Error::Synthesis)?;
-        debug_assert!(op.rw() == RW::WRITE);
-        value_lo.assign(region, offset, op.value().value())?;
+        let f = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?;
+        value_lo.assign(region, offset, Some(f))?;
 
         Ok(())
     }
