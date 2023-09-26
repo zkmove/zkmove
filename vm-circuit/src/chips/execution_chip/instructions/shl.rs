@@ -50,8 +50,8 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
             a_lo: self.value_a.lo.expression.clone(),
             b_hi: divisor_hi.clone(),
             b_lo: divisor_lo.clone(),
-            c_hi: 0.expr(),
-            c_lo: 0.expr(),
+            c_hi: 0u64.expr(),
+            c_lo: 0u64.expr(),
             d_hi: self.value_c.hi.expression.clone(),
             d_lo: self.value_c.lo.expression.clone(),
         };
@@ -64,7 +64,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shl, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shl, 0u64.expr());
         let cond = self.rhs_less_than_128.expr();
         cb.condition(cond.clone(), |cb| {
             cb.add_lookup(
@@ -75,7 +75,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
                 },
             );
         });
-        cb.condition(1.expr() - cond, |cb| {
+        cb.condition(1u64.expr() - cond, |cb| {
             cb.add_lookup(
                 "pow2 lookups for opcode shl 1",
                 Pow2Lookup {
@@ -146,7 +146,8 @@ impl<F: FieldExt> InstructionGadget<F> for Shl<F> {
         let value_a = WordCells::<F>::construct(cb);
         let value_b = WordCells::<F>::construct(cb);
         let value_c = WordCells::<F>::construct(cb);
-        let rhs_less_than_128 = LtGadget::construct(cb, value_b.lo.expression.clone(), 128.expr());
+        let rhs_less_than_128 =
+            LtGadget::construct(cb, value_b.lo.expression.clone(), 128u64.expr());
 
         Self {
             muladd_words_gadget,

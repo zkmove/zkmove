@@ -60,10 +60,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // 4. update current and parent headers (flattened length, length).
         // [gc + value_flattened_len * 2 + LEN_OF_REFERENCE_VALUE, container_headers_count * 2]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            - 2.expr();
+            - 2u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let value_flattened_len = cells.auxiliary_3.expression.clone();
@@ -71,9 +72,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         let container_headers_count = self.container_headers_count.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * value_flattened_len.clone()
+            + 2u64.expr() * value_flattened_len.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
-            + 2.expr() * container_headers_count.clone();
+            + 2u64.expr() * container_headers_count.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -89,7 +90,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
 
         let is_global = cells.auxiliary_5.expression.clone();
         for (i, item) in self.value.iter().enumerate() {
-            cb.condition(1.expr() - self.value_mask[i].expression.clone(), |cb| {
+            cb.condition(1u64.expr() - self.value_mask[i].expression.clone(), |cb| {
                 // read value from stack
                 let read = RWLookup::stack_pop(
                     cells.gc.expression.clone() + (i as u64).expr(),
@@ -98,7 +99,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
                     item.expression.clone(),
                 );
                 cb.add_lookup("vec_push_back(read value)", read);
-                cb.condition(1.expr() - is_global.clone(), |cb| {
+                cb.condition(1u64.expr() - is_global.clone(), |cb| {
                     // write value into container
                     let locals_write = RWLookup::locals_write(
                         cells.gc.expression.clone()
@@ -130,24 +131,27 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
 
         // read reference from stack
         for (i, item) in self.ref_val.iter().enumerate() {
-            cb.condition(1.expr() - self.ref_val_mask[i].expression.clone(), |cb| {
-                cb.add_lookup(
-                    "vec_push_back(read ref)",
-                    RWLookup::stack_pop(
-                        cells.gc.expression.clone()
-                            + value_flattened_len.clone()
-                            + (i as u64).expr(),
-                        cells.stack_size.expression.clone() - 1.expr(),
-                        (i as u64).expr(),
-                        item.expression.clone(),
-                    ),
-                );
-            });
+            cb.condition(
+                1u64.expr() - self.ref_val_mask[i].expression.clone(),
+                |cb| {
+                    cb.add_lookup(
+                        "vec_push_back(read ref)",
+                        RWLookup::stack_pop(
+                            cells.gc.expression.clone()
+                                + value_flattened_len.clone()
+                                + (i as u64).expr(),
+                            cells.stack_size.expression.clone() - 1u64.expr(),
+                            (i as u64).expr(),
+                            item.expression.clone(),
+                        ),
+                    );
+                },
+            );
         }
 
         // read the old value from headers and write the new value to the headers
         let gc_offset = cells.gc.expression.clone()
-            + value_flattened_len.clone() * 2.expr()
+            + value_flattened_len.clone() * 2u64.expr()
             + (LEN_OF_REFERENCE_VALUE as u64).expr();
         for (i, item) in self
             .headers_value
@@ -156,9 +160,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             .take(MAX_ADDRESS_EXT_LENGTH)
         {
             cb.condition(
-                1.expr() - self.headers_value_mask[i].expression.clone(),
+                1u64.expr() - self.headers_value_mask[i].expression.clone(),
                 |cb| {
-                    cb.condition(1.expr() - is_global.clone(), |cb| {
+                    cb.condition(1u64.expr() - is_global.clone(), |cb| {
                         let locals_read = RWLookup::locals_read(
                             gc_offset.clone() + (i as u64).expr(),
                             self.vec_frame_index_or_global_address.expression.clone(),
@@ -206,11 +210,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
 
         let mut constraint = (self.ref_val[1].expression.clone()
             - self.vec_frame_index_or_global_address.expression.clone())
-            * (1.expr() - self.ref_val_mask[1].expression.clone());
+            * (1u64.expr() - self.ref_val_mask[1].expression.clone());
         cb.add_constraint("read_ref_eq_1", constraint);
         constraint = (self.ref_val[2].expression.clone()
             - self.vec_locals_index_or_global_sd_idx.expression.clone())
-            * (1.expr() - self.ref_val_mask[2].expression.clone());
+            * (1u64.expr() - self.ref_val_mask[2].expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
 
         // addr_ext comparation between ref_val and indexed_ref_val
@@ -218,9 +222,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // and it's larger than the real offset by 1
         let offset = &self.value_index; // field_offset
         let constraint = (self.ref_val[3].expression.clone()
-            + (offset.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            + (offset.expression.clone() + 1u64.expr()) * self.offset_pow2.expression.clone()
             - self.new_value_addr_ext[0].expression.clone())
-            * (1.expr() - self.ref_val_mask[3].expression.clone());
+            * (1u64.expr() - self.ref_val_mask[3].expression.clone());
         cb.add_constraint("field_offset check with ref_val[3]", constraint);
 
         // Constrains the address of headers must be part of the vector's address path.
@@ -233,7 +237,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         // fixme: header[i]'s addr_ext is not always equal to ref_val[3],
         // for i in 0..(MAX_ADDRESS_EXT_LENGTH) {
         //     let constraint = (self.ref_val_addr_ext_mask_0[i].expression.clone())
-        //         * (1.expr() - self.ref_val_addr_ext_mask_1[i].expression.clone())
+        //         * (1u64.expr() - self.ref_val_addr_ext_mask_1[i].expression.clone())
         //         * (self.headers_value_addr_ext[i].expression.clone()
         //             - self.ref_val[3].expression.clone());
         //     cb.add_constraint("check header addr_ext", constraint);
@@ -250,11 +254,11 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
         );
 
         // Constrains the headers are correctly updated.
-        let curr_header_idx = container_headers_count - 1.expr();
+        let curr_header_idx = container_headers_count - 1u64.expr();
         for i in 0..MAX_ADDRESS_EXT_LENGTH {
             // only flattened_len increased in the parent headers
             let constraint = (curr_header_idx.clone() - (i as u64).expr()) //exclude the current header
-                * (1.expr() - self.headers_value_mask[i].expression.clone())
+                * (1u64.expr() - self.headers_value_mask[i].expression.clone())
                 * (self.headers_value[i].expression.clone()
                     + value_flattened_len.clone()
                     - self.new_headers_value[i].expression.clone());
@@ -264,9 +268,9 @@ impl<F: FieldExt> InstructionGadget<F> for VecPushBack<F> {
             // how to apply below constraints only on the current header?
             // we need define a common method to handle this.
             //
-            //     let len_diff = 1.expr() * 2u64.pow(16).expr(); //vector length increase one
+            //     let len_diff = 1u64.expr() * 2u64.pow(16).expr(); //vector length increase one
             //     let constraint = cond.clone()
-            //         * (1.expr() - self.headers_value_mask[i].expression.clone())
+            //         * (1u64.expr() - self.headers_value_mask[i].expression.clone())
             //         * (self.headers_value[i].expression.clone()
             //         + len_diff.clone() + value_flattened_len.clone()
             //         - self.new_headers_value[i].expression.clone());

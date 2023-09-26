@@ -39,7 +39,7 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
         let (hi_lt, hi_eq) = self.comparison_hi.expr();
         let (lo_lt, lo_eq) = self.comparison_lo.expr();
         let output = hi_lt + hi_eq * (lo_lt + lo_eq);
-        let constraint = output.clone() * (1.expr() - output.clone());
+        let constraint = output.clone() * (1u64.expr() - output.clone());
         cb.add_constraint("Gt: outout is bool", constraint);
 
         // value_c + output == 1
@@ -49,7 +49,7 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
         );
         cb.add_constraint(
             "Gt: lower field add output equal to 1 ",
-            1.expr() - output - self.value_c.lo.expression.clone(),
+            1u64.expr() - output - self.value_c.lo.expression.clone(),
         );
 
         let binary_op = BinaryOp {
@@ -59,7 +59,7 @@ impl<F: FieldExt> InstructionGadget<F> for Gt<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Gt, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Gt, 0u64.expr());
     }
 
     fn assign(

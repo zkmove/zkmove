@@ -41,8 +41,8 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
             a_lo: self.value_a.lo.expression.clone(),
             b_hi: self.value_b.hi.expression.clone(),
             b_lo: self.value_b.lo.expression.clone(),
-            c_hi: 0.expr(),
-            c_lo: 0.expr(),
+            c_hi: 0u64.expr(),
+            c_lo: 0u64.expr(),
             d_hi: self.value_c.hi.expression.clone(),
             d_lo: self.value_c.lo.expression.clone(),
         };
@@ -59,7 +59,7 @@ impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Mul, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Mul, 0u64.expr());
     }
 
     fn assign(

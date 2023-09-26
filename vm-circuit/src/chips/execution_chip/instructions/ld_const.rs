@@ -29,10 +29,11 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
         let const_index = cells.auxiliary_1.expr();
         let flattened_value_len = cells.auxiliary_2.expr();
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            + 1.expr();
+            + 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
@@ -60,7 +61,7 @@ impl<F: FieldExt> InstructionGadget<F> for LdConst<F> {
                 self.const_value.cells.word[i].expression.clone(),
             );
             cb.condition(
-                1.expr() - self.const_value.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.const_value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup("ld_const(write)", write);
                     cb.add_lookup(

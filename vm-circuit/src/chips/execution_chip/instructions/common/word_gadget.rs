@@ -57,7 +57,7 @@ impl<F: FieldExt> WordCells<F> {
             RWLookup::stack_pop(
                 op_index.clone(),
                 stack_size.clone(),
-                0.expr(),
+                0u64.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );
@@ -92,7 +92,7 @@ impl<F: FieldExt> WordCells<F> {
             RWLookup::stack_push(
                 op_index.clone(),
                 stack_size.clone(),
-                0.expr(),
+                0u64.expr(),
                 ValueHeader::default_for_simple().expr(),
             ),
         );

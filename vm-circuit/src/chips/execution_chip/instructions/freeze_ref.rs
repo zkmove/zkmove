@@ -25,7 +25,8 @@ impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
     const OPCODE: Opcode = Opcode::FreezeRef;
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =

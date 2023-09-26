@@ -15,7 +15,7 @@ pub struct IsZeroGadget<F> {
 impl<F: FieldExt> IsZeroGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>, value: Expression<F>) -> Self {
         let inverse = cb.alloc_cell();
-        let is_zero = 1.expr() - (value.clone() * inverse.expr());
+        let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
         Self {
             inverse,
             is_zero,

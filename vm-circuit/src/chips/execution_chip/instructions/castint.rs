@@ -64,7 +64,7 @@ impl<F: FieldExt, const N_BYTES: usize> InstructionGadget<F> for CastInt<F, N_BY
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0u64.expr());
     }
 
     fn assign(

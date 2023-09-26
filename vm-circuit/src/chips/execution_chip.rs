@@ -235,7 +235,7 @@ impl<F: FieldExt> ExecutionChip<F> {
 
                 // s_step should be enabled on the first row
                 cb.condition(s_step_first, |cb| {
-                    cb.require_equal("s_step = 1", s_step.clone(), 1.expr());
+                    cb.require_equal("s_step = 1", s_step.clone(), 1u64.expr());
                     cb.require_zero("first step, pc = 0", step_curr.cells.pc.expr());
                     cb.require_zero(
                         "first step, frame_index = 0",
@@ -251,16 +251,16 @@ impl<F: FieldExt> ExecutionChip<F> {
                     );
                 });
                 // Except when step is enabled, the step counter needs to decrease by 1
-                cb.condition(1.expr() - s_step.clone(), |cb| {
+                cb.condition(1u64.expr() - s_step.clone(), |cb| {
                     cb.require_equal(
                         "num_rows_left_cur := num_rows_left_next + 1",
                         num_rows_left_cur.clone(),
-                        num_rows_left_next + 1.expr(),
+                        num_rows_left_next + 1u64.expr(),
                     );
                 });
                 // Enforce that s_step := num_rows_until_next_step == 0
                 let is_zero =
-                    1.expr() - (num_rows_left_cur.clone() * num_rows_left_inverse.clone());
+                    1u64.expr() - (num_rows_left_cur.clone() * num_rows_left_inverse.clone());
                 cb.require_zero(
                     "num_rows_left_cur * is_zero == 0",
                     num_rows_left_cur * is_zero.clone(),

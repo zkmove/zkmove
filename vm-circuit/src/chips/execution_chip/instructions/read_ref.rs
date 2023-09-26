@@ -35,7 +35,8 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         // 2. read value from lobals or global. [gc+LEN_OF_REFERENCE_VALUE, flattened_value_len]
         // 3. store value into stack. [gc+LEN_OF_REFERENCE_VALUE+flattened_value_len, flattened_value_len]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
@@ -44,7 +45,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
-            + 2.expr() * flattened_value_len.clone();
+            + 2u64.expr() * flattened_value_len.clone();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -77,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         let is_global = cells.auxiliary_5.expression.clone();
         for (i, item) in self.value_b.cells.word.iter().enumerate() {
             cb.condition(
-                1.expr() - self.value_a.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value_a.cells.word_mask[i].expression.clone(),
                 |cb| {
                     // locals read or global read
                     let read = RWLookup::locals_read(
@@ -90,7 +91,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                         item.expression.clone(),
                     );
                     // locals read
-                    cb.condition(1.expr() - is_global.clone(), |cb| {
+                    cb.condition(1u64.expr() - is_global.clone(), |cb| {
                         cb.add_lookup("read_ref(locals read)", read);
                     });
 
@@ -116,12 +117,12 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
                     + (LEN_OF_REFERENCE_VALUE as u64).expr()
                     + flattened_value_len.clone()
                     + (i as u64).expr(),
-                cells.stack_size.expression.clone() - 1.expr(),
+                cells.stack_size.expression.clone() - 1u64.expr(),
                 self.value_b.cells.word_addr_ext[i].expression.clone(),
                 item.expression.clone(),
             );
             cb.condition(
-                1.expr() - self.value_b.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value_b.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup("read_ref(stack push)", write);
                 },
@@ -139,7 +140,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
         cb.add_constraint("read_ref_eq_1", constraint);
 
         // ref_val[2] equel to local_index(Locals) or sd_index(Global)
-        let constraint = (1.expr() - is_global.clone())
+        let constraint = (1u64.expr() - is_global.clone())
             * (self.ref_val.cells[2].expression.clone() - cells.locals_index.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);
         let constraint = is_global
@@ -151,7 +152,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
             - self.value_a.cells.word_addr_ext[0].expression.clone();
         cb.add_constraint("read_ref_eq_3", constraint);
 
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::ReadRef, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::ReadRef, 0u64.expr());
     }
 
     fn assign(

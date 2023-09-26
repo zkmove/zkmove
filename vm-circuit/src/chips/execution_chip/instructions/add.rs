@@ -56,10 +56,10 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         bcb.require_in_set(
             "carry_lo in set",
             carry_lo,
-            (0..2).map(|idx| idx.expr()).collect(),
+            (0u64..2).map(|idx| idx.expr()).collect(),
         );
         // Todo. need to constraint on carry_lo furthermore?
-        // carry_lo = if a > c {1.expr()} else 0.expr();
+        // carry_lo = if a > c {1.expr()} else 0u64.expr();
 
         ArithOverflow::constrain_range_check(cb, cells, self.bytes.clone(), out_lo);
         ArithOverflow::lookup_arith_op(cb, cells, cells.auxiliary_1.expression.clone());
@@ -71,7 +71,7 @@ impl<F: FieldExt> InstructionGadget<F> for Add<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Add, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Add, 0u64.expr());
 
         cb.add_constraints(bcb.constraints);
     }

@@ -110,11 +110,11 @@ impl<F: FieldExt> RWLookup<F> {
             gc,
             rw_target: (RWTarget::Stack as u64).expr(),
             rw: (RW::WRITE as u64).expr(),
-            frame_index: 0.expr(),
+            frame_index: 0u64.expr(),
             address: stack_size,
             address_ext,
             value,
-            sd_index: 0.expr(),
+            sd_index: 0u64.expr(),
         }
     }
 
@@ -128,11 +128,11 @@ impl<F: FieldExt> RWLookup<F> {
             gc,
             rw_target: (RWTarget::Stack as u64).expr(),
             rw: (RW::READ as u64).expr(),
-            frame_index: 0.expr(),
-            address: stack_size - 1.expr(),
+            frame_index: 0u64.expr(),
+            address: stack_size - 1u64.expr(),
             address_ext,
             value,
-            sd_index: 0.expr(),
+            sd_index: 0u64.expr(),
         }
     }
 
@@ -155,17 +155,17 @@ impl<F: FieldExt> RWLookup<F> {
                 address: locals_index,
                 address_ext: address_ext.clone(),
                 value: value.clone(),
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
             RWLookup {
                 gc: gc + flattened_value_len,
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
+                frame_index: 0u64.expr(),
                 address: stack_size,
                 address_ext,
                 value,
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
         )
     }
@@ -189,7 +189,7 @@ impl<F: FieldExt> RWLookup<F> {
                 address: locals_index.clone(),
                 address_ext: address_ext.clone(),
                 value: value.clone(),
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
             RWLookup {
                 gc: gc.clone() + flattened_value_len.clone(),
@@ -198,18 +198,18 @@ impl<F: FieldExt> RWLookup<F> {
                 frame_index,
                 address: locals_index,
                 address_ext: address_ext.clone(),
-                value: 0.expr(),
-                sd_index: 0.expr(),
+                value: 0u64.expr(),
+                sd_index: 0u64.expr(),
             },
             RWLookup {
-                gc: gc + flattened_value_len * 2.expr(),
+                gc: gc + flattened_value_len * 2u64.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
+                frame_index: 0u64.expr(),
                 address: stack_size,
                 address_ext,
                 value,
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
         )
     }
@@ -229,11 +229,11 @@ impl<F: FieldExt> RWLookup<F> {
                 gc: gc.clone(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::READ as u64).expr(),
-                frame_index: 0.expr(),
-                address: stack_size - 1.expr(),
+                frame_index: 0u64.expr(),
+                address: stack_size - 1u64.expr(),
                 address_ext: address_ext.clone(),
                 value: value.clone(),
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
             RWLookup {
                 gc: gc + flattened_value_len,
@@ -243,7 +243,7 @@ impl<F: FieldExt> RWLookup<F> {
                 address: locals_index,
                 address_ext,
                 value,
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
         )
     }
@@ -263,7 +263,7 @@ impl<F: FieldExt> RWLookup<F> {
             address: locals_index,
             address_ext,
             value,
-            sd_index: 0.expr(),
+            sd_index: 0u64.expr(),
         }
     }
 
@@ -282,7 +282,7 @@ impl<F: FieldExt> RWLookup<F> {
             address: locals_index,
             address_ext,
             value,
-            sd_index: 0.expr(),
+            sd_index: 0u64.expr(),
         }
     }
 
@@ -297,7 +297,7 @@ impl<F: FieldExt> RWLookup<F> {
             gc,
             rw_target: (RWTarget::Global as u64).expr(),
             rw: (RW::WRITE as u64).expr(),
-            frame_index: 0.expr(),
+            frame_index: 0u64.expr(),
             address,
             address_ext,
             value,
@@ -319,7 +319,7 @@ impl<F: FieldExt> RWLookup<F> {
                 gc: gc.clone(),
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::READ as u64).expr(),
-                frame_index: 0.expr(),
+                frame_index: 0u64.expr(),
                 address: global_address.clone(),
                 sd_index: sd_index.clone(),
                 address_ext: address_ext.clone(),
@@ -329,21 +329,21 @@ impl<F: FieldExt> RWLookup<F> {
                 gc: gc.clone() + flattened_value_len.clone(),
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
+                frame_index: 0u64.expr(),
                 address: global_address,
                 sd_index,
                 address_ext: address_ext.clone(),
-                value: 0.expr(),
+                value: 0u64.expr(),
             },
             RWLookup {
-                gc: gc + flattened_value_len * 2.expr(),
+                gc: gc + flattened_value_len * 2u64.expr(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
-                address: stack_size - 1.expr(),
+                frame_index: 0u64.expr(),
+                address: stack_size - 1u64.expr(),
                 address_ext,
                 value,
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
         )
     }
@@ -364,17 +364,17 @@ impl<F: FieldExt> RWLookup<F> {
                 gc: gc.clone(),
                 rw_target: (RWTarget::Stack as u64).expr(),
                 rw: (RW::READ as u64).expr(),
-                frame_index: 0.expr(),
-                address: stack_size - 1.expr(),
+                frame_index: 0u64.expr(),
+                address: stack_size - 1u64.expr(),
                 address_ext: address_ext.clone(),
                 value: value.clone(),
-                sd_index: 0.expr(),
+                sd_index: 0u64.expr(),
             },
             RWLookup {
                 gc: gc + depth_of_addr_path + flattened_value_len, // + depth_of_addr_path, because, in the middle, a signer reference is popped.
                 rw_target: (RWTarget::Global as u64).expr(),
                 rw: (RW::WRITE as u64).expr(),
-                frame_index: 0.expr(),
+                frame_index: 0u64.expr(),
                 address: global_address,
                 sd_index,
                 address_ext,
@@ -394,7 +394,7 @@ impl<F: FieldExt> RWLookup<F> {
             gc,
             rw_target: (RWTarget::Global as u64).expr(),
             rw: (RW::READ as u64).expr(),
-            frame_index: 0.expr(),
+            frame_index: 0u64.expr(),
             address,
             address_ext,
             value,

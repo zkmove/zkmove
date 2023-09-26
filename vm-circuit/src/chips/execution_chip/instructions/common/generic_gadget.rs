@@ -201,11 +201,11 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             let ty_arg_name = &cells.ty_arg_name;
             let ty_mask = &cells.ty_mask;
 
-            cb.condition(1.expr() - ty_mask.expr(), |cb| {
+            cb.condition(1u64.expr() - ty_mask.expr(), |cb| {
                 // FIXME: require inst_ty_pos_max is pow2 of [4,8,..,128]
                 cb.add_constraint(
                     "inst_ty_pos_max*inst_ty_pos_max_inverse = 1",
-                    1.expr() - inst_ty_pos_max_inverse.expr() * inst_ty_pos_max.expr(),
+                    1u64.expr() - inst_ty_pos_max_inverse.expr() * inst_ty_pos_max.expr(),
                 );
                 cb.add_constraints(cells.referred_param_index_is_zero.configure());
 
@@ -233,7 +233,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
                         instantiation_point_function: callee_function.clone(),
                         instantiation_point_pc: callee_callin_pc.expr(),
 
-                        referred_param_index: 0.expr(),
+                        referred_param_index: 0u64.expr(),
                         inst_ty_pos: inst_ty_pos.expr(),
                         ty_module: ty_arg_module.expr(),
                         ty_name: ty_arg_name.expr(),
@@ -249,11 +249,11 @@ impl<F: FieldExt> GenericTypeGadget<F> {
 
                 // generic
 
-                cb.condition(1.expr() - is_not_generic, |cb| {
+                cb.condition(1u64.expr() - is_not_generic, |cb| {
                     let caller_type_arg_lookup = InputTypeElementLookup {
                         ty_arg_pos: (ty_arg_pos.expr() - inst_ty_pos.expr())
                             * inst_ty_pos_max_inverse.expr()
-                            * 16.expr()
+                            * 16u64.expr()
                             + referred_param_index.expr(), // le encoding of ty_arg pos
 
                         ty_arg_module: ty_arg_module.expr(),

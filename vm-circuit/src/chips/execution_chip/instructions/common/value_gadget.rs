@@ -133,7 +133,7 @@ impl<F: FieldExt> ValueGadget<F> {
             .map(|mask| {
                 (
                     "mask is zero or one",
-                    (mask.expression.clone() - 1.expr()) * mask.expression.clone(),
+                    (mask.expression.clone() - 1u64.expr()) * mask.expression.clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -142,7 +142,7 @@ impl<F: FieldExt> ValueGadget<F> {
         // mask is monotonic increasing
         for (i, _) in masks.iter().enumerate().skip(1) {
             let delta = masks[i].expression.clone() - masks[i - 1].expression.clone();
-            let constraint = delta.clone() * (1.expr() - delta);
+            let constraint = delta.clone() * (1u64.expr() - delta);
             cb.add_constraint("mask monotonic increase", constraint);
         }
 

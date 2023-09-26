@@ -40,18 +40,18 @@ impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for BrBool<F, TRUE> {
         let pc_expr = if TRUE {
             // auxiliary_1 * value + (pc + 1) * (1 - value) - next_pc = 0
             aux * self.value.cells.value().expression.clone()
-                + (pc + 1.expr()) * (1.expr() - self.value.cells.value().expression.clone())
+                + (pc + 1u64.expr()) * (1u64.expr() - self.value.cells.value().expression.clone())
                 - next_pc
         } else {
             // auxiliary_1 * (1 - value) + (pc + 1) * value - next_pc = 0
-            aux * (1.expr() - self.value.cells.value().expression.clone())
-                + (pc + 1.expr()) * self.value.cells.value().expression.clone()
+            aux * (1u64.expr() - self.value.cells.value().expression.clone())
+                + (pc + 1u64.expr()) * self.value.cells.value().expression.clone()
                 - next_pc
         };
 
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            - 1.expr();
+            - 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()

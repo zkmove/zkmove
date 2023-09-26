@@ -46,7 +46,7 @@ impl<F: FieldExt> InstructionGadget<F> for BitAnd<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::BitAnd, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::BitAnd, 0u64.expr());
     }
 
     fn assign(

@@ -40,15 +40,16 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         // 3. write reference to element into stack.
         // [gc + LEN_OF_SIMPLE_VALUE + LEN_OF_REFERENCE_VALUE, LEN_OF_REFERENCE_VALUE]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            - 1.expr();
+            - 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr()
+            + 2u64.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr()
             + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -82,7 +83,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                     cells.gc.expression.clone()
                         + (LEN_OF_SIMPLE_VALUE as u64).expr()
                         + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 1.expr(),
+                    cells.stack_size.expression.clone() - 1u64.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
                 ),
@@ -97,7 +98,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
                         + (LEN_OF_SIMPLE_VALUE as u64).expr()
                         + (LEN_OF_REFERENCE_VALUE as u64).expr()
                         + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 2.expr(),
+                    cells.stack_size.expression.clone() - 2u64.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
                 ),
@@ -116,7 +117,7 @@ impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABL
         // field_offset is pushed into the last element of indexed_ref_val,
         // and it's larger than the real offset by 1
         let constraint = self.ref_val.cells[3].expression.clone()
-            + (self.index.cells.value().expression.clone() + 1.expr())
+            + (self.index.cells.value().expression.clone() + 1u64.expr())
                 * self.offset_pow2.expression.clone()
             - self.indexed_ref_val.cells[3].expression.clone();
         cb.add_constraint("field_offset check with ref_val[3]", constraint);

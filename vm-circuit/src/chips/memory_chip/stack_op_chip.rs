@@ -220,15 +220,15 @@ impl<F: FieldExt> StackOpChip<F> {
     ) {
         constraints.push((
             "is_empty is bool",
-            (cells.is_empty.expression.clone() - 1.expr()) * cells.is_empty.expression.clone(),
+            (cells.is_empty.expression.clone() - 1u64.expr()) * cells.is_empty.expression.clone(),
         ));
-        let cond = 1.expr() - cells.is_empty.expression.clone();
+        let cond = 1u64.expr() - cells.is_empty.expression.clone();
 
         if is_first {
             // for the first op: counter == 1, address == 0, rw == Write
             constraints.push((
                 "first stack op",
-                cond.clone() * (cells.counter.expression.clone() - 1.expr()),
+                cond.clone() * (cells.counter.expression.clone() - 1u64.expr()),
             ));
             constraints.push((
                 "first stack op",
@@ -245,7 +245,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 cond.clone()
                     * (cells.counter.expression.clone()
                         - cells.prev_counter.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
 
             // rw == 0 || rw == 1
@@ -253,7 +253,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 "stack rw",
                 cond.clone()
                     * cells.rw.expression.clone()
-                    * (cells.rw.expression.clone() - 1.expr()),
+                    * (cells.rw.expression.clone() - 1u64.expr()),
             ));
             // for read op: value == prev_value
             let is_read = (RW::WRITE as u64).expr() - cells.rw.expression.clone();
@@ -272,7 +272,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 cond.clone()
                     * delt_address.clone()
                     * (delt_address.clone() * cells.delta_invert_address.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
             let delt_addr_ext =
                 cells.address_ext.expression.clone() - cells.prev_address_ext.expression.clone();
@@ -281,7 +281,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 cond.clone()
                     * delt_addr_ext.clone()
                     * (delt_addr_ext.clone() * cells.delta_invert_addr_ext.expression.clone()
-                        - 1.expr()),
+                        - 1u64.expr()),
             ));
 
             // address change, then rw must be Write
@@ -300,7 +300,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 "stack_addr_ext_change",
                 cond.clone()
                     * (cells.rw.expression.clone() - (RW::WRITE as u64).expr())
-                    * (1.expr()
+                    * (1u64.expr()
                         - delt_address.clone() * cells.delta_invert_address.expression.clone())
                     * delt_addr_ext.clone(),
             ));
@@ -309,9 +309,10 @@ impl<F: FieldExt> StackOpChip<F> {
             // lookup gc_table when address is same with previous
             gc_lookups.push(
                 cond.clone()
-                    * (1.expr()
+                    * (1u64.expr()
                         - delt_address.clone() * cells.delta_invert_address.expression.clone())
-                    * (1.expr() - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
+                    * (1u64.expr()
+                        - delt_addr_ext * cells.delta_invert_addr_ext.expression.clone())
                     * (cells.gc.expression.clone() - cells.prev_gc.expression.clone()),
             );
 
@@ -331,7 +332,7 @@ impl<F: FieldExt> StackOpChip<F> {
             // TODO. address extend validation
             // addr_ext_lookups.push(
             //     cond.clone()
-            //         * (1.expr()
+            //         * (1u64.expr()
             //             - delt_address.clone() * cells.delta_invert_address.expression.clone())
             //         * delt_addr_ext.clone(),
             // );

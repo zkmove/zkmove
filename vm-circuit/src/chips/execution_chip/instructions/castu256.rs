@@ -52,7 +52,7 @@ impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
         };
         UnaryOp::constrain_unary_op(cells, cb);
         UnaryOp::lookup_unary_op(cb, cells, &unary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::CastU256, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::CastU256, 0u64.expr());
     }
 
     fn assign(

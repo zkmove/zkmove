@@ -45,14 +45,15 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         // 2. write reference to element into stack.
         // [gc + LEN_OF_REFERENCE_VALUE, LEN_OF_REFERENCE_VALUE]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + 2.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr();
+            + 2u64.expr() * (LEN_OF_REFERENCE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
         let func_index = cells.function_index.expression.clone()
@@ -89,7 +90,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
                     cells.gc.expression.clone()
                         + (LEN_OF_REFERENCE_VALUE as u64).expr()
                         + (i as u64).expr(),
-                    cells.stack_size.expression.clone() - 1.expr(),
+                    cells.stack_size.expression.clone() - 1u64.expr(),
                     (i as u64).expr(),
                     item.expression.clone(),
                 ),
@@ -109,7 +110,7 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
         // and it's larger than the real offset by 1
         let offset = &cells.auxiliary_2; // field_offset
         let constraint = self.ref_val.cells.addr_ext().expression.clone()
-            + (offset.expression.clone() + 1.expr()) * self.offset_pow2.expression.clone()
+            + (offset.expression.clone() + 1u64.expr()) * self.offset_pow2.expression.clone()
             - self.indexed_ref_val.cells.addr_ext().expression.clone();
         cb.add_constraint("field_offset check with ref_val[3]", constraint);
 

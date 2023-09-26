@@ -30,12 +30,12 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
 
         // constrain the inverse, if frame_index != 0, frame_index * inverse(frame_index) == 1
         let frame_index_expr =
-            frame_index.clone() * (frame_index.clone() * inverse.clone() - 1.expr());
+            frame_index.clone() * (frame_index.clone() * inverse.clone() - 1u64.expr());
 
         // if frame_index == 0, the next step will be 'Nop' or 'Stop', we have
         // frame_index * inverse(frame_index) != 1
         // next_pc == pc
-        let pc_expr = (frame_index.clone() * inverse.clone() - 1.expr())
+        let pc_expr = (frame_index.clone() * inverse.clone() - 1u64.expr())
             * (cb.next.cells.pc.expression.clone() - cells.pc.expression.clone());
 
         // gc should not change
@@ -65,7 +65,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
             );
         });
 
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Ret, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Ret, 0u64.expr());
     }
 
     fn assign(

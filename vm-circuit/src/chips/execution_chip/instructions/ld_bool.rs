@@ -40,7 +40,7 @@ impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
             cells.stack_size.expression.clone(),
             cells.gc.expression.clone(),
         );
-        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0u64.expr());
     }
 
     fn assign(

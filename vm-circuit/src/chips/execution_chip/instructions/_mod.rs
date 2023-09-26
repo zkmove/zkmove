@@ -54,7 +54,7 @@ impl<F: FieldExt> InstructionGadget<F> for Mod<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Mod, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Mod, 0u64.expr());
     }
 
     fn assign(

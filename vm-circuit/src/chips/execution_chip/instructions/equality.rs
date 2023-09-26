@@ -47,10 +47,11 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
     };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr = cells.stack_size.expression.clone()
             - cb.next.cells.stack_size.expression.clone()
-            - 1.expr();
+            - 1u64.expr();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let flattened_value_len_a = cells.auxiliary_1.expression.clone();
@@ -85,13 +86,13 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
 
         let a_equal_b_expr = match EQUALITY {
             true => self.result.cells.value().expression.clone(),
-            false => 1.expr() - self.result.cells.value().expression.clone(),
+            false => 1u64.expr() - self.result.cells.value().expression.clone(),
         };
-        let a_unequal_b_expr = 1.expr() - a_equal_b_expr.clone();
+        let a_unequal_b_expr = 1u64.expr() - a_equal_b_expr.clone();
 
         for (i, item) in self.value_a.cells.word.iter().enumerate() {
             cb.condition(
-                1.expr() - self.value_a.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value_a.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "equality(pop right)",
@@ -107,7 +108,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         }
         for (i, item) in self.value_b.cells.word.iter().enumerate() {
             cb.condition(
-                1.expr() - self.value_b.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.value_b.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup(
                         "equality(pop left)",
@@ -115,7 +116,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
                             cells.gc.expression.clone()
                                 + flattened_value_len_a.clone()
                                 + (i as u64).expr(),
-                            cells.stack_size.expression.clone() - 1.expr(),
+                            cells.stack_size.expression.clone() - 1u64.expr(),
                             self.value_b.cells.word_addr_ext[i].expression.clone(),
                             item.expression.clone(),
                         ),
@@ -127,8 +128,8 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         // value_a is equal to value_b
         for (i, item) in self.value_a.cells.word.iter().enumerate() {
             cb.condition(
-                (1.expr() - self.value_a.cells.word_mask[i].expression.clone())
-                    * (1.expr() - is_reference.clone())
+                (1u64.expr() - self.value_a.cells.word_mask[i].expression.clone())
+                    * (1u64.expr() - is_reference.clone())
                     * a_equal_b_expr.clone(),
                 |cb| {
                     // lookup a's addr_ext/value in b's ops, success means a is equal to b
@@ -138,7 +139,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
                             cells.gc.expression.clone()
                                 + flattened_value_len_a.clone()
                                 + (i as u64).expr(),
-                            cells.stack_size.expression.clone() - 1.expr(),
+                            cells.stack_size.expression.clone() - 1u64.expr(),
                             self.value_a.cells.word_addr_ext[i].expression.clone(),
                             item.expression.clone(),
                         ),
@@ -148,7 +149,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         }
 
         // value_a is unequal to value_b
-        cb.condition((1.expr() - is_reference) * a_unequal_b_expr, |cb| {
+        cb.condition((1u64.expr() - is_reference) * a_unequal_b_expr, |cb| {
             let unequal_row = cells.auxiliary_4.expression.clone();
 
             cb.add_lookup(
@@ -157,11 +158,11 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
                     gc: cells.gc.expression.clone() + unequal_row.clone(),
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::READ as u64).expr(),
-                    frame_index: 0.expr(),
-                    address: cells.stack_size.expression.clone() - 1.expr(),
+                    frame_index: 0u64.expr(),
+                    address: cells.stack_size.expression.clone() - 1u64.expr(),
                     address_ext: self.unequal_row_addr_ext_a.expression.clone(),
                     value: self.unequal_row_value_a.expression.clone(),
-                    sd_index: 0.expr(),
+                    sd_index: 0u64.expr(),
                 },
             );
             cb.add_lookup(
@@ -170,23 +171,23 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
                     gc: cells.gc.expression.clone() + flattened_value_len_a.clone() + unequal_row,
                     rw_target: (RWTarget::Stack as u64).expr(),
                     rw: (RW::READ as u64).expr(),
-                    frame_index: 0.expr(),
-                    address: cells.stack_size.expression.clone() - 2.expr(),
+                    frame_index: 0u64.expr(),
+                    address: cells.stack_size.expression.clone() - 2u64.expr(),
                     address_ext: self.unequal_row_addr_ext_b.expression.clone(),
                     value: self.unequal_row_value_b.expression.clone(),
-                    sd_index: 0.expr(),
+                    sd_index: 0u64.expr(),
                 },
             );
 
             let constraint_addr = (self.unequal_row_addr_ext_a.expression.clone()
                 - self.unequal_row_addr_ext_b.expression.clone())
                 * self.delta_invert.expression.clone()
-                - 1.expr();
+                - 1u64.expr();
 
             let constraint_value = (self.unequal_row_value_a.expression.clone()
                 - self.unequal_row_value_b.expression.clone())
                 * self.delta_invert.expression.clone()
-                - 1.expr();
+                - 1u64.expr();
             cb.add_constraint("unequal constraint", constraint_addr * constraint_value);
         });
 
@@ -195,11 +196,11 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
         // stack write
         self.result.lookup_stack_push(
             cb,
-            cells.stack_size.expression.clone() - 2.expr(),
+            cells.stack_size.expression.clone() - 2u64.expr(),
             cells.gc.expression.clone() + flattened_value_len_a + flattened_value_len_b,
         );
 
-        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Self::OPCODE, 0u64.expr());
 
         cb.add_constraints(bcb.constraints);
     }

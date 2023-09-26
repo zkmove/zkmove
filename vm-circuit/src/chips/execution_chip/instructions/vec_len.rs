@@ -40,7 +40,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // 2. read vec header from locals or global. [gc+LEN_OF_REFERENCE_VALUE, 1]
         // 3. write length into stack. [gc+LEN_OF_REFERENCE_VALUE+1, LEN_OF_SIMPLE_VALUE]
 
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
@@ -48,7 +49,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
             + (LEN_OF_REFERENCE_VALUE as u64).expr()
-            + 1.expr()
+            + 1u64.expr()
             + (LEN_OF_SIMPLE_VALUE as u64).expr();
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -87,7 +88,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
             self.vec_header_addr_ext.expression.clone(),
             self.vec_header_value.expression.clone(),
         );
-        cb.condition(1.expr() - is_global.clone(), |cb| {
+        cb.condition(1u64.expr() - is_global.clone(), |cb| {
             // locals read
             cb.add_lookup("vec_len(read vec header)", read_local);
         });
@@ -108,8 +109,8 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         // len is stored at lower field
         self.vec_len.lookup_stack_push(
             cb,
-            cells.stack_size.expression.clone() - 1.expr(),
-            cells.gc.expression.clone() + LEN_OF_REFERENCE_VALUE.expr() + 1.expr(),
+            cells.stack_size.expression.clone() - 1u64.expr(),
+            cells.gc.expression.clone() + LEN_OF_REFERENCE_VALUE.expr() + 1u64.expr(),
         );
 
         // ref_val[0] equals to ref value header
@@ -123,7 +124,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         cb.add_constraint("read_ref_eq_1", constraint);
 
         // ref_val[2] equel to local_index(Locals) or sd_index(Global)
-        constraint = (1.expr() - is_global)
+        constraint = (1u64.expr() - is_global)
             * (self.ref_val.cells[2].expression.clone()
                 - self.vec_locals_index_or_global_sd_idx.expression.clone());
         cb.add_constraint("read_ref_eq_2", constraint);

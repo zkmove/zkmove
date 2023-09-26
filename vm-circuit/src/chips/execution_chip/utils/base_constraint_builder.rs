@@ -34,7 +34,7 @@ impl<F: FieldExt> BaseConstraintBuilder<F> {
         self.add_constraint(name, lhs - rhs);
     }
     pub(crate) fn require_boolean(&mut self, name: &'static str, value: Expression<F>) {
-        self.add_constraint(name, value.clone() * (1.expr() - value));
+        self.add_constraint(name, value.clone() * (1u64.expr() - value));
     }
     #[allow(dead_code)]
     pub(crate) fn require_in_set(
@@ -45,8 +45,9 @@ impl<F: FieldExt> BaseConstraintBuilder<F> {
     ) {
         self.add_constraint(
             name,
-            set.iter()
-                .fold(1.expr(), |acc, item| acc * (value.clone() - item.clone())),
+            set.iter().fold(1u64.expr(), |acc, item| {
+                acc * (value.clone() - item.clone())
+            }),
         );
     }
 

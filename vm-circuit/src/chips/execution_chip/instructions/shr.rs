@@ -66,7 +66,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         };
         BinaryOp::constrain_binary_op(cb, cells);
         BinaryOp::lookup_binary_op(cb, cells, &binary_op);
-        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shr, 0.expr());
+        LookupBytecode::lookup_bytecode(cb, cells, Opcode::Shr, 0u64.expr());
 
         let cond = self.rhs_less_than_128.expr();
         cb.condition(cond.clone(), |cb| {
@@ -78,7 +78,7 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
                 },
             );
         });
-        cb.condition(1.expr() - cond, |cb| {
+        cb.condition(1u64.expr() - cond, |cb| {
             cb.add_lookup(
                 "pow2 lookups for opcode shl 1",
                 Pow2Lookup {
@@ -154,7 +154,8 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         let value_a = WordCells::<F>::construct(cb);
         let value_b = WordCells::<F>::construct(cb);
         let value_c = WordCells::<F>::construct(cb);
-        let rhs_less_than_128 = LtGadget::construct(cb, value_b.lo.expression.clone(), 128.expr());
+        let rhs_less_than_128 =
+            LtGadget::construct(cb, value_b.lo.expression.clone(), 128u64.expr());
 
         Self {
             muladd_words_gadget,

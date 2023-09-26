@@ -40,14 +40,15 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
     };
 
     fn configure(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
-        let pc_expr = cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1.expr();
+        let pc_expr =
+            cells.pc.expression.clone() - cb.next.cells.pc.expression.clone() + 1u64.expr();
         let stack_size_expr =
             cells.stack_size.expression.clone() - cb.next.cells.stack_size.expression.clone();
         let frame_index_expr =
             cells.frame_index.expression.clone() - cb.next.cells.frame_index.expression.clone();
         let flattened_value_len = cells.auxiliary_3.expression.clone();
         let gc_expr = cells.gc.expression.clone() - cb.next.cells.gc.expression.clone()
-            + flattened_value_len.clone() * 3.expr() // two for global read resource, one for stack push value
+            + flattened_value_len.clone() * 3u64.expr() // two for global read resource, one for stack push value
             + (LEN_OF_SIMPLE_VALUE as u64).expr(); // stack pop account_address
         let module_index =
             cells.module_index.expression.clone() - cb.next.cells.module_index.expression.clone();
@@ -91,7 +92,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
                     flattened_value_len.clone(),
                 );
             cb.condition(
-                1.expr() - self.global_value.cells.word_mask[i].expression.clone(),
+                1u64.expr() - self.global_value.cells.word_mask[i].expression.clone(),
                 |cb| {
                     cb.add_lookup("move_from(global read)", read_global);
                     cb.add_lookup("move_from(invalid)", write_invalid_to_global);
@@ -169,7 +170,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC
             let instantiation_index = cb.curr.cells.auxiliary_1.expr();
             let caller_callin_pc = cb.curr.cells.auxiliary_4.expr();
             let callee_id = cb.curr.cells.auxiliary_2.expr();
-            let callee_module = 0.expr();
+            let callee_module = 0u64.expr();
             let callee_function = (MOVE_FROM_GENERIC_AS_FIELD as u64).expr();
 
             let type_cells = GenericTypeGadget::construct(
