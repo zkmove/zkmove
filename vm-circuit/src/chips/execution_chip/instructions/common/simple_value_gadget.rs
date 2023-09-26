@@ -113,9 +113,9 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         cb.add_lookup(
             "stack pop simple value lower field",
             RWLookup::stack_pop(
-                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index + LOWER_FIELD_OFFSET.expr(),
                 stack_size,
-                (LOWER_FIELD_OFFSET as u64).expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.cells.value().expression.clone(),
             ),
         );
@@ -149,9 +149,9 @@ impl<F: FieldExt> SimpleValueGadget<F> {
         cb.add_lookup(
             "stack push simple value lower field",
             RWLookup::stack_push(
-                op_index + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index + LOWER_FIELD_OFFSET.expr(),
                 stack_size,
-                (LOWER_FIELD_OFFSET as u64).expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.cells.value().expression.clone(),
             ),
         );

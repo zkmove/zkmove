@@ -109,7 +109,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
         self.vec_len.lookup_stack_push(
             cb,
             cells.stack_size.expression.clone() - 1.expr(),
-            cells.gc.expression.clone() + (LEN_OF_REFERENCE_VALUE as u64).expr() + 1.expr(),
+            cells.gc.expression.clone() + LEN_OF_REFERENCE_VALUE.expr() + 1.expr(),
         );
 
         // ref_val[0] equals to ref value header

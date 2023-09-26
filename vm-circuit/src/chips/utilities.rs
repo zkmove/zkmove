@@ -84,25 +84,17 @@ impl<F: FieldExt> Expr<F> for &Expression<F> {
     }
 }
 
-// impl<F: FieldExt> Expr<F> for i32 {
-//     #[inline]
-//     fn expr(&self) -> Expression<F> {
-//         Expression::Constant(
-//             F::from(self.unsigned_abs() as u64)
-//                 * if self.is_negative() {
-//                     -F::one()
-//                 } else {
-//                     F::one()
-//                 },
-//         )
-//     }
-// }
+impl<F: FieldExt> Expr<F> for i32 {
+    fn expr(&self) -> Expression<F> {
+        Expression::Constant(F::from(*self as u64))
+    }
+}
 
-// impl<F: FieldExt> Expr<F> for usize {
-//     fn expr(&self) -> Expression<F> {
-//         Expression::Constant(F::from(*self as u64))
-//     }
-// }
+impl<F: FieldExt> Expr<F> for usize {
+    fn expr(&self) -> Expression<F> {
+        Expression::Constant(F::from(*self as u64))
+    }
+}
 
 impl<F: FieldExt> Expr<F> for u64 {
     fn expr(&self) -> Expression<F> {

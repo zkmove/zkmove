@@ -64,18 +64,18 @@ impl<F: FieldExt> WordCells<F> {
         cb.add_lookup(
             "stack pop word lower field",
             RWLookup::stack_pop(
-                op_index.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index.clone() + LOWER_FIELD_OFFSET.expr(),
                 stack_size.clone(),
-                (LOWER_FIELD_OFFSET as u64).expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
             "stack pop word upper field",
             RWLookup::stack_pop(
-                op_index + (UPPER_FIELD_OFFSET as u64).expr(),
+                op_index + UPPER_FIELD_OFFSET.expr(),
                 stack_size,
-                (UPPER_FIELD_OFFSET as u64).expr(),
+                UPPER_FIELD_OFFSET.expr(),
                 self.hi.expression.clone(),
             ),
         );
@@ -99,18 +99,18 @@ impl<F: FieldExt> WordCells<F> {
         cb.add_lookup(
             "stack push word lower field",
             RWLookup::stack_push(
-                op_index.clone() + (LOWER_FIELD_OFFSET as u64).expr(),
+                op_index.clone() + LOWER_FIELD_OFFSET.expr(),
                 stack_size.clone(),
-                (LOWER_FIELD_OFFSET as u64).expr(),
+                LOWER_FIELD_OFFSET.expr(),
                 self.lo.expression.clone(),
             ),
         );
         cb.add_lookup(
             "stack push word upper field",
             RWLookup::stack_push(
-                op_index + (UPPER_FIELD_OFFSET as u64).expr(),
+                op_index + UPPER_FIELD_OFFSET.expr(),
                 stack_size,
-                (UPPER_FIELD_OFFSET as u64).expr(),
+                UPPER_FIELD_OFFSET.expr(),
                 self.hi.expression.clone(),
             ),
         );
