@@ -83,10 +83,10 @@ fn setup(
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![])?;
+    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]])?;
     info!("use vm circuit, k = {}", k);
 
-    mock_prove_circuit(&vm_circuit, vec![], k)?;
+    mock_prove_circuit(&vm_circuit, vec![vec![Fr::zero()]], k)?;
 
     debug!("Generate parameters for execution trace");
     let rng = StdRng::from_entropy();
@@ -121,7 +121,7 @@ fn circuit_benchmark(c: &mut Criterion) {
                 b.iter_batched(
                     || {},
                     |_| {
-                        prove_vm_circuit_kzg(vm_circuit.clone(), &[], params, pk.clone()).unwrap();
+                        prove_vm_circuit_kzg(vm_circuit.clone(), &[&[Fr::zero()]], params, pk.clone()).unwrap();
                     },
                     BatchSize::PerIteration,
                 );
