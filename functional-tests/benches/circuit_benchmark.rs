@@ -79,7 +79,10 @@ fn setup(
         circuit_config,
     )?;
 
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = find_best_k(&vm_circuit, vec![])?;
     info!("use vm circuit, k = {}", k);
 

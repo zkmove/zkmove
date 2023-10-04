@@ -34,6 +34,7 @@ pub enum StatusCode {
     ResourceAlreadyExists,
     InvalidValue,
     WrongArgumentsNumber,
+    WrongReturnValueNumber,
     ArgumentsTypeMismatch,
     VecUnpackParityMismatch,
     InstantiateTypeFailed,

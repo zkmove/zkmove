@@ -5,9 +5,9 @@
 address 0x1 {
 module Entry_Fun_Test {
     use 0x1::M;
-    public entry fun entry_function_test(x: u8, y: u8) {
+    public entry fun entry_function_test(x: u8, y: u8): u8 {
         let z = M::add_u8(x, y);
-        z;
+        z
     }
 }
 }

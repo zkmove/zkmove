@@ -341,7 +341,10 @@ fn test_fake_rw_operation() -> VmResult<()> {
         Default::default(),
         circuit_config,
     );
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

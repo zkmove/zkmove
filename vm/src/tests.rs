@@ -385,7 +385,10 @@ fn test_execution_step() -> VmResult<()> {
         Default::default(),
         circuit_config,
     );
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
@@ -722,7 +725,10 @@ fn test_nop_step() -> VmResult<()> {
         Default::default(),
         circuit_config,
     );
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = 10;
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
@@ -758,7 +764,10 @@ fn test_nop_steps() -> VmResult<()> {
         circuit_config,
     )?;
 
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = find_best_k(&vm_circuit, vec![])?;
 
     let expected_step_0 = ExecutionStep {
@@ -1098,7 +1107,10 @@ fn test_empty_ops() -> VmResult<()> {
         circuit_config,
     )?;
 
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = find_best_k(&vm_circuit, vec![])?;
 
     let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {

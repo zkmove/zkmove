@@ -169,7 +169,10 @@ impl Arguments {
             circuit_config.clone(),
         )?;
 
-        let vm_circuit = VmCircuit { witness };
+        let vm_circuit = VmCircuit {
+            witness,
+            public_input: None,
+        };
         info!("find the best k...");
         let k = find_best_k(&vm_circuit, vec![])?;
         info!("k = {}", k);
@@ -220,6 +223,7 @@ impl Arguments {
             )?;
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
+                public_input: None,
             };
             info!("prove the new execution with old proving key...");
             prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
@@ -286,7 +290,10 @@ impl Arguments {
             trace,
             circuit_config.clone(),
         )?;
-        let vm_circuit = VmCircuit { witness };
+        let vm_circuit = VmCircuit {
+            witness,
+            public_input: None,
+        };
         info!("find the best k...");
         let k = find_best_k(&vm_circuit, vec![])?;
         info!("k = {}", k);
@@ -337,6 +344,7 @@ impl Arguments {
             )?;
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
+                public_input: None,
             };
             info!("prove the new execution with old proving key...");
             prove_vm_circuit_ipa(new_vm_circuit, &[], &params, pk)?;

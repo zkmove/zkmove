@@ -233,10 +233,7 @@ impl<F: FieldExt> Frame<F> {
                         &mut execution_step,
                     ),
                     Bytecode::Ret => {
-                        trace!("step #{}, {:?}", interp.step, execution_step);
-                        exec_steps.push(execution_step);
-                        interp.step += 1;
-                        return Ok(ExitStatus::Return);
+                        return Ok(ExitStatus::Return(execution_step));
                     }
                     Bytecode::Call(index) => {
                         return Ok(ExitStatus::Call(*index, execution_step));
@@ -1282,7 +1279,7 @@ impl<F: FieldExt> Frame<F> {
 }
 
 pub enum ExitStatus<F: FieldExt> {
-    Return,
+    Return(ExecutionStep<F>),
     Call(FunctionHandleIndex, ExecutionStep<F>),
     CallGeneric(FunctionInstantiationIndex, ExecutionStep<F>),
 }

@@ -2,7 +2,6 @@
 //! word_capacity: 97
 script {
     use 0x1::EthData;
-    use 0x1::vector;
     fun main() {
         let block_number = 17000000;
         let block_hash = EthData::get_block_hash(block_number);

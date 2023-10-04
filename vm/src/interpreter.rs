@@ -157,7 +157,7 @@ impl<F: FieldExt> Interpreter<F> {
         rw_operations: &mut Vec<RWOperation<F>>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
         generic_graph: &GenericCallGraph,
-    ) -> VmResult<()> {
+    ) -> VmResult<Option<Value<F>>> {
         //println!("{}", generic_graph.to_dot());
 
         let mut locals = Locals::new(entry.local_count());
@@ -187,33 +187,79 @@ impl<F: FieldExt> Interpreter<F> {
                 generic_types,
             )?;
             match status {
-                ExitStatus::Return => {
-                    let step_current = exec_steps
-                        .last()
-                        .ok_or_else(|| RuntimeError::new(StatusCode::ShouldNotReachHere))?;
+                ExitStatus::Return(mut execution_step) => {
                     if let Some(caller_frame) = self.frames.pop() {
+                        execution_step.auxiliary_1 = Some(Value::u64(0)); // return to caller
+                        trace!("step #{}, {:?}", self.step, execution_step);
+                        exec_steps.push(execution_step);
+                        self.step += 1;
                         frame = caller_frame;
                         frame.add_pc();
                     } else {
-                        let stop = ExecutionStep {
-                            context_id: step_current.context_id,
-                            opcode: Opcode::Stop,
-                            pc: step_current.pc,
-                            stack_size: step_current.stack_size,
-                            frame_index: step_current.frame_index,
-                            locals_index: step_current.locals_index,
-                            gc: step_current.gc,
-                            module_index: step_current.module_index,
-                            function_index: step_current.function_index,
-                            auxiliary_1: step_current.auxiliary_1.clone(),
-                            auxiliary_2: step_current.auxiliary_2.clone(),
-                            auxiliary_3: step_current.auxiliary_3.clone(),
-                            auxiliary_4: step_current.auxiliary_4.clone(),
-                            auxiliary_5: step_current.auxiliary_5.clone(),
-                            data: None,
+                        return match self.stack.size() {
+                            0 => {
+                                execution_step.auxiliary_1 = Some(Value::u64(0)); // stop, no return value
+
+                                let stop = ExecutionStep {
+                                    context_id: execution_step.context_id,
+                                    opcode: Opcode::Stop,
+                                    pc: execution_step.pc,
+                                    stack_size: execution_step.stack_size,
+                                    frame_index: execution_step.frame_index,
+                                    locals_index: execution_step.locals_index,
+                                    gc: execution_step.gc,
+                                    module_index: execution_step.module_index,
+                                    function_index: execution_step.function_index,
+                                    auxiliary_1: None,
+                                    auxiliary_2: None,
+                                    auxiliary_3: None,
+                                    auxiliary_4: None,
+                                    auxiliary_5: None,
+                                    data: None,
+                                };
+
+                                trace!("step #{}, {:?}", self.step, execution_step);
+                                exec_steps.push(execution_step);
+                                self.step += 1;
+                                exec_steps.push(stop);
+                                self.step += 1;
+                                Ok(None)
+                            }
+                            1 => {
+                                execution_step.auxiliary_1 = Some(Value::u64(1)); // stop, has return value
+                                let value = self.stack.pop(rw_operations)?;
+                                let flattened_value_len = FlattenedValue::from(&value).0.len();
+                                execution_step.auxiliary_3 =
+                                    Some(Value::u64(flattened_value_len as u64));
+
+                                let stop = ExecutionStep {
+                                    context_id: execution_step.context_id,
+                                    opcode: Opcode::Stop,
+                                    pc: execution_step.pc,
+                                    stack_size: execution_step.stack_size - 1,
+                                    frame_index: execution_step.frame_index,
+                                    locals_index: execution_step.locals_index,
+                                    gc: execution_step.gc + flattened_value_len,
+                                    module_index: execution_step.module_index,
+                                    function_index: execution_step.function_index,
+                                    auxiliary_1: None,
+                                    auxiliary_2: None,
+                                    auxiliary_3: None,
+                                    auxiliary_4: None,
+                                    auxiliary_5: None,
+                                    data: None,
+                                };
+
+                                trace!("step #{}, {:?}", self.step, execution_step);
+                                exec_steps.push(execution_step);
+                                self.step += 1;
+                                exec_steps.push(stop);
+                                self.step += 1;
+                                Ok(Some(value))
+                            }
+                            // only one return value is allowed
+                            _ => Err(RuntimeError::new(StatusCode::WrongReturnValueNumber)),
                         };
-                        exec_steps.push(stop);
-                        return Ok(());
                     }
                 }
                 ExitStatus::Call(index, mut execution_step) => {
