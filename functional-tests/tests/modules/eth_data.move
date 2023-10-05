@@ -1,4 +1,4 @@
-//! word_capacity: 65
+//! word_capacity: 97
 //! module_id: 0x1::EthData
 //! entry_fun: eth_data
 module 0x1::EthData {

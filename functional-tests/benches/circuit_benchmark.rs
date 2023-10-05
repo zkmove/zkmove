@@ -121,7 +121,13 @@ fn circuit_benchmark(c: &mut Criterion) {
                 b.iter_batched(
                     || {},
                     |_| {
-                        prove_vm_circuit_kzg(vm_circuit.clone(), &[&[Fr::zero()]], params, pk.clone()).unwrap();
+                        prove_vm_circuit_kzg(
+                            vm_circuit.clone(),
+                            &[&[Fr::zero()]],
+                            params,
+                            pk.clone(),
+                        )
+                        .unwrap();
                     },
                     BatchSize::PerIteration,
                 );
