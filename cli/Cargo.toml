@@ -1,6 +1,6 @@
 [package]
 name = "zkmove-cli"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2018"
 
