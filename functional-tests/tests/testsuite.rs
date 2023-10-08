@@ -12,8 +12,8 @@ use vm::state::StateStore;
 use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
-use movelang::value_ext::FlattenedValue;
 use rand::{rngs::StdRng, SeedableRng};
+use vm_circuit::chips::execution_chip::lookup_tables::pi_lookup_table::PIFieldValues;
 use vm_circuit::{find_best_k, mock_prove_circuit, prove_vm_circuit_kzg, setup_vm_circuit};
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
@@ -104,7 +104,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     debug!("{:?}", witness);
 
     let instance = match &ret {
-        Some(v) => FlattenedValue::from(v).field_values(),
+        Some(v) => PIFieldValues::from(v).0,
         None => vec![Fr::zero()],
     };
     debug!("Instance: {:?}", instance);
@@ -112,7 +112,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         witness,
         public_input: ret,
     };
-    let k = find_best_k(&vm_circuit, vec![instance.clone()])?;
+    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]])?;
     info!("use vm circuit, k = {}", k);
 
     mock_prove_circuit(&vm_circuit, vec![instance.clone()], k)?;
@@ -179,7 +179,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             }
         };
         let instance = match &new_ret {
-            Some(v) => FlattenedValue::from(v).field_values(),
+            Some(v) => PIFieldValues::from(v).0,
             None => vec![Fr::zero()],
         };
         let new_vm_circuit = VmCircuit {

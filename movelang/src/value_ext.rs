@@ -63,6 +63,8 @@ impl<F: FieldExt> FlattenedValue<F> {
         None
     }
 
+    // flatten addr_ext and simples into one vector
+    // vec[i*2] = addr_ext[i], vec[i*2+1] = simple[i]
     pub fn field_values(&self) -> Vec<F> {
         self.0
             .iter()

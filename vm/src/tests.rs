@@ -152,7 +152,7 @@ fn test_execution_step() -> VmResult<()> {
         gc: 18,
         module_index: 0,
         function_index: 0,
-        auxiliary_1: None,
+        auxiliary_1: Some(Value::u64(0)),
         auxiliary_2: None,
         auxiliary_3: None,
         auxiliary_4: None,
@@ -390,7 +390,7 @@ fn test_execution_step() -> VmResult<()> {
         public_input: None,
     };
     let k = 10;
-    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![vec![Fp::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
@@ -490,7 +490,7 @@ fn test_nop_step() -> VmResult<()> {
         gc: 18,
         module_index: 0,
         function_index: 0,
-        auxiliary_1: None,
+        auxiliary_1: Some(Value::u64(0)),
         auxiliary_2: None,
         auxiliary_3: None,
         auxiliary_4: None,
@@ -730,7 +730,7 @@ fn test_nop_step() -> VmResult<()> {
         public_input: None,
     };
     let k = 10;
-    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![vec![Fp::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
@@ -768,7 +768,7 @@ fn test_nop_steps() -> VmResult<()> {
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![])?;
+    let k = find_best_k(&vm_circuit, vec![vec![Fp::zero()]])?;
 
     let expected_step_0 = ExecutionStep {
         context_id: 1,
@@ -848,7 +848,7 @@ fn test_nop_steps() -> VmResult<()> {
         gc: 18,
         module_index: 0,
         function_index: 0,
-        auxiliary_1: None,
+        auxiliary_1: Some(Value::u64(0)),
         auxiliary_2: None,
         auxiliary_3: None,
         auxiliary_4: None,
@@ -1071,7 +1071,7 @@ fn test_nop_steps() -> VmResult<()> {
         "result is not expected"
     );
 
-    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![vec![Fp::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
@@ -1111,9 +1111,9 @@ fn test_empty_ops() -> VmResult<()> {
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![])?;
+    let k = find_best_k(&vm_circuit, vec![vec![Fp::zero()]])?;
 
-    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![vec![Fp::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;

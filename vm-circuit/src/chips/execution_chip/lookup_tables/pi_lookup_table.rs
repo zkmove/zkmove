@@ -5,6 +5,20 @@ use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use movelang::value::Value;
 use movelang::value_ext::FlattenedValue;
 
+pub struct PIFieldValues<F: FieldExt>(pub Vec<F>);
+
+impl<F: FieldExt> From<&Value<F>> for PIFieldValues<F> {
+    fn from(v: &Value<F>) -> Self {
+        let mut field_values = FlattenedValue::from(v).field_values();
+
+        // fill up with 0
+        while field_values.len() < word_capacity() * 2 {
+            field_values.push(F::zero());
+        }
+        Self(field_values)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PILookupTable {
     pub idx_column: Column<Advice>,
@@ -36,28 +50,32 @@ impl PILookupTable {
         self.idx_column
     }
 
+    pub fn num_of_rows() -> usize {
+        word_capacity() * 2 + 1
+    }
+
     pub fn assign_table<F: FieldExt>(
         &self,
         layouter: &mut impl Layouter<F>,
         pi: Option<Value<F>>,
-        rvr_index_table: Vec<AssignedCell<F, F>>,
+        pi_index_table: Vec<AssignedCell<F, F>>,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
         let values = match &pi {
-            Some(v) => FlattenedValue::from(v).field_values(),
+            Some(v) => PIFieldValues::from(v).0,
             None => vec![],
         };
 
         let pi_cells = layouter.assign_region(
             || "pi_table",
             |mut region| {
-                for (i, _) in rvr_index_table.iter().enumerate().take(word_capacity() + 1) {
+                for (i, index_cell) in pi_index_table.iter().enumerate() {
                     let cell = region.assign_advice(
                         || format!("pi_table[{}][0]", i),
                         self.idx_column(),
                         i,
                         || CircuitValue::known(F::from_u128(i as u128)),
                     )?;
-                    region.constrain_equal(cell.cell(), rvr_index_table[i].cell())?;
+                    region.constrain_equal(cell.cell(), index_cell.cell())?;
                 }
 
                 region.assign_advice(

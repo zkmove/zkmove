@@ -107,6 +107,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
                 stop_and_has_ret_val.clone()
                     * (1u64.expr() - self.value.cells.word_mask[i].expression.clone()),
                 |cb| {
+                    // see PILookupTable for details
                     cb.add_lookup(
                         "lookup pi",
                         PILookup {

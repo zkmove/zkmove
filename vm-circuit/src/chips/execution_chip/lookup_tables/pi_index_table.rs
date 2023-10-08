@@ -1,14 +1,14 @@
-use crate::chips::execution_chip::param::word_capacity;
+use crate::chips::execution_chip::lookup_tables::pi_lookup_table::PILookupTable;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::{AssignedCell, Value};
 use halo2_proofs::plonk::{Column, ConstraintSystem, Error, Fixed};
 
 #[derive(Clone, Debug)]
-pub struct RVRIndexTable {
+pub struct PIIndexTable {
     pub index_column: Column<Fixed>,
 }
-impl RVRIndexTable {
+impl PIIndexTable {
     pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
         let index_column = meta.fixed_column();
         meta.enable_equality(index_column);
@@ -19,13 +19,13 @@ impl RVRIndexTable {
         &self,
         layouter: &mut impl Layouter<F>,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        let rvr_index_cells = layouter.assign_region(
-            || "rvr_index_table",
+        let pi_index_cells = layouter.assign_region(
+            || "pi_index_table",
             |mut region| {
                 let mut cells = Vec::new();
-                for i in 0..=word_capacity() {
+                for i in 0..PILookupTable::num_of_rows() {
                     let cell = region.assign_fixed(
-                        || format!("rvr_index_table[{}]", i),
+                        || format!("pi_index_table[{}]", i),
                         self.index_column,
                         i,
                         || Value::known(F::from_u128(i as u128)),
@@ -37,6 +37,6 @@ impl RVRIndexTable {
             },
         )?;
 
-        Ok(rvr_index_cells)
+        Ok(pi_index_cells)
     }
 }

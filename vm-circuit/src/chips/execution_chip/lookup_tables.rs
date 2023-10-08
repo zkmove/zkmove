@@ -37,8 +37,8 @@ use halo2_proofs::{
     poly::Rotation,
 };
 
+use crate::chips::execution_chip::lookup_tables::pi_index_table::PIIndexTable;
 use crate::chips::execution_chip::lookup_tables::pi_lookup_table::{PILookup, PILookupTable};
-use crate::chips::execution_chip::lookup_tables::rvr_index_table::RVRIndexTable;
 use logger::prelude::*;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -50,9 +50,9 @@ pub mod call_lookup_table;
 pub mod call_trace_table;
 pub mod constant_lookup_table;
 pub mod input_type_element_table;
+mod pi_index_table;
 pub mod pi_lookup_table;
 pub mod pow2_fixed_table;
-mod rvr_index_table;
 pub mod rw_table;
 pub mod type_instantiation_table;
 pub mod utils;
@@ -193,7 +193,7 @@ pub struct LookupTableConfig<F: FieldExt> {
     pub type_instantiation_table: TypeInstantiationTable,
     pub input_type_element_table: InputTypeElementTable,
     pub pi_table: PILookupTable,
-    rvr_index_table: RVRIndexTable,
+    pi_index_table: PIIndexTable,
     _marker: PhantomData<F>,
 }
 impl<F: FieldExt> LookupTableConfig<F> {
@@ -209,7 +209,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let type_instantiation_table = TypeInstantiationTable::construct(meta);
         let input_type_element_table = InputTypeElementTable::construct(meta);
         let pi_table = PILookupTable::construct(meta);
-        let rvr_index_table = RVRIndexTable::construct(meta);
+        let pi_index_table = PIIndexTable::construct(meta);
         LookupTableConfig {
             rw_table,
             constant_table,
@@ -222,7 +222,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
             type_instantiation_table,
             input_type_element_table,
             pi_table,
-            rvr_index_table,
+            pi_index_table,
             _marker: PhantomData,
         }
     }
@@ -500,11 +500,11 @@ impl<F: FieldExt> LookupTableConfig<F> {
             execution_chip.witness.type_instantiations.0.clone(),
         )?;
 
-        let rvr_index_table = lookup_table.rvr_index_table.assign_table(layouter)?;
+        let pi_index_table = lookup_table.pi_index_table.assign_table(layouter)?;
         let pi_cells = lookup_table.pi_table.assign_table(
             layouter,
             execution_chip.public_input.clone(),
-            rvr_index_table,
+            pi_index_table,
         )?;
 
         // bitwise table
