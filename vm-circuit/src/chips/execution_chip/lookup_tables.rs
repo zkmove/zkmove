@@ -28,8 +28,8 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::constraint_builder::{mul_exprs, ConditionalLookup};
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
-use halo2_proofs::circuit::Region;
 use halo2_proofs::circuit::Value as CircuitValue;
+use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -37,6 +37,8 @@ use halo2_proofs::{
     poly::Rotation,
 };
 
+use crate::chips::execution_chip::lookup_tables::pi_index_table::PIIndexTable;
+use crate::chips::execution_chip::lookup_tables::pi_lookup_table::{PILookup, PILookupTable};
 use logger::prelude::*;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -48,6 +50,8 @@ pub mod call_lookup_table;
 pub mod call_trace_table;
 pub mod constant_lookup_table;
 pub mod input_type_element_table;
+mod pi_index_table;
+pub mod pi_lookup_table;
 pub mod pow2_fixed_table;
 pub mod rw_table;
 pub mod type_instantiation_table;
@@ -65,6 +69,7 @@ pub enum Lookup<F: FieldExt> {
     CallTrace(CallTraceLookup<F>),
     TypeInstantiation(TypeInstantiationLookup<F>),
     InputTypeArg(InputTypeElementLookup<F>),
+    PI(PILookup<F>),
 }
 
 impl<F: FieldExt> From<BytecodeLookup<F>> for Lookup<F> {
@@ -120,6 +125,11 @@ impl<F: FieldExt> From<InputTypeElementLookup<F>> for Lookup<F> {
         Self::InputTypeArg(l)
     }
 }
+impl<F: FieldExt> From<PILookup<F>> for Lookup<F> {
+    fn from(l: PILookup<F>) -> Self {
+        Self::PI(l)
+    }
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum TableKind {
@@ -133,6 +143,7 @@ pub enum TableKind {
     CallTrace,
     TypeInstantiation,
     InputTypeArg,
+    PI,
 }
 
 impl<F: FieldExt> Lookup<F> {
@@ -148,6 +159,7 @@ impl<F: FieldExt> Lookup<F> {
             Lookup::CallTrace(l) => l.exprs(),
             Lookup::TypeInstantiation(l) => l.exprs(),
             Lookup::InputTypeArg(l) => l.exprs(),
+            Lookup::PI(l) => l.exprs(),
         }
     }
 
@@ -163,6 +175,7 @@ impl<F: FieldExt> Lookup<F> {
             Lookup::CallTrace(_) => TableKind::CallTrace,
             Lookup::TypeInstantiation(_) => TableKind::TypeInstantiation,
             Lookup::InputTypeArg(_) => TableKind::InputTypeArg,
+            Lookup::PI(_) => TableKind::PI,
         }
     }
 }
@@ -179,6 +192,8 @@ pub struct LookupTableConfig<F: FieldExt> {
     pub call_trace_table: CallTraceTable,
     pub type_instantiation_table: TypeInstantiationTable,
     pub input_type_element_table: InputTypeElementTable,
+    pub pi_table: PILookupTable,
+    pi_index_table: PIIndexTable,
     _marker: PhantomData<F>,
 }
 impl<F: FieldExt> LookupTableConfig<F> {
@@ -193,6 +208,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
         let call_trace_table = CallTraceTable::construct(meta);
         let type_instantiation_table = TypeInstantiationTable::construct(meta);
         let input_type_element_table = InputTypeElementTable::construct(meta);
+        let pi_table = PILookupTable::construct(meta);
+        let pi_index_table = PIIndexTable::construct(meta);
         LookupTableConfig {
             rw_table,
             constant_table,
@@ -204,6 +221,8 @@ impl<F: FieldExt> LookupTableConfig<F> {
             call_trace_table,
             type_instantiation_table,
             input_type_element_table,
+            pi_table,
+            pi_index_table,
             _marker: PhantomData,
         }
     }
@@ -266,13 +285,14 @@ impl<F: FieldExt> LookupTableConfig<F> {
             TableKind::InputTypeArg,
             lookup_table.input_type_element_table.columns(),
         );
+        advice_tables.insert(TableKind::PI, lookup_table.pi_table.columns());
 
         for (name, mut lookup) in lookups {
             let mut fixed_table_columns = Vec::new();
             let mut advice_table_columns = Vec::new();
 
             match lookup.as_ref().table() {
-                t @ (TableKind::RW | TableKind::InputTypeArg) => {
+                t @ (TableKind::RW | TableKind::InputTypeArg | TableKind::PI) => {
                     advice_table_columns = advice_tables.get(&t).cloned().unwrap();
                 }
                 t => {
@@ -338,6 +358,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
             Vec<ConvertedRWOperation<F>>,
             Vec<ConvertedRWOperation<F>>,
             Vec<ConvertedRWOperation<F>>,
+            Vec<AssignedCell<F, F>>, // pi cells
         ),
         Error,
     > {
@@ -479,6 +500,13 @@ impl<F: FieldExt> LookupTableConfig<F> {
             execution_chip.witness.type_instantiations.0.clone(),
         )?;
 
+        let pi_index_table = lookup_table.pi_index_table.assign_table(layouter)?;
+        let pi_cells = lookup_table.pi_table.assign_table(
+            layouter,
+            execution_chip.public_input.clone(),
+            pi_index_table,
+        )?;
+
         // bitwise table
         // only 4 bits bitwised every time. so table size is 16*16
         let mut bitwise_values = Vec::new();
@@ -509,7 +537,12 @@ impl<F: FieldExt> LookupTableConfig<F> {
         )?;
         lookup_table.pow2_table.assign_table(layouter)?;
 
-        Ok((stack_operations, locals_operations, global_operations))
+        Ok((
+            stack_operations,
+            locals_operations,
+            global_operations,
+            pi_cells,
+        ))
     }
 
     pub(crate) fn assign_rw_ops(

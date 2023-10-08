@@ -16,7 +16,7 @@ use move_vm_runtime::native_extensions::NativeContextExtensions;
 use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::generic_call_graph::{generate, generate_for_script, GenericCallGraph};
 use movelang::utility::MoveValueType;
-use movelang::value::{ModuleId, TypeTag};
+use movelang::value::{ModuleId, TypeTag, Value};
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -100,7 +100,7 @@ impl<F: FieldExt> Runtime<F> {
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         data_store: &mut StateStore<F>,
-    ) -> VmResult<ExecutionTrace<F>> {
+    ) -> VmResult<(ExecutionTrace<F>, Option<Value<F>>)> {
         // TODO return VMResult<SerializedReturnValues>
         let (
             module,
@@ -152,14 +152,16 @@ impl<F: FieldExt> Runtime<F> {
                 RuntimeError::new(StatusCode::ScriptLoadingError)
             })?;
         trace!("script entry {:?}", entry.name());
-        self.execute_function(
+        let (trace, ret) = self.execute_function(
             entry,
             type_arguments,
             signer,
             args,
             data_store,
             &generic_graph,
-        )
+        )?;
+        assert_eq!(ret, None);
+        Ok(trace)
     }
 
     pub fn execute_function(
@@ -170,7 +172,7 @@ impl<F: FieldExt> Runtime<F> {
         args: Option<ScriptArguments>,
         data_store: &mut StateStore<F>,
         generic_graph: &GenericCallGraph,
-    ) -> VmResult<ExecutionTrace<F>> {
+    ) -> VmResult<(ExecutionTrace<F>, Option<Value<F>>)> {
         let mut interp = Interpreter::<F>::new();
         let arg_types = entry
             .parameter_types()
@@ -184,7 +186,7 @@ impl<F: FieldExt> Runtime<F> {
         let mut exec_steps = Vec::new();
         let mut rw_operations = Vec::new();
         let mut generic_types = Vec::new();
-        interp.execute_function(
+        let ret = interp.execute_function(
             entry,
             type_arguments,
             signer,
@@ -199,11 +201,14 @@ impl<F: FieldExt> Runtime<F> {
             &mut generic_types,
             generic_graph,
         )?;
-        Ok(ExecutionTrace {
-            exec_steps,
-            rw_operations,
-            generic_types,
-        })
+        Ok((
+            ExecutionTrace {
+                exec_steps,
+                rw_operations,
+                generic_types,
+            },
+            ret,
+        ))
     }
 
     pub fn process_execution_trace(

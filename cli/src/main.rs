@@ -169,14 +169,17 @@ impl Arguments {
             circuit_config.clone(),
         )?;
 
-        let vm_circuit = VmCircuit { witness };
+        let vm_circuit = VmCircuit {
+            witness,
+            public_input: None,
+        };
         info!("find the best k...");
-        let k = find_best_k(&vm_circuit, vec![])?;
+        let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]])?;
         info!("k = {}", k);
 
         if use_mock {
             info!("run with mock prover...");
-            mock_prove_circuit(&vm_circuit, vec![], k)?;
+            mock_prove_circuit(&vm_circuit, vec![vec![Fr::zero()]], k)?;
         }
 
         if print_layout {
@@ -190,7 +193,7 @@ impl Arguments {
         let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
-        prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
+        prove_vm_circuit_kzg(vm_circuit, &[&[Fr::zero()]], &params, pk.clone())?;
         #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
@@ -220,9 +223,10 @@ impl Arguments {
             )?;
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
+                public_input: None,
             };
             info!("prove the new execution with old proving key...");
-            prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
+            prove_vm_circuit_kzg(new_vm_circuit, &[&[Fr::zero()]], &params, pk)?;
         }
 
         Ok(())
@@ -286,14 +290,17 @@ impl Arguments {
             trace,
             circuit_config.clone(),
         )?;
-        let vm_circuit = VmCircuit { witness };
+        let vm_circuit = VmCircuit {
+            witness,
+            public_input: None,
+        };
         info!("find the best k...");
-        let k = find_best_k(&vm_circuit, vec![])?;
+        let k = find_best_k(&vm_circuit, vec![vec![Fp::zero()]])?;
         info!("k = {}", k);
 
         if use_mock {
             info!("run with mock prover...");
-            mock_prove_circuit(&vm_circuit, vec![], k)?;
+            mock_prove_circuit(&vm_circuit, vec![vec![Fp::zero()]], k)?;
         }
 
         if print_layout {
@@ -306,7 +313,7 @@ impl Arguments {
         let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
 
         info!("prove vm circuit...");
-        prove_vm_circuit_ipa(vm_circuit, &[], &params, pk.clone())?;
+        prove_vm_circuit_ipa(vm_circuit, &[&[Fp::zero()]], &params, pk.clone())?;
         #[allow(clippy::or_fun_call)]
         if let Some(new_args) = new_args
             .as_ref()
@@ -337,9 +344,10 @@ impl Arguments {
             )?;
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
+                public_input: None,
             };
             info!("prove the new execution with old proving key...");
-            prove_vm_circuit_ipa(new_vm_circuit, &[], &params, pk)?;
+            prove_vm_circuit_ipa(new_vm_circuit, &[&[Fp::zero()]], &params, pk)?;
         }
 
         Ok(())

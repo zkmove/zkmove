@@ -66,8 +66,8 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value};
-use halo2_proofs::plonk::Constraints;
+use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value as CircuitValue};
+use halo2_proofs::plonk::{Constraints, Instance};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -76,7 +76,7 @@ use halo2_proofs::{
 };
 use logger::{error, trace};
 use movelang::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
+    Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use std::collections::HashMap;
 
@@ -180,11 +180,14 @@ pub struct ExecutionChipConfig<F: FieldExt> {
 
     // lookup table
     lookup_table: LookupTableConfig<F>,
+    // instance column to store public input
+    instance: Column<Instance>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ExecutionChip<F: FieldExt> {
     pub(crate) witness: Witness<F>,
+    pub(crate) public_input: Option<Value<F>>,
     pub(crate) config: ExecutionChipConfig<F>,
 }
 
@@ -204,10 +207,15 @@ impl<F: FieldExt> Chip<F> for ExecutionChip<F> {
 impl<F: FieldExt> ExecutionChip<F> {
     pub fn construct(
         witness: Witness<F>,
+        public_input: Option<Value<F>>,
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
     ) -> Self {
-        Self { witness, config }
+        Self {
+            witness,
+            public_input,
+            config,
+        }
     }
 
     pub fn configure(meta: &mut ConstraintSystem<F>) -> <Self as Chip<F>>::Config {
@@ -302,6 +310,9 @@ impl<F: FieldExt> ExecutionChip<F> {
             };
         }
 
+        let instance = meta.instance_column();
+        meta.enable_equality(instance);
+
         ExecutionChipConfig {
             s_usable,
             s_step_first,
@@ -390,6 +401,7 @@ impl<F: FieldExt> ExecutionChip<F> {
             step: step_curr,
             height_map,
             lookup_table: LookupTableConfig::configure(meta, lookups, s_usable, s_step),
+            instance,
         }
     }
 
@@ -590,22 +602,27 @@ impl<F: FieldExt> ExecutionChip<F> {
                 region.assign_advice(
                     || "step height",
                     self.config.num_rows_until_next_step,
-                    offset + 1,
-                    || Value::known(F::zero()),
+                    offset + self.step_height_get(&Opcode::Stop),
+                    || CircuitValue::known(F::zero()),
                 )?;
                 region.assign_advice(
                     || "step height inv",
                     self.config.num_rows_inv,
-                    offset + 1,
-                    || Value::known(F::zero()),
+                    offset + self.step_height_get(&Opcode::Stop),
+                    || CircuitValue::known(F::zero()),
                 )?;
 
                 Ok(last_step_gc_cell)
             },
         )?;
 
-        let (stack_operations, locals_operations, global_operations) =
+        let (stack_operations, locals_operations, global_operations, pi_cells) =
             LookupTableConfig::assign(layouter, self)?;
+
+        // expose public
+        for (i, cell) in pi_cells.iter().enumerate() {
+            layouter.constrain_instance(cell.cell(), self.config.instance, i)?;
+        }
 
         Ok((
             last_step_gc_cell,
@@ -634,7 +651,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step selector",
                 self.config.s_step,
                 offset + idx,
-                || Value::known(if idx == 0 { F::one() } else { F::zero() }),
+                || CircuitValue::known(if idx == 0 { F::one() } else { F::zero() }),
             )?;
             let num_rows_until_next_step = if idx == 0 {
                 F::zero()
@@ -645,13 +662,13 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step height",
                 self.config.num_rows_until_next_step,
                 offset + idx,
-                || Value::known(num_rows_until_next_step),
+                || CircuitValue::known(num_rows_until_next_step),
             )?;
             region.assign_advice(
                 || "step height inv",
                 self.config.num_rows_inv,
                 offset + idx,
-                || Value::known(num_rows_until_next_step.invert().unwrap_or(F::zero())),
+                || CircuitValue::known(num_rows_until_next_step.invert().unwrap_or(F::zero())),
             )?;
         }
         Ok(())

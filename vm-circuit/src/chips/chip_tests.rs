@@ -106,7 +106,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         gc: 18,
         module_index: 0,
         function_index: 0,
-        auxiliary_1: None,
+        auxiliary_1: Some(Value::u64(0)),
         auxiliary_2: None,
         auxiliary_3: None,
         auxiliary_4: None,
@@ -341,9 +341,12 @@ fn test_fake_rw_operation() -> VmResult<()> {
         Default::default(),
         circuit_config,
     );
-    let vm_circuit = VmCircuit { witness };
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: None,
+    };
     let k = 10;
-    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![]).map_err(|e| {
+    let prover = MockProver::<Fp>::run(k, &vm_circuit, vec![vec![Fp::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;

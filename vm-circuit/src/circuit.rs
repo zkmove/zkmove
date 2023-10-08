@@ -8,6 +8,7 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use logger::prelude::*;
+use movelang::value::Value;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: FieldExt> {
@@ -18,6 +19,7 @@ pub struct VmCircuitConfig<F: FieldExt> {
 #[derive(Clone, Default)]
 pub struct VmCircuit<F: FieldExt> {
     pub witness: Witness<F>,
+    pub public_input: Option<Value<F>>,
 }
 
 impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
@@ -40,8 +42,12 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let execution_chip =
-            ExecutionChip::<F>::construct(self.witness.clone(), config.execution_chip_config, ());
+        let execution_chip = ExecutionChip::<F>::construct(
+            self.witness.clone(),
+            self.public_input.clone(),
+            config.execution_chip_config,
+            (),
+        );
         let (last_step_gc_cell_opt, stack_operations, locals_operations, global_operations) =
             execution_chip.assign(&mut layouter)?;
 

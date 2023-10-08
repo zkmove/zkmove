@@ -62,6 +62,18 @@ impl<F: FieldExt> FlattenedValue<F> {
         }
         None
     }
+
+    // flatten addr_ext and simples into one vector
+    // vec[i*2] = addr_ext[i], vec[i*2+1] = simple[i]
+    pub fn field_values(&self) -> Vec<F> {
+        self.0
+            .iter()
+            .flat_map(|(addr_ext, simple)| {
+                let addr_path: AddressPath<F> = AddressPath::from(addr_ext.clone());
+                vec![F::from_u128(addr_path.fold()), simple.value().unwrap()]
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -13,6 +13,7 @@ use vm_circuit::circuit::VmCircuit;
 use vm_circuit::witness::CircuitConfig;
 
 use rand::{rngs::StdRng, SeedableRng};
+use vm_circuit::chips::execution_chip::lookup_tables::pi_lookup_table::PIFieldValues;
 use vm_circuit::{find_best_k, mock_prove_circuit, prove_vm_circuit_kzg, setup_vm_circuit};
 
 pub const TEST_MODULE_PATH: &str = "tests/modules";
@@ -52,7 +53,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         .global_ops_num(config.global_ops_num)
         .word_size(config.word_capacity);
 
-    let witness = match compiled_script.clone() {
+    let (witness, ret) = match compiled_script.clone() {
         Some(script) => {
             let trace = runtime.execute_script(
                 script.clone(),
@@ -61,14 +62,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                 config.args,
                 &mut state,
             )?;
-            runtime.process_execution_trace(
+            let witness = runtime.process_execution_trace(
                 config.ty_args.clone(),
                 Some(script),
                 None,
                 compiled_modules.clone(),
                 trace,
                 circuit_config.clone(),
-            )?
+            )?;
+            (witness, None)
         }
         None => {
             if let Some(function_name) = config.entry_fun_name.clone() {
@@ -76,7 +78,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                     .module_id
                     .clone()
                     .expect("module_id should not be None.");
-                let trace = runtime.execute_entry_function(
+                let (trace, ret) = runtime.execute_entry_function(
                     &module_id,
                     &function_name,
                     config.ty_args.clone(),
@@ -84,14 +86,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                     config.args,
                     &mut state,
                 )?;
-                runtime.process_execution_trace(
+                let witness = runtime.process_execution_trace(
                     config.ty_args.clone(),
                     None,
                     Some((&module_id, &function_name)),
                     compiled_modules.clone(),
                     trace,
                     circuit_config.clone(),
-                )?
+                )?;
+                (witness, ret)
             } else {
                 return Ok(());
             }
@@ -100,11 +103,19 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     debug!("{:?}", witness);
 
-    let vm_circuit = VmCircuit { witness };
-    let k = find_best_k(&vm_circuit, vec![])?;
+    let instance = match &ret {
+        Some(v) => PIFieldValues::from(v).0,
+        None => vec![Fr::zero()],
+    };
+    debug!("Instance: {:?}", instance);
+    let vm_circuit = VmCircuit {
+        witness,
+        public_input: ret,
+    };
+    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]])?;
     info!("use vm circuit, k = {}", k);
 
-    mock_prove_circuit(&vm_circuit, vec![], k)?;
+    mock_prove_circuit(&vm_circuit, vec![instance.clone()], k)?;
 
     debug!("Generate parameters for execution trace");
     let rng = StdRng::from_entropy();
@@ -112,7 +123,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let (_, pk) = setup_vm_circuit(&vm_circuit, &params)?;
 
     debug!("Generate zk proof for execution trace");
-    prove_vm_circuit_kzg(vm_circuit, &[], &params, pk.clone())?;
+    prove_vm_circuit_kzg(vm_circuit, &[&instance], &params, pk.clone())?;
     if let Some(new_args) = config.new_args.as_ref() {
         info!("execute with new arguments");
         let new_ty_args = if config.new_ty_args.is_empty() {
@@ -120,7 +131,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         } else {
             config.new_ty_args
         };
-        let new_witness = match compiled_script {
+        let (new_witness, new_ret) = match compiled_script {
             Some(script) => {
                 let trace = runtime.execute_script(
                     script.clone(),
@@ -129,14 +140,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                     Some(new_args.clone()),
                     &mut state,
                 )?;
-                runtime.process_execution_trace(
+                let witness = runtime.process_execution_trace(
                     new_ty_args,
                     Some(script),
                     None,
                     compiled_modules,
                     trace,
                     circuit_config,
-                )?
+                )?;
+                (witness, None)
             }
             None => {
                 if let Some(function_name) = config.entry_fun_name.clone() {
@@ -144,7 +156,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                         .module_id
                         .clone()
                         .expect("module_id should not be None.");
-                    let trace = runtime.execute_entry_function(
+                    let (trace, ret) = runtime.execute_entry_function(
                         &module_id,
                         &function_name,
                         new_ty_args.clone(),
@@ -152,24 +164,30 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                         Some(new_args.clone()),
                         &mut state,
                     )?;
-                    runtime.process_execution_trace(
+                    let witness = runtime.process_execution_trace(
                         new_ty_args,
                         None,
                         Some((&module_id, &function_name)),
                         compiled_modules,
                         trace,
                         circuit_config,
-                    )?
+                    )?;
+                    (witness, ret)
                 } else {
                     return Ok(());
                 }
             }
         };
+        let instance = match &new_ret {
+            Some(v) => PIFieldValues::from(v).0,
+            None => vec![Fr::zero()],
+        };
         let new_vm_circuit = VmCircuit {
             witness: new_witness,
+            public_input: new_ret,
         };
         info!("prove the new execution with old proving key...");
-        prove_vm_circuit_kzg(new_vm_circuit, &[], &params, pk)?;
+        prove_vm_circuit_kzg(new_vm_circuit, &[&instance], &params, pk)?;
     }
 
     Ok(())
