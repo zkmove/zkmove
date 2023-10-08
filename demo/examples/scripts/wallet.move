@@ -1,5 +1,5 @@
 //! mods: wallet.move
-//!word_capacity: 20
+//!word_capacity: 25
 script {
     use 0x1::Wallet;
     fun main() {
