@@ -24,8 +24,8 @@ use rand::SeedableRng;
 use std::fmt::Debug;
 
 // number of circuit rows cannot exceed 2^MAX_K
-pub const MAX_K: u32 = 18;
-pub const MIN_K: u32 = 1;
+pub const MAX_K: u32 = 28;
+pub const MIN_K: u32 = 23;
 
 /// find the minimum k that satisfies the circuit row number less than 2^k
 pub fn find_best_k<F: FieldExt, ConcreteCircuit: Circuit<F>>(

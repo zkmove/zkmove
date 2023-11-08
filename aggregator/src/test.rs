@@ -144,6 +144,10 @@ fn gen_proof<
     circuit: C,
     instances: Vec<Vec<Fr>>,
 ) -> Vec<u8> {
+    info!("find best k");
+    let k = vm_circuit::find_best_k(&circuit, instances.clone()).unwrap();
+    info!("k = {}", k);
+
     MockProver::run(params.k(), &circuit, instances.clone())
         .unwrap()
         .assert_satisfied();
@@ -211,6 +215,8 @@ fn gen_application_snark(params: &ParamsKZG<Bn256>) -> aggregation::Snark {
 
 #[test]
 fn test_aggregation() -> VmResult<()> {
+    logger::init_for_test();
+    info!("start...");
     let params = gen_srs(23);
     let params_app = {
         let mut params = params.clone();
