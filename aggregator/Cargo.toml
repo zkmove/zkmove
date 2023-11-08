@@ -1,0 +1,20 @@
+[package]
+name = "aggregator"
+version = "0.3.0"
+edition = "2018"
+
+[dependencies]
+logger = { path = "../common/logger" }
+error = { path = "../common/error" }
+vm = { path = "../vm" }
+itertools = "0.10.3"
+rand = "0.8"
+movelang = { path = "../movelang"}
+vm-circuit = { path = "../vm-circuit" }
+move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
+
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_02_02" }
+halo2_ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong", tag = "v2023_02_02", package = "ecc" }
+snark_verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier", package = "snark-verifier", tag = "v2023_02_02" }
+
+[dev-dependencies]

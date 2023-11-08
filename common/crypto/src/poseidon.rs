@@ -11,7 +11,7 @@ pub struct SmtP128Pow5T3<F: FieldExt, const SECURE_MDS: usize>(PhantomData<F>);
 
 impl<F: FieldExt, const SECURE_MDS: usize> SmtP128Pow5T3<F, SECURE_MDS> {
     pub fn new() -> Self {
-        SmtP128Pow5T3(PhantomData::default())
+        SmtP128Pow5T3(PhantomData)
     }
 }
 
@@ -44,7 +44,7 @@ pub struct Poseidon<F: FieldExt, const L: usize>(PhantomData<F>);
 
 impl<F: FieldExt, const L: usize> Poseidon<F, L> {
     pub fn new() -> Self {
-        Poseidon(PhantomData::default())
+        Poseidon(PhantomData)
     }
 }
 

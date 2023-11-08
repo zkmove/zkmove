@@ -220,6 +220,7 @@ impl<F: FieldExt> DeltaInvert<F> for F {
 
 // a special table with solo column and the value same as index.
 // which is to garantuee value is among [0, max].
+#[allow(clippy::manual_try_fold)]
 pub(crate) fn assign_index_table<F: FieldExt>(
     layouter: &mut impl Layouter<F>,
     table_name: &str,

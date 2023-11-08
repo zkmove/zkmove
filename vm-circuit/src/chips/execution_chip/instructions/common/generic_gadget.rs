@@ -189,7 +189,7 @@ impl<F: FieldExt> GenericTypeGadget<F> {
             lookup_calltrace,
         );
 
-        for (_i, cells) in self.type_cells.iter().enumerate() {
+        for cells in self.type_cells.iter() {
             let inst_ty_pos = &cells.inst_ty_pos;
             let inst_ty_pos_max = &cells.inst_ty_pos_max;
             let inst_ty_pos_max_inverse = &cells.inst_ty_pos_max_inverse;

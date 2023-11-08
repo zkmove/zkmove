@@ -108,6 +108,7 @@ impl<F: FieldExt> MemoryChip<F> {
         }
     }
 
+    #[allow(clippy::manual_try_fold)]
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,

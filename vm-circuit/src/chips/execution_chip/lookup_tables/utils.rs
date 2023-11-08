@@ -2,6 +2,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Error, TableColumn};
 
+#[allow(clippy::manual_try_fold)]
 pub(crate) fn assign_table<F: FieldExt>(
     layouter: &mut impl Layouter<F>,
     table_columns: Vec<TableColumn>,

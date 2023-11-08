@@ -523,6 +523,7 @@ impl<F: FieldExt> StackOpChip<F> {
 
     // a special table with solo column and the value same as index.
     // which is to garantuee value is among [0, max].
+    #[allow(clippy::manual_try_fold)]
     fn assign_index_table(
         &self,
         layouter: &mut impl Layouter<F>,

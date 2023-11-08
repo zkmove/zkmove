@@ -545,6 +545,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
         ))
     }
 
+    #[allow(clippy::manual_try_fold)]
     pub(crate) fn assign_rw_ops(
         region: &mut Region<'_, F>,
         column_idx: usize,
