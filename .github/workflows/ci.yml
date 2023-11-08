@@ -30,7 +30,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: test_aggregation --release --all -- --test-threads 6
+          args: test_aggregation --release --all -- --test-threads 6 RUST_BACKTRACE=full RUST_LOG=trace
       - name: Check Benchmarks
         uses: actions-rs/cargo@v1
         with:
