@@ -1,6 +1,5 @@
 use crate::interpreter::Interpreter;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::halo2curves::FieldExt;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::identifier::Identifier;
 use move_vm_runtime::loader::Resolver;
@@ -10,6 +9,7 @@ use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::value::Value;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+use types::Field;
 
 pub type UnboxedNativeFunction<F> = dyn Fn(&mut NativeContext<F>, Vec<Type>, VecDeque<Value<F>>) -> VmResult<Value<F>>
     + Send
@@ -20,11 +20,11 @@ pub type NativeFunction<F> = Arc<UnboxedNativeFunction<F>>;
 
 pub type NativeFunctionTable<F> = Vec<(AccountAddress, Identifier, Identifier, NativeFunction<F>)>;
 
-pub struct NativeFunctions<F: FieldExt>(
+pub struct NativeFunctions<F: Field>(
     HashMap<AccountAddress, HashMap<String, HashMap<String, NativeFunction<F>>>>,
 );
 
-impl<F: FieldExt> NativeFunctions<F> {
+impl<F: Field> NativeFunctions<F> {
     pub fn resolve(
         &self,
         addr: &AccountAddress,
@@ -56,14 +56,14 @@ impl<F: FieldExt> NativeFunctions<F> {
 }
 
 #[allow(dead_code)]
-pub struct NativeContext<'a, 'b, F: FieldExt> {
+pub struct NativeContext<'a, 'b, F: Field> {
     interpreter: &'a mut Interpreter<F>,
     data_store: &'a mut dyn DataStore,
     resolver: &'a Resolver<'a>,
     extensions: &'a mut NativeContextExtensions<'b>,
 }
 
-impl<'a, 'b, F: FieldExt> NativeContext<'a, 'b, F> {
+impl<'a, 'b, F: Field> NativeContext<'a, 'b, F> {
     pub(crate) fn new(
         interpreter: &'a mut Interpreter<F>,
         data_store: &'a mut dyn DataStore,

@@ -2,9 +2,9 @@ use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraint
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::pow_of_two;
 use crate::chips::utilities::{from_bytes, Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use types::Field;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`
@@ -23,7 +23,7 @@ pub struct LtGadget<F, const N_BYTES: usize> {
     range: F, // The range of the inputs, `256**N_BYTES`
 }
 
-impl<F: FieldExt, const N_BYTES: usize> LtGadget<F, N_BYTES> {
+impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
     pub(crate) fn construct(
         cb: &mut ConstraintBuilder<F>,
         lhs: Expression<F>,
@@ -62,17 +62,17 @@ impl<F: FieldExt, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         // Set `lt`
         let lt = lhs < rhs;
         self.lt
-            .assign(region, offset, Some(if lt { F::one() } else { F::zero() }))?;
+            .assign(region, offset, Some(if lt { F::ONE } else { F::ZERO }))?;
 
         // Set the bytes of diff
-        let diff = (lhs - rhs) + (if lt { self.range } else { F::zero() });
+        let diff = (lhs - rhs) + (if lt { self.range } else { F::ZERO });
         let binding = diff.to_repr();
         let diff_bytes = binding.as_ref();
         for (idx, diff) in self.diff.iter().enumerate() {
             diff.assign(region, offset, Some(F::from(diff_bytes[idx] as u64)))?;
         }
 
-        Ok((if lt { F::one() } else { F::zero() }, diff_bytes.to_vec()))
+        Ok((if lt { F::ONE } else { F::ZERO }, diff_bytes.to_vec()))
     }
 
     #[allow(dead_code)]

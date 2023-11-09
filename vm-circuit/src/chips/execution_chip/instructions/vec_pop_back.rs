@@ -10,15 +10,15 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::DEPTH_OF_LOCATION_PATH;
 use movelang::value_ext::ValueHeader;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct VecPopBack<F: FieldExt> {
+pub struct VecPopBack<F: Field> {
     headers_count: Cell<F>,
     value_index: Cell<F>,
     offset_pow2: Cell<F>,
@@ -46,7 +46,7 @@ pub struct VecPopBack<F: FieldExt> {
     new_headers_value: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
+impl<F: Field> InstructionGadget<F> for VecPopBack<F> {
     const NAME: &'static str = "VEC_POP_BACK";
 
     const OPCODE: Opcode = Opcode::VecPopBack;
@@ -340,7 +340,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecPopBack<F> {
 
         let index = step.gc + LEN_OF_REFERENCE_VALUE;
         let op = rw_operations.0.get(index).ok_or(Error::Synthesis)?;
-        if is_global == F::zero() {
+        if is_global == F::ZERO {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,

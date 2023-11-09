@@ -5,9 +5,9 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 pub mod _mod;
 pub mod abort;
 pub mod add;
@@ -62,7 +62,7 @@ pub mod vec_swap;
 pub mod vec_unpack;
 pub mod write_ref;
 pub mod xor;
-pub(crate) trait InstructionGadget<F: FieldExt> {
+pub(crate) trait InstructionGadget<F: Field> {
     const NAME: &'static str;
 
     const OPCODE: Opcode;

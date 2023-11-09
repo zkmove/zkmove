@@ -12,10 +12,11 @@ crypto = { path = "../common/crypto" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang"}
+types = { path = "../common/types" }
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
-halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
 itertools = "0.8"
 petgraph = "0.6"
 plotters = { version = "0.3.0" }

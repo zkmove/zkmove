@@ -2,14 +2,14 @@ use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraint
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::{pow_of_two_expr, split_u256, split_u256_limb64};
 use crate::chips::utilities::{from_bytes, Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use move_core_types::u256::U256;
+use types::Field;
 
 pub const MAX_RADIX_BYTES: usize = 9;
 
-pub struct MulAddWordsOp<F: FieldExt> {
+pub struct MulAddWordsOp<F: Field> {
     pub a_hi: Expression<F>,
     pub a_lo: Expression<F>,
     pub b_hi: Expression<F>,
@@ -66,11 +66,11 @@ pub(crate) struct MulAddWordsGadget<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct DoubleField<F: FieldExt>(pub(crate) [Cell<F>; 2]);
+pub struct DoubleField<F: Field>(pub(crate) [Cell<F>; 2]);
 #[derive(Clone, Debug)]
-pub struct QuadField<F: FieldExt>(pub(crate) [Cell<F>; 4]);
+pub struct QuadField<F: Field>(pub(crate) [Cell<F>; 4]);
 
-impl<F: FieldExt> MulAddWordsGadget<F> {
+impl<F: Field> MulAddWordsGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         let a_limbs = cb.alloc_n_cells(4);
         let b_limbs = cb.alloc_n_cells(4);

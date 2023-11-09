@@ -1,8 +1,9 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::function_calls::FunctionCall;
 use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Error, Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct CallLookupTable {
@@ -18,7 +19,7 @@ pub struct CallLookupTable {
 pub const CALL_LOOKUP_TABLE_WIDTH: usize = 7;
 
 impl CallLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         CallLookupTable {
             type_column: meta.lookup_table_column(),
             module_index_column: meta.lookup_table_column(),
@@ -42,7 +43,7 @@ impl CallLookupTable {
         ]
     }
 
-    pub fn assign_table<F: FieldExt>(
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         calls: Vec<FunctionCall>,
@@ -66,7 +67,7 @@ impl CallLookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct CallLookup<F: FieldExt> {
+pub struct CallLookup<F: Field> {
     pub type_: Expression<F>,
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,
@@ -76,7 +77,7 @@ pub struct CallLookup<F: FieldExt> {
     pub next_pc: Expression<F>,
 }
 
-impl<F: FieldExt> CallLookup<F> {
+impl<F: Field> CallLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.type_.clone(),

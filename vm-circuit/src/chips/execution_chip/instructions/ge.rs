@@ -11,17 +11,17 @@ use crate::chips::math_gadget::lt::LtGadget;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::utility::convert_u256_to_field;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+use types::Field;
 
 use super::common::get_u256_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct Ge<F: FieldExt> {
+pub struct Ge<F: Field> {
     value_a: WordCells<F>,
     value_b: WordCells<F>,
     value_c: WordCells<F>,
@@ -29,7 +29,7 @@ pub struct Ge<F: FieldExt> {
     lt_lo: LtGadget<F, 16>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Ge<F> {
+impl<F: Field> InstructionGadget<F> for Ge<F> {
     const NAME: &'static str = "GE";
 
     const OPCODE: Opcode = Opcode::Ge;

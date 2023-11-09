@@ -1,12 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
 use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
 use halo2_proofs::poly::Rotation;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Cell<F> {
@@ -14,18 +14,18 @@ pub struct Cell<F> {
     pub column: Column<Advice>,
     pub rotation: Rotation,
 }
-impl<F: FieldExt> Expr<F> for Cell<F> {
+impl<F: Field> Expr<F> for Cell<F> {
     fn expr(&self) -> Expression<F> {
         self.expression.clone()
     }
 }
 
-impl<F: FieldExt> Expr<F> for &Cell<F> {
+impl<F: Field> Expr<F> for &Cell<F> {
     fn expr(&self) -> Expression<F> {
         self.expression.clone()
     }
 }
-impl<F: FieldExt> Cell<F> {
+impl<F: Field> Cell<F> {
     pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: i32) -> Self {
         Cell {
             expression: meta.query_advice(column, Rotation(rotation)),
@@ -67,46 +67,46 @@ impl<F: FieldExt> Cell<F> {
     }
 }
 
-pub(crate) trait Expr<F: FieldExt> {
+pub(crate) trait Expr<F: Field> {
     fn expr(&self) -> Expression<F>;
 }
-impl<F: FieldExt> Expr<F> for Expression<F> {
+impl<F: Field> Expr<F> for Expression<F> {
     #[inline]
     fn expr(&self) -> Expression<F> {
         self.clone()
     }
 }
 
-impl<F: FieldExt> Expr<F> for &Expression<F> {
+impl<F: Field> Expr<F> for &Expression<F> {
     #[inline]
     fn expr(&self) -> Expression<F> {
         (*self).clone()
     }
 }
 
-// impl<F: FieldExt> Expr<F> for i32 {
+// impl<F: Field> Expr<F> for i32 {
 //     fn expr(&self) -> Expression<F> {
 //         Expression::Constant(F::from(*self as u64))
 //     }
 // }
 
-impl<F: FieldExt> Expr<F> for usize {
+impl<F: Field> Expr<F> for usize {
     fn expr(&self) -> Expression<F> {
         Expression::Constant(F::from(*self as u64))
     }
 }
 
-impl<F: FieldExt> Expr<F> for u64 {
+impl<F: Field> Expr<F> for u64 {
     fn expr(&self) -> Expression<F> {
         Expression::Constant(F::from(*self))
     }
 }
 
-// The internal representation of FieldExt is four 64-bits unsigned integer in little-endian order,
+// The internal representation of Field is four 64-bits unsigned integer in little-endian order,
 // This struct has 16 Cells, to hold the 16 bytes of the lower two u64.
-pub struct FieldBytes<F: FieldExt>(pub(crate) [Cell<F>; 16]);
+pub struct FieldBytes<F: Field>(pub(crate) [Cell<F>; 16]);
 
-impl<F: FieldExt> From<Vec<Cell<F>>> for FieldBytes<F> {
+impl<F: Field> From<Vec<Cell<F>>> for FieldBytes<F> {
     fn from(bytes: Vec<Cell<F>>) -> FieldBytes<F> {
         let bytes: [Cell<F>; 16] = bytes.try_into().unwrap_or_else(|v: Vec<Cell<F>>| {
             panic!(
@@ -119,10 +119,10 @@ impl<F: FieldExt> From<Vec<Cell<F>>> for FieldBytes<F> {
     }
 }
 
-impl<F: FieldExt> Expr<F> for FieldBytes<F> {
+impl<F: Field> Expr<F> for FieldBytes<F> {
     fn expr(&self) -> Expression<F> {
         let mut value = 0u64.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter() {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(256);
@@ -131,10 +131,10 @@ impl<F: FieldExt> Expr<F> for FieldBytes<F> {
     }
 }
 
-impl<F: FieldExt> FieldBytes<F> {
+impl<F: Field> FieldBytes<F> {
     pub fn expr_with_n(&self, num: usize) -> Expression<F> {
         let mut value = 0u64.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(256);
@@ -144,7 +144,7 @@ impl<F: FieldExt> FieldBytes<F> {
 
     pub fn expr_16bit(&self, num: usize) -> Expression<F> {
         let mut value = 0u64.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in self.0.iter().take(num) {
             value = value + byte.expression.clone() * multiplier;
             multiplier *= F::from(1 << 16);
@@ -157,15 +157,16 @@ impl<F: FieldExt> FieldBytes<F> {
 pub(crate) mod from_bytes {
     use super::Expr;
     use crate::chips::execution_chip::param::MAX_N_BYTES_INTEGER;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+    pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
         debug_assert!(
             bytes.len() <= MAX_N_BYTES_INTEGER,
             "Too many bytes to compose an integer in field"
         );
         let mut value = 0u64.expr();
-        let mut multiplier = F::one();
+        let mut multiplier = F::ONE;
         for byte in bytes.iter() {
             value = value + byte.expr() * multiplier;
             multiplier *= F::from(256);
@@ -174,13 +175,13 @@ pub(crate) mod from_bytes {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn value<F: FieldExt>(bytes: &[u8]) -> F {
+    pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
         debug_assert!(
             bytes.len() <= MAX_N_BYTES_INTEGER,
             "Too many bytes to compose an integer in field"
         );
-        let mut value = F::zero();
-        let mut multiplier = F::one();
+        let mut value = F::ZERO;
+        let mut multiplier = F::ONE;
         for byte in bytes.iter() {
             value += F::from(*byte as u64) * multiplier;
             multiplier *= F::from(256);
@@ -189,14 +190,14 @@ pub(crate) mod from_bytes {
     }
 }
 
-pub(crate) trait SubInvert<F: FieldExt> {
+pub(crate) trait SubInvert<F: Field> {
     fn sub_invert(&self, other: usize) -> Option<F>;
 }
 
-impl<F: FieldExt> SubInvert<F> for usize {
+impl<F: Field> SubInvert<F> for usize {
     fn sub_invert(&self, other: usize) -> Option<F> {
         if *self == other {
-            Some(F::one())
+            Some(F::ONE)
         } else {
             let delta = F::from_u128(*self as u128) - F::from_u128(other as u128);
             delta.invert().into()
@@ -204,13 +205,13 @@ impl<F: FieldExt> SubInvert<F> for usize {
     }
 }
 
-pub(crate) trait DeltaInvert<F: FieldExt> {
+pub(crate) trait DeltaInvert<F: Field> {
     fn delta_invert(&self, other: F) -> Option<F>;
 }
-impl<F: FieldExt> DeltaInvert<F> for F {
+impl<F: Field> DeltaInvert<F> for F {
     fn delta_invert(&self, other: F) -> Option<F> {
         if *self == other {
-            Some(F::one())
+            Some(F::ONE)
         } else {
             let delta = *self - other;
             delta.invert().into()
@@ -220,7 +221,7 @@ impl<F: FieldExt> DeltaInvert<F> for F {
 
 // a special table with solo column and the value same as index.
 // which is to garantuee value is among [0, max].
-pub(crate) fn assign_index_table<F: FieldExt>(
+pub(crate) fn assign_index_table<F: Field>(
     layouter: &mut impl Layouter<F>,
     table_name: &str,
     column: TableColumn,
@@ -247,11 +248,12 @@ pub(crate) fn assign_index_table<F: FieldExt>(
 /// Returns the sum of the passed in cells
 pub mod sum {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns an expression for the sum of the list of expressions.
     #[allow(dead_code)]
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>, I: IntoIterator<Item = E>>(
+    pub(crate) fn expr<F: Field, E: Expr<F>, I: IntoIterator<Item = E>>(
         inputs: I,
     ) -> Expression<F> {
         inputs
@@ -260,10 +262,10 @@ pub mod sum {
     }
 
     /// Returns the sum of the given list of values within the field.
-    pub fn value<F: FieldExt>(values: &[u8]) -> F {
+    pub fn value<F: Field>(values: &[u8]) -> F {
         values
             .iter()
-            .fold(F::zero(), |acc, value| acc + F::from(*value as u64))
+            .fold(F::ZERO, |acc, value| acc + F::from(*value as u64))
     }
 }
 
@@ -271,12 +273,13 @@ pub mod sum {
 /// otherwise. Inputs need to be boolean
 pub mod and {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns an expression that evaluates to 1 only if all the expressions in
     /// the given list are 1, else returns 0.
     #[allow(dead_code)]
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>, I: IntoIterator<Item = E>>(
+    pub(crate) fn expr<F: Field, E: Expr<F>, I: IntoIterator<Item = E>>(
         inputs: I,
     ) -> Expression<F> {
         inputs
@@ -285,8 +288,8 @@ pub mod and {
     }
 
     /// Returns the product of all given values.
-    pub fn value<F: FieldExt>(inputs: Vec<F>) -> F {
-        inputs.iter().fold(F::one(), |acc, input| acc * input)
+    pub fn value<F: Field>(inputs: Vec<F>) -> F {
+        inputs.iter().fold(F::ONE, |acc, input| acc * input)
     }
 }
 
@@ -295,19 +298,20 @@ pub mod and {
 pub mod or {
     use super::{and, not};
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns an expression that evaluates to 1 if any expression in the given
     /// list is 1. Returns 0 if all the expressions were 0.
     #[allow(dead_code)]
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>, I: IntoIterator<Item = E>>(
+    pub(crate) fn expr<F: Field, E: Expr<F>, I: IntoIterator<Item = E>>(
         inputs: I,
     ) -> Expression<F> {
         not::expr(and::expr(inputs.into_iter().map(not::expr)))
     }
 
     /// Returns the value after passing all given values through the OR gate.
-    pub fn value<F: FieldExt>(inputs: Vec<F>) -> F {
+    pub fn value<F: Field>(inputs: Vec<F>) -> F {
         not::value(and::value(inputs.into_iter().map(not::value).collect()))
     }
 }
@@ -316,16 +320,17 @@ pub mod or {
 /// `b` needs to be boolean
 pub mod not {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns an expression that represents the NOT of the given expression.
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>>(b: E) -> Expression<F> {
+    pub(crate) fn expr<F: Field, E: Expr<F>>(b: E) -> Expression<F> {
         1u64.expr() - b.expr()
     }
 
     /// Returns a value that represents the NOT of the given value.
-    pub fn value<F: FieldExt>(b: F) -> F {
-        F::one() - b
+    pub fn value<F: Field>(b: F) -> F {
+        F::ONE - b
     }
 }
 
@@ -333,16 +338,17 @@ pub mod not {
 /// `a` and `b` needs to be boolean
 pub mod xor {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns an expression that represents the XOR of the given expression.
     #[allow(dead_code)]
-    pub(crate) fn expr<F: FieldExt, E: Expr<F>>(a: E, b: E) -> Expression<F> {
+    pub(crate) fn expr<F: Field, E: Expr<F>>(a: E, b: E) -> Expression<F> {
         a.expr() + b.expr() - 2u64.expr() * a.expr() * b.expr()
     }
 
     /// Returns a value that represents the XOR of the given value.
-    pub fn value<F: FieldExt>(a: F, b: F) -> F {
+    pub fn value<F: Field>(a: F, b: F) -> F {
         a + b - F::from(2u64) * a * b
     }
 }
@@ -351,11 +357,12 @@ pub mod xor {
 /// `selector == 0`. `selector` needs to be boolean.
 pub mod select {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
 
     /// Returns the `when_true` expression when the selector is true, else
     /// returns the `when_false` expression.
-    pub fn expr<F: FieldExt>(
+    pub fn expr<F: Field>(
         selector: Expression<F>,
         when_true: Expression<F>,
         when_false: Expression<F>,
@@ -365,18 +372,18 @@ pub mod select {
 
     /// Returns the `when_true` value when the selector is true, else returns
     /// the `when_false` value.
-    pub fn value<F: FieldExt>(selector: F, when_true: F, when_false: F) -> F {
-        selector * when_true + (F::one() - selector) * when_false
+    pub fn value<F: Field>(selector: F, when_true: F, when_false: F) -> F {
+        selector * when_true + (F::ONE - selector) * when_false
     }
 
     /// Returns the `when_true` word when selector is true, else returns the
     /// `when_false` word.
-    pub fn value_word<F: FieldExt>(
+    pub fn value_word<F: Field>(
         selector: F,
         when_true: [u8; 32],
         when_false: [u8; 32],
     ) -> [u8; 32] {
-        if selector == F::one() {
+        if selector == F::ONE {
             when_true
         } else {
             when_false

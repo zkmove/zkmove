@@ -9,15 +9,15 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::NUM_OF_BYTES_U256;
+use types::Field;
 
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct BitOr<F: FieldExt> {
+pub struct BitOr<F: Field> {
     value_a: WordCells<F>,
     value_b: WordCells<F>,
     value_c: WordCells<F>,
@@ -26,7 +26,7 @@ pub struct BitOr<F: FieldExt> {
     bytes_operand_2: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for BitOr<F> {
+impl<F: Field> InstructionGadget<F> for BitOr<F> {
     const NAME: &'static str = "BITOR";
 
     const OPCODE: Opcode = Opcode::BitOr;

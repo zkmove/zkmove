@@ -13,16 +13,16 @@ use crate::chips::utilities::{Expr, SubInvert};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Ret<F: FieldExt> {
+pub struct Ret<F: Field> {
     value: ValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
+impl<F: Field> InstructionGadget<F> for Ret<F> {
     const NAME: &'static str = "RET";
 
     const OPCODE: Opcode = Opcode::Ret;
@@ -144,7 +144,7 @@ impl<F: FieldExt> InstructionGadget<F> for Ret<F> {
         let stop_and_has_return_value =
             Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
 
-        if stop_and_has_return_value == F::one() {
+        if stop_and_has_return_value == F::ONE {
             let flattened_value_len =
                 Word::assign_step_value(region, offset, &step.auxiliary_3, &cells.auxiliary_3)?
                     .get_lower_128() as usize;

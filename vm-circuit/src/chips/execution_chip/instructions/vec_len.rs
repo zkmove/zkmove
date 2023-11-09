@@ -11,14 +11,14 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct VecLen<F: FieldExt> {
+pub struct VecLen<F: Field> {
     ref_val: RefValGadget<F>,
 
     vec_header_value: Cell<F>,
@@ -29,7 +29,7 @@ pub struct VecLen<F: FieldExt> {
     vec_header_addr_ext: Cell<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
+impl<F: Field> InstructionGadget<F> for VecLen<F> {
     const NAME: &'static str = "VEC_LEN";
 
     const OPCODE: Opcode = Opcode::VecLen;
@@ -184,7 +184,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecLen<F> {
 
         self.vec_header_addr_ext
             .assign(region, offset, Some(F::from(op.address_ext() as u64)))?;
-        if is_global == F::zero() {
+        if is_global == F::ZERO {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,

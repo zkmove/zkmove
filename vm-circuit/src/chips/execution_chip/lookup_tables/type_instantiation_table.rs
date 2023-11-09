@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::type_instantiation_table::GenericTypeInstantiation;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct TypeInstantiationTable {
@@ -26,7 +26,7 @@ pub struct TypeInstantiationTable {
 }
 
 impl TypeInstantiationTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             caller_id: meta.lookup_table_column(),
             caller_module: meta.lookup_table_column(),
@@ -65,7 +65,7 @@ impl TypeInstantiationTable {
         ]
     }
 
-    pub fn assign_table<F: FieldExt>(
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         values: Vec<GenericTypeInstantiation>,
@@ -100,7 +100,7 @@ impl TypeInstantiationTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct TypeInstantiationLookup<F: FieldExt> {
+pub struct TypeInstantiationLookup<F: Field> {
     pub caller_id: Expression<F>,
     pub caller_module: Expression<F>,
     pub caller_function: Expression<F>,
@@ -119,7 +119,7 @@ pub struct TypeInstantiationLookup<F: FieldExt> {
     pub ty_name: Expression<F>,
 }
 
-impl<F: FieldExt> TypeInstantiationLookup<F> {
+impl<F: Field> TypeInstantiationLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.caller_id.clone(),

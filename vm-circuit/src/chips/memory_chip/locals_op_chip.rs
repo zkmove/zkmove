@@ -4,7 +4,6 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
@@ -13,11 +12,12 @@ use halo2_proofs::plonk::{
 use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use types::Field;
 
 pub const LOCALS_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
-pub struct LocalsOpCells<F: FieldExt> {
+pub struct LocalsOpCells<F: Field> {
     pub counter: Cell<F>, // the total number of locals operations
     pub frame_index: Cell<F>,
     pub index: Cell<F>,
@@ -43,7 +43,7 @@ pub struct LocalsOpCells<F: FieldExt> {
 }
 
 #[derive(Debug, Clone)]
-pub struct LocalsOpChipConfig<F: FieldExt> {
+pub struct LocalsOpChipConfig<F: Field> {
     pub advices: [Column<Advice>; MEM_CHIP_WIDTH],
     pub cells: LocalsOpCells<F>,
     pub s_first_locals_op: Selector,
@@ -53,12 +53,12 @@ pub struct LocalsOpChipConfig<F: FieldExt> {
     addr_ext_table: TableColumn,
 }
 
-pub struct LocalsOpChip<F: FieldExt> {
+pub struct LocalsOpChip<F: Field> {
     pub config: LocalsOpChipConfig<F>,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for LocalsOpChip<F> {
+impl<F: Field> Chip<F> for LocalsOpChip<F> {
     type Config = LocalsOpChipConfig<F>;
     type Loaded = ();
 
@@ -71,7 +71,7 @@ impl<F: FieldExt> Chip<F> for LocalsOpChip<F> {
     }
 }
 
-impl<F: FieldExt> LocalsOpChip<F> {
+impl<F: Field> LocalsOpChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -106,7 +106,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = LocalsOpCells {
@@ -481,7 +481,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
         }
 
         let (prev_frame_index, prev_index, prev_addr_ext) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero()),
+            None => (F::ZERO, F::ZERO, F::ZERO),
             Some(v) => (v.frame_index.0, v.address.0, v.address_ext.0),
         };
         self.config.cells.delta_invert_frame_index.assign(
@@ -500,7 +500,7 @@ impl<F: FieldExt> LocalsOpChip<F> {
             op.address_ext.0.delta_invert(prev_addr_ext),
         )?;
 
-        let is_empty = if is_empty { F::one() } else { F::zero() };
+        let is_empty = if is_empty { F::ONE } else { F::ZERO };
         self.config
             .cells
             .is_empty

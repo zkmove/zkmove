@@ -9,13 +9,13 @@ use halo2_proofs::plonk::{Advice, Column};
 use halo2_proofs::plonk::{Selector, TableColumn};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
 use locals_op_chip::{LocalsOpChip, LocalsOpChipConfig};
 use logger::prelude::*;
 use stack_op_chip::{StackOpChip, StackOpChipConfig};
+use types::Field;
 
 pub mod global_op_chip;
 pub mod locals_op_chip;
@@ -36,7 +36,7 @@ pub mod stack_op_chip;
 pub const MEM_CHIP_WIDTH: usize = 11; //max(STACK_OP_CHIP_WIDTH, LOCALS_OP_CHIP_WIDTH, GLOBAL_OP_CHIP_WIDTH)
 
 #[derive(Clone, Debug)]
-pub struct MemoryChipConfig<F: FieldExt> {
+pub struct MemoryChipConfig<F: Field> {
     advices: [Column<Advice>; MEM_CHIP_WIDTH],
     stack_op_config: StackOpChipConfig<F>,
     locals_op_config: LocalsOpChipConfig<F>,
@@ -46,12 +46,12 @@ pub struct MemoryChipConfig<F: FieldExt> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemoryChip<F: FieldExt> {
+pub struct MemoryChip<F: Field> {
     pub witness: Witness<F>,
     pub config: MemoryChipConfig<F>,
 }
 
-impl<F: FieldExt> Chip<F> for MemoryChip<F> {
+impl<F: Field> Chip<F> for MemoryChip<F> {
     type Config = MemoryChipConfig<F>;
     type Loaded = ();
 
@@ -64,7 +64,7 @@ impl<F: FieldExt> Chip<F> for MemoryChip<F> {
     }
 }
 
-impl<F: FieldExt> MemoryChip<F> {
+impl<F: Field> MemoryChip<F> {
     pub fn construct(
         witness: Witness<F>,
         config: <Self as Chip<F>>::Config,
@@ -162,7 +162,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_stack",
                         self.config.advices[0],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -182,7 +182,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_locals",
                         self.config.advices[1],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -202,7 +202,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "counter_global",
                         self.config.advices[2],
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 }
 
@@ -235,7 +235,7 @@ impl<F: FieldExt> MemoryChip<F> {
                         || "gc_table[0]".to_string(),
                         self.config.gc_table,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                 } else {
                     (0..=last_step_gc)

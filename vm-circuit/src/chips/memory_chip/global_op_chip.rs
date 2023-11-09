@@ -4,7 +4,6 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
@@ -12,11 +11,12 @@ use halo2_proofs::plonk::{
 use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use types::Field;
 
 pub const GLOBAL_OP_CHIP_WIDTH: usize = 11;
 
 #[derive(Clone, Debug)]
-pub struct GlobalOpCells<F: FieldExt> {
+pub struct GlobalOpCells<F: Field> {
     pub counter: Cell<F>, // the total number of global rw operations
     pub address: Cell<F>,
     pub sd_index: Cell<F>, // struct definition index
@@ -43,7 +43,7 @@ pub struct GlobalOpCells<F: FieldExt> {
 }
 
 #[derive(Debug, Clone)]
-pub struct GlobalOpChipConfig<F: FieldExt> {
+pub struct GlobalOpChipConfig<F: Field> {
     pub advices: [Column<Advice>; MEM_CHIP_WIDTH],
     pub cells: GlobalOpCells<F>,
     pub s_first_global_op: Selector,
@@ -51,12 +51,12 @@ pub struct GlobalOpChipConfig<F: FieldExt> {
     addr_ext_table: TableColumn,
 }
 
-pub struct GlobalOpChip<F: FieldExt> {
+pub struct GlobalOpChip<F: Field> {
     pub config: GlobalOpChipConfig<F>,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for GlobalOpChip<F> {
+impl<F: Field> Chip<F> for GlobalOpChip<F> {
     type Config = GlobalOpChipConfig<F>;
     type Loaded = ();
 
@@ -69,7 +69,7 @@ impl<F: FieldExt> Chip<F> for GlobalOpChip<F> {
     }
 }
 
-impl<F: FieldExt> GlobalOpChip<F> {
+impl<F: Field> GlobalOpChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -100,7 +100,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = GlobalOpCells {
@@ -388,7 +388,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
         }
 
         let (prev_address, prev_sd_index, prev_addr_ext) = match prev_op {
-            None => (F::zero(), F::zero(), F::zero()),
+            None => (F::ZERO, F::ZERO, F::ZERO),
             Some(v) => (v.address.0, v.sd_index.0, v.address_ext.0),
         };
 
@@ -408,7 +408,7 @@ impl<F: FieldExt> GlobalOpChip<F> {
             op.address_ext.0.delta_invert(prev_addr_ext),
         )?;
 
-        let is_empty = if is_empty { F::one() } else { F::zero() };
+        let is_empty = if is_empty { F::ONE } else { F::ZERO };
         self.config
             .cells
             .is_empty

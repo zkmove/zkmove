@@ -11,15 +11,15 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{ValueHeader, LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
+use types::Field;
 
 use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
-pub struct VecSwap<F: FieldExt> {
+pub struct VecSwap<F: Field> {
     idx_a: SimpleValueGadget<F>,
     idx_b: SimpleValueGadget<F>,
     offset_pow2: Cell<F>,
@@ -42,7 +42,7 @@ pub struct VecSwap<F: FieldExt> {
     value_b_addr_ext: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
+impl<F: Field> InstructionGadget<F> for VecSwap<F> {
     const NAME: &'static str = "VEC_SWAP";
 
     const OPCODE: Opcode = Opcode::VecSwap;
@@ -345,7 +345,7 @@ impl<F: FieldExt> InstructionGadget<F> for VecSwap<F> {
             .get(step.gc + LEN_OF_SIMPLE_VALUE * 2 + LEN_OF_REFERENCE_VALUE)
             .ok_or(Error::Synthesis)?;
 
-        if is_global == F::zero() {
+        if is_global == F::ZERO {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,

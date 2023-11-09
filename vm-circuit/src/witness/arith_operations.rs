@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{
@@ -8,6 +7,7 @@ use move_binary_format::file_format::{
 };
 use move_binary_format::CompiledModule;
 use movelang::type_transition;
+use types::Field;
 
 /// The arithmetic operation Add, Sub, Mul, Div, Mod can be applied to
 /// different types of unsigned integers. The type information is discarded
@@ -23,7 +23,7 @@ pub struct ArithOperation {
 }
 
 // convert ArithOperation into a vector of field values
-impl<F: FieldExt> From<&ArithOperation> for Vec<F> {
+impl<F: Field> From<&ArithOperation> for Vec<F> {
     fn from(arith_op: &ArithOperation) -> Vec<F> {
         vec![
             F::from_u128(arith_op.module_index as u128),

@@ -2,7 +2,6 @@
 
 use crate::frame::Frame;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use movelang::account_address::AccountAddress;
 use movelang::value::{
     Container, ContainerValue, LocatedValue, Reference, StackLocation, Value, ValueLocation,
@@ -10,14 +9,15 @@ use movelang::value::{
 };
 use movelang::value_ext::LocatedFlattenedValue;
 use std::rc::Rc;
+use types::Field;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
 
-pub struct EvalStack<F: FieldExt>(Vec<Value<F>>);
+pub struct EvalStack<F: Field>(Vec<Value<F>>);
 
-impl<F: FieldExt> EvalStack<F> {
+impl<F: Field> EvalStack<F> {
     pub fn new() -> Self {
         EvalStack(vec![])
     }
@@ -248,15 +248,15 @@ impl<F: FieldExt> EvalStack<F> {
     }
 }
 
-impl<F: FieldExt> Default for EvalStack<F> {
+impl<F: Field> Default for EvalStack<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct CallStack<F: FieldExt>(Vec<Frame<F>>);
+pub struct CallStack<F: Field>(Vec<Frame<F>>);
 
-impl<F: FieldExt> CallStack<F> {
+impl<F: Field> CallStack<F> {
     pub fn new() -> Self {
         CallStack(vec![])
     }
@@ -287,7 +287,7 @@ impl<F: FieldExt> CallStack<F> {
     }
 }
 
-impl<F: FieldExt> Default for CallStack<F> {
+impl<F: Field> Default for CallStack<F> {
     fn default() -> Self {
         Self::new()
     }

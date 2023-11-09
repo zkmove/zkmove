@@ -1,10 +1,10 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::const_table::ConstantInfo;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
 use movelang::value::AddressPath;
 use movelang::value_ext::FlattenedValue;
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct ConstantLookupTable {
@@ -16,7 +16,7 @@ pub struct ConstantLookupTable {
 //pub const CONSTANT_LOOKUP_TABLE_WIDTH: usize = 4;
 
 impl ConstantLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         ConstantLookupTable {
             module_index: meta.lookup_table_column(),
             constant_index: meta.lookup_table_column(),
@@ -34,7 +34,7 @@ impl ConstantLookupTable {
         ]
     }
 
-    pub fn assign_table<F: FieldExt>(
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         traces: Vec<ConstantInfo>,
@@ -60,14 +60,14 @@ impl ConstantLookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct ConstantLookup<F: FieldExt> {
+pub struct ConstantLookup<F: Field> {
     pub module_index: Expression<F>,
     pub constant_index: Expression<F>,
     pub addr_ext: Expression<F>,
     pub value: Expression<F>,
 }
 
-impl<F: FieldExt> ConstantLookup<F> {
+impl<F: Field> ConstantLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.module_index.clone(),

@@ -16,7 +16,6 @@ use std::collections::HashMap;
 
 use crate::loader::MoveLoader;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_core_types::gas_algebra::NumBytes;
 use move_core_types::language_storage::TypeTag;
@@ -27,13 +26,14 @@ use movelang::account_address::AccountAddress;
 use movelang::value::GlobalValue;
 use std::cell::RefCell;
 use std::collections::btree_map::BTreeMap;
+use types::Field;
 
 #[derive(Clone)]
-pub struct AccountData<F: FieldExt> {
+pub struct AccountData<F: Field> {
     data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue<F>)>,
 }
 
-impl<F: FieldExt> AccountData<F> {
+impl<F: Field> AccountData<F> {
     fn new() -> Self {
         Self {
             data_map: BTreeMap::new(),
@@ -48,13 +48,13 @@ impl<F: FieldExt> AccountData<F> {
 }
 
 #[derive(Clone)]
-pub struct StateStore<F: FieldExt> {
+pub struct StateStore<F: Field> {
     modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
     module_table: RefCell<Vec<ModuleId>>,
     account_map: RefCell<BTreeMap<AccountAddress<F>, AccountData<F>>>,
 }
 
-impl<F: FieldExt> StateStore<F> {
+impl<F: Field> StateStore<F> {
     pub fn new() -> Self {
         Self {
             modules: RefCell::new(HashMap::new()),
@@ -120,13 +120,13 @@ impl<F: FieldExt> StateStore<F> {
     }
 }
 
-impl<F: FieldExt> Default for StateStore<F> {
+impl<F: Field> Default for StateStore<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: FieldExt> DataStore for StateStore<F> {
+impl<F: Field> DataStore for StateStore<F> {
     fn load_resource(
         &mut self,
         _addr: MoveAccountAddress,
@@ -188,7 +188,7 @@ impl<F: FieldExt> DataStore for StateStore<F> {
     }
 }
 
-impl<F: FieldExt> ModuleResolver for StateStore<F> {
+impl<F: Field> ModuleResolver for StateStore<F> {
     type Error = VMError;
 
     fn get_module(&self, id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {

@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Region, Value as CircuitValue};
 use halo2_proofs::plonk::{Error, Expression};
+use types::Field;
 
 /// Returns `1` when `value == 0`, and returns `0` otherwise.
 #[derive(Clone, Debug)]
@@ -12,7 +12,7 @@ pub struct IsZeroGadget<F> {
     is_zero: Expression<F>,
 }
 
-impl<F: FieldExt> IsZeroGadget<F> {
+impl<F: Field> IsZeroGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>, value: Expression<F>) -> Self {
         let inverse = cb.alloc_cell();
         let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
@@ -50,12 +50,12 @@ impl<F: FieldExt> IsZeroGadget<F> {
         offset: usize,
         value: F,
     ) -> Result<F, Error> {
-        let inverse = value.invert().unwrap_or(F::zero());
+        let inverse = value.invert().unwrap_or(F::ZERO);
         self.inverse.assign(region, offset, Some(inverse))?;
         Ok(if value.is_zero().into() {
-            F::one()
+            F::ONE
         } else {
-            F::zero()
+            F::ZERO
         })
     }
 

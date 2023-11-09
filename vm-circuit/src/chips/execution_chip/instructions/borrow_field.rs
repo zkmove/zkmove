@@ -10,19 +10,19 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct BorrowField<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> {
+pub struct BorrowField<const MUTABLE: bool, const GENERIC: bool, F: Field> {
     offset_pow2: Cell<F>,
     ref_val: RefValGadget<F>,
     indexed_ref_val: RefValGadget<F>,
 }
 
-impl<const MUTABLE: bool, const GENERIC: bool, F: FieldExt> InstructionGadget<F>
+impl<const MUTABLE: bool, const GENERIC: bool, F: Field> InstructionGadget<F>
     for BorrowField<MUTABLE, GENERIC, F>
 {
     const NAME: &'static str = match (MUTABLE, GENERIC) {

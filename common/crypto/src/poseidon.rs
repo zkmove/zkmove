@@ -2,20 +2,20 @@
 
 use anyhow::Result;
 use halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Spec};
-use halo2_proofs::arithmetic::FieldExt;
+use types::Field;
 use std::marker::PhantomData;
 
 /// The same Poseidon specification as poseidon::P128Pow5T3
 #[derive(Debug, Clone)]
-pub struct SmtP128Pow5T3<F: FieldExt, const SECURE_MDS: usize>(PhantomData<F>);
+pub struct SmtP128Pow5T3<F: Field, const SECURE_MDS: usize>(PhantomData<F>);
 
-impl<F: FieldExt, const SECURE_MDS: usize> SmtP128Pow5T3<F, SECURE_MDS> {
+impl<F: Field, const SECURE_MDS: usize> SmtP128Pow5T3<F, SECURE_MDS> {
     pub fn new() -> Self {
         SmtP128Pow5T3(PhantomData::default())
     }
 }
 
-impl<F: FieldExt, const SECURE_MDS: usize> Spec<F, 3, 2> for SmtP128Pow5T3<F, SECURE_MDS> {
+impl<F: Field, const SECURE_MDS: usize> Spec<F, 3, 2> for SmtP128Pow5T3<F, SECURE_MDS> {
     fn full_rounds() -> usize {
         8
     }
@@ -33,29 +33,29 @@ impl<F: FieldExt, const SECURE_MDS: usize> Spec<F, 3, 2> for SmtP128Pow5T3<F, SE
     }
 }
 
-impl<F: FieldExt, const SECURE_MDS: usize> Default for SmtP128Pow5T3<F, SECURE_MDS> {
+impl<F: Field, const SECURE_MDS: usize> Default for SmtP128Pow5T3<F, SECURE_MDS> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Poseidon<F: FieldExt, const L: usize>(PhantomData<F>);
+pub struct Poseidon<F: Field, const L: usize>(PhantomData<F>);
 
-impl<F: FieldExt, const L: usize> Poseidon<F, L> {
+impl<F: Field, const L: usize> Poseidon<F, L> {
     pub fn new() -> Self {
         Poseidon(PhantomData::default())
     }
 }
 
-pub trait FieldHasher<F: FieldExt, const L: usize> {
+pub trait FieldHasher<F: Field, const L: usize> {
     fn hash(&self, inputs: [F; L]) -> Result<F>;
     fn hasher() -> Self;
 }
 
 impl<F, const L: usize> FieldHasher<F, L> for Poseidon<F, L>
 where
-    F: FieldExt,
+    F: Field,
 {
     fn hash(&self, inputs: [F; L]) -> Result<F> {
         Ok(Hash::<_, SmtP128Pow5T3<F, 0>, ConstantLength<L>, 3, 2>::init().hash(inputs))
@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<F: FieldExt, const L: usize> Default for Poseidon<F, L> {
+impl<F: Field, const L: usize> Default for Poseidon<F, L> {
     fn default() -> Self {
         Self::new()
     }
@@ -79,8 +79,8 @@ mod tests {
     // use crate::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
     // use halo2_gadgets::poseidon::primitives::{permute, Spec};
     // use halo2_gadgets::poseidon::primitives::Spec;
-    // use halo2_proofs::arithmetic::FieldExt;
-    // use halo2_proofs::halo2curves::pasta::Fp;
+    // use types::Field;
+    // use halo2_proofs::halo2curves::bn256::Fr;
 
     #[test]
     fn orchard_spec_equivalence() {

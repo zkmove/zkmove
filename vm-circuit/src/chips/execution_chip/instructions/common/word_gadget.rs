@@ -6,19 +6,20 @@ use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
-use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+use halo2_proofs::plonk::Expression;
 use movelang::value_ext::{ValueHeader, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
+use types::Field;
 
 use super::get_field_from_op;
 
 /// there are 2 cells to suport u256. each for 128 bit
 #[derive(Clone, Debug)]
-pub struct WordCells<F: FieldExt> {
+pub struct WordCells<F: Field> {
     pub hi: Cell<F>,
     pub lo: Cell<F>,
 }
 
-impl<F: FieldExt> WordCells<F> {
+impl<F: Field> WordCells<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         Self {

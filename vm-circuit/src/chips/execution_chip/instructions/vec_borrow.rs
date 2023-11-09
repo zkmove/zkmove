@@ -11,20 +11,20 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{LEN_OF_REFERENCE_VALUE, LEN_OF_SIMPLE_VALUE};
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct VecBorrow<const MUTABLE: bool, F: FieldExt> {
+pub struct VecBorrow<const MUTABLE: bool, F: Field> {
     index: SimpleValueGadget<F>,
     offset_pow2: Cell<F>,
     ref_val: RefValGadget<F>,
     indexed_ref_val: RefValGadget<F>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for VecBorrow<MUTABLE, F> {
+impl<const MUTABLE: bool, F: Field> InstructionGadget<F> for VecBorrow<MUTABLE, F> {
     const NAME: &'static str = "VEC_BORROW";
 
     const OPCODE: Opcode = if MUTABLE {

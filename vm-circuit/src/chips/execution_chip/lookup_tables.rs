@@ -31,11 +31,11 @@ use crate::witness::rw_operations::ConvertedRWOperation;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
+use types::Field;
 
 use crate::chips::execution_chip::lookup_tables::pi_index_table::PIIndexTable;
 use crate::chips::execution_chip::lookup_tables::pi_lookup_table::{PILookup, PILookupTable};
@@ -58,7 +58,7 @@ pub mod type_instantiation_table;
 pub mod utils;
 
 #[derive(Clone, Debug)]
-pub enum Lookup<F: FieldExt> {
+pub enum Lookup<F: Field> {
     RW(RWLookup<F>),
     MoveConstant(ConstantLookup<F>),
     Bytecode(BytecodeLookup<F>),
@@ -72,60 +72,60 @@ pub enum Lookup<F: FieldExt> {
     PI(PILookup<F>),
 }
 
-impl<F: FieldExt> From<BytecodeLookup<F>> for Lookup<F> {
+impl<F: Field> From<BytecodeLookup<F>> for Lookup<F> {
     fn from(l: BytecodeLookup<F>) -> Self {
         Self::Bytecode(l)
     }
 }
-impl<F: FieldExt> From<RWLookup<F>> for Lookup<F> {
+impl<F: Field> From<RWLookup<F>> for Lookup<F> {
     fn from(l: RWLookup<F>) -> Self {
         Self::RW(l)
     }
 }
-impl<F: FieldExt> From<ConstantLookup<F>> for Lookup<F> {
+impl<F: Field> From<ConstantLookup<F>> for Lookup<F> {
     fn from(l: ConstantLookup<F>) -> Self {
         Self::MoveConstant(l)
     }
 }
-impl<F: FieldExt> From<CallLookup<F>> for Lookup<F> {
+impl<F: Field> From<CallLookup<F>> for Lookup<F> {
     fn from(l: CallLookup<F>) -> Self {
         Self::Call(l)
     }
 }
 
-impl<F: FieldExt> From<ArithOpLookup<F>> for Lookup<F> {
+impl<F: Field> From<ArithOpLookup<F>> for Lookup<F> {
     fn from(l: ArithOpLookup<F>) -> Self {
         Self::ArithOp(l)
     }
 }
 
-impl<F: FieldExt> From<BitwiseLookup<F>> for Lookup<F> {
+impl<F: Field> From<BitwiseLookup<F>> for Lookup<F> {
     fn from(l: BitwiseLookup<F>) -> Self {
         Self::Bitwise(l)
     }
 }
 
-impl<F: FieldExt> From<Pow2Lookup<F>> for Lookup<F> {
+impl<F: Field> From<Pow2Lookup<F>> for Lookup<F> {
     fn from(l: Pow2Lookup<F>) -> Self {
         Self::Pow2(l)
     }
 }
-impl<F: FieldExt> From<CallTraceLookup<F>> for Lookup<F> {
+impl<F: Field> From<CallTraceLookup<F>> for Lookup<F> {
     fn from(l: CallTraceLookup<F>) -> Self {
         Self::CallTrace(l)
     }
 }
-impl<F: FieldExt> From<TypeInstantiationLookup<F>> for Lookup<F> {
+impl<F: Field> From<TypeInstantiationLookup<F>> for Lookup<F> {
     fn from(l: TypeInstantiationLookup<F>) -> Self {
         Self::TypeInstantiation(l)
     }
 }
-impl<F: FieldExt> From<InputTypeElementLookup<F>> for Lookup<F> {
+impl<F: Field> From<InputTypeElementLookup<F>> for Lookup<F> {
     fn from(l: InputTypeElementLookup<F>) -> Self {
         Self::InputTypeArg(l)
     }
 }
-impl<F: FieldExt> From<PILookup<F>> for Lookup<F> {
+impl<F: Field> From<PILookup<F>> for Lookup<F> {
     fn from(l: PILookup<F>) -> Self {
         Self::PI(l)
     }
@@ -146,7 +146,7 @@ pub enum TableKind {
     PI,
 }
 
-impl<F: FieldExt> Lookup<F> {
+impl<F: Field> Lookup<F> {
     pub fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
             Lookup::RW(rw) => rw.exprs(),
@@ -181,7 +181,7 @@ impl<F: FieldExt> Lookup<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct LookupTableConfig<F: FieldExt> {
+pub struct LookupTableConfig<F: Field> {
     pub rw_table: RWTable,
     pub constant_table: ConstantLookupTable,
     pub bytecode_table: BytecodeLookupTable,
@@ -196,7 +196,7 @@ pub struct LookupTableConfig<F: FieldExt> {
     pi_index_table: PIIndexTable,
     _marker: PhantomData<F>,
 }
-impl<F: FieldExt> LookupTableConfig<F> {
+impl<F: Field> LookupTableConfig<F> {
     pub fn construct(meta: &mut ConstraintSystem<F>) -> Self {
         let rw_table = RWTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
@@ -433,7 +433,7 @@ impl<F: FieldExt> LookupTableConfig<F> {
                         || format!("rw_table[{}][0]", column_idx),
                         column,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
 
                     // assign stack operations

@@ -1,5 +1,6 @@
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct ArithOpLookupTable {
@@ -11,7 +12,7 @@ pub struct ArithOpLookupTable {
 pub const ARITH_OP_LOOKUP_TABLE_WIDTH: usize = 4;
 
 impl ArithOpLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         ArithOpLookupTable {
             module_index_column: meta.lookup_table_column(),
             function_index_column: meta.lookup_table_column(),
@@ -31,14 +32,14 @@ impl ArithOpLookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct ArithOpLookup<F: FieldExt> {
+pub struct ArithOpLookup<F: Field> {
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,
     pub pc: Expression<F>,
     pub num_of_bytes: Expression<F>,
 }
 
-impl<F: FieldExt> ArithOpLookup<F> {
+impl<F: Field> ArithOpLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.module_index.clone(),

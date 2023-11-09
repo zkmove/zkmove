@@ -1,8 +1,9 @@
 use crate::chips::utilities::Expr;
 use crate::witness::rw_operations::RW;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Advice, Column, Expression, VirtualCells};
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct RWTable {
@@ -18,7 +19,7 @@ pub struct RWTable {
 pub const RW_LOOKUP_TABLE_WIDTH: usize = 9;
 
 impl RWTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         let rw_table = RWTable {
             gc_column: meta.advice_column(),
             rw_target_column: meta.advice_column(),
@@ -45,7 +46,7 @@ impl RWTable {
 
     /// Return the list of expressions used to define the lookup table.
     /// TODO: abstract it into a trait
-    pub fn table_exprs<F: FieldExt>(&self, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
+    pub fn table_exprs<F: Field>(&self, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
         self.columns()
             .iter()
             .map(|&column| meta.query_any(column, Rotation::cur()))
@@ -74,7 +75,7 @@ pub enum RWTarget {
 }
 
 #[derive(Clone, Debug)]
-pub struct RWLookup<F: FieldExt> {
+pub struct RWLookup<F: Field> {
     pub gc: Expression<F>,          // global counter
     pub rw_target: Expression<F>,   // RWTarget
     pub rw: Expression<F>,          // read or write
@@ -84,7 +85,7 @@ pub struct RWLookup<F: FieldExt> {
     pub value: Expression<F>,
     pub sd_index: Expression<F>, // struct definition index used by global rw ops
 }
-impl<F: FieldExt> RWLookup<F> {
+impl<F: Field> RWLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.gc.clone(),
@@ -99,7 +100,7 @@ impl<F: FieldExt> RWLookup<F> {
     }
 }
 
-impl<F: FieldExt> RWLookup<F> {
+impl<F: Field> RWLookup<F> {
     pub fn stack_push(
         gc: Expression<F>,
         stack_size: Expression<F>,

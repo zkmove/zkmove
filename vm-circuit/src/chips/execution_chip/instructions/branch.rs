@@ -8,19 +8,19 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
+use types::Field;
 
 use super::common::Word;
 
 #[derive(Clone, Debug)]
-pub struct Branch<F: FieldExt> {
+pub struct Branch<F: Field> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Branch<F> {
+impl<F: Field> InstructionGadget<F> for Branch<F> {
     const NAME: &'static str = "BRANCH";
 
     const OPCODE: Opcode = Opcode::Branch;

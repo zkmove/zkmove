@@ -1,17 +1,15 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
-};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells};
 use movelang::utility::U256;
 use std::hash::Hash;
+use types::Field;
 
 pub mod base_constraint_builder;
 pub mod constraint_builder;
 pub mod dynamic_selector_half;
-pub(crate) fn query_expression<F: FieldExt, T>(
+pub(crate) fn query_expression<F: Field, T>(
     meta: &mut ConstraintSystem<F>,
     mut f: impl FnMut(&mut VirtualCells<F>) -> T,
 ) -> T {
@@ -23,13 +21,13 @@ pub(crate) fn query_expression<F: FieldExt, T>(
     expr.unwrap()
 }
 
-/// Returns 2**by as FieldExt
-pub(crate) fn pow_of_two<F: FieldExt>(by: usize) -> F {
-    F::from(2).pow(&[by as u64, 0, 0, 0])
+/// Returns 2**by as Field
+pub(crate) fn pow_of_two<F: Field>(by: usize) -> F {
+    F::from(2).pow([by as u64, 0, 0, 0])
 }
 
 /// Returns 2**by as Expression
-pub(crate) fn pow_of_two_expr<F: FieldExt>(by: usize) -> Expression<F> {
+pub(crate) fn pow_of_two_expr<F: Field>(by: usize) -> Expression<F> {
     Expression::Constant(pow_of_two(by))
 }
 
@@ -67,21 +65,21 @@ pub(crate) struct CellColumn<F> {
     pub(crate) expr: Expression<F>,
 }
 
-impl<F: FieldExt> Expr<F> for CellColumn<F> {
+impl<F: Field> Expr<F> for CellColumn<F> {
     fn expr(&self) -> Expression<F> {
         self.expr.clone()
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct CellManager<F: FieldExt> {
+pub struct CellManager<F: Field> {
     //width: usize,
     height: usize,
     cells: Vec<Cell<F>>,
     columns: Vec<CellColumn<F>>,
 }
 
-impl<F: FieldExt> CellManager<F> {
+impl<F: Field> CellManager<F> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
         height: usize,

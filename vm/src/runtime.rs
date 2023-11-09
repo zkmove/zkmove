@@ -5,7 +5,6 @@ use crate::loader::{LoadedFunctionInst, MoveLoader};
 use crate::native_functions::NativeFunctions;
 use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::errors::PartialVMResult;
 use move_binary_format::file_format::{Bytecode, CompiledScript};
@@ -17,6 +16,7 @@ use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::generic_call_graph::{generate, generate_for_script, GenericCallGraph};
 use movelang::utility::MoveValueType;
 use movelang::value::{ModuleId, TypeTag, Value};
+use types::Field;
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -36,7 +36,7 @@ use vm_circuit::witness::{CircuitConfig, ExecutionTrace, Witness};
 use web3::transports::Http;
 use web3::Web3;
 
-pub struct Runtime<F: FieldExt> {
+pub struct Runtime<F: Field> {
     loader: MoveLoader,
     natives: NativeFunctions<F>,
     native_context: NativeContext,
@@ -49,13 +49,13 @@ struct NativeContext {
     tokio_rt: Option<tokio::runtime::Runtime>,
 }
 
-impl<F: FieldExt> Default for Runtime<F> {
+impl<F: Field> Default for Runtime<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: FieldExt> Runtime<F> {
+impl<F: Field> Runtime<F> {
     pub fn new() -> Self {
         Runtime {
             loader: MoveLoader::new_with_natives(crate::natives::make_all()),

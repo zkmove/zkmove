@@ -1,7 +1,7 @@
 use crate::native_functions::NativeFunction;
-use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::identifier::Identifier;
+use types::Field;
 
 pub mod eth_data;
 
@@ -23,7 +23,7 @@ pub fn make_all() -> impl IntoIterator<
     })
 }
 
-pub fn make_all_field_version<F: FieldExt>(
+pub fn make_all_field_version<F: Field>(
 ) -> impl IntoIterator<Item = (AccountAddress, Identifier, Identifier, NativeFunction<F>)> {
     eth_data::make_all_field_version()
         .into_iter()

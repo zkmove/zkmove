@@ -10,25 +10,25 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::NUM_OF_BYTES_U128;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 use std::convert::TryInto;
+use types::Field;
 
 use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct CastU256<F: FieldExt> {
+pub struct CastU256<F: Field> {
     value_a: WordCells<F>,
     value_c: WordCells<F>,
     bytes_hi: Vec<Cell<F>>,
     bytes: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for CastU256<F> {
+impl<F: Field> InstructionGadget<F> for CastU256<F> {
     const NAME: &'static str = "CASTU256";
 
     const OPCODE: Opcode = Opcode::CastU256;

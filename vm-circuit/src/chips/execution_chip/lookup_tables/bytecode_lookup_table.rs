@@ -1,5 +1,6 @@
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct BytecodeLookupTable {
@@ -13,7 +14,7 @@ pub struct BytecodeLookupTable {
 pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 6;
 
 impl BytecodeLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         BytecodeLookupTable {
             module_index_column: meta.lookup_table_column(),
             function_index_column: meta.lookup_table_column(),
@@ -37,7 +38,7 @@ impl BytecodeLookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct BytecodeLookup<F: FieldExt> {
+pub struct BytecodeLookup<F: Field> {
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,
     pub pc: Expression<F>,
@@ -46,7 +47,7 @@ pub struct BytecodeLookup<F: FieldExt> {
     pub operand: Expression<F>,
 }
 
-impl<F: FieldExt> BytecodeLookup<F> {
+impl<F: Field> BytecodeLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.module_index.clone(),

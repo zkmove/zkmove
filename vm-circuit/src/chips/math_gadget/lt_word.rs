@@ -2,10 +2,10 @@ use super::{comparison::ComparisonGadget, lt::LtGadget};
 use crate::chips::execution_chip::instructions::common::word_gadget::WordCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::split_u256;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use move_core_types::u256::U256;
+use types::Field;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs are both 256-bit word.
@@ -15,7 +15,7 @@ pub struct LtWordGadget<F> {
     lt_lo: LtGadget<F, 16>,
 }
 
-impl<F: FieldExt> LtWordGadget<F> {
+impl<F: Field> LtWordGadget<F> {
     #[allow(dead_code)]
     pub(crate) fn construct(
         cb: &mut ConstraintBuilder<F>,

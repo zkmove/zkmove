@@ -1,7 +1,6 @@
 // Copyright (c) zkMove Authors
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::{
     AddressPath, FrameIndex, LocalLocation, LocalRef, LocatedValue, SimpleValue, Value,
     ValueLocation,
@@ -9,12 +8,13 @@ use movelang::value::{
 use movelang::value_ext::LocatedFlattenedValue;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
+use types::Field;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
-pub struct Locals<F: FieldExt>(Vec<Rc<RefCell<Value<F>>>>);
+pub struct Locals<F: Field>(Vec<Rc<RefCell<Value<F>>>>);
 
-impl<F: FieldExt> Locals<F> {
+impl<F: Field> Locals<F> {
     pub fn new(size: usize) -> Self {
         Self(
             vec![Value::Invalid; size]
@@ -199,7 +199,7 @@ impl<F: FieldExt> Locals<F> {
     }
 }
 
-impl<F: FieldExt> Locals<F> {
+impl<F: Field> Locals<F> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -209,7 +209,7 @@ impl<F: FieldExt> Locals<F> {
     }
 }
 
-pub fn emit_locals_op<F: FieldExt>(
+pub fn emit_locals_op<F: Field>(
     address_path: AddressPath<F>,
     value: SimpleValue<F>,
     rw: RW,
@@ -230,7 +230,7 @@ pub fn emit_locals_op<F: FieldExt>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_locals_ops<F: FieldExt>(
+pub fn emit_locals_ops<F: Field>(
     value: LocatedFlattenedValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,

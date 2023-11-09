@@ -10,16 +10,16 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct StLoc<F: FieldExt> {
+pub struct StLoc<F: Field> {
     value: ValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for StLoc<F> {
+impl<F: Field> InstructionGadget<F> for StLoc<F> {
     const NAME: &'static str = "STLOC";
 
     const OPCODE: Opcode = Opcode::StLoc;

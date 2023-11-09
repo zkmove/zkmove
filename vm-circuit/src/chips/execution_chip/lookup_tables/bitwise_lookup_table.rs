@@ -1,5 +1,6 @@
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct BitwiseLookupTable {
@@ -11,7 +12,7 @@ pub struct BitwiseLookupTable {
 pub const BITWISE_LOOKUP_TABLE_WIDTH: usize = 4;
 
 impl BitwiseLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         BitwiseLookupTable {
             opcode_column: meta.lookup_table_column(),
             value_1_column: meta.lookup_table_column(),
@@ -31,14 +32,14 @@ impl BitwiseLookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct BitwiseLookup<F: FieldExt> {
+pub struct BitwiseLookup<F: Field> {
     pub opcode: Expression<F>,
     pub value_1: Expression<F>,
     pub value_2: Expression<F>,
     pub result: Expression<F>,
 }
 
-impl<F: FieldExt> BitwiseLookup<F> {
+impl<F: Field> BitwiseLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.opcode.clone(),

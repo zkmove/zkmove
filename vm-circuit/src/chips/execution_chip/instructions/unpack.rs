@@ -11,12 +11,12 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Unpack<const GENERIC: bool, F: FieldExt> {
+pub struct Unpack<const GENERIC: bool, F: Field> {
     struct_value: ValueGadget<F>,
     values: Vec<Cell<F>>,
     values_mask: Vec<Cell<F>>,
@@ -24,7 +24,7 @@ pub struct Unpack<const GENERIC: bool, F: FieldExt> {
     values_address: Vec<Cell<F>>,
 }
 
-impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Unpack<GENERIC, F> {
+impl<const GENERIC: bool, F: Field> InstructionGadget<F> for Unpack<GENERIC, F> {
     const NAME: &'static str = if GENERIC { "UNPACK_GENERIC" } else { "UnPACK" };
 
     const OPCODE: Opcode = if GENERIC {
