@@ -70,3 +70,21 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
         Ok(())
     }
 }
+
+impl<F: Field> VmCircuit<F> {
+    pub fn circuit_height(&self) -> usize {
+        let mut cs = ConstraintSystem::default();
+        let config = VmCircuit::<F>::configure(&mut cs);
+
+        let execution_chip = ExecutionChip::<F>::construct(
+            self.witness.clone(),
+            self.public_input.clone(),
+            config.execution_chip_config,
+            (),
+        );
+        let memory_chip =
+            MemoryChip::<F>::construct(self.witness.clone(), config.memory_chip_config, ());
+
+        execution_chip.chip_height().max(memory_chip.chip_height())
+    }
+}

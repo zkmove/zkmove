@@ -23,13 +23,10 @@ use crate::chips::execution_chip::lookup_tables::rw_table::{RWLookup, RWTable};
 use crate::chips::execution_chip::lookup_tables::type_instantiation_table::{
     TypeInstantiationLookup, TypeInstantiationTable,
 };
-use crate::chips::execution_chip::lookup_tables::utils::assign_table;
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::constraint_builder::{mul_exprs, ConditionalLookup};
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
-use halo2_proofs::circuit::Value as CircuitValue;
-use halo2_proofs::circuit::{AssignedCell, Region};
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
@@ -39,7 +36,6 @@ use types::Field;
 
 use crate::chips::execution_chip::lookup_tables::pi_index_table::PIIndexTable;
 use crate::chips::execution_chip::lookup_tables::pi_lookup_table::{PILookup, PILookupTable};
-use logger::prelude::*;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -362,136 +358,30 @@ impl<F: Field> LookupTableConfig<F> {
         ),
         Error,
     > {
-        let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
-            execution_chip.witness.rw_operations.clone().into();
-        let mut stack_operations: Vec<ConvertedRWOperation<F>> = (&sorted_stack_ops).into();
-        let mut locals_operations: Vec<ConvertedRWOperation<F>> = (&sorted_locals_ops).into();
-        let mut global_operations: Vec<ConvertedRWOperation<F>> = (&sorted_global_ops).into();
-        let stack_ops_num = execution_chip
-            .witness
-            .circuit_config
-            .stack_ops_num
-            .unwrap_or(0);
-        let locals_ops_num = execution_chip
-            .witness
-            .circuit_config
-            .locals_ops_num
-            .unwrap_or(0);
-        let global_ops_num = execution_chip
-            .witness
-            .circuit_config
-            .global_ops_num
-            .unwrap_or(0);
-        debug!(
-            "rw_lens, stack: {}, local: {}, global: {}",
-            stack_operations.len(),
-            locals_operations.len(),
-            global_operations.len()
-        );
-        if stack_ops_num > 0 {
-            if stack_operations.len() > stack_ops_num {
-                error!(
-                    "stack operations length {:?} exceeds stack_ops_num {:?}",
-                    stack_operations.len(),
-                    stack_ops_num
-                );
-                return Err(Error::Synthesis);
-            } else {
-                stack_operations.resize(stack_ops_num, ConvertedRWOperation::empty());
-            }
-        }
-        if locals_ops_num > 0 {
-            if locals_operations.len() > locals_ops_num {
-                error!(
-                    "locals operations length {:?} exceeds locals_ops_num {:?}",
-                    locals_operations.len(),
-                    locals_ops_num
-                );
-                return Err(Error::Synthesis);
-            } else {
-                locals_operations.resize(locals_ops_num, ConvertedRWOperation::empty());
-            }
-        }
-        if global_ops_num > 0 {
-            if global_operations.len() > global_ops_num {
-                error!(
-                    "global operations length {:?} exceeds global_ops_num {:?}",
-                    global_operations.len(),
-                    global_ops_num
-                );
-                return Err(Error::Synthesis);
-            } else {
-                global_operations.resize(global_ops_num, ConvertedRWOperation::empty());
-            }
-        }
         let lookup_table = &execution_chip.config.lookup_table;
-        for (column_idx, column) in lookup_table.rw_table.columns().into_iter().enumerate() {
-            layouter.assign_region(
-                || format!("rw_table[{}]", column_idx),
-                |mut region| {
-                    region.assign_advice(
-                        || format!("rw_table[{}][0]", column_idx),
-                        column,
-                        0,
-                        || CircuitValue::known(F::ZERO),
-                    )?;
-
-                    // assign stack operations
-                    Self::assign_rw_ops(&mut region, column_idx, column, 0, &mut stack_operations)?;
-                    // assign locals operations after stack operations
-                    Self::assign_rw_ops(
-                        &mut region,
-                        column_idx,
-                        column,
-                        stack_operations.len(),
-                        &mut locals_operations,
-                    )?;
-                    // assign global operations after locals operations
-                    Self::assign_rw_ops(
-                        &mut region,
-                        column_idx,
-                        column,
-                        stack_operations.len() + locals_operations.len(),
-                        &mut global_operations,
-                    )
-                },
+        let (stack_operations, locals_operations, global_operations) =
+            lookup_table.rw_table.assign_table(
+                layouter,
+                execution_chip.witness.rw_operations.clone(),
+                &execution_chip.witness.circuit_config,
             )?;
-        }
+
         lookup_table.input_type_element_table.assign_table(
             layouter,
             execution_chip.witness.input_type_elements.clone().0,
         )?;
-
-        let bytecodes: Vec<Vec<F>> = (&execution_chip.witness.bytecode_table).into();
-        let bytecode_table_columns = lookup_table.bytecode_table.columns();
-        assign_table(
-            layouter,
-            bytecode_table_columns,
-            &bytecodes,
-            "bytecode_table",
-        )?;
+        lookup_table
+            .bytecode_table
+            .assign_table(layouter, &execution_chip.witness.bytecode_table)?;
         lookup_table
             .constant_table
             .assign_table(layouter, execution_chip.witness.constant_table.clone().0)?;
-
         lookup_table
             .calls_table
             .assign_table(layouter, execution_chip.witness.func_call_table.clone())?;
-
-        let arith_ops = &execution_chip
-            .witness
-            .arith_operations
-            .iter()
-            .map(|op| op.into())
-            .collect();
-        let arith_op_table_columns = lookup_table.arith_op_table.columns();
-        assign_table(
-            layouter,
-            arith_op_table_columns,
-            arith_ops,
-            "arith_op_table",
-        )?;
-
+        lookup_table
+            .arith_op_table
+            .assign_table(layouter, &execution_chip.witness.arith_operations)?;
         lookup_table
             .call_trace_table
             .assign_table(layouter, execution_chip.witness.call_trace_table.0.clone())?;
@@ -499,6 +389,8 @@ impl<F: Field> LookupTableConfig<F> {
             layouter,
             execution_chip.witness.type_instantiations.0.clone(),
         )?;
+        lookup_table.bitwise_table.assign_table(layouter)?;
+        lookup_table.pow2_table.assign_table(layouter)?;
 
         let pi_index_table = lookup_table.pi_index_table.assign_table(layouter)?;
         let pi_cells = lookup_table.pi_table.assign_table(
@@ -506,36 +398,6 @@ impl<F: Field> LookupTableConfig<F> {
             execution_chip.public_input.clone(),
             pi_index_table,
         )?;
-
-        // bitwise table
-        // only 4 bits bitwised every time. so table size is 16*16
-        let mut bitwise_values = Vec::new();
-        for op in [Opcode::BitAnd, Opcode::BitOr, Opcode::Xor] {
-            for value_1 in 0..16 {
-                for value_2 in 0..16 {
-                    let field_values = vec![
-                        F::from_u128(op.index() as u128),
-                        F::from_u128(value_1 as u128),
-                        F::from_u128(value_2 as u128),
-                        match op {
-                            Opcode::BitAnd => F::from_u128((value_1 & value_2) as u128),
-                            Opcode::BitOr => F::from_u128((value_1 | value_2) as u128),
-                            Opcode::Xor => F::from_u128((value_1 ^ value_2) as u128),
-                            _ => unreachable!(),
-                        },
-                    ];
-                    bitwise_values.push(field_values);
-                }
-            }
-        }
-        let bitwise_table_columns = lookup_table.bitwise_table.columns();
-        assign_table(
-            layouter,
-            bitwise_table_columns,
-            &bitwise_values,
-            "bitwise_table",
-        )?;
-        lookup_table.pow2_table.assign_table(layouter)?;
 
         Ok((
             stack_operations,
@@ -545,35 +407,53 @@ impl<F: Field> LookupTableConfig<F> {
         ))
     }
 
-    pub(crate) fn assign_rw_ops(
-        region: &mut Region<'_, F>,
-        column_idx: usize,
-        column: Column<Advice>,
-        offset: usize,
-        rw_operations: &mut Vec<ConvertedRWOperation<F>>,
-    ) -> Result<(), Error> {
-        (0..rw_operations.len())
-            .map(|i| {
-                let op = rw_operations.get_mut(i).ok_or_else(|| {
-                    error!("get rw operation error");
-                    Error::Synthesis
-                })?;
-                let field = op.get_field(column_idx).map_err(|e| {
-                    error!("get field failed: {:?}", e);
-                    Error::Synthesis
-                })?;
+    pub fn tables_height(&self, execution_chip: &ExecutionChip<F>) -> usize {
+        let rw_table_height = self.rw_table.tables_height(
+            execution_chip.witness.rw_operations.clone(),
+            &execution_chip.witness.circuit_config,
+        );
+        let input_type_element_table_height = self
+            .input_type_element_table
+            .table_height(&execution_chip.witness.input_type_elements);
+        let bytecode_table_height = self
+            .bytecode_table
+            .table_height(&execution_chip.witness.bytecode_table);
+        let constant_table_height = self
+            .constant_table
+            .table_height::<F>(&execution_chip.witness.constant_table.0);
+        let call_trace_table_height = self
+            .call_trace_table
+            .table_height(&execution_chip.witness.call_trace_table.0);
+        let calls_table_height = self
+            .calls_table
+            .table_height(&execution_chip.witness.func_call_table);
+        let arith_op_table_height = self
+            .arith_op_table
+            .table_height(&execution_chip.witness.arith_operations);
+        let type_instantiation_table_height = self
+            .type_instantiation_table
+            .table_height(&execution_chip.witness.type_instantiations.0);
+        let bitwise_table_height = self.bitwise_table.table_height();
+        let pow2_table_height = self.pow2_table.table_height();
+        let pi_index_table_height = self.pi_index_table.table_height();
+        let pi_table_height = self.pi_table.table_height();
 
-                let cell = region.assign_advice(
-                    || format!("rw_table[{}][{}]", column_idx, offset + i + 1),
-                    column,
-                    offset + i + 1,
-                    || CircuitValue::known(field),
-                )?;
-                op.assign_cell(column_idx, Some(cell)).map_err(|e| {
-                    error!("assign cell failed: {:?}", e);
-                    Error::Synthesis
-                })
-            })
-            .fold(Ok(()), |acc, res| acc.and(res))
+        vec![
+            rw_table_height,
+            input_type_element_table_height,
+            bytecode_table_height,
+            constant_table_height,
+            call_trace_table_height,
+            calls_table_height,
+            arith_op_table_height,
+            type_instantiation_table_height,
+            bitwise_table_height,
+            pow2_table_height,
+            pi_index_table_height,
+            pi_table_height,
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
     }
 }

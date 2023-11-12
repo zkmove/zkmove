@@ -34,17 +34,13 @@ impl ConstantLookupTable {
         ]
     }
 
-    pub fn assign_table<F: Field>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        traces: Vec<ConstantInfo>,
-    ) -> Result<(), Error> {
-        let values = traces
-            .into_iter()
+    fn flatten_constants<F: Field>(&self, constants: &[ConstantInfo]) -> Vec<Vec<F>> {
+        constants
+            .iter()
             .flat_map(|t| {
                 let module_idx = F::from_u128(t.module_index as u128);
                 let constant_idx = F::from_u128(t.constant_index as u128);
-                let flattened_value = FlattenedValue::from(&t.value.into());
+                let flattened_value = FlattenedValue::from(&t.value.clone().into());
                 flattened_value.0.into_iter().map(move |(indexes, val)| {
                     vec![
                         module_idx,
@@ -54,8 +50,22 @@ impl ConstantLookupTable {
                     ]
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
+
+    pub fn assign_table<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        constants: Vec<ConstantInfo>,
+    ) -> Result<(), Error> {
+        let values = self.flatten_constants(&constants);
         assign_table(layouter, self.columns(), &values, "constant_table")
+    }
+
+    pub fn table_height<F: Field>(&self, constants: &[ConstantInfo]) -> usize {
+        let values = self.flatten_constants::<F>(constants);
+
+        values.len() + 1
     }
 }
 

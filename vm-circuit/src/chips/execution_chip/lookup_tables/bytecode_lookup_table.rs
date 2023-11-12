@@ -1,5 +1,8 @@
+use crate::chips::execution_chip::lookup_tables::utils::assign_table;
+use crate::witness::bytecode_table::BytecodeTable;
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::{Expression, TableColumn};
+use halo2_proofs::plonk::{Error, Expression, TableColumn};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -34,6 +37,19 @@ impl BytecodeLookupTable {
             self.operand2_column,
             self.operand_column,
         ]
+    }
+
+    pub fn assign_table<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        bytecode_table: &BytecodeTable,
+    ) -> Result<(), Error> {
+        let bytecodes: Vec<Vec<F>> = bytecode_table.into();
+        assign_table(layouter, self.columns(), &bytecodes, "bytecode_table")
+    }
+
+    pub fn table_height(&self, bytecode_table: &BytecodeTable) -> usize {
+        bytecode_table.as_inner().len() + 1
     }
 }
 

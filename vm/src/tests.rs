@@ -768,7 +768,7 @@ fn test_nop_steps() -> VmResult<()> {
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]]);
+    let k = find_best_k(&vm_circuit);
 
     let expected_step_0 = ExecutionStep {
         context_id: 1,
@@ -1111,7 +1111,7 @@ fn test_empty_ops() -> VmResult<()> {
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]]);
+    let k = find_best_k(&vm_circuit);
 
     let prover = MockProver::<Fr>::run(k, &vm_circuit, vec![vec![Fr::zero()]]).map_err(|e| {
         debug!("Prover Error: {:?}", e);

@@ -174,7 +174,7 @@ impl Arguments {
             public_input: None,
         };
         info!("find the best k...");
-        let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]]);
+        let k = find_best_k(&vm_circuit);
         info!("k = {}", k);
 
         if use_mock {
@@ -295,7 +295,7 @@ impl Arguments {
             public_input: None,
         };
         info!("find the best k...");
-        let k = find_best_k(&vm_circuit, vec![vec![Fp::zero()]]);
+        let k = find_best_k(&vm_circuit);
         info!("k = {}", k);
 
         if use_mock {

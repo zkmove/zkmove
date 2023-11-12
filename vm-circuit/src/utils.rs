@@ -3,9 +3,9 @@ use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 
+use crate::circuit::VmCircuit;
 use halo2_proofs::halo2curves::ff::{FromUniformBytes, PrimeField, WithSmallOrderMulGroup};
 use halo2_proofs::halo2curves::serde::SerdeObject;
-use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::{
     create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
 };
@@ -27,18 +27,12 @@ use types::Field;
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
-pub const MIN_K: u32 = 10;
+pub const MIN_K: u32 = 1;
 
 /// find the minimum k that satisfies the circuit row number less than 2^k
-pub fn find_best_k<F: Field, ConcreteCircuit: Circuit<F>>(
-    _circuit: &ConcreteCircuit,
-    _instance: Vec<Vec<F>>,
-) -> u32 {
-    let mut cs = ConstraintSystem::default();
-    ConcreteCircuit::configure(&mut cs);
-
+pub fn find_best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
     let mut k = MIN_K;
-    while k <= MAX_K && (1 << k) <= cs.minimum_rows() {
+    while k <= MAX_K && (1 << k) <= circuit.circuit_height() {
         k += 1;
     }
     k

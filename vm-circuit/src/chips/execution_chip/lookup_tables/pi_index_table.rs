@@ -15,6 +15,11 @@ impl PIIndexTable {
         Self { index_column }
     }
 
+    // NOTICE: table height must be consistent with assign_table()
+    pub fn table_height(&self) -> usize {
+        PILookupTable::num_of_rows()
+    }
+
     pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,

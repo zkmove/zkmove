@@ -271,4 +271,35 @@ impl<F: Field> MemoryChip<F> {
 
         Ok(())
     }
+
+    pub fn chip_height(&self) -> usize {
+        let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
+            self.witness.rw_operations.clone().into();
+        let stack_ops_num = self.witness.circuit_config.stack_ops_num.unwrap_or(0);
+        let locals_ops_num = self.witness.circuit_config.locals_ops_num.unwrap_or(0);
+        let global_ops_num = self.witness.circuit_config.global_ops_num.unwrap_or(0);
+
+        let op_cells_height = sorted_stack_ops.0.len().max(stack_ops_num)
+            + sorted_locals_ops.0.len().max(locals_ops_num)
+            + sorted_global_ops.0.len().max(global_ops_num);
+        let add_counter_cells_height = 4;
+        let gc_table_height = op_cells_height + 1;
+        let stack_chip_table_height = StackOpChip::<F>::tables_height(&self.witness.circuit_config);
+        let locals_chip_table_height =
+            LocalsOpChip::<F>::tables_height(&self.witness.circuit_config);
+        let global_chip_table_height =
+            GlobalOpChip::<F>::tables_height(&self.witness.circuit_config);
+
+        vec![
+            op_cells_height,
+            add_counter_cells_height,
+            gc_table_height,
+            stack_chip_table_height,
+            locals_chip_table_height,
+            global_chip_table_height,
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
+    }
 }

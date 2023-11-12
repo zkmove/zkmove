@@ -480,4 +480,8 @@ impl<F: Field> GlobalOpChip<F> {
 
         last_global_counter
     }
+
+    pub fn tables_height(circuit_config: &CircuitConfig) -> usize {
+        circuit_config.word_size + 1
+    }
 }

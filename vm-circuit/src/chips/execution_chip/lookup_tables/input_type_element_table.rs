@@ -1,4 +1,4 @@
-use crate::witness::input_type_elements::InputTypeElement;
+use crate::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
@@ -22,6 +22,10 @@ impl InputTypeElementTable {
 
     pub fn columns(&self) -> Vec<Column<Advice>> {
         vec![self.ty_arg_pos, self.ty_arg_module, self.ty_arg_name]
+    }
+
+    pub fn table_height(&self, input_type_elements: &InputTypeElementTableData) -> usize {
+        input_type_elements.0.len() + 1
     }
 
     pub fn assign_table<F: Field>(

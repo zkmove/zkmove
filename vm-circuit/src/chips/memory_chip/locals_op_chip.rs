@@ -621,4 +621,14 @@ impl<F: Field> LocalsOpChip<F> {
 
         Ok(())
     }
+
+    pub fn tables_height(circuit_config: &CircuitConfig) -> usize {
+        let frame_index_table = circuit_config.max_frame_index + 1;
+        let locals_index_table = circuit_config.max_locals_size + 1;
+        let addr_ext_table = circuit_config.word_size + 1;
+
+        frame_index_table
+            .max(locals_index_table)
+            .max(addr_ext_table)
+    }
 }

@@ -789,4 +789,25 @@ impl<F: Field> ExecutionChip<F> {
         );
         region.name_column(|| "Exec_num_rows_inv", self.config.num_rows_inv);
     }
+
+    pub fn chip_height(&self) -> usize {
+        let mut height = 0;
+
+        // calculate steps height
+        let exec_steps = self.witness.exec_steps.clone();
+        for step in &exec_steps {
+            height += self.step_height_get(&step.opcode);
+        }
+
+        if let Some(max_row) = self.witness.circuit_config.max_step_row {
+            height = max_row;
+        }
+
+        // additional row for num_rows_until_next_step and num_rows_inv,
+        // used when configuring 'Stop' step
+        height += 1;
+
+        // max {steps_height, tables_height}
+        height.max(self.config.lookup_table.tables_height(self))
+    }
 }

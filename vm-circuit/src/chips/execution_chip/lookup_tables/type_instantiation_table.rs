@@ -97,6 +97,10 @@ impl TypeInstantiationTable {
             "type_instantiations_table",
         )
     }
+
+    pub fn table_height(&self, values: &Vec<GenericTypeInstantiation>) -> usize {
+        values.len() + 1
+    }
 }
 
 #[derive(Clone, Debug)]

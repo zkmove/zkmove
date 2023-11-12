@@ -112,7 +112,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         witness,
         public_input: ret,
     };
-    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]]);
+    let k = find_best_k(&vm_circuit);
     info!("use vm circuit, k = {}", k);
 
     mock_prove_circuit(&vm_circuit, vec![instance.clone()], k)?;

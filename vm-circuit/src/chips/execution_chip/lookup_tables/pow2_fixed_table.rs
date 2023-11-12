@@ -21,6 +21,11 @@ impl Pow2FixedTable {
         vec![self.pow_column, self.pow_result_column]
     }
 
+    // NOTICE: table height must be consistent with assign_table()
+    pub fn table_height(&self) -> usize {
+        128 + 1
+    }
+
     pub fn assign_table<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         let rows = (0u32..128)
             .map(|p| vec![F::from_u128(p as u128), F::from_u128(2u128.pow(p))])

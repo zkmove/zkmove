@@ -64,6 +64,10 @@ impl CallLookupTable {
             .collect();
         assign_table(layouter, self.columns(), &values, "func_call_table")
     }
+
+    pub fn table_height(&self, calls: &Vec<FunctionCall>) -> usize {
+        calls.len() + 1
+    }
 }
 
 #[derive(Clone, Debug)]

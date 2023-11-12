@@ -1,5 +1,8 @@
+use crate::chips::execution_chip::lookup_tables::utils::assign_table;
+use crate::witness::arith_operations::ArithOperation;
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::{Expression, TableColumn};
+use halo2_proofs::plonk::{Error, Expression, TableColumn};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -28,6 +31,20 @@ impl ArithOpLookupTable {
             self.pc_column,
             self.num_of_bytes_column,
         ]
+    }
+
+    pub fn assign_table<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        arith_ops: &[ArithOperation],
+    ) -> Result<(), Error> {
+        let arith_ops = arith_ops.iter().map(|op| op.into()).collect::<Vec<_>>();
+
+        assign_table(layouter, self.columns(), &arith_ops, "arith_op_table")
+    }
+
+    pub fn table_height(&self, arith_ops: &Vec<ArithOperation>) -> usize {
+        arith_ops.len() + 1
     }
 }
 

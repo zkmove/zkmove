@@ -548,7 +548,7 @@ impl<F: Field> StackOpChip<F> {
         Ok(())
     }
 
-    // assign tables of the locals varible
+    // assign tables for stack op chip
     pub fn assign_table(
         &self,
         layouter: &mut impl Layouter<F>,
@@ -568,5 +568,12 @@ impl<F: Field> StackOpChip<F> {
         )?;
 
         Ok(())
+    }
+
+    pub fn tables_height(circuit_config: &CircuitConfig) -> usize {
+        let stack_address_table_height = circuit_config.max_stack_size + 1;
+        let addr_ext_table = circuit_config.word_size + 1;
+
+        stack_address_table_height.max(addr_ext_table)
     }
 }
