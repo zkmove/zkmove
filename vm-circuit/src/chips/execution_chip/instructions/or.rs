@@ -9,20 +9,20 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct Or<F: FieldExt> {
+pub struct Or<F: Field> {
     value_a: WordCells<F>,
     value_b: WordCells<F>,
     value_c: WordCells<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Or<F> {
+impl<F: Field> InstructionGadget<F> for Or<F> {
     const NAME: &'static str = "OR";
 
     const OPCODE: Opcode = Opcode::Or;

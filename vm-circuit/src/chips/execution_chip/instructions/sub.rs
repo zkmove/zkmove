@@ -12,16 +12,16 @@ use crate::chips::execution_chip::utils::pow_of_two_expr;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use types::Field;
 
 use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct Sub<F: FieldExt> {
+pub struct Sub<F: Field> {
     value_a: WordCells<F>,
     value_b: WordCells<F>,
     out: WordCells<F>,
@@ -30,7 +30,7 @@ pub struct Sub<F: FieldExt> {
     // carry_hi: Cell<F>, // overflow
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
+impl<F: Field> InstructionGadget<F> for Sub<F> {
     const NAME: &'static str = "SUB";
 
     const OPCODE: Opcode = Opcode::Sub;
@@ -110,11 +110,7 @@ impl<F: FieldExt> InstructionGadget<F> for Sub<F> {
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
         )?;
-        let carry_lo = if out_lo > value_a_lo {
-            F::one()
-        } else {
-            F::zero()
-        };
+        let carry_lo = if out_lo > value_a_lo { F::ONE } else { F::ZERO };
         self.carry_lo.assign(region, offset, Some(carry_lo))?;
 
         Ok(())

@@ -1,6 +1,6 @@
 use crate::chips::utilities::Expr;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
+use types::Field;
 
 #[derive(Default)]
 pub struct BaseConstraintBuilder<F> {
@@ -9,7 +9,7 @@ pub struct BaseConstraintBuilder<F> {
     pub condition: Option<Expression<F>>,
 }
 
-impl<F: FieldExt> BaseConstraintBuilder<F> {
+impl<F: Field> BaseConstraintBuilder<F> {
     #[allow(dead_code)]
     pub(crate) fn new(max_degree: usize) -> Self {
         BaseConstraintBuilder {

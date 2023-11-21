@@ -10,18 +10,18 @@ use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp}
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::utility::{convert_u256_to_field, decode_field_to_u256};
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use types::Field;
 
 use super::common::word_gadget::WordCells;
 use super::common::{get_field_from_op, get_u256_from_op};
 
 #[derive(Clone, Debug)]
-pub struct Shr<F: FieldExt> {
+pub struct Shr<F: Field> {
     muladd_words_gadget: MulAddWordsGadget<F>,
     value_a: WordCells<F>,
     value_b: WordCells<F>,
@@ -29,7 +29,7 @@ pub struct Shr<F: FieldExt> {
     rhs_less_than_128: LtGadget<F, 1>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
+impl<F: Field> InstructionGadget<F> for Shr<F> {
     const NAME: &'static str = "SHR";
 
     const OPCODE: Opcode = Opcode::Shr;
@@ -108,18 +108,18 @@ impl<F: FieldExt> InstructionGadget<F> for Shr<F> {
         let b = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?.get_lower_32();
         let res = if b < 128 {
             // auxiliary_1 is for lower 128 bit
-            let pow2_b_lo = F::from_u128(2).pow(&[b as u64, 0, 0, 0]);
+            let pow2_b_lo = F::from_u128(2).pow([b as u64, 0, 0, 0]);
             cells.auxiliary_1.assign(region, offset, Some(pow2_b_lo))?;
-            cells.auxiliary_2.assign(region, offset, Some(F::zero()))?;
+            cells.auxiliary_2.assign(region, offset, Some(F::ZERO))?;
 
-            let v = decode_field_to_u256(&[F::zero(), pow2_b_lo]);
+            let v = decode_field_to_u256(&[F::ZERO, pow2_b_lo]);
             Ok(v)
         } else if b < 256 {
             // auxiliary_2 is for upper 128 bit
-            let pow2_b_hi = F::from_u128(2).pow(&[(b - 128) as u64, 0, 0, 0]);
-            cells.auxiliary_1.assign(region, offset, Some(F::zero()))?;
+            let pow2_b_hi = F::from_u128(2).pow([(b - 128) as u64, 0, 0, 0]);
+            cells.auxiliary_1.assign(region, offset, Some(F::ZERO))?;
             cells.auxiliary_2.assign(region, offset, Some(pow2_b_hi))?;
-            let v = decode_field_to_u256(&[pow2_b_hi, F::zero()]);
+            let v = decode_field_to_u256(&[pow2_b_hi, F::ZERO]);
             Ok(v)
         } else {
             error!("rhs value is out of bound");

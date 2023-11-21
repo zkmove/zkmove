@@ -4,7 +4,6 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
 use halo2_proofs::plonk::{
@@ -13,11 +12,12 @@ use halo2_proofs::plonk::{
 use logger::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use types::Field;
 
 pub const STACK_OP_CHIP_WIDTH: usize = 9;
 
 #[derive(Clone, Debug)]
-pub struct StackOpCells<F: FieldExt> {
+pub struct StackOpCells<F: Field> {
     pub counter: Cell<F>, // the total number of stack operations
     pub address: Cell<F>,
     pub address_ext: Cell<F>,
@@ -40,7 +40,7 @@ pub struct StackOpCells<F: FieldExt> {
 }
 
 #[derive(Debug, Clone)]
-pub struct StackOpChipConfig<F: FieldExt> {
+pub struct StackOpChipConfig<F: Field> {
     pub advices: [Column<Advice>; MEM_CHIP_WIDTH],
     pub cells: StackOpCells<F>,
     pub s_first_stack_op: Selector,
@@ -49,12 +49,12 @@ pub struct StackOpChipConfig<F: FieldExt> {
     addr_ext_table: TableColumn,
 }
 
-pub struct StackOpChip<F: FieldExt> {
+pub struct StackOpChip<F: Field> {
     pub config: StackOpChipConfig<F>,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for StackOpChip<F> {
+impl<F: Field> Chip<F> for StackOpChip<F> {
     type Config = StackOpChipConfig<F>;
     type Loaded = ();
 
@@ -67,7 +67,7 @@ impl<F: FieldExt> Chip<F> for StackOpChip<F> {
     }
 }
 
-impl<F: FieldExt> StackOpChip<F> {
+impl<F: Field> StackOpChip<F> {
     pub fn construct(
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
@@ -101,7 +101,7 @@ impl<F: FieldExt> StackOpChip<F> {
                 cells.push_back(Cell::new(meta, advices[column_index], rotation))
             }
 
-            vec![Expression::Constant(F::zero())]
+            vec![Expression::Constant(F::ZERO)]
         });
 
         let cells = StackOpCells {
@@ -387,7 +387,7 @@ impl<F: FieldExt> StackOpChip<F> {
         //     self.config
         //         .cells
         //         .is_empty
-        //         .assign(region, offset, Some(F::one()))?;
+        //         .assign(region, offset, Some(F::ONE))?;
         // } else
         {
             self.config.cells.gc.assign_equality(
@@ -441,7 +441,7 @@ impl<F: FieldExt> StackOpChip<F> {
             )?;
 
             let (prev_address, prev_addr_ext) = match prev_op {
-                None => (F::zero(), F::zero()),
+                None => (F::ZERO, F::ZERO),
                 Some(v) => (v.address.0, v.address_ext.0),
             };
             self.config.cells.delta_invert_address.assign(
@@ -458,7 +458,7 @@ impl<F: FieldExt> StackOpChip<F> {
             self.config.cells.is_empty.assign(
                 region,
                 offset,
-                Some(if is_empty { F::one() } else { F::zero() }),
+                Some(if is_empty { F::ONE } else { F::ZERO }),
             )?;
         }
 
@@ -548,7 +548,7 @@ impl<F: FieldExt> StackOpChip<F> {
         Ok(())
     }
 
-    // assign tables of the locals varible
+    // assign tables for stack op chip
     pub fn assign_table(
         &self,
         layouter: &mut impl Layouter<F>,
@@ -568,5 +568,12 @@ impl<F: FieldExt> StackOpChip<F> {
         )?;
 
         Ok(())
+    }
+
+    pub fn tables_height(circuit_config: &CircuitConfig) -> usize {
+        let stack_address_table_height = circuit_config.max_stack_size + 1;
+        let addr_ext_table = circuit_config.word_size + 1;
+
+        stack_address_table_height.max(addr_ext_table)
     }
 }

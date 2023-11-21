@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::opcode::Opcode;
-use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::file_format::{Bytecode, CompiledModule, CompiledScript};
 use movelang::utility::convert_u256_to_field;
 use std::convert::From;
+use types::Field;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BytecodeInfo {
@@ -31,7 +31,7 @@ impl BytecodeInfo {
     }
 }
 
-pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
+pub fn convert_bytecode_to_fields<F: Field>(bytecode: Bytecode) -> (F, F) {
     match bytecode {
         Bytecode::LdU8(v) => (
             F::from_u128(Opcode::LdU8.index() as u128),
@@ -60,39 +60,39 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::LdConst.index() as u128),
             F::from_u128(v.0 as u128),
         ),
-        Bytecode::CastU8 => (F::from_u128(Opcode::CastU8.index() as u128), F::zero()),
-        Bytecode::CastU16 => (F::from_u128(Opcode::CastU16.index() as u128), F::zero()),
-        Bytecode::CastU32 => (F::from_u128(Opcode::CastU32.index() as u128), F::zero()),
-        Bytecode::CastU64 => (F::from_u128(Opcode::CastU64.index() as u128), F::zero()),
-        Bytecode::CastU128 => (F::from_u128(Opcode::CastU128.index() as u128), F::zero()),
-        Bytecode::CastU256 => (F::from_u128(Opcode::CastU256.index() as u128), F::zero()),
-        Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::zero()),
-        Bytecode::Ret => (F::from_u128(Opcode::Ret.index() as u128), F::zero()),
-        Bytecode::Add => (F::from_u128(Opcode::Add.index() as u128), F::zero()),
-        Bytecode::Mul => (F::from_u128(Opcode::Mul.index() as u128), F::zero()),
+        Bytecode::CastU8 => (F::from_u128(Opcode::CastU8.index() as u128), F::ZERO),
+        Bytecode::CastU16 => (F::from_u128(Opcode::CastU16.index() as u128), F::ZERO),
+        Bytecode::CastU32 => (F::from_u128(Opcode::CastU32.index() as u128), F::ZERO),
+        Bytecode::CastU64 => (F::from_u128(Opcode::CastU64.index() as u128), F::ZERO),
+        Bytecode::CastU128 => (F::from_u128(Opcode::CastU128.index() as u128), F::ZERO),
+        Bytecode::CastU256 => (F::from_u128(Opcode::CastU256.index() as u128), F::ZERO),
+        Bytecode::Pop => (F::from_u128(Opcode::Pop.index() as u128), F::ZERO),
+        Bytecode::Ret => (F::from_u128(Opcode::Ret.index() as u128), F::ZERO),
+        Bytecode::Add => (F::from_u128(Opcode::Add.index() as u128), F::ZERO),
+        Bytecode::Mul => (F::from_u128(Opcode::Mul.index() as u128), F::ZERO),
         Bytecode::CopyLoc(local_index) => (
             F::from_u128(Opcode::CopyLoc.index() as u128),
             F::from_u128(local_index as u128),
         ),
-        Bytecode::Sub => (F::from_u128(Opcode::Sub.index() as u128), F::zero()),
-        Bytecode::Div => (F::from_u128(Opcode::Div.index() as u128), F::zero()),
-        Bytecode::Mod => (F::from_u128(Opcode::Mod.index() as u128), F::zero()),
-        Bytecode::LdTrue => (F::from_u128(Opcode::LdTrue.index() as u128), F::zero()),
-        Bytecode::LdFalse => (F::from_u128(Opcode::LdFalse.index() as u128), F::zero()),
-        Bytecode::Eq => (F::from_u128(Opcode::Eq.index() as u128), F::zero()),
-        Bytecode::Neq => (F::from_u128(Opcode::Neq.index() as u128), F::zero()),
-        Bytecode::Le => (F::from_u128(Opcode::Le.index() as u128), F::zero()),
-        Bytecode::Lt => (F::from_u128(Opcode::Lt.index() as u128), F::zero()),
-        Bytecode::Ge => (F::from_u128(Opcode::Ge.index() as u128), F::zero()),
-        Bytecode::Gt => (F::from_u128(Opcode::Gt.index() as u128), F::zero()),
-        Bytecode::Shl => (F::from_u128(Opcode::Shl.index() as u128), F::zero()),
-        Bytecode::Shr => (F::from_u128(Opcode::Shr.index() as u128), F::zero()),
-        Bytecode::BitAnd => (F::from_u128(Opcode::BitAnd.index() as u128), F::zero()),
-        Bytecode::BitOr => (F::from_u128(Opcode::BitOr.index() as u128), F::zero()),
-        Bytecode::Xor => (F::from_u128(Opcode::Xor.index() as u128), F::zero()),
-        Bytecode::And => (F::from_u128(Opcode::And.index() as u128), F::zero()),
-        Bytecode::Or => (F::from_u128(Opcode::Or.index() as u128), F::zero()),
-        Bytecode::Not => (F::from_u128(Opcode::Not.index() as u128), F::zero()),
+        Bytecode::Sub => (F::from_u128(Opcode::Sub.index() as u128), F::ZERO),
+        Bytecode::Div => (F::from_u128(Opcode::Div.index() as u128), F::ZERO),
+        Bytecode::Mod => (F::from_u128(Opcode::Mod.index() as u128), F::ZERO),
+        Bytecode::LdTrue => (F::from_u128(Opcode::LdTrue.index() as u128), F::ZERO),
+        Bytecode::LdFalse => (F::from_u128(Opcode::LdFalse.index() as u128), F::ZERO),
+        Bytecode::Eq => (F::from_u128(Opcode::Eq.index() as u128), F::ZERO),
+        Bytecode::Neq => (F::from_u128(Opcode::Neq.index() as u128), F::ZERO),
+        Bytecode::Le => (F::from_u128(Opcode::Le.index() as u128), F::ZERO),
+        Bytecode::Lt => (F::from_u128(Opcode::Lt.index() as u128), F::ZERO),
+        Bytecode::Ge => (F::from_u128(Opcode::Ge.index() as u128), F::ZERO),
+        Bytecode::Gt => (F::from_u128(Opcode::Gt.index() as u128), F::ZERO),
+        Bytecode::Shl => (F::from_u128(Opcode::Shl.index() as u128), F::ZERO),
+        Bytecode::Shr => (F::from_u128(Opcode::Shr.index() as u128), F::ZERO),
+        Bytecode::BitAnd => (F::from_u128(Opcode::BitAnd.index() as u128), F::ZERO),
+        Bytecode::BitOr => (F::from_u128(Opcode::BitOr.index() as u128), F::ZERO),
+        Bytecode::Xor => (F::from_u128(Opcode::Xor.index() as u128), F::ZERO),
+        Bytecode::And => (F::from_u128(Opcode::And.index() as u128), F::ZERO),
+        Bytecode::Or => (F::from_u128(Opcode::Or.index() as u128), F::ZERO),
+        Bytecode::Not => (F::from_u128(Opcode::Not.index() as u128), F::ZERO),
         Bytecode::MoveLoc(local_index) => (
             F::from_u128(Opcode::MoveLoc.index() as u128),
             F::from_u128(local_index as u128),
@@ -117,7 +117,7 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::Call.index() as u128),
             F::from_u128(func_handle_index.0 as u128),
         ),
-        Bytecode::Abort => (F::from_u128(Opcode::Abort.index() as u128), F::zero()),
+        Bytecode::Abort => (F::from_u128(Opcode::Abort.index() as u128), F::ZERO),
         Bytecode::Pack(struct_def_index) => (
             F::from_u128(Opcode::Pack.index() as u128),
             F::from_u128(struct_def_index.0 as u128),
@@ -134,9 +134,9 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
             F::from_u128(Opcode::ImmBorrowLoc.index() as u128),
             F::from_u128(local_index as u128),
         ),
-        Bytecode::ReadRef => (F::from_u128(Opcode::ReadRef.index() as u128), F::zero()),
-        Bytecode::WriteRef => (F::from_u128(Opcode::WriteRef.index() as u128), F::zero()),
-        Bytecode::FreezeRef => (F::from_u128(Opcode::FreezeRef.index() as u128), F::zero()),
+        Bytecode::ReadRef => (F::from_u128(Opcode::ReadRef.index() as u128), F::ZERO),
+        Bytecode::WriteRef => (F::from_u128(Opcode::WriteRef.index() as u128), F::ZERO),
+        Bytecode::FreezeRef => (F::from_u128(Opcode::FreezeRef.index() as u128), F::ZERO),
         Bytecode::ImmBorrowField(fh_idx) => (
             F::from_u128(Opcode::ImmBorrowField.index() as u128),
             F::from_u128(fh_idx.0 as u128),
@@ -243,7 +243,7 @@ pub fn convert_bytecode_to_fields<F: FieldExt>(bytecode: Bytecode) -> (F, F) {
     }
 }
 
-pub fn convert_bytecode_to_fields_operand2<F: FieldExt>(bytecode: Bytecode) -> (F, F, F) {
+pub fn convert_bytecode_to_fields_operand2<F: Field>(bytecode: Bytecode) -> (F, F, F) {
     match bytecode {
         Bytecode::LdU256(v) => {
             let opcode = F::from_u128(Opcode::LdU256.index() as u128);
@@ -255,7 +255,7 @@ pub fn convert_bytecode_to_fields_operand2<F: FieldExt>(bytecode: Bytecode) -> (
 }
 
 // convert BytecodeInfo into a vector of field values
-impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
+impl<F: Field> From<&BytecodeInfo> for Vec<F> {
     fn from(bytecode_info: &BytecodeInfo) -> Vec<F> {
         let mut field_values = vec![
             F::from_u128(bytecode_info.module_index as u128),
@@ -275,7 +275,7 @@ impl<F: FieldExt> From<&BytecodeInfo> for Vec<F> {
             _ => {
                 let (opcode, operand) = convert_bytecode_to_fields(bc);
                 field_values.push(opcode);
-                field_values.push(F::zero());
+                field_values.push(F::ZERO);
                 field_values.push(operand);
             }
         }
@@ -300,7 +300,7 @@ impl BytecodeTable {
 }
 
 // convert BytecodeTable into a vector of vector of field values
-impl<F: FieldExt> From<&BytecodeTable> for Vec<Vec<F>> {
+impl<F: Field> From<&BytecodeTable> for Vec<Vec<F>> {
     fn from(bytecode_table: &BytecodeTable) -> Vec<Vec<F>> {
         bytecode_table
             .0

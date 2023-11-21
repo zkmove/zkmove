@@ -1,5 +1,5 @@
 use error::VmResult;
-use halo2_proofs::arithmetic::FieldExt;
+use types::Field;
 
 use movelang::account_address::AccountAddress;
 use movelang::value::{
@@ -9,7 +9,7 @@ use movelang::value::{
 use movelang::value_ext::LocatedFlattenedValue;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
-pub fn emit_global_op<F: FieldExt>(
+pub fn emit_global_op<F: Field>(
     address_path: AddressPath<F>,
     value: SimpleValue<F>,
     rw: RW,
@@ -32,7 +32,7 @@ pub fn emit_global_op<F: FieldExt>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_global_ops<F: FieldExt>(
+pub fn emit_global_ops<F: Field>(
     flattened_value: LocatedFlattenedValue<F>,
     rw: RW,
     rw_operations: &mut Vec<RWOperation<F>>,
@@ -41,7 +41,7 @@ pub fn emit_global_ops<F: FieldExt>(
         emit_global_op(address_path, val, rw, rw_operations);
     }
 }
-pub fn emit_ops_for_global_value<F: FieldExt>(
+pub fn emit_ops_for_global_value<F: Field>(
     addr: AccountAddress<F>,
     sd_index: GlobalResourceDefIndex,
     resource_value: Value<F>,

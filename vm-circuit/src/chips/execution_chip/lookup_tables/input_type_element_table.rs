@@ -1,8 +1,8 @@
-use crate::witness::input_type_elements::InputTypeElement;
-use halo2_proofs::arithmetic::FieldExt;
+use crate::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Value as CircuitValue;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct InputTypeElementTable {
@@ -12,7 +12,7 @@ pub struct InputTypeElementTable {
 }
 
 impl InputTypeElementTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             ty_arg_pos: meta.advice_column(),
             ty_arg_module: meta.advice_column(),
@@ -24,7 +24,11 @@ impl InputTypeElementTable {
         vec![self.ty_arg_pos, self.ty_arg_module, self.ty_arg_name]
     }
 
-    pub fn assign_table<F: FieldExt>(
+    pub fn table_height(&self, input_type_elements: &InputTypeElementTableData) -> usize {
+        input_type_elements.0.len() + 1
+    }
+
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         items: Vec<InputTypeElement>,
@@ -48,7 +52,7 @@ impl InputTypeElementTable {
                         || format!("input_type_element_table[{}][0]", column_index),
                         column,
                         0,
-                        || CircuitValue::known(F::zero()),
+                        || CircuitValue::known(F::ZERO),
                     )?;
                     for (idx, data) in items.iter().enumerate() {
                         region.assign_advice(
@@ -70,13 +74,13 @@ impl InputTypeElementTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct InputTypeElementLookup<F: FieldExt> {
+pub struct InputTypeElementLookup<F: Field> {
     pub ty_arg_pos: Expression<F>,
     pub ty_arg_module: Expression<F>,
     pub ty_arg_name: Expression<F>,
 }
 
-impl<F: FieldExt> InputTypeElementLookup<F> {
+impl<F: Field> InputTypeElementLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.ty_arg_pos.clone(),

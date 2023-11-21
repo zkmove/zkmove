@@ -1,5 +1,9 @@
-use halo2_proofs::plonk::{Expression, TableColumn};
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use crate::chips::execution_chip::lookup_tables::utils::assign_table;
+use crate::witness::bytecode_table::BytecodeTable;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::{Error, Expression, TableColumn};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct BytecodeLookupTable {
@@ -13,7 +17,7 @@ pub struct BytecodeLookupTable {
 pub const BYTECODE_LOOKUP_TABLE_WIDTH: usize = 6;
 
 impl BytecodeLookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         BytecodeLookupTable {
             module_index_column: meta.lookup_table_column(),
             function_index_column: meta.lookup_table_column(),
@@ -34,10 +38,23 @@ impl BytecodeLookupTable {
             self.operand_column,
         ]
     }
+
+    pub fn assign_table<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        bytecode_table: &BytecodeTable,
+    ) -> Result<(), Error> {
+        let bytecodes: Vec<Vec<F>> = bytecode_table.into();
+        assign_table(layouter, self.columns(), &bytecodes, "bytecode_table")
+    }
+
+    pub fn table_height(&self, bytecode_table: &BytecodeTable) -> usize {
+        bytecode_table.as_inner().len() + 1
+    }
 }
 
 #[derive(Clone, Debug)]
-pub struct BytecodeLookup<F: FieldExt> {
+pub struct BytecodeLookup<F: Field> {
     pub module_index: Expression<F>,
     pub function_index: Expression<F>,
     pub pc: Expression<F>,
@@ -46,7 +63,7 @@ pub struct BytecodeLookup<F: FieldExt> {
     pub operand: Expression<F>,
 }
 
-impl<F: FieldExt> BytecodeLookup<F> {
+impl<F: Field> BytecodeLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.module_index.clone(),

@@ -4,10 +4,10 @@ use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
     Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128, U256,
 };
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use std::convert::{From, TryFrom, TryInto};
 use std::marker::PhantomData;
+use types::Field;
 
 pub const LEN_OF_REFERENCE_VALUE: usize = 4; // header + DEPTH_OF_LOCATION_PATH + addr_ext
 pub const LEN_OF_SIMPLE_VALUE: usize = 3;
@@ -19,9 +19,9 @@ pub const UPPER_FIELD_OFFSET: usize = 2;
 /// It starts with a value header carrying type information, followed by simple values
 /// flattened from the complex value.
 #[derive(Clone, Debug)]
-pub struct FlattenedValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
+pub struct FlattenedValue<F: Field>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
-impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
+impl<F: Field> From<&Value<F>> for FlattenedValue<F> {
     fn from(value: &Value<F>) -> Self {
         match value {
             Value::Invalid => FlattenedValue(vec![]), // TODO: Issue #52
@@ -45,7 +45,7 @@ impl<F: FieldExt> From<&Value<F>> for FlattenedValue<F> {
     }
 }
 
-impl<F: FieldExt> FlattenedValue<F> {
+impl<F: Field> FlattenedValue<F> {
     // Compare with another flattened value. Return the position where
     // the first difference occurs, or return None, means that the two
     // values are the same.
@@ -77,11 +77,9 @@ impl<F: FieldExt> FlattenedValue<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedSimpleValue<F: FieldExt>(
-    pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE],
-);
+pub struct FlattenedSimpleValue<F: Field>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
 
-impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
+impl<F: Field> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
     fn from(value: SimpleValue<F>) -> FlattenedSimpleValue<F> {
         FlattenedSimpleValue([
             (vec![0u128], ValueHeader::default_for_simple().into()),
@@ -91,16 +89,16 @@ impl<F: FieldExt> From<SimpleValue<F>> for FlattenedSimpleValue<F> {
     }
 }
 
-impl<F: FieldExt> From<FlattenedSimpleValue<F>> for FlattenedValue<F> {
+impl<F: Field> From<FlattenedSimpleValue<F>> for FlattenedValue<F> {
     fn from(value: FlattenedSimpleValue<F>) -> FlattenedValue<F> {
         FlattenedValue(value.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedU256<F: FieldExt>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
+pub struct FlattenedU256<F: Field>(pub [(Vec<u128>, SimpleValue<F>); LEN_OF_SIMPLE_VALUE]);
 
-impl<F: FieldExt> From<U256<F>> for FlattenedU256<F> {
+impl<F: Field> From<U256<F>> for FlattenedU256<F> {
     fn from(value: U256<F>) -> FlattenedU256<F> {
         FlattenedU256([
             (vec![0u128], ValueHeader::default_for_u256().into()),
@@ -109,18 +107,18 @@ impl<F: FieldExt> From<U256<F>> for FlattenedU256<F> {
         ])
     }
 }
-impl<F: FieldExt> From<FlattenedU256<F>> for FlattenedValue<F> {
+impl<F: Field> From<FlattenedU256<F>> for FlattenedValue<F> {
     fn from(value: FlattenedU256<F>) -> FlattenedValue<F> {
         FlattenedValue(value.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedReferenceValue<F: FieldExt>(
+pub struct FlattenedReferenceValue<F: Field>(
     pub [(Vec<u128>, SimpleValue<F>); LEN_OF_REFERENCE_VALUE],
 );
 
-impl<F: FieldExt> FlattenedReferenceValue<F> {
+impl<F: Field> FlattenedReferenceValue<F> {
     fn fold(simples: Vec<(Vec<u128>, SimpleValue<F>)>) -> Self {
         let mut value: u128 = 0;
         for (i, (_, val)) in simples.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
@@ -153,7 +151,7 @@ impl<F: FieldExt> FlattenedReferenceValue<F> {
     }
 }
 
-impl<F: FieldExt> From<Reference<F>> for FlattenedReferenceValue<F> {
+impl<F: Field> From<Reference<F>> for FlattenedReferenceValue<F> {
     fn from(value: Reference<F>) -> FlattenedReferenceValue<F> {
         let ref_paths = match value {
             Reference::GlobalRef(GlobalRef { loc, .. }) => {
@@ -202,16 +200,16 @@ impl<F: FieldExt> From<Reference<F>> for FlattenedReferenceValue<F> {
     }
 }
 
-impl<F: FieldExt> From<FlattenedReferenceValue<F>> for FlattenedValue<F> {
+impl<F: Field> From<FlattenedReferenceValue<F>> for FlattenedValue<F> {
     fn from(value: FlattenedReferenceValue<F>) -> FlattenedValue<F> {
         FlattenedValue(value.0.to_vec())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedContainerValue<F: FieldExt>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
+pub struct FlattenedContainerValue<F: Field>(pub Vec<(Vec<u128>, SimpleValue<F>)>);
 
-impl<F: FieldExt> From<&Container<F>> for FlattenedContainerValue<F> {
+impl<F: Field> From<&Container<F>> for FlattenedContainerValue<F> {
     fn from(container: &Container<F>) -> FlattenedContainerValue<F> {
         let mut simples = Vec::new();
         for (idx, val) in container.0.borrow().iter().enumerate() {
@@ -232,18 +230,16 @@ impl<F: FieldExt> From<&Container<F>> for FlattenedContainerValue<F> {
     }
 }
 
-impl<F: FieldExt> From<FlattenedContainerValue<F>> for FlattenedValue<F> {
+impl<F: Field> From<FlattenedContainerValue<F>> for FlattenedValue<F> {
     fn from(value: FlattenedContainerValue<F>) -> FlattenedValue<F> {
         FlattenedValue(value.0)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct LocatedFlattenedValue<F: FieldExt>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
+pub struct LocatedFlattenedValue<F: Field>(pub Vec<(AddressPath<F>, SimpleValue<F>)>);
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>>
-    for LocatedFlattenedValue<F>
-{
+impl<'v, F: Field> From<LocatedValue<'v, ValueLocation<F>, Value<F>>> for LocatedFlattenedValue<F> {
     fn from(
         located_value: LocatedValue<'v, ValueLocation<F>, Value<F>>,
     ) -> LocatedFlattenedValue<F> {
@@ -266,7 +262,7 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, ValueLocation<F>, Value<F>>>
     }
 }
 
-impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>>
+impl<'v, F: Field> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>>
     for LocatedFlattenedValue<F>
 {
     fn from(
@@ -301,13 +297,13 @@ impl<'v, F: FieldExt> From<LocatedValue<'v, IndexedLocation<F>, Value<F>>>
 /// A header is added for the flattened value. Both value length and flattened value's length
 /// are recorded in the header.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct ValueHeader<F: FieldExt> {
+pub struct ValueHeader<F: Field> {
     flattened_len: u16,
     len: u16,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> ValueHeader<F> {
+impl<F: Field> ValueHeader<F> {
     pub fn new(flattened_len: usize, len: usize) -> Self {
         debug_assert!(flattened_len < u16::MAX as usize);
         debug_assert!(len < u16::MAX as usize);
@@ -356,13 +352,13 @@ impl<F: FieldExt> ValueHeader<F> {
     }
 }
 
-impl<F: FieldExt> From<ValueHeader<F>> for SimpleValue<F> {
+impl<F: Field> From<ValueHeader<F>> for SimpleValue<F> {
     fn from(value: ValueHeader<F>) -> SimpleValue<F> {
         SimpleValue::U128(U128(value.value()))
     }
 }
 
-impl<F: FieldExt> From<F> for ValueHeader<F> {
+impl<F: Field> From<F> for ValueHeader<F> {
     fn from(value: F) -> ValueHeader<F> {
         let flattened_len = (value.get_lower_128() & 0xFFFF) as usize;
         let len = ((value.get_lower_128() & 0xFFFF0000) >> 16) as usize;

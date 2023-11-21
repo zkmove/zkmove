@@ -5,18 +5,18 @@ use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
 use std::convert::TryInto;
+use types::Field;
 
 use super::get_field_from_op;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SimpleValueCells<F>([Cell<F>; LEN_OF_SIMPLE_VALUE]);
 
-impl<F: FieldExt> SimpleValueCells<F> {
+impl<F: Field> SimpleValueCells<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let cells: [Cell<F>; LEN_OF_SIMPLE_VALUE] = cb
@@ -56,7 +56,7 @@ pub(crate) struct SimpleValueGadget<F> {
     pub(crate) header_cells: HeaderCells<F>,
 }
 
-impl<F: FieldExt> SimpleValueGadget<F> {
+impl<F: Field> SimpleValueGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
             cells: SimpleValueCells::construct(cb),

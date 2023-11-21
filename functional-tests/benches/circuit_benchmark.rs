@@ -83,7 +83,7 @@ fn setup(
         witness,
         public_input: None,
     };
-    let k = find_best_k(&vm_circuit, vec![vec![Fr::zero()]])?;
+    let k = find_best_k(&vm_circuit);
     info!("use vm circuit, k = {}", k);
 
     mock_prove_circuit(&vm_circuit, vec![vec![Fr::zero()]], k)?;

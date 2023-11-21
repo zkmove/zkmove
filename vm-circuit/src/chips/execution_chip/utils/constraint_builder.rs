@@ -3,10 +3,10 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepConfig;
 use crate::chips::execution_chip::utils::CellType;
 use crate::chips::utilities::{Cell, Expr};
+use halo2_proofs::plonk::Expression;
+use types::Field;
 
-use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
-
-pub(crate) struct ConstraintBuilder<F: FieldExt> {
+pub(crate) struct ConstraintBuilder<F: Field> {
     opcode: Opcode,
     pub(crate) curr: StepConfig<F>,
     pub(crate) next: StepConfig<F>,
@@ -52,7 +52,7 @@ impl<F, T> AsRef<T> for ConditionalConstraint<F, T> {
 pub type ConditionalExpression<F> = ConditionalConstraint<F, Expression<F>>;
 pub type ConditionalLookup<F> = ConditionalConstraint<F, Lookup<F>>;
 
-impl<F: FieldExt> Expr<F> for ConditionalExpression<F> {
+impl<F: Field> Expr<F> for ConditionalExpression<F> {
     fn expr(&self) -> Expression<F> {
         match mul_exprs(&self.conds) {
             Some(c) => c * self.expr.clone(),
@@ -61,7 +61,7 @@ impl<F: FieldExt> Expr<F> for ConditionalExpression<F> {
     }
 }
 
-impl<F: FieldExt> ConstraintBuilder<F> {
+impl<F: Field> ConstraintBuilder<F> {
     pub(crate) fn new(curr: StepConfig<F>, next: StepConfig<F>, opcode: Opcode) -> Self {
         Self {
             opcode,
@@ -179,7 +179,7 @@ impl<F: FieldExt> ConstraintBuilder<F> {
     }
 }
 
-pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+pub fn mul_exprs<F: Field>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
     let mut iter = iter.as_ref().iter();
     let first = match iter.next() {
         Some(e) => e,
@@ -188,7 +188,7 @@ pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expre
     Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
 }
 
-// pub fn mul_exprs<F: FieldExt>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
+// pub fn mul_exprs<F: Field>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
 //     //let mut iter = self.conditions.iter();
 //     let iter = iter.as_ref();
 //     if iter.is_empty() {

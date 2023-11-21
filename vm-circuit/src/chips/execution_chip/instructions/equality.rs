@@ -14,16 +14,16 @@ use crate::chips::utilities::DeltaInvert;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::error;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use types::Field;
 
 use super::common::get_field_from_op;
 
 #[derive(Clone, Debug)]
-pub struct Equality<const EQUALITY: bool, F: FieldExt> {
+pub struct Equality<const EQUALITY: bool, F: Field> {
     value_a: ValueGadget<F>, // right
     value_b: ValueGadget<F>, // left
     result: SimpleValueGadget<F>,
@@ -35,7 +35,7 @@ pub struct Equality<const EQUALITY: bool, F: FieldExt> {
     delta_invert: Cell<F>,
 }
 
-impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALITY, F> {
+impl<const EQUALITY: bool, F: Field> InstructionGadget<F> for Equality<EQUALITY, F> {
     const NAME: &'static str = match EQUALITY {
         true => "EQ",
         false => "NEQ",
@@ -249,7 +249,7 @@ impl<const EQUALITY: bool, F: FieldExt> InstructionGadget<F> for Equality<EQUALI
             rw_operations,
             step.gc + flattened_value_len_a + flattened_value_len_b + LOWER_FIELD_OFFSET,
         )?;
-        let a_unequal_b = if EQUALITY { F::zero() } else { F::one() };
+        let a_unequal_b = if EQUALITY { F::ZERO } else { F::ONE };
         if result == a_unequal_b {
             // a and b are not equal
             let unequal_row =

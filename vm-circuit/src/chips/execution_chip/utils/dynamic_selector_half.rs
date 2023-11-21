@@ -1,9 +1,9 @@
 use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use std::iter;
+use types::Field;
 
 /// Dynamic selector that generates expressions of degree 2 to select from N
 /// possible targets using N/2 + 1 cells.
@@ -18,7 +18,7 @@ pub(crate) struct DynamicSelectorHalf<F> {
     pub(crate) target_pairs: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> DynamicSelectorHalf<F> {
+impl<F: Field> DynamicSelectorHalf<F> {
     pub(crate) fn new(cell_manager: &mut CellManager<F>, count: usize) -> Self {
         let target_pairs = cell_manager.allocate_cells(CellType::CustomGate, (count + 1) / 2);
         let target_odd = cell_manager.alloc_cell(CellType::CustomGate);
@@ -85,16 +85,12 @@ impl<F: FieldExt> DynamicSelectorHalf<F> {
         let odd = target % 2 == 1;
         let pair_index = target / 2;
         self.target_odd
-            .assign(region, offset, Some(if odd { F::one() } else { F::zero() }))?;
+            .assign(region, offset, Some(if odd { F::ONE } else { F::ZERO }))?;
         for (index, cell) in self.target_pairs.iter().enumerate() {
             cell.assign(
                 region,
                 offset,
-                Some(if index == pair_index {
-                    F::one()
-                } else {
-                    F::zero()
-                }),
+                Some(if index == pair_index { F::ONE } else { F::ZERO }),
             )?;
         }
         Ok(())

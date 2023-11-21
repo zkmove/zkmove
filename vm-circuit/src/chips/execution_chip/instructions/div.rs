@@ -12,23 +12,23 @@ use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp}
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+use types::Field;
 
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct Div<F: FieldExt> {
+pub struct Div<F: Field> {
     muladd_words_gadget: MulAddWordsGadget<F>,
     value_a: WordCells<F>,
     value_b: WordCells<F>,
     value_c: WordCells<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Div<F> {
+impl<F: Field> InstructionGadget<F> for Div<F> {
     const NAME: &'static str = "DIV";
 
     const OPCODE: Opcode = Opcode::Div;

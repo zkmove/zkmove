@@ -4,19 +4,19 @@ use crate::chips::execution_chip::instructions::common::HeaderCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use std::convert::TryInto;
 use std::ops::Index;
+use types::Field;
 
 use super::get_field_from_op;
 
 #[derive(Clone, Debug)]
 pub(crate) struct RefValCells<F>([Cell<F>; LEN_OF_REFERENCE_VALUE]);
 
-impl<F: FieldExt> RefValCells<F> {
+impl<F: Field> RefValCells<F> {
     fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         // alloc cell
         let cells: [Cell<F>; LEN_OF_REFERENCE_VALUE] = cb
@@ -50,7 +50,7 @@ impl<F: FieldExt> RefValCells<F> {
     }
 }
 
-impl<F: FieldExt> Index<usize> for RefValCells<F> {
+impl<F: Field> Index<usize> for RefValCells<F> {
     type Output = Cell<F>;
 
     fn index(&self, i: usize) -> &Cell<F> {
@@ -64,7 +64,7 @@ pub(crate) struct RefValGadget<F> {
     pub(crate) header_cells: HeaderCells<F>,
 }
 
-impl<F: FieldExt> RefValGadget<F> {
+impl<F: Field> RefValGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilder<F>) -> Self {
         Self {
             cells: RefValCells::construct(cb),

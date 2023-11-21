@@ -2,9 +2,9 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::is_zero::IsZeroGadget;
 use crate::chips::math_gadget::lt::LtGadget;
 use crate::chips::utilities::sum;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
+use types::Field;
 
 /// Returns (lt, eq):
 /// - `lt` is `1` when `lhs < rhs`, `0` otherwise.
@@ -17,7 +17,7 @@ pub struct ComparisonGadget<F, const N_BYTES: usize> {
     eq: IsZeroGadget<F>,
 }
 
-impl<F: FieldExt, const N_BYTES: usize> ComparisonGadget<F, N_BYTES> {
+impl<F: Field, const N_BYTES: usize> ComparisonGadget<F, N_BYTES> {
     pub(crate) fn construct(
         cb: &mut ConstraintBuilder<F>,
         lhs: Expression<F>,

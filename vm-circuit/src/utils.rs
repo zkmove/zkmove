@@ -1,12 +1,13 @@
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::dev::{MockProver, VerifyFailure};
+use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 
+use crate::circuit::VmCircuit;
+use halo2_proofs::halo2curves::ff::{FromUniformBytes, PrimeField, WithSmallOrderMulGroup};
 use halo2_proofs::halo2curves::serde::SerdeObject;
-use halo2_proofs::halo2curves::FieldExt;
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
 };
 use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
@@ -17,55 +18,27 @@ use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
 use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
-use logger::{debug, info, trace};
+use logger::{debug, info};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
+use types::Field;
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
 pub const MIN_K: u32 = 1;
 
 /// find the minimum k that satisfies the circuit row number less than 2^k
-pub fn find_best_k<F: FieldExt, ConcreteCircuit: Circuit<F>>(
-    circuit: &ConcreteCircuit,
-    instance: Vec<Vec<F>>,
-) -> VmResult<u32> {
+pub fn find_best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
     let mut k = MIN_K;
-    while k <= MAX_K {
-        trace!("Try k={}...", k);
-        let not_enough_rows_error = Error::NotEnoughRowsAvailable { current_k: k };
-        let result = MockProver::run(k, circuit, instance.clone());
-        match result {
-            Ok(r) => {
-                // Ensure that no constraints will get poisoned.
-                // This can happen if the circuit is principally big enough, but the
-                // constraint count exceeds the number of usable rows
-                // (2^k - 1 - blinding_factors).
-                let _ = r.verify().map_err(|e| {
-                    if e.iter()
-                        .any(|e| matches!(e, VerifyFailure::ConstraintPoisoned { .. }))
-                    {
-                        k += 1;
-                    }
-                });
-                break;
-            }
-            Err(e) => {
-                if e.to_string() == not_enough_rows_error.to_string() {
-                    k += 1;
-                } else {
-                    debug!("Prover Error: {:?}", e);
-                    return Err(RuntimeError::new(StatusCode::ProofSystemError(e)));
-                }
-            }
-        }
+    while k <= MAX_K && (1 << k) <= circuit.circuit_height() {
+        k += 1;
     }
-    Ok(k)
+    k
 }
 
-pub fn mock_prove_circuit<F: FieldExt, ConcreteCircuit: Circuit<F>>(
+pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
     instance: Vec<Vec<F>>,
     k: u32,
@@ -79,7 +52,7 @@ pub fn mock_prove_circuit<F: FieldExt, ConcreteCircuit: Circuit<F>>(
     Ok(())
 }
 
-pub fn print_circuit_layout<F: FieldExt, ConcreteCircuit: Circuit<F>>(
+pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
     k: u32,
     circuit: &ConcreteCircuit,
 ) {
@@ -102,6 +75,7 @@ where
     C: CurveAffine,
     P: Params<'params, C>,
     ConcreteCircuit: Circuit<C::Scalar>,
+    C::Scalar: FromUniformBytes<64>,
 {
     debug!("Generate vk");
     let vk = keygen_vk(params, circuit).map_err(|e| {
@@ -121,7 +95,10 @@ pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::Scalar>>
     instance: &[&[C::Scalar]],
     params: &ParamsIPA<C>,
     pk: ProvingKey<C>,
-) -> VmResult<Vec<u8>> {
+) -> VmResult<Vec<u8>>
+where
+    <C as CurveAffine>::ScalarExt: FromUniformBytes<64>,
+{
     prove_vm_circuit::<
         IPACommitmentScheme<C>,
         ProverIPA<C>,
@@ -141,6 +118,10 @@ where
     E::G1Affine: SerdeObject,
     E::G2Affine: SerdeObject,
     ConcreteCircuit: Circuit<E::Scalar>,
+    <E as Engine>::Scalar: PrimeField,
+    <E as Engine>::Scalar: Ord,
+    <E as Engine>::Scalar: WithSmallOrderMulGroup<3>,
+    <E as Engine>::Scalar: FromUniformBytes<64>,
 {
     prove_vm_circuit::<
         KZGCommitmentScheme<E>,
@@ -167,6 +148,7 @@ fn prove_vm_circuit<
 ) -> VmResult<Vec<u8>>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
+    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
     // Create a proof

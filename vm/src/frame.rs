@@ -7,7 +7,6 @@ use crate::locals;
 use crate::locals::Locals;
 use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
@@ -23,12 +22,13 @@ use petgraph::Direction;
 use std::convert::From;
 use std::ops::{Add, Deref, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
+use types::Field;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::{RWOperation, RW};
 
-pub struct Frame<F: FieldExt> {
+pub struct Frame<F: Field> {
     generic_node_index: NodeIndex,
     generic_node: Node,
     pc: u16,
@@ -38,7 +38,7 @@ pub struct Frame<F: FieldExt> {
     ty_args: Vec<MoveValueType>,
 }
 
-impl<F: FieldExt> Frame<F> {
+impl<F: Field> Frame<F> {
     pub fn new(
         generic_node_index: NodeIndex,
         generic_node: Node,
@@ -495,12 +495,12 @@ impl<F: FieldExt> Frame<F> {
                         interp.stack.push(field_ref.into(), rw_operations)
                     }
                     Bytecode::LdTrue => {
-                        let constant = F::one();
+                        let constant = F::ONE;
                         let value = Value::new(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
-                        let constant = F::zero();
+                        let constant = F::ZERO;
                         let value = Value::new(constant, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
@@ -510,7 +510,7 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::one() {
+                        if cond == F::ONE {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
@@ -525,7 +525,7 @@ impl<F: FieldExt> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::zero() {
+                        if cond == F::ZERO {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
@@ -1278,7 +1278,7 @@ impl<F: FieldExt> Frame<F> {
     }
 }
 
-pub enum ExitStatus<F: FieldExt> {
+pub enum ExitStatus<F: Field> {
     Return(ExecutionStep<F>),
     Call(FunctionHandleIndex, ExecutionStep<F>),
     CallGeneric(FunctionInstantiationIndex, ExecutionStep<F>),

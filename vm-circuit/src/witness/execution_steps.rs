@@ -1,11 +1,11 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip::opcode::Opcode;
-use halo2_proofs::arithmetic::FieldExt;
 use movelang::value::Value;
+use types::Field;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExecutionStep<F: FieldExt> {
+pub struct ExecutionStep<F: Field> {
     pub context_id: u128,
     pub opcode: Opcode,
     pub pc: u16,

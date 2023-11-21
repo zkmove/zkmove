@@ -9,18 +9,18 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 use super::common::simple_value_gadget::SimpleValueGadget;
 
 #[derive(Clone, Debug)]
-pub struct LdBool<F: FieldExt, const TRUE: bool> {
+pub struct LdBool<F: Field, const TRUE: bool> {
     value: SimpleValueGadget<F>,
 }
 
-impl<F: FieldExt, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
+impl<F: Field, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
     const NAME: &'static str = match TRUE {
         true => "LDTRUE",
         false => "LDFALSE",

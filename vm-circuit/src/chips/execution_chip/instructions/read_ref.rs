@@ -11,20 +11,20 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::ValueHeader;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct ReadRef<F: FieldExt> {
+pub struct ReadRef<F: Field> {
     ref_val: RefValGadget<F>,
     value_a: ValueGadget<F>,
     value_b: ValueGadget<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
+impl<F: Field> InstructionGadget<F> for ReadRef<F> {
     const NAME: &'static str = "READREF";
 
     const OPCODE: Opcode = Opcode::ReadRef;
@@ -188,7 +188,7 @@ impl<F: FieldExt> InstructionGadget<F> for ReadRef<F> {
 
         let is_global =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
-        if is_global == F::zero() {
+        if is_global == F::ZERO {
             // assign the frame_index of the frame we refer to
             let _aux_value =
                 Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;

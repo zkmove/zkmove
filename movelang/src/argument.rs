@@ -2,10 +2,10 @@
 
 use anyhow::{Error, Result};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use move_binary_format::normalized::Type;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::parser::parse_transaction_arguments;
+use types::Field;
 
 use std::str::FromStr;
 
@@ -58,20 +58,20 @@ impl Signer {
     }
 }
 
-pub fn convert_from<F: FieldExt>(arg: ScriptArgument) -> VmResult<F> {
+pub fn convert_from<F: Field>(arg: ScriptArgument) -> VmResult<F> {
     match arg {
         ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U16(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U32(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
         ScriptArgument::U128(v) => Ok(F::from_u128(v)),
-        ScriptArgument::Bool(v) => Ok(if v { F::one() } else { F::zero() }),
+        ScriptArgument::Bool(v) => Ok(if v { F::ONE } else { F::ZERO }),
         ScriptArgument::Address(v) => Ok(AccountAddress::from(v).value()),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
     }
 }
 
-pub fn convert_from_u256<F: FieldExt>(arg: ScriptArgument) -> VmResult<[F; 2]> {
+pub fn convert_from_u256<F: Field>(arg: ScriptArgument) -> VmResult<[F; 2]> {
     match arg {
         ScriptArgument::U256(v) => {
             let res = convert_u256_to_field::<F>(&v);

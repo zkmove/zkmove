@@ -11,12 +11,12 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct VecUnpack<F: FieldExt> {
+pub struct VecUnpack<F: Field> {
     // word for the popped vector
     vector: ValueGadget<F>,
 
@@ -27,7 +27,7 @@ pub struct VecUnpack<F: FieldExt> {
     values_address: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for VecUnpack<F> {
+impl<F: Field> InstructionGadget<F> for VecUnpack<F> {
     const NAME: &'static str = "VEC_UNPACK";
 
     const OPCODE: Opcode = Opcode::VecUnpack;

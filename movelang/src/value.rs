@@ -9,7 +9,6 @@ use crate::utility::{
 use crate::utility::{MoveValue, MoveValueType};
 use crate::value_ext::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
@@ -18,6 +17,7 @@ use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Not, Rem, Sub};
 use std::{cell::RefCell, rc::Rc};
+use types::Field;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U16: usize = 2;
@@ -29,26 +29,26 @@ pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals loca
 pub const DEPTH_OF_ADDRESS_PATH: usize = DEPTH_OF_LOCATION_PATH + 8;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U8<F: FieldExt>(pub F);
+pub struct U8<F: Field>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U16<F: FieldExt>(pub F);
+pub struct U16<F: Field>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U32<F: FieldExt>(pub F);
+pub struct U32<F: Field>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U64<F: FieldExt>(pub F);
+pub struct U64<F: Field>(pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U128<F: FieldExt>(pub F);
+pub struct U128<F: Field>(pub F);
 
 /// (upper 128 bit, lower 128 bit)
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U256<F: FieldExt>(pub F, pub F);
+pub struct U256<F: Field>(pub F, pub F);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Bool<F: FieldExt>(pub F);
+pub struct Bool<F: Field>(pub F);
 
 /// Index of a frame
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -60,14 +60,14 @@ pub struct Index(pub usize);
 
 #[derive(Clone, Debug)]
 //todo: use 'Field' instead of 'u128'?
-pub struct AddressPath<F: FieldExt>(pub Vec<u128>, PhantomData<F>);
-impl<F: FieldExt> From<Vec<u128>> for AddressPath<F> {
+pub struct AddressPath<F: Field>(pub Vec<u128>, PhantomData<F>);
+impl<F: Field> From<Vec<u128>> for AddressPath<F> {
     fn from(indexes: Vec<u128>) -> Self {
         AddressPath(indexes, PhantomData)
     }
 }
 
-impl<F: FieldExt> AddressPath<F> {
+impl<F: Field> AddressPath<F> {
     pub fn into_inner(self) -> Vec<u128> {
         self.0
     }
@@ -120,14 +120,14 @@ impl<F: FieldExt> AddressPath<F> {
     }
 }
 
-// impl<F: FieldExt> U256<F> {
+// impl<F: Field> U256<F> {
 //     fn from(value: U256<F>) -> MoveValue {
 //         MoveValue::U256(decode_field_to_u256(&[value.0, value.1]))
 //     }
 // }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SimpleValue<F: FieldExt> {
+pub enum SimpleValue<F: Field> {
     U8(U8<F>),
     U16(U16<F>),
     U32(U32<F>),
@@ -137,7 +137,7 @@ pub enum SimpleValue<F: FieldExt> {
     Address(AccountAddress<F>),
 }
 
-impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
+impl<F: Field> From<SimpleValue<F>> for MoveValue {
     fn from(value: SimpleValue<F>) -> MoveValue {
         match value {
             SimpleValue::U8(field) => MoveValue::U8(field.0.get_lower_128() as u8),
@@ -145,7 +145,7 @@ impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
             SimpleValue::U32(field) => MoveValue::U32(field.0.get_lower_128() as u32),
             SimpleValue::U64(field) => MoveValue::U64(field.0.get_lower_128() as u64),
             SimpleValue::U128(field) => MoveValue::U128(field.0.get_lower_128()),
-            SimpleValue::Bool(field) => MoveValue::Bool(field.0 == F::one()),
+            SimpleValue::Bool(field) => MoveValue::Bool(field.0 == F::ONE),
             SimpleValue::Address(field) => {
                 // FIXME: f -> bytes for address
                 let mut bytes = 0u128.to_be_bytes().to_vec();
@@ -157,7 +157,7 @@ impl<F: FieldExt> From<SimpleValue<F>> for MoveValue {
 }
 
 #[derive(Debug, Clone)]
-pub enum Value<F: FieldExt> {
+pub enum Value<F: Field> {
     Invalid,
     /// The following is simple value
     U8(U8<F>),
@@ -180,11 +180,11 @@ pub enum Value<F: FieldExt> {
 }
 /// Container is just a wrapper of vec contains its fields.
 #[derive(Clone, Debug)]
-pub struct Container<F: FieldExt>(pub Rc<RefCell<Vec<Value<F>>>>);
+pub struct Container<F: Field>(pub Rc<RefCell<Vec<Value<F>>>>);
 
 /// Location of global struct.
 #[derive(Clone, Copy, Debug)]
-pub struct GlobalLocation<F: FieldExt> {
+pub struct GlobalLocation<F: Field> {
     pub address: AccountAddress<F>,
     pub sd_index: GlobalResourceDefIndex,
 }
@@ -232,11 +232,11 @@ pub struct StackLocation {
 /// IndexedValue doesn't actually fit in our value locations.
 /// we fake it as a location just to make value flatten easier.
 #[derive(Clone, Debug)]
-pub struct IndexedLocation<F: FieldExt> {
+pub struct IndexedLocation<F: Field> {
     pub sub_indexes: Vec<usize>,
     pub value_loc: ValueLocation<F>,
 }
-impl<F: FieldExt> IndexedLocation<F> {
+impl<F: Field> IndexedLocation<F> {
     pub fn new(root_location: ValueLocation<F>, sub_indexes: Vec<usize>) -> Self {
         IndexedLocation {
             sub_indexes,
@@ -254,12 +254,12 @@ impl<F: FieldExt> IndexedLocation<F> {
 
 /// Location of value when it move/copy from one place to another place.
 #[derive(Clone, Copy, Debug)]
-pub enum ValueLocation<F: FieldExt> {
+pub enum ValueLocation<F: Field> {
     Stack(StackLocation),
     Local(LocalLocation),
     Global(GlobalLocation<F>),
 }
-impl<F: FieldExt> ValueLocation<F> {
+impl<F: Field> ValueLocation<F> {
     fn to_address_path(self) -> AddressPath<F> {
         let indexes = match self {
             ValueLocation::Stack(loc) => vec![0_u128, loc.stack_index as u128],
@@ -273,7 +273,7 @@ impl<F: FieldExt> ValueLocation<F> {
         indexes.into()
     }
 }
-impl<F: FieldExt> Container<F> {
+impl<F: Field> Container<F> {
     pub fn len(&self) -> usize {
         self.0.borrow().len()
     }
@@ -335,17 +335,17 @@ impl<F: FieldExt> Container<F> {
     }
 }
 
-impl<F: FieldExt> From<LocalRef<F>> for Value<F> {
+impl<F: Field> From<LocalRef<F>> for Value<F> {
     fn from(v: LocalRef<F>) -> Self {
         Value::LocalRef(v)
     }
 }
-impl<F: FieldExt> From<GlobalRef<F>> for Value<F> {
+impl<F: Field> From<GlobalRef<F>> for Value<F> {
     fn from(v: GlobalRef<F>) -> Self {
         Value::GlobalRef(v)
     }
 }
-impl<F: FieldExt> From<IndexedRef<F>> for Value<F> {
+impl<F: Field> From<IndexedRef<F>> for Value<F> {
     fn from(v: IndexedRef<F>) -> Self {
         Value::IndexedRef(v)
     }
@@ -353,11 +353,11 @@ impl<F: FieldExt> From<IndexedRef<F>> for Value<F> {
 /// ContainerRef contains reference location of the underlying container.
 /// It can also distinguish whether the container is local or global.
 #[derive(Clone, Debug)]
-pub enum ContainerRef<F: FieldExt> {
+pub enum ContainerRef<F: Field> {
     Global(GlobalLocation<F>, Container<F>),
     Local(LocalLocation, Container<F>),
 }
-impl<F: FieldExt> ContainerRef<F> {
+impl<F: Field> ContainerRef<F> {
     pub fn location(&self) -> ValueLocation<F> {
         match self {
             ContainerRef::Global(loc, _) => ValueLocation::Global(*loc),
@@ -373,7 +373,7 @@ impl<F: FieldExt> ContainerRef<F> {
 }
 
 #[derive(Debug)]
-pub enum Reference<F: FieldExt> {
+pub enum Reference<F: Field> {
     /// borrow global
     GlobalRef(GlobalRef<F>),
     /// borrow local
@@ -381,7 +381,7 @@ pub enum Reference<F: FieldExt> {
     /// borrow field of a container
     IndexedRef(IndexedRef<F>),
 }
-impl<F: FieldExt> From<Reference<F>> for Value<F> {
+impl<F: Field> From<Reference<F>> for Value<F> {
     fn from(r: Reference<F>) -> Self {
         match r {
             Reference::GlobalRef(g) => Value::GlobalRef(g),
@@ -391,7 +391,7 @@ impl<F: FieldExt> From<Reference<F>> for Value<F> {
     }
 }
 
-impl<F: FieldExt> TryFrom<&Value<F>> for Reference<F> {
+impl<F: Field> TryFrom<&Value<F>> for Reference<F> {
     type Error = RuntimeError;
 
     fn try_from(v: &Value<F>) -> VmResult<Reference<F>> {
@@ -404,7 +404,7 @@ impl<F: FieldExt> TryFrom<&Value<F>> for Reference<F> {
     }
 }
 
-impl<F: FieldExt> Reference<F> {
+impl<F: Field> Reference<F> {
     /// return address_path of the value which is referenced by this ref
     /// NOTICE: returned address_path is not filled up.
     pub fn value_address_path(&self) -> AddressPath<F> {
@@ -445,12 +445,12 @@ impl<F: FieldExt> Reference<F> {
 }
 
 #[derive(Clone, Debug)]
-pub enum Location<F: FieldExt> {
+pub enum Location<F: Field> {
     ValueLocation(ValueLocation<F>),
     IndexedLocation(IndexedLocation<F>),
 }
 
-impl<F: FieldExt> Location<F> {
+impl<F: Field> Location<F> {
     pub fn to_address_path(&self) -> AddressPath<F> {
         match self {
             Location::ValueLocation(l) => l.to_address_path(),
@@ -460,14 +460,14 @@ impl<F: FieldExt> Location<F> {
 }
 
 #[derive(Debug)]
-pub enum VectorRef<F: FieldExt> {
+pub enum VectorRef<F: Field> {
     /// vector in locals
     LocalRef(LocalRef<F>),
     /// vector as a field of a container
     IndexedRef(IndexedRef<F>),
 }
 
-impl<F: FieldExt> VectorRef<F> {
+impl<F: Field> VectorRef<F> {
     /// read_ref returns a deep_copyed value
     pub fn read_ref(&self) -> VmResult<Value<F>> {
         Ok(match self {
@@ -652,12 +652,12 @@ impl<F: FieldExt> VectorRef<F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct GlobalRef<F: FieldExt> {
+pub struct GlobalRef<F: Field> {
     pub loc: GlobalLocation<F>,
     pub refer: Container<F>,
 }
 
-impl<F: FieldExt> GlobalRef<F> {
+impl<F: Field> GlobalRef<F> {
     fn read_ref(&self) -> VmResult<Container<F>> {
         Ok(self.refer.copy_value())
     }
@@ -695,12 +695,12 @@ impl<F: FieldExt> GlobalRef<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct LocalRef<F: FieldExt> {
+pub struct LocalRef<F: Field> {
     pub loc: LocalLocation,
     pub refer: Rc<RefCell<Value<F>>>,
 }
 
-impl<F: FieldExt> LocalRef<F> {
+impl<F: Field> LocalRef<F> {
     fn read_ref(&self) -> VmResult<Value<F>> {
         Ok(self.refer.borrow().copy_value())
     }
@@ -769,12 +769,12 @@ impl<F: FieldExt> LocalRef<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct IndexedRef<F: FieldExt> {
+pub struct IndexedRef<F: Field> {
     pub sub_indexes: Vec<usize>,
     pub container_ref: ContainerRef<F>,
 }
 
-impl<F: FieldExt> IndexedRef<F> {
+impl<F: Field> IndexedRef<F> {
     fn try_borrow_field(&self, element_idx: usize) -> VmResult<IndexedRef<F>> {
         let this_value = self.read_ref()?;
 
@@ -844,7 +844,7 @@ impl<F: FieldExt> IndexedRef<F> {
     }
 }
 
-impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>)> {
+impl<F: Field> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>)> {
     fn from(indexed_ref: IndexedRef<F>) -> Self {
         let val = indexed_ref.read_ref()?;
         let loc = IndexedLocation {
@@ -855,13 +855,13 @@ impl<F: FieldExt> From<IndexedRef<F>> for VmResult<(IndexedLocation<F>, Value<F>
     }
 }
 
-impl<F: FieldExt> From<U256<F>> for Value<F> {
+impl<F: Field> From<U256<F>> for Value<F> {
     fn from(v: U256<F>) -> Self {
         Value::U256(v)
     }
 }
 
-impl<F: FieldExt> TryFrom<&Value<F>> for U256<F> {
+impl<F: Field> TryFrom<&Value<F>> for U256<F> {
     type Error = RuntimeError;
 
     fn try_from(value: &Value<F>) -> VmResult<U256<F>> {
@@ -871,7 +871,7 @@ impl<F: FieldExt> TryFrom<&Value<F>> for U256<F> {
         }
     }
 }
-impl<F: FieldExt> From<MoveValue> for U256<F> {
+impl<F: Field> From<MoveValue> for U256<F> {
     fn from(value: MoveValue) -> Self {
         match value {
             MoveValue::U256(v) => {
@@ -883,7 +883,7 @@ impl<F: FieldExt> From<MoveValue> for U256<F> {
     }
 }
 
-impl<F: FieldExt> U256<F> {
+impl<F: Field> U256<F> {
     pub fn new(x: u256::U256) -> Self {
         let v = convert_u256_to_field::<F>(&x);
         Self(v[0], v[1])
@@ -900,7 +900,7 @@ impl<F: FieldExt> U256<F> {
     }
 }
 
-impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
+impl<F: Field> From<SimpleValue<F>> for Value<F> {
     fn from(simple: SimpleValue<F>) -> Self {
         match simple {
             SimpleValue::U8(v) => Value::U8(v),
@@ -914,7 +914,7 @@ impl<F: FieldExt> From<SimpleValue<F>> for Value<F> {
     }
 }
 
-impl<F: FieldExt> TryFrom<&Value<F>> for SimpleValue<F> {
+impl<F: Field> TryFrom<&Value<F>> for SimpleValue<F> {
     type Error = RuntimeError;
 
     fn try_from(value: &Value<F>) -> VmResult<SimpleValue<F>> {
@@ -931,7 +931,7 @@ impl<F: FieldExt> TryFrom<&Value<F>> for SimpleValue<F> {
     }
 }
 
-impl<F: FieldExt> From<MoveValue> for SimpleValue<F> {
+impl<F: Field> From<MoveValue> for SimpleValue<F> {
     fn from(value: MoveValue) -> Self {
         match value {
             MoveValue::U8(v) => SimpleValue::u8(v),
@@ -946,9 +946,9 @@ impl<F: FieldExt> From<MoveValue> for SimpleValue<F> {
     }
 }
 
-impl<F: FieldExt> SimpleValue<F> {
+impl<F: Field> SimpleValue<F> {
     pub fn bool(x: bool) -> Self {
-        let value = if x { F::one() } else { F::zero() };
+        let value = if x { F::ONE } else { F::ZERO };
         Self::Bool(Bool(value))
     }
     pub fn u8(x: u8) -> Self {
@@ -1000,7 +1000,7 @@ impl<F: FieldExt> SimpleValue<F> {
     }
 }
 
-impl<F: FieldExt> From<MoveValue> for Value<F> {
+impl<F: Field> From<MoveValue> for Value<F> {
     fn from(value: MoveValue) -> Self {
         match value {
             MoveValue::U8(v) => Value::u8(v),
@@ -1016,7 +1016,7 @@ impl<F: FieldExt> From<MoveValue> for Value<F> {
     }
 }
 
-impl<F: FieldExt> Value<F> {
+impl<F: Field> Value<F> {
     pub fn new(value: F, ty: MoveValueType) -> VmResult<Self> {
         match ty {
             MoveValueType::U8 => Ok(Self::U8(U8(value))),
@@ -1037,7 +1037,7 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn bool(x: bool) -> Self {
-        let value = if x { F::one() } else { F::zero() };
+        let value = if x { F::ONE } else { F::ZERO };
         Self::Bool(Bool(value))
     }
     pub fn u8(x: u8) -> Self {
@@ -1165,15 +1165,15 @@ impl<F: FieldExt> Value<F> {
 #[derive(Debug)]
 pub struct LocatedValue<'v, L, V>(/* loc */ pub L, /* v */ pub &'v V);
 
-impl<F: FieldExt> PartialEq for Value<F> {
+impl<F: Field> PartialEq for Value<F> {
     fn eq(&self, other: &Self) -> bool {
         self.equals(other)
     }
 }
 
-impl<F: FieldExt> Eq for Value<F> {}
+impl<F: Field> Eq for Value<F> {}
 
-impl<F: FieldExt> Add for U256<F> {
+impl<F: Field> Add for U256<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: U256<F>) -> Self::Output {
@@ -1188,7 +1188,7 @@ impl<F: FieldExt> Add for U256<F> {
         Ok(c)
     }
 }
-impl<F: FieldExt> Sub for U256<F> {
+impl<F: Field> Sub for U256<F> {
     type Output = VmResult<Self>;
 
     fn sub(self, b: U256<F>) -> Self::Output {
@@ -1203,7 +1203,7 @@ impl<F: FieldExt> Sub for U256<F> {
         Ok(c)
     }
 }
-impl<F: FieldExt> Mul for U256<F> {
+impl<F: Field> Mul for U256<F> {
     type Output = VmResult<Self>;
 
     fn mul(self, b: U256<F>) -> Self::Output {
@@ -1218,7 +1218,7 @@ impl<F: FieldExt> Mul for U256<F> {
         Ok(c)
     }
 }
-impl<F: FieldExt> Div for U256<F> {
+impl<F: Field> Div for U256<F> {
     type Output = VmResult<Self>;
 
     fn div(self, b: U256<F>) -> Self::Output {
@@ -1234,7 +1234,7 @@ impl<F: FieldExt> Div for U256<F> {
     }
 }
 
-impl<F: FieldExt> Rem for U256<F> {
+impl<F: Field> Rem for U256<F> {
     type Output = VmResult<Self>;
 
     fn rem(self, b: U256<F>) -> Self::Output {
@@ -1249,15 +1249,15 @@ impl<F: FieldExt> Rem for U256<F> {
         Ok(c)
     }
 }
-impl<F: FieldExt> Not for U256<F> {
+impl<F: Field> Not for U256<F> {
     type Output = VmResult<Value<F>>;
 
     fn not(self) -> Self::Output {
         let v = self.value().expect("arithmetic error found");
         let res = if v.0.is_zero_vartime() && v.1.is_zero_vartime() {
-            F::one()
+            F::ONE
         } else {
-            F::zero()
+            F::ZERO
         };
 
         let c = Value::new(res, MoveValueType::Bool)?;
@@ -1265,7 +1265,7 @@ impl<F: FieldExt> Not for U256<F> {
     }
 }
 
-impl<F: FieldExt> Add for Value<F> {
+impl<F: Field> Add for Value<F> {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value<F>) -> Self::Output {
@@ -1308,7 +1308,7 @@ impl<F: FieldExt> Add for Value<F> {
     }
 }
 
-impl<F: FieldExt> Sub for Value<F> {
+impl<F: Field> Sub for Value<F> {
     type Output = VmResult<Self>;
 
     fn sub(self, b: Value<F>) -> Self::Output {
@@ -1351,7 +1351,7 @@ impl<F: FieldExt> Sub for Value<F> {
     }
 }
 
-impl<F: FieldExt> Mul for Value<F> {
+impl<F: Field> Mul for Value<F> {
     type Output = VmResult<Self>;
 
     fn mul(self, b: Value<F>) -> Self::Output {
@@ -1394,7 +1394,7 @@ impl<F: FieldExt> Mul for Value<F> {
     }
 }
 
-impl<F: FieldExt> Div for Value<F> {
+impl<F: Field> Div for Value<F> {
     type Output = VmResult<Self>;
 
     fn div(self, b: Value<F>) -> Self::Output {
@@ -1422,7 +1422,7 @@ impl<F: FieldExt> Div for Value<F> {
     }
 }
 
-impl<F: FieldExt> Rem for Value<F> {
+impl<F: Field> Rem for Value<F> {
     type Output = VmResult<Self>;
 
     fn rem(self, b: Value<F>) -> Self::Output {
@@ -1450,17 +1450,17 @@ impl<F: FieldExt> Rem for Value<F> {
     }
 }
 
-impl<F: FieldExt> Not for Value<F> {
+impl<F: Field> Not for Value<F> {
     type Output = VmResult<Self>;
 
     fn not(self) -> Self::Output {
-        let value = if self.is_zero() { F::one() } else { F::zero() };
+        let value = if self.is_zero() { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 }
 
-impl<F: FieldExt> Value<F> {
+impl<F: Field> Value<F> {
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
@@ -1856,41 +1856,41 @@ impl<F: FieldExt> Value<F> {
     }
 
     pub fn eq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if a.equals(&b) { F::one() } else { F::zero() };
+        let value = if a.equals(&b) { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn neq(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
-        let value = if !a.equals(&b) { F::one() } else { F::zero() };
+        let value = if !a.equals(&b) { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn lt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let lt = a.less_than(&b)?;
-        let value = if lt { F::one() } else { F::zero() };
+        let value = if lt { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn le(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let le = a.less_equal(&b)?;
-        let value = if le { F::one() } else { F::zero() };
+        let value = if le { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn gt(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let gt = a.greater_than(&b)?;
-        let value = if gt { F::one() } else { F::zero() };
+        let value = if gt { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
 
     pub fn ge(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let ge = a.greater_equal(&b)?;
-        let value = if ge { F::one() } else { F::zero() };
+        let value = if ge { F::ONE } else { F::ZERO };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
     }
@@ -2015,9 +2015,9 @@ impl<F: FieldExt> Value<F> {
 
     pub fn and(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() || b.is_zero() {
-            F::zero()
+            F::ZERO
         } else {
-            F::one()
+            F::ONE
         };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
@@ -2025,9 +2025,9 @@ impl<F: FieldExt> Value<F> {
 
     pub fn or(a: Value<F>, b: Value<F>) -> VmResult<Value<F>> {
         let value = if a.is_zero() && b.is_zero() {
-            F::zero()
+            F::ZERO
         } else {
-            F::one()
+            F::ONE
         };
         let c = Value::new(value, MoveValueType::Bool)?;
         Ok(c)
@@ -2040,7 +2040,7 @@ impl<F: FieldExt> Value<F> {
             let v = b.value_u256().unwrap();
             let rhs = decode_field_to_u256(&v);
             let del_invert = if lhs == rhs {
-                F::one()
+                F::ONE
             } else {
                 // fixme. how to deal with two fields here?
                 let delta = convert_u256_to_fe::<F>(lhs - rhs);
@@ -2050,7 +2050,7 @@ impl<F: FieldExt> Value<F> {
             Ok(value)
         } else {
             let delta_invert = if a.value() == b.value() {
-                F::one()
+                F::ONE
             } else {
                 let delta = a.value().unwrap() - b.value().unwrap();
                 delta.invert().unwrap()
@@ -2073,8 +2073,8 @@ impl<F: FieldExt> Value<F> {
         } else {
             let lhs = a.value().unwrap();
             let rhs = b.value().unwrap();
-            let range = F::from(2).pow(&[(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
-            let range_or_zero = if lhs < rhs { range } else { F::zero() };
+            let range = F::from(2).pow([(NUM_OF_BYTES_U128 * 8) as u64, 0, 0, 0]);
+            let range_or_zero = if lhs < rhs { range } else { F::ZERO };
             let diff = (lhs - rhs) + range_or_zero;
             let value = Value::new(diff, a.ty())?;
             Ok(value)
@@ -2082,13 +2082,13 @@ impl<F: FieldExt> Value<F> {
     }
 }
 
-impl<F: FieldExt> From<Value<F>> for Option<MoveValue> {
+impl<F: Field> From<Value<F>> for Option<MoveValue> {
     fn from(value: Value<F>) -> Option<MoveValue> {
         value.cast_simple().map(Into::into)
     }
 }
 
-impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
+impl<F: Field> From<Value<F>> for CircuitValue<F> {
     fn from(value: Value<F>) -> CircuitValue<F> {
         match value.value() {
             Some(v) => CircuitValue::known(v),
@@ -2097,7 +2097,7 @@ impl<F: FieldExt> From<Value<F>> for CircuitValue<F> {
     }
 }
 
-impl<F: FieldExt> Value<F> {
+impl<F: Field> Value<F> {
     /// copy value
     /// - For simple value, it copy the value.
     /// - For reference, it copy the pointer, and ref the container.
@@ -2123,7 +2123,7 @@ impl<F: FieldExt> Value<F> {
     }
 }
 
-impl<F: FieldExt> Container<F> {
+impl<F: Field> Container<F> {
     pub fn copy_value(&self) -> Self {
         Self(Rc::new(RefCell::new(
             self.0.borrow().iter().map(|v| v.copy_value()).collect(),
@@ -2131,7 +2131,7 @@ impl<F: FieldExt> Container<F> {
     }
 }
 
-impl<F: FieldExt> Value<F> {
+impl<F: Field> Value<F> {
     pub fn into_account_address(self) -> VmResult<AccountAddress<F>> {
         match self {
             Value::Address(address) => Ok(address),
@@ -2142,9 +2142,9 @@ impl<F: FieldExt> Value<F> {
 }
 
 #[derive(Debug)]
-pub struct ContainerValue<F: FieldExt>(Vec<Value<F>>);
+pub struct ContainerValue<F: Field>(Vec<Value<F>>);
 
-impl<F: FieldExt> ContainerValue<F> {
+impl<F: Field> ContainerValue<F> {
     pub fn pack(values: Vec<Value<F>>) -> Self {
         Self(values)
     }
@@ -2163,7 +2163,7 @@ pub enum GlobalDataStatus {
 }
 
 #[derive(Debug, Clone)]
-pub enum GlobalValue<F: FieldExt> {
+pub enum GlobalValue<F: Field> {
     /// No resource resides in this slot or in storage.
     None,
     /// A resource has been published to this slot and it did not previously exist in storage.
@@ -2178,7 +2178,7 @@ pub enum GlobalValue<F: FieldExt> {
     Deleted,
 }
 
-impl<F: FieldExt> GlobalValue<F> {
+impl<F: Field> GlobalValue<F> {
     pub fn none() -> Self {
         GlobalValue::None
     }

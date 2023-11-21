@@ -11,19 +11,19 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value_ext::ValueHeader;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct BorrowLoc<const MUTABLE: bool, F: FieldExt> {
+pub struct BorrowLoc<const MUTABLE: bool, F: Field> {
     value: ValueGadget<F>,
     ref_val: RefValGadget<F>,
 }
 
-impl<const MUTABLE: bool, F: FieldExt> InstructionGadget<F> for BorrowLoc<MUTABLE, F> {
+impl<const MUTABLE: bool, F: Field> InstructionGadget<F> for BorrowLoc<MUTABLE, F> {
     const NAME: &'static str = "BORROWLOC";
 
     const OPCODE: Opcode = if MUTABLE {

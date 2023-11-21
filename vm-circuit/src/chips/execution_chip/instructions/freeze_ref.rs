@@ -9,17 +9,17 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct FreezeRef<F: FieldExt> {
+pub struct FreezeRef<F: Field> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for FreezeRef<F> {
+impl<F: Field> InstructionGadget<F> for FreezeRef<F> {
     const NAME: &'static str = "FREEZEREF";
 
     const OPCODE: Opcode = Opcode::FreezeRef;

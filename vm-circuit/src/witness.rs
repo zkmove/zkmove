@@ -10,9 +10,9 @@ use crate::witness::function_calls::FunctionCall;
 use crate::witness::input_type_elements::{GenericTypeMaterialization, InputTypeElementTableData};
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
-use halo2_proofs::arithmetic::FieldExt;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use types::Field;
 
 pub mod arith_operations;
 pub mod bytecode_table;
@@ -104,14 +104,14 @@ impl CircuitConfig {
 }
 
 #[derive(Clone, Default)]
-pub struct ExecutionTrace<F: FieldExt> {
+pub struct ExecutionTrace<F: Field> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_operations: Vec<RWOperation<F>>,
     pub generic_types: Vec<GenericTypeMaterialization>,
 }
 
 #[derive(Clone, Default)]
-pub struct Witness<F: FieldExt> {
+pub struct Witness<F: Field> {
     pub exec_steps: Vec<ExecutionStep<F>>,
     pub rw_operations: RWOperations<F>,
     pub bytecode_table: BytecodeTable,
@@ -124,7 +124,7 @@ pub struct Witness<F: FieldExt> {
     pub circuit_config: CircuitConfig,
 }
 
-impl<F: FieldExt> Witness<F> {
+impl<F: Field> Witness<F> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         exec_steps: Vec<ExecutionStep<F>>,
@@ -153,7 +153,7 @@ impl<F: FieldExt> Witness<F> {
     }
 }
 
-impl<F: FieldExt> fmt::Debug for Witness<F> {
+impl<F: Field> fmt::Debug for Witness<F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f)?;
         writeln!(f, "Execution steps:")?;

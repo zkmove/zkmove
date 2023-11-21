@@ -3,24 +3,24 @@
 use halo2_gadgets::poseidon::primitives::{ConstantLength, Spec};
 use halo2_gadgets::poseidon::{Hash, Pow5Chip, Pow5Config};
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{AssignedCell, Layouter},
     plonk::{Advice, Column, ConstraintSystem, Error},
 };
+use types::Field;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
 /// A wrapper for halo2 poseidon Pow5Chip.
 
 #[derive(Clone)]
-pub struct PoseidonConfig<F: FieldExt, const WIDTH: usize, const RATE: usize> {
+pub struct PoseidonConfig<F: Field, const WIDTH: usize, const RATE: usize> {
     inputs: [Column<Advice>; WIDTH],
     pow5_config: Pow5Config<F, WIDTH, RATE>,
 }
 
 #[derive(Clone)]
 pub struct PoseidonChip<
-    F: FieldExt,
+    F: Field,
     S: Spec<F, WIDTH, RATE>,
     const WIDTH: usize,
     const RATE: usize,
@@ -31,7 +31,7 @@ pub struct PoseidonChip<
 }
 
 impl<
-        F: FieldExt,
+        F: Field,
         S: Spec<F, WIDTH, RATE>,
         const WIDTH: usize,
         const RATE: usize,
@@ -105,24 +105,24 @@ mod tests {
     use crypto::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
     use halo2_gadgets::poseidon::primitives::Spec;
     use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::pasta::Fp;
+    use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::{
-        arithmetic::FieldExt,
         circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
         plonk::{Advice, Circuit, Column, ConstraintSystem, Error},
     };
+    use types::Field;
     use std::convert::TryInto;
     use std::marker::PhantomData;
 
     #[derive(Clone)]
-    struct TestConfig<F: FieldExt, const WIDTH: usize, const RATE: usize, const L: usize> {
+    struct TestConfig<F: Field, const WIDTH: usize, const RATE: usize, const L: usize> {
         poseidon_config: PoseidonConfig<F, WIDTH, RATE>,
         inputs: [Column<Advice>; L],
         output: Column<Advice>,
     }
 
     struct TestCircuit<
-        F: FieldExt,
+        F: Field,
         S: Spec<F, WIDTH, RATE>,
         const WIDTH: usize,
         const RATE: usize,
@@ -134,7 +134,7 @@ mod tests {
     }
 
     impl<
-            F: FieldExt,
+            F: Field,
             S: Spec<F, WIDTH, RATE>,
             const WIDTH: usize,
             const RATE: usize,

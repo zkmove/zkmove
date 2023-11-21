@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::call_trace_table::CallTrace;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
+use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct CallTraceTable {
@@ -18,7 +18,7 @@ pub struct CallTraceTable {
 }
 
 impl CallTraceTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             caller_id: meta.lookup_table_column(),
             caller_module: meta.lookup_table_column(),
@@ -44,7 +44,7 @@ impl CallTraceTable {
         ]
     }
 
-    pub fn assign_table<F: FieldExt>(
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         traces: Vec<CallTrace>,
@@ -66,10 +66,14 @@ impl CallTraceTable {
             .collect();
         assign_table(layouter, self.columns(), &values, "call_trace_table")
     }
+
+    pub fn table_height(&self, traces: &Vec<CallTrace>) -> usize {
+        traces.len() + 1
+    }
 }
 
 #[derive(Clone, Debug)]
-pub struct CallTraceLookup<F: FieldExt> {
+pub struct CallTraceLookup<F: Field> {
     pub caller_id: Expression<F>,
     pub caller_module: Expression<F>,
     pub caller_function: Expression<F>,
@@ -81,7 +85,7 @@ pub struct CallTraceLookup<F: FieldExt> {
     pub callee_callin_pc: Expression<F>,
 }
 
-impl<F: FieldExt> CallTraceLookup<F> {
+impl<F: Field> CallTraceLookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![
             self.caller_id.clone(),

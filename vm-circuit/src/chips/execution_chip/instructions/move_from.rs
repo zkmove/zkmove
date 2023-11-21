@@ -13,20 +13,20 @@ use crate::chips::utilities::Expr;
 use crate::witness::call_trace_table::MOVE_FROM_GENERIC_AS_FIELD;
 use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
 use movelang::value_ext::LEN_OF_SIMPLE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct MoveFrom<const GENERIC: bool, F: FieldExt> {
+pub struct MoveFrom<const GENERIC: bool, F: Field> {
     account_address: SimpleValueGadget<F>,
     global_value: ValueGadget<F>,
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveFrom<GENERIC, F> {
+impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveFrom<GENERIC, F> {
     const NAME: &'static str = if GENERIC {
         "MOVE_FROM_GENERIC"
     } else {

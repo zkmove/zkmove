@@ -9,17 +9,17 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Abort<F: FieldExt> {
+pub struct Abort<F: Field> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Abort<F> {
+impl<F: Field> InstructionGadget<F> for Abort<F> {
     const NAME: &'static str = "ABORT";
 
     const OPCODE: Opcode = Opcode::Abort;

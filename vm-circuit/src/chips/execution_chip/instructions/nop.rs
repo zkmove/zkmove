@@ -7,17 +7,17 @@ use crate::chips::execution_chip::step_chip::StepChipCells;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Nop<F: FieldExt> {
+pub struct Nop<F: Field> {
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Nop<F> {
+impl<F: Field> InstructionGadget<F> for Nop<F> {
     const NAME: &'static str = "NOP";
 
     const OPCODE: Opcode = Opcode::Nop;

@@ -14,13 +14,13 @@ use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::prelude::*;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Call<const GENERIC: bool, F: FieldExt> {
+pub struct Call<const GENERIC: bool, F: Field> {
     word_a: Vec<Cell<F>>,
     word_a_mask: Vec<Cell<F>>,
     word_a_addr_ext: Vec<Cell<F>>,
@@ -28,7 +28,7 @@ pub struct Call<const GENERIC: bool, F: FieldExt> {
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F> {
+impl<const GENERIC: bool, F: Field> InstructionGadget<F> for Call<GENERIC, F> {
     const NAME: &'static str = if GENERIC { "CALL_GENERIC" } else { "CALL" };
 
     const OPCODE: Opcode = if GENERIC {
@@ -55,7 +55,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
         let is_native =
             Word::assign_step_value(region, offset, &step.auxiliary_5, &cells.auxiliary_5)?;
         match &is_native {
-            v if v == &F::one() => return Ok(()),
+            v if v == &F::ONE => return Ok(()),
             _ => {}
         }
         // assign arg_num
@@ -144,7 +144,7 @@ impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for Call<GENERIC, F>
     }
 }
 
-impl<const GENERIC: bool, F: FieldExt> Call<GENERIC, F> {
+impl<const GENERIC: bool, F: Field> Call<GENERIC, F> {
     fn configure_non_native_call(&self, cells: &StepChipCells<F>, cb: &mut ConstraintBuilder<F>) {
         let arg_num = cells.auxiliary_1.expression.clone();
         // next pc is always 0

@@ -3,26 +3,26 @@ use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use logger::prelude::*;
 use movelang::value::Value;
+use types::Field;
 
 #[derive(Clone)]
-pub struct VmCircuitConfig<F: FieldExt> {
+pub struct VmCircuitConfig<F: Field> {
     execution_chip_config: ExecutionChipConfig<F>,
     memory_chip_config: MemoryChipConfig<F>,
 }
 
 #[derive(Clone, Default)]
-pub struct VmCircuit<F: FieldExt> {
+pub struct VmCircuit<F: Field> {
     pub witness: Witness<F>,
     pub public_input: Option<Value<F>>,
 }
 
-impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
+impl<F: Field> Circuit<F> for VmCircuit<F> {
     type Config = VmCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -68,5 +68,23 @@ impl<F: FieldExt> Circuit<F> for VmCircuit<F> {
         )?;
 
         Ok(())
+    }
+}
+
+impl<F: Field> VmCircuit<F> {
+    pub fn circuit_height(&self) -> usize {
+        let mut cs = ConstraintSystem::default();
+        let config = VmCircuit::<F>::configure(&mut cs);
+
+        let execution_chip = ExecutionChip::<F>::construct(
+            self.witness.clone(),
+            self.public_input.clone(),
+            config.execution_chip_config,
+            (),
+        );
+        let memory_chip =
+            MemoryChip::<F>::construct(self.witness.clone(), config.memory_chip_config, ());
+
+        execution_chip.chip_height().max(memory_chip.chip_height())
     }
 }

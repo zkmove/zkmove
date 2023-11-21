@@ -1,16 +1,16 @@
 use crate::native_functions::{NativeContext, NativeFunction};
 use error::VmResult;
-use halo2_proofs::halo2curves::FieldExt;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::value::Value;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
+use types::Field;
 use web3::transports::Http;
 use web3::types::{Address, BlockId, H256, U256};
 use web3::Web3;
 
-pub fn native_get_block_hash<F: FieldExt>(
+pub fn native_get_block_hash<F: Field>(
     context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
     mut args: VecDeque<Value<F>>,
@@ -39,7 +39,7 @@ pub fn native_get_block_hash<F: FieldExt>(
     let ret_ = Value::<F>::vector_u8(block_hash.to_fixed_bytes());
     Ok(ret_)
 }
-pub fn native_get_slot<F: FieldExt>(
+pub fn native_get_slot<F: Field>(
     context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
     mut args: VecDeque<Value<F>>,
@@ -71,12 +71,11 @@ pub fn native_get_slot<F: FieldExt>(
     Ok(ret_)
 }
 
-pub fn make_all_field_version<F: FieldExt>() -> impl IntoIterator<Item = (String, NativeFunction<F>)>
-{
-    fn make_native_get_block_hash<F: FieldExt>() -> NativeFunction<F> {
+pub fn make_all_field_version<F: Field>() -> impl IntoIterator<Item = (String, NativeFunction<F>)> {
+    fn make_native_get_block_hash<F: Field>() -> NativeFunction<F> {
         Arc::new(native_get_block_hash)
     }
-    fn make_native_get_slot<F: FieldExt>() -> NativeFunction<F> {
+    fn make_native_get_slot<F: Field>() -> NativeFunction<F> {
         Arc::new(native_get_slot)
     }
     [

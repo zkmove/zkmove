@@ -1,13 +1,13 @@
 // Copyright (c) The Move Contributors
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::arithmetic::FieldExt;
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
+use types::Field;
 
 #[derive(Default, Clone, Copy, Ord, PartialOrd, PartialEq, Eq, Debug)]
-pub struct AccountAddress<F: FieldExt>(F);
+pub struct AccountAddress<F: Field>(F);
 
-impl<F: FieldExt> AccountAddress<F> {
+impl<F: Field> AccountAddress<F> {
     pub fn new(value: F) -> Self {
         Self(value)
     }
@@ -26,13 +26,13 @@ impl<F: FieldExt> AccountAddress<F> {
     }
 }
 
-impl<F: FieldExt> From<MoveAccountAddress> for AccountAddress<F> {
+impl<F: Field> From<MoveAccountAddress> for AccountAddress<F> {
     fn from(addr: MoveAccountAddress) -> AccountAddress<F> {
         Self(F::from_u128(u128::from_be_bytes(addr.into_bytes())))
     }
 }
 
-impl<F: FieldExt> From<AccountAddress<F>> for MoveAccountAddress {
+impl<F: Field> From<AccountAddress<F>> for MoveAccountAddress {
     fn from(addr: AccountAddress<F>) -> MoveAccountAddress {
         addr.value().get_lower_128().to_be_bytes().into()
     }

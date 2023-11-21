@@ -12,17 +12,17 @@ use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp}
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::utility::U256;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
+use types::Field;
 
 use super::common::get_field_from_op;
 use super::common::word_gadget::WordCells;
 
 #[derive(Clone, Debug)]
-pub struct Mul<F: FieldExt> {
+pub struct Mul<F: Field> {
     muladd_words_gadget: MulAddWordsGadget<F>,
     value_a: WordCells<F>,
     value_b: WordCells<F>,
@@ -30,7 +30,7 @@ pub struct Mul<F: FieldExt> {
     bytes: Vec<Cell<F>>,
 }
 
-impl<F: FieldExt> InstructionGadget<F> for Mul<F> {
+impl<F: Field> InstructionGadget<F> for Mul<F> {
     const NAME: &'static str = "MUL";
 
     const OPCODE: Opcode = Opcode::Mul;

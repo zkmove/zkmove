@@ -6,16 +6,16 @@ use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
+use types::Field;
 
 //context_id, pc, stack_size, frame_index, locals_index, gc, auxiliary_1, auxiliary_2, auxiliary_3, auxiliary_4, auxiliary_5, module_index, func_index
 pub const NUM_OF_STEP_STATE: usize = 13;
 
 #[derive(Clone, Debug)]
-pub struct StepChipCells<F: FieldExt> {
+pub struct StepChipCells<F: Field> {
     pub context_id: Cell<F>,
     pub pc: Cell<F>,
     pub stack_size: Cell<F>,
@@ -34,7 +34,7 @@ pub struct StepChipCells<F: FieldExt> {
 
     pub(crate) conditions: DynamicSelectorHalf<F>,
 }
-impl<F: FieldExt> StepChipCells<F> {
+impl<F: Field> StepChipCells<F> {
     pub(crate) fn opcode_selector(
         &self,
         opcodes: impl IntoIterator<Item = Opcode>,
@@ -45,18 +45,18 @@ impl<F: FieldExt> StepChipCells<F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct StepConfig<F: FieldExt> {
+pub struct StepConfig<F: Field> {
     pub cells: StepChipCells<F>,
     pub cell_manager: CellManager<F>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StepChip<F: FieldExt> {
+pub struct StepChip<F: Field> {
     pub config: StepConfig<F>,
     _marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> Chip<F> for StepChip<F> {
+impl<F: Field> Chip<F> for StepChip<F> {
     type Config = StepConfig<F>;
     type Loaded = ();
 
@@ -69,7 +69,7 @@ impl<F: FieldExt> Chip<F> for StepChip<F> {
     }
 }
 
-impl<F: FieldExt> StepChip<F> {
+impl<F: Field> StepChip<F> {
     // pub(crate) fn conditions_selector(
     //     &self,
     //     opcode: Opcode,
@@ -139,7 +139,7 @@ impl<F: FieldExt> StepChip<F> {
     //     cells: &StepChipCells<F>,
     //     constraints: &mut Vec<(&str, Expression<F>)>,
     // ) {
-    //     let one = Expression::Constant(F::one());
+    //     let one = Expression::Constant(F::ONE);
     //
     //     let mut zero_or_one = cells
     //         .conditions

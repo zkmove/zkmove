@@ -1,19 +1,19 @@
 use crate::chips::execution_chip::param::word_capacity;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{AssignedCell, Layouter, Value as CircuitValue};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use movelang::value::Value;
 use movelang::value_ext::FlattenedValue;
+use types::Field;
 
-pub struct PIFieldValues<F: FieldExt>(pub Vec<F>);
+pub struct PIFieldValues<F: Field>(pub Vec<F>);
 
-impl<F: FieldExt> From<&Value<F>> for PIFieldValues<F> {
+impl<F: Field> From<&Value<F>> for PIFieldValues<F> {
     fn from(v: &Value<F>) -> Self {
         let mut field_values = FlattenedValue::from(v).field_values();
 
         // fill up with 0
         while field_values.len() < word_capacity() * 2 {
-            field_values.push(F::zero());
+            field_values.push(F::ZERO);
         }
         Self(field_values)
     }
@@ -26,7 +26,7 @@ pub struct PILookupTable {
 }
 
 impl PILookupTable {
-    pub fn construct<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         let idx_column = meta.advice_column();
         let pi_column = meta.advice_column();
         meta.enable_equality(idx_column);
@@ -54,7 +54,12 @@ impl PILookupTable {
         word_capacity() * 2 + 1
     }
 
-    pub fn assign_table<F: FieldExt>(
+    // NOTICE: table height must be consistent with assign_table()
+    pub fn table_height(&self) -> usize {
+        Self::num_of_rows()
+    }
+
+    pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
         pi: Option<Value<F>>,
@@ -82,7 +87,7 @@ impl PILookupTable {
                     || "pi_table[0][1]",
                     self.pi_column(),
                     0,
-                    || CircuitValue::known(F::zero()),
+                    || CircuitValue::known(F::ZERO),
                 )?;
                 let mut cells = Vec::new();
                 for (idx, value) in values.iter().enumerate() {
@@ -102,12 +107,12 @@ impl PILookupTable {
 }
 
 #[derive(Clone, Debug)]
-pub struct PILookup<F: FieldExt> {
+pub struct PILookup<F: Field> {
     pub idx: Expression<F>,
     pub pi: Expression<F>,
 }
 
-impl<F: FieldExt> PILookup<F> {
+impl<F: Field> PILookup<F> {
     pub fn exprs(&self) -> Vec<Expression<F>> {
         vec![self.idx.clone(), self.pi.clone()]
     }

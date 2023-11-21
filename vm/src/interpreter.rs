@@ -6,7 +6,6 @@ use crate::locals::Locals;
 use crate::stack::{CallStack, EvalStack};
 use crate::state::StateStore;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::FieldExt;
 use logger::prelude::*;
 use move_binary_format::file_format::Bytecode;
 use move_vm_runtime::loader::{Function, Resolver};
@@ -20,6 +19,7 @@ use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
 use petgraph::prelude::NodeIndex;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use types::Field;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 
 use vm_circuit::witness::call_trace_table::pos_to_id;
@@ -30,13 +30,13 @@ use movelang::value_ext::FlattenedValue;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
-pub struct Interpreter<F: FieldExt> {
+pub struct Interpreter<F: Field> {
     pub stack: EvalStack<F>,
     pub frames: CallStack<F>,
     pub step: u64,
 }
 
-impl<F: FieldExt> Interpreter<F> {
+impl<F: Field> Interpreter<F> {
     pub fn new() -> Self {
         Self {
             stack: EvalStack::new(),
@@ -610,7 +610,7 @@ impl<F: FieldExt> Interpreter<F> {
     }
 }
 
-impl<F: FieldExt> Default for Interpreter<F> {
+impl<F: Field> Default for Interpreter<F> {
     fn default() -> Self {
         Self::new()
     }

@@ -13,21 +13,21 @@ use crate::chips::utilities::{Cell, Expr};
 use crate::witness::call_trace_table::MOVE_TO_GENERIC_AS_FIELD;
 use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use logger::error;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
+use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct MoveTo<const GENERIC: bool, F: FieldExt> {
+pub struct MoveTo<const GENERIC: bool, F: Field> {
     value: ValueGadget<F>,
     signer_ref: RefValGadget<F>,
     account_address: Cell<F>,
     type_cells: Option<GenericTypeGadget<F>>,
 }
 
-impl<const GENERIC: bool, F: FieldExt> InstructionGadget<F> for MoveTo<GENERIC, F> {
+impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveTo<GENERIC, F> {
     const NAME: &'static str = if GENERIC {
         "MOVE_TO_GENERIC"
     } else {

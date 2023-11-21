@@ -70,7 +70,6 @@ use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value as CircuitValue};
 use halo2_proofs::plonk::{Constraints, Instance};
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
@@ -79,6 +78,7 @@ use movelang::value::{
     Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use std::collections::HashMap;
+use types::Field;
 
 pub mod instructions;
 pub mod lookup_tables;
@@ -88,7 +88,7 @@ pub mod step_chip;
 pub mod utils;
 
 #[derive(Clone, Debug)]
-pub struct ExecutionChipConfig<F: FieldExt> {
+pub struct ExecutionChipConfig<F: Field> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub s_step: Column<Advice>,
@@ -185,13 +185,13 @@ pub struct ExecutionChipConfig<F: FieldExt> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ExecutionChip<F: FieldExt> {
+pub struct ExecutionChip<F: Field> {
     pub(crate) witness: Witness<F>,
     pub(crate) public_input: Option<Value<F>>,
     pub(crate) config: ExecutionChipConfig<F>,
 }
 
-impl<F: FieldExt> Chip<F> for ExecutionChip<F> {
+impl<F: Field> Chip<F> for ExecutionChip<F> {
     type Config = ExecutionChipConfig<F>;
     type Loaded = ();
 
@@ -204,7 +204,7 @@ impl<F: FieldExt> Chip<F> for ExecutionChip<F> {
     }
 }
 
-impl<F: FieldExt> ExecutionChip<F> {
+impl<F: Field> ExecutionChip<F> {
     pub fn construct(
         witness: Witness<F>,
         public_input: Option<Value<F>>,
@@ -603,13 +603,13 @@ impl<F: FieldExt> ExecutionChip<F> {
                     || "step height",
                     self.config.num_rows_until_next_step,
                     offset + self.step_height_get(&Opcode::Stop),
-                    || CircuitValue::known(F::zero()),
+                    || CircuitValue::known(F::ZERO),
                 )?;
                 region.assign_advice(
                     || "step height inv",
                     self.config.num_rows_inv,
                     offset + self.step_height_get(&Opcode::Stop),
-                    || CircuitValue::known(F::zero()),
+                    || CircuitValue::known(F::ZERO),
                 )?;
 
                 Ok(last_step_gc_cell)
@@ -651,10 +651,10 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step selector",
                 self.config.s_step,
                 offset + idx,
-                || CircuitValue::known(if idx == 0 { F::one() } else { F::zero() }),
+                || CircuitValue::known(if idx == 0 { F::ONE } else { F::ZERO }),
             )?;
             let num_rows_until_next_step = if idx == 0 {
-                F::zero()
+                F::ZERO
             } else {
                 F::from((height - idx) as u64)
             };
@@ -668,7 +668,7 @@ impl<F: FieldExt> ExecutionChip<F> {
                 || "step height inv",
                 self.config.num_rows_inv,
                 offset + idx,
-                || CircuitValue::known(num_rows_until_next_step.invert().unwrap_or(F::zero())),
+                || CircuitValue::known(num_rows_until_next_step.invert().unwrap_or(F::ZERO)),
             )?;
         }
         Ok(())
@@ -788,5 +788,26 @@ impl<F: FieldExt> ExecutionChip<F> {
             self.config.num_rows_until_next_step,
         );
         region.name_column(|| "Exec_num_rows_inv", self.config.num_rows_inv);
+    }
+
+    pub fn chip_height(&self) -> usize {
+        let mut height = 0;
+
+        // calculate steps height
+        let exec_steps = self.witness.exec_steps.clone();
+        for step in &exec_steps {
+            height += self.step_height_get(&step.opcode);
+        }
+
+        if let Some(max_row) = self.witness.circuit_config.max_step_row {
+            height = max_row;
+        }
+
+        // additional row for num_rows_until_next_step and num_rows_inv,
+        // used when configuring 'Stop' step
+        height += 1;
+
+        // max {steps_height, tables_height}
+        height.max(self.config.lookup_table.tables_height(self))
     }
 }
