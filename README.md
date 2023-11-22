@@ -6,7 +6,7 @@
 
 ## zkMove
 
-**A Zero-Knowledge Move Language Virtual Machine. Safe, Efficient, and Privacy-protected.**
+A Zero-Knowledge Move Language Virtual Machine. Safe, Efficient, and Privacy-protected.
 
 As a new generation of programming language for smart contract, Move ensures programming safety using its type checking, borrow checking and ownership mechanism. zkMove VM is fully compatible with Move and is the first zkVM with runtime type-safety!
 
@@ -37,12 +37,11 @@ zkmove run -s examples/scripts/add.move
 
 ## zkMove Agger
 
-Agger is a trustless computing service designed to extend the feature set of the blockchain. It enables Dapps to 
+Agger is a trustless computing service designed to extend the feature set of the blockchain. It enables Dapps to:
 
-- Access on-chain historical data in a trust-free manner, and allows arbitrary computations to be performed on the data.
-
-- Access any external data with minimal trust.
-- ...
+> Access on-chain historical data in a trust-free manner, and allows arbitrary computations to be performed on the data.
+> Access any external data with minimal trust.
+> ...
 
 Agger also enables developers to create customized ZK applications using the Move language, integrate them with other ZK modules, and easily deploy them to chains.
 
