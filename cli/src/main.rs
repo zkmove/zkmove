@@ -1,7 +1,7 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1};
+use halo2_proofs::halo2curves::pasta::{Eq, EqAffine, Fp};
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::ipa::commitment::ParamsIPA;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
@@ -70,6 +70,9 @@ pub enum Command {
 
         #[structopt(long = "pcs", help = "polynomial commitment scheme")]
         pcs: Option<String>,
+
+        #[structopt(long = "print-proof-size")]
+        print_proof_size: bool,
     },
     #[structopt(name = "graph", about = "generate generic call graph")]
     CallGraph { module: PathBuf, output: PathBuf },
@@ -85,6 +88,7 @@ impl Arguments {
         new_args: &Option<Vec<ScriptArgument>>,
         verbose: bool,
         print_layout: bool,
+        print_proof_size: bool,
         pcs: &Option<String>,
     ) -> VmResult<()> {
         logger::init_for_main(verbose);
@@ -98,10 +102,24 @@ impl Arguments {
         };
         if ty.eq(&String::from("ipa")) {
             info!("PCS is implemented with IPA");
-            self.run_ipa(script, module_dir, use_mock, new_args, print_layout)
+            self.run_ipa(
+                script,
+                module_dir,
+                use_mock,
+                new_args,
+                print_layout,
+                print_proof_size,
+            )
         } else if ty.eq(&String::from("kzg")) {
             info!("PCS is implemented with KZG");
-            self.run_kzg(script, module_dir, use_mock, new_args, print_layout)
+            self.run_kzg(
+                script,
+                module_dir,
+                use_mock,
+                new_args,
+                print_layout,
+                print_proof_size,
+            )
         } else {
             error!("only IPA and KZG supported");
             Ok(())
@@ -116,6 +134,7 @@ impl Arguments {
         use_mock: bool,
         new_args: &Option<Vec<ScriptArgument>>,
         print_layout: bool,
+        print_proof_size: bool,
     ) -> VmResult<()> {
         let script_file = script.to_str().expect("path is None.");
 
@@ -190,6 +209,11 @@ impl Arguments {
             info!("print circuit layout into layout.svg ...");
             print_circuit_layout(k, &vm_circuit);
         }
+        if print_proof_size {
+            let cost = halo2_proofs::dev::CircuitCost::<G1, _>::measure(k as usize, &vm_circuit);
+            let proof_size = cost.proof_size(1);
+            info!("proof size: {:#?}", proof_size);
+        }
 
         info!("setup vm circuit...");
         let rng = StdRng::from_entropy();
@@ -244,6 +268,7 @@ impl Arguments {
         use_mock: bool,
         new_args: &Option<Vec<ScriptArgument>>,
         print_layout: bool,
+        print_proof_size: bool,
     ) -> VmResult<()> {
         let script_file = script.to_str().expect("path is None.");
 
@@ -311,6 +336,11 @@ impl Arguments {
             info!("print circuit layout into layout.svg ...");
             print_circuit_layout(k, &vm_circuit);
         }
+        if print_proof_size {
+            let cost = halo2_proofs::dev::CircuitCost::<Eq, _>::measure(k as usize, &vm_circuit);
+            let proof_size = cost.proof_size(1);
+            info!("proof size: {:#?}", proof_size);
+        }
 
         info!("setup vm circuit...");
         let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
@@ -369,6 +399,7 @@ fn main() {
             ref new_args,
             verbose,
             print_layout,
+            print_proof_size,
             ref pcs,
         } => args.run(
             script.as_path(),
@@ -377,6 +408,7 @@ fn main() {
             new_args,
             verbose,
             print_layout,
+            print_proof_size,
             pcs,
         ),
         Command::CallGraph { module, output } => {
