@@ -181,7 +181,7 @@ pub fn run_kzg(
 
         let mut params = ParamsKZG::<Bn256>::read(&mut param_file).expect("param file is valid");
 
-        params.downsize(k as u32);
+        params.downsize(k);
         params
     } else {
         let rng = StdRng::from_entropy();
