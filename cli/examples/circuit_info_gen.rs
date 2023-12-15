@@ -224,8 +224,8 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(
                 output_path
                     .join(format!(
-                        "{}.publish-protocol",
-                        script.file_name().unwrap().to_string_lossy()
+                        "{}-publish-protocol",
+                        script.file_stem().unwrap().to_string_lossy()
                     ))
                     .with_extension("json"),
                 serde_json::to_string_pretty(&publish_json)?,
@@ -233,8 +233,8 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(
                 output_path
                     .join(format!(
-                        "{}.verify-proof",
-                        script.file_name().unwrap().to_string_lossy()
+                        "{}-verify-proof",
+                        script.file_stem().unwrap().to_string_lossy()
                     ))
                     .with_extension("json"),
                 serde_json::to_string_pretty(&verify_json)?,
