@@ -5,7 +5,7 @@ authors = [
     "Guangyu Zhu <guangyuz@gmail.com>",
     "Luxebeng <luxebeng@gmail.com>",
 ]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 crypto = { path = "../common/crypto" }
@@ -15,12 +15,18 @@ movelang = { path = "../movelang"}
 types = { path = "../common/types" }
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-itertools = "0.8"
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+itertools = "0.10.5"
 petgraph = "0.6"
 plotters = { version = "0.3.0" }
 rand = { version = "0.8" }
 serde = { version = "1",features=["derive"] }
+
 [dev-dependencies]
 datatest-stable = "0.1.1"
+
+# https://github.com/Amanieu/parking_lot/issues/269
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+parking_lot_core = "=0.8.0"

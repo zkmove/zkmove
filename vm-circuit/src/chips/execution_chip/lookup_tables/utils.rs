@@ -27,7 +27,7 @@ pub(crate) fn assign_table<F: Field>(
                             || Value::known(values[i][column_idx]),
                         )
                     })
-                    .fold(Ok(()), |acc, res| acc.and(res))
+                    .try_fold((), |_, res| res)
             },
         )?;
     }

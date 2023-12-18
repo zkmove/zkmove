@@ -2,7 +2,7 @@
 name = "zkmove-cli"
 version = "0.3.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 error = { path = "../common/error" }
@@ -10,7 +10,7 @@ functional-tests = { path = "../functional-tests" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
 types = { path = "../common/types" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
 move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 rand = "0.8"
 structopt = "0.3.25"

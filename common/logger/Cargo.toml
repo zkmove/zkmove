@@ -2,7 +2,7 @@
 name = "logger"
 version = "0.3.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 log = "0.4.14"

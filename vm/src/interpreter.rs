@@ -59,7 +59,7 @@ impl<F: Field> Interpreter<F> {
 
     fn process_arguments(
         &mut self,
-        locals: &mut Locals<F>,
+        locals: &Locals<F>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
@@ -160,9 +160,9 @@ impl<F: Field> Interpreter<F> {
     ) -> VmResult<Option<Value<F>>> {
         //println!("{}", generic_graph.to_dot());
 
-        let mut locals = Locals::new(entry.local_count());
+        let locals = Locals::new(entry.local_count());
 
-        self.process_arguments(&mut locals, signer, args, arg_types, 0, rw_operations)?;
+        self.process_arguments(&locals, signer, args, arg_types, 0, rw_operations)?;
 
         let mut frame = Frame::new(
             generic_graph.head,

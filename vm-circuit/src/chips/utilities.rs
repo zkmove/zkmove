@@ -239,7 +239,7 @@ pub(crate) fn assign_index_table<F: Field>(
                         || CircuitValue::known(F::from_u128(i as u128)),
                     )
                 })
-                .fold(Ok(()), |acc, res| acc.and(res))
+                .try_fold((), |_, res| res)
         },
     )?;
     Ok(())

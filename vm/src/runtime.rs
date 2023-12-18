@@ -33,9 +33,10 @@ use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
 };
 use vm_circuit::witness::{CircuitConfig, ExecutionTrace, Witness};
-use web3::transports::Http;
-use web3::Web3;
+// use web3::transports::Http;
+// use web3::Web3;
 
+#[allow(dead_code)]
 pub struct Runtime<F: Field> {
     loader: MoveLoader,
     natives: NativeFunctions<F>,
@@ -45,8 +46,8 @@ pub struct Runtime<F: Field> {
 
 #[derive(Default)]
 struct NativeContext {
-    web3: Option<Web3<Http>>,
-    tokio_rt: Option<tokio::runtime::Runtime>,
+    // web3: Option<Web3<Http>>,
+    // tokio_rt: Option<tokio::runtime::Runtime>,
 }
 
 impl<F: Field> Default for Runtime<F> {
@@ -64,17 +65,17 @@ impl<F: Field> Runtime<F> {
             _marker: PhantomData,
         }
     }
-    pub fn ext_web3(mut self, web3_url: impl AsRef<str>) -> Result<Self, web3::Error> {
-        let w = Web3::new(Http::new(web3_url.as_ref())?);
-        self.native_context.web3 = Some(w);
-        self.native_context.tokio_rt = Some(
-            tokio::runtime::Builder::new_current_thread()
-                .enable_io()
-                .enable_time()
-                .build()?,
-        );
-        Ok(self)
-    }
+    // pub fn ext_web3(mut self, web3_url: impl AsRef<str>) -> Result<Self, web3::Error> {
+    //     let w = Web3::new(Http::new(web3_url.as_ref())?);
+    //     self.native_context.web3 = Some(w);
+    //     self.native_context.tokio_rt = Some(
+    //         tokio::runtime::Builder::new_current_thread()
+    //             .enable_io()
+    //             .enable_time()
+    //             .build()?,
+    //     );
+    //    Ok(self)
+    //}
 
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
@@ -83,14 +84,15 @@ impl<F: Field> Runtime<F> {
         &self.natives
     }
     pub fn get_native_context_exts(&self) -> NativeContextExtensions {
-        let mut exts = NativeContextExtensions::default();
-        if let Some(ext) = &self.native_context.web3 {
-            exts.add(ext);
-        }
-        if let Some(rt) = &self.native_context.tokio_rt {
-            exts.add(rt);
-        }
-        exts
+        // let mut exts = NativeContextExtensions::default();
+        // if let Some(ext) = &self.native_context.web3 {
+        //     exts.add(ext);
+        // }
+        // if let Some(rt) = &self.native_context.tokio_rt {
+        //     exts.add(rt);
+        // }
+        // exts
+        NativeContextExtensions::default()
     }
     pub fn execute_entry_function(
         &self,

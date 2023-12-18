@@ -138,9 +138,9 @@ impl Arguments {
         let (compiled_script, compiled_modules) = compile_source_files(targets)?;
 
         let script = compiled_script.expect("script is missing");
-        let runtime = Runtime::<Fr>::new()
-            .ext_web3("https://cloudflare-eth.com")
-            .unwrap();
+        let runtime = Runtime::<Fr>::new();
+        // .ext_web3("https://cloudflare-eth.com")
+        //.unwrap();
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);

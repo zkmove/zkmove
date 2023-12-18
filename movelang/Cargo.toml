@@ -5,7 +5,7 @@ authors = [
     "Guangyu Zhu <guangyuz@gmail.com>",
     "Luxebeng <luxebeng@gmail.com>",
 ]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 logger = { path = "../common/logger" }
@@ -17,7 +17,7 @@ move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a
 move-vm-runtime = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-vm-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 move-bytecode-verifier = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
 
 anyhow = "1.0.38"
 petgraph = "0.6"

@@ -201,7 +201,7 @@ impl RWTable {
                     Error::Synthesis
                 })
             })
-            .fold(Ok(()), |acc, res| acc.and(res))
+            .try_fold((), |_, res| res)
     }
 
     // NOTICE: table height must be consistent with assign_table()

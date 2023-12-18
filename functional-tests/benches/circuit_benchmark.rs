@@ -5,10 +5,10 @@ use functional_tests::run_config::RunConfig;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
+use instant::Duration;
 use logger::{debug, info};
 use movelang::compiler::compile_source_files;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use vm::runtime::Runtime;
 use vm::state::StateStore;
 
