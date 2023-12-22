@@ -1,9 +1,11 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::circuit::{AssignedCell, Region};
-use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
-use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
-use halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Region};
+use halo2_base::halo2_proofs::circuit::{Layouter, Value as CircuitValue};
+use halo2_base::halo2_proofs::plonk::{
+    Advice, Column, Error, Expression, TableColumn, VirtualCells,
+};
+use halo2_base::halo2_proofs::poly::Rotation;
 use movelang::value::NUM_OF_BYTES_U128;
 use std::convert::TryInto;
 use types::Field;
@@ -157,7 +159,7 @@ impl<F: Field> FieldBytes<F> {
 pub(crate) mod from_bytes {
     use super::Expr;
     use crate::chips::execution_chip::param::MAX_N_BYTES_INTEGER;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
@@ -221,6 +223,7 @@ impl<F: Field> DeltaInvert<F> for F {
 
 // a special table with solo column and the value same as index.
 // which is to garantuee value is among [0, max].
+#[allow(clippy::manual_try_fold)]
 pub(crate) fn assign_index_table<F: Field>(
     layouter: &mut impl Layouter<F>,
     table_name: &str,
@@ -248,7 +251,7 @@ pub(crate) fn assign_index_table<F: Field>(
 /// Returns the sum of the passed in cells
 pub mod sum {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns an expression for the sum of the list of expressions.
@@ -273,7 +276,7 @@ pub mod sum {
 /// otherwise. Inputs need to be boolean
 pub mod and {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns an expression that evaluates to 1 only if all the expressions in
@@ -298,7 +301,7 @@ pub mod and {
 pub mod or {
     use super::{and, not};
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns an expression that evaluates to 1 if any expression in the given
@@ -320,7 +323,7 @@ pub mod or {
 /// `b` needs to be boolean
 pub mod not {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns an expression that represents the NOT of the given expression.
@@ -338,7 +341,7 @@ pub mod not {
 /// `a` and `b` needs to be boolean
 pub mod xor {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns an expression that represents the XOR of the given expression.
@@ -357,7 +360,7 @@ pub mod xor {
 /// `selector == 0`. `selector` needs to be boolean.
 pub mod select {
     use crate::chips::utilities::Expr;
-    use halo2_proofs::plonk::Expression;
+    use halo2_base::halo2_proofs::plonk::Expression;
     use types::Field;
 
     /// Returns the `when_true` expression when the selector is true, else

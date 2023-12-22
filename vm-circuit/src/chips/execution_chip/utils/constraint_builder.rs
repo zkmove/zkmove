@@ -3,7 +3,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepConfig;
 use crate::chips::execution_chip::utils::CellType;
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::plonk::Expression;
+use halo2_base::halo2_proofs::plonk::Expression;
 use types::Field;
 
 pub(crate) struct ConstraintBuilder<F: Field> {

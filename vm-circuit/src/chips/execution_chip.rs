@@ -66,10 +66,10 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::Witness;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region, Value as CircuitValue};
-use halo2_proofs::plonk::{Constraints, Instance};
-use halo2_proofs::poly::Rotation;
-use halo2_proofs::{
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Chip, Region, Value as CircuitValue};
+use halo2_base::halo2_proofs::plonk::{Constraints, Instance};
+use halo2_base::halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };

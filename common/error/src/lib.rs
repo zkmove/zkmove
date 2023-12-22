@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::plonk::{Error as ProofSystemError, Error};
+use halo2_base::halo2_proofs::plonk::{Error as ProofSystemError, Error};
 use logger::prelude::*;
 use std::result::Result;
 

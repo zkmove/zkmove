@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::param::word_capacity;
-use halo2_proofs::circuit::{AssignedCell, Layouter, Value as CircuitValue};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Layouter, Value as CircuitValue};
+use halo2_base::halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use movelang::value::Value;
 use movelang::value_ext::FlattenedValue;
 use types::Field;

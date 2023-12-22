@@ -101,8 +101,8 @@ pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
 mod tests {
     use super::*;
     use crate::utility::convert_to_field;
-    use halo2_proofs::halo2curves::bn256::Fr;
-    use halo2_proofs::halo2curves::ff::PrimeField;
+    use halo2_base::halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_base::halo2_proofs::halo2curves::ff::PrimeField;
     use logger::debug;
     use move_core_types::u256::U256;
     // use move_core_types::value::MoveValue::*;

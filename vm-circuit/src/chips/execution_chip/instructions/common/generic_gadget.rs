@@ -11,8 +11,8 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::is_zero::IsZeroGadget;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::{GenericTypeData, MaterializedTypeInfo};
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use logger::error;
 use types::Field;
 
@@ -189,7 +189,7 @@ impl<F: Field> GenericTypeGadget<F> {
             lookup_calltrace,
         );
 
-        for (_i, cells) in self.type_cells.iter().enumerate() {
+        for cells in self.type_cells.iter() {
             let inst_ty_pos = &cells.inst_ty_pos;
             let inst_ty_pos_max = &cells.inst_ty_pos_max;
             let inst_ty_pos_max_inverse = &cells.inst_ty_pos_max_inverse;

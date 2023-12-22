@@ -2,8 +2,8 @@ use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraint
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::{pow_of_two_expr, split_u256, split_u256_limb64};
 use crate::chips::utilities::{from_bytes, Cell, Expr};
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use move_core_types::u256::U256;
 use types::Field;
 

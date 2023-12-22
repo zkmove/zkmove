@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::circuit::{Region, Value as CircuitValue};
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::{Region, Value as CircuitValue};
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use types::Field;
 
 /// Returns `1` when `value == 0`, and returns `0` otherwise.

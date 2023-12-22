@@ -1,10 +1,10 @@
 use error::VmResult;
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
-use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
-use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::ipa::commitment::ParamsIPA;
-use halo2_proofs::poly::kzg::commitment::ParamsKZG;
+use halo2_base::halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_base::halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+use halo2_base::halo2_proofs::poly::commitment::ParamsProver;
+use halo2_base::halo2_proofs::poly::ipa::commitment::ParamsIPA;
+use halo2_base::halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use move_binary_format::CompiledModule;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};

@@ -9,7 +9,7 @@ use crate::utility::{
 use crate::utility::{MoveValue, MoveValueType};
 use crate::value_ext::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::circuit::Value as CircuitValue;
+use halo2_base::halo2_proofs::circuit::Value as CircuitValue;
 use move_binary_format::file_format::{StructDefInstantiationIndex, StructDefinitionIndex};
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 pub use move_core_types::language_storage::{ModuleId, TypeTag};

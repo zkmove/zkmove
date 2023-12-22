@@ -1,4 +1,4 @@
-use halo2_proofs::halo2curves::{
+use halo2_base::halo2_proofs::halo2curves::{
     bn256::{Fq, Fr},
     ff::{Field as Halo2Field, FromUniformBytes, PrimeField},
     pasta::Fp,

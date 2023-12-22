@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
-use halo2_gadgets::poseidon::primitives::{ConstantLength, Spec};
-use halo2_gadgets::poseidon::{Hash, Pow5Chip, Pow5Config};
-use halo2_proofs::{
+use halo2_base::halo2_gadgets::poseidon::primitives::{ConstantLength, Spec};
+use halo2_base::halo2_gadgets::poseidon::{Hash, Pow5Chip, Pow5Config};
+use halo2_base::halo2_proofs::{
     circuit::{AssignedCell, Layouter},
     plonk::{Advice, Column, ConstraintSystem, Error},
 };
@@ -103,10 +103,10 @@ impl<
 mod tests {
     use super::{PoseidonChip, PoseidonConfig};
     use crypto::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
-    use halo2_gadgets::poseidon::primitives::Spec;
-    use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::bn256::Fr;
-    use halo2_proofs::{
+    use halo2_base::halo2_gadgets::poseidon::primitives::Spec;
+    use halo2_base::halo2_proofs::dev::MockProver;
+    use halo2_base::halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_base::halo2_proofs::{
         circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
         plonk::{Advice, Circuit, Column, ConstraintSystem, Error},
     };

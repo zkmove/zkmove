@@ -4,9 +4,9 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::circuit::Value as CircuitValue;
-use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
-use halo2_proofs::plonk::{
+use halo2_base::halo2_proofs::circuit::Value as CircuitValue;
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
+use halo2_base::halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
 use logger::prelude::*;
@@ -509,6 +509,7 @@ impl<F: Field> LocalsOpChip<F> {
         Ok(assigned)
     }
 
+    #[allow(clippy::manual_try_fold)]
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
@@ -569,6 +570,7 @@ impl<F: Field> LocalsOpChip<F> {
 
     // a special table with solo column and the value same as index.
     // which is to garantuee value is among [0, max].
+    #[allow(clippy::manual_try_fold)]
     fn assign_index_table(
         &self,
         layouter: &mut impl Layouter<F>,

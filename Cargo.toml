@@ -11,6 +11,8 @@ members = [
     "cli",
 ]
 
+[workspace.dependencies]
+halo2-base = { git = "https://github.com/zkmove/halo2-lib", branch = "aggr", default-features=false, features=["halo2-pse","display"] }
 
 [profile.bench]
 lto=true

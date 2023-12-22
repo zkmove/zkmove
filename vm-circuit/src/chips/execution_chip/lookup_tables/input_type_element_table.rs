@@ -1,7 +1,7 @@
 use crate::witness::input_type_elements::{InputTypeElement, InputTypeElementTableData};
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::circuit::Value as CircuitValue;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::circuit::Value as CircuitValue;
+use halo2_base::halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use types::Field;
 
 #[derive(Clone, Debug)]

@@ -1,5 +1,5 @@
 use crate::chips::utilities::Expr;
-use halo2_proofs::plonk::Expression;
+use halo2_base::halo2_proofs::plonk::Expression;
 use types::Field;
 
 #[derive(Default)]
