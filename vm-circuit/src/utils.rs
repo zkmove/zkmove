@@ -152,7 +152,7 @@ fn prove_vm_circuit<
 ) -> VmResult<Vec<u8>>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
-    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64> + Ord,
 {
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
     // Create a proof

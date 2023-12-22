@@ -1,0 +1,26 @@
+[package]
+name = "aggregator"
+version = "0.3.0"
+edition = "2018"
+
+[dependencies]
+logger = { path = "../common/logger" }
+error = { path = "../common/error" }
+types = { path = "../common/types" }
+itertools = "0.10.3"
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+ark-std = { version = "0.3.0", features = ["print-trace"] }
+serde_json = "1.0"
+anyhow = "1.0.41"
+
+vm = { path = "../vm" }
+movelang = { path = "../movelang"}
+vm-circuit = { path = "../vm-circuit" }
+move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
+
+snark-verifier.workspace = true
+snark-verifier-sdk.workspace = true
+halo2-base.workspace = true
+
+[dev-dependencies]

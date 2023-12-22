@@ -8,6 +8,7 @@ use halo2_base::halo2_proofs::{
 };
 use logger::prelude::*;
 use movelang::value::Value;
+use snark_verifier_sdk::CircuitExt;
 use types::Field;
 
 #[derive(Clone)]
@@ -20,6 +21,16 @@ pub struct VmCircuitConfig<F: Field> {
 pub struct VmCircuit<F: Field> {
     pub witness: Witness<F>,
     pub public_input: Option<Value<F>>,
+}
+
+impl<F: Field> CircuitExt<F> for VmCircuit<F> {
+    fn num_instance(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn instances(&self) -> Vec<Vec<F>> {
+        vec![vec![F::ZERO]]
+    }
 }
 
 impl<F: Field> Circuit<F> for VmCircuit<F> {
