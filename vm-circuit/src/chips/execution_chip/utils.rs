@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells};
+use halo2_base::halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells};
 use movelang::utility::U256;
 use std::hash::Hash;
 use types::Field;

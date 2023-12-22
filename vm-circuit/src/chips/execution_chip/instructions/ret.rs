@@ -13,8 +13,8 @@ use crate::chips::utilities::{Expr, SubInvert};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
 use types::Field;
 
 #[derive(Clone, Debug)]

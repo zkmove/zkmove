@@ -1,28 +1,32 @@
 #![allow(unused_variables)]
 
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
+use halo2_base::halo2_proofs::arithmetic::CurveAffine;
+use halo2_base::halo2_proofs::dev::MockProver;
+use halo2_base::halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 
 use crate::circuit::VmCircuit;
-use halo2_proofs::halo2curves::ff::{FromUniformBytes, PrimeField, WithSmallOrderMulGroup};
-use halo2_proofs::halo2curves::serde::SerdeObject;
-use halo2_proofs::plonk::{
+use halo2_base::halo2_proofs::halo2curves::ff::{
+    FromUniformBytes, PrimeField, WithSmallOrderMulGroup,
+};
+use halo2_base::halo2_proofs::halo2curves::serde::SerdeObject;
+use halo2_base::halo2_proofs::plonk::{
     create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
 };
-use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
-use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
-use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
-use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
-use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
-use halo2_proofs::transcript::{
+use halo2_base::halo2_proofs::poly::commitment::{
+    CommitmentScheme, Params, ParamsProver, Prover, Verifier,
+};
+use halo2_base::halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
+use halo2_base::halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
+use halo2_base::halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
+use halo2_base::halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+use halo2_base::halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
+use halo2_base::halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
 // use instant;
 use logger::{debug, info};
-use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
+// use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
@@ -56,20 +60,20 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
 }
 
 pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
-    k: u32,
-    circuit: &ConcreteCircuit,
+    _k: u32,
+    _circuit: &ConcreteCircuit,
 ) {
-    let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
-    root.fill(&WHITE).unwrap();
-    let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
+    // let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
+    // root.fill(&WHITE).unwrap();
+    // let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
 
-    // CircuitLayout is not available at wasm.
-    #[cfg(not(target_arch = "wasm32"))]
-    halo2_proofs::dev::CircuitLayout::default()
-        .mark_equality_cells(true)
-        .show_equality_constraints(true)
-        .render(k, circuit, &root)
-        .unwrap();
+    // // CircuitLayout is not available at wasm.
+    // #[cfg(not(target_arch = "wasm32"))]
+    // halo2_base::halo2_proofs::dev::CircuitLayout::default()
+    //     .mark_equality_cells(true)
+    //     .show_equality_constraints(true)
+    //     .render(k, circuit, &root)
+    //     .unwrap();
 }
 
 pub fn setup_vm_circuit<'params, C, P, ConcreteCircuit>(
@@ -153,7 +157,7 @@ fn prove_vm_circuit<
 ) -> VmResult<Vec<u8>>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
-    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64> + Ord,
 {
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
     // Create a proof

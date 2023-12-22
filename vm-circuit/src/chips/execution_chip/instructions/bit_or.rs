@@ -9,8 +9,8 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
 use movelang::value::NUM_OF_BYTES_U256;
 use types::Field;
 

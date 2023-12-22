@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use anyhow::Result;
-use halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Spec};
+use halo2_base::halo2_gadgets::poseidon::primitives::{ConstantLength, Hash, Spec};
 use types::Field;
 use std::marker::PhantomData;
 
@@ -11,7 +11,7 @@ pub struct SmtP128Pow5T3<F: Field, const SECURE_MDS: usize>(PhantomData<F>);
 
 impl<F: Field, const SECURE_MDS: usize> SmtP128Pow5T3<F, SECURE_MDS> {
     pub fn new() -> Self {
-        SmtP128Pow5T3(PhantomData::default())
+        SmtP128Pow5T3(PhantomData)
     }
 }
 
@@ -44,7 +44,7 @@ pub struct Poseidon<F: Field, const L: usize>(PhantomData<F>);
 
 impl<F: Field, const L: usize> Poseidon<F, L> {
     pub fn new() -> Self {
-        Poseidon(PhantomData::default())
+        Poseidon(PhantomData)
     }
 }
 
@@ -80,7 +80,7 @@ mod tests {
     // use halo2_gadgets::poseidon::primitives::{permute, Spec};
     // use halo2_gadgets::poseidon::primitives::Spec;
     // use types::Field;
-    // use halo2_proofs::halo2curves::bn256::Fr;
+    // use halo2_base::halo2_proofs::halo2curves::bn256::Fr;
 
     #[test]
     fn orchard_spec_equivalence() {

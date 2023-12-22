@@ -6,8 +6,8 @@ use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::*;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_base::halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 use types::Field;
 

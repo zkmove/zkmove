@@ -1,7 +1,8 @@
-use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::plonk::{Error, TableColumn};
+use halo2_base::halo2_proofs::circuit::{Layouter, Value};
+use halo2_base::halo2_proofs::plonk::{Error, TableColumn};
 use types::Field;
 
+#[allow(clippy::manual_try_fold)]
 pub(crate) fn assign_table<F: Field>(
     layouter: &mut impl Layouter<F>,
     table_columns: Vec<TableColumn>,

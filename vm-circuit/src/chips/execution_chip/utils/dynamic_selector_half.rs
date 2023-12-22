@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::utils::{CellManager, CellType};
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use std::iter;
 use types::Field;
 

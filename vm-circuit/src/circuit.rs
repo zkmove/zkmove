@@ -4,12 +4,13 @@ use std::marker::PhantomData;
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
 use crate::witness::Witness;
-use halo2_proofs::{
+use halo2_base::halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use logger::prelude::*;
 use movelang::value::Value;
+use snark_verifier_sdk::CircuitExt;
 use types::Field;
 
 #[derive(Clone)]
@@ -23,6 +24,16 @@ pub struct VmCircuit<F: Field> {
     pub witness: Witness,
     pub public_input: Option<Value>,
     pub _maker: PhantomData<F>,
+}
+
+impl<F: Field> CircuitExt<F> for VmCircuit<F> {
+    fn num_instance(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn instances(&self) -> Vec<Vec<F>> {
+        vec![vec![F::ZERO]]
+    }
 }
 
 impl<F: Field> Circuit<F> for VmCircuit<F> {

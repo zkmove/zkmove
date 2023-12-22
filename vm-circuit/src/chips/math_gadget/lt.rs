@@ -2,8 +2,8 @@ use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraint
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::pow_of_two;
 use crate::chips::utilities::{from_bytes, Cell, Expr};
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use types::Field;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.

@@ -14,8 +14,8 @@ use crate::chips::utilities::{Cell, Expr};
 use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::function_calls::EntryType;
 use crate::witness::rw_operations::{RWOperations, RW};
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use types::Field;
 

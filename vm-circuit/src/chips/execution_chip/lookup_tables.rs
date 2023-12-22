@@ -26,8 +26,8 @@ use crate::chips::execution_chip::lookup_tables::type_instantiation_table::{
 use crate::chips::execution_chip::utils::constraint_builder::{mul_exprs, ConditionalLookup};
 use crate::chips::execution_chip::ExecutionChip;
 use crate::witness::rw_operations::ConvertedRWOperation;
-use halo2_proofs::circuit::AssignedCell;
-use halo2_proofs::{
+use halo2_base::halo2_proofs::circuit::AssignedCell;
+use halo2_base::halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,

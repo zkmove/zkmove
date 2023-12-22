@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::call_trace_table::CallTrace;
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
 use types::Field;
 
 #[derive(Clone, Debug)]
