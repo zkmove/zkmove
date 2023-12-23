@@ -26,11 +26,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: false
+      - name: setup
+        run:  bash ./aggregator/params/setup.sh
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --all -- --test-threads 6
+          args: test_vm_circuit_compression --release --all -- --test-threads 6 RUST_BACKTRACE=full RUST_LOG=trace
       - name: Check Benchmarks
         uses: actions-rs/cargo@v1
         with:
