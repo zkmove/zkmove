@@ -9,8 +9,14 @@ members = [
     "vm",
     "functional-tests",
     "cli",
+    "aggregator"
 ]
 
+[workspace.dependencies]
+halo2-base = { git = "https://github.com/zkmove/halo2-lib", branch = "aggr", default-features=false, features=["halo2-pse","display"] }
+#halo2-base = { path = "../halo2-lib/halo2-base", default-features=false, features=["halo2-pse","display"]}
+snark-verifier-sdk = { git = "https://github.com/zkmove/snark-verifier", branch = "aggr" }
+snark-verifier = { git = "https://github.com/zkmove/snark-verifier", branch = "aggr" }
 
 [profile.bench]
 lto=true

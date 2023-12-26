@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::lookup_tables::pi_lookup_table::PILookupTable;
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::circuit::{AssignedCell, Value};
-use halo2_proofs::plonk::{Column, ConstraintSystem, Error, Fixed};
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Value};
+use halo2_base::halo2_proofs::plonk::{Column, ConstraintSystem, Error, Fixed};
 use types::Field;
 
 #[derive(Clone, Debug)]

@@ -10,8 +10,8 @@ use crate::chips::math_gadget::mul_add_words::{MulAddWordsGadget, MulAddWordsOp}
 use crate::chips::utilities::Expr;
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
 use logger::prelude::*;
 use move_core_types::u256::U256;
 use movelang::utility::decode_field_to_u256;

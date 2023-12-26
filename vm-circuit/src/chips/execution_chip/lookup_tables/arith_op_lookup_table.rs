@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::arith_operations::ArithOperation;
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::{Error, Expression, TableColumn};
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::plonk::ConstraintSystem;
+use halo2_base::halo2_proofs::plonk::{Error, Expression, TableColumn};
 use types::Field;
 
 #[derive(Clone, Debug)]

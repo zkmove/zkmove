@@ -3,12 +3,12 @@ use crate::witness::rw_operations::ConvertedRWOperation;
 use crate::witness::rw_operations::RWOperations;
 use crate::witness::rw_operations::RW;
 use crate::witness::CircuitConfig;
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::circuit::Value as CircuitValue;
-use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
-use halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::circuit::Value as CircuitValue;
+use halo2_base::halo2_proofs::plonk::ConstraintSystem;
+use halo2_base::halo2_proofs::plonk::{Advice, Column, Error, Expression, VirtualCells};
+use halo2_base::halo2_proofs::poly::Rotation;
 use logger::prelude::{debug, error};
 use types::Field;
 
@@ -172,6 +172,7 @@ impl RWTable {
         Ok((stack_operations, locals_operations, global_operations))
     }
 
+    #[allow(clippy::manual_try_fold)]
     pub(crate) fn assign_rw_ops<F: Field>(
         region: &mut Region<'_, F>,
         column_idx: usize,

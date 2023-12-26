@@ -4,8 +4,8 @@ use crate::chips::memory_chip::MEM_CHIP_WIDTH;
 use crate::chips::utilities::*;
 use crate::witness::rw_operations::{ConvertedRWOperation, RW};
 use crate::witness::CircuitConfig;
-use halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
-use halo2_proofs::plonk::{
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Chip, Layouter, Region};
+use halo2_base::halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Error, Expression, Selector, TableColumn,
 };
 use logger::prelude::*;

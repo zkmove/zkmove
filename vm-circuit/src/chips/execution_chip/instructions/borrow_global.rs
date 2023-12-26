@@ -16,8 +16,8 @@ use crate::witness::call_trace_table::{
 };
 use crate::witness::execution_steps::{ExecutionData, ExecutionStep};
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
 use logger::error;
 use movelang::value_ext::LEN_OF_REFERENCE_VALUE;
 use movelang::value_ext::{ValueHeader, LEN_OF_SIMPLE_VALUE};

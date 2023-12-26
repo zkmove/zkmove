@@ -3,12 +3,12 @@
 use crate::chips::memory_chip::global_op_chip::{GlobalOpChip, GlobalOpChipConfig};
 use crate::witness::rw_operations::{ConvertedRWOperation, RWOperation};
 use crate::witness::{CircuitConfig, Witness};
-use halo2_proofs::circuit::Value as CircuitValue;
-use halo2_proofs::circuit::{AssignedCell, Chip, Region};
-use halo2_proofs::plonk::{Advice, Column};
-use halo2_proofs::plonk::{Selector, TableColumn};
-use halo2_proofs::poly::Rotation;
-use halo2_proofs::{
+use halo2_base::halo2_proofs::circuit::Value as CircuitValue;
+use halo2_base::halo2_proofs::circuit::{AssignedCell, Chip, Region};
+use halo2_base::halo2_proofs::plonk::{Advice, Column};
+use halo2_base::halo2_proofs::plonk::{Selector, TableColumn};
+use halo2_base::halo2_proofs::poly::Rotation;
+use halo2_base::halo2_proofs::{
     circuit::Layouter,
     plonk::{ConstraintSystem, Error},
 };
@@ -108,6 +108,7 @@ impl<F: Field> MemoryChip<F> {
         }
     }
 
+    #[allow(clippy::manual_try_fold)]
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,

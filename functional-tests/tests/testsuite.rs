@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
-use halo2_proofs::poly::kzg::commitment::ParamsKZG;
+use halo2_base::halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_base::halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::compiler::compile_source_files;
 use std::path::Path;

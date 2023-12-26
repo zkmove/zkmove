@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::witness::const_table::ConstantInfo;
-use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
+use halo2_base::halo2_proofs::circuit::Layouter;
+use halo2_base::halo2_proofs::plonk::{ConstraintSystem, Error, Expression, TableColumn};
 use movelang::value::AddressPath;
 use movelang::value_ext::FlattenedValue;
 use types::Field;

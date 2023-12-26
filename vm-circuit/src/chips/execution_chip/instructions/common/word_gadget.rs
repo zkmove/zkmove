@@ -4,9 +4,9 @@ use crate::chips::execution_chip::lookup_tables::rw_table::RWLookup;
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, Expr};
 use crate::witness::rw_operations::RWOperations;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::Error;
-use halo2_proofs::plonk::Expression;
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::Error;
+use halo2_base::halo2_proofs::plonk::Expression;
 use movelang::value_ext::{ValueHeader, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
 use types::Field;
 

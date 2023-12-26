@@ -2,8 +2,8 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::math_gadget::is_zero::IsZeroGadget;
 use crate::chips::math_gadget::lt::LtGadget;
 use crate::chips::utilities::sum;
-use halo2_proofs::circuit::Region;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_base::halo2_proofs::circuit::Region;
+use halo2_base::halo2_proofs::plonk::{Error, Expression};
 use types::Field;
 
 /// Returns (lt, eq):

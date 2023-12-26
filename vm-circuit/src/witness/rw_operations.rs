@@ -2,7 +2,7 @@
 
 use crate::chips::execution_chip::lookup_tables::rw_table::RWTarget;
 use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::circuit::AssignedCell;
+use halo2_base::halo2_proofs::circuit::AssignedCell;
 use movelang::account_address::AccountAddress;
 use movelang::value::{SimpleValue, Value};
 use std::cmp::Ordering;
