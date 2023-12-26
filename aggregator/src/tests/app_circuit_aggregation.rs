@@ -1,16 +1,12 @@
 use super::{TestCircuit1, TestCircuit2};
 use anyhow::Result;
 use ark_std::test_rng;
+use ark_std::{end_timer, start_timer};
 use halo2_base::halo2_proofs;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG; //guangyuz
 use halo2_proofs::{halo2curves::bn256::Bn256, poly::commitment::Params};
-use snark_verifier::{
-    loader::halo2::halo2_ecc::halo2_base::utils::fs::gen_srs,
-    pcs::kzg::{Bdfg21, Kzg},
-};
 use snark_verifier_sdk::{
-    evm_verify, gen_evm_proof_shplonk, gen_evm_verifier, gen_pk, gen_snark_shplonk,
-    AggregationCircuit, CircuitExt,
+    gen_evm_proof_shplonk, gen_pk, gen_snark_shplonk, AggregationCircuit, CircuitExt,
 };
 use std::path::Path;
 
@@ -41,7 +37,7 @@ fn test_app_circuit_aggregation() -> Result<()> {
     println!("finished snark generation for circuit 1");
 
     // Proof for circuit 2
-    let circuit_2 = TestCircuit1::rand(&mut rng);
+    let circuit_2 = TestCircuit2::rand(&mut rng);
     let pk_inner_2 = gen_pk(&params_inner, &circuit_2, None);
     let snarks_2 = gen_snark_shplonk(
         &params_inner,
@@ -57,6 +53,7 @@ fn test_app_circuit_aggregation() -> Result<()> {
     let agg_circuit = AggregationCircuit::new(&params_outer, snarks, &mut rng);
     let pk_outer = gen_pk(&params_outer, &agg_circuit, None);
     println!("finished outer pk generation");
+    let aggregation_time = start_timer!(|| "start generation...");
     let instances = agg_circuit.instances();
     let proof = gen_evm_proof_shplonk(
         &params_outer,
@@ -66,7 +63,8 @@ fn test_app_circuit_aggregation() -> Result<()> {
         &mut rng,
     );
     println!("finished aggregation generation");
-
+    end_timer!(aggregation_time);
+    println!("aggregated proof size {} bytes", proof.len());
     // TODO: verify on move
 
     Ok(())
