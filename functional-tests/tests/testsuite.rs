@@ -36,9 +36,13 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     debug!("arguments {:?}, compile targets {:?}", config.args, targets);
 
     let (compiled_script, compiled_modules) = compile_source_files(targets)?;
+    #[cfg(not(target_arch = "wasm32"))]
+    let runtime = Runtime::<Fr>::new()
+        .ext_web3("https://cloudflare-eth.com")
+        .unwrap();
+    #[cfg(target_arch = "wasm32")]
     let runtime = Runtime::<Fr>::new();
-    // .ext_web3("https://cloudflare-eth.com")
-    // .unwrap();
+
     let mut state = StateStore::new();
 
     for module in compiled_modules.clone().into_iter() {

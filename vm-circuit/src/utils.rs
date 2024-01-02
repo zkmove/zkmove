@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::dev::MockProver;
@@ -54,18 +56,20 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
 }
 
 pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
-    _k: u32,
-    _circuit: &ConcreteCircuit,
+    k: u32,
+    circuit: &ConcreteCircuit,
 ) {
     let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
     root.fill(&WHITE).unwrap();
-    let _root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
+    let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
 
-    // halo2_proofs::dev::CircuitLayout::default()
-    //     .mark_equality_cells(true)
-    //     .show_equality_constraints(true)
-    //     .render(k, circuit, &root)
-    //     .unwrap();
+    // CircuitLayout is not available at wasm.
+    #[cfg(not(target_arch = "wasm32"))]
+    halo2_proofs::dev::CircuitLayout::default()
+        .mark_equality_cells(true)
+        .show_equality_constraints(true)
+        .render(k, circuit, &root)
+        .unwrap();
 }
 
 pub fn setup_vm_circuit<'params, C, P, ConcreteCircuit>(

@@ -19,11 +19,14 @@ move-vm-runtime = { git = "https://github.com/young-rocks/move", rev = "b036995a
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656", features = ["dev-graph"]}
 petgraph = "0.6"
-# web3 = { version = "0.18.0", default-features=false, features=["http-tls"] }
-# tokio = { version = "1.26.0", default-features=false }
-[dev-dependencies]
-datatest-stable = "0.1.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+web3 = { version = "0.18.0", default-features=false, features=["http-tls"] }
+tokio = { version = "1.26.0", default-features=false }
 
 # https://github.com/Amanieu/parking_lot/issues/269
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 parking_lot_core = "=0.8.0"
+
+[dev-dependencies]
+datatest-stable = "0.1.1"

@@ -4,42 +4,92 @@ use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::value::Value;
 use std::collections::VecDeque;
 use std::sync::Arc;
-// use tokio::runtime::Runtime;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::runtime::Runtime;
 use types::Field;
-// // use web3::transports::Http;
-// // use web3::types::{Address, BlockId, H256, U256};
-// // use web3::Web3;
 
+#[cfg(not(target_arch = "wasm32"))]
+use web3::transports::Http;
+#[cfg(not(target_arch = "wasm32"))]
+use web3::types::{Address, BlockId, H256, U256};
+#[cfg(not(target_arch = "wasm32"))]
+use web3::Web3;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn native_get_block_hash<F: Field>(
-    _context: &mut NativeContext<F>,
+    context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
     mut args: VecDeque<Value<F>>,
 ) -> VmResult<Value<F>> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 1);
-    let _block_number = args
+    let block_number = args
         .pop_back()
         .unwrap()
         .castu64()?
         .value()
         .unwrap()
         .get_lower_128() as u64;
-    // let web3client = context.extensions().get::<&Web3<Http>>();
-    // let tokio_runtime = context.extensions().get::<&Runtime>();
+    let web3client = context.extensions().get::<&Web3<Http>>();
+    let tokio_runtime = context.extensions().get::<&Runtime>();
 
-    // let block = tokio_runtime
-    //     .block_on(web3client.eth().block(BlockId::Number(block_number.into())))
-    //     .unwrap();
+    let block = tokio_runtime
+        .block_on(web3client.eth().block(BlockId::Number(block_number.into())))
+        .unwrap();
 
-    // let block_hash = if let Some(b) = block {
-    //     b.hash.unwrap()
-    // } else {
-    //     H256::zero()
-    // };
-    // let ret_ = Value::<F>::vector_u8(block_hash.to_fixed_bytes());
-    // Ok(ret_)
+    let block_hash = if let Some(b) = block {
+        b.hash.unwrap()
+    } else {
+        H256::zero()
+    };
+    let ret_ = Value::<F>::vector_u8(block_hash.to_fixed_bytes());
+    Ok(ret_)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn native_get_block_hash<F: Field>(
+    _context: &mut NativeContext<F>,
+    ty_args: Vec<Type>,
+    args: VecDeque<Value<F>>,
+) -> VmResult<Value<F>> {
+    debug_assert_eq!(ty_args.len(), 0);
+    debug_assert_eq!(args.len(), 1);
     Ok(Value::u64(0))
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn native_get_slot<F: Field>(
+    context: &mut NativeContext<F>,
+    ty_args: Vec<Type>,
+    mut args: VecDeque<Value<F>>,
+) -> VmResult<Value<F>> {
+    debug_assert_eq!(ty_args.len(), 0);
+    debug_assert_eq!(args.len(), 3);
+    let slot = args
+        .pop_back()
+        .unwrap()
+        .castu128()?
+        .value()
+        .unwrap()
+        .get_lower_128();
+    let address = args.pop_back().unwrap().as_vector_u8()?;
+    let block_number = args.pop_back().unwrap().value().unwrap().get_lower_128() as u64;
+
+    let web3client = context.extensions().get::<&Web3<Http>>();
+    let tokio_runtime = context.extensions().get::<&Runtime>();
+
+    let slot = tokio_runtime
+        .block_on(web3client.eth().storage(
+            Address::from_slice(address.as_slice()),
+            U256::from(slot),
+            Some(block_number.into()),
+        ))
+        .unwrap();
+
+    let ret_ = Value::<F>::vector_u8(slot.to_fixed_bytes());
+    Ok(ret_)
+}
+#[cfg(target_arch = "wasm32")]
 pub fn native_get_slot<F: Field>(
     _context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
@@ -47,29 +97,6 @@ pub fn native_get_slot<F: Field>(
 ) -> VmResult<Value<F>> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 3);
-    // let slot = args
-    //     .pop_back()
-    //     .unwrap()
-    //     .castu128()?
-    //     .value()
-    //     .unwrap()
-    //     .get_lower_128();
-    // let address = args.pop_back().unwrap().as_vector_u8()?;
-    // let block_number = args.pop_back().unwrap().value().unwrap().get_lower_128() as u64;
-
-    // let web3client = context.extensions().get::<&Web3<Http>>();
-    // let tokio_runtime = context.extensions().get::<&Runtime>();
-
-    // let slot = tokio_runtime
-    //     .block_on(web3client.eth().storage(
-    //         Address::from_slice(address.as_slice()),
-    //         U256::from(slot),
-    //         Some(block_number.into()),
-    //     ))
-    //     .unwrap();
-
-    // let ret_ = Value::<F>::vector_u8(slot.to_fixed_bytes());
-    // Ok(ret_)
     Ok(Value::u64(0))
 }
 
