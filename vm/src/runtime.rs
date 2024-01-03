@@ -33,9 +33,12 @@ use vm_circuit::witness::type_instantiation_table::{
     flatten_materialized_type, map_type_name, GenericTypeInstantiationTableData,
 };
 use vm_circuit::witness::{CircuitConfig, ExecutionTrace, Witness};
+#[cfg(not(target_arch = "wasm32"))]
 use web3::transports::Http;
+#[cfg(not(target_arch = "wasm32"))]
 use web3::Web3;
 
+#[allow(dead_code)]
 pub struct Runtime<F: Field> {
     loader: MoveLoader,
     natives: NativeFunctions<F>,
@@ -43,10 +46,17 @@ pub struct Runtime<F: Field> {
     _marker: PhantomData<F>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Default)]
 struct NativeContext {
     web3: Option<Web3<Http>>,
     tokio_rt: Option<tokio::runtime::Runtime>,
+}
+#[cfg(target_arch = "wasm32")]
+#[derive(Default)]
+struct NativeContext {
+    // web3: Option<Web3<Http>>,
+    // tokio_rt: Option<tokio::runtime::Runtime>,
 }
 
 impl<F: Field> Default for Runtime<F> {
@@ -64,6 +74,8 @@ impl<F: Field> Runtime<F> {
             _marker: PhantomData,
         }
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn ext_web3(mut self, web3_url: impl AsRef<str>) -> Result<Self, web3::Error> {
         let w = Web3::new(Http::new(web3_url.as_ref())?);
         self.native_context.web3 = Some(w);
@@ -82,6 +94,8 @@ impl<F: Field> Runtime<F> {
     pub fn get_natives(&self) -> &NativeFunctions<F> {
         &self.natives
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_native_context_exts(&self) -> NativeContextExtensions {
         let mut exts = NativeContextExtensions::default();
         if let Some(ext) = &self.native_context.web3 {
@@ -92,6 +106,11 @@ impl<F: Field> Runtime<F> {
         }
         exts
     }
+    #[cfg(target_arch = "wasm32")]
+    pub fn get_native_context_exts(&self) -> NativeContextExtensions {
+        NativeContextExtensions::default()
+    }
+
     pub fn execute_entry_function(
         &self,
         module_id: &ModuleId,

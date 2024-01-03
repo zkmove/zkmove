@@ -138,9 +138,13 @@ impl Arguments {
         let (compiled_script, compiled_modules) = compile_source_files(targets)?;
 
         let script = compiled_script.expect("script is missing");
+        #[cfg(not(target_arch = "wasm32"))]
         let runtime = Runtime::<Fr>::new()
             .ext_web3("https://cloudflare-eth.com")
             .unwrap();
+        #[cfg(target_arch = "wasm32")]
+        let runtime = Runtime::<Fr>::new();
+
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);

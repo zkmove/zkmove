@@ -10,6 +10,8 @@ Cargo.lock
 **/*.rs.bk
 
 .idea
+.vscode
 
 # MacOS Stuff
 .DS_Store
+

@@ -247,7 +247,7 @@ impl<F: Field> MemoryChip<F> {
                                 || CircuitValue::known(F::from_u128(i as u128)),
                             )
                         })
-                        .fold(Ok(()), |acc, res| acc.and(res))?;
+                        .try_fold((), |_, res| res)?;
                 }
 
                 let ops_num = stack_ops_num + locals_ops_num + global_ops_num;
@@ -262,7 +262,7 @@ impl<F: Field> MemoryChip<F> {
                                 || CircuitValue::known(F::from_u128(i as u128)),
                             )
                         })
-                        .fold(Ok(()), |acc, res| acc.and(res))?;
+                        .try_fold((), |_, res| res)?;
                 }
 
                 Ok(())

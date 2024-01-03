@@ -4,12 +4,18 @@ use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::value::Value;
 use std::collections::VecDeque;
 use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Runtime;
 use types::Field;
+
+#[cfg(not(target_arch = "wasm32"))]
 use web3::transports::Http;
+#[cfg(not(target_arch = "wasm32"))]
 use web3::types::{Address, BlockId, H256, U256};
+#[cfg(not(target_arch = "wasm32"))]
 use web3::Web3;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn native_get_block_hash<F: Field>(
     context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
@@ -39,6 +45,19 @@ pub fn native_get_block_hash<F: Field>(
     let ret_ = Value::<F>::vector_u8(block_hash.to_fixed_bytes());
     Ok(ret_)
 }
+
+#[cfg(target_arch = "wasm32")]
+pub fn native_get_block_hash<F: Field>(
+    _context: &mut NativeContext<F>,
+    ty_args: Vec<Type>,
+    args: VecDeque<Value<F>>,
+) -> VmResult<Value<F>> {
+    debug_assert_eq!(ty_args.len(), 0);
+    debug_assert_eq!(args.len(), 1);
+    Ok(Value::u64(0))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn native_get_slot<F: Field>(
     context: &mut NativeContext<F>,
     ty_args: Vec<Type>,
@@ -69,6 +88,16 @@ pub fn native_get_slot<F: Field>(
 
     let ret_ = Value::<F>::vector_u8(slot.to_fixed_bytes());
     Ok(ret_)
+}
+#[cfg(target_arch = "wasm32")]
+pub fn native_get_slot<F: Field>(
+    _context: &mut NativeContext<F>,
+    ty_args: Vec<Type>,
+    args: VecDeque<Value<F>>,
+) -> VmResult<Value<F>> {
+    debug_assert_eq!(ty_args.len(), 0);
+    debug_assert_eq!(args.len(), 3);
+    Ok(Value::u64(0))
 }
 
 pub fn make_all_field_version<F: Field>() -> impl IntoIterator<Item = (String, NativeFunction<F>)> {

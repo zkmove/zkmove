@@ -2,9 +2,9 @@
 name = "error"
 version = "0.3.0"
 authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 logger = { path = "../logger" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
 anyhow = "1.0.38"
