@@ -1,0 +1,4662 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+==========================
+Opcode: "LDU8"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU16"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU32"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU64"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDU128"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LdU256"
+RW: 3
+Bytecode: 1
+==========================
+Opcode: "LdConst"
+RW: 6
+MoveConstant: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU8"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU16"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU32"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU64"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU128"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "CASTU256"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "POP"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "RET"
+RW: 6
+Bytecode: 1
+Call: 1
+PI: 12
+==========================
+Opcode: "ADD"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "MUL"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "COPYLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "SUB"
+RW: 9
+Bytecode: 1
+ArithOp: 1
+==========================
+Opcode: "DIV"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "Mod"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LDTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "LDFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "EQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "NEQ"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "SHL"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "SHR"
+RW: 9
+Bytecode: 1
+Pow2: 2
+==========================
+Opcode: "BITAND"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "BITOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "XOR"
+RW: 9
+Bytecode: 1
+Bitwise: 64
+==========================
+Opcode: "AND"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "OR"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "NOT"
+RW: 6
+Bytecode: 1
+==========================
+Opcode: "MOVELOC"
+RW: 18
+Bytecode: 1
+==========================
+Opcode: "STLOC"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "BRANCH"
+Bytecode: 1
+==========================
+Opcode: "BRTRUE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "BRFALSE"
+RW: 2
+Bytecode: 1
+==========================
+Opcode: "CALL"
+RW: 64
+Bytecode: 1
+Call: 1
+==========================
+Opcode: "ABORT"
+Bytecode: 1
+==========================
+Opcode: "LE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "LT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GE"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "GT"
+RW: 9
+Bytecode: 1
+==========================
+Opcode: "PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UnPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "BORROWLOC"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "READREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "WRITEREF"
+RW: 22
+Bytecode: 1
+==========================
+Opcode: "FREEZEREF"
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MOVE_FROM"
+RW: 20
+Bytecode: 1
+==========================
+Opcode: "MOVE_TO"
+RW: 16
+Bytecode: 1
+==========================
+Opcode: "EXISTS"
+==========================
+Opcode: "IMM_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_GLOBAL"
+RW: 12
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_BORROW"
+RW: 10
+Bytecode: 1
+==========================
+Opcode: "VEC_LEN"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "VEC_PACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "VEC_POP_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_PUSH_BACK"
+RW: 54
+Bytecode: 1
+==========================
+Opcode: "VEC_SWAP"
+RW: 56
+Bytecode: 1
+==========================
+Opcode: "VEC_UNPACK"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "CALL_GENERIC"
+RW: 64
+Bytecode: 1
+Call: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "IMM_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MUT_BORROW_GLOBAL_GENERIC"
+RW: 12
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_TO_GENERIC"
+RW: 16
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "MOVE_FROM_GENERIC"
+RW: 20
+Bytecode: 1
+CallTrace: 1
+TypeInstantiation: 4
+InputTypeArg: 4
+==========================
+Opcode: "EXISTS_GENERIC"
+==========================
+Opcode: "PACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "UNPACK_GENERIC"
+RW: 11
+Bytecode: 1
+==========================
+Opcode: "IMM_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "MUT_BORROW_FIELD_GENERIC"
+RW: 8
+Bytecode: 1
+==========================
+Opcode: "STOP"
+==========================
+Opcode: "NOP"
+test vm_test::scripts/add_u64.move ... [0m[32mok[0m
+
+test result: [0m[32mok[0m. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 83.58s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

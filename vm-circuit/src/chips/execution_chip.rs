@@ -53,7 +53,7 @@ use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
 use crate::chips::execution_chip::instructions::write_ref::WriteRef;
 use crate::chips::execution_chip::instructions::xor::Xor;
 use crate::chips::execution_chip::instructions::InstructionGadget;
-use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
+use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, TableKind};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
@@ -79,6 +79,8 @@ use movelang::value::{
 };
 use std::collections::HashMap;
 use types::Field;
+
+use std::collections::BTreeMap;
 
 pub mod instructions;
 pub mod lookup_tables;
@@ -479,6 +481,16 @@ impl<F: Field> ExecutionChip<F> {
                 )
             });
         }
+        println!("==========================");
+        println!("Opcode: {:?}", name);
+        let mut count: BTreeMap<TableKind, usize> = BTreeMap::new();
+        for (_str, val) in op_lookups.iter() {
+            count.entry(val.as_ref().table()).and_modify(|curr| *curr += 1).or_insert(1);
+        }
+        for (key, value) in count.iter() {
+            println!("{:?}: {value}", key);
+        }
+
         lookups.append(&mut op_lookups);
     }
 
