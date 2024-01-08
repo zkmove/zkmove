@@ -480,6 +480,7 @@ pub struct LookupBitwise<F: Field> {
     pub bytes_operand_2: Vec<Cell<F>>,
 }
 
+#[allow(dead_code)]
 impl<F: Field> LookupBitwise<F> {
     pub(crate) fn lookup_bitwise(
         cb: &mut ConstraintBuilder<F>,
@@ -763,6 +764,7 @@ impl<F: Field> AddrExt<F> {
 
     // constraint on mask_a and mask_b
     // mask_a and mask_b is implemented to get the Nth element on addr_ext.
+    #[allow(dead_code)]
     pub(crate) fn constrain_mask_n(
         cb: &mut ConstraintBuilder<F>,
         mask_a: &[Cell<F>],
@@ -934,6 +936,7 @@ pub struct ValueHeaderGadget<F: Field> {
     pub len: Expression<F>,
 }
 
+#[allow(dead_code)]
 impl<F: Field> ValueHeaderGadget<F> {
     pub(crate) fn construct(
         header_value: Expression<F>,

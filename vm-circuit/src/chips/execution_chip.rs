@@ -3,10 +3,10 @@ use crate::chips::execution_chip::instructions::_mod::Mod;
 use crate::chips::execution_chip::instructions::abort::Abort;
 use crate::chips::execution_chip::instructions::add::Add;
 use crate::chips::execution_chip::instructions::and::And;
-use crate::chips::execution_chip::instructions::bit_and::BitAnd;
-use crate::chips::execution_chip::instructions::bit_or::BitOr;
-use crate::chips::execution_chip::instructions::borrow_field::BorrowField;
-use crate::chips::execution_chip::instructions::borrow_global::BorrowGlobal;
+// use crate::chips::execution_chip::instructions::bit_and::BitAnd;
+// use crate::chips::execution_chip::instructions::bit_or::BitOr;
+// use crate::chips::execution_chip::instructions::borrow_field::BorrowField;
+// use crate::chips::execution_chip::instructions::borrow_global::BorrowGlobal;
 use crate::chips::execution_chip::instructions::borrow_loc::BorrowLoc;
 use crate::chips::execution_chip::instructions::br_bool::BrBool;
 use crate::chips::execution_chip::instructions::branch::Branch;
@@ -17,7 +17,7 @@ use crate::chips::execution_chip::instructions::copy_loc::CopyLoc;
 use crate::chips::execution_chip::instructions::div::Div;
 use crate::chips::execution_chip::instructions::equality::Equality;
 use crate::chips::execution_chip::instructions::exists::Exists;
-use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
+// use crate::chips::execution_chip::instructions::freeze_ref::FreezeRef;
 use crate::chips::execution_chip::instructions::ge::Ge;
 use crate::chips::execution_chip::instructions::gt::Gt;
 use crate::chips::execution_chip::instructions::ld_bool::LdBool;
@@ -26,16 +26,16 @@ use crate::chips::execution_chip::instructions::ldint::LdInt;
 use crate::chips::execution_chip::instructions::ldu256::LdU256;
 use crate::chips::execution_chip::instructions::le::Le;
 use crate::chips::execution_chip::instructions::lt::Lt;
-use crate::chips::execution_chip::instructions::move_from::MoveFrom;
+// use crate::chips::execution_chip::instructions::move_from::MoveFrom;
 use crate::chips::execution_chip::instructions::move_loc::MoveLoc;
-use crate::chips::execution_chip::instructions::move_to::MoveTo;
+// use crate::chips::execution_chip::instructions::move_to::MoveTo;
 use crate::chips::execution_chip::instructions::mul::Mul;
 use crate::chips::execution_chip::instructions::nop::Nop;
 use crate::chips::execution_chip::instructions::not::Not;
 use crate::chips::execution_chip::instructions::or::Or;
 use crate::chips::execution_chip::instructions::pack::Pack;
 use crate::chips::execution_chip::instructions::pop::Pop;
-use crate::chips::execution_chip::instructions::read_ref::ReadRef;
+// use crate::chips::execution_chip::instructions::read_ref::ReadRef;
 use crate::chips::execution_chip::instructions::ret::Ret;
 use crate::chips::execution_chip::instructions::shl::Shl;
 use crate::chips::execution_chip::instructions::shr::Shr;
@@ -43,15 +43,15 @@ use crate::chips::execution_chip::instructions::st_loc::StLoc;
 use crate::chips::execution_chip::instructions::stop::Stop;
 use crate::chips::execution_chip::instructions::sub::Sub;
 use crate::chips::execution_chip::instructions::unpack::Unpack;
-use crate::chips::execution_chip::instructions::vec_borrow::VecBorrow;
-use crate::chips::execution_chip::instructions::vec_len::VecLen;
-use crate::chips::execution_chip::instructions::vec_pack::VecPack;
-use crate::chips::execution_chip::instructions::vec_pop_back::VecPopBack;
-use crate::chips::execution_chip::instructions::vec_push_back::VecPushBack;
-use crate::chips::execution_chip::instructions::vec_swap::VecSwap;
-use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
-use crate::chips::execution_chip::instructions::write_ref::WriteRef;
-use crate::chips::execution_chip::instructions::xor::Xor;
+// use crate::chips::execution_chip::instructions::vec_borrow::VecBorrow;
+// use crate::chips::execution_chip::instructions::vec_len::VecLen;
+// use crate::chips::execution_chip::instructions::vec_pack::VecPack;
+// use crate::chips::execution_chip::instructions::vec_pop_back::VecPopBack;
+// use crate::chips::execution_chip::instructions::vec_push_back::VecPushBack;
+// use crate::chips::execution_chip::instructions::vec_swap::VecSwap;
+// use crate::chips::execution_chip::instructions::vec_unpack::VecUnpack;
+// use crate::chips::execution_chip::instructions::write_ref::WriteRef;
+// use crate::chips::execution_chip::instructions::xor::Xor;
 use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::{LookupTableConfig, TableKind};
 use crate::chips::execution_chip::opcode::Opcode;
@@ -73,12 +73,14 @@ use halo2_base::halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
+use logger::prelude::*;
 use logger::{error, trace};
 use movelang::value::{
     Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use std::collections::HashMap;
 use types::Field;
+
 
 use std::collections::BTreeMap;
 
@@ -127,9 +129,9 @@ pub struct ExecutionChipConfig<F: Field> {
     op_neq: Box<Equality<false, F>>,
     op_shl: Box<Shl<F>>,
     op_shr: Box<Shr<F>>,
-    op_bit_and: Box<BitAnd<F>>,
-    op_bit_or: Box<BitOr<F>>,
-    op_xor: Box<Xor<F>>,
+    // op_bit_and: Box<BitAnd<F>>,
+    // op_bit_or: Box<BitOr<F>>,
+    // op_xor: Box<Xor<F>>,
     op_and: Box<And<F>>,
     op_or: Box<Or<F>>,
     op_not: Box<Not<F>>,
@@ -148,34 +150,34 @@ pub struct ExecutionChipConfig<F: Field> {
     op_unpack: Box<Unpack<false, F>>,
     op_mut_borrow_loc: Box<BorrowLoc<true, F>>,
     op_imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    op_read_ref: Box<ReadRef<F>>,
-    op_write_ref: Box<WriteRef<F>>,
-    op_freeze_ref: Box<FreezeRef<F>>,
-    op_vec_imm_borrow: Box<VecBorrow<false, F>>,
-    op_vec_mut_borrow: Box<VecBorrow<true, F>>,
-    op_vec_len: Box<VecLen<F>>,
-    op_vec_pack: Box<VecPack<F>>,
-    op_vec_pop_back: Box<VecPopBack<F>>,
-    op_vec_push_back: Box<VecPushBack<F>>,
-    op_vec_swap: Box<VecSwap<F>>,
-    op_vec_unpack: Box<VecUnpack<F>>,
-    op_imm_borrow_field: Box<BorrowField<false, false, F>>,
-    op_mut_borrow_field: Box<BorrowField<true, false, F>>,
-    op_move_from: Box<MoveFrom<false, F>>,
-    op_move_to: Box<MoveTo<false, F>>,
+    // op_read_ref: Box<ReadRef<F>>,
+    // op_write_ref: Box<WriteRef<F>>,
+    // op_freeze_ref: Box<FreezeRef<F>>,
+    // op_vec_imm_borrow: Box<VecBorrow<false, F>>,
+    // op_vec_mut_borrow: Box<VecBorrow<true, F>>,
+    // op_vec_len: Box<VecLen<F>>,
+    // op_vec_pack: Box<VecPack<F>>,
+    // op_vec_pop_back: Box<VecPopBack<F>>,
+    // op_vec_push_back: Box<VecPushBack<F>>,
+    // op_vec_swap: Box<VecSwap<F>>,
+    // op_vec_unpack: Box<VecUnpack<F>>,
+    // op_imm_borrow_field: Box<BorrowField<false, false, F>>,
+    // op_mut_borrow_field: Box<BorrowField<true, false, F>>,
+    // op_move_from: Box<MoveFrom<false, F>>,
+    // op_move_to: Box<MoveTo<false, F>>,
     op_exists: Box<Exists<false, F>>,
-    op_imm_borrow_global: Box<BorrowGlobal<false, false, F>>,
-    op_mut_borrow_global: Box<BorrowGlobal<true, false, F>>,
-    op_call_generic: Box<Call<true, F>>,
-    op_imm_borrow_global_generic: Box<BorrowGlobal<false, true, F>>,
-    op_mut_borrow_global_generic: Box<BorrowGlobal<true, true, F>>,
-    op_move_to_generic: Box<MoveTo<true, F>>,
-    op_move_from_generic: Box<MoveFrom<true, F>>,
-    op_exists_generic: Box<Exists<true, F>>,
-    op_pack_generic: Box<Pack<true, F>>,
-    op_unpack_generic: Box<Unpack<true, F>>,
-    op_imm_borrow_field_generic: Box<BorrowField<false, true, F>>,
-    op_mut_borrow_field_generic: Box<BorrowField<true, true, F>>,
+    // op_imm_borrow_global: Box<BorrowGlobal<false, false, F>>,
+    // op_mut_borrow_global: Box<BorrowGlobal<true, false, F>>,
+    // op_call_generic: Box<Call<true, F>>,
+    // op_imm_borrow_global_generic: Box<BorrowGlobal<false, true, F>>,
+    // op_mut_borrow_global_generic: Box<BorrowGlobal<true, true, F>>,
+    // op_move_to_generic: Box<MoveTo<true, F>>,
+    // op_move_from_generic: Box<MoveFrom<true, F>>,
+    // op_exists_generic: Box<Exists<true, F>>,
+    // op_pack_generic: Box<Pack<true, F>>,
+    // op_unpack_generic: Box<Unpack<true, F>>,
+    // op_imm_borrow_field_generic: Box<BorrowField<false, true, F>>,
+    // op_mut_borrow_field_generic: Box<BorrowField<true, true, F>>,
 
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
@@ -348,9 +350,9 @@ impl<F: Field> ExecutionChip<F> {
             op_neq: configure_opcode_gadget!(),
             op_shl: configure_opcode_gadget!(),
             op_shr: configure_opcode_gadget!(),
-            op_bit_and: configure_opcode_gadget!(),
-            op_bit_or: configure_opcode_gadget!(),
-            op_xor: configure_opcode_gadget!(),
+            // op_bit_and: configure_opcode_gadget!(),
+            // op_bit_or: configure_opcode_gadget!(),
+            // op_xor: configure_opcode_gadget!(),
             op_and: configure_opcode_gadget!(),
             op_or: configure_opcode_gadget!(),
             op_not: configure_opcode_gadget!(),
@@ -369,34 +371,34 @@ impl<F: Field> ExecutionChip<F> {
             op_unpack: configure_opcode_gadget!(),
             op_mut_borrow_loc: configure_opcode_gadget!(),
             op_imm_borrow_loc: configure_opcode_gadget!(),
-            op_read_ref: configure_opcode_gadget!(),
-            op_write_ref: configure_opcode_gadget!(),
-            op_freeze_ref: configure_opcode_gadget!(),
-            op_imm_borrow_field: configure_opcode_gadget!(),
-            op_mut_borrow_field: configure_opcode_gadget!(),
-            op_move_from: configure_opcode_gadget!(),
-            op_move_to: configure_opcode_gadget!(),
+            // op_read_ref: configure_opcode_gadget!(),
+            // op_write_ref: configure_opcode_gadget!(),
+            // op_freeze_ref: configure_opcode_gadget!(),
+            // op_imm_borrow_field: configure_opcode_gadget!(),
+            // op_mut_borrow_field: configure_opcode_gadget!(),
+            // op_move_from: configure_opcode_gadget!(),
+            // op_move_to: configure_opcode_gadget!(),
             op_exists: configure_opcode_gadget!(),
-            op_imm_borrow_global: configure_opcode_gadget!(),
-            op_mut_borrow_global: configure_opcode_gadget!(),
-            op_vec_imm_borrow: configure_opcode_gadget!(),
-            op_vec_mut_borrow: configure_opcode_gadget!(),
-            op_vec_len: configure_opcode_gadget!(),
-            op_vec_pack: configure_opcode_gadget!(),
-            op_vec_pop_back: configure_opcode_gadget!(),
-            op_vec_push_back: configure_opcode_gadget!(),
-            op_vec_swap: configure_opcode_gadget!(),
-            op_vec_unpack: configure_opcode_gadget!(),
-            op_call_generic: configure_opcode_gadget!(),
-            op_imm_borrow_global_generic: configure_opcode_gadget!(),
-            op_mut_borrow_global_generic: configure_opcode_gadget!(),
-            op_move_to_generic: configure_opcode_gadget!(),
-            op_move_from_generic: configure_opcode_gadget!(),
-            op_exists_generic: configure_opcode_gadget!(),
-            op_pack_generic: configure_opcode_gadget!(),
-            op_unpack_generic: configure_opcode_gadget!(),
-            op_imm_borrow_field_generic: configure_opcode_gadget!(),
-            op_mut_borrow_field_generic: configure_opcode_gadget!(),
+            // op_imm_borrow_global: configure_opcode_gadget!(),
+            // op_mut_borrow_global: configure_opcode_gadget!(),
+            // op_vec_imm_borrow: configure_opcode_gadget!(),
+            // op_vec_mut_borrow: configure_opcode_gadget!(),
+            // op_vec_len: configure_opcode_gadget!(),
+            // op_vec_pack: configure_opcode_gadget!(),
+            // op_vec_pop_back: configure_opcode_gadget!(),
+            // op_vec_push_back: configure_opcode_gadget!(),
+            // op_vec_swap: configure_opcode_gadget!(),
+            // op_vec_unpack: configure_opcode_gadget!(),
+            // op_call_generic: configure_opcode_gadget!(),
+            // op_imm_borrow_global_generic: configure_opcode_gadget!(),
+            // op_mut_borrow_global_generic: configure_opcode_gadget!(),
+            // op_move_to_generic: configure_opcode_gadget!(),
+            // op_move_from_generic: configure_opcode_gadget!(),
+            // op_exists_generic: configure_opcode_gadget!(),
+            // op_pack_generic: configure_opcode_gadget!(),
+            // op_unpack_generic: configure_opcode_gadget!(),
+            // op_imm_borrow_field_generic: configure_opcode_gadget!(),
+            // op_mut_borrow_field_generic: configure_opcode_gadget!(),
             op_stop: configure_opcode_gadget!(),
             op_nop: configure_opcode_gadget!(),
 
@@ -485,7 +487,10 @@ impl<F: Field> ExecutionChip<F> {
         println!("Opcode: {:?}", name);
         let mut count: BTreeMap<TableKind, usize> = BTreeMap::new();
         for (_str, val) in op_lookups.iter() {
-            count.entry(val.as_ref().table()).and_modify(|curr| *curr += 1).or_insert(1);
+            count
+                .entry(val.as_ref().table())
+                .and_modify(|curr| *curr += 1)
+                .or_insert(1);
         }
         for (key, value) in count.iter() {
             println!("{:?}: {value}", key);
@@ -717,7 +722,7 @@ impl<F: Field> ExecutionChip<F> {
             Opcode::CastU256 => assign_opcode_gadget!(self.config.op_castu256),
             Opcode::Pop => assign_opcode_gadget!(self.config.op_pop),
             Opcode::Ret => assign_opcode_gadget!(self.config.op_ret),
-            Opcode::Xor => assign_opcode_gadget!(self.config.op_xor),
+            // Opcode::Xor => assign_opcode_gadget!(self.config.op_xor),
             Opcode::Add => assign_opcode_gadget!(self.config.op_add),
             Opcode::Mul => assign_opcode_gadget!(self.config.op_mul),
             Opcode::CopyLoc => assign_opcode_gadget!(self.config.op_copy_loc),
@@ -730,8 +735,8 @@ impl<F: Field> ExecutionChip<F> {
             Opcode::Neq => assign_opcode_gadget!(self.config.op_neq),
             Opcode::Shl => assign_opcode_gadget!(self.config.op_shl),
             Opcode::Shr => assign_opcode_gadget!(self.config.op_shr),
-            Opcode::BitAnd => assign_opcode_gadget!(self.config.op_bit_and),
-            Opcode::BitOr => assign_opcode_gadget!(self.config.op_bit_or),
+            // Opcode::BitAnd => assign_opcode_gadget!(self.config.op_bit_and),
+            // Opcode::BitOr => assign_opcode_gadget!(self.config.op_bit_or),
             Opcode::And => assign_opcode_gadget!(self.config.op_and),
             Opcode::Or => assign_opcode_gadget!(self.config.op_or),
             Opcode::Not => assign_opcode_gadget!(self.config.op_not),
@@ -750,45 +755,46 @@ impl<F: Field> ExecutionChip<F> {
             Opcode::Unpack => assign_opcode_gadget!(self.config.op_unpack),
             Opcode::MutBorrowLoc => assign_opcode_gadget!(self.config.op_mut_borrow_loc),
             Opcode::ImmBorrowLoc => assign_opcode_gadget!(self.config.op_imm_borrow_loc),
-            Opcode::ReadRef => assign_opcode_gadget!(self.config.op_read_ref),
-            Opcode::WriteRef => assign_opcode_gadget!(self.config.op_write_ref),
-            Opcode::FreezeRef => assign_opcode_gadget!(self.config.op_freeze_ref),
-            Opcode::ImmBorrowField => assign_opcode_gadget!(self.config.op_imm_borrow_field),
-            Opcode::MutBorrowField => assign_opcode_gadget!(self.config.op_mut_borrow_field),
-            Opcode::MoveFrom => assign_opcode_gadget!(self.config.op_move_from),
-            Opcode::MoveTo => assign_opcode_gadget!(self.config.op_move_to),
+            // Opcode::ReadRef => assign_opcode_gadget!(self.config.op_read_ref),
+            // Opcode::WriteRef => assign_opcode_gadget!(self.config.op_write_ref),
+            // Opcode::FreezeRef => assign_opcode_gadget!(self.config.op_freeze_ref),
+            // Opcode::ImmBorrowField => assign_opcode_gadget!(self.config.op_imm_borrow_field),
+            // Opcode::MutBorrowField => assign_opcode_gadget!(self.config.op_mut_borrow_field),
+            // Opcode::MoveFrom => assign_opcode_gadget!(self.config.op_move_from),
+            // Opcode::MoveTo => assign_opcode_gadget!(self.config.op_move_to),
             Opcode::Exists => assign_opcode_gadget!(self.config.op_exists),
-            Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
-            Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
-            Opcode::VecImmBorrow => assign_opcode_gadget!(self.config.op_vec_imm_borrow),
-            Opcode::VecMutBorrow => assign_opcode_gadget!(self.config.op_vec_mut_borrow),
-            Opcode::VecLen => assign_opcode_gadget!(self.config.op_vec_len),
-            Opcode::VecPack => assign_opcode_gadget!(self.config.op_vec_pack),
-            Opcode::VecPopBack => assign_opcode_gadget!(self.config.op_vec_pop_back),
-            Opcode::VecPushBack => assign_opcode_gadget!(self.config.op_vec_push_back),
-            Opcode::VecSwap => assign_opcode_gadget!(self.config.op_vec_swap),
-            Opcode::VecUnpack => assign_opcode_gadget!(self.config.op_vec_unpack),
-            Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
-            Opcode::ImmBorrowGlobalGeneric => {
-                assign_opcode_gadget!(self.config.op_imm_borrow_global_generic)
-            }
+            // Opcode::ImmBorrowGlobal => assign_opcode_gadget!(self.config.op_imm_borrow_global),
+            // Opcode::MutBorrowGlobal => assign_opcode_gadget!(self.config.op_mut_borrow_global),
+            // Opcode::VecImmBorrow => assign_opcode_gadget!(self.config.op_vec_imm_borrow),
+            // Opcode::VecMutBorrow => assign_opcode_gadget!(self.config.op_vec_mut_borrow),
+            // Opcode::VecLen => assign_opcode_gadget!(self.config.op_vec_len),
+            // Opcode::VecPack => assign_opcode_gadget!(self.config.op_vec_pack),
+            // Opcode::VecPopBack => assign_opcode_gadget!(self.config.op_vec_pop_back),
+            // Opcode::VecPushBack => assign_opcode_gadget!(self.config.op_vec_push_back),
+            // Opcode::VecSwap => assign_opcode_gadget!(self.config.op_vec_swap),
+            // Opcode::VecUnpack => assign_opcode_gadget!(self.config.op_vec_unpack),
+            // Opcode::CallGeneric => assign_opcode_gadget!(self.config.op_call_generic),
+            // Opcode::ImmBorrowGlobalGeneric => {
+            //     assign_opcode_gadget!(self.config.op_imm_borrow_global_generic)
+            // }
 
-            Opcode::MutBorrowGlobalGeneric => {
-                assign_opcode_gadget!(self.config.op_mut_borrow_global_generic)
-            }
-            Opcode::MoveFromGeneric => assign_opcode_gadget!(self.config.op_move_from_generic),
-            Opcode::MoveToGeneric => assign_opcode_gadget!(self.config.op_move_to_generic),
-            Opcode::PackGeneric => assign_opcode_gadget!(self.config.op_pack_generic),
-            Opcode::UnpackGeneric => assign_opcode_gadget!(self.config.op_unpack_generic),
-            Opcode::ImmBorrowFieldGeneric => {
-                assign_opcode_gadget!(self.config.op_imm_borrow_field_generic)
-            }
-            Opcode::MutBorrowFieldGeneric => {
-                assign_opcode_gadget!(self.config.op_mut_borrow_field_generic)
-            }
-            Opcode::ExistsGeneric => assign_opcode_gadget!(self.config.op_exists_generic),
+            // Opcode::MutBorrowGlobalGeneric => {
+            //     assign_opcode_gadget!(self.config.op_mut_borrow_global_generic)
+            // }
+            // Opcode::MoveFromGeneric => assign_opcode_gadget!(self.config.op_move_from_generic),
+            // Opcode::MoveToGeneric => assign_opcode_gadget!(self.config.op_move_to_generic),
+            // Opcode::PackGeneric => assign_opcode_gadget!(self.config.op_pack_generic),
+            // Opcode::UnpackGeneric => assign_opcode_gadget!(self.config.op_unpack_generic),
+            // Opcode::ImmBorrowFieldGeneric => {
+            //     assign_opcode_gadget!(self.config.op_imm_borrow_field_generic)
+            // }
+            // Opcode::MutBorrowFieldGeneric => {
+            //     assign_opcode_gadget!(self.config.op_mut_borrow_field_generic)
+            // }
+            // Opcode::ExistsGeneric => assign_opcode_gadget!(self.config.op_exists_generic),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
+            _ => unimplemented!(),
         }
 
         Ok(())
@@ -820,6 +826,8 @@ impl<F: Field> ExecutionChip<F> {
         height += 1;
 
         // max {steps_height, tables_height}
+        let tables_height = self.config.lookup_table.tables_height(self);
+        info!("steps_height {:?}, tables_height {:?}", height, tables_height);
         height.max(self.config.lookup_table.tables_height(self))
     }
 }

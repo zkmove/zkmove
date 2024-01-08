@@ -3,7 +3,7 @@ use crate::chips::execution_chip::lookup_tables::arith_op_lookup_table::{
     ArithOpLookup, ArithOpLookupTable,
 };
 use crate::chips::execution_chip::lookup_tables::bitwise_lookup_table::{
-    BitwiseLookup, BitwiseLookupTable,
+    BitwiseLookup,
 };
 use crate::chips::execution_chip::lookup_tables::bytecode_lookup_table::{
     BytecodeLookup, BytecodeLookupTable,
@@ -183,7 +183,7 @@ pub struct LookupTableConfig<F: Field> {
     pub bytecode_table: BytecodeLookupTable,
     pub calls_table: CallLookupTable,
     pub arith_op_table: ArithOpLookupTable,
-    pub bitwise_table: BitwiseLookupTable,
+    // pub bitwise_table: BitwiseLookupTable,
     pub pow2_table: Pow2FixedTable,
     pub call_trace_table: CallTraceTable,
     pub type_instantiation_table: TypeInstantiationTable,
@@ -199,7 +199,7 @@ impl<F: Field> LookupTableConfig<F> {
         let constant_table = ConstantLookupTable::construct(meta);
         let calls_table = CallLookupTable::construct(meta);
         let arith_op_table = ArithOpLookupTable::construct(meta);
-        let bitwise_table = BitwiseLookupTable::construct(meta);
+        // let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2FixedTable::construct(meta);
         let call_trace_table = CallTraceTable::construct(meta);
         let type_instantiation_table = TypeInstantiationTable::construct(meta);
@@ -212,7 +212,7 @@ impl<F: Field> LookupTableConfig<F> {
             bytecode_table,
             calls_table,
             arith_op_table,
-            bitwise_table,
+            // bitwise_table,
             pow2_table,
             call_trace_table,
             type_instantiation_table,
@@ -265,7 +265,7 @@ impl<F: Field> LookupTableConfig<F> {
         fixed_tables.insert(TableKind::Bytecode, lookup_table.bytecode_table.columns());
         fixed_tables.insert(TableKind::Call, lookup_table.calls_table.columns());
         fixed_tables.insert(TableKind::ArithOp, lookup_table.arith_op_table.columns());
-        fixed_tables.insert(TableKind::Bitwise, lookup_table.bitwise_table.columns());
+        // fixed_tables.insert(TableKind::Bitwise, lookup_table.bitwise_table.columns());
         fixed_tables.insert(TableKind::Pow2, lookup_table.pow2_table.columns());
         fixed_tables.insert(
             TableKind::CallTrace,
@@ -389,7 +389,7 @@ impl<F: Field> LookupTableConfig<F> {
             layouter,
             execution_chip.witness.type_instantiations.0.clone(),
         )?;
-        lookup_table.bitwise_table.assign_table(layouter)?;
+        // lookup_table.bitwise_table.assign_table(layouter)?;
         lookup_table.pow2_table.assign_table(layouter)?;
 
         let pi_index_table = lookup_table.pi_index_table.assign_table(layouter)?;
@@ -433,7 +433,7 @@ impl<F: Field> LookupTableConfig<F> {
         let type_instantiation_table_height = self
             .type_instantiation_table
             .table_height(&execution_chip.witness.type_instantiations.0);
-        let bitwise_table_height = self.bitwise_table.table_height();
+        // let bitwise_table_height = self.bitwise_table.table_height();
         let pow2_table_height = self.pow2_table.table_height();
         let pi_index_table_height = self.pi_index_table.table_height();
         let pi_table_height = self.pi_table.table_height();
@@ -447,7 +447,7 @@ impl<F: Field> LookupTableConfig<F> {
             calls_table_height,
             arith_op_table_height,
             type_instantiation_table_height,
-            bitwise_table_height,
+            // bitwise_table_height,
             pow2_table_height,
             pi_index_table_height,
             pi_table_height,

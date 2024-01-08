@@ -11,17 +11,16 @@ use snark_verifier_sdk::{
 };
 use std::path::Path;
 
-#[ignore]
 #[test]
 fn test_vm_circuit_compression() -> Result<()> {
     logger::init_for_test();
     std::env::set_var("VERIFY_CONFIG", "./configs/vm_circuit_aggregation.config");
-    let param_path = Path::new("./params/kzg_bn254_25.srs");
+    let param_path = Path::new("./params/kzg_bn254_23.srs");
     let mut param_file = std::fs::File::open(param_path)?;
     let params_outer = ParamsKZG::<Bn256>::read(&mut param_file)?;
     let params_inner = {
         let mut params = params_outer.clone();
-        params.downsize(10);
+        params.downsize(9);
         params
     };
 

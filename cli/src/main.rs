@@ -206,9 +206,12 @@ impl Arguments {
             print_circuit_layout(k, &vm_circuit);
         }
         if print_proof_size {
-            let cost = halo2_base::halo2_proofs::dev::CircuitCost::<G1, _>::measure(k as usize, &vm_circuit);
+            let cost = halo2_base::halo2_proofs::dev::CircuitCost::<G1, _>::measure(
+                k as usize,
+                &vm_circuit,
+            );
             let proof_size = cost.proof_size(1);
-            info!("proof size: {:#?}", proof_size);
+            println!("proof size: {:#?}", proof_size);
         }
 
         info!("setup vm circuit...");
@@ -333,7 +336,10 @@ impl Arguments {
             print_circuit_layout(k, &vm_circuit);
         }
         if print_proof_size {
-            let cost = halo2_base::halo2_proofs::dev::CircuitCost::<Eq, _>::measure(k as usize, &vm_circuit);
+            let cost = halo2_base::halo2_proofs::dev::CircuitCost::<Eq, _>::measure(
+                k as usize,
+                &vm_circuit,
+            );
             let proof_size = cost.proof_size(1);
             info!("proof size: {:#?}", proof_size);
         }
