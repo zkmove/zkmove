@@ -20,7 +20,7 @@ fn test_vm_circuit_compression() -> Result<()> {
     let params_outer = ParamsKZG::<Bn256>::read(&mut param_file)?;
     let params_inner = {
         let mut params = params_outer.clone();
-        params.downsize(9);
+        params.downsize(10);
         params
     };
 

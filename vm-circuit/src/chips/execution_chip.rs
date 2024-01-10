@@ -81,7 +81,6 @@ use movelang::value::{
 use std::collections::HashMap;
 use types::Field;
 
-
 use std::collections::BTreeMap;
 
 pub mod instructions;
@@ -178,7 +177,6 @@ pub struct ExecutionChipConfig<F: Field> {
     // op_unpack_generic: Box<Unpack<true, F>>,
     // op_imm_borrow_field_generic: Box<BorrowField<false, true, F>>,
     // op_mut_borrow_field_generic: Box<BorrowField<true, true, F>>,
-
     op_stop: Box<Stop<F>>,
     op_nop: Box<Nop<F>>,
 
@@ -827,7 +825,11 @@ impl<F: Field> ExecutionChip<F> {
 
         // max {steps_height, tables_height}
         let tables_height = self.config.lookup_table.tables_height(self);
-        info!("steps_height {:?}, tables_height {:?}", height, tables_height);
+        info!(
+            "steps_height {:?}, 
+            tables_height {:?}",
+            height, tables_height
+        );
         height.max(self.config.lookup_table.tables_height(self))
     }
 }
