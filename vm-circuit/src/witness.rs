@@ -12,7 +12,6 @@ use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use types::Field;
 
 pub mod arith_operations;
 pub mod bytecode_table;
@@ -104,16 +103,16 @@ impl CircuitConfig {
 }
 
 #[derive(Clone, Default)]
-pub struct ExecutionTrace<F: Field> {
-    pub exec_steps: Vec<ExecutionStep<F>>,
-    pub rw_operations: Vec<RWOperation<F>>,
+pub struct ExecutionTrace {
+    pub exec_steps: Vec<ExecutionStep>,
+    pub rw_operations: Vec<RWOperation>,
     pub generic_types: Vec<GenericTypeMaterialization>,
 }
 
 #[derive(Clone, Default)]
-pub struct Witness<F: Field> {
-    pub exec_steps: Vec<ExecutionStep<F>>,
-    pub rw_operations: RWOperations<F>,
+pub struct Witness {
+    pub exec_steps: Vec<ExecutionStep>,
+    pub rw_operations: RWOperations,
     pub bytecode_table: BytecodeTable,
     pub constant_table: ConstantTable,
     pub func_call_table: Vec<FunctionCall>,
@@ -124,11 +123,11 @@ pub struct Witness<F: Field> {
     pub circuit_config: CircuitConfig,
 }
 
-impl<F: Field> Witness<F> {
+impl Witness {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        exec_steps: Vec<ExecutionStep<F>>,
-        rw_operations: Vec<RWOperation<F>>,
+        exec_steps: Vec<ExecutionStep>,
+        rw_operations: Vec<RWOperation>,
         bytecode_table: BytecodeTable,
         constant_table: ConstantTable,
         func_calls: Vec<FunctionCall>,
@@ -153,7 +152,7 @@ impl<F: Field> Witness<F> {
     }
 }
 
-impl<F: Field> fmt::Debug for Witness<F> {
+impl fmt::Debug for Witness {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f)?;
         writeln!(f, "Execution steps:")?;

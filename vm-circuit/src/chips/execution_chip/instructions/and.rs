@@ -52,8 +52,8 @@ impl<F: Field> InstructionGadget<F> for And<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {

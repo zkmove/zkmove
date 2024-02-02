@@ -45,8 +45,8 @@ impl ConstantLookupTable {
                     vec![
                         module_idx,
                         constant_idx,
-                        F::from_u128(AddressPath::<F>::from(indexes).fold()),
-                        val.value().unwrap(),
+                        F::from_u128(AddressPath::from(indexes).fold()),
+                        val.field_value().unwrap(),
                     ]
                 })
             })

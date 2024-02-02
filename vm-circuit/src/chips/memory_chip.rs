@@ -47,7 +47,7 @@ pub struct MemoryChipConfig<F: Field> {
 
 #[derive(Clone, Debug)]
 pub struct MemoryChip<F: Field> {
-    pub witness: Witness<F>,
+    pub witness: Witness,
     pub config: MemoryChipConfig<F>,
 }
 
@@ -66,7 +66,7 @@ impl<F: Field> Chip<F> for MemoryChip<F> {
 
 impl<F: Field> MemoryChip<F> {
     pub fn construct(
-        witness: Witness<F>,
+        witness: Witness,
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
     ) -> Self {

@@ -97,16 +97,16 @@ pub enum RW {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LocalsOp<F: Field> {
+pub struct LocalsOp {
     pub frame_index: usize, // locals ops will sorted by (frame_index, index, gc)
     pub index: usize,
     pub address_ext: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<SimpleValue>,
 }
 
-impl<F: Field> LocalsOp<F> {
+impl LocalsOp {
     pub fn empty() -> Self {
         Self {
             frame_index: 0,
@@ -119,13 +119,13 @@ impl<F: Field> LocalsOp<F> {
     }
 }
 
-impl<F: Field> PartialOrd for LocalsOp<F> {
+impl PartialOrd for LocalsOp {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<F: Field> Ord for LocalsOp<F> {
+impl Ord for LocalsOp {
     fn cmp(&self, other: &Self) -> Ordering {
         (&self.frame_index, &self.index, &self.address_ext, &self.gc).cmp(&(
             &other.frame_index,
@@ -137,11 +137,11 @@ impl<F: Field> Ord for LocalsOp<F> {
 }
 
 // convert LocalsOp into a vector of field value
-impl<F: Field> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
-    fn from(rw_op: &LocalsOp<F>) -> ConvertedRWOperation<F> {
+impl<F: Field> From<&LocalsOp> for ConvertedRWOperation<F> {
+    fn from(rw_op: &LocalsOp) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
+            Some(v) => v.field_value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -157,15 +157,15 @@ impl<F: Field> From<&LocalsOp<F>> for ConvertedRWOperation<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StackOp<F: Field> {
+pub struct StackOp {
     pub address: usize, // stack ops will be sorted by (address, gc)
     pub address_ext: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<SimpleValue>,
 }
 
-impl<F: Field> StackOp<F> {
+impl StackOp {
     pub fn empty() -> Self {
         Self {
             address: 0,
@@ -177,13 +177,13 @@ impl<F: Field> StackOp<F> {
     }
 }
 
-impl<F: Field> PartialOrd for StackOp<F> {
+impl PartialOrd for StackOp {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<F: Field> Ord for StackOp<F> {
+impl Ord for StackOp {
     fn cmp(&self, other: &Self) -> Ordering {
         (&self.address, &self.address_ext, &self.gc).cmp(&(
             &other.address,
@@ -194,11 +194,11 @@ impl<F: Field> Ord for StackOp<F> {
 }
 
 // convert StackOp into a vector of field value
-impl<F: Field> From<&StackOp<F>> for ConvertedRWOperation<F> {
-    fn from(rw_op: &StackOp<F>) -> ConvertedRWOperation<F> {
+impl<F: Field> From<&StackOp> for ConvertedRWOperation<F> {
+    fn from(rw_op: &StackOp) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
+            Some(v) => v.field_value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
@@ -214,16 +214,16 @@ impl<F: Field> From<&StackOp<F>> for ConvertedRWOperation<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GlobalOp<F: Field> {
-    pub address: AccountAddress<F>, // global ops will be sorted by (address, sd_index, gc)
-    pub sd_index: usize,            // struct definition index
+pub struct GlobalOp {
+    pub address: AccountAddress, // global ops will be sorted by (address, sd_index, gc)
+    pub sd_index: usize,         // struct definition index
     pub address_ext: usize,
     pub gc: usize,
     pub rw: RW,
-    pub value: Option<SimpleValue<F>>,
+    pub value: Option<SimpleValue>,
 }
 
-impl<F: Field> GlobalOp<F> {
+impl GlobalOp {
     pub fn empty() -> Self {
         Self {
             address: AccountAddress::zero(),
@@ -236,13 +236,13 @@ impl<F: Field> GlobalOp<F> {
     }
 }
 
-impl<F: Field> PartialOrd for GlobalOp<F> {
+impl PartialOrd for GlobalOp {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<F: Field> Ord for GlobalOp<F> {
+impl Ord for GlobalOp {
     fn cmp(&self, other: &Self) -> Ordering {
         (&self.address, &self.sd_index, &self.address_ext, &self.gc).cmp(&(
             &other.address,
@@ -254,18 +254,18 @@ impl<F: Field> Ord for GlobalOp<F> {
 }
 
 // convert GlobalOp into a vector of field value
-impl<F: Field> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
-    fn from(rw_op: &GlobalOp<F>) -> ConvertedRWOperation<F> {
+impl<F: Field> From<&GlobalOp> for ConvertedRWOperation<F> {
+    fn from(rw_op: &GlobalOp) -> ConvertedRWOperation<F> {
         let value = match rw_op.value {
             None => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
-            Some(v) => v.value(),
+            Some(v) => v.field_value(),
         };
         ConvertedRWOperation {
             gc: (F::from_u128(rw_op.gc as u128), None),
             rw_target: (F::from_u128(RWTarget::Global as u128), None),
             rw: (F::from_u128(rw_op.rw as u128), None),
             frame_index: (F::from_u128(0), None),
-            address: (rw_op.address.value(), None),
+            address: (rw_op.address.field_value(), None),
             address_ext: (F::from_u128(rw_op.address_ext as u128), None),
             value: (value, None),
             sd_index: (F::from_u128(rw_op.sd_index as u128), None),
@@ -274,13 +274,13 @@ impl<F: Field> From<&GlobalOp<F>> for ConvertedRWOperation<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RWOperation<F: Field> {
-    LocalsOp(LocalsOp<F>),
-    StackOp(StackOp<F>),
-    GlobalOp(GlobalOp<F>),
+pub enum RWOperation {
+    LocalsOp(LocalsOp),
+    StackOp(StackOp),
+    GlobalOp(GlobalOp),
 }
 
-impl<F: Field> RWOperation<F> {
+impl RWOperation {
     pub fn is_stack_op(&self) -> bool {
         matches!(self, Self::StackOp(_))
     }
@@ -325,7 +325,7 @@ impl<F: Field> RWOperation<F> {
         }
     }
 
-    pub fn value(&self) -> Value<F> {
+    pub fn value(&self) -> Value {
         let v = match self {
             Self::StackOp(op) => op.value,
             Self::LocalsOp(op) => op.value,
@@ -342,7 +342,7 @@ impl<F: Field> RWOperation<F> {
         }
     }
 
-    pub fn account_address(&self) -> AccountAddress<F> {
+    pub fn account_address(&self) -> AccountAddress {
         match self {
             Self::StackOp(_) => unimplemented!(),
             Self::LocalsOp(_) => unimplemented!(),
@@ -368,17 +368,17 @@ impl<F: Field> RWOperation<F> {
 }
 
 // convert RWOperation into a vector of field value
-impl<F: Field> From<&RWOperation<F>> for ConvertedRWOperation<F> {
-    fn from(rw_op: &RWOperation<F>) -> ConvertedRWOperation<F> {
+impl<F: Field> From<&RWOperation> for ConvertedRWOperation<F> {
+    fn from(rw_op: &RWOperation) -> ConvertedRWOperation<F> {
         let value = match rw_op.value() {
             Value::Invalid => Some(F::ZERO), // todo: how to distinguish with Value::Constant(0)
-            _ => rw_op.value().value(),
+            _ => rw_op.value().field_value(),
         };
 
         let address_value = match rw_op {
             RWOperation::StackOp(op) => F::from_u128(op.address as u128),
             RWOperation::LocalsOp(op) => F::from_u128(op.index as u128),
-            RWOperation::GlobalOp(op) => op.address.value(),
+            RWOperation::GlobalOp(op) => op.address.field_value(),
         };
 
         let address_ext_value = match rw_op {
@@ -401,14 +401,10 @@ impl<F: Field> From<&RWOperation<F>> for ConvertedRWOperation<F> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct RWOperations<F: Field>(pub Vec<RWOperation<F>>);
+pub struct RWOperations(pub Vec<RWOperation>);
 
-impl<F: Field> From<RWOperations<F>>
-    for (SortedStackOps<F>, SortedLocalsOps<F>, SortedGlobalOps<F>)
-{
-    fn from(
-        rw_operations: RWOperations<F>,
-    ) -> (SortedStackOps<F>, SortedLocalsOps<F>, SortedGlobalOps<F>) {
+impl From<RWOperations> for (SortedStackOps, SortedLocalsOps, SortedGlobalOps) {
+    fn from(rw_operations: RWOperations) -> (SortedStackOps, SortedLocalsOps, SortedGlobalOps) {
         let mut stack_ops = Vec::new();
         let mut locals_ops = Vec::new();
         let mut global_ops = Vec::new();
@@ -429,31 +425,31 @@ impl<F: Field> From<RWOperations<F>>
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct SortedStackOps<F: Field>(pub Vec<StackOp<F>>);
+pub struct SortedStackOps(pub Vec<StackOp>);
 
 // convert SortedStackOps into field values
-impl<F: Field> From<&SortedStackOps<F>> for Vec<ConvertedRWOperation<F>> {
-    fn from(rw_ops: &SortedStackOps<F>) -> Vec<ConvertedRWOperation<F>> {
+impl<F: Field> From<&SortedStackOps> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedStackOps) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct SortedLocalsOps<F: Field>(pub Vec<LocalsOp<F>>);
+pub struct SortedLocalsOps(pub Vec<LocalsOp>);
 
 // convert SortedLocalsOps into field values
-impl<F: Field> From<&SortedLocalsOps<F>> for Vec<ConvertedRWOperation<F>> {
-    fn from(rw_ops: &SortedLocalsOps<F>) -> Vec<ConvertedRWOperation<F>> {
+impl<F: Field> From<&SortedLocalsOps> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedLocalsOps) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct SortedGlobalOps<F: Field>(pub Vec<GlobalOp<F>>);
+pub struct SortedGlobalOps(pub Vec<GlobalOp>);
 
 // convert SortedGlobalOps into field values
-impl<F: Field> From<&SortedGlobalOps<F>> for Vec<ConvertedRWOperation<F>> {
-    fn from(rw_ops: &SortedGlobalOps<F>) -> Vec<ConvertedRWOperation<F>> {
+impl<F: Field> From<&SortedGlobalOps> for Vec<ConvertedRWOperation<F>> {
+    fn from(rw_ops: &SortedGlobalOps) -> Vec<ConvertedRWOperation<F>> {
         rw_ops.0.iter().map(|op| op.into()).collect()
     }
 }

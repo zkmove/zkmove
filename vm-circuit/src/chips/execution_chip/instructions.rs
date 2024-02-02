@@ -73,8 +73,8 @@ pub(crate) trait InstructionGadget<F: Field> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error>;
 

@@ -61,8 +61,8 @@ impl<F: Field> InstructionGadget<F> for Mod<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
@@ -80,9 +80,9 @@ impl<F: Field> InstructionGadget<F> for Mod<F> {
         )?;
 
         // muladd_gadget assign
-        let divisor = get_u256_from_op(rw_operations, step.gc)?;
-        let divident = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
-        let reminder = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let divisor = get_u256_from_op::<F>(rw_operations, step.gc)?;
+        let divident = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let reminder = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
         let v = step
             .auxiliary_1
             .as_ref()

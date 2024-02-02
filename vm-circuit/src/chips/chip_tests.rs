@@ -14,6 +14,7 @@ use move_binary_format::file_format::empty_script;
 use move_binary_format::file_format::Bytecode as MoveBytecode;
 use movelang::value::{SimpleValue, Value};
 use movelang::value_ext::ValueHeader;
+use std::marker::PhantomData;
 
 #[test]
 fn test_fake_rw_operation() -> VmResult<()> {
@@ -113,7 +114,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_5: None,
         data: None,
     };
-    let step_5 = ExecutionStep::<Fr> {
+    let step_5 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::Nop,
         pc: 4,
@@ -130,7 +131,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         auxiliary_5: None,
         data: None,
     };
-    let step_6 = ExecutionStep::<Fr> {
+    let step_6 = ExecutionStep {
         context_id: 1,
         opcode: Opcode::Nop,
         pc: 4,
@@ -169,7 +170,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         step_0, step_1, step_2, step_3, step_4, step_5, step_6, step_7,
     ];
 
-    let rw_op_0 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_0 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -177,7 +178,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 0,
     });
-    let rw_op_1 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_1 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -185,7 +186,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 1,
     });
-    let rw_op_2 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_2 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 2,
         value: Some(SimpleValue::u64(1)),
@@ -193,7 +194,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 2,
     });
-    let rw_op_3 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_3 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -201,7 +202,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 3,
     });
-    let rw_op_4 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_4 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -209,7 +210,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 4,
     });
-    let rw_op_5 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_5 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 2,
         value: Some(SimpleValue::u64(2)),
@@ -217,7 +218,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 5,
     });
-    let rw_op_6 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_6 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -225,7 +226,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 6,
     });
-    let rw_op_7 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_7 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -233,7 +234,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 7,
     });
-    let rw_op_8 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_8 = RWOperation::StackOp(StackOp {
         address: 1,
         address_ext: 2,
         value: Some(SimpleValue::u64(2)),
@@ -241,7 +242,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 8,
     });
-    let rw_op_9 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_9 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -249,7 +250,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 9,
     });
-    let rw_op_10 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_10 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -257,7 +258,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 10,
     });
-    let rw_op_11 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_11 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 2,
         value: Some(SimpleValue::u64(1)),
@@ -265,7 +266,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 11,
     });
-    let rw_op_12 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_12 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -273,7 +274,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 12,
     });
-    let rw_op_13 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_13 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -281,7 +282,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 13,
     });
-    let rw_op_14 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_14 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 2,
         value: Some(SimpleValue::u64(3)),
@@ -289,7 +290,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: WRITE,
         gc: 14,
     });
-    let rw_op_15 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_15 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 0,
         value: Some(ValueHeader::default_for_simple().into()),
@@ -297,7 +298,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 15,
     });
-    let rw_op_16 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_16 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 1,
         value: Some(SimpleValue::u128(0)),
@@ -305,7 +306,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 16,
     });
-    let rw_op_17 = RWOperation::<Fr>::StackOp(StackOp {
+    let rw_op_17 = RWOperation::StackOp(StackOp {
         address: 0,
         address_ext: 2,
         value: Some(SimpleValue::u64(3)),
@@ -313,7 +314,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
         rw: READ,
         gc: 17,
     });
-    let fake_rw_op = RWOperation::<Fr>::LocalsOp(LocalsOp {
+    let fake_rw_op = RWOperation::LocalsOp(LocalsOp {
         frame_index: 0,
         index: 0,
         address_ext: 0,
@@ -344,6 +345,7 @@ fn test_fake_rw_operation() -> VmResult<()> {
     let vm_circuit = VmCircuit {
         witness,
         public_input: None,
+        _maker: PhantomData,
     };
     let k = 10;
     let prover = MockProver::<Fr>::run(k, &vm_circuit, vec![vec![Fr::zero()]]).map_err(|e| {

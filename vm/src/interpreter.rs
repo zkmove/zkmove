@@ -19,7 +19,6 @@ use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
 use petgraph::prelude::NodeIndex;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use types::Field;
 use vm_circuit::chips::execution_chip::opcode::Opcode;
 
 use vm_circuit::witness::call_trace_table::pos_to_id;
@@ -30,13 +29,13 @@ use movelang::value_ext::FlattenedValue;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::RWOperation;
 
-pub struct Interpreter<F: Field> {
-    pub stack: EvalStack<F>,
-    pub frames: CallStack<F>,
+pub struct Interpreter {
+    pub stack: EvalStack,
+    pub frames: CallStack,
     pub step: u64,
 }
 
-impl<F: Field> Interpreter<F> {
+impl Interpreter {
     pub fn new() -> Self {
         Self {
             stack: EvalStack::new(),
@@ -45,26 +44,26 @@ impl<F: Field> Interpreter<F> {
         }
     }
 
-    pub fn stack(&self) -> &EvalStack<F> {
+    pub fn stack(&self) -> &EvalStack {
         &self.stack
     }
 
-    pub fn frames(&mut self) -> &mut CallStack<F> {
+    pub fn frames(&mut self) -> &mut CallStack {
         &mut self.frames
     }
 
-    pub fn current_frame(&mut self) -> Option<&mut Frame<F>> {
+    pub fn current_frame(&mut self) -> Option<&mut Frame> {
         self.frames.top()
     }
 
     fn process_arguments(
         &mut self,
-        locals: &Locals<F>,
+        locals: &Locals,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) -> VmResult<()> {
         // check arguments numbers
         let mut signer_and_args = Vec::new();
@@ -98,7 +97,7 @@ impl<F: Field> Interpreter<F> {
             }
 
             if arg_type == MoveValueType::U256 {
-                let arg_value = convert_from_u256::<F>(arg.clone())?;
+                let arg_value = convert_from_u256(arg.clone())?;
                 locals.store(i, Value::new_u256(arg_value), frame_index, rw_operations)?;
             } else {
                 let arg_value = convert_from(arg.clone())?;
@@ -121,8 +120,8 @@ impl<F: Field> Interpreter<F> {
         func: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Frame<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<Frame> {
         let locals = Locals::new(func.local_count());
         let arg_count = func.arg_count();
         let mut value = Vec::new();
@@ -150,14 +149,14 @@ impl<F: Field> Interpreter<F> {
         args: Option<ScriptArguments>,
         arg_types: Vec<MoveValueType>,
         loader: &MoveLoader,
-        data_store: &mut StateStore<F>,
-        natives: &NativeFunctions<F>,
+        data_store: &mut StateStore,
+        natives: &NativeFunctions,
         mut native_context: NativeContextExtensions,
-        exec_steps: &mut Vec<ExecutionStep<F>>,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        exec_steps: &mut Vec<ExecutionStep>,
+        rw_operations: &mut Vec<RWOperation>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
         generic_graph: &GenericCallGraph,
-    ) -> VmResult<Option<Value<F>>> {
+    ) -> VmResult<Option<Value>> {
         //println!("{}", generic_graph.to_dot());
 
         let locals = Locals::new(entry.local_count());
@@ -417,12 +416,12 @@ impl<F: Field> Interpreter<F> {
     fn call_native(
         &mut self,
         resolver: &Resolver,
-        data_store: &mut StateStore<F>,
-        natives: &NativeFunctions<F>,
+        data_store: &mut StateStore,
+        natives: &NativeFunctions,
         extensions: &mut NativeContextExtensions,
         function: Arc<Function>,
         ty_args: Vec<Type>,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) -> VmResult<()> {
         self.call_native_impl(
             resolver,
@@ -438,12 +437,12 @@ impl<F: Field> Interpreter<F> {
     fn call_native_impl(
         &mut self,
         resolver: &Resolver,
-        data_store: &mut StateStore<F>,
-        natives: &NativeFunctions<F>,
+        data_store: &mut StateStore,
+        natives: &NativeFunctions,
         extensions: &mut NativeContextExtensions,
         function: Arc<Function>,
         ty_args: Vec<Type>,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) -> VmResult<()> {
         let mut args = VecDeque::new();
         let expected_args = function.arg_count();
@@ -470,10 +469,10 @@ impl<F: Field> Interpreter<F> {
     pub fn binary_op<Fn>(
         &mut self,
         op: Fn,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) -> VmResult<MoveValueType>
     where
-        Fn: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
+        Fn: FnOnce(Value, Value) -> VmResult<Value>,
     {
         let right = self.stack.pop(rw_operations)?;
         let left = self.stack.pop(rw_operations)?;
@@ -487,12 +486,12 @@ impl<F: Field> Interpreter<F> {
         &mut self,
         op: Fa,
         fn_aux: Fb,
-        rw_operations: &mut Vec<RWOperation<F>>,
-        step: &mut ExecutionStep<F>,
+        rw_operations: &mut Vec<RWOperation>,
+        step: &mut ExecutionStep,
     ) -> VmResult<()>
     where
-        Fa: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
-        Fb: FnOnce(Value<F>, Value<F>) -> VmResult<Value<F>>,
+        Fa: FnOnce(Value, Value) -> VmResult<Value>,
+        Fb: FnOnce(Value, Value) -> VmResult<Value>,
     {
         let right = self.stack.pop(rw_operations)?;
         let left = self.stack.pop(rw_operations)?;
@@ -504,9 +503,9 @@ impl<F: Field> Interpreter<F> {
         Ok(())
     }
 
-    pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<()>
+    pub fn unary_op<Fn>(&mut self, op: Fn, rw_operations: &mut Vec<RWOperation>) -> VmResult<()>
     where
-        Fn: FnOnce(Value<F>) -> VmResult<Value<F>>,
+        Fn: FnOnce(Value) -> VmResult<Value>,
     {
         let operand = self.stack.pop(rw_operations)?;
         let result = op(operand)?;
@@ -516,8 +515,8 @@ impl<F: Field> Interpreter<F> {
     pub fn equality_op(
         &mut self,
         is_eq_op: bool,
-        rw_operations: &mut Vec<RWOperation<F>>,
-        step: &mut ExecutionStep<F>,
+        rw_operations: &mut Vec<RWOperation>,
+        step: &mut ExecutionStep,
     ) -> VmResult<()> {
         let right = self.stack.pop(rw_operations)?;
         let left = self.stack.pop(rw_operations)?;
@@ -549,11 +548,11 @@ impl<F: Field> Interpreter<F> {
     }
 
     fn load_resource<'a>(
-        data_store: &'a mut StateStore<F>,
+        data_store: &'a mut StateStore,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
-    ) -> VmResult<&'a mut GlobalValue<F>> {
+    ) -> VmResult<&'a mut GlobalValue> {
         match data_store.load_resource(loader, addr, ty) {
             Ok(gv) => Ok(gv),
             Err(e) => {
@@ -568,9 +567,9 @@ impl<F: Field> Interpreter<F> {
 
     pub fn exists(
         &mut self,
-        data_store: &mut StateStore<F>,
+        data_store: &mut StateStore,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
     ) -> VmResult<bool> {
         let global_value = Self::load_resource(data_store, loader, addr, ty)?;
@@ -579,38 +578,38 @@ impl<F: Field> Interpreter<F> {
 
     pub fn move_from(
         &mut self,
-        data_store: &mut StateStore<F>,
+        data_store: &mut StateStore,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
-    ) -> VmResult<Value<F>> {
+    ) -> VmResult<Value> {
         Self::load_resource(data_store, loader, addr, ty)?.move_from()
     }
 
     pub fn move_to(
         &mut self,
-        data_store: &mut StateStore<F>,
+        data_store: &mut StateStore,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
-        resource: Value<F>,
+        resource: Value,
     ) -> VmResult<()> {
         Self::load_resource(data_store, loader, addr, ty)?.move_to(resource)
     }
 
     pub fn borrow_global(
         &mut self,
-        data_store: &mut StateStore<F>,
+        data_store: &mut StateStore,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
         sd_index: GlobalResourceDefIndex,
-    ) -> VmResult<GlobalRef<F>> {
+    ) -> VmResult<GlobalRef> {
         Self::load_resource(data_store, loader, addr, ty)?.borrow_global(addr, sd_index)
     }
 }
 
-impl<F: Field> Default for Interpreter<F> {
+impl Default for Interpreter {
     fn default() -> Self {
         Self::new()
     }

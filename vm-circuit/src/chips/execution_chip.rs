@@ -186,8 +186,8 @@ pub struct ExecutionChipConfig<F: Field> {
 
 #[derive(Clone, Debug)]
 pub struct ExecutionChip<F: Field> {
-    pub(crate) witness: Witness<F>,
-    pub(crate) public_input: Option<Value<F>>,
+    pub(crate) witness: Witness,
+    pub(crate) public_input: Option<Value>,
     pub(crate) config: ExecutionChipConfig<F>,
 }
 
@@ -206,8 +206,8 @@ impl<F: Field> Chip<F> for ExecutionChip<F> {
 
 impl<F: Field> ExecutionChip<F> {
     pub fn construct(
-        witness: Witness<F>,
-        public_input: Option<Value<F>>,
+        witness: Witness,
+        public_input: Option<Value>,
         config: <Self as Chip<F>>::Config,
         _loaded: <Self as Chip<F>>::Loaded,
     ) -> Self {
@@ -679,8 +679,8 @@ impl<F: Field> ExecutionChip<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         macro_rules! assign_opcode_gadget {

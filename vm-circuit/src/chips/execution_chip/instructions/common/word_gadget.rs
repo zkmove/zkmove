@@ -37,7 +37,7 @@ impl<F: Field> WordCells<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         op_index: usize,
     ) -> Result<(), Error> {
         let f = get_field_from_op(rw_operations, op_index + UPPER_FIELD_OFFSET)?;

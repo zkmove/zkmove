@@ -66,8 +66,8 @@ impl<F: Field> InstructionGadget<F> for Gt<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
@@ -78,8 +78,8 @@ impl<F: Field> InstructionGadget<F> for Gt<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // assign value to Comparison gadget
-        let lhs = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
-        let rhs = get_u256_from_op(rw_operations, step.gc)?;
+        let lhs = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let rhs = get_u256_from_op::<F>(rw_operations, step.gc)?;
         let lhs_fe = convert_u256_to_field::<F>(&lhs);
         let rhs_fe = convert_u256_to_field::<F>(&rhs);
         self.comparison_hi

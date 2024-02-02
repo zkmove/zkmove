@@ -48,8 +48,8 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for Call<GENERIC, F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let is_native =
@@ -92,7 +92,7 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for Call<GENERIC, F> {
                         error!("auxiliary_4 is None");
                         Error::Synthesis
                     })?
-                    .value(),
+                    .field_value(),
             )?;
             if let Some(ExecutionData::CallGeneric(data)) = &step.data {
                 self.type_cells

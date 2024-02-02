@@ -154,8 +154,8 @@ impl<F: Field> InstructionGadget<F> for VecLen<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let _si = Word::assign_step_value(region, offset, &step.auxiliary_2, &cells.auxiliary_2)?;
@@ -171,14 +171,14 @@ impl<F: Field> InstructionGadget<F> for VecLen<F> {
             .ok_or(Error::Synthesis)?;
 
         // assign vec_header_value, vec_flattened_len
-        let header_value = op.value().value().ok_or_else(|| {
+        let header_value = op.value().field_value::<F>().ok_or_else(|| {
             error!("header value is None");
             Error::Synthesis
         })?;
         let vec_flattened_len = ValueHeader::from(header_value).flattened_len();
 
         self.vec_header_value
-            .assign(region, offset, op.value().value())?;
+            .assign(region, offset, op.value().field_value())?;
         self.vec_flattened_len
             .assign(region, offset, Some(F::from(vec_flattened_len as u64)))?;
 
@@ -199,7 +199,7 @@ impl<F: Field> InstructionGadget<F> for VecLen<F> {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,
-                Some(op.account_address().value()),
+                Some(op.account_address().field_value()),
             )?;
             self.vec_locals_index_or_global_sd_idx.assign(
                 region,

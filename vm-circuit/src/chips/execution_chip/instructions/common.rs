@@ -16,7 +16,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::utility::{decode_field_to_u256, MoveValueType, U256};
+use movelang::utility::{decode_field_to_u256, decode_u128_pair_to_u256, MoveValueType, U256};
 use movelang::value::{
     Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32,
     NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
@@ -94,8 +94,8 @@ impl<F: Field> BinaryOp<F> {
     pub fn assign_binary_op(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
         // value_b
@@ -120,8 +120,8 @@ impl<F: Field> BinaryOp<F> {
     pub fn assign_binary_op_with_auxiliary(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
         binary_op: &BinaryOp<F>,
     ) -> Result<(), Error> {
@@ -134,13 +134,13 @@ impl<F: Field> BinaryOp<F> {
 
         // auxiliary_1 is lower field. auxiliary_2 is upper field
         if aux_value.ty() == MoveValueType::U256 {
-            let v = aux_value.value_u256().expect("should U256 value");
+            let v = aux_value.field_value_u256().expect("should U256 value");
             cells.auxiliary_1.assign(region, offset, Some(v[1]))?;
             cells.auxiliary_2.assign(region, offset, Some(v[0]))?;
         } else {
             cells
                 .auxiliary_1
-                .assign(region, offset, aux_value.value())?;
+                .assign(region, offset, aux_value.field_value())?;
             cells.auxiliary_2.assign(region, offset, Some(F::ZERO))?;
         }
         Ok(())
@@ -149,13 +149,13 @@ impl<F: Field> BinaryOp<F> {
     pub fn assign_bitwise_op(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         lookup_bitwise: &LookupBitwise<F>,
     ) -> Result<(), Error> {
         // store operand 1 at bytes_operand_1 cell.
         // every 4 bits within one cell.
-        let v = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let v = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
         let bytes = v.to_le_bytes();
         for (i, byte) in lookup_bitwise.bytes_operand_1.iter().take(64).enumerate() {
             // seperate one byte into 2 fields.
@@ -172,7 +172,7 @@ impl<F: Field> BinaryOp<F> {
 
         // store operand 2 at bytes_operand_2 cell.
         // every 4 bits within one cell.
-        let v = get_u256_from_op(rw_operations, step.gc)?;
+        let v = get_u256_from_op::<F>(rw_operations, step.gc)?;
         let bytes = v.to_le_bytes();
         for (i, byte) in lookup_bitwise.bytes_operand_2.iter().take(64).enumerate() {
             // seperate one byte into 2 fields
@@ -189,7 +189,7 @@ impl<F: Field> BinaryOp<F> {
 
         // store result at bytes cell.
         // every 4 bits within one cell and cost 32 cells for upper 128 bit.
-        let v = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let v = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
         let bytes = v.to_le_bytes();
         for (i, byte) in lookup_bitwise.bytes.iter().take(64).enumerate() {
             // seperate one byte into 2 fields
@@ -257,8 +257,8 @@ impl<F: Field> UnaryOp<F> {
     pub fn assign_unary_op(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         unary_op: &UnaryOp<F>,
     ) -> Result<(), Error> {
         // value_a
@@ -429,7 +429,7 @@ impl<F: Field> ArithOverflow<F> {
     pub fn assign_num_of_bytes(
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
+        step: &ExecutionStep,
         cells: &StepChipCells<F>,
         bytes: Vec<Cell<F>>,
         value: Option<F>,
@@ -517,16 +517,16 @@ impl<F: Field> Word<F> {
     pub fn assign_step_value(
         region: &mut Region<'_, F>,
         offset: usize,
-        step_value: &Option<Value<F>>,
+        step_value: &Option<Value>,
         cell: &Cell<F>,
     ) -> VmResult<F> {
         let value = step_value.as_ref().ok_or_else(|| {
             error!("step value {:?}", step_value);
             Error::Synthesis
         })?;
-        cell.assign(region, offset, value.value())?;
+        cell.assign(region, offset, value.field_value())?;
 
-        Ok(value.value().ok_or_else(|| {
+        Ok(value.field_value().ok_or_else(|| {
             error!("failed to get step value {:?}", step_value);
             Error::Synthesis
         })?)
@@ -534,7 +534,7 @@ impl<F: Field> Word<F> {
     pub fn assign_offset_pow2(
         region: &mut Region<'_, F>,
         offset: usize,
-        step_value: &Option<Value<F>>,
+        step_value: &Option<Value>,
         cell: &Cell<F>,
     ) -> VmResult<F> {
         // the address length is parsed by ExecutionStep.
@@ -545,8 +545,7 @@ impl<F: Field> Word<F> {
                 Error::Synthesis
             })?
             .value()
-            .unwrap()
-            .get_lower_32();
+            .unwrap() as u32;
 
         // offset within addr_ext is address length sub DEPTH_OF_LOCATION_PATH.
         let addr_ext_offset = len_of_address - (DEPTH_OF_LOCATION_PATH as u32);
@@ -565,15 +564,15 @@ impl<F: Field> Word<F> {
     pub fn assign_word(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        _step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &Word<F>,
         op_index: usize,
         flattened_value_len: usize,
     ) -> Result<(), Error> {
         for (i, _) in cells.word.iter().enumerate().take(flattened_value_len) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word[i].assign(region, offset, op.value().field_value())?;
             cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext[i].assign(
                 region,
@@ -594,8 +593,8 @@ impl<F: Field> Word<F> {
     pub fn assign_word_with_capacity(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        _step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &Word<F>,
         op_index: usize,
         flattened_value_len: usize,
@@ -603,7 +602,7 @@ impl<F: Field> Word<F> {
     ) -> Result<(), Error> {
         for i in 0..flattened_value_len {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word[i].assign(region, offset, op.value().field_value())?;
             cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext[i].assign(
                 region,
@@ -627,7 +626,7 @@ impl<F: Field> Word<F> {
     pub fn assign_word_with_address(
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
@@ -648,7 +647,7 @@ impl<F: Field> Word<F> {
                 .0
                 .get(op_index + i - 1)
                 .ok_or(Error::Synthesis)?;
-            cells.word[i].assign(region, offset, op.value().value())?;
+            cells.word[i].assign(region, offset, op.value().field_value())?;
             cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             cells.word_addr_ext[i].assign(
                 region,
@@ -675,7 +674,7 @@ impl<F: Field> Word<F> {
     pub fn assign_word_with_address_and_filter(
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         cells: &Word<F>,
         word_address: &[Cell<F>],
         op_index: usize,
@@ -688,7 +687,7 @@ impl<F: Field> Word<F> {
 
         while i < flattened_value_len {
             if op.rw() == filter {
-                cells.word[i].assign(region, offset, op.value().value())?;
+                cells.word[i].assign(region, offset, op.value().field_value())?;
                 cells.word_mask[i].assign(region, offset, Some(F::ZERO))?;
                 cells.word_addr_ext[i].assign(
                     region,
@@ -716,15 +715,15 @@ impl<F: Field> Word<F> {
     pub fn assign_ref_val(
         region: &mut Region<'_, F>,
         offset: usize,
-        _step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        _step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &RefVal<F>,
         op_index: usize,
         flattened_value_len: usize,
     ) -> Result<(), Error> {
         for i in 0..flattened_value_len.min(LEN_OF_REFERENCE_VALUE) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            cells.ref_val[i].assign(region, offset, op.value().value())?;
+            cells.ref_val[i].assign(region, offset, op.value().field_value())?;
             cells.ref_val_mask[i].assign(region, offset, Some(F::ZERO))?;
         }
 
@@ -986,10 +985,10 @@ impl<F: Field> HeaderCells<F> {
 
 #[allow(dead_code)]
 pub(crate) fn header_value_parse<F: Field>(
-    rw_operations: &RWOperations<F>,
+    rw_operations: &RWOperations,
     op_index: usize,
 ) -> Result<(usize, usize), Error> {
-    let header_value = get_field_from_op(rw_operations, op_index)?;
+    let header_value = get_field_from_op::<F>(rw_operations, op_index)?;
     let flattened_len = (header_value.get_lower_128() & 0xFFFF) as usize;
     let len = ((header_value.get_lower_128() & 0xFFFF0000) >> 16) as usize;
     Ok((flattened_len, len))
@@ -997,11 +996,11 @@ pub(crate) fn header_value_parse<F: Field>(
 
 #[allow(dead_code)]
 pub(crate) fn get_field_from_op<F: Field>(
-    rw_operations: &RWOperations<F>,
+    rw_operations: &RWOperations,
     op_index: usize,
 ) -> Result<F, Error> {
     let op = rw_operations.0.get(op_index).ok_or(Error::Synthesis)?;
-    let v = op.value().value().ok_or_else(|| {
+    let v = op.value().field_value().ok_or_else(|| {
         error!("field is None");
         Error::Synthesis
     })?;
@@ -1009,27 +1008,24 @@ pub(crate) fn get_field_from_op<F: Field>(
 }
 
 pub(crate) fn get_u256_from_op<F: Field>(
-    rw_operations: &RWOperations<F>,
+    rw_operations: &RWOperations,
     op_index: usize,
 ) -> Result<U256, Error> {
-    let upper = get_field_from_op(rw_operations, op_index + UPPER_FIELD_OFFSET)?;
-    let lower = get_field_from_op(rw_operations, op_index + LOWER_FIELD_OFFSET)?;
+    let upper = get_field_from_op::<F>(rw_operations, op_index + UPPER_FIELD_OFFSET)?;
+    let lower = get_field_from_op::<F>(rw_operations, op_index + LOWER_FIELD_OFFSET)?;
     let v = decode_field_to_u256(&[upper, lower]);
     Ok(v)
 }
 
-pub(crate) fn get_u256_from_value<F: Field>(value: Value<F>) -> Result<U256, Error> {
+pub(crate) fn get_u256_from_value(value: Value) -> Result<U256, Error> {
     if value.ty() == MoveValueType::U256 {
         let f = value.value_u256().unwrap();
-        Ok(decode_field_to_u256(&f))
+        Ok(decode_u128_pair_to_u256(&f))
     } else {
-        let v = value
-            .value()
-            .ok_or_else(|| {
-                error!("upper field is None");
-                Error::Synthesis
-            })?
-            .get_lower_128();
+        let v = value.value().ok_or_else(|| {
+            error!("upper field is None");
+            Error::Synthesis
+        })?;
         let v = U256::from(v);
         Ok(v)
     }

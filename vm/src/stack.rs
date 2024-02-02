@@ -9,24 +9,23 @@ use movelang::value::{
 };
 use movelang::value_ext::LocatedFlattenedValue;
 use std::rc::Rc;
-use types::Field;
 use vm_circuit::witness::rw_operations::{RWOperation, StackOp, RW};
 
 const EVAL_STACK_SIZE: usize = 256;
 const CALL_STACK_SIZE: usize = 256;
 
-pub struct EvalStack<F: Field>(Vec<Value<F>>);
+pub struct EvalStack(Vec<Value>);
 
-impl<F: Field> EvalStack<F> {
+impl EvalStack {
     pub fn new() -> Self {
         EvalStack(vec![])
     }
 
     #[allow(clippy::type_complexity)]
     pub fn emit_stack_ops(
-        flattened_value: LocatedFlattenedValue<F>,
+        flattened_value: LocatedFlattenedValue,
         rw: RW,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) {
         for (address_path, val) in flattened_value.0 {
             let stack_op = StackOp {
@@ -40,13 +39,9 @@ impl<F: Field> EvalStack<F> {
         }
     }
 
-    pub fn push(
-        &mut self,
-        value: Value<F>,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<()> {
+    pub fn push(&mut self, value: Value, rw_operations: &mut Vec<RWOperation>) -> VmResult<()> {
         if self.0.len() < EVAL_STACK_SIZE {
-            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
@@ -62,12 +57,12 @@ impl<F: Field> EvalStack<F> {
         }
     }
 
-    pub fn pop(&mut self, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<Value<F>> {
+    pub fn pop(&mut self, rw_operations: &mut Vec<RWOperation>) -> VmResult<Value> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
-            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
@@ -80,11 +75,7 @@ impl<F: Field> EvalStack<F> {
         }
     }
 
-    pub fn popn(
-        &mut self,
-        n: u16,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Vec<Value<F>>> {
+    pub fn popn(&mut self, n: u16, rw_operations: &mut Vec<RWOperation>) -> VmResult<Vec<Value>> {
         let remaining_stack_size = self
             .0
             .len()
@@ -93,7 +84,7 @@ impl<F: Field> EvalStack<F> {
         let values = self.0.split_off(remaining_stack_size);
 
         for (i, value) in values.iter().enumerate() {
-            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: (remaining_stack_size + i),
                 }),
@@ -109,8 +100,8 @@ impl<F: Field> EvalStack<F> {
     // return values of a container and its flattened_value field count
     pub fn pop_as_container(
         &mut self,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<(ContainerValue<F>, usize)> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<(ContainerValue, usize)> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -118,7 +109,7 @@ impl<F: Field> EvalStack<F> {
             let loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let flattened_value: LocatedFlattenedValue<F> =
+            let flattened_value: LocatedFlattenedValue =
                 LocatedValue(ValueLocation::Stack(loc), &value).into();
             let flattened_value_len = flattened_value.0.len();
             Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
@@ -143,14 +134,14 @@ impl<F: Field> EvalStack<F> {
 
     pub fn pop_as_reference(
         &mut self,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Reference<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<Reference> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
@@ -171,14 +162,14 @@ impl<F: Field> EvalStack<F> {
 
     pub fn pop_as_vector_ref(
         &mut self,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<VectorRef<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<VectorRef> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
             let value = self.0.pop().unwrap();
 
-            let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+            let flattened_value: LocatedFlattenedValue = LocatedValue(
                 ValueLocation::Stack(StackLocation {
                     stack_index: self.0.len(),
                 }),
@@ -198,8 +189,8 @@ impl<F: Field> EvalStack<F> {
 
     pub fn pop_as_account_address(
         &mut self,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<AccountAddress<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<AccountAddress> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -207,7 +198,7 @@ impl<F: Field> EvalStack<F> {
             let v_loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let flattened_value: LocatedFlattenedValue<F> =
+            let flattened_value: LocatedFlattenedValue =
                 LocatedValue(ValueLocation::Stack(v_loc), &value).into();
             Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
@@ -219,7 +210,7 @@ impl<F: Field> EvalStack<F> {
         }
     }
 
-    pub fn pop_as_u64(&mut self, rw_operations: &mut Vec<RWOperation<F>>) -> VmResult<u64> {
+    pub fn pop_as_u64(&mut self, rw_operations: &mut Vec<RWOperation>) -> VmResult<u64> {
         if self.0.is_empty() {
             Err(RuntimeError::new(StatusCode::StackUnderflow))
         } else {
@@ -227,19 +218,19 @@ impl<F: Field> EvalStack<F> {
             let v_loc = StackLocation {
                 stack_index: self.0.len(),
             };
-            let flattened_value: LocatedFlattenedValue<F> =
+            let flattened_value: LocatedFlattenedValue =
                 LocatedValue(ValueLocation::Stack(v_loc), &value).into();
             Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
-                Value::U64(v) => Ok(v.0.get_lower_128() as u64),
+                Value::U64(v) => Ok(v.0 as u64),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as U64", v))),
             }
         }
     }
 
-    pub fn top(&self) -> Option<&Value<F>> {
+    pub fn top(&self) -> Option<&Value> {
         self.0.last()
     }
 
@@ -248,20 +239,20 @@ impl<F: Field> EvalStack<F> {
     }
 }
 
-impl<F: Field> Default for EvalStack<F> {
+impl Default for EvalStack {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct CallStack<F: Field>(Vec<Frame<F>>);
+pub struct CallStack(Vec<Frame>);
 
-impl<F: Field> CallStack<F> {
+impl CallStack {
     pub fn new() -> Self {
         CallStack(vec![])
     }
 
-    pub fn push(&mut self, frame: Frame<F>) -> VmResult<()> {
+    pub fn push(&mut self, frame: Frame) -> VmResult<()> {
         if self.0.len() < CALL_STACK_SIZE {
             self.0.push(frame);
             Ok(())
@@ -270,7 +261,7 @@ impl<F: Field> CallStack<F> {
         }
     }
 
-    pub fn pop(&mut self) -> Option<Frame<F>> {
+    pub fn pop(&mut self) -> Option<Frame> {
         if self.0.is_empty() {
             None
         } else {
@@ -278,7 +269,7 @@ impl<F: Field> CallStack<F> {
         }
     }
 
-    pub fn top(&mut self) -> Option<&mut Frame<F>> {
+    pub fn top(&mut self) -> Option<&mut Frame> {
         self.0.last_mut()
     }
 
@@ -287,7 +278,7 @@ impl<F: Field> CallStack<F> {
     }
 }
 
-impl<F: Field> Default for CallStack<F> {
+impl Default for CallStack {
     fn default() -> Self {
         Self::new()
     }

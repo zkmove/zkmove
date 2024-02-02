@@ -128,8 +128,8 @@ mod tests {
         const RATE: usize,
         const L: usize,
     > {
-        inputs: [Value<F>; L],
-        output: Value<F>,
+        inputs: [Value; L],
+        output: Value,
         _spec: PhantomData<S>,
     }
 

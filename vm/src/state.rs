@@ -26,20 +26,19 @@ use movelang::account_address::AccountAddress;
 use movelang::value::GlobalValue;
 use std::cell::RefCell;
 use std::collections::btree_map::BTreeMap;
-use types::Field;
 
 #[derive(Clone)]
-pub struct AccountData<F: Field> {
-    data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue<F>)>,
+pub struct AccountData {
+    data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue)>,
 }
 
-impl<F: Field> AccountData<F> {
+impl AccountData {
     fn new() -> Self {
         Self {
             data_map: BTreeMap::new(),
         }
     }
-    fn global_value(&mut self, ty: &Type) -> &mut GlobalValue<F> {
+    fn global_value(&mut self, ty: &Type) -> &mut GlobalValue {
         self.data_map
             .get_mut(ty)
             .map(|(_ty_layout, global_value)| global_value)
@@ -48,13 +47,13 @@ impl<F: Field> AccountData<F> {
 }
 
 #[derive(Clone)]
-pub struct StateStore<F: Field> {
+pub struct StateStore {
     modules: RefCell<HashMap<ModuleId, Vec<u8>>>,
     module_table: RefCell<Vec<ModuleId>>,
-    account_map: RefCell<BTreeMap<AccountAddress<F>, AccountData<F>>>,
+    account_map: RefCell<BTreeMap<AccountAddress, AccountData>>,
 }
 
-impl<F: Field> StateStore<F> {
+impl StateStore {
     pub fn new() -> Self {
         Self {
             modules: RefCell::new(HashMap::new()),
@@ -86,9 +85,9 @@ impl<F: Field> StateStore<F> {
     pub fn load_resource(
         &mut self,
         loader: &MoveLoader,
-        addr: AccountAddress<F>,
+        addr: AccountAddress,
         ty: &Type,
-    ) -> VmResult<&mut GlobalValue<F>> {
+    ) -> VmResult<&mut GlobalValue> {
         if !self.account_map.borrow().contains_key(&addr) {
             self.account_map
                 .borrow_mut()
@@ -120,13 +119,13 @@ impl<F: Field> StateStore<F> {
     }
 }
 
-impl<F: Field> Default for StateStore<F> {
+impl Default for StateStore {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: Field> DataStore for StateStore<F> {
+impl DataStore for StateStore {
     fn load_resource(
         &mut self,
         _addr: MoveAccountAddress,
@@ -188,7 +187,7 @@ impl<F: Field> DataStore for StateStore<F> {
     }
 }
 
-impl<F: Field> ModuleResolver for StateStore<F> {
+impl ModuleResolver for StateStore {
     type Error = VMError;
 
     fn get_module(&self, id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {

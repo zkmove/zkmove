@@ -11,7 +11,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
-use movelang::utility::{convert_u256_to_field, MoveValueType};
+use movelang::utility::{convert_u256_to_u128_pair, MoveValueType};
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
     Reference, Value, ValueLocation,
@@ -22,29 +22,28 @@ use petgraph::Direction;
 use std::convert::From;
 use std::ops::{Add, Deref, Div, Mul, Not, Rem, Sub};
 use std::sync::Arc;
-use types::Field;
 use vm_circuit::witness::call_trace_table::pos_to_id;
 use vm_circuit::witness::execution_steps::ExecutionStep;
 use vm_circuit::witness::input_type_elements::GenericTypeMaterialization;
 use vm_circuit::witness::rw_operations::{RWOperation, RW};
 
-pub struct Frame<F: Field> {
+pub struct Frame {
     generic_node_index: NodeIndex,
     generic_node: Node,
     pc: u16,
-    locals: Locals<F>,
+    locals: Locals,
     function: Arc<Function>,
     #[allow(dead_code)]
     ty_args: Vec<MoveValueType>,
 }
 
-impl<F: Field> Frame<F> {
+impl Frame {
     pub fn new(
         generic_node_index: NodeIndex,
         generic_node: Node,
         function: Arc<Function>,
         type_arguments: Vec<MoveValueType>,
-        locals: Locals<F>,
+        locals: Locals,
     ) -> Self {
         Frame {
             generic_node_index,
@@ -62,7 +61,7 @@ impl<F: Field> Frame<F> {
     pub fn ty_args(&self) -> &[MoveValueType] {
         &self.ty_args
     }
-    pub fn locals(&mut self) -> &mut Locals<F> {
+    pub fn locals(&mut self) -> &mut Locals {
         &mut self.locals
     }
 
@@ -78,7 +77,7 @@ impl<F: Field> Frame<F> {
         self.pc
     }
 
-    pub fn module_index(&self, data_store: &StateStore<F>) -> Option<u16> {
+    pub fn module_index(&self, data_store: &StateStore) -> Option<u16> {
         match self.function.module_id() {
             Some(module_id) => data_store.module_index(module_id),
             None => Some(0), // function is in the script
@@ -116,14 +115,14 @@ impl<F: Field> Frame<F> {
     #[allow(clippy::too_many_arguments)]
     pub fn execute(
         &mut self,
-        interp: &mut Interpreter<F>,
+        interp: &mut Interpreter,
         call_graph: &GenericCallGraph,
         loader: &MoveLoader,
-        data_store: &mut StateStore<F>,
-        exec_steps: &mut Vec<ExecutionStep<F>>,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        data_store: &mut StateStore,
+        exec_steps: &mut Vec<ExecutionStep>,
+        rw_operations: &mut Vec<RWOperation>,
         generic_types: &mut Vec<GenericTypeMaterialization>,
-    ) -> VmResult<ExitStatus<F>> {
+    ) -> VmResult<ExitStatus> {
         let code = self.function.code();
         let frame_index = interp.frames.size();
         let module_index = self
@@ -154,7 +153,7 @@ impl<F: Field> Frame<F> {
                 match instruction {
                     Bytecode::LdConst(const_index) => {
                         let constant = resolver.constant_at(*const_index);
-                        let val: Value<_> = constant
+                        let val: Value = constant
                             .deserialize_constant()
                             .ok_or_else(|| {
                                 RuntimeError::new(StatusCode::UnknownInvariantViolationError)
@@ -170,32 +169,32 @@ impl<F: Field> Frame<F> {
                         interp.stack.push(val, rw_operations)
                     }
                     Bytecode::LdU8(v) => {
-                        let constant = F::from_u128(*v as u128);
+                        let constant = *v as u128;
                         let value = Value::new(constant, MoveValueType::U8)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU16(v) => {
-                        let constant = F::from_u128(*v as u128);
+                        let constant = *v as u128;
                         let value = Value::new(constant, MoveValueType::U16)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU32(v) => {
-                        let constant = F::from_u128(*v as u128);
+                        let constant = *v as u128;
                         let value = Value::new(constant, MoveValueType::U32)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU64(v) => {
-                        let constant = F::from_u128(*v as u128);
+                        let constant = *v as u128;
                         let value = Value::new(constant, MoveValueType::U64)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU128(v) => {
-                        let constant = F::from_u128(*v);
+                        let constant = *v;
                         let value = Value::new(constant, MoveValueType::U128)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdU256(v) => {
-                        let constant = convert_u256_to_field::<F>(v);
+                        let constant = convert_u256_to_u128_pair(v);
                         let value = Value::new_u256(constant);
                         interp.stack.push(value, rw_operations)
                     }
@@ -289,7 +288,7 @@ impl<F: Field> Frame<F> {
                         match reference {
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_index) = (loc.address, loc.sd_index);
-                                let flattened_value: LocatedFlattenedValue<F> =
+                                let flattened_value: LocatedFlattenedValue =
                                     LocatedValue(ValueLocation::Global(loc), &value).into();
                                 let flattened_value_len = flattened_value.0.len();
                                 execution_step.auxiliary_2 = Some(Value::Address(account_addr));
@@ -302,7 +301,7 @@ impl<F: Field> Frame<F> {
                             Reference::LocalRef(LocalRef { loc, .. }) => {
                                 let frame_index = loc.frame_index;
                                 let index = loc.index;
-                                let flattened_value: LocatedFlattenedValue<F> =
+                                let flattened_value: LocatedFlattenedValue =
                                     LocatedValue(ValueLocation::Local(loc), &value).into();
                                 let flattened_value_len = flattened_value.0.len();
                                 execution_step.locals_index = index;
@@ -327,7 +326,7 @@ impl<F: Field> Frame<F> {
                                             },
                                             &value,
                                         );
-                                        let flattened_value: LocatedFlattenedValue<F> =
+                                        let flattened_value: LocatedFlattenedValue =
                                             indexed_value.into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.auxiliary_2 =
@@ -353,7 +352,7 @@ impl<F: Field> Frame<F> {
                                             },
                                             &value,
                                         );
-                                        let flattened_value: LocatedFlattenedValue<F> =
+                                        let flattened_value: LocatedFlattenedValue =
                                             indexed_value.into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.locals_index = index;
@@ -382,7 +381,7 @@ impl<F: Field> Frame<F> {
 
                         match reference {
                             Reference::LocalRef(LocalRef { loc, .. }) => {
-                                let flattened_value: LocatedFlattenedValue<F> =
+                                let flattened_value: LocatedFlattenedValue =
                                     LocatedValue(ValueLocation::Local(loc), &value).into();
                                 let flattened_value_len = flattened_value.0.len();
                                 execution_step.locals_index = loc.index;
@@ -395,7 +394,7 @@ impl<F: Field> Frame<F> {
                             }
                             Reference::GlobalRef(GlobalRef { loc, .. }) => {
                                 let (account_addr, sd_idx) = (loc.address, loc.sd_index);
-                                let flattened_value: LocatedFlattenedValue<F> =
+                                let flattened_value: LocatedFlattenedValue =
                                     LocatedValue(ValueLocation::Global(loc), &value).into();
 
                                 execution_step.auxiliary_2 = Some(Value::address(account_addr));
@@ -415,15 +414,14 @@ impl<F: Field> Frame<F> {
                             }) => {
                                 match container_ref {
                                     ContainerRef::Local(vloc, _) => {
-                                        let flattened_value: LocatedFlattenedValue<F> =
-                                            LocatedValue(
-                                                IndexedLocation {
-                                                    sub_indexes,
-                                                    value_loc: ValueLocation::Local(vloc),
-                                                },
-                                                &value,
-                                            )
-                                            .into();
+                                        let flattened_value: LocatedFlattenedValue = LocatedValue(
+                                            IndexedLocation {
+                                                sub_indexes,
+                                                value_loc: ValueLocation::Local(vloc),
+                                            },
+                                            &value,
+                                        )
+                                        .into();
                                         let flattened_value_len = flattened_value.0.len();
                                         execution_step.locals_index = vloc.index;
                                         execution_step.auxiliary_2 =
@@ -439,15 +437,14 @@ impl<F: Field> Frame<F> {
                                     }
                                     ContainerRef::Global(vloc, _) => {
                                         let (account_addr, sd_idx) = (vloc.address, vloc.sd_index);
-                                        let flattened_value: LocatedFlattenedValue<F> =
-                                            LocatedValue(
-                                                IndexedLocation {
-                                                    sub_indexes,
-                                                    value_loc: ValueLocation::Global(vloc),
-                                                },
-                                                &value,
-                                            )
-                                            .into();
+                                        let flattened_value: LocatedFlattenedValue = LocatedValue(
+                                            IndexedLocation {
+                                                sub_indexes,
+                                                value_loc: ValueLocation::Global(vloc),
+                                            },
+                                            &value,
+                                        )
+                                        .into();
 
                                         execution_step.auxiliary_2 =
                                             Some(Value::address(account_addr));
@@ -495,13 +492,11 @@ impl<F: Field> Frame<F> {
                         interp.stack.push(field_ref.into(), rw_operations)
                     }
                     Bytecode::LdTrue => {
-                        let constant = F::ONE;
-                        let value = Value::new(constant, MoveValueType::Bool)?;
+                        let value = Value::new(1u128, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::LdFalse => {
-                        let constant = F::ZERO;
-                        let value = Value::new(constant, MoveValueType::Bool)?;
+                        let value = Value::new(0u128, MoveValueType::Bool)?;
                         interp.stack.push(value, rw_operations)
                     }
                     Bytecode::BrTrue(offset) => {
@@ -510,7 +505,7 @@ impl<F: Field> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::ONE {
+                        if cond == 1u128 {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
@@ -525,7 +520,7 @@ impl<F: Field> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        if cond == F::ZERO {
+                        if cond == 0u128 {
                             trace!("step #{}, {:?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
@@ -550,7 +545,7 @@ impl<F: Field> Frame<F> {
                             interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
-                        let error_code = value.get_lower_128(); // fixme should cast to u64?
+                        let error_code = value; // fixme should cast to u64?
                         return Err(RuntimeError::new(StatusCode::MoveAbort).with_message(
                             format!(
                                 "Move bytecode {} aborted with error code {}",
@@ -951,7 +946,7 @@ impl<F: Field> Frame<F> {
 
                         // emit read op for vec header
                         let vec = vec_ref.read_ref()?;
-                        let flattened_value: LocatedFlattenedValue<F> = match vec_ref.location()? {
+                        let flattened_value: LocatedFlattenedValue = match vec_ref.location()? {
                             Location::ValueLocation(l) => LocatedValue(l, &vec).into(),
                             Location::IndexedLocation(l) => LocatedValue(l, &vec).into(),
                         };
@@ -1021,8 +1016,8 @@ impl<F: Field> Frame<F> {
                         let value_idx = vec_ref.length()? - 1;
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
                         let (value_loc, value) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
-                        let flattened_value: LocatedFlattenedValue<F> =
+                            VmResult::<(IndexedLocation, Value)>::from(value_ref)?;
+                        let flattened_value: LocatedFlattenedValue =
                             LocatedValue(value_loc, &value).into();
                         let is_global = vec_ref.is_global();
                         if is_global {
@@ -1097,8 +1092,8 @@ impl<F: Field> Frame<F> {
                         let value_idx = vec_ref.length()? - 1;
                         let value_ref = vec_ref.try_borrow_elem(value_idx)?;
                         let (value_loc, value) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(value_ref)?;
-                        let flattened_value: LocatedFlattenedValue<F> =
+                            VmResult::<(IndexedLocation, Value)>::from(value_ref)?;
+                        let flattened_value: LocatedFlattenedValue =
                             LocatedValue(value_loc, &value).into();
                         let is_global = vec_ref.is_global();
                         if is_global {
@@ -1197,9 +1192,9 @@ impl<F: Field> Frame<F> {
                         let elem_a_ref = vec_ref.try_borrow_elem(idx_a)?;
                         let elem_b_ref = vec_ref.try_borrow_elem(idx_b)?;
                         let (elem_a_loc, elem_a) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_a_ref)?;
+                            VmResult::<(IndexedLocation, Value)>::from(elem_a_ref)?;
                         let (elem_b_loc, elem_b) =
-                            VmResult::<(IndexedLocation<F>, Value<F>)>::from(elem_b_ref)?;
+                            VmResult::<(IndexedLocation, Value)>::from(elem_b_ref)?;
 
                         let is_global = vec_ref.is_global();
                         if is_global {
@@ -1278,8 +1273,8 @@ impl<F: Field> Frame<F> {
     }
 }
 
-pub enum ExitStatus<F: Field> {
-    Return(ExecutionStep<F>),
-    Call(FunctionHandleIndex, ExecutionStep<F>),
-    CallGeneric(FunctionInstantiationIndex, ExecutionStep<F>),
+pub enum ExitStatus {
+    Return(ExecutionStep),
+    Call(FunctionHandleIndex, ExecutionStep),
+    CallGeneric(FunctionInstantiationIndex, ExecutionStep),
 }

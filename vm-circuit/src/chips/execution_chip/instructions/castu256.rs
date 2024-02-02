@@ -14,7 +14,6 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use movelang::value::NUM_OF_BYTES_U128;
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET, UPPER_FIELD_OFFSET};
-use std::convert::TryInto;
 use types::Field;
 
 use super::common::get_field_from_op;
@@ -59,8 +58,8 @@ impl<F: Field> InstructionGadget<F> for CastU256<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
@@ -70,7 +69,7 @@ impl<F: Field> InstructionGadget<F> for CastU256<F> {
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
         // value_c upper 128 bit
-        let cast_result = get_field_from_op(
+        let cast_result = get_field_from_op::<F>(
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE + UPPER_FIELD_OFFSET,
         )?;
@@ -85,7 +84,7 @@ impl<F: Field> InstructionGadget<F> for CastU256<F> {
         }
 
         // value_c lower 128 bit
-        let cast_result = get_field_from_op(
+        let cast_result = get_field_from_op::<F>(
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
         )?;

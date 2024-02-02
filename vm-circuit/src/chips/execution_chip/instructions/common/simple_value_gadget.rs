@@ -30,7 +30,7 @@ impl<F: Field> SimpleValueCells<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         op_index: usize,
     ) -> Result<(), Error> {
         for i in 0..LEN_OF_SIMPLE_VALUE {
@@ -67,7 +67,7 @@ impl<F: Field> SimpleValueGadget<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         op_index: usize,
     ) -> Result<(), Error> {
         let header_value = get_field_from_op(rw_operations, op_index)?;

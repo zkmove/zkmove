@@ -6,7 +6,6 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Runtime;
-use types::Field;
 
 #[cfg(not(target_arch = "wasm32"))]
 use web3::transports::Http;
@@ -16,20 +15,15 @@ use web3::types::{Address, BlockId, H256, U256};
 use web3::Web3;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn native_get_block_hash<F: Field>(
-    context: &mut NativeContext<F>,
+pub fn native_get_block_hash(
+    context: &mut NativeContext,
     ty_args: Vec<Type>,
-    mut args: VecDeque<Value<F>>,
-) -> VmResult<Value<F>> {
+    mut args: VecDeque<Value>,
+) -> VmResult<Value> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 1);
-    let block_number = args
-        .pop_back()
-        .unwrap()
-        .castu64()?
-        .value()
-        .unwrap()
-        .get_lower_128() as u64;
+
+    let block_number = args.pop_back().unwrap().castu64()?.value().unwrap() as u64;
     let web3client = context.extensions().get::<&Web3<Http>>();
     let tokio_runtime = context.extensions().get::<&Runtime>();
 
@@ -42,38 +36,33 @@ pub fn native_get_block_hash<F: Field>(
     } else {
         H256::zero()
     };
-    let ret_ = Value::<F>::vector_u8(block_hash.to_fixed_bytes());
+    let ret_ = Value::vector_u8(block_hash.to_fixed_bytes());
     Ok(ret_)
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn native_get_block_hash<F: Field>(
-    _context: &mut NativeContext<F>,
+pub fn native_get_block_hash(
+    _context: &mut NativeContext,
     ty_args: Vec<Type>,
-    args: VecDeque<Value<F>>,
-) -> VmResult<Value<F>> {
+    args: VecDeque<Value>,
+) -> VmResult<Value> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 1);
     Ok(Value::u64(0))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn native_get_slot<F: Field>(
-    context: &mut NativeContext<F>,
+pub fn native_get_slot(
+    context: &mut NativeContext,
     ty_args: Vec<Type>,
-    mut args: VecDeque<Value<F>>,
-) -> VmResult<Value<F>> {
+    mut args: VecDeque<Value>,
+) -> VmResult<Value> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 3);
-    let slot = args
-        .pop_back()
-        .unwrap()
-        .castu128()?
-        .value()
-        .unwrap()
-        .get_lower_128();
+
+    let slot = args.pop_back().unwrap().castu128()?.value().unwrap();
     let address = args.pop_back().unwrap().as_vector_u8()?;
-    let block_number = args.pop_back().unwrap().value().unwrap().get_lower_128() as u64;
+    let block_number = args.pop_back().unwrap().value().unwrap() as u64;
 
     let web3client = context.extensions().get::<&Web3<Http>>();
     let tokio_runtime = context.extensions().get::<&Runtime>();
@@ -86,25 +75,25 @@ pub fn native_get_slot<F: Field>(
         ))
         .unwrap();
 
-    let ret_ = Value::<F>::vector_u8(slot.to_fixed_bytes());
+    let ret_ = Value::vector_u8(slot.to_fixed_bytes());
     Ok(ret_)
 }
 #[cfg(target_arch = "wasm32")]
-pub fn native_get_slot<F: Field>(
-    _context: &mut NativeContext<F>,
+pub fn native_get_slot(
+    _context: &mut NativeContext,
     ty_args: Vec<Type>,
-    args: VecDeque<Value<F>>,
-) -> VmResult<Value<F>> {
+    args: VecDeque<Value>,
+) -> VmResult<Value> {
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 3);
     Ok(Value::u64(0))
 }
 
-pub fn make_all_field_version<F: Field>() -> impl IntoIterator<Item = (String, NativeFunction<F>)> {
-    fn make_native_get_block_hash<F: Field>() -> NativeFunction<F> {
+pub fn make_all_field_version() -> impl IntoIterator<Item = (String, NativeFunction)> {
+    fn make_native_get_block_hash() -> NativeFunction {
         Arc::new(native_get_block_hash)
     }
-    fn make_native_get_slot<F: Field>() -> NativeFunction<F> {
+    fn make_native_get_slot() -> NativeFunction {
         Arc::new(native_get_slot)
     }
     [

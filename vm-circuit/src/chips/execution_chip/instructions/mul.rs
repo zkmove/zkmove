@@ -66,8 +66,8 @@ impl<F: Field> InstructionGadget<F> for Mul<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
@@ -92,9 +92,9 @@ impl<F: Field> InstructionGadget<F> for Mul<F> {
         )?;
 
         // muladd_gadget assign
-        let b = get_u256_from_op(rw_operations, step.gc)?;
-        let a = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
-        let res = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let b = get_u256_from_op::<F>(rw_operations, step.gc)?;
+        let a = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let res = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
         let words = [a, b, U256::zero(), res];
         self.muladd_words_gadget.assign(region, offset, words)?;
         Ok(())

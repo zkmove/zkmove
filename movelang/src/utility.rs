@@ -10,6 +10,18 @@ use types::Field;
 
 /// Takes U256, converts to bytes32 (big endian) and
 /// returns (bytes[16..], bytes[..16]) represented as big endian numbers in the prime field
+pub fn convert_u256_to_u128_pair(input: &U256) -> [u128; 2] {
+    let bytes = input.to_le_bytes();
+    let mut data = [0u8; 16];
+    data.copy_from_slice(&bytes[16..]);
+    let v1 = u128::from_le_bytes(data);
+    data.copy_from_slice(&bytes[..16]);
+    let v2 = u128::from_le_bytes(data);
+    [v1, v2]
+}
+
+/// Takes U256, converts to bytes32 (big endian) and
+/// returns (bytes[16..], bytes[..16]) represented as big endian numbers in the prime field
 pub fn convert_u256_to_field<F: Field>(input: &U256) -> [F; 2] {
     let bytes = input.to_le_bytes();
     // repr is in little endian
@@ -32,6 +44,14 @@ pub fn convert_u256_to_fe<F: Field>(input: U256) -> F {
     F::from_repr(repr).unwrap()
 }
 
+pub fn decode_u128_pair_to_u256(fe: &[u128]) -> U256 {
+    assert_eq!(fe.len(), 2);
+    let mut bytes = [0u8; 32];
+    bytes[16..].copy_from_slice(&fe[0].to_le_bytes());
+    bytes[..16].copy_from_slice(&fe[1].to_le_bytes());
+    U256::from_le_bytes(&bytes)
+}
+
 pub fn decode_field_to_u256<F: Field>(fe: &[F]) -> U256 {
     assert_eq!(fe.len(), 2);
     let mut bytes = [0u8; 32];
@@ -45,6 +65,24 @@ pub fn modulus<F: Field>() -> U256 {
     let mut bytes = [0u8; 32];
     bytes.copy_from_slice((-F::ONE).to_repr().as_ref());
     U256::from_le_bytes(&bytes) + U256::one()
+}
+
+pub fn convert_to_u128(value: MoveValue) -> u128 {
+    match value {
+        U8(u) => u as u128,
+        U16(u) => u as u128,
+        U32(u) => u as u128,
+        U64(u) => u as u128,
+        U128(u) => u,
+        Bool(b) => {
+            if b {
+                1u128
+            } else {
+                0u128
+            }
+        }
+        _ => unimplemented!(),
+    }
 }
 
 pub fn convert_to_field<F: Field>(value: MoveValue) -> F {

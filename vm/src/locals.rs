@@ -8,13 +8,12 @@ use movelang::value::{
 use movelang::value_ext::LocatedFlattenedValue;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
-use types::Field;
 use vm_circuit::witness::rw_operations::{LocalsOp, RWOperation, RW};
 
 #[derive(Clone)]
-pub struct Locals<F: Field>(Vec<Rc<RefCell<Value<F>>>>);
+pub struct Locals(Vec<Rc<RefCell<Value>>>);
 
-impl<F: Field> Locals<F> {
+impl Locals {
     pub fn new(size: usize) -> Self {
         Self(
             vec![Value::Invalid; size]
@@ -28,15 +27,15 @@ impl<F: Field> Locals<F> {
         &self,
         index: usize,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Value<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<Value> {
         match self.0.get(index) {
             Some(v) => {
                 if matches!(&*v.borrow(), Value::Invalid) {
                     Err(RuntimeError::new(StatusCode::CopyLocalError))
                 } else {
                     let copied_value = v.borrow().copy_value();
-                    let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+                    let flattened_value: LocatedFlattenedValue = LocatedValue(
                         ValueLocation::Local(LocalLocation {
                             frame_index: FrameIndex(frame_index),
                             index,
@@ -56,9 +55,9 @@ impl<F: Field> Locals<F> {
     pub fn store(
         &self,
         index: usize,
-        value: Value<F>,
+        value: Value,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
+        rw_operations: &mut Vec<RWOperation>,
     ) -> VmResult<()> {
         match self.0.get(index) {
             Some(v) => {
@@ -72,7 +71,7 @@ impl<F: Field> Locals<F> {
                         );
                     }
                 }
-                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+                let flattened_value: LocatedFlattenedValue = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
                         index,
@@ -92,8 +91,8 @@ impl<F: Field> Locals<F> {
         &self,
         index: usize,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Value<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<Value> {
         let value_cell = self
             .0
             .get(index)
@@ -102,7 +101,7 @@ impl<F: Field> Locals<F> {
         match old_value {
             Value::Invalid => Err(RuntimeError::new(StatusCode::MoveLocalError)),
             v => {
-                let flattened_value: LocatedFlattenedValue<F> = LocatedValue(
+                let flattened_value: LocatedFlattenedValue = LocatedValue(
                     ValueLocation::Local(LocalLocation {
                         frame_index: FrameIndex(frame_index),
                         index,
@@ -138,8 +137,8 @@ impl<F: Field> Locals<F> {
         &self,
         index: usize,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<LocalRef<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<LocalRef> {
         let value_cell = self
             .0
             .get(index)
@@ -161,7 +160,7 @@ impl<F: Field> Locals<F> {
                     frame_index: FrameIndex(frame_index),
                     index,
                 };
-                let flattened_value: LocatedFlattenedValue<F> =
+                let flattened_value: LocatedFlattenedValue =
                     LocatedValue(ValueLocation::Local(loc), v).into();
                 emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(LocalRef {
@@ -177,8 +176,8 @@ impl<F: Field> Locals<F> {
         &self,
         index: usize,
         frame_index: usize,
-        rw_operations: &mut Vec<RWOperation<F>>,
-    ) -> VmResult<Value<F>> {
+        rw_operations: &mut Vec<RWOperation>,
+    ) -> VmResult<Value> {
         let value_cell = self
             .0
             .get(index)
@@ -190,7 +189,7 @@ impl<F: Field> Locals<F> {
         match &*value_cell.borrow() {
             Value::Invalid => Err(RuntimeError::new(StatusCode::ImmBorrowLocalError)),
             v => {
-                let flattened_value: LocatedFlattenedValue<F> =
+                let flattened_value: LocatedFlattenedValue =
                     LocatedValue(ValueLocation::Local(loc), v).into();
                 emit_locals_ops(flattened_value, RW::READ, rw_operations);
                 Ok(v.copy_value())
@@ -199,7 +198,7 @@ impl<F: Field> Locals<F> {
     }
 }
 
-impl<F: Field> Locals<F> {
+impl Locals {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -209,11 +208,11 @@ impl<F: Field> Locals<F> {
     }
 }
 
-pub fn emit_locals_op<F: Field>(
-    address_path: AddressPath<F>,
-    value: SimpleValue<F>,
+pub fn emit_locals_op(
+    address_path: AddressPath,
+    value: SimpleValue,
     rw: RW,
-    rw_operations: &mut Vec<RWOperation<F>>,
+    rw_operations: &mut Vec<RWOperation>,
 ) {
     let locals_op = LocalsOp {
         frame_index: *address_path
@@ -230,11 +229,7 @@ pub fn emit_locals_op<F: Field>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_locals_ops<F: Field>(
-    value: LocatedFlattenedValue<F>,
-    rw: RW,
-    rw_operations: &mut Vec<RWOperation<F>>,
-) {
+pub fn emit_locals_ops(value: LocatedFlattenedValue, rw: RW, rw_operations: &mut Vec<RWOperation>) {
     for (address_path, val) in value.0 {
         emit_locals_op(address_path, val, rw, rw_operations)
     }

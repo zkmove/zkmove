@@ -28,8 +28,8 @@ impl<F: Field> InstructionGadget<F> for Stop<F> {
         &self,
         _region: &mut Region<'_, F>,
         _offset: usize,
-        _step: &ExecutionStep<F>,
-        _rw_table: &RWOperations<F>,
+        _step: &ExecutionStep,
+        _rw_table: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         Ok(())
