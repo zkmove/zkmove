@@ -8,9 +8,8 @@ use move_core_types::parser::parse_transaction_arguments;
 
 use std::str::FromStr;
 
-use crate::account_address::AccountAddress;
-use crate::utility::convert_u256_to_u128_pair;
 use crate::utility::MoveValueType;
+use crate::value::Value;
 pub use move_core_types::identifier::{IdentStr, Identifier};
 pub use move_core_types::parser::parse_transaction_argument;
 pub use move_core_types::parser::parse_type_tags;
@@ -57,25 +56,16 @@ impl Signer {
     }
 }
 
-pub fn convert_from(arg: ScriptArgument) -> VmResult<u128> {
+pub fn argument_value(arg: ScriptArgument) -> VmResult<Value> {
     match arg {
-        ScriptArgument::U8(v) => Ok(v as u128),
-        ScriptArgument::U16(v) => Ok(v as u128),
-        ScriptArgument::U32(v) => Ok(v as u128),
-        ScriptArgument::U64(v) => Ok(v as u128),
-        ScriptArgument::U128(v) => Ok(v),
-        ScriptArgument::Bool(v) => Ok(if v { 1u128 } else { 0u128 }),
-        ScriptArgument::Address(v) => Ok(AccountAddress::from(v).value()),
-        _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
-    }
-}
-
-pub fn convert_from_u256(arg: ScriptArgument) -> VmResult<[u128; 2]> {
-    match arg {
-        ScriptArgument::U256(v) => {
-            let res = convert_u256_to_u128_pair(&v);
-            Ok(res)
-        }
+        ScriptArgument::U8(v) => Ok(Value::U8(v)),
+        ScriptArgument::U16(v) => Ok(Value::U16(v)),
+        ScriptArgument::U32(v) => Ok(Value::U32(v)),
+        ScriptArgument::U64(v) => Ok(Value::U64(v)),
+        ScriptArgument::U128(v) => Ok(Value::U128(v)),
+        ScriptArgument::U256(v) => Ok(Value::U256(v)),
+        ScriptArgument::Bool(v) => Ok(Value::Bool(v)),
+        ScriptArgument::Address(v) => Ok(Value::Address(v.into())),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
     }
 }

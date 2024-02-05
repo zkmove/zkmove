@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use error::{RuntimeError, StatusCode, VmResult};
 pub use move_core_types::u256;
 pub use move_core_types::u256::U256;
 pub use move_core_types::value::MoveValue;
@@ -103,38 +102,6 @@ pub fn convert_to_field<F: Field>(value: MoveValue) -> F {
     }
 }
 
-pub fn move_div(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_div(l, r).map(U8),
-        (U16(l), U16(r)) => u16::checked_div(l, r).map(U16),
-        (U32(l), U32(r)) => u32::checked_div(l, r).map(U32),
-        (U64(l), U64(r)) => u64::checked_div(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_div(l, r).map(U128),
-        (U256(l), U256(r)) => u256::U256::checked_div(l, r).map(U256),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
-}
-
-pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_rem(l, r).map(U8),
-        (U16(l), U16(r)) => u16::checked_rem(l, r).map(U16),
-        (U32(l), U32(r)) => u32::checked_rem(l, r).map(U32),
-        (U64(l), U64(r)) => u64::checked_rem(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_rem(l, r).map(U128),
-        (U256(l), U256(r)) => u256::U256::checked_rem(l, r).map(U256),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,14 +175,5 @@ mod tests {
         debug!("multiple field value is: {:?}", c);
         debug!("single field val is: {:?}", d);
         debug!(" {:x}", e);
-        // 10 / 2 = 5 and 10 % 3 = 1
-        debug!(
-            "10 div 2 into {:?}",
-            move_div(U256(U256::from(10u32)), U256(U256::from(2u32)))
-        );
-        debug!(
-            "10 rem 3 into {:?}",
-            move_rem(U256(U256::from(10u32)), U256(U256::from(3u32)))
-        );
     }
 }

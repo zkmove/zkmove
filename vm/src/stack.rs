@@ -223,7 +223,7 @@ impl EvalStack {
             Self::emit_stack_ops(flattened_value, RW::READ, rw_operations);
 
             match value {
-                Value::U64(v) => Ok(v.0 as u64),
+                Value::U64(v) => Ok(v),
                 v => Err(RuntimeError::new(StatusCode::TypeMismatch)
                     .with_message(format!("cannot pop {:?} as U64", v))),
             }

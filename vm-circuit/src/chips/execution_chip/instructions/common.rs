@@ -9,6 +9,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::{Cell, DeltaInvert, Expr, FieldBytes};
 use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::{RWOperations, RW};
+use move_core_types::u256;
 use types::Field;
 
 use error::{RuntimeError, StatusCode, VmResult};
@@ -16,7 +17,7 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Error, Expression};
 use itertools::izip;
 use logger::prelude::*;
-use movelang::utility::{decode_field_to_u256, decode_u128_pair_to_u256, MoveValueType, U256};
+use movelang::utility::{decode_field_to_u256, U256};
 use movelang::value::{
     Value, DEPTH_OF_LOCATION_PATH, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32,
     NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
@@ -133,7 +134,7 @@ impl<F: Field> BinaryOp<F> {
         })?;
 
         // auxiliary_1 is lower field. auxiliary_2 is upper field
-        if aux_value.ty() == MoveValueType::U256 {
+        if let Value::U256(_) = aux_value {
             let v = aux_value.field_value_u256().expect("should U256 value");
             cells.auxiliary_1.assign(region, offset, Some(v[1]))?;
             cells.auxiliary_2.assign(region, offset, Some(v[0]))?;
@@ -544,7 +545,7 @@ impl<F: Field> Word<F> {
                 error!("step value {:?} is None", step_value);
                 Error::Synthesis
             })?
-            .value()
+            .to_u128()
             .unwrap() as u32;
 
         // offset within addr_ext is address length sub DEPTH_OF_LOCATION_PATH.
@@ -1018,11 +1019,11 @@ pub(crate) fn get_u256_from_op<F: Field>(
 }
 
 pub(crate) fn get_u256_from_value(value: Value) -> Result<U256, Error> {
-    if value.ty() == MoveValueType::U256 {
-        let f = value.value_u256().unwrap();
-        Ok(decode_u128_pair_to_u256(&f))
+    if let Value::U256(_) = value {
+        let v = u256::U256::try_from(&value).unwrap();
+        Ok(v)
     } else {
-        let v = value.value().ok_or_else(|| {
+        let v = value.to_u128().ok_or_else(|| {
             error!("upper field is None");
             Error::Synthesis
         })?;

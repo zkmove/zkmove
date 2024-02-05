@@ -23,7 +23,7 @@ pub fn native_get_block_hash(
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 1);
 
-    let block_number = args.pop_back().unwrap().castu64()?.value().unwrap() as u64;
+    let block_number = args.pop_back().unwrap().castu64()?.to_u128().unwrap() as u64;
     let web3client = context.extensions().get::<&Web3<Http>>();
     let tokio_runtime = context.extensions().get::<&Runtime>();
 
@@ -60,9 +60,9 @@ pub fn native_get_slot(
     debug_assert_eq!(ty_args.len(), 0);
     debug_assert_eq!(args.len(), 3);
 
-    let slot = args.pop_back().unwrap().castu128()?.value().unwrap();
+    let slot = args.pop_back().unwrap().castu128()?.to_u128().unwrap();
     let address = args.pop_back().unwrap().as_vector_u8()?;
-    let block_number = args.pop_back().unwrap().value().unwrap() as u64;
+    let block_number = args.pop_back().unwrap().to_u128().unwrap() as u64;
 
     let web3client = context.extensions().get::<&Web3<Http>>();
     let tokio_runtime = context.extensions().get::<&Runtime>();

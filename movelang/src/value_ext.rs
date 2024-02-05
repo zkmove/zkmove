@@ -1,8 +1,9 @@
 // Copyright (c) zkMove Authors
 
+use crate::utility::{convert_u256_to_u128_pair, u256};
 use crate::value::{
     AddressPath, Container, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue,
-    Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH, U128, U256,
+    Location, Reference, SimpleValue, Value, ValueLocation, DEPTH_OF_LOCATION_PATH,
 };
 use halo2_proofs::plonk::Expression;
 use std::convert::{From, TryFrom, TryInto};
@@ -100,12 +101,13 @@ impl From<FlattenedSimpleValue> for FlattenedValue {
 #[derive(Clone, Debug)]
 pub struct FlattenedU256(pub [(Vec<u128>, SimpleValue); LEN_OF_SIMPLE_VALUE]);
 
-impl From<U256> for FlattenedU256 {
-    fn from(value: U256) -> FlattenedU256 {
+impl From<u256::U256> for FlattenedU256 {
+    fn from(value: u256::U256) -> FlattenedU256 {
+        let f = convert_u256_to_u128_pair(&value);
         FlattenedU256([
             (vec![0u128], ValueHeader::default_for_u256().into()),
-            (vec![1u128], SimpleValue::U128(U128(value.1))),
-            (vec![2u128], SimpleValue::U128(U128(value.0))),
+            (vec![1u128], SimpleValue::U128(f[1])),
+            (vec![2u128], SimpleValue::U128(f[0])),
         ])
     }
 }
@@ -123,7 +125,7 @@ impl FlattenedReferenceValue {
         let mut value: u128 = 0;
         for (i, (_, val)) in simples.iter().skip(DEPTH_OF_LOCATION_PATH + 1).enumerate() {
             // fold addr_ext into one cell
-            let x = val.value().expect("value should not be None.");
+            let x = val.to_u128().expect("value should not be None.");
             value += x << (16 * i);
         }
 
@@ -183,7 +185,7 @@ impl From<Reference> for FlattenedReferenceValue {
 
         let mut simples = ref_paths
             .into_iter()
-            .map(|v| SimpleValue::U128(U128(v)))
+            .map(SimpleValue::U128)
             .collect::<Vec<_>>();
 
         simples.insert(0, ValueHeader::default_for_ref_val().into());
@@ -347,7 +349,7 @@ impl ValueHeader {
 
 impl From<ValueHeader> for SimpleValue {
     fn from(value: ValueHeader) -> SimpleValue {
-        SimpleValue::U128(U128(value.value()))
+        SimpleValue::U128(value.value())
     }
 }
 

@@ -11,7 +11,7 @@ use logger::prelude::*;
 use move_binary_format::file_format::{Bytecode, FunctionHandleIndex, FunctionInstantiationIndex};
 use move_vm_runtime::loader::Function;
 use movelang::generic_call_graph::{Edge, GenericCallGraph, Node, NodeIndex, NodeInternal};
-use movelang::utility::{convert_u256_to_u128_pair, MoveValueType};
+use movelang::utility::MoveValueType;
 use movelang::value::{
     ContainerRef, GlobalRef, IndexedLocation, IndexedRef, LocalRef, LocatedValue, Location,
     Reference, Value, ValueLocation,
@@ -168,36 +168,12 @@ impl Frame {
                         execution_step.auxiliary_2 = Some(Value::u64(flattened_value_len as u64));
                         interp.stack.push(val, rw_operations)
                     }
-                    Bytecode::LdU8(v) => {
-                        let constant = *v as u128;
-                        let value = Value::new(constant, MoveValueType::U8)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdU16(v) => {
-                        let constant = *v as u128;
-                        let value = Value::new(constant, MoveValueType::U16)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdU32(v) => {
-                        let constant = *v as u128;
-                        let value = Value::new(constant, MoveValueType::U32)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdU64(v) => {
-                        let constant = *v as u128;
-                        let value = Value::new(constant, MoveValueType::U64)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdU128(v) => {
-                        let constant = *v;
-                        let value = Value::new(constant, MoveValueType::U128)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdU256(v) => {
-                        let constant = convert_u256_to_u128_pair(v);
-                        let value = Value::new_u256(constant);
-                        interp.stack.push(value, rw_operations)
-                    }
+                    Bytecode::LdU8(v) => interp.stack.push(Value::u8(*v), rw_operations),
+                    Bytecode::LdU16(v) => interp.stack.push(Value::u16(*v), rw_operations),
+                    Bytecode::LdU32(v) => interp.stack.push(Value::u32(*v), rw_operations),
+                    Bytecode::LdU64(v) => interp.stack.push(Value::u64(*v), rw_operations),
+                    Bytecode::LdU128(v) => interp.stack.push(Value::u128(*v), rw_operations),
+                    Bytecode::LdU256(v) => interp.stack.push(Value::u256(*v), rw_operations),
                     Bytecode::Pop => {
                         let value = interp.stack.pop(rw_operations)?;
                         let flattened_value_len = FlattenedValue::from(&value).0.len();
@@ -491,18 +467,12 @@ impl Frame {
                         execution_step.auxiliary_3 = Some(Value::u64(flattened_value_len as u64));
                         interp.stack.push(field_ref.into(), rw_operations)
                     }
-                    Bytecode::LdTrue => {
-                        let value = Value::new(1u128, MoveValueType::Bool)?;
-                        interp.stack.push(value, rw_operations)
-                    }
-                    Bytecode::LdFalse => {
-                        let value = Value::new(0u128, MoveValueType::Bool)?;
-                        interp.stack.push(value, rw_operations)
-                    }
+                    Bytecode::LdTrue => interp.stack.push(Value::bool(true), rw_operations),
+                    Bytecode::LdFalse => interp.stack.push(Value::bool(false), rw_operations),
                     Bytecode::BrTrue(offset) => {
                         execution_step.auxiliary_1 = Some(Value::u64(*offset as u64));
                         let cond =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.to_u128().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == 1u128 {
@@ -517,7 +487,7 @@ impl Frame {
                     Bytecode::BrFalse(offset) => {
                         execution_step.auxiliary_1 = Some(Value::u64(*offset as u64));
                         let cond =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.to_u128().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == 0u128 {
@@ -542,7 +512,7 @@ impl Frame {
                         exec_steps.push(execution_step);
 
                         let value =
-                            interp.stack.pop(rw_operations)?.value().ok_or_else(|| {
+                            interp.stack.pop(rw_operations)?.to_u128().ok_or_else(|| {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         let error_code = value; // fixme should cast to u64?

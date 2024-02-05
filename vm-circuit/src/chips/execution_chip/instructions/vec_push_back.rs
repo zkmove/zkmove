@@ -296,7 +296,7 @@ impl<F: Field> InstructionGadget<F> for VecPushBack<F> {
     ) -> Result<(), Error> {
         let _si = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         // auxiliary_2 is multiplexed by header_len and value_index.
-        let val = step.auxiliary_2.as_ref().unwrap().value().unwrap();
+        let val = step.auxiliary_2.as_ref().unwrap().to_u128().unwrap();
         let container_headers_count = (val & 0xFF) as usize;
         let value_index = ((val >> 8) & 0xFFFF) as usize; // max value_index is 2^16 - 1
         self.container_headers_count.assign(

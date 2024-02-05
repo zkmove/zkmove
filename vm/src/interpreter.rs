@@ -12,7 +12,7 @@ use move_vm_runtime::loader::{Function, Resolver};
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::account_address::AccountAddress;
-use movelang::argument::{argument_type, convert_from, convert_from_u256, ScriptArguments, Signer};
+use movelang::argument::{argument_type, argument_value, ScriptArguments, Signer};
 use movelang::generic_call_graph::{GenericCallGraph, Node, NodeInternal};
 use movelang::utility::MoveValueType;
 use movelang::value::{GlobalRef, GlobalResourceDefIndex, GlobalValue, Value};
@@ -83,9 +83,15 @@ impl Interpreter {
             let arg = &signer_and_args[i];
             let arg_type = argument_type(arg)?;
 
+            let val = argument_value(arg.clone())?;
             if arg_type != *expect_type {
                 if *expect_type == MoveValueType::Signer && arg_type == MoveValueType::Address {
-                    // it's signer's address, do nothing
+                    match val {
+                        Value::Address(v) => {
+                            locals.store(i, Value::signer(v), frame_index, rw_operations)?;
+                        }
+                        _ => unreachable!(),
+                    }
                 } else {
                     return Err(
                         RuntimeError::new(StatusCode::ArgumentsTypeMismatch).with_message(format!(
@@ -94,19 +100,8 @@ impl Interpreter {
                         )),
                     );
                 }
-            }
-
-            if arg_type == MoveValueType::U256 {
-                let arg_value = convert_from_u256(arg.clone())?;
-                locals.store(i, Value::new_u256(arg_value), frame_index, rw_operations)?;
             } else {
-                let arg_value = convert_from(arg.clone())?;
-                locals.store(
-                    i,
-                    Value::new(arg_value, expect_type.clone())?,
-                    frame_index,
-                    rw_operations,
-                )?;
+                locals.store(i, val, frame_index, rw_operations)?;
             }
         }
 

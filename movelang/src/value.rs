@@ -2,9 +2,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::account_address::AccountAddress;
-use crate::utility::{
-    convert_to_u128, convert_u256_to_u128_pair, decode_u128_pair_to_u256, move_div, move_rem, u256,
-};
+use crate::utility::{convert_u256_to_u128_pair, u256};
 use crate::utility::{MoveValue, MoveValueType};
 use crate::value_ext::{FlattenedContainerValue, FlattenedValue};
 use error::{RuntimeError, StatusCode, VmResult};
@@ -25,28 +23,6 @@ pub const NUM_OF_BYTES_U128: usize = 16;
 pub const NUM_OF_BYTES_U256: usize = 32;
 pub const DEPTH_OF_LOCATION_PATH: usize = 2; // max(global location, locals location, stack location)
 pub const DEPTH_OF_ADDRESS_PATH: usize = DEPTH_OF_LOCATION_PATH + 8;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U8(pub u128);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U16(pub u128);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U32(pub u128);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U64(pub u128);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U128(pub u128);
-
-/// (upper 128 bit, lower 128 bit)
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct U256(pub u128, pub u128);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Bool(pub u128);
 
 /// Index of a frame
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -118,37 +94,30 @@ impl AddressPath {
     }
 }
 
-// impl U256 {
-//     fn from(value: U256) -> MoveValue {
-//         MoveValue::U256(decode_u128_pair_to_u256(&[value.0, value.1]))
-//     }
-// }
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SimpleValue {
-    U8(U8),
-    U16(U16),
-    U32(U32),
-    U64(U64),
-    U128(U128),
-    Bool(Bool),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+    Bool(bool),
     Address(AccountAddress),
 }
 
 impl From<SimpleValue> for MoveValue {
     fn from(value: SimpleValue) -> MoveValue {
         match value {
-            SimpleValue::U8(field) => MoveValue::U8(field.0 as u8),
-            SimpleValue::U16(field) => MoveValue::U16(field.0 as u16),
-            SimpleValue::U32(field) => MoveValue::U32(field.0 as u32),
-            SimpleValue::U64(field) => MoveValue::U64(field.0 as u64),
-            SimpleValue::U128(field) => MoveValue::U128(field.0),
-            SimpleValue::Bool(field) => MoveValue::Bool(field.0 != 0),
-            // SimpleValue::Address(field) => MoveValue::Address(field.0),
-            SimpleValue::Address(field) => {
+            SimpleValue::U8(v) => MoveValue::U8(v),
+            SimpleValue::U16(v) => MoveValue::U16(v),
+            SimpleValue::U32(v) => MoveValue::U32(v),
+            SimpleValue::U64(v) => MoveValue::U64(v),
+            SimpleValue::U128(v) => MoveValue::U128(v),
+            SimpleValue::Bool(v) => MoveValue::Bool(v),
+            SimpleValue::Address(v) => {
                 // FIXME: f -> bytes for address
                 let mut bytes = 0u128.to_be_bytes().to_vec();
-                bytes.append(&mut field.value().to_be_bytes().to_vec());
+                bytes.append(&mut v.value().to_be_bytes().to_vec());
                 MoveValue::Address(MoveAccountAddress::from_bytes(bytes).unwrap())
             }
         }
@@ -159,15 +128,15 @@ impl From<SimpleValue> for MoveValue {
 pub enum Value {
     Invalid,
     /// The following is simple value
-    U8(U8),
-    U16(U16),
-    U32(U32),
-    U64(U64),
-    U128(U128),
-    Bool(Bool),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+    Bool(bool),
     Address(AccountAddress),
     /// u256
-    U256(U256),
+    U256(u256::U256),
     /// struct representation
     Container(Container),
     /// borrow global
@@ -263,11 +232,7 @@ impl ValueLocation {
         let indexes = match self {
             ValueLocation::Stack(loc) => vec![0_u128, loc.stack_index as u128],
             ValueLocation::Local(loc) => vec![loc.frame_index.0 as u128, loc.index as u128],
-            ValueLocation::Global(loc) => vec![
-                // FIXME: change this once we determine what to use in witness(finite field or plain value ?).
-                loc.address.value(),
-                loc.sd_index.to_u128(),
-            ],
+            ValueLocation::Global(loc) => vec![loc.address.value(), loc.sd_index.to_u128()],
         };
         indexes.into()
     }
@@ -852,57 +817,6 @@ impl From<IndexedRef> for VmResult<(IndexedLocation, Value)> {
     }
 }
 
-impl From<U256> for Value {
-    fn from(v: U256) -> Self {
-        Value::U256(v)
-    }
-}
-
-impl TryFrom<&Value> for U256 {
-    type Error = RuntimeError;
-
-    fn try_from(value: &Value) -> VmResult<U256> {
-        match value {
-            Value::U256(v) => Ok(*v),
-            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
-        }
-    }
-}
-impl From<MoveValue> for U256 {
-    fn from(value: MoveValue) -> Self {
-        match value {
-            MoveValue::U256(v) => {
-                let f = convert_u256_to_u128_pair(&v);
-                U256(f[0], f[1])
-            }
-            _ => unimplemented!("not supported move value, {}", value),
-        }
-    }
-}
-
-impl U256 {
-    pub fn new(x: u256::U256) -> Self {
-        let v = convert_u256_to_u128_pair(&x);
-        Self(v[0], v[1])
-    }
-
-    pub(crate) fn value(&self) -> Option<(u128, u128)> {
-        match self {
-            Self(v0, v1) => Some((*v0, *v1)),
-        }
-    }
-
-    pub fn field_value<F: Field>(&self) -> Option<(F, F)> {
-        match self {
-            Self(v0, v1) => Some((F::from_u128(*v0), F::from_u128(*v1))),
-        }
-    }
-
-    pub fn ty(&self) -> MoveValueType {
-        MoveValueType::U256
-    }
-}
-
 impl From<SimpleValue> for Value {
     fn from(simple: SimpleValue) -> Self {
         match simple {
@@ -951,48 +865,47 @@ impl From<MoveValue> for SimpleValue {
 
 impl SimpleValue {
     pub fn bool(x: bool) -> Self {
-        let value = if x { 1u128 } else { 0u128 };
-        Self::Bool(Bool(value))
+        Self::Bool(x)
     }
     pub fn u8(x: u8) -> Self {
-        Self::U8(U8(x as u128))
+        Self::U8(x)
     }
     pub fn u16(x: u16) -> Self {
-        Self::U16(U16(x as u128))
+        Self::U16(x)
     }
     pub fn u32(x: u32) -> Self {
-        Self::U32(U32(x as u128))
+        Self::U32(x)
     }
     pub fn u64(x: u64) -> Self {
-        Self::U64(U64(x as u128))
+        Self::U64(x)
     }
     pub fn u128(x: u128) -> Self {
-        Self::U128(U128(x))
+        Self::U128(x)
     }
     pub fn address(x: AccountAddress) -> Self {
         Self::Address(x)
     }
 
-    pub fn value(&self) -> Option<u128> {
+    pub fn to_u128(&self) -> Option<u128> {
         match self {
-            Self::U8(v) => Some(v.0),
-            Self::U16(v) => Some(v.0),
-            Self::U32(v) => Some(v.0),
-            Self::U64(v) => Some(v.0),
-            Self::U128(v) => Some(v.0),
-            Self::Bool(v) => Some(v.0),
+            Self::U8(v) => Some(*v as u128),
+            Self::U16(v) => Some(*v as u128),
+            Self::U32(v) => Some(*v as u128),
+            Self::U64(v) => Some(*v as u128),
+            Self::U128(v) => Some(*v),
+            Self::Bool(v) => Some(*v as u128),
             Self::Address(addr) => Some(addr.value()),
         }
     }
 
     pub fn field_value<F: Field>(&self) -> Option<F> {
         match self {
-            Self::U8(v) => Some(F::from_u128(v.0)),
-            Self::U16(v) => Some(F::from_u128(v.0)),
-            Self::U32(v) => Some(F::from_u128(v.0)),
-            Self::U64(v) => Some(F::from_u128(v.0)),
-            Self::U128(v) => Some(F::from_u128(v.0)),
-            Self::Bool(v) => Some(F::from_u128(v.0)),
+            Self::U8(v) => Some(F::from_u128(*v as u128)),
+            Self::U16(v) => Some(F::from_u128(*v as u128)),
+            Self::U32(v) => Some(F::from_u128(*v as u128)),
+            Self::U64(v) => Some(F::from_u128(*v as u128)),
+            Self::U128(v) => Some(F::from_u128(*v)),
+            Self::Bool(v) => Some(F::from_u128(*v as u128)),
             Self::Address(addr) => Some(addr.field_value()),
         }
     }
@@ -1027,48 +940,26 @@ impl From<MoveValue> for Value {
 }
 
 impl Value {
-    pub fn new(value: u128, ty: MoveValueType) -> VmResult<Self> {
-        match ty {
-            MoveValueType::U8 => Ok(Self::U8(U8(value))),
-            MoveValueType::U16 => Ok(Self::U16(U16(value))),
-            MoveValueType::U32 => Ok(Self::U32(U32(value))),
-            MoveValueType::U64 => Ok(Self::U64(U64(value))),
-            MoveValueType::U128 => Ok(Self::U128(U128(value))),
-            MoveValueType::Bool => Ok(Self::Bool(Bool(value))),
-            MoveValueType::Signer => Ok(Self::signer(AccountAddress::new(value))),
-            MoveValueType::Address => Ok(Self::address(AccountAddress::new(value))),
-            _ => unimplemented!(),
-        }
-    }
-
-    /// convert from u128 pair into Value
-    pub fn new_u256(value: [u128; 2]) -> Self {
-        Self::U256(U256(value[0], value[1]))
-    }
-
     pub fn bool(x: bool) -> Self {
-        let value = if x { 1u128 } else { 0u128 };
-        Self::Bool(Bool(value))
+        Self::Bool(x)
     }
     pub fn u8(x: u8) -> Self {
-        Self::U8(U8(x as u128))
+        Self::U8(x)
     }
     pub fn u16(x: u16) -> Self {
-        Self::U16(U16(x as u128))
+        Self::U16(x)
     }
     pub fn u32(x: u32) -> Self {
-        Self::U32(U32(x as u128))
+        Self::U32(x)
     }
     pub fn u64(x: u64) -> Self {
-        Self::U64(U64(x as u128))
+        Self::U64(x)
     }
     pub fn u128(x: u128) -> Self {
-        Self::U128(U128(x))
+        Self::U128(x)
     }
-    /// convert from u256::U256 into Value
     pub fn u256(x: u256::U256) -> Self {
-        let value = convert_u256_to_u128_pair(&x);
-        Self::U256(U256(value[0], value[1]))
+        Self::U256(x)
     }
 
     pub fn address(x: AccountAddress) -> Self {
@@ -1088,7 +979,7 @@ impl Value {
             Self::Container(Container(vs)) => {
                 let mut ret_ = vec![];
                 for v in vs.borrow().iter() {
-                    ret_.push(v.copy_value().castu8()?.value().unwrap() as u8);
+                    ret_.push(v.copy_value().castu8()?.to_u128().unwrap() as u8);
                 }
                 Ok(ret_)
             }
@@ -1100,15 +991,15 @@ impl Value {
         Self::Container(Container::vector(elements))
     }
 
-    pub fn value(&self) -> Option<u128> {
+    pub fn to_u128(&self) -> Option<u128> {
         match self {
             Self::Invalid => None,
-            Self::U8(v) => Some(v.0),
-            Self::U16(v) => Some(v.0),
-            Self::U32(v) => Some(v.0),
-            Self::U64(v) => Some(v.0),
-            Self::U128(v) => Some(v.0),
-            Self::Bool(v) => Some(v.0),
+            Self::U8(v) => Some(*v as u128),
+            Self::U16(v) => Some(*v as u128),
+            Self::U32(v) => Some(*v as u128),
+            Self::U64(v) => Some(*v as u128),
+            Self::U128(v) => Some(*v),
+            Self::Bool(v) => Some(*v as u128),
             Self::Address(addr) => Some(addr.value()),
             _ => unreachable!(),
         }
@@ -1117,26 +1008,23 @@ impl Value {
     pub fn field_value<F: Field>(&self) -> Option<F> {
         match self {
             Self::Invalid => None,
-            Self::U8(v) => Some(F::from_u128(v.0)),
-            Self::U16(v) => Some(F::from_u128(v.0)),
-            Self::U32(v) => Some(F::from_u128(v.0)),
-            Self::U64(v) => Some(F::from_u128(v.0)),
-            Self::U128(v) => Some(F::from_u128(v.0)),
-            Self::Bool(v) => Some(F::from_u128(v.0)),
+            Self::U8(v) => Some(F::from_u128(*v as u128)),
+            Self::U16(v) => Some(F::from_u128(*v as u128)),
+            Self::U32(v) => Some(F::from_u128(*v as u128)),
+            Self::U64(v) => Some(F::from_u128(*v as u128)),
+            Self::U128(v) => Some(F::from_u128(*v)),
+            Self::Bool(v) => Some(F::from_u128(*v as u128)),
             Self::Address(addr) => Some(addr.field_value()),
             _ => unreachable!(),
         }
     }
 
-    pub fn value_u256(&self) -> Option<[u128; 2]> {
-        match self {
-            Self::U256(v) => Some([v.0, v.1]),
-            _ => unreachable!(),
-        }
-    }
     pub fn field_value_u256<F: Field>(&self) -> Option<[F; 2]> {
         match self {
-            Self::U256(v) => Some([F::from_u128(v.0), F::from_u128(v.1)]),
+            Self::U256(v) => {
+                let f = convert_u256_to_u128_pair(v);
+                Some([F::from_u128(f[0]), F::from_u128(f[1])])
+            }
             _ => unreachable!(),
         }
     }
@@ -1166,8 +1054,8 @@ impl Value {
             MoveValueType::U256 => NUM_OF_BYTES_U256,
             _ => unimplemented!(),
         };
-        let value = len as u128;
-        Self::U8(U8(value))
+        let value = len as u8;
+        Self::U8(value)
     }
 
     /// Cast the value into simple value if it's simple
@@ -1198,138 +1086,23 @@ impl PartialEq for Value {
 
 impl Eq for Value {}
 
-impl Add for U256 {
-    type Output = VmResult<Self>;
-
-    fn add(self, b: U256) -> Self::Output {
-        // implement add based on checked_add API to check arithmetic overflow
-        let v = self.value().unwrap();
-        let lhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-        let v = b.value().unwrap();
-        let rhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-
-        let res = u256::U256::checked_add(lhs, rhs).expect("arithmetic error found");
-        let c = U256::new(res);
-        Ok(c)
-    }
-}
-impl Sub for U256 {
-    type Output = VmResult<Self>;
-
-    fn sub(self, b: U256) -> Self::Output {
-        // implement sub based on checked_sub API to check arithmetic overflow
-        let v = self.value().unwrap();
-        let lhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-        let v = b.value().unwrap();
-        let rhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-
-        let res = u256::U256::checked_sub(lhs, rhs).expect("arithmetic error found");
-        let c = U256::new(res);
-        Ok(c)
-    }
-}
-impl Mul for U256 {
-    type Output = VmResult<Self>;
-
-    fn mul(self, b: U256) -> Self::Output {
-        // implement mul based on checked_mul API to check arithmetic overflow
-        let v = self.value().unwrap();
-        let lhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-        let v = b.value().unwrap();
-        let rhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-
-        let res = u256::U256::checked_mul(lhs, rhs).expect("arithmetic error found");
-        let c = U256::new(res);
-        Ok(c)
-    }
-}
-impl Div for U256 {
-    type Output = VmResult<Self>;
-
-    fn div(self, b: U256) -> Self::Output {
-        // implement div based on checked_div API to check arithmetic overflow
-        let v = self.value().unwrap();
-        let lhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-        let v = b.value().unwrap();
-        let rhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-
-        let res = u256::U256::checked_div(lhs, rhs).expect("arithmetic error found");
-        let c = U256::new(res);
-        Ok(c)
-    }
-}
-
-impl Rem for U256 {
-    type Output = VmResult<Self>;
-
-    fn rem(self, b: U256) -> Self::Output {
-        // implement rem based on checked_rem API to check arithmetic overflow
-        let v = self.value().unwrap();
-        let lhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-        let v = b.value().unwrap();
-        let rhs = decode_u128_pair_to_u256(&[v.0, v.1]);
-
-        let res = u256::U256::checked_rem(lhs, rhs).expect("arithmetic error found");
-        let c = U256::new(res);
-        Ok(c)
-    }
-}
-impl Not for U256 {
-    type Output = VmResult<Value>;
-
-    fn not(self) -> Self::Output {
-        let v = self.value().expect("arithmetic error found");
-        let res = if v.0 == 0u128 && v.1 == 0u128 {
-            1u128
-        } else {
-            0u128
-        };
-
-        let c = Value::new(res, MoveValueType::Bool)?;
-        Ok(c)
-    }
-}
-
 impl Add for Value {
     type Output = VmResult<Self>;
 
     fn add(self, b: Value) -> Self::Output {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let v = u256::U256::checked_add(lhs, rhs).expect("arithmetic error found");
-            Ok(Value::u256(v))
-        } else {
-            // implement add based on checked_add API to check arithmetic overflow
-            // let value = self.value().and_then(|a| b.value().map(|b| a + b));
-            let lhs = self.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = match (self.ty(), b.ty()) {
-                (MoveValueType::U8, MoveValueType::U8) => {
-                    u8::checked_add(lhs as u8, rhs as u8).expect("arithmetic error found") as u128
-                }
-                (MoveValueType::U16, MoveValueType::U16) => {
-                    u16::checked_add(lhs as u16, rhs as u16).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U32, MoveValueType::U32) => {
-                    u32::checked_add(lhs as u32, rhs as u32).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U64, MoveValueType::U64) => {
-                    u64::checked_add(lhs as u64, rhs as u64).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U128, MoveValueType::U128) => {
-                    u128::checked_add(lhs, rhs).expect("arithmetic error found")
-                }
-                (_, _) => unimplemented!(),
-            };
-            let c = Value::new(value, self.ty())?;
-            Ok(c)
-        }
+        let res = match (self, b) {
+            (Value::U8(l), Value::U8(r)) => u8::checked_add(l, r).map(Value::U8),
+            (Value::U16(l), Value::U16(r)) => u16::checked_add(l, r).map(Value::U16),
+            (Value::U32(l), Value::U32(r)) => u32::checked_add(l, r).map(Value::U32),
+            (Value::U64(l), Value::U64(r)) => u64::checked_add(l, r).map(Value::U64),
+            (Value::U128(l), Value::U128(r)) => u128::checked_add(l, r).map(Value::U128),
+            (Value::U256(l), Value::U256(r)) => u256::U256::checked_add(l, r).map(Value::U256),
+            (l, r) => {
+                let msg = format!("Cannot add {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
+            }
+        };
+        res.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
     }
 }
 
@@ -1337,42 +1110,19 @@ impl Sub for Value {
     type Output = VmResult<Self>;
 
     fn sub(self, b: Value) -> Self::Output {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let v = u256::U256::checked_sub(lhs, rhs).expect("arithmetic error found");
-            Ok(Value::u256(v))
-        } else {
-            // implement sub based on checked_sub API to check arithmetic overflow
-            // let value = self.value().and_then(|a| b.value().map(|b| a - b));
-            let lhs = self.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = match (self.ty(), b.ty()) {
-                (MoveValueType::U8, MoveValueType::U8) => {
-                    u8::checked_sub(lhs as u8, rhs as u8).expect("arithmetic error found") as u128
-                }
-                (MoveValueType::U16, MoveValueType::U16) => {
-                    u16::checked_sub(lhs as u16, rhs as u16).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U32, MoveValueType::U32) => {
-                    u32::checked_sub(lhs as u32, rhs as u32).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U64, MoveValueType::U64) => {
-                    u64::checked_sub(lhs as u64, rhs as u64).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U128, MoveValueType::U128) => {
-                    u128::checked_sub(lhs, rhs).expect("arithmetic error found")
-                }
-                (_, _) => unimplemented!(),
-            };
-            let c = Value::new(value, self.ty())?;
-            Ok(c)
-        }
+        let res = match (self, b) {
+            (Value::U8(l), Value::U8(r)) => u8::checked_sub(l, r).map(Value::U8),
+            (Value::U16(l), Value::U16(r)) => u16::checked_sub(l, r).map(Value::U16),
+            (Value::U32(l), Value::U32(r)) => u32::checked_sub(l, r).map(Value::U32),
+            (Value::U64(l), Value::U64(r)) => u64::checked_sub(l, r).map(Value::U64),
+            (Value::U128(l), Value::U128(r)) => u128::checked_sub(l, r).map(Value::U128),
+            (Value::U256(l), Value::U256(r)) => u256::U256::checked_sub(l, r).map(Value::U256),
+            (l, r) => {
+                let msg = format!("Cannot sub {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
+            }
+        };
+        res.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
     }
 }
 
@@ -1380,42 +1130,19 @@ impl Mul for Value {
     type Output = VmResult<Self>;
 
     fn mul(self, b: Value) -> Self::Output {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let v = u256::U256::checked_mul(lhs, rhs).expect("arithmetic error found");
-            Ok(Value::u256(v))
-        } else {
-            // implement mul based on checked_mul API to check arithmetic overflow
-            // let value = self.value().and_then(|a| b.value().map(|b| a * b));
-            let lhs = self.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = match (self.ty(), b.ty()) {
-                (MoveValueType::U8, MoveValueType::U8) => {
-                    u8::checked_mul(lhs as u8, rhs as u8).expect("arithmetic error found") as u128
-                }
-                (MoveValueType::U16, MoveValueType::U16) => {
-                    u16::checked_mul(lhs as u16, rhs as u16).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U32, MoveValueType::U32) => {
-                    u32::checked_mul(lhs as u32, rhs as u32).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U64, MoveValueType::U64) => {
-                    u64::checked_mul(lhs as u64, rhs as u64).expect("arithmetic error found")
-                        as u128
-                }
-                (MoveValueType::U128, MoveValueType::U128) => {
-                    u128::checked_mul(lhs, rhs).expect("arithmetic error found")
-                }
-                (_, _) => unimplemented!(),
-            };
-            let c = Value::new(value, self.ty())?;
-            Ok(c)
-        }
+        let res = match (self, b) {
+            (Value::U8(l), Value::U8(r)) => u8::checked_mul(l, r).map(Value::U8),
+            (Value::U16(l), Value::U16(r)) => u16::checked_mul(l, r).map(Value::U16),
+            (Value::U32(l), Value::U32(r)) => u32::checked_mul(l, r).map(Value::U32),
+            (Value::U64(l), Value::U64(r)) => u64::checked_mul(l, r).map(Value::U64),
+            (Value::U128(l), Value::U128(r)) => u128::checked_mul(l, r).map(Value::U128),
+            (Value::U256(l), Value::U256(r)) => u256::U256::checked_mul(l, r).map(Value::U256),
+            (l, r) => {
+                let msg = format!("Cannot mul {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
+            }
+        };
+        res.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
     }
 }
 
@@ -1423,27 +1150,19 @@ impl Div for Value {
     type Output = VmResult<Self>;
 
     fn div(self, b: Value) -> Self::Output {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let v = u256::U256::checked_div(lhs, rhs).expect("arithmetic error found");
-            Ok(Value::u256(v))
-        } else {
-            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-            let r_move: Option<MoveValue> = b.into();
-            match (l_move, r_move) {
-                (Some(l), Some(r)) => {
-                    let quo = move_div(l, r)?;
-                    let v = convert_to_u128(quo);
-                    let value = Value::new(v, self.ty())?;
-                    Ok(value)
-                }
-                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                    .with_message("Move value should not be None".to_string())),
+        let res = match (self, b) {
+            (Value::U8(l), Value::U8(r)) => u8::checked_div(l, r).map(Value::U8),
+            (Value::U16(l), Value::U16(r)) => u16::checked_div(l, r).map(Value::U16),
+            (Value::U32(l), Value::U32(r)) => u32::checked_div(l, r).map(Value::U32),
+            (Value::U64(l), Value::U64(r)) => u64::checked_div(l, r).map(Value::U64),
+            (Value::U128(l), Value::U128(r)) => u128::checked_div(l, r).map(Value::U128),
+            (Value::U256(l), Value::U256(r)) => u256::U256::checked_div(l, r).map(Value::U256),
+            (l, r) => {
+                let msg = format!("Cannot div {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        };
+        res.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
     }
 }
 
@@ -1451,27 +1170,19 @@ impl Rem for Value {
     type Output = VmResult<Self>;
 
     fn rem(self, b: Value) -> Self::Output {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let v = u256::U256::checked_rem(lhs, rhs).expect("arithmetic error found");
-            Ok(Value::u256(v))
-        } else {
-            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-            let r_move: Option<MoveValue> = b.into();
-            match (l_move, r_move) {
-                (Some(l), Some(r)) => {
-                    let rem = move_rem(l, r)?;
-                    let v = convert_to_u128(rem);
-                    let value = Value::new(v, self.ty())?;
-                    Ok(value)
-                }
-                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                    .with_message("Move value should not be None".to_string())),
+        let res = match (self, b) {
+            (Value::U8(l), Value::U8(r)) => u8::checked_rem(l, r).map(Value::U8),
+            (Value::U16(l), Value::U16(r)) => u16::checked_rem(l, r).map(Value::U16),
+            (Value::U32(l), Value::U32(r)) => u32::checked_rem(l, r).map(Value::U32),
+            (Value::U64(l), Value::U64(r)) => u64::checked_rem(l, r).map(Value::U64),
+            (Value::U128(l), Value::U128(r)) => u128::checked_rem(l, r).map(Value::U128),
+            (Value::U256(l), Value::U256(r)) => u256::U256::checked_rem(l, r).map(Value::U256),
+            (l, r) => {
+                let msg = format!("Cannot div {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        };
+        res.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
     }
 }
 
@@ -1479,9 +1190,7 @@ impl Not for Value {
     type Output = VmResult<Self>;
 
     fn not(self) -> Self::Output {
-        let value = if self.is_zero() { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(self.is_zero()))
     }
 }
 
@@ -1489,13 +1198,13 @@ impl Value {
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Invalid, Self::Invalid) => true,
-            (Self::U8(v1), Self::U8(v2)) => v1.0 == v2.0,
-            (Self::U16(v1), Self::U16(v2)) => v1.0 == v2.0,
-            (Self::U32(v1), Self::U32(v2)) => v1.0 == v2.0,
-            (Self::U64(v1), Self::U64(v2)) => v1.0 == v2.0,
-            (Self::U128(v1), Self::U128(v2)) => v1.0 == v2.0,
-            (Self::U256(v1), Self::U256(v2)) => (v1.0 == v2.0) && (v1.1 == v2.1),
-            (Self::Bool(v1), Self::Bool(v2)) => v1.0 == v2.0,
+            (Self::U8(v1), Self::U8(v2)) => *v1 == *v2,
+            (Self::U16(v1), Self::U16(v2)) => *v1 == *v2,
+            (Self::U32(v1), Self::U32(v2)) => *v1 == *v2,
+            (Self::U64(v1), Self::U64(v2)) => *v1 == *v2,
+            (Self::U128(v1), Self::U128(v2)) => *v1 == *v2,
+            (Self::U256(v1), Self::U256(v2)) => *v1 == *v2,
+            (Self::Bool(v1), Self::Bool(v2)) => *v1 == *v2,
             (Self::Address(a1), Self::Address(a2)) => a1.value() == a2.value(),
             (Self::Container(c1), Self::Container(c2)) => c1.equals(c2),
             (Self::GlobalRef(r1), Self::GlobalRef(r2)) => r1.equals(r2),
@@ -1506,75 +1215,85 @@ impl Value {
     }
 
     pub fn less_than(&self, other: &Self) -> VmResult<bool> {
-        // fixme. maybe there is better implemtentation here.
-        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = other.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            Ok(lhs < rhs)
-        } else {
-            match (self.value(), other.value()) {
-                (Some(v1), Some(v2)) => Ok(v1 < v2),
-                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        Ok(match (self, other) {
+            (Value::U8(l), Value::U8(r)) => l < r,
+            (Value::U16(l), Value::U16(r)) => l < r,
+            (Value::U32(l), Value::U32(r)) => l < r,
+            (Value::U64(l), Value::U64(r)) => l < r,
+            (Value::U128(l), Value::U128(r)) => l < r,
+            (Value::U256(l), Value::U256(r)) => l < r,
+            (l, r) => {
+                let msg = format!(
+                    "Cannot compare {:?} and {:?}: incompatible integer types",
+                    l, r
+                );
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        })
     }
 
     pub fn less_equal(&self, other: &Self) -> VmResult<bool> {
-        // fixme. maybe there is better implemtentation here.
-        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = other.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            Ok(lhs <= rhs)
-        } else {
-            match (self.value(), other.value()) {
-                (Some(v1), Some(v2)) => Ok(v1 <= v2),
-                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        Ok(match (self, other) {
+            (Value::U8(l), Value::U8(r)) => l <= r,
+            (Value::U16(l), Value::U16(r)) => l <= r,
+            (Value::U32(l), Value::U32(r)) => l <= r,
+            (Value::U64(l), Value::U64(r)) => l <= r,
+            (Value::U128(l), Value::U128(r)) => l <= r,
+            (Value::U256(l), Value::U256(r)) => l <= r,
+            (l, r) => {
+                let msg = format!(
+                    "Cannot compare {:?} and {:?}: incompatible integer types",
+                    l, r
+                );
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        })
     }
 
     pub fn greater_than(&self, other: &Self) -> VmResult<bool> {
-        // fixme. maybe there is better implemtentation here.
-        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = other.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            Ok(lhs > rhs)
-        } else {
-            match (self.value(), other.value()) {
-                (Some(v1), Some(v2)) => Ok(v1 > v2),
-                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        Ok(match (self, other) {
+            (Value::U8(l), Value::U8(r)) => l > r,
+            (Value::U16(l), Value::U16(r)) => l > r,
+            (Value::U32(l), Value::U32(r)) => l > r,
+            (Value::U64(l), Value::U64(r)) => l > r,
+            (Value::U128(l), Value::U128(r)) => l > r,
+            (Value::U256(l), Value::U256(r)) => l > r,
+            (l, r) => {
+                let msg = format!(
+                    "Cannot compare {:?} and {:?}: incompatible integer types",
+                    l, r
+                );
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        })
     }
 
     pub fn greater_equal(&self, other: &Self) -> VmResult<bool> {
-        // fixme. maybe there is better implemtentation here.
-        if self.ty() == MoveValueType::U256 && other.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = other.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            Ok(lhs >= rhs)
-        } else {
-            match (self.value(), other.value()) {
-                (Some(v1), Some(v2)) => Ok(v1 >= v2),
-                _ => Err(RuntimeError::new(StatusCode::InvalidValue)),
+        Ok(match (self, other) {
+            (Value::U8(l), Value::U8(r)) => l >= r,
+            (Value::U16(l), Value::U16(r)) => l >= r,
+            (Value::U32(l), Value::U32(r)) => l >= r,
+            (Value::U64(l), Value::U64(r)) => l >= r,
+            (Value::U128(l), Value::U128(r)) => l >= r,
+            (Value::U256(l), Value::U256(r)) => l >= r,
+            (l, r) => {
+                let msg = format!(
+                    "Cannot compare {:?} and {:?}: incompatible integer types",
+                    l, r
+                );
+                return Err(RuntimeError::new(StatusCode::InvalidValue).with_message(msg));
             }
-        }
+        })
     }
 
     pub fn is_zero(&self) -> bool {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            (v[0] == 0u128) && (v[1] == 0u128)
+        if let Value::U256(_) = self {
+            match u256::U256::try_from(self).ok() {
+                Some(v) => v == u256::U256::zero(),
+                None => false,
+            }
         } else {
-            match self.value() {
+            match self.to_u128() {
                 Some(v) => v == 0u128,
                 None => false,
             }
@@ -1607,52 +1326,45 @@ impl Value {
 
         match self {
             Self::U8(_) => Ok(self),
-            Self::U16(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u8::MAX as u128) {
+            Self::U16(val) => {
+                if val > (std::u8::MAX as u16) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u16({}) to u8", val)))
                 } else {
-                    Value::new(val, MoveValueType::U8)
+                    Ok(Value::u8(val as u8))
                 }
             }
-            Self::U32(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u8::MAX as u128) {
+            Self::U32(val) => {
+                if val > (std::u8::MAX as u32) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u32({}) to u8", val)))
                 } else {
-                    // Self::u32(val as u32, None)
-                    Value::new(val, MoveValueType::U8)
+                    Ok(Value::u8(val as u8))
                 }
             }
-            Self::U64(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u8::MAX as u128) {
+            Self::U64(val) => {
+                if val > (std::u8::MAX as u64) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u8", val)))
                 } else {
-                    // Self::u64(val as u64, None)
-                    Value::new(val, MoveValueType::U8)
+                    Ok(Value::u8(val as u8))
                 }
             }
-            Self::U128(_) => {
-                let val = self.value().unwrap();
+            Self::U128(val) => {
                 if val > (std::u8::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u8", val)))
                 } else {
-                    // Self::u128(val, None)
-                    Value::new(val, MoveValueType::U8)
+                    Ok(Value::u8(val as u8))
                 }
             }
-            Self::U256(x) => {
-                let val = decode_u128_pair_to_u256(&[x.0, x.1]);
+            Self::U256(_) => {
+                let val = u256::U256::try_from(&self).unwrap();
                 if val > u256::U256::from(std::u8::MAX) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u256({}) to u8", val)))
                 } else {
-                    Value::new(val.unchecked_as_u8() as u128, MoveValueType::U8)
+                    Ok(Value::u8(val.unchecked_as_u8()))
                 }
             }
             _ => unreachable!(),
@@ -1666,44 +1378,38 @@ impl Value {
         }
 
         match self {
-            Self::U8(_) | Self::U16(_) => {
-                let val = self.value().unwrap();
-                Value::new(val, MoveValueType::U16)
-            }
-            Self::U32(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u16::MAX as u128) {
+            Self::U8(val) => Ok(Value::u16(val as u16)),
+            Self::U16(_) => Ok(self),
+            Self::U32(val) => {
+                if val > (std::u16::MAX as u32) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u32({}) to u16", val)))
                 } else {
-                    Value::new(val, MoveValueType::U16)
+                    Ok(Value::u16(val as u16))
                 }
             }
-            Self::U64(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u16::MAX as u128) {
+            Self::U64(val) => {
+                if val > (std::u16::MAX as u64) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u16", val)))
                 } else {
-                    Value::new(val, MoveValueType::U16)
+                    Ok(Value::u16(val as u16))
                 }
             }
-            Self::U128(_) => {
-                let val = self.value().unwrap();
+            Self::U128(val) => {
                 if val > (std::u16::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u16", val)))
                 } else {
-                    Value::new(val, MoveValueType::U16)
+                    Ok(Value::u16(val as u16))
                 }
             }
-            Self::U256(x) => {
-                let val = decode_u128_pair_to_u256(&[x.0, x.1]);
+            Self::U256(val) => {
                 if val > u256::U256::from(std::u16::MAX) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u256({}) to u16", val)))
                 } else {
-                    Value::new(val.unchecked_as_u16() as u128, MoveValueType::U16)
+                    Ok(Value::u16(val.unchecked_as_u16()))
                 }
             }
             _ => unreachable!(),
@@ -1717,35 +1423,31 @@ impl Value {
         }
 
         match self {
-            Self::U8(_) | Self::U16(_) | Self::U32(_) => {
-                let val = self.value().unwrap();
-                Value::new(val, MoveValueType::U32)
-            }
-            Self::U64(_) => {
-                let val = self.value().unwrap();
-                if val > (std::u32::MAX as u128) {
+            Self::U8(val) => Ok(Value::u32(val as u32)),
+            Self::U16(val) => Ok(Value::u32(val as u32)),
+            Self::U32(_) => Ok(self),
+            Self::U64(val) => {
+                if val > (std::u32::MAX as u64) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u64({}) to u32", val)))
                 } else {
-                    Value::new(val, MoveValueType::U32)
+                    Ok(Value::u32(val as u32))
                 }
             }
-            Self::U128(_) => {
-                let val = self.value().unwrap();
+            Self::U128(val) => {
                 if val > (std::u32::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u32", val)))
                 } else {
-                    Value::new(val, MoveValueType::U32)
+                    Ok(Value::u32(val as u32))
                 }
             }
-            Self::U256(x) => {
-                let val = decode_u128_pair_to_u256(&[x.0, x.1]);
+            Self::U256(val) => {
                 if val > u256::U256::from(std::u32::MAX) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u256({}) to u32", val)))
                 } else {
-                    Value::new(val.unchecked_as_u32() as u128, MoveValueType::U32)
+                    Ok(Value::u32(val.unchecked_as_u32()))
                 }
             }
             _ => unreachable!(),
@@ -1759,27 +1461,24 @@ impl Value {
         }
 
         match self {
-            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) => {
-                let val = self.value().unwrap();
-                Value::new(val, MoveValueType::U64)
-            }
-            Self::U128(_) => {
-                let val = self.value().unwrap();
+            Self::U8(val) => Ok(Value::u64(val as u64)),
+            Self::U16(val) => Ok(Value::u64(val as u64)),
+            Self::U32(val) => Ok(Value::u64(val as u64)),
+            Self::U64(_) => Ok(self),
+            Self::U128(val) => {
                 if val > (std::u64::MAX as u128) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u128({}) to u64", val)))
                 } else {
-                    // Self::u128(val, None)
-                    Value::new(val, MoveValueType::U64)
+                    Ok(Value::u64(val as u64))
                 }
             }
-            Self::U256(x) => {
-                let val = decode_u128_pair_to_u256(&[x.0, x.1]);
+            Self::U256(val) => {
                 if val > u256::U256::from(std::u64::MAX) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u256({}) to u64", val)))
                 } else {
-                    Value::new(val.unchecked_as_u64() as u128, MoveValueType::U64)
+                    Ok(Value::u64(val.unchecked_as_u64()))
                 }
             }
             _ => unreachable!(),
@@ -1793,17 +1492,17 @@ impl Value {
         }
 
         match self {
-            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_) => {
-                let val = self.value().unwrap();
-                Value::new(val, MoveValueType::U128)
-            }
-            Self::U256(x) => {
-                let val = decode_u128_pair_to_u256(&[x.0, x.1]);
+            Self::U8(val) => Ok(Value::u128(val as u128)),
+            Self::U16(val) => Ok(Value::u128(val as u128)),
+            Self::U32(val) => Ok(Value::u128(val as u128)),
+            Self::U64(val) => Ok(Value::u128(val as u128)),
+            Self::U128(_) => Ok(self),
+            Self::U256(val) => {
                 if val > u256::U256::from(std::u128::MAX) {
                     Err(RuntimeError::new(StatusCode::ArithmeticError)
                         .with_message(format!("Cannot cast u256({}) to u128", val)))
                 } else {
-                    Value::new(val.unchecked_as_u128(), MoveValueType::U128)
+                    Ok(Value::u128(val.unchecked_as_u128()))
                 }
             }
             _ => unreachable!(),
@@ -1817,8 +1516,23 @@ impl Value {
         }
 
         match self {
-            Self::U8(_) | Self::U16(_) | Self::U32(_) | Self::U64(_) | Self::U128(_) => {
-                let val = self.value().unwrap();
+            Self::U8(val) => {
+                let x = u256::U256::from(val);
+                Ok(Self::u256(x))
+            }
+            Self::U16(val) => {
+                let x = u256::U256::from(val);
+                Ok(Self::u256(x))
+            }
+            Self::U32(val) => {
+                let x = u256::U256::from(val);
+                Ok(Self::u256(x))
+            }
+            Self::U64(val) => {
+                let x = u256::U256::from(val);
+                Ok(Self::u256(x))
+            }
+            Self::U128(val) => {
                 let x = u256::U256::from(val);
                 Ok(Self::u256(x))
             }
@@ -1827,272 +1541,300 @@ impl Value {
         }
     }
 
-    pub fn div_rem(&self, other: Value) -> VmResult<(Value, Value)> {
-        if self.ty() == MoveValueType::U256 {
-            let v = self.value_u256().unwrap();
-            let l_move = Some(MoveValue::U256(decode_u128_pair_to_u256(&v)));
-            let r_move: Option<MoveValue> = other.into();
-            match (l_move, r_move) {
-                (Some(l), Some(r)) => {
-                    let quo = move_div(l.clone(), r.clone())?;
-                    let rem = move_rem(l, r)?;
-                    match (quo, rem) {
-                        (MoveValue::U256(q), MoveValue::U256(r)) => {
-                            let quo_value = Value::u256(q);
-                            let rem_value = Value::u256(r);
-                            Ok((quo_value, rem_value))
-                        }
-                        _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                            .with_message("Move value should not be None".to_string())),
-                    }
-                }
-                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                    .with_message("Move value should not be None".to_string())),
-            }
-        } else {
-            let l_move: Option<MoveValue> = self.cast_simple().map(Into::into);
-            let r_move: Option<MoveValue> = other.into();
-            match (l_move, r_move) {
-                (Some(l), Some(r)) => {
-                    let quo = move_div(l.clone(), r.clone())?;
-                    let rem = move_rem(l, r)?;
-                    let quo_field = convert_to_u128(quo);
-                    let rem_field = convert_to_u128(rem);
-                    let quo_value = Value::new(quo_field, self.ty())?;
-                    let rem_value = Value::new(rem_field, self.ty())?;
-                    Ok((quo_value, rem_value))
-                }
-                _ => Err(RuntimeError::new(StatusCode::ValueConversionError)
-                    .with_message("Move value should not be None".to_string())),
-            }
-        }
-    }
-
     pub fn eq(a: Value, b: Value) -> VmResult<Value> {
-        let value = if a.equals(&b) { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(a.equals(&b)))
     }
 
     pub fn neq(a: Value, b: Value) -> VmResult<Value> {
-        let value = if !a.equals(&b) { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(!a.equals(&b)))
     }
 
     pub fn lt(a: Value, b: Value) -> VmResult<Value> {
-        let lt = a.less_than(&b)?;
-        let value = if lt { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(a.less_than(&b)?))
     }
 
     pub fn le(a: Value, b: Value) -> VmResult<Value> {
-        let le = a.less_equal(&b)?;
-        let value = if le { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(a.less_equal(&b)?))
     }
 
     pub fn gt(a: Value, b: Value) -> VmResult<Value> {
-        let gt = a.greater_than(&b)?;
-        let value = if gt { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(a.greater_than(&b)?))
     }
 
     pub fn ge(a: Value, b: Value) -> VmResult<Value> {
-        let ge = a.greater_equal(&b)?;
-        let value = if ge { 1u128 } else { 0u128 };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(a.greater_equal(&b)?))
     }
 
-    pub fn shift_checked(a: Value, b: Value, shift_left: bool) -> VmResult<Value> {
-        // NOTICE: check type of a and b is not necessary here, as bytecode verifier already check that.
-        // but we still do it due to the lack of verifier currently.
-        if !a.is_integer() {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("expect value of integer type".to_string()));
-        }
-        if b.ty() != MoveValueType::U8 {
-            return Err(RuntimeError::new(StatusCode::InvalidValue)
-                .with_message("expect value of u8 type".to_string()));
-        }
-        let n_bits = b.value().unwrap() as u8;
-        let max_bits = match a.ty() {
-            MoveValueType::U8 => 7,
-            MoveValueType::U16 => 15,
-            MoveValueType::U32 => 31,
-            MoveValueType::U64 => 63,
-            MoveValueType::U128 => 127,
-            MoveValueType::U256 => 255,
-            _ => unreachable!(),
-        };
+    pub fn shift_checked(v: Value, n_bits: u8, shift_left: bool) -> VmResult<Value> {
+        let bytes = Self::num_of_bytes(v.ty()).to_u128().unwrap() as u8;
+        let max_bits = bytes * 8 - 1;
         if n_bits > max_bits {
             return Err(RuntimeError::new(StatusCode::ArithmeticError)
                 .with_message("exceed max shift bits".to_string()));
         }
-        if a.ty() == MoveValueType::U256 {
-            let v = a.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let shift_value = if shift_left {
-                lhs << n_bits
-            } else {
-                lhs >> n_bits
-            };
-            Ok(Value::u256(shift_value))
-        } else {
-            let lhs = a.value().unwrap();
-            let shift_value = if shift_left {
-                lhs << n_bits
-            } else {
-                lhs >> n_bits
-            };
-            Value::new(shift_value, a.ty())
-        }
+
+        Ok(match v {
+            Value::U8(x) => {
+                if shift_left {
+                    Value::U8(x << n_bits)
+                } else {
+                    Value::U8(x >> n_bits)
+                }
+            }
+            Value::U16(x) => {
+                if shift_left {
+                    Value::U16(x << n_bits)
+                } else {
+                    Value::U16(x >> n_bits)
+                }
+            }
+            Value::U32(x) => {
+                if shift_left {
+                    Value::U32(x << n_bits)
+                } else {
+                    Value::U32(x >> n_bits)
+                }
+            }
+            Value::U64(x) => {
+                if shift_left {
+                    Value::U64(x << n_bits)
+                } else {
+                    Value::U64(x >> n_bits)
+                }
+            }
+            Value::U128(x) => {
+                if shift_left {
+                    Value::U128(x << n_bits)
+                } else {
+                    Value::U128(x >> n_bits)
+                }
+            }
+            Value::U256(x) => {
+                if shift_left {
+                    Value::U256(x << n_bits)
+                } else {
+                    Value::U256(x >> n_bits)
+                }
+            }
+            _ => {
+                let msg = format!("invalid type {:?}", v);
+                return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
+            }
+        })
     }
 
     pub fn shl_checked(a: Value, b: Value) -> VmResult<Value> {
-        Self::shift_checked(a, b, true)
+        let n_bits = b.to_u128().unwrap() as u8;
+        Self::shift_checked(a, n_bits, true)
     }
     pub fn shr_checked(a: Value, b: Value) -> VmResult<Value> {
-        Self::shift_checked(a, b, false)
+        let n_bits = b.to_u128().unwrap() as u8;
+        Self::shift_checked(a, n_bits, false)
     }
 
     pub fn bit_and(a: Value, b: Value) -> VmResult<Value> {
-        if !a.is_integer() || !b.is_integer() {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("expect value of integer type".to_string()));
-        }
-        if a.ty() == MoveValueType::U256 {
-            let v = a.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let result = convert_u256_to_u128_pair(&(lhs & rhs));
-            let value = Value::new_u256(result);
-            Ok(value)
-        } else {
-            let lhs = a.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = lhs & rhs;
-            let value = Value::new(value, a.ty())?;
-            Ok(value)
-        }
+        Ok(match (a, b) {
+            (Value::U8(l), Value::U8(r)) => Value::U8(l & r),
+            (Value::U16(l), Value::U16(r)) => Value::U16(l & r),
+            (Value::U32(l), Value::U32(r)) => Value::U32(l & r),
+            (Value::U64(l), Value::U64(r)) => Value::U64(l & r),
+            (Value::U128(l), Value::U128(r)) => Value::U128(l & r),
+            (Value::U256(l), Value::U256(r)) => Value::U256(l & r),
+            (l, r) => {
+                let msg = format!("Cannot bit_and {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
+            }
+        })
     }
 
     pub fn bit_or(a: Value, b: Value) -> VmResult<Value> {
-        if !a.is_integer() || !b.is_integer() {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("expect value of integer type".to_string()));
-        }
-        if a.ty() == MoveValueType::U256 {
-            let v = a.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let result = convert_u256_to_u128_pair(&(lhs | rhs));
-            let value = Value::new_u256(result);
-            Ok(value)
-        } else {
-            let lhs = a.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = lhs | rhs;
-            let value = Value::new(value, a.ty())?;
-            Ok(value)
-        }
+        Ok(match (a, b) {
+            (Value::U8(l), Value::U8(r)) => Value::U8(l | r),
+            (Value::U16(l), Value::U16(r)) => Value::U16(l | r),
+            (Value::U32(l), Value::U32(r)) => Value::U32(l | r),
+            (Value::U64(l), Value::U64(r)) => Value::U64(l | r),
+            (Value::U128(l), Value::U128(r)) => Value::U128(l | r),
+            (Value::U256(l), Value::U256(r)) => Value::U256(l | r),
+            (l, r) => {
+                let msg = format!("Cannot bit_or {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
+            }
+        })
     }
 
     pub fn xor(a: Value, b: Value) -> VmResult<Value> {
-        if !a.is_integer() || !b.is_integer() {
-            return Err(RuntimeError::new(StatusCode::TypeMismatch)
-                .with_message("expect value of integer type".to_string()));
-        }
-        if a.ty() == MoveValueType::U256 {
-            let v = a.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let result = convert_u256_to_u128_pair(&(lhs ^ rhs));
-            let value = Value::new_u256(result);
-            Ok(value)
-        } else {
-            let lhs = a.value().unwrap();
-            let rhs = b.value().unwrap();
-            let value = lhs ^ rhs;
-            let value = Value::new(value, a.ty())?;
-            Ok(value)
-        }
+        Ok(match (a, b) {
+            (Value::U8(l), Value::U8(r)) => Value::U8(l ^ r),
+            (Value::U16(l), Value::U16(r)) => Value::U16(l ^ r),
+            (Value::U32(l), Value::U32(r)) => Value::U32(l ^ r),
+            (Value::U64(l), Value::U64(r)) => Value::U64(l ^ r),
+            (Value::U128(l), Value::U128(r)) => Value::U128(l ^ r),
+            (Value::U256(l), Value::U256(r)) => Value::U256(l ^ r),
+            (l, r) => {
+                let msg = format!("Cannot xor {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
+            }
+        })
     }
 
     pub fn and(a: Value, b: Value) -> VmResult<Value> {
-        let value = if a.is_zero() || b.is_zero() {
-            0u128
-        } else {
-            1u128
-        };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(!a.is_zero() && !b.is_zero()))
     }
 
     pub fn or(a: Value, b: Value) -> VmResult<Value> {
-        let value = if a.is_zero() && b.is_zero() {
-            0u128
-        } else {
-            1u128
-        };
-        let c = Value::new(value, MoveValueType::Bool)?;
-        Ok(c)
+        Ok(Value::Bool(!a.is_zero() || !b.is_zero()))
     }
 
-    // pub fn delta_invert(a: Value, b: Value) -> VmResult<Value> {
-    //     if a.ty() == MoveValueType::U256 {
-    //         let v = a.value_u256().unwrap();
-    //         let lhs = decode_u128_pair_to_u256(&v);
-    //         let v = b.value_u256().unwrap();
-    //         let rhs = decode_u128_pair_to_u256(&v);
-    //         let del_invert = if lhs == rhs {
-    //             1u128
-    //         } else {
-    //             // fixme. how to deal with num larger than 128?
-    //             let delta = (lhs - rhs).unchecked_as_u128();
-    //             delta.invert().unwrap()
-    //         };
-    //         let value = Value::new(del_invert, MoveValueType::U128)?;
-    //         Ok(value)
-    //     } else {
-    //         let delta_invert = if a.value() == b.value() {
-    //             1u128
-    //         } else {
-    //             let delta = a.value().unwrap() - b.value().unwrap();
-    //             delta.invert().unwrap()
-    //         };
-
-    //         let value = Value::new(delta_invert, a.ty())?;
-    //         Ok(value)
-    //     }
-    // }
-
     pub fn diff(a: Value, b: Value) -> VmResult<Value> {
-        if a.ty() == MoveValueType::U256 {
-            let v = a.value_u256().unwrap();
-            let lhs = decode_u128_pair_to_u256(&v);
-            let v = b.value_u256().unwrap();
-            let rhs = decode_u128_pair_to_u256(&v);
-            let diff = lhs.wrapping_sub(rhs);
-            let value = Value::new_u256(convert_u256_to_u128_pair(&diff));
-            Ok(value)
-        } else {
-            let lhs = a.value().unwrap();
-            let rhs = b.value().unwrap();
-            let diff = if lhs < rhs {
-                u128::MAX - rhs + lhs + 1
-            } else {
-                lhs - rhs
-            };
-            let value = Value::new(diff, a.ty())?;
-            Ok(value)
+        Ok(match (a, b) {
+            (Value::U8(l), Value::U8(r)) => Value::U8(u8::wrapping_sub(l, r)),
+            (Value::U16(l), Value::U16(r)) => Value::U16(u16::wrapping_sub(l, r)),
+            (Value::U32(l), Value::U32(r)) => Value::U32(u32::wrapping_sub(l, r)),
+            (Value::U64(l), Value::U64(r)) => Value::U64(u64::wrapping_sub(l, r)),
+            (Value::U128(l), Value::U128(r)) => Value::U128(u128::wrapping_sub(l, r)),
+            (Value::U256(l), Value::U256(r)) => Value::U256(u256::U256::wrapping_sub(l, r)),
+            (l, r) => {
+                let msg = format!("Cannot diff {:?} and {:?}", l, r);
+                return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
+            }
+        })
+    }
+}
+
+impl TryFrom<&SimpleValue> for u8 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &SimpleValue) -> VmResult<u8> {
+        match value {
+            SimpleValue::U8(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl TryFrom<&SimpleValue> for u16 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &SimpleValue) -> VmResult<u16> {
+        match value {
+            SimpleValue::U16(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl TryFrom<&SimpleValue> for u32 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &SimpleValue) -> VmResult<u32> {
+        match value {
+            SimpleValue::U32(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl TryFrom<&SimpleValue> for u64 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &SimpleValue) -> VmResult<u64> {
+        match value {
+            SimpleValue::U64(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl TryFrom<&SimpleValue> for u128 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &SimpleValue) -> VmResult<u128> {
+        match value {
+            SimpleValue::U128(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u8 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u8> {
+        match value {
+            Value::U8(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u16 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u16> {
+        match value {
+            Value::U16(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u32 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u32> {
+        match value {
+            Value::U32(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u64 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u64> {
+        match value {
+            Value::U64(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u128 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u128> {
+        match value {
+            Value::U128(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for u256::U256 {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<u256::U256> {
+        match value {
+            Value::U256(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+impl TryFrom<&Value> for bool {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<bool> {
+        match value {
+            Value::Bool(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
+        }
+    }
+}
+
+impl TryFrom<&Value> for AccountAddress {
+    type Error = RuntimeError;
+
+    fn try_from(value: &Value) -> VmResult<AccountAddress> {
+        match value {
+            Value::Address(v) => Ok(*v),
+            _ => Err(RuntimeError::new(StatusCode::TypeMismatch)),
         }
     }
 }
