@@ -84,8 +84,8 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
     //     &self,
     //     region: &mut Region<'_, F>,
     //     offset: usize,
-    //     lhs: Value<F>,
-    //     rhs: Value<F>,
+    //     lhs: Value,
+    //     rhs: Value,
     // ) -> Result<Value<(F, Vec<u8>)>, Error> {
     //     transpose_val_ret(
     //         lhs.zip(rhs)

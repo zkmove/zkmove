@@ -2,10 +2,9 @@
 
 use crate::chips::execution_chip::opcode::Opcode;
 use movelang::value::Value;
-use types::Field;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExecutionStep<F: Field> {
+pub struct ExecutionStep {
     pub context_id: u128,
     pub opcode: Opcode,
     pub pc: u16,
@@ -15,11 +14,11 @@ pub struct ExecutionStep<F: Field> {
     pub gc: usize, // global counter for stack, locals, state accesses
     pub module_index: u16,
     pub function_index: u16,
-    pub auxiliary_1: Option<Value<F>>,
-    pub auxiliary_2: Option<Value<F>>,
-    pub auxiliary_3: Option<Value<F>>,
-    pub auxiliary_4: Option<Value<F>>,
-    pub auxiliary_5: Option<Value<F>>,
+    pub auxiliary_1: Option<Value>,
+    pub auxiliary_2: Option<Value>,
+    pub auxiliary_3: Option<Value>,
+    pub auxiliary_4: Option<Value>,
+    pub auxiliary_5: Option<Value>,
     pub data: Option<ExecutionData>,
 }
 

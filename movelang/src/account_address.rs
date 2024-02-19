@@ -5,16 +5,18 @@ use move_core_types::account_address::AccountAddress as MoveAccountAddress;
 use types::Field;
 
 #[derive(Default, Clone, Copy, Ord, PartialOrd, PartialEq, Eq, Debug)]
-pub struct AccountAddress<F: Field>(F);
+pub struct AccountAddress(pub u128);
 
-impl<F: Field> AccountAddress<F> {
-    pub fn new(value: F) -> Self {
+impl AccountAddress {
+    pub fn new(value: u128) -> Self {
         Self(value)
     }
-    pub fn value(&self) -> F {
+    pub fn value(&self) -> u128 {
         self.0
     }
-
+    pub fn field_value<F: Field>(&self) -> F {
+        F::from_u128(self.0)
+    }
     pub fn zero() -> Self {
         MoveAccountAddress::ZERO.into()
     }
@@ -26,14 +28,14 @@ impl<F: Field> AccountAddress<F> {
     }
 }
 
-impl<F: Field> From<MoveAccountAddress> for AccountAddress<F> {
-    fn from(addr: MoveAccountAddress) -> AccountAddress<F> {
-        Self(F::from_u128(u128::from_be_bytes(addr.into_bytes())))
+impl From<MoveAccountAddress> for AccountAddress {
+    fn from(addr: MoveAccountAddress) -> AccountAddress {
+        Self(u128::from_be_bytes(addr.into_bytes()))
     }
 }
 
-impl<F: Field> From<AccountAddress<F>> for MoveAccountAddress {
-    fn from(addr: AccountAddress<F>) -> MoveAccountAddress {
-        addr.value().get_lower_128().to_be_bytes().into()
+impl From<AccountAddress> for MoveAccountAddress {
+    fn from(addr: AccountAddress) -> MoveAccountAddress {
+        addr.value().to_be_bytes().into()
     }
 }

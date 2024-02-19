@@ -9,34 +9,33 @@ use move_vm_types::loaded_data::runtime_types::Type;
 use movelang::value::Value;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use types::Field;
 
-pub type UnboxedNativeFunction<F> = dyn Fn(&mut NativeContext<F>, Vec<Type>, VecDeque<Value<F>>) -> VmResult<Value<F>>
+pub type UnboxedNativeFunction = dyn Fn(&mut NativeContext, Vec<Type>, VecDeque<Value>) -> VmResult<Value>
     + Send
     + Sync
     + 'static;
 
-pub type NativeFunction<F> = Arc<UnboxedNativeFunction<F>>;
+pub type NativeFunction = Arc<UnboxedNativeFunction>;
 
-pub type NativeFunctionTable<F> = Vec<(AccountAddress, Identifier, Identifier, NativeFunction<F>)>;
+pub type NativeFunctionTable = Vec<(AccountAddress, Identifier, Identifier, NativeFunction)>;
 
-pub struct NativeFunctions<F: Field>(
-    HashMap<AccountAddress, HashMap<String, HashMap<String, NativeFunction<F>>>>,
+pub struct NativeFunctions(
+    HashMap<AccountAddress, HashMap<String, HashMap<String, NativeFunction>>>,
 );
 
-impl<F: Field> NativeFunctions<F> {
+impl NativeFunctions {
     pub fn resolve(
         &self,
         addr: &AccountAddress,
         module_name: &str,
         func_name: &str,
-    ) -> Option<NativeFunction<F>> {
+    ) -> Option<NativeFunction> {
         self.0.get(addr)?.get(module_name)?.get(func_name).cloned()
     }
 
     pub fn new<I>(natives: I) -> VmResult<Self>
     where
-        I: IntoIterator<Item = (AccountAddress, Identifier, Identifier, NativeFunction<F>)>,
+        I: IntoIterator<Item = (AccountAddress, Identifier, Identifier, NativeFunction)>,
     {
         let mut map = HashMap::new();
         for (addr, module_name, func_name, func) in natives.into_iter() {
@@ -56,16 +55,16 @@ impl<F: Field> NativeFunctions<F> {
 }
 
 #[allow(dead_code)]
-pub struct NativeContext<'a, 'b, F: Field> {
-    interpreter: &'a mut Interpreter<F>,
+pub struct NativeContext<'a, 'b> {
+    interpreter: &'a mut Interpreter,
     data_store: &'a mut dyn DataStore,
     resolver: &'a Resolver<'a>,
     extensions: &'a mut NativeContextExtensions<'b>,
 }
 
-impl<'a, 'b, F: Field> NativeContext<'a, 'b, F> {
+impl<'a, 'b> NativeContext<'a, 'b> {
     pub(crate) fn new(
-        interpreter: &'a mut Interpreter<F>,
+        interpreter: &'a mut Interpreter,
         data_store: &'a mut dyn DataStore,
         resolver: &'a Resolver<'a>,
         extensions: &'a mut NativeContextExtensions<'b>,

@@ -1,12 +1,23 @@
 // Copyright (c) zkMove Authors
 
-use error::{RuntimeError, StatusCode, VmResult};
 pub use move_core_types::u256;
 pub use move_core_types::u256::U256;
 pub use move_core_types::value::MoveValue;
 use move_core_types::value::MoveValue::*;
 pub use move_vm_types::loaded_data::runtime_types::Type as MoveValueType;
 use types::Field;
+
+/// Takes U256, converts to bytes32 (big endian) and
+/// returns (bytes[16..], bytes[..16]) represented as big endian numbers in the prime field
+pub fn convert_u256_to_u128_pair(input: &U256) -> [u128; 2] {
+    let bytes = input.to_le_bytes();
+    let mut data = [0u8; 16];
+    data.copy_from_slice(&bytes[16..]);
+    let v1 = u128::from_le_bytes(data);
+    data.copy_from_slice(&bytes[..16]);
+    let v2 = u128::from_le_bytes(data);
+    [v1, v2]
+}
 
 /// Takes U256, converts to bytes32 (big endian) and
 /// returns (bytes[16..], bytes[..16]) represented as big endian numbers in the prime field
@@ -32,6 +43,14 @@ pub fn convert_u256_to_fe<F: Field>(input: U256) -> F {
     F::from_repr(repr).unwrap()
 }
 
+pub fn decode_u128_pair_to_u256(fe: &[u128]) -> U256 {
+    assert_eq!(fe.len(), 2);
+    let mut bytes = [0u8; 32];
+    bytes[16..].copy_from_slice(&fe[0].to_le_bytes());
+    bytes[..16].copy_from_slice(&fe[1].to_le_bytes());
+    U256::from_le_bytes(&bytes)
+}
+
 pub fn decode_field_to_u256<F: Field>(fe: &[F]) -> U256 {
     assert_eq!(fe.len(), 2);
     let mut bytes = [0u8; 32];
@@ -45,6 +64,24 @@ pub fn modulus<F: Field>() -> U256 {
     let mut bytes = [0u8; 32];
     bytes.copy_from_slice((-F::ONE).to_repr().as_ref());
     U256::from_le_bytes(&bytes) + U256::one()
+}
+
+pub fn convert_to_u128(value: MoveValue) -> u128 {
+    match value {
+        U8(u) => u as u128,
+        U16(u) => u as u128,
+        U32(u) => u as u128,
+        U64(u) => u as u128,
+        U128(u) => u,
+        Bool(b) => {
+            if b {
+                1u128
+            } else {
+                0u128
+            }
+        }
+        _ => unimplemented!(),
+    }
 }
 
 pub fn convert_to_field<F: Field>(value: MoveValue) -> F {
@@ -63,38 +100,6 @@ pub fn convert_to_field<F: Field>(value: MoveValue) -> F {
         }
         _ => unimplemented!(),
     }
-}
-
-pub fn move_div(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_div(l, r).map(U8),
-        (U16(l), U16(r)) => u16::checked_div(l, r).map(U16),
-        (U32(l), U32(r)) => u32::checked_div(l, r).map(U32),
-        (U64(l), U64(r)) => u64::checked_div(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_div(l, r).map(U128),
-        (U256(l), U256(r)) => u256::U256::checked_div(l, r).map(U256),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
-}
-
-pub fn move_rem(left: MoveValue, right: MoveValue) -> VmResult<MoveValue> {
-    let result = match (left, right) {
-        (U8(l), U8(r)) => u8::checked_rem(l, r).map(U8),
-        (U16(l), U16(r)) => u16::checked_rem(l, r).map(U16),
-        (U32(l), U32(r)) => u32::checked_rem(l, r).map(U32),
-        (U64(l), U64(r)) => u64::checked_rem(l, r).map(U64),
-        (U128(l), U128(r)) => u128::checked_rem(l, r).map(U128),
-        (U256(l), U256(r)) => u256::U256::checked_rem(l, r).map(U256),
-        (l, r) => {
-            let msg = format!("can not div {:?} by {:?}", l, r);
-            return Err(RuntimeError::new(StatusCode::TypeMismatch).with_message(msg));
-        }
-    };
-    result.ok_or_else(|| RuntimeError::new(StatusCode::ArithmeticError))
 }
 
 #[cfg(test)]
@@ -170,14 +175,5 @@ mod tests {
         debug!("multiple field value is: {:?}", c);
         debug!("single field val is: {:?}", d);
         debug!(" {:x}", e);
-        // 10 / 2 = 5 and 10 % 3 = 1
-        debug!(
-            "10 div 2 into {:?}",
-            move_div(U256(U256::from(10u32)), U256(U256::from(2u32)))
-        );
-        debug!(
-            "10 rem 3 into {:?}",
-            move_rem(U256(U256::from(10u32)), U256(U256::from(3u32)))
-        );
     }
 }

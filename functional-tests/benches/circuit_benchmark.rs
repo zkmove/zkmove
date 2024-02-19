@@ -8,6 +8,7 @@ use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use instant::Duration;
 use logger::{debug, info};
 use movelang::compiler::compile_source_files;
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use vm::runtime::Runtime;
 use vm::state::StateStore;
@@ -23,7 +24,7 @@ pub const TEST_MODULE_PATH: &str = "tests/modules";
 fn setup(
     path: &Path,
 ) -> datatest_stable::Result<(
-    Runtime<Fr>,
+    Runtime,
     VmCircuit<Fr>,
     ParamsKZG<Bn256>,
     ProvingKey<G1Affine>,
@@ -48,7 +49,7 @@ fn setup(
 
     let (compiled_script, compiled_modules) = compile_source_files(targets)?;
     let script = compiled_script.expect("script is missing");
-    let runtime = Runtime::<Fr>::new();
+    let runtime = Runtime::new();
     let mut state = StateStore::new();
 
     for module in compiled_modules.clone().into_iter() {
@@ -82,6 +83,7 @@ fn setup(
     let vm_circuit = VmCircuit {
         witness,
         public_input: None,
+        _maker: PhantomData,
     };
     let k = find_best_k(&vm_circuit);
     info!("use vm circuit, k = {}", k);

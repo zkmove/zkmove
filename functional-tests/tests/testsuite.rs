@@ -5,6 +5,7 @@ use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use movelang::compiler::compile_source_files;
+use std::marker::PhantomData;
 use std::path::Path;
 use vm::runtime::Runtime;
 use vm::state::StateStore;
@@ -37,11 +38,11 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     let (compiled_script, compiled_modules) = compile_source_files(targets)?;
     #[cfg(not(target_arch = "wasm32"))]
-    let runtime = Runtime::<Fr>::new()
+    let runtime = Runtime::new()
         .ext_web3("https://cloudflare-eth.com")
         .unwrap();
     #[cfg(target_arch = "wasm32")]
-    let runtime = Runtime::<Fr>::new();
+    let runtime = Runtime::new();
 
     let mut state = StateStore::new();
 
@@ -115,6 +116,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let vm_circuit = VmCircuit {
         witness,
         public_input: ret,
+        _maker: PhantomData,
     };
     let k = find_best_k(&vm_circuit);
     info!("use vm circuit, k = {}", k);
@@ -189,6 +191,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let new_vm_circuit = VmCircuit {
             witness: new_witness,
             public_input: new_ret,
+            _maker: PhantomData,
         };
         info!("prove the new execution with old proving key...");
         prove_vm_circuit_kzg(new_vm_circuit, &[&instance], &params, pk)?;

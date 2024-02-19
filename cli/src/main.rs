@@ -10,6 +10,7 @@ use move_binary_format::CompiledModule;
 use movelang::argument::{parse_transaction_argument, ScriptArgument, ScriptArguments};
 use movelang::compiler::compile_source_files;
 use movelang::generic_call_graph::{generate, RemoteStore};
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
@@ -139,11 +140,11 @@ impl Arguments {
 
         let script = compiled_script.expect("script is missing");
         #[cfg(not(target_arch = "wasm32"))]
-        let runtime = Runtime::<Fr>::new()
+        let runtime = Runtime::new()
             .ext_web3("https://cloudflare-eth.com")
             .unwrap();
         #[cfg(target_arch = "wasm32")]
-        let runtime = Runtime::<Fr>::new();
+        let runtime = Runtime::new();
 
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
@@ -176,6 +177,7 @@ impl Arguments {
         let vm_circuit = VmCircuit {
             witness,
             public_input: None,
+            _maker: PhantomData,
         };
         info!("find the best k...");
         let k = find_best_k(&vm_circuit);
@@ -228,6 +230,7 @@ impl Arguments {
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
                 public_input: None,
+                _maker: PhantomData,
             };
             info!("prove the new execution with old proving key...");
             prove_vm_circuit_kzg(new_vm_circuit, &[&[Fr::zero()]], &params, pk)?;
@@ -266,7 +269,7 @@ impl Arguments {
         let (compiled_script, compiled_modules) = compile_source_files(targets)?;
 
         let script = compiled_script.expect("script is missing");
-        let runtime = Runtime::<Fp>::new();
+        let runtime = Runtime::new();
         let mut state = StateStore::new();
         for module in compiled_modules.clone().into_iter() {
             state.add_module(module);
@@ -297,6 +300,7 @@ impl Arguments {
         let vm_circuit = VmCircuit {
             witness,
             public_input: None,
+            _maker: PhantomData,
         };
         info!("find the best k...");
         let k = find_best_k(&vm_circuit);
@@ -349,6 +353,7 @@ impl Arguments {
             let new_vm_circuit = VmCircuit {
                 witness: new_witness,
                 public_input: None,
+                _maker: PhantomData,
             };
             info!("prove the new execution with old proving key...");
             prove_vm_circuit_ipa(new_vm_circuit, &[&[Fp::zero()]], &params, pk)?;

@@ -209,8 +209,8 @@ impl<const EQUALITY: bool, F: Field> InstructionGadget<F> for Equality<EQUALITY,
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let flattened_value_len_a =
@@ -245,7 +245,7 @@ impl<const EQUALITY: bool, F: Field> InstructionGadget<F> for Equality<EQUALITY,
         )?;
 
         // assign unequal_row_xxx, delta_invert
-        let result = get_field_from_op(
+        let result = get_field_from_op::<F>(
             rw_operations,
             step.gc + flattened_value_len_a + flattened_value_len_b + LOWER_FIELD_OFFSET,
         )?;
@@ -269,11 +269,11 @@ impl<const EQUALITY: bool, F: Field> InstructionGadget<F> for Equality<EQUALITY,
                 .ok_or(Error::Synthesis)?;
             let addr_ext_a = F::from_u128(unequal_op_a.address_ext() as u128);
             let addr_ext_b = F::from_u128(unequal_op_b.address_ext() as u128);
-            let val_a = unequal_op_a.value().value().ok_or_else(|| {
+            let val_a = unequal_op_a.value().field_value().ok_or_else(|| {
                 error!("value is None");
                 Error::Synthesis
             })?;
-            let val_b = unequal_op_b.value().value().ok_or_else(|| {
+            let val_b = unequal_op_b.value().field_value().ok_or_else(|| {
                 error!("value is None");
                 Error::Synthesis
             })?;

@@ -90,8 +90,8 @@ impl<F: Field> InstructionGadget<F> for Shl<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let binary_op = BinaryOp {
@@ -102,7 +102,7 @@ impl<F: Field> InstructionGadget<F> for Shl<F> {
         BinaryOp::assign_binary_op(region, offset, step, rw_operations, &binary_op)?;
 
         // b is U8 type data, lower field used.
-        let b = get_field_from_op(rw_operations, step.gc + LOWER_FIELD_OFFSET)?.get_lower_32();
+        let b = get_field_from_op::<F>(rw_operations, step.gc + LOWER_FIELD_OFFSET)?.get_lower_32();
         let res = if b < 128 {
             // auxiliary_1 is for lower 128 bit
             let pow2_b_lo = F::from_u128(2).pow([b as u64, 0, 0, 0]);
@@ -131,8 +131,8 @@ impl<F: Field> InstructionGadget<F> for Shl<F> {
         )?;
 
         // muladd_gadget assign
-        let quotient = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
-        let divident = get_u256_from_op(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
+        let quotient = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE)?;
+        let divident = get_u256_from_op::<F>(rw_operations, step.gc + LEN_OF_SIMPLE_VALUE * 2)?;
         let divisor = res.expect("divisor is out of bound");
         let words = [quotient, divisor, U256::zero(), divident];
         self.muladd_words_gadget.assign(region, offset, words)?;

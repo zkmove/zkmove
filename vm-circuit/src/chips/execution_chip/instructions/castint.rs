@@ -16,7 +16,6 @@ use movelang::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use movelang::value_ext::{LEN_OF_SIMPLE_VALUE, LOWER_FIELD_OFFSET};
-use std::convert::TryInto;
 use types::Field;
 
 use super::common::get_field_from_op;
@@ -71,8 +70,8 @@ impl<F: Field, const N_BYTES: usize> InstructionGadget<F> for CastInt<F, N_BYTES
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let unary_op = UnaryOp {
@@ -82,7 +81,7 @@ impl<F: Field, const N_BYTES: usize> InstructionGadget<F> for CastInt<F, N_BYTES
         UnaryOp::assign_unary_op(region, offset, step, rw_operations, &unary_op)?;
 
         // only out_lo need to take care
-        let cast_result = get_field_from_op(
+        let cast_result = get_field_from_op::<F>(
             rw_operations,
             step.gc + LEN_OF_SIMPLE_VALUE + LOWER_FIELD_OFFSET,
         )?;

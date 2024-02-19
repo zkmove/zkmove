@@ -5,13 +5,11 @@ use error::{RuntimeError, StatusCode, VmResult};
 use move_binary_format::normalized::Type;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::parser::parse_transaction_arguments;
-use types::Field;
 
 use std::str::FromStr;
 
-use crate::account_address::AccountAddress;
-use crate::utility::convert_u256_to_field;
 use crate::utility::MoveValueType;
+use crate::value::Value;
 pub use move_core_types::identifier::{IdentStr, Identifier};
 pub use move_core_types::parser::parse_transaction_argument;
 pub use move_core_types::parser::parse_type_tags;
@@ -58,25 +56,16 @@ impl Signer {
     }
 }
 
-pub fn convert_from<F: Field>(arg: ScriptArgument) -> VmResult<F> {
+pub fn argument_value(arg: ScriptArgument) -> VmResult<Value> {
     match arg {
-        ScriptArgument::U8(v) => Ok(F::from_u128(v as u128)),
-        ScriptArgument::U16(v) => Ok(F::from_u128(v as u128)),
-        ScriptArgument::U32(v) => Ok(F::from_u128(v as u128)),
-        ScriptArgument::U64(v) => Ok(F::from_u128(v as u128)),
-        ScriptArgument::U128(v) => Ok(F::from_u128(v)),
-        ScriptArgument::Bool(v) => Ok(if v { F::ONE } else { F::ZERO }),
-        ScriptArgument::Address(v) => Ok(AccountAddress::from(v).value()),
-        _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
-    }
-}
-
-pub fn convert_from_u256<F: Field>(arg: ScriptArgument) -> VmResult<[F; 2]> {
-    match arg {
-        ScriptArgument::U256(v) => {
-            let res = convert_u256_to_field::<F>(&v);
-            Ok(res)
-        }
+        ScriptArgument::U8(v) => Ok(Value::U8(v)),
+        ScriptArgument::U16(v) => Ok(Value::U16(v)),
+        ScriptArgument::U32(v) => Ok(Value::U32(v)),
+        ScriptArgument::U64(v) => Ok(Value::U64(v)),
+        ScriptArgument::U128(v) => Ok(Value::U128(v)),
+        ScriptArgument::U256(v) => Ok(Value::U256(v)),
+        ScriptArgument::Bool(v) => Ok(Value::Bool(v)),
+        ScriptArgument::Address(v) => Ok(Value::Address(v.into())),
         _ => Err(RuntimeError::new(StatusCode::UnsupportedMoveType)),
     }
 }

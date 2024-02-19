@@ -16,10 +16,8 @@ use movelang::argument::{convert_type_tag_to_type, ScriptArguments, Signer};
 use movelang::generic_call_graph::{generate, generate_for_script, GenericCallGraph};
 use movelang::utility::MoveValueType;
 use movelang::value::{ModuleId, TypeTag, Value};
-use types::Field;
 
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use vm_circuit::witness::arith_operations::ArithOperations;
@@ -39,11 +37,10 @@ use web3::transports::Http;
 use web3::Web3;
 
 #[allow(dead_code)]
-pub struct Runtime<F: Field> {
+pub struct Runtime {
     loader: MoveLoader,
-    natives: NativeFunctions<F>,
+    natives: NativeFunctions,
     native_context: NativeContext,
-    _marker: PhantomData<F>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -59,19 +56,18 @@ struct NativeContext {
     // tokio_rt: Option<tokio::runtime::Runtime>,
 }
 
-impl<F: Field> Default for Runtime<F> {
+impl Default for Runtime {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: Field> Runtime<F> {
+impl Runtime {
     pub fn new() -> Self {
         Runtime {
             loader: MoveLoader::new_with_natives(crate::natives::make_all()),
             natives: NativeFunctions::new(crate::natives::make_all_field_version()).unwrap(),
             native_context: NativeContext::default(),
-            _marker: PhantomData,
         }
     }
 
@@ -91,7 +87,7 @@ impl<F: Field> Runtime<F> {
     pub fn loader(&self) -> &MoveLoader {
         &self.loader
     }
-    pub fn get_natives(&self) -> &NativeFunctions<F> {
+    pub fn get_natives(&self) -> &NativeFunctions {
         &self.natives
     }
 
@@ -118,8 +114,8 @@ impl<F: Field> Runtime<F> {
         ty_args: Vec<TypeTag>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
-        data_store: &mut StateStore<F>,
-    ) -> VmResult<(ExecutionTrace<F>, Option<Value<F>>)> {
+        data_store: &mut StateStore,
+    ) -> VmResult<(ExecutionTrace, Option<Value>)> {
         // TODO return VMResult<SerializedReturnValues>
         let (
             module,
@@ -156,8 +152,8 @@ impl<F: Field> Runtime<F> {
         ty_args: Vec<TypeTag>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
-        data_store: &mut StateStore<F>,
-    ) -> VmResult<ExecutionTrace<F>> {
+        data_store: &mut StateStore,
+    ) -> VmResult<ExecutionTrace> {
         let generic_graph = generate_for_script(&script, data_store);
 
         let mut script_bytes = vec![];
@@ -189,10 +185,10 @@ impl<F: Field> Runtime<F> {
         type_arguments: Vec<MoveValueType>,
         signer: Option<Signer>,
         args: Option<ScriptArguments>,
-        data_store: &mut StateStore<F>,
+        data_store: &mut StateStore,
         generic_graph: &GenericCallGraph,
-    ) -> VmResult<(ExecutionTrace<F>, Option<Value<F>>)> {
-        let mut interp = Interpreter::<F>::new();
+    ) -> VmResult<(ExecutionTrace, Option<Value>)> {
+        let mut interp = Interpreter::new();
         let arg_types = entry
             .parameter_types()
             .iter()
@@ -236,9 +232,9 @@ impl<F: Field> Runtime<F> {
         script_opt: Option<CompiledScript>,
         entry_function: Option<(&ModuleId, &IdentStr)>,
         modules: Vec<CompiledModule>,
-        mut trace: ExecutionTrace<F>,
+        mut trace: ExecutionTrace,
         circuit_config: CircuitConfig,
-    ) -> VmResult<Witness<F>> {
+    ) -> VmResult<Witness> {
         let mapping = NameToIdxMapping::build(&modules);
         let normalized_input_type_args: Vec<_> =
             ty_args.into_iter().map(convert_type_tag_to_type).collect();

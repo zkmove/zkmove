@@ -39,12 +39,12 @@ impl<F: Field> GadgetCells<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         op_index: usize,
         flattened_value_len: usize,
     ) -> Result<(), Error> {
         if flattened_value_len > word_capacity() {
-            // TODO: a better place to do word cap check is in "fn from(value: &Value<F>) -> Word<F>"
+            // TODO: a better place to do word cap check is in "fn from(value: &Value) -> Word<F>"
             // but we have no capacity set at the moment. Considering move word.rs to the folder "witness".
             error!(
                 "word element num is {:?}, exceeds word capacity {:?}",
@@ -56,7 +56,7 @@ impl<F: Field> GadgetCells<F> {
 
         for (i, _) in self.word.iter().enumerate().take(flattened_value_len) {
             let op = rw_operations.0.get(op_index + i).ok_or(Error::Synthesis)?;
-            self.word[i].assign(region, offset, op.value().value())?;
+            self.word[i].assign(region, offset, op.value().field_value())?;
             self.word_mask[i].assign(region, offset, Some(F::ZERO))?;
             self.word_addr_ext[i].assign(region, offset, Some(F::from(op.address_ext() as u64)))?;
         }
@@ -87,7 +87,7 @@ impl<F: Field> ValueGadget<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        rw_operations: &RWOperations<F>,
+        rw_operations: &RWOperations,
         op_index: usize,
         flattened_value_len: usize,
     ) -> Result<(), Error> {

@@ -292,19 +292,13 @@ impl<F: Field> InstructionGadget<F> for VecPopBack<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let _si = Word::assign_step_value(region, offset, &step.auxiliary_1, &cells.auxiliary_1)?;
         // auxiliary_2 is multiplexed by header_len and value_index.
-        let val = step
-            .auxiliary_2
-            .as_ref()
-            .unwrap()
-            .value()
-            .unwrap()
-            .get_lower_128();
+        let val = step.auxiliary_2.as_ref().unwrap().to_u128().unwrap();
         let headers_count = (val & 0xFF) as usize;
         let value_index = ((val >> 8) & 0xFFFF) as usize; // max value_index is 2^16 - 1
         self.headers_count
@@ -355,7 +349,7 @@ impl<F: Field> InstructionGadget<F> for VecPopBack<F> {
             self.vec_frame_index_or_global_address.assign(
                 region,
                 offset,
-                Some(op.account_address().value()),
+                Some(op.account_address().field_value()),
             )?;
             self.vec_locals_index_or_global_sd_idx.assign(
                 region,
@@ -426,7 +420,7 @@ impl<F: Field> InstructionGadget<F> for VecPopBack<F> {
                 .0
                 .get(new_headers_op_idx + i)
                 .ok_or(Error::Synthesis)?;
-            self.new_headers_value[i].assign(region, offset, op.value().value())?;
+            self.new_headers_value[i].assign(region, offset, op.value().field_value())?;
         }
 
         Ok(())

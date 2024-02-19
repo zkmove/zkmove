@@ -7,8 +7,8 @@ use types::Field;
 
 pub struct PIFieldValues<F: Field>(pub Vec<F>);
 
-impl<F: Field> From<&Value<F>> for PIFieldValues<F> {
-    fn from(v: &Value<F>) -> Self {
+impl<F: Field> From<&Value> for PIFieldValues<F> {
+    fn from(v: &Value) -> Self {
         let mut field_values = FlattenedValue::from(v).field_values();
 
         // fill up with 0
@@ -62,7 +62,7 @@ impl PILookupTable {
     pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
-        pi: Option<Value<F>>,
+        pi: Option<Value>,
         pi_index_table: Vec<AssignedCell<F, F>>,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
         let values = match &pi {

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 // Copyright (c) zkMove Authors
 use crate::chips::execution_chip::{ExecutionChip, ExecutionChipConfig};
 use crate::chips::memory_chip::{MemoryChip, MemoryChipConfig};
@@ -18,8 +20,9 @@ pub struct VmCircuitConfig<F: Field> {
 
 #[derive(Clone, Default)]
 pub struct VmCircuit<F: Field> {
-    pub witness: Witness<F>,
-    pub public_input: Option<Value<F>>,
+    pub witness: Witness,
+    pub public_input: Option<Value>,
+    pub _maker: PhantomData<F>,
 }
 
 impl<F: Field> Circuit<F> for VmCircuit<F> {

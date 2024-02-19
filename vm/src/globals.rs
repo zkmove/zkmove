@@ -1,5 +1,4 @@
 use error::VmResult;
-use types::Field;
 
 use movelang::account_address::AccountAddress;
 use movelang::value::{
@@ -9,19 +8,19 @@ use movelang::value::{
 use movelang::value_ext::LocatedFlattenedValue;
 use vm_circuit::witness::rw_operations::{GlobalOp, RWOperation, RW};
 
-pub fn emit_global_op<F: Field>(
-    address_path: AddressPath<F>,
-    value: SimpleValue<F>,
+pub fn emit_global_op(
+    address_path: AddressPath,
+    value: SimpleValue,
     rw: RW,
-    rw_operations: &mut Vec<RWOperation<F>>,
+    rw_operations: &mut Vec<RWOperation>,
 ) {
     let op = GlobalOp {
-        address: AccountAddress::new(F::from_u128(
+        address: AccountAddress::new(
             *address_path
                 .0
                 .first()
                 .expect("account address should not be None"),
-        )),
+        ),
         sd_index: *address_path.0.get(1).expect("sd_index should not be None") as usize,
         address_ext: address_path.addr_ext(),
         value: Some(value),
@@ -32,28 +31,28 @@ pub fn emit_global_op<F: Field>(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn emit_global_ops<F: Field>(
-    flattened_value: LocatedFlattenedValue<F>,
+pub fn emit_global_ops(
+    flattened_value: LocatedFlattenedValue,
     rw: RW,
-    rw_operations: &mut Vec<RWOperation<F>>,
+    rw_operations: &mut Vec<RWOperation>,
 ) {
     for (address_path, val) in flattened_value.0 {
         emit_global_op(address_path, val, rw, rw_operations);
     }
 }
-pub fn emit_ops_for_global_value<F: Field>(
-    addr: AccountAddress<F>,
+pub fn emit_ops_for_global_value(
+    addr: AccountAddress,
     sd_index: GlobalResourceDefIndex,
-    resource_value: Value<F>,
+    resource_value: Value,
     rw: RW,
     write_invalid: bool,
-    rw_operations: &mut Vec<RWOperation<F>>,
+    rw_operations: &mut Vec<RWOperation>,
 ) -> VmResult<usize> {
     let value_addr = GlobalLocation {
         address: addr,
         sd_index,
     };
-    let flattened_value: LocatedFlattenedValue<F> =
+    let flattened_value: LocatedFlattenedValue =
         LocatedValue(ValueLocation::Global(value_addr), &resource_value).into();
     let flattened_value_len = flattened_value.0.len();
     for (address_path, val) in flattened_value.0.clone() {

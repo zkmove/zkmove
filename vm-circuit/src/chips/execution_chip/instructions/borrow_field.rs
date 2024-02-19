@@ -126,8 +126,8 @@ impl<const MUTABLE: bool, const GENERIC: bool, F: Field> InstructionGadget<F>
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let _fh_idx =

@@ -77,7 +77,7 @@ impl RWTable {
     pub fn assign_table<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
-        rw_operations: RWOperations<F>,
+        rw_operations: RWOperations,
         circuit_config: &CircuitConfig,
     ) -> Result<
         (
@@ -205,9 +205,9 @@ impl RWTable {
     }
 
     // NOTICE: table height must be consistent with assign_table()
-    pub fn tables_height<F: Field>(
+    pub fn tables_height(
         &self,
-        rw_operations: RWOperations<F>,
+        rw_operations: RWOperations,
         circuit_config: &CircuitConfig,
     ) -> usize {
         let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) = rw_operations.into();

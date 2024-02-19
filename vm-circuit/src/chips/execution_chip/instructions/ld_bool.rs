@@ -47,8 +47,8 @@ impl<F: Field, const TRUE: bool> InstructionGadget<F> for LdBool<F, TRUE> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         self.value.assign(region, offset, rw_operations, step.gc)?;

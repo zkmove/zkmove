@@ -58,8 +58,8 @@ impl<F: Field> InstructionGadget<F> for Branch<F> {
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        _rw_table: &RWOperations<F>,
+        step: &ExecutionStep,
+        _rw_table: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         // assign next_pc into the auxiliary_1

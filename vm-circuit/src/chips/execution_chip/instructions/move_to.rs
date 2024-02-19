@@ -121,8 +121,8 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveTo<GENERIC, F> 
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         let _sd_idx =
@@ -143,7 +143,7 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveTo<GENERIC, F> 
             .ok_or(Error::Synthesis)?;
         debug_assert!(op.rw() == RW::WRITE);
         self.account_address
-            .assign(region, offset, Some(op.account_address().value()))?;
+            .assign(region, offset, Some(op.account_address().field_value()))?;
 
         if GENERIC {
             cells.auxiliary_2.assign(
@@ -152,7 +152,7 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveTo<GENERIC, F> 
                 step.auxiliary_2
                     .as_ref()
                     .expect("callee_node id should not be none")
-                    .value(),
+                    .field_value(),
             )?;
             cells.auxiliary_4.assign(
                 region,
@@ -160,7 +160,7 @@ impl<const GENERIC: bool, F: Field> InstructionGadget<F> for MoveTo<GENERIC, F> 
                 step.auxiliary_4
                     .as_ref()
                     .expect("caller_pc should not be none")
-                    .value(),
+                    .field_value(),
             )?;
             if let Some(ExecutionData::StorageOp(data)) = &step.data {
                 self.type_cells

@@ -62,8 +62,8 @@ impl<F: Field, const N_BYTES: usize> InstructionGadget<F> for LdInt<F, N_BYTES> 
         &self,
         region: &mut Region<'_, F>,
         offset: usize,
-        step: &ExecutionStep<F>,
-        rw_operations: &RWOperations<F>,
+        step: &ExecutionStep,
+        rw_operations: &RWOperations,
         _cells: &StepChipCells<F>,
     ) -> Result<(), Error> {
         self.value_a
