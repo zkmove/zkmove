@@ -157,69 +157,69 @@ impl fmt::Debug for Witness {
         writeln!(f)?;
         writeln!(f, "Execution steps:")?;
         self.exec_steps.iter().enumerate().for_each(|(i, step)| {
-            writeln!(f, "{}: {:?}", i, step).unwrap();
+            writeln!(f, "{}: {:0x?}", i, step).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Read/Write operations:")?;
         self.rw_operations.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         let (sorted_stack_ops, sorted_locals_ops, sorted_global_ops) =
             self.rw_operations.clone().into();
         writeln!(f, "Sorted stack operations:")?;
         sorted_stack_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Sorted locals operations:")?;
         sorted_locals_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Sorted global operations:")?;
         sorted_global_ops.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Bytecode table:")?;
         self.bytecode_table.as_inner().iter().for_each(|bytecode| {
-            writeln!(f, "{:?}", bytecode).unwrap();
+            writeln!(f, "{:0x?}", bytecode).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Constant table:")?;
         self.constant_table.0.iter().for_each(|constant| {
-            writeln!(f, "{:?}", constant).unwrap();
+            writeln!(f, "{:0x?}", constant).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Function calls table:")?;
         self.func_call_table.iter().for_each(|call| {
-            writeln!(f, "{:?}", call).unwrap();
+            writeln!(f, "{:0x?}", call).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Arithmetic op table:")?;
         self.arith_operations.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Input type table:")?;
         self.input_type_elements.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Call trace table:")?;
         self.call_trace_table.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Type instantiation table:")?;
         self.type_instantiations.0.iter().for_each(|op| {
-            writeln!(f, "{:?}", op).unwrap();
+            writeln!(f, "{:0x?}", op).unwrap();
         });
         writeln!(f)?;
         writeln!(f, "Circuit Config:")?;
-        writeln!(f, "{:?}", self.circuit_config).unwrap();
-        writeln!(f, "Word_capacity: {:?}", word_capacity()).unwrap();
+        writeln!(f, "{:0x?}", self.circuit_config).unwrap();
+        writeln!(f, "Word_capacity: {:0x?}", word_capacity()).unwrap();
         Ok(())
     }
 }

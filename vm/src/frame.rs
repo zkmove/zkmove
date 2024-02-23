@@ -476,7 +476,7 @@ impl Frame {
                                 RuntimeError::new(StatusCode::ValueConversionError)
                             })?;
                         if cond == 1u128 {
-                            trace!("step #{}, {:?}", interp.step, execution_step);
+                            trace!("step #{}, {:0x?}", interp.step, execution_step);
                             exec_steps.push(execution_step);
                             interp.step += 1;
                             self.pc = *offset;
@@ -1226,7 +1226,7 @@ impl Frame {
                     _ => unreachable!(),
                 }?;
 
-                trace!("step #{}, {:?}", interp.step, execution_step);
+                trace!("step #{}, {:0x?}", interp.step, execution_step);
                 exec_steps.push(execution_step);
                 interp.step += 1;
                 self.pc += 1;
@@ -1238,7 +1238,7 @@ impl Frame {
         // currently only print bytecode of entry function
         trace!("Bytecode of function {:?}:", self.function.name());
         for (i, instruction) in self.function.code().iter().enumerate() {
-            trace!("#{}, {:?}", i, instruction);
+            trace!("#{}, {:0x?}", i, instruction);
         }
     }
 }
