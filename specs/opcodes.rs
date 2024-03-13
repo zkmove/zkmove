@@ -1,0 +1,1014 @@
+pub mod stack {
+    pub fn stack_read_exact_value(expect_read_value: usize) {
+        stack_index(0) == expect_read_value;
+    }
+}
+pub mod common {
+    pub fn is_first_row() -> bool {
+        !(frame_index(0) == frame_index(-1)
+            && module_index(0) == module_index(-1)
+            && function_index(0) == function_index(-1)
+            && pc(0) == pc(-1))
+    }
+    pub fn fake_local_read_zero() {
+        local_frame_index(0) == 0;
+        local_index(0) == 0;
+        local_sub_index(0) == 0;
+        local_read_value(0) == 0;
+        local_write_value(0) == 0;
+        if local_write_version(0) == 0 {
+            local_read_version(0) >= local_write_version(0)
+        } else {
+            local_write_version(0) > local_read_version(0)
+        }
+    }
+}
+
+mod ld {
+    fn constraint_ld() {
+        step_counter(0) == 1;
+        table_opcode.contain(pc(0), opcode(0), aux0(0));
+        // Memory Context Constraints:
+        stack_index(0) == sp(0) + 1;
+        stack_sub_index(0) == 0;
+        stack_write_value(0) == aux0(0);
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0)
+        } else {
+            stack_write_version(0) > stack_read_version(0)
+        }
+
+        // Local Context Constraints: fake local memory operation.
+        super::common::fake_local_read_zero();
+
+        // constraint next step's Opcode Context:
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0) + 1;
+        sp(1) == sp(0) + 1;
+    }
+}
+mod ldu256 {
+    fn constraint_ldu256() {
+        if super::common::is_first_row() {
+            // first row of current step
+            constraint_first_row();
+        } else {
+            // if the opcode contain multi rows.
+            constraint_remain();
+        }
+
+        /// Local Context Constraints: fake local memory operation.
+        super::common::fake_local_read_zero();
+    }
+    fn constraint_first_row() {
+        step_counter(0) == 3; // ld u256 contains three rows
+        table_opcode.contain(pc(0), opcode(0), aux0(0));
+
+        stack_index(0) == sp(0) + 1;
+        stack_sub_index(0) == 0;
+
+        stack_write_value(0) == (2, 3); // len=2,flen=3
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0)
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0)
+        }
+
+        // constraint next row's opcode context within same opcode
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0);
+        sp(1) == sp(0);
+        opcode(1) == opcode(0);
+        aux0(1) == aux0(0);
+        aux1(1) == aux1(0);
+        step_counter(1) == step_counter(0) - 1;
+    }
+    fn constraint_remain() {
+        let is_last = step_counter(0) == 1; // last row of current step
+
+        // Memory Context Constraints:
+        stack_index(0) == sp(0) + 1;
+        stack_sub_index(0) == stack_sub_index(-1) + 1;
+
+        stack_write_value(0) == if is_last { aux1(0) } else { aux0(0) }; // (lo, hi)
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0)
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0)
+        }
+        // constraint next row's opcode context
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        if is_last {
+            // next step
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        } else {
+            // next row within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            // decrease step_counter
+            step_counter(1) == step_counter(0) - 1;
+        }
+    }
+}
+
+mod pop {
+    fn constraint_pop() {
+        if super::common::is_first_row() {
+            constraint_first_row();
+        } else {
+            constraint_remain();
+        }
+        stack_read_value(0) != INVALID;
+        stack_write_value(0) = INVALID;
+        stack_write_version(0) > stack_read_version(0);
+
+        super::common::fake_local_read_zero();
+    }
+    fn constraint_first_row() {
+        // first row
+        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+        stack_index(0) = sp(0);
+        stack_sub_index(0) == 0; // simple value or header
+        let is_simple = step_counter(0) == 1;
+        if !is_simple {
+            // !simple value
+            let (len, flen) = stack_read_value(0);
+            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+        }
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        if is_simple {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //stack_sub_index(1) > stack_sub_index(0);
+        }
+    }
+    fn constraint_remain() {
+        stack_index(0) == sp(0);
+        stack_sub_index(0) > stack_sub_index(-1);
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        let is_last = step_counter(0) == 1; // last row of current opcode
+        if is_last {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //stack_sub_index(1) > stack_sub_index(0);
+        }
+    }
+}
+
+// TODO: support u256
+mod add {
+    fn constraint_add() {
+        if super::common::is_first_row() {
+            constraint_first_row();
+        } else {
+            constraint_remain();
+        }
+        super::common::fake_local_read_zero();
+    }
+    fn constraint_first_row() {
+        // first row
+        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+        step_counter(0) == 2;
+
+        stack_index(0) == sp(0);
+        stack_sub_index(0) == 0;
+        // first row is write invalid to b,
+
+        stack_read_value(0) != INVALID;
+        stack_write_value(0) = INVALID;
+        stack_write_version(0) > stack_read_version(0);
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+
+        // constraint next row's opcode context within same opcode
+        pc(1) == pc(0);
+        sp(1) == sp(0) - 1;
+        opcode(1) == opcode(0);
+        aux0(1) == aux0(0);
+        aux1(1) == aux1(0);
+        step_counter(1) == step_counter(0) - 1;
+    }
+    fn constraint_remain() {
+        step_counter(0) == 1;
+
+        stack_index(0) == sp(0);
+        stack_sub_index(0) == 0;
+        // second row is write a+b to a
+        stack_read_value(0) != INVALID;
+        // TODO: add overflow check
+        stack_write_value(0) == stack_read_value(0) + stack_read_value(-1);
+        stack_write_version(0) > stack_read_version(0);
+
+        // constraint next row is another opcode
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0) + 1;
+        sp(1) == sp(0);
+    }
+}
+
+// TODO: u256 support
+mod le {
+    fn constraint_le() {
+        if super::common::is_first_row() {
+            constraint_first_row();
+        } else {
+            constraint_remain();
+        }
+        super::common::fake_local_read_zero();
+    }
+    fn constraint_first_row() {
+        // first row
+        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+        step_counter(0) == 2;
+
+        stack_index(0) == sp(0);
+        stack_sub_index(0) == 0;
+        // first row is write invalid to b,
+
+        stack_read_value(0) != INVALID;
+        stack_write_value(0) = INVALID;
+        stack_write_version(0) > stack_read_version(0);
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+
+        // constraint next row's opcode context within same opcode
+        pc(1) == pc(0);
+        sp(1) == sp(0) - 1;
+        opcode(1) == opcode(0);
+        aux0(1) == aux0(0);
+        aux1(1) == aux1(0);
+        step_counter(1) == step_counter(0) - 1;
+    }
+    fn constraint_remain() {
+        step_counter(0) == 1;
+
+        stack_index(0) == sp(0);
+        stack_sub_index(0) == 0;
+        // second row is write `a<b` to a
+        stack_read_value(0) != INVALID;
+        let is_le = stack_read_value(0) <= stack_read_value(-1);
+        stack_write_value(0) == is_le;
+        stack_write_version(0) > stack_read_version(0);
+
+        // constraint next row is another opcode
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0) + 1;
+        sp(1) == sp(0);
+    }
+}
+
+mod move_loc {
+    fn constraint() {
+        if super::common::is_first_row() {
+            constraint_first_row();
+        } else {
+            constraint_remain();
+        }
+    }
+    fn constraint_first_row() {
+        // first row
+        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+        local_sub_index(0) == 0; // simple value or header
+
+        stack_index(0) == sp(0) + 1; // push a value onto stack
+        local_frame_index(0) == frame_index(0);
+        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_sub_index(0) == stack_sub_index(0);
+        local_read_value(0) == stack_write_value(0);
+        lcoal_read_value(0) != INVALID;
+        local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
+
+        local_write_version(0) > local_read_version(0);
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0);
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+        }
+
+        let is_simple = step_counter(0) == 1;
+        if !is_simple {
+            // !simple value
+            let (len, flen) = stack_read_value(0);
+            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+        }
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        if is_simple {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
+        }
+    }
+    fn constraint_remain() {
+        stack_index(0) == sp(0) + 1; // push a value onto stack
+        local_frame_index(0) == frame_index(0);
+        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_sub_index(0) == stack_sub_index(0);
+        local_sub_index(0) > local_sub_index(-1); // make sure sub_index of complex value is increasing.
+        local_read_value(0) == stack_write_value(0);
+        lcoal_read_value(0) != INVALID;
+        local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
+
+        local_write_version(0) > local_read_version(0);
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0);
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+        }
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        let is_last = step_counter(0) == 1; // last row of current opcode
+        if is_last {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
+        }
+    }
+}
+
+mod copy_loc {
+    fn constraint() {
+        if super::common::is_first_row() {
+            constraint_first_row();
+        } else {
+            constraint_remain();
+        }
+    }
+    fn constraint_first_row() {
+        // first row
+        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+        local_sub_index(0) == 0; // simple value or header
+
+        stack_index(0) == sp(0) + 1; // push a value onto stack
+        local_frame_index(0) == frame_index(0);
+        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_sub_index(0) == stack_sub_index(0);
+        local_read_value(0) == stack_write_value(0);
+        lcoal_read_value(0) != INVALID;
+        local_write_value(0) == local_read_value(0); // copy_loc will just read data, this the only difference with move_loc
+
+        local_write_version(0) > local_read_version(0);
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0);
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+        }
+
+        let is_simple = step_counter(0) == 1;
+        if !is_simple {
+            // !simple value
+            let (len, flen) = stack_read_value(0);
+            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+        }
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        if is_simple {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
+        }
+    }
+    fn constraint_remain() {
+        stack_index(0) == sp(0) + 1; // push a value onto stack
+        local_frame_index(0) == frame_index(0);
+        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_sub_index(0) == stack_sub_index(0);
+        local_sub_index(0) > local_sub_index(-1); // make sure sub_index of complex value is increasing.
+        local_read_value(0) == stack_write_value(0);
+        lcoal_read_value(0) != INVALID;
+        local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
+
+        local_write_version(0) > local_read_version(0);
+        if stack_write_version(0) == 0 {
+            // initial stack write
+            stack_read_version(0) >= stack_write_version(0);
+        } else {
+            stack_read_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+        }
+
+        // constraint next row
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        let is_last = step_counter(0) == 1; // last row of current opcode
+        if is_last {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
+        }
+    }
+}
+
+mod store_loc {
+    fn constraint() {
+        let is_first_row = super::common::is_first_row();
+        if is_first_row {
+            // first row
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+
+            stack_sub_index(0) == 0;
+
+            // constraint w_flen.
+            w_flen(0) != 0; // ensure w_flen > 0 in first row
+            let is_complex_value = w_flen(0) != 1; // TODO: should change to use HEADER flag?
+            if is_complex_value {
+                // complex value
+                let (len, flen) = stack_read_value(0);
+                w_flen(0) == flen; // need to constraint flen == step_counter in the first row.
+            }
+
+            // constraint step_counter
+            let invalidate_old = local_write_version(0) != 0;
+            if invalidate_old && local_read_value_flag != SIMPLE {
+                let (len, flen) = local_read_value(0);
+                step_counter(0) == w_flen(0) + flen - 1; // step counter should be the old_local_value_flen+new_local_value_flen - 1
+            } else {
+                step_counter(0) == w_flen(0); // if old value is simple or store_to_empty, we donnt need to invalidate.
+            }
+        }
+        let in_store_stage = w_flen(0) != 0;
+        // in this stage, we copy stack value into local, and invalidate stack.
+        if in_store_stage {
+            stack_index(0) == sp(0); // write invalid to current stack
+            !is_first_row && stack_sub_index(0) > stack_sub_index(-1); // make sure value sub_index increasing.
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+
+            local_frame_index(0) == frame_index(0);
+            local_index(0) == aux0(0); // ensure local_index equal to operand0
+            local_sub_index(0) == stack_sub_index(0);
+            // local_read_value(0) should be either INVALID or the latest value based on the version of local_write_version
+            local_write_value(0) == stack_read_value(0);
+
+            let is_store_to_empty = local_write_version(0) == 0;
+            if is_store_to_empty {
+                // initial local write
+                local_read_version(0) >= local_write_version(0);
+                local_read_value(0) != INVALID;
+            } else {
+                local_write_version(0) > local_read_version(0);
+                // !is_first_row && local_read_value(0) == INVALID; // if not first row, local_read old_value should be INVALID.
+            }
+        }
+
+        let in_invalidate_local_stage = w_flen(0) == 0;
+        if in_invalidate_local_stage {
+            fake_stack_memory_zero();
+            local_frame_index(0) == frame_index(0);
+            local_index(0) == aux(0);
+            local_sub_index(0) != 0; // not header
+            local_read_value(0) != INVALID;
+            local_write_value(0) == INVALID;
+            local_read_version(0) < local_write_version(0);
+        }
+
+        // constraint next row,
+        // iterate each columns to add constraint.
+        let is_last = step_counter(0) == 1; // last row of current opcode
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        if is_last {
+            // next row is another opcode
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1;
+        } else {
+            // constraint next row's opcode context within same opcode
+            pc(1) == pc(0);
+            sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            step_counter(1) == step_counter(0) - 1;
+            if in_store_stage {
+                w_flen(1) == w_flen(0) - 1;
+            }
+            if in_invalidate_local_stage {
+                w_flen(1) == w_flen(0); // == 0
+            }
+            if in_invalidate_local_stage {
+                local_sub_index(1) > local_sub_index(0);
+            }
+        }
+    }
+}
+
+mod vec_swap {
+    const STAGE_NUM: u64 = 5;
+    const STAGE_POP_INDEX2: u64 = 5;
+    const STAGE_POP_INDEX1: u64 = 4;
+    const STAGE_POP_VEC_REF: u64 = 3;
+    const STAGE_WRITE_INDEX1: u64 = 2;
+    const STAGE_WRITE_INDEX2: u64 = 1;
+
+    pub fn constraint_swap() {
+        if stage(0) == STAGE_POP_INDEX2 || stage(0) == STAGE_POP_INDEX1 {
+            step_counter(0) == 1;
+            stack_index(0) == sp(0);
+            stack_sub_index(0) == 0;
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_read_value_flag(0) == SIMPLE;
+            stack_write_value_flag(0) == SIMPLE;
+            stack_write_version(0) > stack_read_version(0);
+            fake_local_read_zero();
+        }
+
+        if stage(0) == STAGE_POP_VEC_REF {
+            if step_counter(-1) == 1 {
+                // initialize the step_counter of the stage
+                let (len, flen) = stack_read_value(0);
+                flen == 4;
+                step_counter(0) == flen; // in fact, it should always 4.
+                stack_sub_index(0) == 0;
+                stack_read_value_flag(0) == HEADER_FLAG;
+            } else {
+                stack_sub_index(0) > stack_sub_index(-1);
+                stack_read_value_flag(0) == SIMPLE_FLAG;
+            }
+
+            stack_index(0) == sp(0);
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_write_value_flag(0) == INVALID_FLAG;
+            stack_write_version(0) > stack_read_version(0);
+            fake_local_read_zero();
+        }
+
+        // init ref_sub_index
+        stage(0) == STAGE_POP_VEC_REF
+            && step_counter(0) == 1
+            && ref_sub_index(0) == stack_read_value(0);
+        stage(0) < STAGE_POP_VEC_REF && ref_sub_index(0) == ref_sub_index(-1);
+
+        // copy value at index2 to index1
+        if stage(0) == STAGE_WRITE_INDEX1 {
+            if step_counter(-1) == 1 {
+                // fist row: initialize
+                let index2 = stack_read_value(-6);
+                let index1 = stack_read_value(-5);
+                local_frame_index(0) == stack_read_value(-3);
+                local_index(0) == stack_read_value(-2);
+
+                aux1(0) == index2;
+                aux1(1) == index1;
+                is_odd(0) == 0;
+                is_odd(1) == 1;
+                local_sub_index(0) == ref_local_index(0) * 16 + index2;
+                local_sub_index(1) == ref_local_index(0) * 16 + index1;
+
+                let is_simple = local_read_value_flag(0) == SIMPLE_FLAG;
+                if is_simple {
+                    step_counter(0) == 1 * 2;
+                } else {
+                    let (len, flen) = local_read_value(0);
+                    step_counter(0) == flen * 2;
+                }
+            } else {
+                local_frame_index(0) == local_frame_index(-1);
+                local_index(0) == local_index(-1);
+                let is_last = step_counter(0) == 1;
+                !is_last && is_odd(1) == is_odd(-1);
+                !is_last && aux1(1) == aux1(-1); // if not last, constraint aux1(1) = aux1(-1)
+                !is_last && local_sub_index(1) > local_sub_index(-1);
+            }
+            if is_odd(0) {
+                // TODO: how to constraint local_sub_index
+                // local_sub_index == stack_read_value(-1) * 16 + index1;
+                local_write_value(0) == local_read_value(-1);
+                if local_write_version(0) == 0 {
+                    local_read_version >= local_write_version(0);
+                } else {
+                    local_read_value(0) == INVALID;
+                    local_write_version(0) > local_read_version(0);
+                }
+            } else {
+                local_write_value(0) == INVALID;
+                local_write_version(0) > local_read_version(0);
+            }
+        }
+
+        // copy value at index1 to index2
+        if stage(0) == STAGE_WRITE_INDEX2 {
+            if step_counter(-1) == 1 {
+                // fist row: initialize
+                let index2 = aux1(-2);
+                let index1 = aux1(-1);
+                local_frame_index(0) == local_frame_index(-1);
+                local_index(0) == local_index(-1);
+
+                aux1(0) == aux1(-1);
+                aux1(1) == aux1(-2);
+                is_odd(0) == 0;
+                is_odd(1) == 1;
+                local_sub_index(0) == stack_read_value(-1) * 16 + index1;
+                local_sub_index(1) == stack_read_value(-1) * 16 + index2;
+
+                let is_simple = local_read_value_flag(0) == SIMPLE_FLAG;
+                if is_simple {
+                    step_counter(0) == 1 * 2;
+                } else {
+                    let (len, flen) = local_read_value(0);
+                    step_counter(0) == flen * 2;
+                }
+            } else {
+                local_frame_index(0) == local_frame_index(-1);
+                local_index(0) == local_index(-1);
+                let is_last = step_counter(0) == 1;
+                !is_last && aux1(1) == aux1(-1); // if not last, constraint aux1(1) = aux1(-1)
+                !is_last && local_sub_index(1) > local_sub_index(-1);
+                !is_last && is_odd(1) == is_odd(-1);
+            }
+            if is_odd(0) {
+                // TODO: how to constraint local_sub_index
+                // local_sub_index == stack_read_value(-1) * 16 + index1;
+                local_write_value(0) == local_read_value(-1);
+                if local_write_version(0) == 0 {
+                    local_read_version >= local_write_version(0);
+                } else {
+                    local_read_value(0) == INVALID;
+                    local_write_version(0) > local_read_version(0);
+                }
+            } else {
+                local_write_value(0) == INVALID;
+                local_write_version(0) > local_read_version(0);
+            }
+        }
+
+        // init stage and step_counter
+        super::common::is_first_row() && stage(0) == STAGE_NUM;
+
+        // Constraint next row's counter
+        // constraint next row's step_counter and stage.
+        if step_counter(0) == 1 {
+            if stage(0) != 1 {
+                stage(1) == stage(0) - 1;
+            }
+        } else {
+            stage(1) == stage(0);
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // pop three elems from stack
+        if stage(0) == STAGE_POP_INDEX2 || stage(0) == STAGE_POP_INDEX1 {
+            sp(1) == sp(0) - 1
+        } else if stage(0) == STAGE_POP_VEC_REF && step_counter(0) == 1 {
+            sp(1) == sp(0) - 1
+        } else {
+            sp(1) == sp(0)
+        };
+
+        // constraint next row's opcode context
+        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !is_last_row {
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        } else {
+            pc(1) == pc(0) + 1;
+        }
+    }
+}
+
+mod vec_pop_back {
+    const STAGE_POP_REF: u64 = 3;
+    const STAGE_WRITE_HEADER: u64 = 2;
+    const STAGE_WRITE_STACK: u64 = 1;
+    const STAGE_NUM: u64 = 3;
+    pub fn constraint() {
+        if stage(0) == STAGE_POP_REF {
+            // pop ref from stack
+            if step_counter(-1) == 1 {
+                // initialize the step_counter of the stage
+                let (len, flen) = stack_read_value(0);
+                flen == 4;
+                step_counter(0) == flen; // in fact, it should always 4.
+                stack_sub_index(0) == 0;
+                stack_read_value_flag(0) == HEADER_FLAG;
+            } else {
+                stack_sub_index(0) > stack_sub_index(-1);
+                stack_read_value_flag(0) == SIMPLE_FLAG;
+            }
+
+            stack_index(0) == sp(0);
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_write_value_flag(0) == INVALID_FLAG;
+            stack_write_version(0) > stack_read_version(0);
+            fake_local_read_zero();
+        }
+
+        if stage(0) == STAGE_WRITE_HEADER {
+            step_counter(0) == 1;
+
+            fake_stack_read_zero();
+
+            local_frame_index(0) = stack_read_value(-3);
+            local_index(0) = stack_read_value(-2);
+            local_sub_index(0) = stack_read_value(-1);
+            local_write_version(0) > local_read_version(0);
+        }
+        // init ref_sub_index
+        stage(0) == STAGE_WRITE_HEADER
+            && step_counter(0) == 1
+            && ref_sub_index(0) == local_sub_index(0);
+        stage(0) < STAGE_WRITE_HEADER && ref_sub_index(0) == ref_sub_index(-1);
+
+        if stage(0) == STAGE_WRITE_STACK {
+            if step_counter(-1) == 1 {
+                // firt row of the stage
+
+                let (pop_elem_len, pop_elem_flen) = if local_read_value_flag(0) == SIMPLE {
+                    (1, 1)
+                } else {
+                    local_read_value(0)
+                };
+                // constraint vec len and flen
+                let (old_len, old_flen) = local_read_value(-1);
+                let (new_len, new_flen) = local_write_value(-1);
+                old_len == new_len + 1; // pop elem
+                old_flen == new_flen + pop_elem_flen;
+
+                step_counter(0) == pop_elem_flen;
+
+                // FIXME: fix the sub_index constraint
+                local_sub_index(0) == ref_sub_index(0) * 16 + old_len; // pop the last elem
+            }
+            local_frame_index(0) == local_frame_index(-1);
+            local_index(0) == local_index(-1);
+            local_read_value(0) != INVALID;
+            local_write_value(0) == INVALID;
+            local_write_version(0) > local_read_version(0);
+
+            let is_last = step_counter(0) == 1;
+            !is_last && local_sub_index(0) < local_sub_index(1);
+
+            stack_index(0) == sp(0);
+            // FIXME: we should move the sub_index out of the vector.
+            stack_sub_index(0) == local_sub_index(0) - ref_sub_index(0) * 16;
+            stack_write_value(0) == local_read_value(0);
+            if stack_write_version(0) == 0 {
+                stack_read_version(0) >= stack_write_version(0);
+            } else {
+                stack_read_value(0) != INVALID;
+                stack_read_version(0) < stack_write_version(0);
+            }
+        }
+
+        // init stage and step_counter
+        super::common::is_first_row() && stage(0) == STAGE_NUM;
+
+        // Constraint next row's counter
+        // constraint next row's step_counter and stage.
+        if step_counter(0) == 1 {
+            if stage(0) != 1 {
+                stage(1) == stage(0) - 1;
+            }
+        } else {
+            stage(1) == stage(0);
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // sp always the same
+        sp(1) == sp(0);
+
+        // constraint next row's opcode context
+        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !is_last_row {
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        } else {
+            pc(1) == pc(0) + 1;
+        }
+    }
+}
+
+mod vec_push_back {
+    const STAGE_POP_REF: u64 = 3;
+    const STAGE_WRITE_HEADER: u64 = 2;
+    const STAGE_WRITE_LOCAL: u64 = 1;
+    const STAGE_NUM: u64 = 3;
+    pub fn constraint() {
+        if stage(0) == STAGE_POP_REF {
+            let is_first = step_counter(-1) == 1;
+            // pop ref from stack
+            if is_first {
+                // initialize the step_counter of the stage
+                let (len, flen) = stack_read_value(0);
+                flen == 4;
+                step_counter(0) == flen; // in fact, it should always 4.
+                stack_sub_index(0) == 0;
+                stack_read_value_flag(0) == HEADER_FLAG;
+            } else {
+                stack_sub_index(0) > stack_sub_index(-1);
+                stack_read_value_flag(0) == SIMPLE_FLAG;
+            }
+            stack_index(0) == sp(0);
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_write_value_flag(0) == INVALID_FLAG;
+            stack_write_version(0) > stack_read_version(0);
+            fake_local_read_zero();
+        }
+
+        if stage(0) == STAGE_WRITE_HEADER {
+            step_counter(0) == 1;
+
+            fake_stack_read_zero();
+
+            local_frame_index(0) = stack_read_value(-3);
+            local_index(0) = stack_read_value(-2);
+            local_sub_index(0) = stack_read_value(-1);
+            local_write_version(0) > local_read_version(0);
+        }
+        // init ref_sub_index
+        stage(0) == STAGE_WRITE_HEADER
+            && step_counter(0) == 1
+            && ref_sub_index(0) == local_sub_index(0);
+        stage(0) < STAGE_WRITE_HEADER && ref_sub_index(0) == ref_sub_index(-1);
+
+        if stage(0) == STAGE_WRITE_LOCAL {
+            let is_first = step_counter(-1) == 1;
+            if is_first {
+                // firt row of the stage
+
+                let (pop_elem_len, pop_elem_flen) = if stack_read_value_flag(0) == SIMPLE {
+                    (1, 1)
+                } else {
+                    stack_read_value(0)
+                };
+                // constraint vec len and flen
+                let (old_len, old_flen) = local_read_value(-1);
+                let (new_len, new_flen) = local_write_value(-1);
+                old_len + 1 == new_len; // push elem
+                old_flen + pop_elem_flen == new_flen;
+
+                step_counter(0) == pop_elem_flen;
+            }
+            stack_index(0) == sp(0);
+            is_first && stack_sub_index(0) == 0;
+            !is_first && stack_sub_index(0) > stack_sub_index(-1);
+            stack_read_value(0) != INVALID;
+            stack_write_value(0) == INVALID;
+            stack_write_version(0) > stack_read_version(0);
+
+            local_frame_index(0) == local_frame_index(-1);
+            local_index(0) == local_index(-1);
+            // FIXME: fix the sub_index constraint
+            local_sub_index(0) == (ref_sub_index(0) * 16 + new_len) * 16 + stack_sub_index(0);
+            local_write_value(0) == stack_read_value(0);
+            if local_write_version(0) == 0 {
+                local_read_version(0) >= local_write_version(0);
+            } else {
+                local_read_value(0) != INVALID;
+                local_read_version(0) < local_write_version(0);
+            }
+        }
+
+        // init stage and step_counter
+        super::common::is_first_row() && stage(0) == STAGE_NUM;
+
+        // Constraint next row's counter
+        // constraint next row's step_counter and stage.
+        if step_counter(0) == 1 {
+            if stage(0) != 1 {
+                stage(1) == stage(0) - 1;
+            }
+        } else {
+            stage(1) == stage(0);
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // constraint sp
+        if super::common::is_first_row() {
+            sp(0) == sp(-1) - 1;
+        }
+        if stage(0) == STAGE_WRITE_HEADER
+        /* && step_counter(-1) == 1 */
+        {
+            // write_header only has one row
+            // first row of write_header
+            sp(0) == sp(-1) + 1;
+        } else {
+            sp(0) == sp(-1);
+        }
+
+        // constraint next row's opcode context
+        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !is_last_row {
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        } else {
+            sp(1) == sp(0) - 2;
+            pc(1) == pc(0) + 1;
+        }
+    }
+}
