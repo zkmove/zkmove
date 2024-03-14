@@ -63,6 +63,11 @@ pub mod common {
             write_version > read_version
         }
     }
+    //TODO
+    pub fn stack_pop() {}
+    pub fn stack_push() {}
+    pub fn local_rw() {}
+    pub fn local_first_write() {}
 }
 
 mod ld {
@@ -397,6 +402,105 @@ mod cast {
         function_index(1) == function_index(0);
         pc(1) == pc(0) + 1;
         sp(1) == sp(0);
+    }
+}
+
+// TODO: support smart contract return value
+mod ret {
+    fn constrain_ret() {
+        table_opcode.contain(pc(0), Opcode::Ret, 0);
+
+        common::empty_stack_op(0,0,0);
+        common::empty_local_op(0,0,0,0);
+
+        // constrain Opcode Context of the next step
+        if frame_index == 0 {
+            opcode(1) == Opcode::Nop || opcode(1) == Opcode::Stop;
+            pc(1) == pc(0);
+        } else {
+            // not the first frame, lookup call table to constrain next pc
+            table_call.contain(EntryType::RET, module_index(0),
+                               function_index(0), pc(0), module_index(1),
+                               function_index(1), pc(1));
+        }
+    }
+}
+
+// define new column value_member_counter(reuse aux1), to record the number of members sitll
+// need to be processed. when local_index and value_member_counter both equal to 1, we will
+// go into the last step
+// TODO: add (function_instantiataion_index, arg_num) into table_func
+mod call {
+    fn constrain_call() {
+        if step_counter(-1) == 1 { constrain_first_step(); }
+        if step_counter(0) != 1 { constrain_non_last(); }
+        if step_counter(0) == 1 { constrain_last_step(); }
+    }
+
+    fn constrain_first_step() {
+        table_func.contain(aux0(0), arg_num); //aux0 is callee function_instantiation_index
+        table_opcode.contain(pc(0), CALL, aux0(0));
+        local_index(0) == arg_num;
+        if aug_num != 0 {
+            stack_sub_index(0) == 0; //the first step must pop a simple value or a header
+        } else {
+            step_counter(0) == 1;
+        }
+    }
+
+    fn constrain_non_last() {
+        stack_index(0) == sp(0);
+        local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
+        stack_read_value(0) == local_write_value(0);
+        stack_read_value_flag(0) == local_write_value_flag(0);;
+        stack_sub_index(0) == local_sub_index(0);
+        common::stack_pop();
+        common::local_first_write();
+
+        let is_simple = stack_sub_index(0) == 0 && stack_read_value_flag(0) == SIMPLE;
+        let is_header = stack_sub_index(0) == 0 && stack_read_value_flag(0) == HEADER;
+
+        if is_simple {
+            value_member_counter(0) == 1;
+        } else if is_header {
+            value_member_counter(0) == stack_read_value(0).f_len;
+        }
+        let end_of_one_arg = value_member_counter(0) == 1;
+
+        opcode(1) == opcode(0);
+        pc(1) == pc(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        step_counter(1) == step_counter(0) - 1;
+
+        if is_simple || end_of_one_arg {
+            local_index(1) == local_index(0) - 1;
+            sp(1) == sp(0) - 1;
+            stack_sub_index(1) == 0;
+        } else {
+            local_index(1) == local_index(0);
+            sp(1) == sp(0)
+            value_member_counter(1) == value_member_counter(0) - 1;
+            //strictly monotonically increasing
+            stack_sub_index(1) > stack_sub_index(0);
+        }
+
+        // all args processed
+        if local_index(0) == 1 && value_member_counter(0) == 1 {
+            step_counter(1) == 1;
+        }
+    }
+
+    /// constraints for the last step
+    fn constrain_last_step() {
+        common::empty_stack_op();
+        common::empty_local_op();
+        pc(1) == 0;
+        sp(1) == sp(0);
+        table_call.contain(EntryType::CALL, module_index(0),
+                           function_index(0), pc(0), module_index(1),
+                           function_index(1), pc(1));
+
     }
 }
 
@@ -802,6 +906,230 @@ mod borrow_field {
         function_index(1) == function_index(0);
         pc(1) == pc(0) + 1;
         sp(1) == sp(0);
+    }
+}
+
+mod read_ref {
+    const STAGE_POP_REF: u64 = 2;
+    const STAGE_READ_LOCAL_AND_PUSH_STACK: u64 = 1;
+    const STAGE_NUM: u64 = 2;
+    pub fn constraint() {
+        if stage(0) == STAGE_POP_REF {
+            if step_counter(-1) == 1 { // first step
+                table_bytecode.lookup(pc(0), READ_REF, 0);
+                step_counter(0) == 4;
+                stack_sub_index(0) == 0;
+            } else {
+                stack_sub_index(0) == stack_sub_index(-1) + 1;
+            }
+
+            stack_index(0) == sp(0);
+            common::stack_pop();
+            common::empty_local_op();
+        }
+
+        if stage(0) == STAGE_READ_LOCAL_AND_PUSH_STACK {
+            if step_counter(-1) == 1 { // first step
+                if local_read_value_flag(0) == HEADER {
+                    step_counter(0) == local_read_value(0).f_len;
+                } else {
+                    step_counter(0) == 1;
+                }
+
+                local_frame_index(0) == stack_read_value(-3);
+                local_index(0) == stack_read_value(-2);
+                local_sub_index(0) == stack_read_value(-1);
+                // record the sub index of the referenced value's header
+                header_sub_addr(0) == local_sub_index(0);
+            }
+
+            stack_index(0) == sp(0);
+            stack_sub_index(0) == shift(local_sub_index(0), header_sub_addr(0));// TODO: impl shift()
+            stack_write_value(0) == local_read_value(0);
+            stack_write_value_flag(0) == local_read_value_flag(0);
+            local_write_value(0) == local_read_value(0);
+            local_write_value_flag(0) == local_read_value_flag(0);
+            common::local_rw();
+            common::stack_push();
+
+            if step_counter(0) != 1 { // non-last step
+                local_frame_index(1) == local_frame_index(0);
+                local_index(1) == local_index(0);
+                local_sub_index(1) > local_sub_index(0);
+                header_sub_addr(1) == header_sub_addr(0);
+            }
+        }
+
+        // init stage and step_counter
+        super::common::is_first_row() && stage(0) == STAGE_NUM;
+
+        // Constraint next row's counter
+        // constraint next row's step_counter and stage.
+        if step_counter(0) == 1 {
+            if stage(0) != 1 {
+                stage(1) == stage(0) - 1;
+            }
+        } else {
+            stage(1) == stage(0);
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // sp always the same
+        sp(1) == sp(0);
+
+        // constraint next row's opcode context
+        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !is_last_row {
+            opcode(1) == opcode(0);
+            pc(1) == pc(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        } else {
+            pc(1) == pc(0) + 1;
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+        }
+    }
+}
+
+mod write_ref {
+    const STAGE_POP_REF: u64 = 4;
+    const STAGE_INVALIDATE_OLD: u64 = 3;
+    const STAGE_WRITE_NEW: u64 = 2;
+    const STAGE_UPDATE_PARENT: u64 = 1;
+    const STAGE_NUM: u64 = 4;
+
+    pub fn constraint() {
+        if stage(0) == STAGE_POP_REF {
+            if step_counter(-1) == 1 { // first step
+                table_bytecode.lookup(pc(0), OpCode::WRITE_REF, 0);
+                step_counter(0) == 4;
+                stack_sub_index(0) == 0;
+            } else {
+                stack_sub_index(0) == stack_sub_index(-1) + 1;
+            }
+
+            stack_index(0) == sp(0);
+            common::stack_pop();
+            common::empty_local_op();
+        }
+
+        if stage(0) == STAGE_INVALIDATE_OLD {
+            if step_counter(-1) == 1 { // first step
+                local_frame_index(0) == stack_read_value(-3);
+                local_index(0) == stack_read_value(-2);
+                local_sub_index(0) == stack_read_value(-1);
+                step_counter(0) == local_read_value(0).f_len;
+                // record the sub index of the referenced value,
+                // for updating parent header later
+                header_sub_addr(0) == local_sub_index(0);
+                header_flen_delta(0) == step_counter(0);
+            }
+
+            if step_counter(0) != 1 { // non-last step
+                local_frame_index(1) == local_frame_index(0);
+                local_index(1) == local_index(0);
+                local_sub_index(1) > local_sub_index(0);
+                header_sub_addr(1) == header_sub_addr(0);
+                header_flen_delta(1) == header_flen_delta(0);
+            }
+
+            local_write_value(0) == Invalid;
+            local_write_value_flag(0) == Invalid;
+            common::local_rw();
+        }
+
+        if stage(0) == STAGE_WRITE_NEW {
+            if step_counter(-1) == 1 { // first step
+                step_counter(0) == stack_read_value(0).f_len;
+                header_sub_addr(0) == header_sub_addr(-1);
+                header_flen_delta(0) == step_counter(0) - header_flen_delta(-1);
+
+                stack_sub_index(0) == 0;
+                local_frame_index(0) == local_frame_index(-1);
+                local_index(0) == local_index(-1);
+            }
+
+            if step_counter(0) != 1 { // non-last step
+                header_sub_addr(1) == header_sub_addr(0);
+                header_flen_delta(1) == header_flen_delta(0);
+
+                stack_sub_index(1) > stack_sub_index(0);
+                local_frame_index(1) == local_frame_index(0);
+                local_index(1) == local_index(0);
+            }
+
+            stack_index(0) == sp(0);
+            common::stack_pop();
+
+            // TODO: impl shift()
+            local_sub_index(0) == shift(stack_sub_index(0), header_sub_addr(0));
+            local_read_value(0) == Invalid;
+            local_read_value_flag(0) == Invalid;
+            local_write_value(0) == stack_read_value(0);
+        }
+
+        if stage(0) == STAGE_UPDATE_PARENT {
+            if step_counter(-1) == 1 { // first step
+
+                step_counter(0) == header_sub_addr(-1).depth();
+                header_sub_addr(0) == header_sub_addr(-1) / 2 ^ 16;
+                header_flen_delta(0) == header_flen_delta(-1);
+
+                local_frame_index(0) == local_frame_index(-1);
+                local_index(0) == local_index(-1);
+            }
+
+            if step_counter(0) != 1 { // non-last step
+                header_sub_addr(1) == header_sub_addr(0) / 2 ^ 16;
+                header_flen_delta(1) == header_flen_delta(0);
+
+                local_frame_index(1) == local_frame_index(0);
+                local_index(1) == local_index(0);
+            }
+
+            local_sub_index(0) == header_sub_addr(0);
+            local_write_value(0) == local_read_value(0) + header_flen_delta(0);
+            local_write_value_flag(0) == local_read_value_flag(0);
+            common::local_rw();
+        }
+
+        // init stage and step_counter
+        super::common::is_first_row() && stage(0) == STAGE_NUM;
+
+        // Constraint next row's counter
+        // constraint next row's step_counter and stage.
+        if step_counter(0) == 1 {
+            if stage(0) != 1 {
+                stage(1) == stage(0) - 1;
+            }
+        } else {
+            stage(1) == stage(0);
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        if (stage(0) == STAGE_POP_REF || stage(0) == STAGE_WRITE_NEW) && step_counter(0) == 1 {
+            sp(1) == sp(0) - 1
+        } else {
+            sp(1) == sp(0)
+        };
+
+        // constraint next row's opcode context
+        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !is_last_row {
+            opcode(1) == opcode(0);
+            pc(1) == pc(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        } else {
+            pc(1) == pc(0) + 1;
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+        }
     }
 }
 
@@ -1514,6 +1842,108 @@ mod vec_unpack {
             if stack_read_value_flag(0) == SIMPLE {1}
             else if stack_read_value_flag(0) == HEADER {header.flat_len}
         } else {0}
+    }
+}
+
+mod vec_len {
+    fn constrain_vec_len() {
+        // first step
+        if step_counter(-1) == 1 {
+            table_bytecode.lookup(pc(0), VEC_LEN, 0);
+            step_counter(0) == 5;
+            stack_sub_index(0) == 0;
+        }
+
+        // non-last step, pop ref
+        if step_counter(0) != 1 {
+            stack_index(0) == sp(0);
+            common::stack_pop();
+            common::empty_local_op();
+
+            opcode(1) == opcode(0);
+            pc(1) == pc(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            sp(1) == sp(0);
+            step_counter(1) == step_counter(0) - 1;
+
+            if step_counter(0) != 2 {
+                stack_sub_index(1) == stack_sub_index(0) + 1;
+            }
+        }
+
+        // last step (read len and push back)
+        if step_counter(0) == 1 {
+            local_frame_index(0) == stack_read_value(-3);
+            local_index(0) == stack_read_value(-2);
+            local_sub_index(0) == stack_read_value(-1);
+            local_write_value(0) == local_read_value(0);
+            local_write_value_flag(0) == local_read_value_flag(0);
+            common::local_rw();
+
+            stack_index(0) == sp(0);
+            stack_sub_index(0) == 0;
+            stack_write_value(0) == local_read_value(0).len;
+            stack_write_value_flag(0) == SIMPLE;
+            common::stack_push();
+
+            sp(1) == sp(0);
+            pc(1) == pc(0) + 1;
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+        }
+    }
+}
+
+mod vec_borrow {
+    fn constrain_vec_borrow() {
+        // first step, pop the index
+        if step_counter(-1) == 1 {
+            table_bytecode.lookup(pc(0), VEC_BORROW, 0);
+            step_counter(0) == 5;
+
+            stack_index(0) == sp(0);
+            stack_sub_index(0) == 0;
+            common::stack_pop();
+            common::empty_local_op();
+
+            opcode(1) == opcode(0);
+            pc(1) == pc(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            sp(1) == sp(0) - 1;
+            stack_sub_index(1) == 0;
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // middle steps
+        if step_counter(-1) != 1 && step_counter(0) != 1 {
+            stack_index(0) == sp(0);
+            stack_write_value(0) == stack_read_value(0);
+            common::stack_read_write(stack_index(0), stack_sub_index(0), stack_read_value(0), stack_write_value(0));
+            common::empty_local_op();
+
+            opcode(1) == opcode(0);
+            pc(1) == pc(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            sp(1) == sp(0);
+            stack_sub_index(1) == stack_sub_index(0) + 1;
+            step_counter(1) == step_counter(0) - 1;
+        }
+
+        // last step
+        if step_counter(0) == 1 {
+            stack_index(0) == sp(0);
+            stack_write_value(0) == stack_read_value(0) * 2^16 + stack_read_value(-4)/*index*/;
+            common::stack_read_write(stack_index(0), stack_sub_index(0), stack_read_value(0), stack_write_value(0));
+            common::empty_local_op();
+
+            sp(1) == sp(0);
+            pc(1) == pc(0) + 1;
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+        }
     }
 }
 
