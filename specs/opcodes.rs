@@ -50,9 +50,9 @@ pub mod common {
         function_index(1) == function_index(0);
         pc(1) == pc(0);
         sp(1) == sp(0);
-        opcode(1) = opcode(0)
-        aux0(1) = aux0(0)
-        aux1(1) = aux1(0)
+        opcode(1) = opcode(0);
+        aux0(1) = aux0(0);
+        aux1(1) = aux1(0);
         step_counter(1) == step_counter(0) - 1;
     }
 
@@ -68,6 +68,21 @@ pub mod common {
     pub fn stack_push() {}
     pub fn local_rw() {}
     pub fn local_first_write() {}
+    pub fn fake_emtpy_stack_pop() {}
+    pub fn fake_empty_stack_push() {}
+    /// 对于每一行，它的下一行要么和当前行相等，要么比当前行大 1
+    pub fn constraint_clk() {
+        // clk(0) == clk(-1) | clk(0) + 1 == clk(1)
+        (clk(0) - clk(1)) * (clk(0) + 1 - clk(1))
+    }
+    /// 如果当前行和上一行不一样，说明是某个 step 第一行
+    pub fn on_first_row() {
+        clk(0) - clk(-1)
+    }
+    /// 如果当前行和下一行不一样，说明是某个 step 最后一行
+    pub fn on_last_row() {
+        clk(1) - clk(0)
+    }
 }
 
 mod ld {
@@ -75,16 +90,10 @@ mod ld {
         step_counter(0) == 1;
         table_opcode.contain(pc(0), opcode(0), aux0(0));
         // Memory Context Constraints:
-        stack_index(0) == sp(0) + 1;
-        stack_sub_index(0) == 0;
-        stack_write_value(0) == aux0(0);
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0)
-        } else {
-            stack_write_version(0) > stack_read_version(0)
-        }
-
+        stack_push_index(0) == sp(0) + 1;
+        stack_push_sub_index(0) == 0;
+        stack_push_value(0) == aux0(0);
+        stack_push_version(0) == clk(0);
         // Local Context Constraints: fake local memory operation.
         super::common::fake_local_read_zero();
 
@@ -98,65 +107,29 @@ mod ld {
 }
 mod ldu256 {
     fn constraint_ldu256() {
-        if super::common::is_first_row() {
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+        if is_first {
             // first row of current step
-            constraint_first_row();
+            step_counter(0) == 3; // ld u256 contains three rows
+            table_opcode.contain(pc(0), opcode(0), aux0(0));
+            stack_push_sub_index(0) == 0;
+            stack_push_value(0) == (2, 3); // len=2,flen=3
         } else {
             // if the opcode contain multi rows.
-            constraint_remain();
+            stack_push_sub_index(0) == stack_push_sub_index(-1) + 1;
+            stack_push_value(0) == if is_last { aux1(0) } else { aux0(0) }; // (lo, hi)
         }
-
-        /// Local Context Constraints: fake local memory operation.
-        super::common::fake_local_read_zero();
-    }
-    fn constraint_first_row() {
-        step_counter(0) == 3; // ld u256 contains three rows
-        table_opcode.contain(pc(0), opcode(0), aux0(0));
-
-        stack_index(0) == sp(0) + 1;
-        stack_sub_index(0) == 0;
-
-        stack_write_value(0) == (2, 3); // len=2,flen=3
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0)
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0)
-        }
+        stack_push_index(0) == sp(0) + 1;
+        stack_push_version(0) == clk(0);
 
         // constraint next row's opcode context within same opcode
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        pc(1) == pc(0);
-        sp(1) == sp(0);
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-        step_counter(1) == step_counter(0) - 1;
-    }
-    fn constraint_remain() {
-        let is_last = step_counter(0) == 1; // last row of current step
-
-        // Memory Context Constraints:
-        stack_index(0) == sp(0) + 1;
-        stack_sub_index(0) == stack_sub_index(-1) + 1;
-
-        stack_write_value(0) == if is_last { aux1(0) } else { aux0(0) }; // (lo, hi)
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0)
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0)
-        }
-        // constraint next row's opcode context
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
         if is_last {
-            // next step
+            step_counter(0) == 1; // last row of current step
+                                  // next step
             pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
         } else {
@@ -169,63 +142,39 @@ mod ldu256 {
             // decrease step_counter
             step_counter(1) == step_counter(0) - 1;
         }
+
+        /// Local Context Constraints: fake local memory operation.
+        super::common::fake_local_read_zero();
     }
 }
 
 mod pop {
     fn constraint_pop() {
-        if super::common::is_first_row() {
-            constraint_first_row();
-        } else {
-            constraint_remain();
-        }
-        stack_read_value(0) != INVALID;
-        stack_write_value(0) = INVALID;
-        stack_write_version(0) > stack_read_version(0);
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
 
+        if is_first {
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            stack_pop_sub_index(0) == 0; // simple value or header
+                                         // TODO: reduce to is_last
+            let is_simple = step_counter(0) == 1;
+            if !is_simple {
+                // !simple value
+                let (len, flen) = stack_pop_value(0);
+                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            }
+        }
+        stack_pop_index(0) = sp(0);
+        stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
-    }
-    fn constraint_first_row() {
-        // first row
-        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-        stack_index(0) = sp(0);
-        stack_sub_index(0) == 0; // simple value or header
-        let is_simple = step_counter(0) == 1;
-        if !is_simple {
-            // !simple value
-            let (len, flen) = stack_read_value(0);
-            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
-        }
 
         // constraint next row
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        if is_simple {
-            // next row is another opcode
-            pc(1) == pc(0) + 1;
-            sp(1) == sp(0) - 1;
-        } else {
-            // constraint next row's opcode context within same opcode
-            pc(1) == pc(0);
-            sp(1) == sp(0);
-            opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //stack_sub_index(1) > stack_sub_index(0);
-        }
-    }
-    fn constraint_remain() {
-        stack_index(0) == sp(0);
-        stack_sub_index(0) > stack_sub_index(-1);
-        // constraint next row
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        let is_last = step_counter(0) == 1; // last row of current opcode
         if is_last {
-            // next row is another opcode
+            step_counter(0) == 1; // last row of current step
+                                  // next row is another opcode
             pc(1) == pc(0) + 1;
             sp(1) == sp(0) - 1;
         } else {
@@ -244,112 +193,90 @@ mod pop {
 // TODO: support u256
 mod add {
     fn constraint_add() {
-        if super::common::is_first_row() {
-            constraint_first_row();
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+
+        if is_first {
+            // first row
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            step_counter(0) == 2;
+            // first row is write invalid to b,
         } else {
-            constraint_remain();
+            stack_push_index(0) == stack_pop_index(0);
+            stack_push_sub_index(0) == stack_pop_sub_index(0);
+            // TODO: add overflow check
+            // second row is write a+b to a
+            stack_push_value(0) == stack_pop_value(0) + stack_pop_value(-1);
+            stack_push_version(0) == clk(0);
+            stack_push_version(0) > stack_pop_version(0);
         }
+        stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 0;
+
         super::common::fake_local_read_zero();
-    }
-    fn constraint_first_row() {
-        // first row
-        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-        step_counter(0) == 2;
-
-        stack_index(0) == sp(0);
-        stack_sub_index(0) == 0;
-        // first row is write invalid to b,
-
-        stack_read_value(0) != INVALID;
-        stack_write_value(0) = INVALID;
-        stack_write_version(0) > stack_read_version(0);
 
         // constraint next row
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
+        if is_last {
+            step_counter(0) == 1; // TODO; we can remove this, since step_counter start from 2
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0);
+        } else {
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            pc(1) == pc(0);
+            sp(1) == sp(0) - 1;
+            step_counter(1) == step_counter(0) - 1;
+        }
 
-        // constraint next row's opcode context within same opcode
-        pc(1) == pc(0);
-        sp(1) == sp(0) - 1;
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-        step_counter(1) == step_counter(0) - 1;
-    }
-    fn constraint_remain() {
-        step_counter(0) == 1;
 
-        stack_index(0) == sp(0);
-        stack_sub_index(0) == 0;
-        // second row is write a+b to a
-        stack_read_value(0) != INVALID;
-        // TODO: add overflow check
-        stack_write_value(0) == stack_read_value(0) + stack_read_value(-1);
-        stack_write_version(0) > stack_read_version(0);
-
-        // constraint next row is another opcode
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0) + 1;
-        sp(1) == sp(0);
     }
 }
 
 // TODO: u256 support
 mod le {
     fn constraint_le() {
-        if super::common::is_first_row() {
-            constraint_first_row();
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+
+        if is_first {
+            // first row
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            step_counter(0) == 2;
+            // first row is write invalid to b,
         } else {
-            constraint_remain();
+            stack_push_index(0) == stack_pop_index(0);
+            stack_push_sub_index(0) == stack_pop_sub_index(0);
+            // second row is write `a<b` to a
+            let is_le = stack_pop_value(0) <= stack_pop_value(-1);
+            stack_push_value(0) == is_le;
+            stack_push_version(0) == clk(0);
+            stack_push_version(0) > stack_pop_version(0);
         }
+        stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 0;
+
         super::common::fake_local_read_zero();
-    }
-    fn constraint_first_row() {
-        // first row
-        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-        step_counter(0) == 2;
-
-        stack_index(0) == sp(0);
-        stack_sub_index(0) == 0;
-        // first row is write invalid to b,
-
-        stack_read_value(0) != INVALID;
-        stack_write_value(0) = INVALID;
-        stack_write_version(0) > stack_read_version(0);
 
         // constraint next row
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-
-        // constraint next row's opcode context within same opcode
-        pc(1) == pc(0);
-        sp(1) == sp(0) - 1;
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-        step_counter(1) == step_counter(0) - 1;
-    }
-    fn constraint_remain() {
-        step_counter(0) == 1;
-
-        stack_index(0) == sp(0);
-        stack_sub_index(0) == 0;
-        // second row is write `a<b` to a
-        stack_read_value(0) != INVALID;
-        let is_le = stack_read_value(0) <= stack_read_value(-1);
-        stack_write_value(0) == is_le;
-        stack_write_version(0) > stack_read_version(0);
-
-        // constraint next row is another opcode
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0) + 1;
-        sp(1) == sp(0);
+        if is_last {
+            step_counter(0) == 1; // TODO; we can remove this, since step_counter start from 2
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0);
+        } else {
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            pc(1) == pc(0);
+            sp(1) == sp(0) - 1;
+            step_counter(1) == step_counter(0) - 1;
+        }
     }
 }
 
@@ -506,85 +433,38 @@ mod call {
 
 mod move_loc {
     fn constraint() {
-        if super::common::is_first_row() {
-            constraint_first_row();
-        } else {
-            constraint_remain();
-        }
-    }
-    fn constraint_first_row() {
-        // first row
-        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-        local_sub_index(0) == 0; // simple value or header
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
 
-        stack_index(0) == sp(0) + 1; // push a value onto stack
+        if is_first {
+            // first row
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            local_sub_index(0) == 0; // simple value or header
+            if !is_last {
+                // !simple value
+                let (len, flen) = stack_read_value(0);
+                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            }
+        }
+
+        stack_push_index(0) == sp(0) + 1; // push a value onto stack
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
-        local_sub_index(0) == stack_sub_index(0);
-        local_read_value(0) == stack_write_value(0);
+        local_sub_index(0) == stack_push_sub_index(0);
+        local_read_value(0) == stack_push_value(0);
         lcoal_read_value(0) != INVALID;
         local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
-
+        // constraint local-invalidating has the same write_version
+        local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0);
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0);
-        }
-
-        let is_simple = step_counter(0) == 1;
-        if !is_simple {
-            // !simple value
-            let (len, flen) = stack_read_value(0);
-            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
-        }
+        stack_push_version == clk(0);
 
         // constraint next row
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        if is_simple {
-            // next row is another opcode
-            pc(1) == pc(0) + 1;
-            sp(1) == sp(0) + 1;
-        } else {
-            // constraint next row's opcode context within same opcode
-            pc(1) == pc(0);
-            sp(1) == sp(0);
-            opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
-        }
-    }
-    fn constraint_remain() {
-        stack_index(0) == sp(0) + 1; // push a value onto stack
-        local_frame_index(0) == frame_index(0);
-        local_index(0) == aux0(0); // ensure local_index equal to operand0
-        local_sub_index(0) == stack_sub_index(0);
-        local_sub_index(0) > local_sub_index(-1); // make sure sub_index of complex value is increasing.
-        local_read_value(0) == stack_write_value(0);
-        lcoal_read_value(0) != INVALID;
-        local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
-
-        local_write_version(0) > local_read_version(0);
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0);
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0);
-        }
-
-        // constraint next row
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        let is_last = step_counter(0) == 1; // last row of current opcode
         if is_last {
+            step_counter(0) == 1;
             // next row is another opcode
             pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
@@ -603,85 +483,38 @@ mod move_loc {
 
 mod copy_loc {
     fn constraint() {
-        if super::common::is_first_row() {
-            constraint_first_row();
-        } else {
-            constraint_remain();
-        }
-    }
-    fn constraint_first_row() {
-        // first row
-        table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-        local_sub_index(0) == 0; // simple value or header
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
 
-        stack_index(0) == sp(0) + 1; // push a value onto stack
+        if is_first {
+            // first row
+            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            local_sub_index(0) == 0; // simple value or header
+            if !is_last {
+                // !simple value
+                let (len, flen) = stack_read_value(0);
+                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            }
+        }
+
+        stack_push_index(0) == sp(0) + 1; // push a value onto stack
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
-        local_sub_index(0) == stack_sub_index(0);
-        local_read_value(0) == stack_write_value(0);
+        local_sub_index(0) == stack_push_sub_index(0);
         lcoal_read_value(0) != INVALID;
+        local_read_value(0) == stack_push_value(0);
         local_write_value(0) == local_read_value(0); // copy_loc will just read data, this the only difference with move_loc
-
+        // constraint local-invalidating has the same write_version
+        local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0);
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0);
-        }
-
-        let is_simple = step_counter(0) == 1;
-        if !is_simple {
-            // !simple value
-            let (len, flen) = stack_read_value(0);
-            step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
-        }
+        stack_push_version == clk(0);
 
         // constraint next row
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        if is_simple {
-            // next row is another opcode
-            pc(1) == pc(0) + 1;
-            sp(1) == sp(0) + 1;
-        } else {
-            // constraint next row's opcode context within same opcode
-            pc(1) == pc(0);
-            sp(1) == sp(0);
-            opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
-        }
-    }
-    fn constraint_remain() {
-        stack_index(0) == sp(0) + 1; // push a value onto stack
-        local_frame_index(0) == frame_index(0);
-        local_index(0) == aux0(0); // ensure local_index equal to operand0
-        local_sub_index(0) == stack_sub_index(0);
-        local_sub_index(0) > local_sub_index(-1); // make sure sub_index of complex value is increasing.
-        local_read_value(0) == stack_write_value(0);
-        lcoal_read_value(0) != INVALID;
-        local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
-
-        local_write_version(0) > local_read_version(0);
-        if stack_write_version(0) == 0 {
-            // initial stack write
-            stack_read_version(0) >= stack_write_version(0);
-        } else {
-            stack_read_value(0) == INVALID;
-            stack_write_version(0) > stack_read_version(0);
-        }
-
-        // constraint next row
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        let is_last = step_counter(0) == 1; // last row of current opcode
         if is_last {
+            step_counter(0) == 1;
             // next row is another opcode
             pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
