@@ -24,11 +24,7 @@ pub mod common {
         local_sub_index(0) == 0;
         local_read_value(0) == 0;
         local_write_value(0) == 0;
-        if local_write_version(0) == 0 {
-            local_read_version(0) >= local_write_version(0)
-        } else {
-            local_write_version(0) > local_read_version(0)
-        }
+        local_write_version(0) > local_read_version(0);
     }
 
     /// Context Constraints: fake stack memory operation.
@@ -72,8 +68,8 @@ pub mod common {
     pub fn fake_empty_stack_push() {}
     /// 对于每一行，它的下一行要么和当前行相等，要么比当前行大 1
     pub fn constraint_clk() {
-        // clk(0) == clk(-1) | clk(0) + 1 == clk(1)
-        (clk(0) - clk(1)) * (clk(0) + 1 - clk(1))
+        // clk(0) == clk(-1) | clk(0) + 2 == clk(1)
+        (clk(0) - clk(1)) * (clk(0) + 2 - clk(1))
     }
     /// 如果当前行和上一行不一样，说明是某个 step 第一行
     pub fn on_first_row() {
@@ -572,16 +568,10 @@ mod store_loc {
             // local_read_value(0) should be either INVALID or the latest value based on the version of local_write_version
             local_write_value(0) == stack_pop_value(0);
 
-            let is_store_to_empty = local_write_version(0) == 0;
-            if is_store_to_empty {
-                // initial local write
-                local_read_version(0) >= local_write_version(0);
-                local_read_value(0) != INVALID;
-            } else {
-                local_write_version(0) == clk(0);
-                local_write_version(0) > local_read_version(0);
-                // !is_first_row && local_read_value(0) == INVALID; // if not first row, local_read old_value should be INVALID.
-            }
+
+            local_write_version(0) == clk(0);
+            clk(0) > local_read_version(0);
+            // !is_first_row && local_read_value(0) == INVALID; // if not first row, local_read old_value should be INVALID.
         }
 
         let in_invalidate_local_stage = w_flen(0) == 0;
@@ -592,8 +582,9 @@ mod store_loc {
             local_read_value(0) != INVALID;
             local_write_value(0) == INVALID;
             // we constraint that version only increase 1 in invalid stage.
-            // TODO: this may error. if current_clk = local_read_version(0) + 1
             local_read_version(0) + 1 = local_write_version(0);
+            // or we can
+            // clk(0) - 1 = local_write_version(0);
         }
 
         // constraint next row,
@@ -1864,12 +1855,10 @@ mod vec_swap {
                 // local_sub_index == stack_read_value(-1) * 16 + index1;
                 local_write_value(0) == local_read_value(-1);
                 local_write_version(0) == clk(0);
-                if local_read_version(0) < local_write_version(0) {
-                    local_read_value(0) == INVALID;
-                } else {}
+                local_read_version(0) < local_write_version(0);
             } else {
                 local_write_value(0) == INVALID;
-                // TODO: should change to clk(0)
+                // TODO: should change to `clk(0) - 1`?
                 local_write_version(0) == local_read_version(0)+1;
             }
         }
@@ -1909,12 +1898,10 @@ mod vec_swap {
                 // local_sub_index == stack_read_value(-1) * 16 + index1;
                 local_write_value(0) == local_read_value(-1);
                 local_write_version(0) == clk(0);
-                if local_read_version(0) < local_write_version(0) {
-                    local_read_value(0) == INVALID;
-                } else {}
+                local_read_version(0) < local_write_version(0);
             } else {
                 local_write_value(0) == INVALID;
-                // TODO: should change to clk(0)
+                // TODO: should change to `clk(0) - 1`?
                 local_write_version(0) == local_read_version(0)+1;
             }
         }
@@ -2146,11 +2133,7 @@ mod vec_push_back {
             local_sub_index(0) == (ref_sub_index(0) * 16 + new_len) * 16 + stack_pop_sub_index(0);
             local_write_value(0) == stack_pop_value(0);
             local_write_version(0) == clk(0);
-            if local_read_version(0) < local_write_version(0) {
-                local_read_value(0) == INVALID;
-            } else { // it's a initial write, local_read_version(0) >= local_write_version(0)
-
-            }
+            local_read_version(0) < local_write_version(0);
         }
 
         // init stage and step_counter
