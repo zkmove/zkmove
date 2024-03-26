@@ -1,43 +1,11 @@
-pub mod stack {
-    pub fn stack_read_exact_value(expect_read_value: usize) {
-        stack_index(0) == expect_read_value;
-    }
-}
 pub mod common {
-    pub fn is_first_row() -> bool {
-        !(frame_index(0) == frame_index(-1)
-            && module_index(0) == module_index(-1)
-            && function_index(0) == function_index(-1)
-            && pc(0) == pc(-1))
-    }
-
-    pub fn is_last_row() -> bool {
-        !(frame_index(1) == frame_index(0)
-            && module_index(1) == module_index(0)
-            && function_index(1) == function_index(0)
-            && pc(1) == pc(0))
-    }
-
     pub fn fake_local_read_zero() {
         local_frame_index(0) == 0;
         local_index(0) == 0;
         local_sub_index(0) == 0;
         local_read_value(0) == 0;
         local_write_value(0) == 0;
-        local_write_version(0) > local_read_version(0);
-    }
-
-    /// Context Constraints: fake stack memory operation.
-    pub fn fake_stack_memory_zero() {
-        stack_index(0) == 0;
-        stack_sub_index(0) == 0;
-        stack_read_value(0) == 0;
-        stack_write_value(0) == 0;
-        if stack_write_version(0) == 0 {
-            stack_read_version(0) >= stack_write_version(0)
-        } else {
-            stack_write_version(0) > stack_read_version(0)
-        }
+        local_write_version(0) > local_read_version(0); //TODO: can we just set the versions to be 0?
     }
 
     /// Opcode context state transition steps except the last
@@ -52,31 +20,16 @@ pub mod common {
         aux1(1) = aux1(0);
         step_counter(1) == step_counter(0) - 1;
     }
-
-    pub fn version_validate(read_version, write_version) {
-        if write_version == 0 {
-            read_version >= write_version
-        } else {
-            write_version > read_version
-        }
-    }
-    //TODO
-    pub fn stack_pop() {}
-    pub fn stack_push() {}
-    pub fn local_rw() {}
-    pub fn local_first_write() {}
-    pub fn fake_emtpy_stack_pop() {}
-    pub fn fake_empty_stack_push() {}
-    /// 对于每一行，它的下一行要么和当前行相等，要么比当前行大 1
+    
+    pub fn fake_empty_stack_pop(offset: usize) {}
+    pub fn fake_empty_stack_push(offset: usize) {}
     pub fn constraint_clk() {
         // clk(0) == clk(-1) | clk(0) + 2 == clk(1)
         (clk(0) - clk(1)) * (clk(0) + 2 - clk(1))
     }
-    /// 如果当前行和上一行不一样，说明是某个 step 第一行
     pub fn on_first_row() {
         clk(0) - clk(-1)
     }
-    /// 如果当前行和下一行不一样，说明是某个 step 最后一行
     pub fn on_last_row() {
         clk(1) - clk(0)
     }
@@ -281,13 +234,13 @@ mod le {
 // TODO: Reference type value comparison, actually it can convert to (pop,pop,read_ref,read_ref,push)
 mod eq {
     pub fn constrain() {
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             constrain_first(); 
         } else {
             constrain_remain();
         }
 
-        if !super::common::is_last_row() {
+        if !super::common::on_last_row() {
             opcode(1) == opcode(0);
             pc(1) == pc(0);
             step_counter(1) == step_counter(0) - 1;
@@ -313,8 +266,8 @@ mod eq {
         let flen_a = if stack_pop_value_flag(1) == SIMPLE { 1 } else { stack_pop_value(1).flen };
         step_counter(0) == flen_b + flen_a + diff(flen_b, flen_a);
 
-        member_counter(0) == flen_b;
-        member_counter(1) == flen_a;
+        field_counter(0) == flen_b;
+        field_counter(1) == flen_a;
         is_odd(0) == 1;
         is_odd(1) == 0;
 
@@ -331,9 +284,9 @@ mod eq {
         stack_push_value_flag(0) == SIMPLE;
         stack_push_version(0) == clk(0);
 
-        common::empty_stack_push(1);
-        common::empty_local_op(0);
-        common::empty_local_op(1);
+        super::common::fake_empty_stack_push(1);
+        super::common::fake_local_read_zero(0);
+        super::common::fake_local_read_zero(1); //next row
 
         let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_flag(0))
             == (stack_pop_sub_index(1), stack_pop_value(1), stack_pop_value_flag(1));
@@ -345,37 +298,37 @@ mod eq {
     }
 
     fn constrain_remain() {
-        let is_last = super::common::is_last_row();
+        let is_last = super::common::on_last_row();
         !is_last && is_odd(1) == is_odd(-1);
 
-        if member_counter(0) > 1 {
-            member_counter(2) == member_counter(0) - 1;
+        if field_counter(0) > 1 {
+            field_counter(2) == field_counter(0) - 1;
         } else {
-            if is_odd(0) == 1 && member_counter(1) > 1 { member_counter(2) == 0; }
-            if is_odd(0) == 0 && member_counter(-1) > 1 { member_counter(2) == 0; }
+            if is_odd(0) == 1 && field_counter(1) > 1 { field_counter(2) == 0; }
+            if is_odd(0) == 0 && field_counter(-1) > 1 { field_counter(2) == 0; }
         }
 
         if is_odd(0) == 1 {
-            if member_counter(0) != 0 {//normal stack pop
+            if field_counter(0) != 0 {//normal stack pop
                 stack_pop_index(0) == sp(0);
                 stack_pop_sub_index(0) == 0;
                 stack_pop_version(0) == stack_pop_version(-2);
             } else {
-                common::empty_stack_pop(0);
+                super::common::fake_empty_stack_pop(0);
             }
 
-            if member_counter(1) != 0 {//normal stack pop
+            if field_counter(1) != 0 {//normal stack pop
                 stack_pop_index(1) == sp(0) - 1;
                 stack_pop_sub_index(1) == 0;
                 stack_pop_version(1) == stack_pop_version(-1);
             } else {
-                common::empty_stack_pop(1);
+                super::common::fake_empty_stack_pop(1); //next row
             }
 
-            common::empty_stack_push(0);
-            common::empty_local_op(0);
-            common::empty_stack_push(1);
-            common::empty_local_op(1);
+            super::common::fake_empty_stack_push(0);
+            super::common::fake_local_read_zero(0);
+            super::common::fake_empty_stack_push(1); //next row
+            super::common::fake_local_read_zero(1); //next row
 
             // constrain intermediate_result
             let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_flag(0))
@@ -392,7 +345,7 @@ mod eq {
 mod not {
     pub fn constrain() {
         constrain_row();
-        common::empty_local_op(0);
+        super::common::fake_local_read_zero(0);
     }
 
     fn constrain_row() {
@@ -412,14 +365,14 @@ mod not {
         function_index(1) == function_index(0);
         pc(1) == pc(0) + 1;
         sp(1) == sp(0);
-        ////clk(1) == clk(0) + 1;
+        //clk(1) == clk(0) + 1;
     }
 }
 
 mod cast {
     pub fn constrain() {
         constraint_row();
-        common::empty_local_op(0);
+        super::common::fake_local_read_zero(0);
     }
 
     fn constraint_row() {
@@ -439,7 +392,7 @@ mod cast {
         function_index(1) == function_index(0);
         pc(1) == pc(0) + 1;
         sp(1) == sp(0);
-        ////clk(1) == clk(0) + 1;
+        //clk(1) == clk(0) + 1;
     }
 }
 
@@ -448,16 +401,16 @@ mod ret {
     pub fn constrain() {
         table_opcode.contain(pc(0), Opcode::Ret, 0);
 
-        common::empty_stack_pop(0);
-        common::empty_stack_push(0);
-        common::empty_local_op(0);
+        super::common::fake_empty_stack_pop(0);
+        super::common::fake_empty_stack_push(0);
+        super::common::fake_local_read_zero(0);
 
         // constrain Opcode Context of the next step
         if frame_index == 0 {
             opcode(1) == Opcode::Nop || opcode(1) == Opcode::Stop;
             pc(1) == pc(0);
         } else {
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
             // not the first frame, lookup call table to constrain next pc
             table_call.contain(EntryType::RET, module_index(0),
                                function_index(0), pc(0), module_index(1),
@@ -466,13 +419,13 @@ mod ret {
     }
 }
 
-// define new column value_member_counter(reuse aux1), to record the number of members sitll
-// need to be processed. when local_index and value_member_counter both equal to 1, we will
+// define new column field_counter(reuse aux1), to record the number of members sitll
+// need to be processed. when local_index and field_counter both equal to 1, we will
 // go into the last step
 // TODO: add (function_instantiataion_index, arg_num) into table_func
 mod call {
     pub fn constrain() {
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             table_func.contain(aux0(0), arg_num); //aux0 is callee function_instantiation_index
             table_opcode.contain(pc(0), CALL, aux0(0));
             local_index(0) == arg_num;
@@ -483,7 +436,7 @@ mod call {
             }
         }
         
-        if !super::common::is_last_row() {
+        if !super::common::on_last_row() {
             stack_pop_index(0) == sp(0);
             stack_pop_value(0) == local_write_value(0);
             stack_pop_value_flag(0) == local_write_value_flag(0);;
@@ -491,17 +444,17 @@ mod call {
             local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
             local_write_version(0) == clk(0);
             common::local_write_first_time(0); //TODO:constrain local_read_version
-            common::empty_stack_push(0);
+            super::common::fake_empty_stack_push(0);
 
             let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
             let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
 
             if is_simple {
-                value_member_counter(0) == 1;
+                field_counter(0) == 1;
             } else if is_header {
-                value_member_counter(0) == stack_pop_value(0).f_len;
+                field_counter(0) == stack_pop_value(0).f_len;
             }
-            let end_of_one_arg = value_member_counter(0) == 1;
+            let end_of_one_arg = field_counter(0) == 1;
 
             opcode(1) == opcode(0);
             pc(1) == pc(0);
@@ -518,23 +471,23 @@ mod call {
             } else {
                 local_index(1) == local_index(0);
                 sp(1) == sp(0);
-                value_member_counter(1) == value_member_counter(0) - 1;
+                field_counter(1) == field_counter(0) - 1;
                 stack_pop_version(1) == stack_pop_version(0);
             }
 
             // all args processed
-            if local_index(0) == 1 && value_member_counter(0) == 1 {
+            if local_index(0) == 1 && field_counter(0) == 1 {
                 step_counter(1) == 1;
             }
         }
         
-        if super::common::is_last_row() {
-            common::empty_stack_pop();
-            common::empty_stack_push();
-            common::empty_local_op();
+        if super::common::on_last_row() {
+            super::common::fake_empty_stack_pop();
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
             pc(1) == 0;
             sp(1) == sp(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
             table_call.contain(EntryType::CALL, module_index(0),
                                function_index(0), pc(0), module_index(1),
                                function_index(1), pc(1));
@@ -644,7 +597,7 @@ mod copy_loc {
 
 mod store_loc {
     fn constraint() {
-        let is_first = super::common::is_first_row();
+        let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
 
         if is_first {
@@ -736,7 +689,7 @@ mod store_loc {
 
 mod borrow_loc {
     pub fn constrain() {
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
             step_counter(0) == 4;
             stack_push_value(0) == (3,4);
@@ -759,24 +712,24 @@ mod borrow_loc {
         stack_push_index(0) == sp(0) + 1;
         stack_push_version(0) == clk(0);
 
-        common::empty_stack_pop(0);
-        common::empty_local_op(0);
+        super::common::fake_empty_stack_pop(0);
+        super::common::fake_local_read_zero(0);
         
-        if !super::common::is_last_row() {
+        if !super::common::on_last_row() {
             super::common::context_state_transition();
         } else {
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
 
 mod borrow_field {
     pub fn constrain() {
-        if common::is_first_row()  {
+        if common::on_first_row()  {
             step_counter(0) == 4;
             table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
 
@@ -811,10 +764,10 @@ mod borrow_field {
                 function_index(1) == function_index(0);
                 pc(1) == pc(0) + 1;
                 sp(1) == sp(0);
-                ////clk(1) == clk(0) + 1;
+                //clk(1) == clk(0) + 1;
             }
         }
-        common::empty_local_op(0);
+        super::common::fake_local_read_zero(0);
 	}
 }
 
@@ -835,8 +788,8 @@ mod read_ref {
             }
 
             stack_pop_index(0) == sp(0);
-            common::empty_stack_push();
-            common::empty_local_op();
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
         }
 
         if stage(0) == STAGE_READ_LOCAL_AND_PUSH_STACK {
@@ -863,7 +816,7 @@ mod read_ref {
             local_write_value(0) == local_read_value(0);
             local_write_value_flag(0) == local_read_value_flag(0);
             local_write_version(0) == clk(0);
-            common::empty_stack_pop();
+            super::common::fake_empty_stack_pop();
 
             if step_counter(0) != 1 { // non-last step
                 local_frame_index(1) == local_frame_index(0);
@@ -873,7 +826,7 @@ mod read_ref {
         }
 
         // init stage and step_counter
-        common::is_first_row() && stage(0) == STAGE_NUM;
+        common::on_first_row() && stage(0) == STAGE_NUM;
 
         // Constraint next row's counter
         // constraint next row's step_counter and stage.
@@ -890,8 +843,8 @@ mod read_ref {
         sp(1) == sp(0);
 
         // constraint next row's opcode context
-        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
-        if !is_last_row {
+        let on_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !on_last_row {
             opcode(1) == opcode(0);
             pc(1) == pc(0);
             module_index(1) == module_index(0);
@@ -903,7 +856,7 @@ mod read_ref {
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -928,8 +881,8 @@ mod write_ref {
             }
 
             stack_pop_index(0) == sp(0);
-            common::empty_stack_push();
-            common::empty_local_op();
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
         }
 
         if stage(0) == STAGE_INVALIDATE_OLD {
@@ -955,8 +908,8 @@ mod write_ref {
             local_write_value(0) == Invalid;
             local_write_value_flag(0) == Invalid;
             local_write_version(0) == clk(0);
-            common::empty_stack_pop();
-            common::empty_stack_push();
+            super::common::fake_empty_stack_pop();
+            super::common::fake_empty_stack_push();
         }
 
         if stage(0) == STAGE_WRITE_NEW {
@@ -981,7 +934,7 @@ mod write_ref {
             }
 
             stack_pop_index(0) == sp(0);
-            common::empty_stack_push();
+            super::common::fake_empty_stack_push();
 
             // TODO: impl shift()
             local_sub_index(0) == shift(stack_pop_sub_index(0), header_sub_addr(0));
@@ -1019,7 +972,7 @@ mod write_ref {
         }
 
         // init stage and step_counter
-        super::common::is_first_row() && stage(0) == STAGE_NUM;
+        super::common::on_first_row() && stage(0) == STAGE_NUM;
 
         // Constraint next row's counter
         // constraint next row's step_counter and stage.
@@ -1039,8 +992,8 @@ mod write_ref {
         };
 
         // constraint next row's opcode context
-        let is_last_row = step_counter(0) == 1 && stage(0) == 1;
-        if !is_last_row {
+        let on_last_row = step_counter(0) == 1 && stage(0) == 1;
+        if !on_last_row {
             opcode(1) == opcode(0);
             pc(1) == pc(0);
             module_index(1) == module_index(0);
@@ -1052,7 +1005,7 @@ mod write_ref {
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -1074,14 +1027,14 @@ mod br_bool {
             (1- cond) * next_pc + cond * (pc(0) + 1) == pc(1);
         }
         stack_pop_version(0) < clk(0);
-        common::empty_stack_push();
-        common::empty_local_op();
+        super::common::fake_empty_stack_push();
+        super::common::fake_local_read_zero();
 
         // Opcode Context Constraints with opcode boundary:
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
         sp(1) == sp(0) - 1;
-        ////clk(1) == clk(0) + 1;
+        //clk(1) == clk(0) + 1;
     }
 }
 
@@ -1090,15 +1043,15 @@ mod branch {
         step_counter(0) == 1;
         table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
 
-        common::empty_stack_pop();
-        common::empty_stack_push();
-        common::empty_local_op();
+        super::common::fake_empty_stack_pop();
+        super::common::fake_empty_stack_push();
+        super::common::fake_local_read_zero();
 
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
         sp(1) == sp(0);
         pc(1) == aux0(0);
-        ////clk(1) == clk(0) + 1;
+        //clk(1) == clk(0) + 1;
     }
 }
 
@@ -1106,7 +1059,7 @@ mod branch {
 // define column value_menber_counter (reusing column aux1)
 mod pack {
     pub fn constrain() {
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             constrain_header();
         } else {
             constrain_remain();
@@ -1140,24 +1093,24 @@ mod pack {
         let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
         let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
         if is_simple {
-            value_member_counter(0) == 1;
+            field_counter(0) == 1;
         } else if is_header {
-            value_member_counter(0) == stack_pop_value(0).f_len;
+            field_counter(0) == stack_pop_value(0).f_len;
         }
 
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_flag(0) == stack_pop_value_flag(0);
         stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
-        common::empty_local_op(0);
+        super::common::fake_local_read_zero(0);
 
         // all fields processed
-        if field_idx(0) == 1 && value_member_counter(0) == 1 {
+        if field_idx(0) == 1 && field_counter(0) == 1 {
             step_counter(0) == 1;
         }
 
-        if !super::common::is_last_row() {
-            let end_of_one_field = value_member_counter(0) == 1;
+        if !super::common::on_last_row() {
+            let end_of_one_field = field_counter(0) == 1;
             if end_of_one_field {
                 field_index(1) == field_index(0) - 1;
                 stack_pop_index(1) == stack_pop_index(0) - 1;
@@ -1169,7 +1122,7 @@ mod pack {
                 stack_pop_index(1) == stack_pop_index(0);
                 stack_pop_version(1) == stack_pop_version(0);
                 stack_push_index(1) == stack_push_index(0);
-                value_member_counter(1) == value_member_counter(0) - 1;
+                field_counter(1) == field_counter(0) - 1;
             }
 
             sp(1) == sp(0);
@@ -1184,7 +1137,7 @@ mod pack {
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -1192,7 +1145,7 @@ mod pack {
 mod unpack {
     fn constraint() {
         let is_first_row = super::common::on_first_row();
-        let is_last_row = super::common::on_last_row();
+        let on_last_row = super::common::on_last_row();
         if is_first_row { // first row of current step
             stack_pop_sub_index(0) == 0;
             stack_pop_value(0) == (num_field(0), step_counter(0));
@@ -1232,7 +1185,7 @@ mod unpack {
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        if is_last_row {
+        if on_last_row {
             step_counter(0) == 1;
             field_index(0) == 1;
             field_counter(0) == 1;
@@ -1254,7 +1207,7 @@ mod unpack {
 // define column value_menber_counter (reusing column aux1)
 mod pack {
     pub fn constrain() {
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             constrain_header();
         } else {
             constrain_remain();
@@ -1288,24 +1241,24 @@ mod pack {
         let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
         let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
         if is_simple {
-            value_member_counter(0) == 1;
+            field_counter(0) == 1;
         } else if is_header {
-            value_member_counter(0) == stack_pop_value(0).f_len;
+            field_counter(0) == stack_pop_value(0).f_len;
         }
 
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_flag(0) == stack_pop_value_flag(0);
         stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
-        common::empty_local_op(0);
+        super::common::fake_local_read_zero(0);
 
         // all fields processed
-        if field_idx(0) == 1 && value_member_counter(0) == 1 {
+        if field_idx(0) == 1 && field_counter(0) == 1 {
             step_counter(0) == 1;
         }
 
-        if !super::common::is_last_row() {
-            let end_of_one_field = value_member_counter(0) == 1;
+        if !super::common::on_last_row() {
+            let end_of_one_field = field_counter(0) == 1;
             if end_of_one_field {
                 field_index(1) == field_index(0) - 1;
                 stack_pop_index(1) == stack_pop_index(0) - 1;
@@ -1317,7 +1270,7 @@ mod pack {
                 stack_pop_index(1) == stack_pop_index(0);
                 stack_pop_version(1) == stack_pop_version(0);
                 stack_push_index(1) == stack_push_index(0);
-                value_member_counter(1) == value_member_counter(0) - 1;
+                field_counter(1) == field_counter(0) - 1;
             }
 
             sp(1) == sp(0);
@@ -1332,7 +1285,7 @@ mod pack {
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -1340,7 +1293,7 @@ mod pack {
 mod vec_unpack {
     fn constraint() {
         let is_first_row = super::common::on_first_row();
-        let is_last_row = super::common::on_last_row();
+        let on_last_row = super::common::on_last_row();
         if is_first_row { // first row of current step
             stack_pop_sub_index(0) == 0;
             stack_pop_value(0) == (num_field(0), step_counter(0));
@@ -1377,7 +1330,7 @@ mod vec_unpack {
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
-        if is_last_row {
+        if on_last_row {
             step_counter(0) == 1;
             field_index(0) == 1;
             field_counter(0) == 1;
@@ -1411,8 +1364,8 @@ mod vec_len {
         }
 
         if !is_last {
-            common::empty_stack_push();
-            common::empty_local_op();
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
 
             opcode(1) == opcode(0);
             pc(1) == pc(0);
@@ -1442,7 +1395,7 @@ mod vec_len {
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -1459,8 +1412,8 @@ mod vec_borrow {
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
             stack_pop_version(0) < clk(0);
-            common::empty_stack_push();
-            common::empty_local_op();
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
 
             opcode(1) == opcode(0);
             pc(1) == pc(0);
@@ -1484,7 +1437,7 @@ mod vec_borrow {
                 stack_pop_version(0) == stack_pop_version(-1);
             }
             stack_push_version(0) = clk(0);
-            common::empty_local_op();
+            super::common::fake_local_read_zero();
 
             opcode(1) == opcode(0);
             pc(1) == pc(0);
@@ -1503,13 +1456,13 @@ mod vec_borrow {
             stack_push_value(0) == stack_pop_value(0) * 2^16 + stack_pop_value(-4)/*index*/;
             stack_pop_version(0) == stack_pop_version(-1);
             stack_push_version(0) = clk(0);
-            common::empty_local_op();
+            super::common::fake_local_read_zero();
 
             sp(1) == sp(0);
             pc(1) == pc(0) + 1;
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
-            ////clk(1) == clk(0) + 1;
+            //clk(1) == clk(0) + 1;
         }
     }
 }
@@ -1648,7 +1601,7 @@ mod vec_swap {
         }
 
         // init stage and step_counter
-        super::common::is_first_row() && stage(0) == STAGE_NUM;
+        super::common::on_first_row() && stage(0) == STAGE_NUM;
 
         // Constraint next row's counter
         // constraint next row's step_counter and stage.
@@ -1862,7 +1815,7 @@ mod vec_push_back {
 
                 step_counter(0) == pop_elem_flen;
             }
-            stack_pop+index(0) == sp(0);
+            stack_pop_index(0) == sp(0);
             is_first && stack_pop_sub_index(0) == 0;
             //!is_first && stack_sub_index(0) > stack_sub_index(-1);
             stack_pop_value(0) != INVALID;
@@ -1897,7 +1850,7 @@ mod vec_push_back {
         function_index(1) == function_index(0);
 
         // constraint sp
-        if super::common::is_first_row() {
+        if super::common::on_first_row() {
             sp(0) == sp(-1) - 1;
         }
         if stage(0) == STAGE_WRITE_HEADER
