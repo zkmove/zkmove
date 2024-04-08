@@ -33,6 +33,18 @@ pub mod common {
     pub fn on_last_row() {
         clk(1) - clk(0)
     }
+    /// common constraints for move a filed under a reference
+    /// example: ref_sub_index = [0,0,0,0,0,0,3,2], field_sub_index = [0,0,0,0,0,0,0,4], depth = 2
+    /// reslult = [0,0,0,0,0,4,3,2]
+    pub fn constrain_sub_index(ref_sub_index, field_sub_index, depth, result) {
+        result == ref_sub_index + field_sub_index << (depth * 16);
+        result <= MAX_U128;
+    }
+    pub fn constrain_depth(ref_sub_index, depth) {
+        depth < 8;
+        ref_sub_index >> (depth * 16) == 0;
+        ref_sub_index >> ((depth - 1) * 16) != 0;
+    }
 }
 
 mod ld {
@@ -731,7 +743,8 @@ mod borrow_field {
     pub fn constrain() {
         if common::on_first_row()  {
             step_counter(0) == 4;
-            table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
+            //field_index start from 1, operand fh_idx start from 0
+            table_bytecode.lookup(pc(0), opcode(0), field_index(0) - 1);
 
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
@@ -747,8 +760,8 @@ mod borrow_field {
             if !is_last {
                 stack_pop_value(0) == stack_push_value(0);
             } else {
-                // TODO: aux0 is field offset. and aux1 is the addr extent layer
-                stack_push_value(0) - stack_pop_value(0) == (aux0(0) + 1) << aux1(0) * 16;
+                super::common::constrain_depth(stack_pop_value(0), depth(0));
+                super::common::constrain_sub_index(stack_pop_value(0), field_index(0), depth(0), stack_push_value(0));
             }
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == stack_pop_sub_index(-1) + 1;
@@ -793,7 +806,7 @@ mod read_ref {
         }
 
         if stage(0) == STAGE_READ_LOCAL_AND_PUSH_STACK {
-            if step_counter(-1) == 1 { // first step
+            if step_counter(-1) == 1 { // first step in the stage
                 if local_read_value_flag(0) == HEADER {
                     step_counter(0) == local_read_value(0).f_len;
                 } else {
@@ -805,10 +818,11 @@ mod read_ref {
                 local_sub_index(0) == stack_pop_value(-1);
                 // record the sub index of the referenced value's header
                 header_sub_addr(0) == local_sub_index(0);
+                super::common::constrain_depth(header_sub_addr(0), depth(0));
             }
 
             stack_push_index(0) == sp(0);
-            stack_push_sub_index(0) == shift(local_sub_index(0), header_sub_addr(0));// TODO: impl shift()
+            super::common::constrain_sub_index(header_sub_addr(0), stack_push_sub_index(0), depth(0), local_sub_index(0));
             stack_push_value(0) == local_read_value(0);
             stack_push_value_flag(0) == local_read_value_flag(0);
             stack_push_version(0) == clk(0);
@@ -822,6 +836,7 @@ mod read_ref {
                 local_frame_index(1) == local_frame_index(0);
                 local_index(1) == local_index(0);
                 header_sub_addr(1) == header_sub_addr(0);
+                depth(1) == depth(0);
             }
         }
 
@@ -913,10 +928,11 @@ mod write_ref {
         }
 
         if stage(0) == STAGE_WRITE_NEW {
-            if step_counter(-1) == 1 { // first step
+            if step_counter(-1) == 1 { // first step of the stage
                 step_counter(0) == stack_pop_value(0).f_len;
                 header_sub_addr(0) == header_sub_addr(-1);
                 header_flen_delta(0) == step_counter(0) - header_flen_delta(-1);
+                super::common::constrain_depth(header_sub_addr(0), depth(0));
 
                 stack_pop_sub_index(0) == 0;
                 stack_pop_version(0) < clk(0);
@@ -927,6 +943,7 @@ mod write_ref {
             if step_counter(0) != 1 { // non-last step
                 header_sub_addr(1) == header_sub_addr(0);
                 header_flen_delta(1) == header_flen_delta(0);
+                depth(1) == depth(0);
 
                 stack_pop_version(1) == stack_pop_version(0);
                 local_frame_index(1) == local_frame_index(0);
@@ -936,8 +953,7 @@ mod write_ref {
             stack_pop_index(0) == sp(0);
             super::common::fake_empty_stack_push();
 
-            // TODO: impl shift()
-            local_sub_index(0) == shift(stack_pop_sub_index(0), header_sub_addr(0));
+            super::common::constrain_sub_index(header_sub_addr(0), stack_pop_sub_index(0), depth(0), local_sub_index(0));
             local_read_value(0) == Invalid;
             local_read_value_flag(0) == Invalid;
             local_read_version(0) < clk(0);
@@ -1100,6 +1116,7 @@ mod pack {
 
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_flag(0) == stack_pop_value_flag(0);
+        field_index(0) == lower_two_types(field_index(0); //field_index < 2^16;
         stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
         super::common::fake_local_read_zero(0);
@@ -1155,11 +1172,8 @@ mod unpack {
         stack_pop_index(0) == sp(0);
         stack_pop_version(0) < clk(0);
         if !is_first_row {
-            // 保证 sub_index 的最高位和 field_index 之间的关系
-            highest_byte(stack_pop_sub_index(0)) == field_index(0) - 1;
-
             stack_push_index(0) == sp(0) + field_index(0) - 1;
-            stack_push_sub_index == stack_pop_index(0) << 1; // 把最高位 shift 掉
+            stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
             stack_push_value(0) == stack_pop_value(0);
             stack_push_version(0) == clk(0);
         }
@@ -1169,7 +1183,7 @@ mod unpack {
             if field_index(0) != 1 {
                 field_index(1) == field_index(0) - 1;
                 // 保证 subindex 是第  field_index 个元素的header
-                stack_pop_sub_index(1) == (field_index(1), 0, 0, 0);
+                stack_pop_sub_index(1).to_u16_vec() == vec![0,0,0,0,0,0,0,field_index(1)];
                 if stack_pop_value_flag(1) == SIMPLE {
                     field_counter(1) == 1;
                 } else {
@@ -1205,7 +1219,7 @@ mod unpack {
 
 // define column field_idx (reusing column aux0)
 // define column value_menber_counter (reusing column aux1)
-mod pack {
+mod vec_pack {
     pub fn constrain() {
         if super::common::on_first_row() {
             constrain_header();
@@ -1248,6 +1262,7 @@ mod pack {
 
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_flag(0) == stack_pop_value_flag(0);
+        field_index(0) == lower_two_types(field_index(0); //field_index < 2^16;
         stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
         super::common::fake_local_read_zero(0);
@@ -1303,10 +1318,8 @@ mod vec_unpack {
         stack_pop_index(0) == sp(0);
         stack_pop_version(0) < clk(0);
         if !is_first_row {
-            highest_byte(stack_pop_sub_index(0)) == field_index(0) - 1;
-
             stack_push_index(0) == sp(0) + field_index(0) - 1;
-            stack_push_sub_index == stack_pop_index(0) << 1; // 把最高位 shift 掉
+            stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
             stack_push_value(0) == stack_pop_value(0);
             stack_push_version(0) == clk(0);
         }
@@ -1314,7 +1327,7 @@ mod vec_unpack {
         if field_counter(0) == 1 {
             if field_index(0) != 1 {
                 field_index(1) == field_index(0) - 1;
-                stack_pop_sub_index(1) == (field_index(1), 0, 0, 0);
+                stack_pop_sub_index(1).to_u16_vec() == vec![0,0,0,0,0,0,0,field_index(1)];
                 if stack_pop_value_flag(1) == SIMPLE {
                     field_counter(1) == 1;
                 } else {
@@ -1453,7 +1466,8 @@ mod vec_borrow {
             stack_pop_index(0) == sp(0);
             stack_push_index(0) == stack_pop_index(0);
             stack_push_sub_index(0) == stack_pop_sub_index(0);
-            stack_push_value(0) == stack_pop_value(0) * 2^16 + stack_pop_value(-4)/*index*/;
+            super::common::constrain_depth(stack_pop_value(0), depth(0));
+            super::common::constrain_sub_index(stack_pop_value(0), stack_pop_value(-4), depth(0), stack_push_value(0));
             stack_pop_version(0) == stack_pop_version(-1);
             stack_push_version(0) = clk(0);
             super::common::fake_local_read_zero();
@@ -1666,7 +1680,7 @@ mod vec_pop_back {
             stack_pop_version(0) < clk(0);
             fake_local_read_zero();
         }
-
+        //Fixme? ref could be an IndexedRef, it may have more than one parents
         if stage(0) == STAGE_WRITE_HEADER {
             step_counter(0) == 1;
 
@@ -1702,7 +1716,11 @@ mod vec_pop_back {
                 step_counter(0) == pop_elem_flen;
 
                 // FIXME: fix the sub_index constraint
-                local_sub_index(0) == ref_sub_index(0) * 16 + old_len; // pop the last elem
+                //local_sub_index(0) == ref_sub_index(0) * 16 + old_len; // pop the last elem
+                local_sub_index(0) == ref_sub_index(0) + old_len << (depth(0) * 16);
+                // if ref is IndexedRef, we need introduce an advise 'depth' to indicate the ref's depth
+                super::common::constrain_depth(ref_sub_index(0), depth(0));
+
             }
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
@@ -1713,7 +1731,8 @@ mod vec_pop_back {
 
             stack_push_index(0) == sp(0);
             // FIXME: we should move the sub_index out of the vector.
-            stack_push_sub_index(0) == local_sub_index(0) - ref_sub_index(0) * 16;
+            //stack_push_sub_index(0) == local_sub_index(0) - ref_sub_index(0) * 16;
+            stack_push_sub_index(0) == local_sub_index(0) >> ((depth(0)+1) * 16);
             stack_push_value(0) == local_read_value(0);
             stack_push_version(0) == clk(0);
         }
@@ -1780,6 +1799,7 @@ mod vec_push_back {
             fake_local_read_zero();
         }
 
+        //Fixme? ref could be an IndexedRef, it may have more than one parents
         if stage(0) == STAGE_WRITE_HEADER {
             step_counter(0) == 1;
 
@@ -1823,8 +1843,11 @@ mod vec_push_back {
 
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
-            // FIXME: fix the sub_index constraint
-            local_sub_index(0) == (ref_sub_index(0) * 16 + new_len) * 16 + stack_pop_sub_index(0);
+            // if ref is IndexedRef, we need introduce an advise 'depth' to indicate the ref's depth
+            super::common::constrain_depth(ref_sub_index(0), depth(0));
+            local_sub_index(0) == ref_sub_index(0) + new_len << (depth(0) * 16)
+                + stack_pop_sub_index(0) << ((depth(0) + 1) * 16);
+
             local_write_value(0) == stack_pop_value(0);
             local_write_version(0) == clk(0);
             local_read_version(0) < local_write_version(0);
