@@ -8,7 +8,6 @@ use crate::witness::execution_steps::ExecutionStep;
 use crate::witness::rw_operations::RWOperations;
 use halo2_proofs::circuit::{AssignedCell, Chip, Region};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
-use itertools::PadUsing;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -103,7 +102,7 @@ impl<F: Field> StepChip<F> {
         } else {
             STEP_HEIGHT // Query the entire current step.
         };
-        let mut cell_manager = CellManager::new(meta, height, &advices, offset);
+        let mut cell_manager = CellManager::new(meta, height, &advices, offset as isize);
         let cells = {
             StepChipCells {
                 context_id: cell_manager.alloc_cell(CellType::CustomGate),
@@ -221,50 +220,5 @@ impl<F: Field> StepChip<F> {
         //    .assign(region, offset, step, rw_operations, &self.config.cells)?;
 
         Ok(Some(gc_assigned_cell))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct StepConfigV2 {
-    pub clk: Column<Advice>,
-    pub frame_index: Column<Advice>,
-    pub module_index: Column<Advice>,
-    pub function_index: Column<Advice>,
-    pub pc: Column<Advice>,
-    pub sp: Column<Advice>,
-    pub opcode: Column<Advice>,
-    pub aux0: Column<Advice>,
-    pub aux1: Column<Advice>,
-    pub step_counter: Column<Advice>,
-
-    pub stack_pop_index: Column<Advice>,
-    pub stack_pop_sub_index: Column<Advice>,
-    pub stack_pop_value: Column<Advice>,
-    pub stack_pop_value_flag: Column<Advice>,
-    pub stack_pop_version: Column<Advice>,
-
-    pub stack_push_index: Column<Advice>,
-    pub stack_push_sub_index: Column<Advice>,
-    pub stack_push_value: Column<Advice>,
-    pub stack_push_value_flag: Column<Advice>,
-    pub stack_push_version: Column<Advice>,
-
-    pub local_frame_index: Column<Advice>,
-    pub local_index: Column<Advice>,
-    pub local_sub_index: Column<Advice>,
-    pub local_read_value: Column<Advice>,
-    pub local_read_value_flag: Column<Advice>,
-    pub local_read_version: Column<Advice>,
-
-    pub local_write_value: Column<Advice>,
-    pub local_write_value_flag: Column<Advice>,
-    pub local_write_version: Column<Advice>,
-    // FIXME
-    // pub(crate) conditions: DynamicSelectorHalf<F>,
-}
-
-impl StepConfigV2 {
-    pub fn configure<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
-        unimplemented!()
     }
 }
