@@ -5,7 +5,7 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-pasta_curves = "0.5.1"
-anyhow = "1.0.41"
-ff = "0.13.0"
-rand = "0.8"
+#pasta_curves = "0.5.1"
+#anyhow = "1.0.41"
+#ff = "0.13.0"
+#rand = "0.8"

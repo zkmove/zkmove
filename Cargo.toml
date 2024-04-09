@@ -12,8 +12,10 @@ members = [
 ]
 resolver = "2"
 [workspace.dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
-halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.3.0" }
+halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget.git", rev = "764a682" }
+subtle = "2.5"
+rayon = "1.10"
 
 [profile.dev]
 opt-level = 3
