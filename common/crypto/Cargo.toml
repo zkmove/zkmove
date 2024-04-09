@@ -5,8 +5,6 @@ authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
-halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
 pasta_curves = "0.5.1"
 anyhow = "1.0.41"
 ff = "0.13.0"

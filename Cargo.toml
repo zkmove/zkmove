@@ -3,7 +3,7 @@ members = [
     "movelang",
     "common/logger",
     "common/error",
-#    "common/crypto",
+    #    "common/crypto",
     "common/types",
     "vm-circuit",
     "vm",
@@ -11,6 +11,9 @@ members = [
     "cli",
 ]
 resolver = "2"
+[workspace.dependencies]
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
 
 [profile.dev]
 opt-level = 3
@@ -42,4 +45,4 @@ panic = "unwind"
 incremental = false
 
 [profile.bench]
-lto=true
+lto = true
