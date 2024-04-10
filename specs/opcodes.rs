@@ -43,6 +43,7 @@ mod ld {
         stack_push_index(0) == sp(0) + 1;
         stack_push_sub_index(0) == 0;
         stack_push_value(0) == aux0(0);
+        stack_push_value_flag(0) == ValueFlag::Simple;
         stack_push_version(0) == clk(0);
         // Local Context Constraints: fake local memory operation.
         super::common::fake_local_read_zero();
@@ -116,6 +117,7 @@ mod pop {
         }
         stack_pop_index(0) = sp(0);
         stack_pop_version(0) < clk(0);
+        super::common::fake_empty_stack_push();
         super::common::fake_local_read_zero();
 
         // constraint next row
@@ -150,7 +152,7 @@ mod add {
             // first row
             table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
             step_counter(0) == 2;
-            // first row is write invalid to b,
+            super::common::fake_empty_stack_push();
         } else {
             stack_push_index(0) == stack_pop_index(0);
             stack_push_sub_index(0) == stack_pop_sub_index(0);
