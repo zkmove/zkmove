@@ -7,6 +7,7 @@ use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, Selector
 use std::iter;
 use types::Field;
 
+#[derive(Clone)]
 pub struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,

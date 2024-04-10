@@ -2,6 +2,7 @@
 
 pub mod chips;
 pub mod circuit;
+pub mod circuit_v2;
 mod utils;
 pub mod witness;
 

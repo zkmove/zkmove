@@ -17,6 +17,7 @@ pub mod arith_operations;
 pub mod bytecode_table;
 pub mod call_trace_table;
 pub mod const_table;
+pub mod exec_step;
 pub mod execution_steps;
 pub mod function_calls;
 pub mod input_type_elements;
@@ -221,5 +222,44 @@ impl fmt::Debug for Witness {
         writeln!(f, "{:?}", self.circuit_config).unwrap();
         writeln!(f, "Word_capacity: {:?}", word_capacity()).unwrap();
         Ok(())
+    }
+}
+
+use crate::witness::exec_step::ExecStep;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CircuitConfigV2 {
+    pub max_steps: Option<usize>,
+}
+
+impl Default for CircuitConfigV2 {
+    fn default() -> Self {
+        CircuitConfigV2 { max_steps: None }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct ExecTrace {
+    pub exec_steps: Vec<ExecStep>,
+}
+
+#[derive(Clone, Default)]
+pub struct WitnessV2 {
+    pub exec_steps: Vec<ExecStep>,
+    pub bytecode_table: BytecodeTable,
+    pub circuit_config: CircuitConfigV2,
+}
+
+impl WitnessV2 {
+    pub fn new(
+        exec_steps: Vec<ExecStep>,
+        bytecode_table: BytecodeTable,
+        circuit_config: CircuitConfigV2,
+    ) -> Self {
+        WitnessV2 {
+            exec_steps,
+            bytecode_table,
+            circuit_config,
+        }
     }
 }
