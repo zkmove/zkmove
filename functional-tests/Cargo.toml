@@ -9,21 +9,22 @@ edition = "2021"
 
 [dependencies]
 logger = { path = "../common/logger" }
-movelang = { path = "../movelang"}
+movelang = { path = "../movelang" }
 types = { path = "../common/types" }
 vm-circuit = { path = "../vm-circuit" }
 vm = { path = "../vm" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+halo2_proofs.workspace = true
 anyhow = "1.0.38"
-criterion = { git = "https://github.com/young-rocks/criterion.rs", rev="98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
+rayon.workspace = true
 rand = "0.8"
 move-core-types = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
-instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
 regex = "1.5"
 walkdir = "2.3.2"
+criterion = { git = "https://github.com/young-rocks/criterion.rs", rev = "98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
 
 # https://github.com/Amanieu/parking_lot/issues/269
 [target.'cfg(target_arch = "wasm32")'.dependencies]

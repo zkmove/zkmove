@@ -56,7 +56,7 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
-use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig, StepConfigV2};
+use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
 use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
 use crate::chips::execution_chip::utils::constraint_builder::{
     ConditionalLookup, ConstraintBuilder,
@@ -73,7 +73,6 @@ use halo2_proofs::{
     circuit::Layouter,
     plonk::{Advice, Column, ConstraintSystem, Error, Selector},
 };
-use itertools::PadUsing;
 use logger::{error, trace};
 use movelang::value::{
     Value, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
@@ -86,6 +85,7 @@ pub mod lookup_tables;
 pub mod opcode;
 pub mod param;
 pub mod step_chip;
+pub mod step_v2;
 pub mod utils;
 
 #[derive(Clone, Debug)]
@@ -810,51 +810,5 @@ impl<F: Field> ExecutionChip<F> {
 
         // max {steps_height, tables_height}
         height.max(self.config.lookup_table.tables_height(self))
-    }
-}
-
-pub struct ExecChipConfig {
-    pub s_usable: Selector,
-    pub s_step_first: Selector,
-    pub step: StepConfigV2,
-}
-
-impl ExecChipConfig {
-    pub fn configure<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
-        let s_usable = meta.complex_selector();
-        let s_step_first = meta.complex_selector();
-        let step_config = StepConfigV2::configure(meta);
-        meta.create_gate("s_step", |vc| {
-            let s_usable = vc.query_selector(s_usable);
-            let s_step_first = vc.query_selector(s_step_first);
-            let mut cb = BaseConstraintBuilder::default();
-
-            cb.condition(s_step_first.clone(), |cb| {
-                cb.require_zero("first step, pc = 0", step_config.clk.cur());
-                cb.require_zero("first step, pc = 0", step_config.pc.cur());
-                cb.require_zero("first step, frame_index = 0", step_config.frame_index.cur());
-                // cb.require_zero(
-                //     "first step, module_index = 0",
-                //     step_curr.cells.module_index.expr(),
-                // );
-                cb.require_zero(
-                    "first step, function_index = 0",
-                    step_config.function_index.cur(),
-                );
-            });
-            cb.condition(1u64.expr() - s_step_first, |cb| {
-                cb.require_zero(
-                    "clk(0) == clk(-1) | clk(0) == clk(-1)+2",
-                    (step_config.clk.cur() - step_config.clk.prev())
-                        * (step_config.clk.cur() - step_config.clk.prev() - 2u64.expr()),
-                );
-            });
-            cb.gate(s_usable)
-        });
-        ExecChipConfig {
-            s_usable,
-            s_step_first,
-            step: step_config,
-        }
     }
 }

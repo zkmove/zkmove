@@ -1,14 +1,14 @@
 // Copyright (c) zkMove Authors
 
-use halo2_gadgets::poseidon::primitives::{ConstantLength, Spec};
-use halo2_gadgets::poseidon::{Hash, Pow5Chip, Pow5Config};
+use halo2_poseidon::primitives::{ConstantLength, Spec};
+use halo2_poseidon::{Hash, Pow5Chip, Pow5Config};
 use halo2_proofs::{
     circuit::{AssignedCell, Layouter},
     plonk::{Advice, Column, ConstraintSystem, Error},
 };
-use types::Field;
 use std::convert::TryInto;
 use std::marker::PhantomData;
+use types::Field;
 
 /// A wrapper for halo2 poseidon Pow5Chip.
 
@@ -30,13 +30,8 @@ pub struct PoseidonChip<
     _spec: PhantomData<S>,
 }
 
-impl<
-        F: Field,
-        S: Spec<F, WIDTH, RATE>,
-        const WIDTH: usize,
-        const RATE: usize,
-        const L: usize,
-    > PoseidonChip<F, S, WIDTH, RATE, L>
+impl<F: Field, S: Spec<F, WIDTH, RATE>, const WIDTH: usize, const RATE: usize, const L: usize>
+    PoseidonChip<F, S, WIDTH, RATE, L>
 {
     pub fn construct(config: PoseidonConfig<F, WIDTH, RATE>) -> Self {
         Self {
@@ -103,16 +98,16 @@ impl<
 mod tests {
     use super::{PoseidonChip, PoseidonConfig};
     use crypto::poseidon::{FieldHasher, Poseidon, SmtP128Pow5T3};
-    use halo2_gadgets::poseidon::primitives::Spec;
+    use halo2_poseidon::primitives::Spec;
     use halo2_proofs::dev::MockProver;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::{
         circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
         plonk::{Advice, Circuit, Column, ConstraintSystem, Error},
     };
-    use types::Field;
     use std::convert::TryInto;
     use std::marker::PhantomData;
+    use types::Field;
 
     #[derive(Clone)]
     struct TestConfig<F: Field, const WIDTH: usize, const RATE: usize, const L: usize> {

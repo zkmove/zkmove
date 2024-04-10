@@ -72,7 +72,7 @@ impl<F: Field> Expr<F> for CellColumn<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CellManager<F: Field> {
+pub struct CellManager<F> {
     //width: usize,
     height: usize,
     cells: Vec<Cell<F>>,
@@ -84,7 +84,7 @@ impl<F: Field> CellManager<F> {
         meta: &mut ConstraintSystem<F>,
         height: usize,
         advices: &[Column<Advice>],
-        height_offset: usize,
+        height_offset: isize,
     ) -> Self {
         // Setup the columns and query the cells
         let width = advices.len();
@@ -93,7 +93,11 @@ impl<F: Field> CellManager<F> {
         query_expression(meta, |meta| {
             for c in 0..width {
                 for r in 0..height {
-                    cells.push(Cell::new(meta, advices[c], (height_offset + r) as i32));
+                    cells.push(Cell::new(
+                        meta,
+                        advices[c],
+                        (height_offset + r as isize) as i32,
+                    ));
                 }
                 columns.push(CellColumn {
                     index: c,

@@ -6,5 +6,5 @@ edition = "2021"
 
 [dependencies]
 logger = { path = "../logger" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "7a21656" }
+halo2_proofs.workspace = true
 anyhow = "1.0.38"
