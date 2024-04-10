@@ -6,3 +6,4 @@ edition = "2021"
 
 [dependencies]
 halo2_proofs.workspace = true
+field-exts.workspace = true
