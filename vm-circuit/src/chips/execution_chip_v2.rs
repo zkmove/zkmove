@@ -139,6 +139,47 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        meta.create_gate("not_last_row_of_bytecode", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let row_n = meta.query_selector(s_step_last);
+            let not_last_row_selector = and::expr([
+                not::expr(row_n),
+                not::expr(
+                    step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+                ),
+            ]);
+            let mut cb = BaseConstraintBuilder::default();
+            cb.condition(not_last_row_selector, |cb| {
+                cb.require_equal(
+                    "frame_index(1)==frame_index(0)",
+                    step_next.state.frame_index.expr(),
+                    step_curr.state.frame_index.expr(),
+                );
+                cb.require_equal(
+                    "module_index(1)==module_index(0)",
+                    step_next.state.module_index.expr(),
+                    step_curr.state.module_index.expr(),
+                );
+                cb.require_equal(
+                    "function_index(1)==function_index(0)",
+                    step_next.state.function_index.expr(),
+                    step_curr.state.function_index.expr(),
+                );
+                cb.require_equal(
+                    "opcode(1)==opcode(0)",
+                    step_next.state.opcode.expr(),
+                    step_curr.state.opcode.expr(),
+                );
+                cb.require_equal(
+                    "pc(1)==pc(0)",
+                    step_next.state.pc.expr(),
+                    step_curr.state.pc.expr(),
+                );
+                // TODO: check on aux0 and aux1
+            });
+            cb.gate(s_usable)
+        });
+
         macro_rules! configure_opcode_gadget {
             () => {
                 Box::new(Self::configure_opcode_gadget(
@@ -173,7 +214,7 @@ impl<F: Field> ExecChipConfig<F> {
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
         let step_next = Step::new(meta, advices, 1);
-        let step_prev = Step::new(meta, advices, 0);
+        let step_prev = Step::new(meta, advices, -1);
         let mut cb =
             ConstraintBuilderV2::new(meta, step_curr.clone(), step_next.clone(), G::OPCODE);
         let gadget = G::configure(&mut cb);
