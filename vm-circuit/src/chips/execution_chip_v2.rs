@@ -39,19 +39,20 @@ impl<F: Field> ExecChipConfig<F> {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        let cur_step = Step::new(meta, advices, 0);
-        let prev_step = Step::new(meta, advices, -1);
+        let step_curr = Step::new(meta, advices, 0);
+        let step_prev = Step::new(meta, advices, -1);
+        let step_next = Step::new(meta, advices, 1);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
             let mut cb = BaseConstraintBuilder::default();
 
             cb.condition(s_step_first.clone(), |cb| {
-                cb.require_zero("first step, clk = 0", cur_step.state.clk.expr());
-                cb.require_zero("first step, pc = 0", cur_step.state.pc.expr());
+                cb.require_zero("first step, clk = 0", step_curr.state.clk.expr());
+                cb.require_zero("first step, pc = 0", step_curr.state.pc.expr());
                 cb.require_zero(
                     "first step, frame_index = 0",
-                    cur_step.state.frame_index.expr(),
+                    step_curr.state.frame_index.expr(),
                 );
                 // cb.require_zero(
                 //     "first step, module_index = 0",
@@ -59,7 +60,7 @@ impl<F: Field> ExecChipConfig<F> {
                 // );
                 cb.require_zero(
                     "first step, function_index = 0",
-                    cur_step.state.function_index.expr(),
+                    step_curr.state.function_index.expr(),
                 );
             });
             cb.gate(s_usable)
@@ -68,10 +69,10 @@ impl<F: Field> ExecChipConfig<F> {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
             let s_step_last = vc.query_selector(s_step_last);
-            let execution_state_selector_constraints = cur_step.state.conditions.configure();
+            let execution_state_selector_constraints = step_curr.state.conditions.configure();
             let first_step_check = {
                 let begin_opcode_selector =
-                    cur_step.execution_state_selector([Opcode::Call, Opcode::CallGeneric]);
+                    step_curr.execution_state_selector([Opcode::Call, Opcode::CallGeneric]);
                 iter::once((
                     "First step should be Call/CallGeneric",
                     s_step_first * (1u64.expr() - begin_opcode_selector),
@@ -79,7 +80,7 @@ impl<F: Field> ExecChipConfig<F> {
             };
 
             let last_step_check = {
-                let end_opcode_selector = cur_step.execution_state_selector([Opcode::Nop]);
+                let end_opcode_selector = step_curr.execution_state_selector([Opcode::Nop]);
                 iter::once((
                     "Last step should be Nop",
                     s_step_last * (1u64.expr() - end_opcode_selector),
@@ -112,11 +113,32 @@ impl<F: Field> ExecChipConfig<F> {
                 // we need to figure out how to constraint vec_swap.
                 cb.require_boolean(
                     "clk(0) - clk(-1)  == 0 | 1",
-                    cur_step.state.clk.expr() - prev_step.state.clk.expr(),
+                    step_curr.state.clk.expr() - step_prev.state.clk.expr(),
                 );
             });
             cb.gate(s_usable)
         });
+
+        // common constraint for every opcode
+        // meta.create_gate("first_row_of_bytecode", |meta| {});
+        meta.create_gate("last_row_of_bytecode", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let row_n = meta.query_selector(s_step_last);
+            let last_row_selector = or::expr([
+                row_n,
+                step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+            ]);
+            let mut cb = BaseConstraintBuilder::default();
+            cb.condition(last_row_selector, |cb| {
+                cb.require_equal(
+                    "step_counter(0)==1",
+                    step_curr.state.step_counter.expr(),
+                    1u64.expr(),
+                );
+            });
+            cb.gate(s_usable)
+        });
+
         macro_rules! configure_opcode_gadget {
             () => {
                 Box::new(Self::configure_opcode_gadget(
@@ -125,7 +147,7 @@ impl<F: Field> ExecChipConfig<F> {
                     s_usable,
                     s_step_first,
                     s_step_last,
-                    &cur_step,
+                    &step_curr,
                 ))
             };
         }
@@ -135,7 +157,7 @@ impl<F: Field> ExecChipConfig<F> {
             s_step_first,
             advices,
             br_true: configure_opcode_gadget!(),
-            step: cur_step,
+            step: step_curr,
         }
     }
 
