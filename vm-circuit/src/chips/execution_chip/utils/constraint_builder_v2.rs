@@ -6,6 +6,7 @@ use crate::chips::execution_chip::utils::constraint_builder::ConditionalLookup;
 use crate::chips::execution_chip::utils::CellType;
 use crate::chips::utilities::{Cell, Expr};
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
+use std::collections::HashMap;
 use types::Field;
 
 // Max degree allowed in all expressions passing through the ConstraintBuilder.
@@ -14,6 +15,21 @@ use types::Field;
 // allows 2^2+1-3 = 2.
 const MAX_DEGREE: usize = 5;
 const IMPLICIT_DEGREE: usize = 3;
+
+pub(crate) enum Transition<T> {
+    Same,
+    Delta(T),
+    To(T),
+}
+
+impl<F> Default for Transition<F> {
+    fn default() -> Self {
+        Self::Same
+    }
+}
+
+/// (state_name, transition)
+pub(crate) type StateTransition<F> = (&'static str, Transition<F>);
 
 /// Internal type to select the location where the constraints are enabled
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -138,6 +154,48 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         }
         .cell_manager
         .allocate_cells(cell_type, count)
+    }
+
+    pub(crate) fn require_state_transition(
+        &mut self,
+        step_state_transition: Vec<StateTransition<Expression<F>>>,
+    ) {
+        macro_rules! constrain {
+            ($transition:ident, $name:tt) => {
+                if let Some(c) = $transition.remove(stringify!($name)) {
+                    match c {
+                        Transition::Same => self.require_equal(
+                            concat!("State transition (same) constraint of ", stringify!($name)),
+                            self.next.state.$name.expr(),
+                            self.curr.state.$name.expr(),
+                        ),
+                        Transition::Delta(delta) => self.require_equal(
+                            concat!("State transition (delta) constraint of ", stringify!($name)),
+                            self.next.state.$name.expr(),
+                            self.curr.state.$name.expr() + delta,
+                        ),
+                        Transition::To(to) => self.require_equal(
+                            concat!("State transition (to) constraint of ", stringify!($name)),
+                            self.next.state.$name.expr(),
+                            to,
+                        ),
+                    }
+                }
+            };
+        }
+        let mut step_state_transition = step_state_transition
+            .into_iter()
+            .collect::<HashMap<&'static str, _>>();
+        constrain!(step_state_transition, frame_index);
+        constrain!(step_state_transition, module_index);
+        constrain!(step_state_transition, function_index);
+        constrain!(step_state_transition, pc);
+        constrain!(step_state_transition, sp);
+        constrain!(step_state_transition, opcode);
+        constrain!(step_state_transition, aux0);
+        constrain!(step_state_transition, aux1);
+        constrain!(step_state_transition, step_counter);
+        // TODO: add other state variable
     }
 
     // Lookups
