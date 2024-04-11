@@ -8,7 +8,9 @@ use crate::chips::execution_chip::instructions::common::value_gadget::ValueGadge
 use crate::chips::execution_chip::lookup_tables::rw_table::{RWLookup, RWTarget};
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
+use crate::chips::execution_chip::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::utilities::DeltaInvert;
 use crate::chips::utilities::{Cell, Expr};

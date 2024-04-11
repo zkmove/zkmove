@@ -10,7 +10,7 @@ pub(crate) struct ConstraintBuilder<F: Field> {
     opcode: Opcode,
     pub(crate) curr: StepConfig<F>,
     pub(crate) next: StepConfig<F>,
-    constraints: Vec<(&'static str, ConditionalExpression<F>)>,
+    constraints: Vec<(String, ConditionalExpression<F>)>,
     conditions: Vec<Expression<F>>,
     lookups: Vec<(&'static str, ConditionalLookup<F>)>,
     in_next_step: bool,
@@ -78,7 +78,7 @@ impl<F: Field> ConstraintBuilder<F> {
     pub(crate) fn build(
         self,
     ) -> (
-        Vec<(&'static str, ConditionalExpression<F>)>,
+        Vec<(String, ConditionalExpression<F>)>,
         Vec<(&'static str, ConditionalLookup<F>)>,
         usize,
     ) {
@@ -146,19 +146,23 @@ impl<F: Field> ConstraintBuilder<F> {
         ret
     }
 
-    pub(crate) fn add_constraints(&mut self, constraints: Vec<(&'static str, Expression<F>)>) {
+    pub(crate) fn add_constraints(&mut self, constraints: Vec<(impl AsRef<str>, Expression<F>)>) {
         for (name, constraint) in constraints {
             self.add_constraint(name, constraint);
         }
     }
 
-    pub(crate) fn add_constraint(&mut self, name: &'static str, constraint: Expression<F>) {
-        self.push_constraint(name, self.conditions.clone(), constraint);
+    pub(crate) fn add_constraint(&mut self, name: impl AsRef<str>, constraint: Expression<F>) {
+        self.push_constraint(
+            name.as_ref().to_string(),
+            self.conditions.clone(),
+            constraint,
+        );
     }
 
     fn push_constraint(
         &mut self,
-        name: &'static str,
+        name: String,
         conds: Vec<Expression<F>>,
         constraint: Expression<F>,
     ) {

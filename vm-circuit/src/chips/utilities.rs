@@ -66,41 +66,7 @@ impl<F: Field> Cell<F> {
         )
     }
 }
-
-pub(crate) trait Expr<F: Field> {
-    fn expr(&self) -> Expression<F>;
-}
-impl<F: Field> Expr<F> for Expression<F> {
-    #[inline]
-    fn expr(&self) -> Expression<F> {
-        self.clone()
-    }
-}
-
-impl<F: Field> Expr<F> for &Expression<F> {
-    #[inline]
-    fn expr(&self) -> Expression<F> {
-        (*self).clone()
-    }
-}
-
-// impl<F: Field> Expr<F> for i32 {
-//     fn expr(&self) -> Expression<F> {
-//         Expression::Constant(F::from(*self as u64))
-//     }
-// }
-
-impl<F: Field> Expr<F> for usize {
-    fn expr(&self) -> Expression<F> {
-        Expression::Constant(F::from(*self as u64))
-    }
-}
-
-impl<F: Field> Expr<F> for u64 {
-    fn expr(&self) -> Expression<F> {
-        Expression::Constant(F::from(*self))
-    }
-}
+pub use gadgets::util::Expr;
 
 // The internal representation of Field is four 64-bits unsigned integer in little-endian order,
 // This struct has 16 Cells, to hold the 16 bytes of the lower two u64.

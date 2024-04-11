@@ -1,4 +1,6 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
+use crate::chips::execution_chip::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::pow_of_two;
 use crate::chips::utilities::{from_bytes, Cell, Expr};

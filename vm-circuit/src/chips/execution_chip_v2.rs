@@ -1,17 +1,29 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::STEP_CHIP_WIDTH;
 use crate::chips::execution_chip::step_v2::Step;
-use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
+use crate::chips::execution_chip::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
+
+use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utilities::Expr;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, Selector};
+use gadgets::util::{and, not, or};
+use halo2_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Expression, FirstPhase, Selector, VirtualCells,
+};
+
+use crate::chips::execution_chip_v2::executions::BrBool;
 use std::iter;
 use types::Field;
+
+mod executions;
 
 #[derive(Clone)]
 pub struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub advices: [Column<Advice>; STEP_CHIP_WIDTH],
+    pub br_true: Box<BrBool<F, true>>,
     pub step: Step<F>,
 }
 
@@ -35,7 +47,7 @@ impl<F: Field> ExecChipConfig<F> {
             let mut cb = BaseConstraintBuilder::default();
 
             cb.condition(s_step_first.clone(), |cb| {
-                cb.require_zero("first step, pc = 0", cur_step.state.clk.expr());
+                cb.require_zero("first step, clk = 0", cur_step.state.clk.expr());
                 cb.require_zero("first step, pc = 0", cur_step.state.pc.expr());
                 cb.require_zero(
                     "first step, frame_index = 0",
@@ -95,22 +107,152 @@ impl<F: Field> ExecChipConfig<F> {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
             let mut cb = BaseConstraintBuilder::default();
-            cb.condition(1u64.expr() - s_step_first, |cb| {
-                cb.require_zero(
-                    "clk(0) == clk(-1) | clk(0) == clk(-1)+2",
-                    (cur_step.state.clk.expr() - prev_step.state.clk.expr())
-                        * (cur_step.state.clk.expr() - prev_step.state.clk.expr() - 2u64.expr()),
+            cb.condition(1u64.expr() - s_step_first.clone(), |cb| {
+                // FIXME: for now,we increase clk by one for each bytecode
+                // we need to figure out how to constraint vec_swap.
+                cb.require_boolean(
+                    "clk(0) - clk(-1)  == 0 | 1",
+                    cur_step.state.clk.expr() - prev_step.state.clk.expr(),
                 );
             });
             cb.gate(s_usable)
         });
-        let first_row_selector =
-            cur_step.state.clk.expr() - prev_step.state.clk.expr() - 1u64.expr();
+        macro_rules! configure_opcode_gadget {
+            () => {
+                Box::new(Self::configure_opcode_gadget(
+                    meta,
+                    advices,
+                    s_usable,
+                    s_step_first,
+                    s_step_last,
+                    &cur_step,
+                ))
+            };
+        }
+
         ExecChipConfig {
             s_usable,
             s_step_first,
             advices,
+            br_true: configure_opcode_gadget!(),
             step: cur_step,
         }
     }
+
+    fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
+        meta: &mut ConstraintSystem<F>,
+        //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
+        advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        s_usable: Selector,
+        s_step_first: Selector,
+        s_step_last: Selector,
+        //s_step: Column<Advice>,
+        step_curr: &Step<F>,
+    ) -> G {
+        // Now actually configure the gadget with the correct minimal height
+        let step_next = Step::new(meta, advices, 1);
+        let step_prev = Step::new(meta, advices, 0);
+        let mut cb =
+            ConstraintBuilderV2::new(meta, step_curr.clone(), step_next.clone(), G::OPCODE);
+        let gadget = G::configure(&mut cb);
+        Self::configure_opcode_gadget_impl(
+            advices,
+            s_usable,
+            s_step_first,
+            s_step_last,
+            &step_curr,
+            &step_prev,
+            &step_next,
+            G::NAME,
+            G::OPCODE,
+            cb,
+        );
+
+        gadget
+    }
+
+    fn configure_opcode_gadget_impl(
+        advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        s_usable: Selector,
+        s_step_first: Selector,
+        s_step_last: Selector,
+        step_curr: &Step<F>,
+        step_prev: &Step<F>,
+        step_next: &Step<F>,
+        name: &'static str,
+        opcode: Opcode,
+        mut cb: ConstraintBuilderV2<F>,
+    ) {
+        let (constraints, _lookups, meta) = cb.build();
+        // Enforce the logic for this opcode
+        let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
+            let row0 = meta.query_selector(s_step_first.clone());
+            or::expr([
+                row0,
+                step_curr.state.clk.expr() - step_prev.state.clk.expr(), /* = 1 */
+            ])
+        };
+
+        let last_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
+            let row_n = meta.query_selector(s_step_last.clone());
+            or::expr([
+                row_n,
+                step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+            ])
+        };
+        let not_first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
+            let row0 = meta.query_selector(s_step_first.clone());
+            and::expr([
+                not::expr(row0),
+                not::expr(
+                    step_curr.state.clk.expr() - step_prev.state.clk.expr(), /* = 1 */
+                ),
+            ])
+        };
+        let not_last_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
+            let row_n = meta.query_selector(s_step_last.clone());
+            and::expr([
+                not::expr(row_n),
+                not::expr(
+                    step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+                ),
+            ])
+        };
+
+        for (selector, constraints) in [
+            (first_row, constraints.first_row),
+            (last_row, constraints.last_row),
+            (not_first_row, constraints.not_first_row),
+            (not_last_row, constraints.not_last_row),
+        ] {
+            if !constraints.is_empty() {
+                meta.create_gate(name, |meta| {
+                    let q_usable = meta.query_selector(s_usable);
+                    let selector = selector(meta);
+                    constraints.into_iter().map(move |(name, constraint)| {
+                        (name, q_usable.clone() * selector.clone() * constraint)
+                    })
+                });
+            }
+        }
+    }
+}
+
+pub(crate) trait InstructionGadgetV2<F: Field> {
+    const NAME: &'static str;
+
+    const OPCODE: Opcode;
+
+    fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
+
+    // fn assign(
+    //     &self,
+    //     region: &mut Region<'_, F>,
+    //     offset: usize,
+    //     step: &ExecutionStep,
+    //     rw_operations: &RWOperations,
+    //     cells: &StepChipCells<F>,
+    // ) -> Result<(), Error>;
+
+    // fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
 }
