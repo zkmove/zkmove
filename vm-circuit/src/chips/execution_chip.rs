@@ -57,7 +57,9 @@ use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::{STEP_CHIP_WIDTH, STEP_HEIGHT};
 use crate::chips::execution_chip::step_chip::{StepChip, StepChipCells, StepConfig};
-use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
+use crate::chips::execution_chip::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
 use crate::chips::execution_chip::utils::constraint_builder::{
     ConditionalLookup, ConstraintBuilder,
 };

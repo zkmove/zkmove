@@ -17,10 +17,9 @@ use super::common::simple_value_gadget::SimpleValueGadget;
 use super::common::Word;
 
 #[derive(Clone, Debug)]
-pub struct BrBool<F: Field, const TRUE: bool> {
+pub struct BrBool<F, const TRUE: bool> {
     value: SimpleValueGadget<F>,
 }
-
 impl<F: Field, const TRUE: bool> InstructionGadget<F> for BrBool<F, TRUE> {
     const NAME: &'static str = match TRUE {
         true => "BRTRUE",

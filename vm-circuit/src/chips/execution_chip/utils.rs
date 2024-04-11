@@ -8,6 +8,7 @@ use types::Field;
 
 pub mod base_constraint_builder;
 pub mod constraint_builder;
+pub mod constraint_builder_v2;
 pub mod dynamic_selector_half;
 pub(crate) fn query_expression<F: Field, T>(
     meta: &mut ConstraintSystem<F>,

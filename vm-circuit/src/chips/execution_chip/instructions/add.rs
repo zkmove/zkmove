@@ -6,7 +6,9 @@ use crate::chips::execution_chip::instructions::InstructionGadget;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::param::BYTES_NUM;
 use crate::chips::execution_chip::step_chip::StepChipCells;
-use crate::chips::execution_chip::utils::base_constraint_builder::BaseConstraintBuilder;
+use crate::chips::execution_chip::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
 use crate::chips::execution_chip::utils::constraint_builder::ConstraintBuilder;
 use crate::chips::execution_chip::utils::pow_of_two_expr;
 use crate::chips::utilities::{Cell, Expr};
