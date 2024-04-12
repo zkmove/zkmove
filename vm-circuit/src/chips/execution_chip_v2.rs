@@ -14,6 +14,7 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::{and, not, or};
 use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
+use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 use std::iter;
 use types::Field;
 
@@ -28,6 +29,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
+    pub ld: Box<Ld<F, { LdType::LdU64 }>>,
     pub step: Step<F>,
 }
 
@@ -198,6 +200,7 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             br_true: configure_opcode_gadget!(),
+            ld: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
