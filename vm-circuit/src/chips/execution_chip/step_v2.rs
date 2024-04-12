@@ -6,6 +6,15 @@ use crate::chips::utilities::Cell;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression};
 use types::Field;
 
+pub const FRAME_INDEX: &str = "frame_index";
+pub const MODULE_INDEX: &str = "module_index";
+pub const FUNCTION_INDEX: &str = "function_index";
+pub const PC: &str = "pc";
+pub const SP: &str = "sp";
+pub const OPCODE: &str = "OPCODE";
+pub const AUX0: &str = "aux0";
+pub const AUX1: &str = "aux1";
+
 #[derive(Clone, Debug)]
 pub struct StepState<F> {
     pub clk: Cell<F>,
