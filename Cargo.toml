@@ -45,6 +45,6 @@ incremental = false
 lto=true
 
 [workspace.dependencies]
-halo2-base = { git = "https://github.com/zkmove/halo2-lib", branch = "aggr", default-features=false, features=["halo2-pse","display"] }
-snark-verifier-sdk = { git = "https://github.com/zkmove/snark-verifier", branch = "aggr" }
-snark-verifier = { git = "https://github.com/zkmove/snark-verifier", branch = "aggr" }
+halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib", tag = "v0.4.1-git", default-features=false, features=["halo2-pse","display"] }
+snark-verifier-sdk = { git = "https://github.com/axiom-crypto/snark-verifier", tag = "v0.1.7-git", default-features = false, features = ["loader_halo2", "halo2-pse"] }
+snark-verifier = { git = "https://github.com/axiom-crypto//snark-verifier", tag = "v0.1.7-git", default-features = false, features = ["loader_halo2", "halo2-pse"] }

@@ -39,6 +39,7 @@ impl<F: Field> CircuitExt<F> for VmCircuit<F> {
 impl<F: Field> Circuit<F> for VmCircuit<F> {
     type Config = VmCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
+    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         Self::default()

@@ -6,10 +6,9 @@ use halo2_base::halo2_proofs::dev::MockProver;
 use halo2_base::halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 
 use crate::circuit::VmCircuit;
-use halo2_base::halo2_proofs::halo2curves::ff::{
-    FromUniformBytes, PrimeField, WithSmallOrderMulGroup,
-};
+use halo2_base::halo2_proofs::halo2curves::ff::{FromUniformBytes, WithSmallOrderMulGroup};
 use halo2_base::halo2_proofs::halo2curves::serde::SerdeObject;
+use halo2_base::halo2_proofs::halo2curves::CurveExt;
 use halo2_base::halo2_proofs::plonk::{
     create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
 };
@@ -83,8 +82,8 @@ pub fn setup_vm_circuit<'params, C, P, ConcreteCircuit>(
 where
     C: CurveAffine,
     P: Params<'params, C>,
-    ConcreteCircuit: Circuit<C::Scalar>,
-    C::Scalar: FromUniformBytes<64>,
+    ConcreteCircuit: Circuit<C::ScalarExt>,
+    C::ScalarExt: FromUniformBytes<64>,
 {
     debug!("Generate vk");
     let vk = keygen_vk(params, circuit).map_err(|e| {
@@ -99,14 +98,14 @@ where
     Ok((vk, pk))
 }
 
-pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::Scalar>>(
+pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::ScalarExt>>(
     circuit: ConcreteCircuit,
-    instance: &[&[C::Scalar]],
+    instance: &[&[C::ScalarExt]],
     params: &ParamsIPA<C>,
     pk: ProvingKey<C>,
 ) -> VmResult<Vec<u8>>
 where
-    <C as CurveAffine>::ScalarExt: FromUniformBytes<64>,
+    C::ScalarExt: FromUniformBytes<64>,
 {
     prove_vm_circuit::<
         IPACommitmentScheme<C>,
@@ -118,19 +117,18 @@ where
 }
 pub fn prove_vm_circuit_kzg<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
-    instance: &[&[E::Scalar]],
+    instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
 ) -> VmResult<Vec<u8>>
 where
     E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine: SerdeObject,
-    E::G2Affine: SerdeObject,
-    ConcreteCircuit: Circuit<E::Scalar>,
-    <E as Engine>::Scalar: PrimeField,
-    <E as Engine>::Scalar: Ord,
-    <E as Engine>::Scalar: WithSmallOrderMulGroup<3>,
-    <E as Engine>::Scalar: FromUniformBytes<64>,
+    E::G1Affine:
+        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
+    E::G1: CurveExt<AffineExt = E::G1Affine>,
+    E::G2Affine: SerdeObject + CurveAffine,
+    ConcreteCircuit: Circuit<E::Fr>,
+    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     prove_vm_circuit::<
         KZGCommitmentScheme<E>,
@@ -197,19 +195,18 @@ where
 
 pub fn proof_vm_circuit_kzg<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
-    instance: &[&[E::Scalar]],
+    instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
 ) -> VmResult<Vec<u8>>
 where
     E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine: SerdeObject,
-    E::G2Affine: SerdeObject,
-    ConcreteCircuit: Circuit<E::Scalar>,
-    <E as Engine>::Scalar: PrimeField,
-    <E as Engine>::Scalar: Ord,
-    <E as Engine>::Scalar: WithSmallOrderMulGroup<3>,
-    <E as Engine>::Scalar: FromUniformBytes<64>,
+    E::G1Affine:
+        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
+    E::G1: CurveExt<AffineExt = E::G1Affine>,
+    E::G2Affine: SerdeObject + CurveAffine,
+    ConcreteCircuit: Circuit<E::Fr>,
+    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     proof_vm_circuit::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(circuit, instance, params, pk)
 }
@@ -253,20 +250,19 @@ where
 
 pub fn verify_vm_circuit_kzg<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
-    instance: &[&[E::Scalar]],
+    instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
     proof: Vec<u8>,
 ) -> VmResult<()>
 where
     E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine: SerdeObject,
-    E::G2Affine: SerdeObject,
-    ConcreteCircuit: Circuit<E::Scalar>,
-    <E as Engine>::Scalar: PrimeField,
-    <E as Engine>::Scalar: Ord,
-    <E as Engine>::Scalar: WithSmallOrderMulGroup<3>,
-    <E as Engine>::Scalar: FromUniformBytes<64>,
+    E::G1Affine:
+        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
+    E::G1: CurveExt<AffineExt = E::G1Affine>,
+    E::G2Affine: SerdeObject + CurveAffine,
+    ConcreteCircuit: Circuit<E::Fr>,
+    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     verify_vm_circuit::<
         KZGCommitmentScheme<E>,
