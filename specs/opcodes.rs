@@ -614,20 +614,24 @@ mod borrow_loc {
             table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
             step_counter(0) == 4;
             stack_push_value(0) == (3,4);
+            stack_push_value_flag(0) == ValueFlag::Header;
             stack_push_sub_index(0) == 0;
         }
 
         if step_counter(0) == 3 {
             stack_push_value(0) = frame_index(0);
+            stack_push_value_flag(0) == ValueFlag::Simple;
             stack_push_sub_index(0) == 1;
 
         }
         if step_counter(0) == 2 {
             stack_push_value(0) = aux0(0);
+            stack_push_value_flag(0) == ValueFlag::Simple;
             stack_push_sub_index(0) == 2;
         }
         if step_counter(0) == 1 {
             stack_push_value(0) = 0;
+            stack_push_value_flag(0) == ValueFlag::Simple;
             stack_push_sub_index(0) == 3;
         }
         stack_push_index(0) == sp(0) + 1;

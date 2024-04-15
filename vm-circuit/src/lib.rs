@@ -3,6 +3,8 @@
 
 #![feature(adt_const_params)]
 
+extern crate movelang;
+
 pub mod chips;
 pub mod circuit;
 pub mod circuit_v2;
