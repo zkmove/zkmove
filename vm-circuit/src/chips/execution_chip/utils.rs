@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::utilities::{Cell, Expr};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells};
+use crate::utils::query_expression;
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression};
 use movelang::utility::U256;
 use std::hash::Hash;
 use types::Field;
@@ -10,17 +11,6 @@ pub mod base_constraint_builder;
 pub mod constraint_builder;
 pub mod constraint_builder_v2;
 pub mod dynamic_selector_half;
-pub(crate) fn query_expression<F: Field, T>(
-    meta: &mut ConstraintSystem<F>,
-    mut f: impl FnMut(&mut VirtualCells<F>) -> T,
-) -> T {
-    let mut expr = None;
-    meta.create_gate("Query expression", |meta| {
-        expr = Some(f(meta));
-        Some(0u64.expr())
-    });
-    expr.unwrap()
-}
 
 /// Returns 2**by as Field
 pub(crate) fn pow_of_two<F: Field>(by: usize) -> F {

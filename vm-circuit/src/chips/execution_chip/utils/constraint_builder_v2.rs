@@ -155,6 +155,15 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         .cell_manager
         .allocate_cells(cell_type, count)
     }
+    /// require next row's execution state to be the specified `execution_state`
+    pub(crate) fn require_next_state(&mut self, execution_state: Opcode) {
+        let next_state = self.next.execution_state_selector([execution_state]);
+        self.require_equal(
+            "Constrain next execution state",
+            1u64.expr(),
+            next_state.expr(),
+        );
+    }
 
     pub(crate) fn require_state_transition(
         &mut self,

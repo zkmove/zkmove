@@ -1,5 +1,5 @@
 // Copyright (c) zkMove Authors
-
+#![feature(lint_reasons)]
 pub mod chips;
 pub mod circuit;
 pub mod circuit_v2;

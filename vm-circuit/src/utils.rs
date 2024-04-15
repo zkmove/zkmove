@@ -1,4 +1,8 @@
 #![allow(unused_variables)]
+pub mod cached_region;
+pub mod cell_manager;
+pub mod cell_placement_strategy;
+pub mod challenges;
 
 use crate::circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
@@ -8,7 +12,8 @@ use halo2_proofs::halo2curves::ff::{FromUniformBytes, WithSmallOrderMulGroup};
 use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 use halo2_proofs::halo2curves::serde::SerdeObject;
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, ProvingKey,
+    VerifyingKey, VirtualCells,
 };
 use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
@@ -20,6 +25,7 @@ use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
 // use instant;
+use gadgets::util::Expr;
 use halo2_proofs::halo2curves::CurveExt;
 use logger::{debug, info};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
@@ -27,6 +33,17 @@ use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use types::Field;
+pub(crate) fn query_expression<F: Field, T>(
+    meta: &mut ConstraintSystem<F>,
+    mut f: impl FnMut(&mut VirtualCells<F>) -> T,
+) -> T {
+    let mut expr = None;
+    meta.create_gate("Query expression", |meta| {
+        expr = Some(f(meta));
+        Some(0u64.expr())
+    });
+    expr.unwrap()
+}
 
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
