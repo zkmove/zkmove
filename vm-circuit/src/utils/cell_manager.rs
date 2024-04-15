@@ -215,25 +215,6 @@ pub(crate) trait CellPlacementStrategy {
         affinity: Self::Affinity,
     ) -> CellPlacement;
 
-    /// Queries a cell from the strategy returning CellValueOnly, which does not require
-    /// ConstraintSystem. This is useful when assigning values.
-    /// Deprecated: share cells between configure and synthesize instead.
-    fn place_cell_value(
-        &mut self,
-        columns: &mut CellManagerColumns,
-        cell_type: CellType,
-    ) -> CellPlacementValue;
-
-    /// Queries a cell from the strategy returning CellValueOnly, which does not require
-    /// ConstraintSystem. This is useful when assigning values. Also, using an affinity attribute.
-    /// Deprecated: share cells between configure and synthesize instead.
-    fn place_cell_value_with_affinity(
-        &mut self,
-        columns: &mut CellManagerColumns,
-        cell_type: CellType,
-        affinity: Self::Affinity,
-    ) -> CellPlacementValue;
-
     /// Gets the current height of the cell manager, the max rotation of any cell (without
     /// considering offset).
     fn get_height(&self) -> usize;
@@ -354,26 +335,6 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
         (0..count)
             .map(|_| self.query_cell(meta, cell_type))
             .collect()
-    }
-
-    /// Deprecated: share cells between configure and synthesize instead.
-    pub fn query_cell_value<F>(&mut self, cell_type: CellType) -> Cell<F> {
-        let placement = self.strategy.place_cell_value(&mut self.columns, cell_type);
-
-        Cell::new_value(placement.column_idx, placement.rotation)
-    }
-
-    /// Deprecated: share cells between configure and synthesize instead.
-    pub fn query_cell_value_with_affinity<F>(
-        &mut self,
-        cell_type: CellType,
-        affinity: S::Affinity,
-    ) -> Cell<F> {
-        let placement =
-            self.strategy
-                .place_cell_value_with_affinity(&mut self.columns, cell_type, affinity);
-
-        Cell::new_value(placement.column_idx, placement.rotation)
     }
 
     /// Gets the current height of the cell manager, the max rotation of any cell (without

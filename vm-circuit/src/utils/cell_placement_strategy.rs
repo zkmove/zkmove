@@ -189,14 +189,6 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
         data
     }
 
-    fn place_cell_value(
-        &mut self,
-        _columns: &mut CellManagerColumns,
-        _cell_type: CellType,
-    ) -> CellPlacementValue {
-        unimplemented!()
-    }
-
     fn place_cell_with_affinity<F: Field>(
         &mut self,
         _columns: &mut CellManagerColumns,
@@ -204,15 +196,6 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
         _cell_type: CellType,
         _affinity: Self::Affinity,
     ) -> CellPlacement {
-        unimplemented!()
-    }
-
-    fn place_cell_value_with_affinity(
-        &mut self,
-        _columns: &mut CellManagerColumns,
-        _cell_type: CellType,
-        _affinity: Self::Affinity,
-    ) -> CellPlacementValue {
         unimplemented!()
     }
 }
@@ -273,27 +256,6 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         // This CM strategy has not statistics.
     }
 
-    /// Deprecated: share cells between configure and synthesize instead.
-    fn place_cell_value(
-        &mut self,
-        _columns: &mut CellManagerColumns,
-        cell_type: CellType,
-    ) -> CellPlacementValue {
-        assert_eq!(
-            cell_type, self.cell_type,
-            "CMFixedHeightStrategy can only work with one cell type"
-        );
-
-        let (row_idx, column_idx) = self.get_next();
-
-        self.inc_row_width(row_idx);
-
-        CellPlacementValue {
-            column_idx,
-            rotation: row_idx,
-        }
-    }
-
     fn place_cell_with_affinity<F: Field>(
         &mut self,
         columns: &mut CellManagerColumns,
@@ -314,29 +276,6 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         self.inc_row_width(row_idx);
 
         placement
-    }
-
-    /// Deprecated: share cells between configure and synthesize instead.
-    fn place_cell_value_with_affinity(
-        &mut self,
-        _columns: &mut CellManagerColumns,
-        cell_type: CellType,
-        affinity: Self::Affinity,
-    ) -> CellPlacementValue {
-        assert_eq!(
-            cell_type, self.cell_type,
-            "CMFixedHeightStrategy can only work with one cell type"
-        );
-
-        let row_idx = affinity;
-        let column_idx = self.row_width[row_idx];
-
-        self.inc_row_width(row_idx);
-
-        CellPlacementValue {
-            column_idx,
-            rotation: row_idx,
-        }
     }
 }
 
