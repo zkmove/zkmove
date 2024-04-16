@@ -3,6 +3,7 @@ pub mod cached_region;
 pub mod cell_manager;
 pub mod cell_placement_strategy;
 pub mod challenges;
+pub mod rlc;
 
 use crate::circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};

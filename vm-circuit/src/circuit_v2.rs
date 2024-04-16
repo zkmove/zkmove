@@ -1,6 +1,8 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
 use crate::chips::execution_chip_v2::ExecChipConfig;
+use crate::utils::challenges::Challenges;
 use crate::witness::WitnessV2;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
@@ -31,8 +33,11 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let challenges = Challenges::construct(meta);
+        let challenge_exprs = challenges.exprs(meta);
+        let lookup_tables = LookupTableConfigV2::new(meta);
         VmCircuitConfig {
-            exec_chip_config: ExecChipConfig::configure(meta),
+            exec_chip_config: ExecChipConfig::configure(meta, challenge_exprs, lookup_tables),
         }
     }
 

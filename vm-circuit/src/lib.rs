@@ -3,6 +3,7 @@
 pub mod chips;
 pub mod circuit;
 pub mod circuit_v2;
+pub(crate) mod table;
 mod utils;
 pub mod witness;
 
