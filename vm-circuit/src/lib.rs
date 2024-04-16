@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 #![feature(lint_reasons)]
-
 #![feature(adt_const_params)]
 
 extern crate movelang;

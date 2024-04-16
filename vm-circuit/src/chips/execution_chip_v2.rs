@@ -4,6 +4,8 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::BrBool;
+use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
@@ -31,6 +33,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
     pub ld: Box<Ld<F, { LdType::LdU64 }>>,
+    pub pack: Box<Pack<F>>,
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
     pub step: Step<F>,
 }
@@ -204,6 +207,7 @@ impl<F: Field> ExecChipConfig<F> {
             br_true: configure_opcode_gadget!(),
             ld: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),
+            pack: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
