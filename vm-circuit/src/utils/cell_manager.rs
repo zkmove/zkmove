@@ -8,15 +8,17 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
     poly::Rotation,
 };
+
+use crate::chips::execution_chip_v2::lookup_table::Table;
 use types::Field;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// CellType represent a category of cell (and column).
 pub(crate) enum CellType {
     StoragePhase1,
-    StoragePhase2,
+    StoragePhase2, // TODO: check this phase
     StoragePermutation,
-    //    Lookup(Table),
+    Lookup(Table),
 }
 
 impl CellType {

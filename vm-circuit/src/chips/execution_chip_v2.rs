@@ -12,12 +12,20 @@ use halo2_proofs::plonk::{
     Advice, Column, ConstraintSystem, Expression, FirstPhase, Selector, VirtualCells,
 };
 
+use crate::chips::execution_chip::lookup_tables::LookupTableConfig;
 use crate::chips::execution_chip_v2::executions::BrBool;
+use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
+use crate::table::LookupTable;
+use crate::utils::cell_manager::{CellManager, CellType};
+use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
+use crate::utils::challenges::Challenges;
+use crate::utils::rlc::rlc;
 use std::iter;
 use types::Field;
 
 mod executions;
-
+pub(crate) mod lookup_table;
+pub(crate) mod utils;
 #[derive(Clone)]
 pub struct ExecChipConfig<F> {
     pub s_usable: Selector,
@@ -28,7 +36,11 @@ pub struct ExecChipConfig<F> {
 }
 
 impl<F: Field> ExecChipConfig<F> {
-    pub fn configure(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn configure(
+        meta: &mut ConstraintSystem<F>,
+        challenges: Challenges<Expression<F>>,
+        lookup_table_configs: LookupTableConfigV2<F>,
+    ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
@@ -184,6 +196,7 @@ impl<F: Field> ExecChipConfig<F> {
             () => {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
+                    &challenges,
                     advices,
                     s_usable,
                     s_step_first,
@@ -193,17 +206,26 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
 
-        ExecChipConfig {
+        let config = ExecChipConfig {
             s_usable,
             s_step_first,
             advices,
             br_true: configure_opcode_gadget!(),
             step: step_curr,
-        }
+        };
+        Self::configure_lookup(
+            meta,
+            &challenges,
+            &lookup_table_configs,
+            &config.step.cell_manager.clone(),
+        );
+
+        config
     }
 
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
+        challenges: &Challenges<Expression<F>>,
         //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
         advices: [Column<Advice>; STEP_CHIP_WIDTH],
         s_usable: Selector,
@@ -215,8 +237,13 @@ impl<F: Field> ExecChipConfig<F> {
         // Now actually configure the gadget with the correct minimal height
         let step_next = Step::new(meta, advices, 1);
         let step_prev = Step::new(meta, advices, -1);
-        let mut cb =
-            ConstraintBuilderV2::new(meta, step_curr.clone(), step_next.clone(), G::OPCODE);
+        let mut cb = ConstraintBuilderV2::new(
+            meta,
+            challenges,
+            step_curr.clone(),
+            step_next.clone(),
+            G::OPCODE,
+        );
         let gadget = G::configure(&mut cb);
         Self::configure_opcode_gadget_impl(
             advices,
@@ -246,7 +273,7 @@ impl<F: Field> ExecChipConfig<F> {
         opcode: Opcode,
         mut cb: ConstraintBuilderV2<F>,
     ) {
-        let (constraints, _lookups, meta) = cb.build();
+        let (constraints, _lookups, store_expressions, meta) = cb.build();
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first.clone());
@@ -295,6 +322,32 @@ impl<F: Field> ExecChipConfig<F> {
                     constraints.into_iter().map(move |(name, constraint)| {
                         (name, q_usable.clone() * selector.clone() * constraint)
                     })
+                });
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn configure_lookup(
+        meta: &mut ConstraintSystem<F>,
+        challenges: &Challenges<Expression<F>>,
+        lookup_table_config: &LookupTableConfigV2<F>,
+        cell_manager: &CellManager<CMFixedHeightStrategy>,
+    ) {
+        for column in cell_manager.columns().iter() {
+            if let CellType::Lookup(table) = column.cell_type {
+                let name = format!("{:?}", table);
+                let column_expr = column.expr(meta);
+                meta.lookup_any(name.as_str(), |meta| {
+                    let table_expressions = match table {
+                        Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
+                        Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
+                        _ => unimplemented!(),
+                    };
+                    vec![(
+                        column_expr,
+                        rlc::expr(&table_expressions, challenges.lookup_input()),
+                    )]
                 });
             }
         }

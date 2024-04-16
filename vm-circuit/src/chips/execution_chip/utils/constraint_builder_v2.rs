@@ -1,10 +1,13 @@
-use crate::chips::execution_chip::lookup_tables::Lookup;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::step_v2::Step;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder::ConditionalLookup;
-use crate::chips::execution_chip::utils::CellType;
-use crate::chips::utilities::{Cell, Expr};
+use crate::chips::execution_chip_v2::lookup_table::Lookup;
+use crate::chips::execution_chip_v2::utils::StoredExpression;
+use crate::utils::cell_manager::{Cell, CellType};
+use crate::utils::challenges::Challenges;
+use crate::utils::rlc::rlc;
+use gadgets::util::Expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;
 use types::Field;
@@ -55,6 +58,8 @@ pub(crate) struct Constraints<F> {
 
 pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     meta: &'a mut ConstraintSystem<F>,
+    challenges: &'a Challenges<Expression<F>>,
+
     opcode: Opcode,
     pub(crate) curr: Step<F>,
     pub(crate) next: Step<F>,
@@ -64,19 +69,21 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     conditions: Vec<Expression<F>>,
     // FIXME
     lookups: Vec<(&'static str, ConditionalLookup<F>)>,
+
+    stored_expressions: Vec<StoredExpression<F>>,
     in_next_step: bool,
 }
 
 impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
     fn add_constraint(&mut self, name: String, constraint: Expression<F>) {
-        // FIXME
         // let constraint = self.split_expression(
-        //     name,
+        //     name.as_str(),
         //     constraint * self.condition_expr(),
-        //     MAX_DEGREE - IMPLICIT_DEGREE,
+        //     MAX_DEGREE - IMPLICIT_DEGREE, // FIXME: check on the degree
         // );
-        //
-        // self.validate_degree(constraint.degree(), name);
+
+        //self.validate_degree(constraint.degree(), name.as_str());
+
         self.push_constraint(name, constraint);
     }
 }
@@ -84,18 +91,21 @@ impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
 impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn new(
         meta: &'a mut ConstraintSystem<F>,
+        challenges: &'a Challenges<Expression<F>>,
         curr: Step<F>,
         next: Step<F>,
         opcode: Opcode,
     ) -> Self {
         Self {
             meta,
+            challenges,
             opcode,
             curr,
             next,
             constraints: Default::default(),
             constraints_location: None,
             lookups: Vec::new(),
+            stored_expressions: Vec::new(),
             in_next_step: false,
             conditions: Vec::new(),
         }
@@ -107,6 +117,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     ) -> (
         Constraints<F>,
         Vec<(&'static str, ConditionalLookup<F>)>,
+        Vec<StoredExpression<F>>,
         &'a mut ConstraintSystem<F>,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
@@ -130,31 +141,37 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                     (name, lookup)
                 })
                 .collect(),
+            self.stored_expressions,
             self.meta,
         )
     }
 
-    pub(crate) fn alloc_cell(&mut self) -> Cell<F> {
-        self.alloc_cell_with_type(CellType::CustomGate)
+    pub(crate) fn query_cell(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::StoragePhase1)
     }
 
-    pub(crate) fn alloc_n_cells(&mut self, count: usize) -> Vec<Cell<F>> {
-        self.alloc_cells(CellType::CustomGate, count)
+    pub(crate) fn query_cell_phase2(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::StoragePhase2)
     }
 
-    pub(crate) fn alloc_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
-        self.alloc_cells(cell_type, 1).first().unwrap().clone()
+    pub(crate) fn query_copy_cell(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::StoragePermutation)
     }
 
-    fn alloc_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
+    pub(crate) fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
+        self.query_cells(cell_type, 1).first().unwrap().clone()
+    }
+
+    fn query_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
         if self.in_next_step {
             &mut self.next
         } else {
             &mut self.curr
         }
         .cell_manager
-        .allocate_cells(cell_type, count)
+        .query_cells(self.meta, cell_type, count)
     }
+
     /// require next row's execution state to be the specified `execution_state`
     pub(crate) fn require_next_state(&mut self, execution_state: Opcode) {
         let next_state = self.next.execution_state_selector([execution_state]);
@@ -209,10 +226,121 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
 
     // Lookups
 
-    pub(crate) fn add_lookup<L: Into<Lookup<F>>>(&mut self, name: &'static str, lookup: L) {
-        let lookup = lookup.into();
-        let lookup = ConditionalLookup::with_conditions(self.conditions.clone(), lookup);
-        self.lookups.push((name, lookup))
+    pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
+        debug_assert!(
+            self.constraints_location.is_some(),
+            "lookup do not support conditional without constraint location"
+        );
+        let lookup = match self.condition_expr_opt() {
+            Some(condition) => lookup.conditional(condition),
+            None => lookup,
+        };
+        let lookup_rlc_expr = rlc::expr(&lookup.input_exprs(), self.challenges.lookup_input());
+        // FIXME: check the compression.
+        // let compressed_expr = self.split_expression(
+        //     "Lookup compression",
+        //     lookup_rlc_expr,
+        //     MAX_DEGREE - IMPLICIT_DEGREE,
+        // );
+
+        self.store_expression(name, lookup_rlc_expr, CellType::Lookup(lookup.table()));
+    }
+
+    pub(crate) fn store_expression(
+        &mut self,
+        name: &str,
+        expr: Expression<F>,
+        cell_type: CellType,
+    ) -> Expression<F> {
+        // Check if we already stored the expression somewhere
+        let stored_expression = self.find_stored_expression(&expr, cell_type);
+
+        match stored_expression {
+            Some(stored_expression) => {
+                debug_assert!(
+                    !matches!(cell_type, CellType::Lookup(_)),
+                    "The same lookup is done multiple times",
+                );
+                stored_expression.cell.expr()
+            }
+            None => {
+                // Even if we're building expressions for the next step,
+                // these intermediate values need to be stored in the current step.
+                let in_next_step = self.in_next_step;
+                self.in_next_step = false;
+                let cell = self.query_cell_with_type(cell_type);
+                self.in_next_step = in_next_step;
+
+                // Require the stored value to equal the value of the expression
+                let name = format!("{} (stored expression)", name);
+                self.push_constraint(name.clone(), cell.expr() - expr.clone());
+
+                self.stored_expressions.push(StoredExpression {
+                    name,
+                    cell: cell.clone(),
+                    cell_type,
+                    expr_id: expr.identifier(),
+                    expr,
+                });
+                cell.expr()
+            }
+        }
+    }
+
+    pub(crate) fn find_stored_expression(
+        &self,
+        expr: &Expression<F>,
+        cell_type: CellType,
+    ) -> Option<&StoredExpression<F>> {
+        let expr_id = expr.identifier();
+        self.stored_expressions
+            .iter()
+            .find(|&e| e.cell_type == cell_type && e.expr_id == expr_id)
+    }
+
+    fn split_expression(
+        &mut self,
+        name: &str,
+        expr: Expression<F>,
+        max_degree: usize,
+    ) -> Expression<F> {
+        if expr.degree() > max_degree {
+            match expr {
+                Expression::Negated(poly) => {
+                    Expression::Negated(Box::new(self.split_expression(name, *poly, max_degree)))
+                }
+                Expression::Scaled(poly, v) => {
+                    Expression::Scaled(Box::new(self.split_expression(name, *poly, max_degree)), v)
+                }
+                Expression::Sum(a, b) => {
+                    let a = self.split_expression(name, *a, max_degree);
+                    let b = self.split_expression(name, *b, max_degree);
+                    a + b
+                }
+                Expression::Product(a, b) => {
+                    let (mut a, mut b) = (*a, *b);
+                    while a.degree() + b.degree() > max_degree {
+                        let mut split = |expr: Expression<F>| {
+                            if expr.degree() > max_degree {
+                                self.split_expression(name, expr, max_degree)
+                            } else {
+                                let cell_type = CellType::storage_for_expr(&expr);
+                                self.store_expression(name, expr, cell_type)
+                            }
+                        };
+                        if a.degree() >= b.degree() {
+                            a = split(a);
+                        } else {
+                            b = split(b);
+                        }
+                    }
+                    a * b
+                }
+                _ => expr.clone(),
+            }
+        } else {
+            expr.clone()
+        }
     }
 
     // General

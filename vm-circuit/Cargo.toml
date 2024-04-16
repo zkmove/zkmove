@@ -26,7 +26,8 @@ petgraph = "0.6"
 plotters = { version = "0.3.0" }
 rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
-
+strum_macros = "0.26"
+strum = "0.26"
 [dev-dependencies]
 datatest-stable = "0.1.1"
 
