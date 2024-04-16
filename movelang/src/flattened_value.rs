@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::plonk::Expression;
 use std::convert::From;
 use types::Field;
 
@@ -31,9 +30,6 @@ impl ValueHeader {
     }
     pub fn field_value<F: Field>(&self) -> F {
         F::from_u128((self.flattened_len as u128) + ((self.len as u128) << 16))
-    }
-    pub fn expr<F: Field>(&self) -> Expression<F> {
-        Expression::Constant(self.field_value())
     }
     pub fn flattened_len(&self) -> u16 {
         self.flattened_len

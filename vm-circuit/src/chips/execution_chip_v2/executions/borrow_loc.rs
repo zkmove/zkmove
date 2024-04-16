@@ -5,9 +5,9 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
-use movelang::flattened_value::ValueHeader;
 use std::marker::PhantomData;
 use types::Field;
+use crate::chips::execution_chip_v2::executions::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F> {
@@ -35,7 +35,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
             cb.require_equal(
                 format!("{}, stack_push_value(0) == (3,4)", Self::NAME),
                 cb.curr.state.stack_push_value.expr(),
-                ValueHeader::default_for_ref_value().expr(),
+                ValueHeader::default().expr(),
             );
 
             cb.require_equal(
