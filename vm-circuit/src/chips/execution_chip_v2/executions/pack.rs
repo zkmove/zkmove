@@ -4,14 +4,15 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cell_manager::Cell;
 use crate::witness::exec_step::ValueFlag;
 use gadgets::util::{and, not};
-use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Pack<F> {
-    phantom_data: PhantomData<F>,
+    flen: Cell<F>,
+    len: Cell<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
     const NAME: &'static str = "Pack";
@@ -19,17 +20,13 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
     const OPCODE: Opcode = Opcode::Pack;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        // reusing column aux0 to store field_idx
-        // reusing column aux1 to store field_counter
-        // reusing column aux2 to store header.flen for each field
-        // reusing column aux3 to store header.len for each field
+        let flen = cb.query_cell();
+        let len = cb.query_cell();
 
         cb.first_row(|cb| {
             // TODO: add bytecode lookup
 
-            let flen = cb.curr.state.step_counter.expr();
             let num_field = cb.curr.state.aux0.expr();
-
             cb.require_equal(
                 format!(
                     "{}, stack_push_index(0) == sp(0) - num_field + 1",
@@ -45,7 +42,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             cb.require_equal(
                 format!("{}, stack_push_value(0) == (num_field, flen)", Self::NAME),
                 cb.curr.state.stack_push_value.expr(),
-                flen + num_field * 2u64.pow(16).expr(),
+                //flen is equal to step_counter(0)
+                cb.curr.state.step_counter.expr() + num_field * 2u64.pow(16).expr(),
             );
             cb.require_equal(
                 format!(
@@ -64,7 +62,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             //TODO: super::common::fake_empty_stack_pop(0);
             //TODO: super::common::fake_local_read_zero(0);
 
-            // field_idx
+            // reusing column aux0 to store field_idx
             cb.require_equal(
                 format!("{}, aux0(1) == aux0(0)", Self::NAME),
                 cb.next.state.aux0.expr(),
@@ -98,6 +96,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             ]);
 
             //if is_simple then field_counter(0) == 1
+            // reusing column aux1 to store field_counter
             cb.require_zero(
                 format!("{}, is_simple * (field_counter(0) - 1)", Self::NAME),
                 is_simple * (cb.curr.state.aux1.expr() - 1u64.expr()),
@@ -107,11 +106,11 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             cb.require_equal(
                 format!("{}, stack_pop_value(0) == (len, flen)", Self::NAME),
                 cb.curr.state.stack_pop_value.expr(),
-                cb.curr.state.aux2.expr() + cb.curr.state.aux3.expr() * 2u64.pow(16).expr(),
+                flen.expr() + len.expr() * 2u64.pow(16).expr(),
             );
             cb.require_zero(
                 format!("{}, is_header * (field_counter(0) - flen) == 0", Self::NAME),
-                is_header * (cb.curr.state.aux1.expr() - cb.curr.state.aux2.expr()),
+                is_header * (cb.curr.state.aux1.expr() - flen.expr()),
             );
 
             cb.require_equal(
@@ -243,8 +242,6 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             ]);
         });
 
-        Pack {
-            phantom_data: PhantomData,
-        }
+        Pack { flen, len }
     }
 }

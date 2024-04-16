@@ -32,8 +32,6 @@ pub struct StepState<F> {
     pub opcode: Cell<F>,
     pub aux0: Cell<F>,
     pub aux1: Cell<F>,
-    pub aux2: Cell<F>,
-    pub aux3: Cell<F>,
     pub step_counter: Cell<F>,
 
     pub stack_pop_index: Cell<F>,
@@ -87,8 +85,6 @@ impl<F: Field> Step<F> {
             opcode: cell_manager.query_cell(meta, CellType::StoragePhase1),
             aux0: cell_manager.query_cell(meta, CellType::StoragePhase1),
             aux1: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            aux2: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            aux3: cell_manager.query_cell(meta, CellType::StoragePhase1),
             step_counter: cell_manager.query_cell(meta, CellType::StoragePhase1),
 
             stack_pop_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
