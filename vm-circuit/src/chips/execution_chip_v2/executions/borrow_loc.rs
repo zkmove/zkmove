@@ -1,13 +1,14 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
+use gadgets::util::not;
 use std::marker::PhantomData;
 use types::Field;
-use crate::chips::execution_chip_v2::executions::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<const MUTABLE: bool, F> {
@@ -51,26 +52,12 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
                 cb.curr.state.stack_push_sub_index.expr(),
             );
-
-            cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
-                cb.curr.state.stack_push_index.expr(),
-                cb.curr.state.sp.expr() + 1u64.expr(),
-            );
-
-            cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                cb.curr.state.stack_push_version.expr(),
-                cb.curr.state.clk.expr(),
-            );
-
-            //TODO: super::common::fake_empty_stack_pop(0);
-            //TODO: super::common::fake_local_read_zero(0);
         });
 
-        cb.not_first_row(|cb| {
-            //step_counter(0) == 3
-            cb.condition(cb.curr.state.step_counter.expr() - 3u64.expr(), |cb| {
+        //step_counter(0) == 3
+        cb.condition(
+            not::expr(cb.curr.state.step_counter.expr() - 3u64.expr()),
+            |cb| {
                 cb.require_equal(
                     format!("{}, stack_push_value(0) = frame_index(0)", Self::NAME),
                     cb.curr.state.stack_push_value.expr(),
@@ -82,10 +69,13 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                     cb.curr.state.stack_push_sub_index.expr(),
                     1u64.expr(),
                 );
-            });
+            },
+        );
 
-            //step_counter(0) == 2
-            cb.condition(cb.curr.state.step_counter.expr() - 2u64.expr(), |cb| {
+        //step_counter(0) == 2
+        cb.condition(
+            not::expr(cb.curr.state.step_counter.expr() - 2u64.expr()),
+            |cb| {
                 cb.require_equal(
                     format!("{}, stack_push_value(0) = aux0(0)", Self::NAME),
                     cb.curr.state.stack_push_value.expr(),
@@ -105,10 +95,13 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                     cb.curr.state.stack_push_sub_index.expr(),
                     2u64.expr(),
                 );
-            });
+            },
+        );
 
-            //step_counter(0) == 1
-            cb.condition(cb.curr.state.step_counter.expr() - 2u64.expr(), |cb| {
+        //step_counter(0) == 1
+        cb.condition(
+            not::expr(cb.curr.state.step_counter.expr() - 2u64.expr()),
+            |cb| {
                 cb.require_zero(
                     format!("{}, stack_push_value(0) = 0", Self::NAME),
                     cb.curr.state.stack_push_value.expr(),
@@ -127,23 +120,23 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                     cb.curr.state.stack_push_sub_index.expr(),
                     3u64.expr(),
                 );
-            });
+            },
+        );
 
-            cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
-                cb.curr.state.stack_push_index.expr(),
-                cb.curr.state.sp.expr() + 1u64.expr(),
-            );
+        cb.require_equal(
+            format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
+            cb.curr.state.stack_push_index.expr(),
+            cb.curr.state.sp.expr() + 1u64.expr(),
+        );
 
-            cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                cb.curr.state.stack_push_version.expr(),
-                cb.curr.state.clk.expr(),
-            );
+        cb.require_equal(
+            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
+            cb.curr.state.stack_push_version.expr(),
+            cb.curr.state.clk.expr(),
+        );
 
-            //TODO: super::common::fake_empty_stack_pop(0);
-            //TODO: super::common::fake_local_read_zero(0);
-        });
+        //TODO: super::common::fake_empty_stack_pop(0);
+        //TODO: super::common::fake_local_read_zero(0);
 
         cb.not_last_row(|cb| {
             cb.require_equal(

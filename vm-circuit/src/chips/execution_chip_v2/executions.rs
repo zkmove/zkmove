@@ -7,7 +7,12 @@ pub use br_bool::*;
 pub use ld::*;
 pub use borrow_loc::*;
 pub use pack::*;
+
 use strum_macros::EnumIter;
+use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::utilities::Expr;
+use halo2_proofs::plonk::Expression;
+use types::Field;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
 pub enum ExecutionState {
@@ -17,10 +22,7 @@ pub enum ExecutionState {
     Nop,
 }
 
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::utilities::Expr;
-use types::Field;
-use halo2_proofs::plonk::Expression;
+
 
 #[derive(Clone, Debug)]
 pub(crate) struct ValueHeader<F> {
@@ -36,10 +38,7 @@ impl<F: Field> ValueHeader<F> {
         }
     }
     fn pair(len: Expression<F>, flen: Expression<F>) -> Self {
-        Self {
-            len,
-            flen,
-        }
+        Self { len, flen }
     }
     // header for any reference value
     pub fn default() -> Self {

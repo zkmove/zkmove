@@ -1,13 +1,13 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
 use gadgets::util::{and, not};
 use types::Field;
-use crate::chips::execution_chip_v2::executions::ValueHeader;
 
 #[derive(Clone, Debug)]
 pub struct Pack<F> {
@@ -109,7 +109,10 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 header.expr(),
             );
             cb.require_zero(
-                format!("{}, is_header * (field_counter(0) - header.flen) == 0", Self::NAME),
+                format!(
+                    "{}, is_header * (field_counter(0) - header.flen) == 0",
+                    Self::NAME
+                ),
                 is_header * (cb.curr.state.aux1.expr() - header.flen.expr()),
             );
 
