@@ -1,9 +1,10 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
-use crate::chips::execution_chip_v2::step_v2::Step;
+use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellType};
+
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::Expr;
@@ -62,7 +63,6 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
 
     execution_state: Option<ExecutionState>,
     pub(crate) curr: Step<F>,
-    pub(crate) next: Step<F>,
     // constraints: Vec<(String, ConditionalExpression<F>)>,
     constraints: Constraints<F>,
     constraints_location: Option<ConstraintLocation>,
@@ -91,7 +91,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         meta: &'a mut ConstraintSystem<F>,
         challenges: &'a Challenges<Expression<F>>,
         curr: Step<F>,
-        next: Step<F>,
         exec_state: Option<ExecutionState>,
     ) -> Self {
         Self {
@@ -99,7 +98,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             challenges,
             execution_state: exec_state,
             curr,
-            next,
             constraints: Default::default(),
             constraints_location: None,
             stored_expressions: Vec::new(),
@@ -140,6 +138,12 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             self.meta,
         )
     }
+
+    pub fn step_state_at_offset(&mut self, offset: isize) -> StepState<F> {
+        let advices = self.curr.cell_manager.get_strategy().advices().clone();
+        Step::new(self.meta, advices, offset).state
+    }
+
     pub(crate) fn query_bool(&mut self) -> Cell<F> {
         let cell = self.query_cell();
         self.require_boolean("Constrain cell to be a bool", cell.expr());
@@ -209,11 +213,21 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
 
     /// require next row's execution state to be the specified `execution_state`
     pub(crate) fn require_next_state(&mut self, execution_state: ExecutionState) {
-        let next_state = self.next.execution_state_selector([execution_state]);
+        let step = self.step_state_at_offset(1);
+        let next_state = step.execution_state_selector([execution_state]);
         self.require_equal(
             "Constrain next execution state",
             1u64.expr(),
             next_state.expr(),
+        );
+    }
+    pub(crate) fn require_prev_state(&mut self, execution_state: ExecutionState) {
+        let prev = self.step_state_at_offset(-1);
+        let prev_state = prev.execution_state_selector([execution_state]);
+        self.require_equal(
+            "Constrain prev execution state",
+            1u64.expr(),
+            prev_state.expr(),
         );
     }
 
@@ -221,23 +235,24 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         &mut self,
         step_state_transition: Vec<StateTransition<Expression<F>>>,
     ) {
+        let step_state_next = self.step_state_at_offset(1);
         macro_rules! constrain {
             ($transition:ident, $name:tt) => {
                 if let Some(c) = $transition.remove(stringify!($name)) {
                     match c {
                         Transition::Same => self.require_equal(
                             concat!("State transition (same) constraint of ", stringify!($name)),
-                            self.next.state.$name.expr(),
+                            step_state_next.$name.expr(),
                             self.curr.state.$name.expr(),
                         ),
                         Transition::Delta(delta) => self.require_equal(
                             concat!("State transition (delta) constraint of ", stringify!($name)),
-                            self.next.state.$name.expr(),
+                            step_state_next.$name.expr(),
                             self.curr.state.$name.expr() + delta,
                         ),
                         Transition::To(to) => self.require_equal(
                             concat!("State transition (to) constraint of ", stringify!($name)),
-                            self.next.state.$name.expr(),
+                            step_state_next.$name.expr(),
                             to,
                         ),
                     }

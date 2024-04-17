@@ -70,6 +70,10 @@ impl CMFixedWidthStrategy {
         self
     }
 
+    pub fn advices(&self) -> &CMFixedWidthStrategyDistribution {
+        &self.advices
+    }
+
     fn get_next(&self, cell_type: &CellType) -> (usize, usize) {
         *self.next.get(cell_type).unwrap_or(&(0, 0))
     }

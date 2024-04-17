@@ -51,7 +51,7 @@ impl<F: Field> ExecChipConfig<F> {
         let advices: CMFixedWidthStrategyDistribution = cm_distribute_advice(meta);
         let step_curr = Step::new(meta, advices.clone(), 0);
         let step_next = Step::new(meta, advices.clone(), 1);
-        let step_prev = Step::new(meta, advices.clone(), -1);
+        let _step_prev = Step::new(meta, advices.clone(), -1);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -131,17 +131,14 @@ impl<F: Field> ExecChipConfig<F> {
 
         // base configuration for every opcode gadgets
         let step_curr = {
-            let mut cb =
-                ConstraintBuilderV2::new(meta, &challenges, step_curr, step_next.clone(), None);
+            let mut cb = ConstraintBuilderV2::new(meta, &challenges, step_curr, None);
             BaseConstraintGadget::configure(&mut cb);
             // we need to reuse the step_curr when configuring opcode gadgets.
             let step_curr = cb.curr.clone();
             Self::configure_opcode_gadget_impl(
-                s_usable.clone(),
-                s_step_first.clone(),
-                s_step_last.clone(),
-                &step_prev,
-                &step_next,
+                s_usable,
+                s_step_first,
+                s_step_last,
                 "base constraints",
                 cb,
             );
@@ -180,7 +177,7 @@ impl<F: Field> ExecChipConfig<F> {
         meta: &mut ConstraintSystem<F>,
         challenges: &Challenges<Expression<F>>,
         //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
-        advices: CMFixedWidthStrategyDistribution,
+        _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
@@ -188,25 +185,14 @@ impl<F: Field> ExecChipConfig<F> {
         step_curr: &Step<F>,
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
-        let step_next = Step::new(meta, advices.clone(), 1);
-        let step_prev = Step::new(meta, advices.clone(), -1);
         let mut cb = ConstraintBuilderV2::new(
             meta,
             challenges,
             step_curr.clone(),
-            step_next.clone(),
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
-        Self::configure_opcode_gadget_impl(
-            s_usable,
-            s_step_first,
-            s_step_last,
-            &step_prev,
-            &step_next,
-            G::NAME,
-            cb,
-        );
+        Self::configure_opcode_gadget_impl(s_usable, s_step_first, s_step_last, G::NAME, cb);
         gadget
     }
 
@@ -214,18 +200,18 @@ impl<F: Field> ExecChipConfig<F> {
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
-        step_prev: &Step<F>,
-        step_next: &Step<F>,
         name: &'static str,
-        cb: ConstraintBuilderV2<F>,
+        mut cb: ConstraintBuilderV2<F>,
     ) {
+        let step_prev = cb.step_state_at_offset(-1);
+        let step_next = cb.step_state_at_offset(1);
         let (step_curr, constraints, _store_expressions, meta) = cb.build();
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
             or::expr([
                 row0,
-                step_curr.state.clk.expr() - step_prev.state.clk.expr(), /* = 1 */
+                step_curr.state.clk.expr() - step_prev.clk.expr(), /* = 1 */
             ])
         };
 
@@ -233,7 +219,7 @@ impl<F: Field> ExecChipConfig<F> {
             let row_n = meta.query_selector(s_step_last);
             or::expr([
                 row_n,
-                step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+                step_next.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
             ])
         };
         let not_first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
@@ -241,7 +227,7 @@ impl<F: Field> ExecChipConfig<F> {
             and::expr([
                 not::expr(row0),
                 not::expr(
-                    step_curr.state.clk.expr() - step_prev.state.clk.expr(), /* = 1 */
+                    step_curr.state.clk.expr() - step_prev.clk.expr(), /* = 1 */
                 ),
             ])
         };
@@ -250,7 +236,7 @@ impl<F: Field> ExecChipConfig<F> {
             and::expr([
                 not::expr(row_n),
                 not::expr(
-                    step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
+                    step_next.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
                 ),
             ])
         };
