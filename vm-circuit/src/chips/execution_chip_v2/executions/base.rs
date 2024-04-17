@@ -1,0 +1,46 @@
+use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, StateTransition, Transition,
+};
+use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
+use gadgets::util::Expr;
+use types::Field;
+
+pub(crate) struct BaseConstraintGadget<F> {
+    stack_pop_version_range_check: RangeCheckGadget<F, 4>,
+}
+
+impl<F: Field> BaseConstraintGadget<F> {
+    pub fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        // common constraint for every opcode
+        // meta.create_gate("first_row_of_bytecode", |meta| {});
+        cb.last_row(|cb| {
+            cb.require_equal(
+                "step_counter(0)==1",
+                cb.curr.state.step_counter.expr(),
+                1u64.expr(),
+            );
+        });
+        cb.not_last_row(|cb| {
+            cb.require_state_transition(
+                [
+                    "frame_index",
+                    "module_index",
+                    "function_index",
+                    "opcode",
+                    "pc",
+                    // TODO: check on aux0 and aux1
+                ]
+                .into_iter()
+                .map(|state_name| (state_name, Transition::Same))
+                .collect(),
+            );
+        });
+
+        // clk(0) - stack_pop_version(0) > 0
+        let diff = cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr();
+        Self {
+            stack_pop_version_range_check: RangeCheckGadget::construct(cb, diff),
+        }
+    }
+}

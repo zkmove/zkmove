@@ -4,9 +4,10 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::BorrowLoc;
-use crate::chips::execution_chip_v2::executions::BrBool;
 use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
@@ -22,6 +23,7 @@ use types::Field;
 
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
+pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
 pub(crate) mod utils;
 
@@ -49,6 +51,7 @@ impl<F: Field> ExecChipConfig<F> {
         let advices: CMFixedWidthStrategyDistribution = cm_distribute_advice(meta);
         let step_curr = Step::new(meta, advices.clone(), 0);
         let step_next = Step::new(meta, advices.clone(), 1);
+        let step_prev = Step::new(meta, advices.clone(), -1);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -76,10 +79,10 @@ impl<F: Field> ExecChipConfig<F> {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
             let s_step_last = vc.query_selector(s_step_last);
-            let execution_state_selector_constraints = step_curr.state.conditions.configure();
+            let execution_state_selector_constraints = step_curr.state.execution_state.configure();
             let first_step_check = {
                 let begin_opcode_selector =
-                    step_curr.execution_state_selector([Opcode::Call, Opcode::CallGeneric]);
+                    step_curr.execution_state_selector([ExecutionState::Start]);
                 iter::once((
                     "First step should be Call/CallGeneric",
                     s_step_first * (1u64.expr() - begin_opcode_selector),
@@ -87,7 +90,7 @@ impl<F: Field> ExecChipConfig<F> {
             };
 
             let last_step_check = {
-                let end_opcode_selector = step_curr.execution_state_selector([Opcode::Nop]);
+                let end_opcode_selector = step_curr.execution_state_selector([ExecutionState::Nop]);
                 iter::once((
                     "Last step should be Nop",
                     s_step_last * (1u64.expr() - end_opcode_selector),
@@ -113,9 +116,9 @@ impl<F: Field> ExecChipConfig<F> {
         // });
         meta.create_gate("clk", |vc| {
             let s_usable = vc.query_selector(s_usable);
-            let s_step_first = vc.query_selector(s_step_first);
+            let s_step_last = vc.query_selector(s_step_last);
             let mut cb = BaseConstraintBuilder::default();
-            cb.condition(1u64.expr() - s_step_first.clone(), |cb| {
+            cb.condition(1u64.expr() - s_step_last.clone(), |cb| {
                 // FIXME: for now,we increase clk by one for each bytecode
                 // we need to figure out how to constraint vec_swap.
                 cb.require_boolean(
@@ -126,66 +129,24 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
-        // common constraint for every opcode
-        // meta.create_gate("first_row_of_bytecode", |meta| {});
-        meta.create_gate("last_row_of_bytecode", |meta| {
-            let s_usable = meta.query_selector(s_usable);
-            let row_n = meta.query_selector(s_step_last);
-            let last_row_selector = or::expr([
-                row_n,
-                step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
-            ]);
-            let mut cb = BaseConstraintBuilder::default();
-            cb.condition(last_row_selector, |cb| {
-                cb.require_equal(
-                    "step_counter(0)==1",
-                    step_curr.state.step_counter.expr(),
-                    1u64.expr(),
-                );
-            });
-            cb.gate(s_usable)
-        });
-        meta.create_gate("not_last_row_of_bytecode", |meta| {
-            let s_usable = meta.query_selector(s_usable);
-            let row_n = meta.query_selector(s_step_last);
-            let not_last_row_selector = and::expr([
-                not::expr(row_n),
-                not::expr(
-                    step_next.state.clk.expr() - step_curr.state.clk.expr(), /* = 1 */
-                ),
-            ]);
-            let mut cb = BaseConstraintBuilder::default();
-            cb.condition(not_last_row_selector, |cb| {
-                cb.require_equal(
-                    "frame_index(1)==frame_index(0)",
-                    step_next.state.frame_index.expr(),
-                    step_curr.state.frame_index.expr(),
-                );
-                cb.require_equal(
-                    "module_index(1)==module_index(0)",
-                    step_next.state.module_index.expr(),
-                    step_curr.state.module_index.expr(),
-                );
-                cb.require_equal(
-                    "function_index(1)==function_index(0)",
-                    step_next.state.function_index.expr(),
-                    step_curr.state.function_index.expr(),
-                );
-                cb.require_equal(
-                    "opcode(1)==opcode(0)",
-                    step_next.state.opcode.expr(),
-                    step_curr.state.opcode.expr(),
-                );
-                cb.require_equal(
-                    "pc(1)==pc(0)",
-                    step_next.state.pc.expr(),
-                    step_curr.state.pc.expr(),
-                );
-                // TODO: check on aux0 and aux1
-            });
-            cb.gate(s_usable)
-        });
-
+        // base configuration for every opcode gadgets
+        let step_curr = {
+            let mut cb =
+                ConstraintBuilderV2::new(meta, &challenges, step_curr, step_next.clone(), None);
+            BaseConstraintGadget::configure(&mut cb);
+            // we need to reuse the step_curr when configuring opcode gadgets.
+            let step_curr = cb.curr.clone();
+            Self::configure_opcode_gadget_impl(
+                s_usable.clone(),
+                s_step_first.clone(),
+                s_step_last.clone(),
+                &step_prev,
+                &step_next,
+                "base constraints",
+                cb,
+            );
+            step_curr
+        };
         macro_rules! configure_opcode_gadget {
             () => {
                 Box::new(Self::configure_opcode_gadget(
@@ -234,38 +195,31 @@ impl<F: Field> ExecChipConfig<F> {
             challenges,
             step_curr.clone(),
             step_next.clone(),
-            G::OPCODE,
+            Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
         Self::configure_opcode_gadget_impl(
-            advices.clone(),
             s_usable,
             s_step_first,
             s_step_last,
-            step_curr,
             &step_prev,
             &step_next,
             G::NAME,
-            G::OPCODE,
             cb,
         );
-
         gadget
     }
 
     fn configure_opcode_gadget_impl(
-        _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
-        step_curr: &Step<F>,
         step_prev: &Step<F>,
         step_next: &Step<F>,
         name: &'static str,
-        _opcode: Opcode,
         cb: ConstraintBuilderV2<F>,
     ) {
-        let (constraints, _lookups, _store_expressions, meta) = cb.build();
+        let (step_curr, constraints, _store_expressions, meta) = cb.build();
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
@@ -402,6 +356,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
     const OPCODE: Opcode;
+    const EXECUTION_STATE: ExecutionState;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
 
