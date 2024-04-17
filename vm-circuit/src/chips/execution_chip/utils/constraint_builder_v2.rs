@@ -177,7 +177,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         .query_cells(self.meta, cell_type, count)
     }
 
-    pub(crate) fn query_cell_with_cell(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
+    pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
         cell.at_offset(self.meta, offset)
     }
 

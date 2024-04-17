@@ -24,13 +24,11 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header = ValueHeader::new(cb);
         let field_index = cb.query_cell();
-        let field_index_next = cb.query_cell_with_cell(&field_index, 1);
+        let field_index_next = cb.cell_at_offset(&field_index, 1);
         let field_counter = cb.query_cell();
-        let field_counter_next = cb.query_cell_with_cell(&field_counter, 1);
+        let field_counter_next = cb.cell_at_offset(&field_counter, 1);
 
         cb.first_row(|cb| {
-            // TODO: add bytecode lookup
-
             let flen = cb.curr.state.step_counter.expr(); //flen is equal to step_counter(0)
             let num_field = cb.curr.state.aux0.expr();
 

@@ -630,16 +630,14 @@ mod borrow_loc {
         super::common::fake_empty_stack_pop(0);
         super::common::fake_local_read_zero(0);
 
-        // third row
-        if step_counter(0) == 2 {
-            stack_push_value(0) = aux0(0);
-        }
-
         if !super::common::on_last_row() {
             stack_push_sub_index(1) == stack_push_sub_index(0) + 1;
             step_counter(1) == step_counter(0) - 1;
             sp(1) == sp(0);
         } else {
+            // third row
+            stack_push_value(-1) = aux0(0);
+
             // last row
             stack_push_value(0) = 0;
             stack_push_sub_index(0) == 3;

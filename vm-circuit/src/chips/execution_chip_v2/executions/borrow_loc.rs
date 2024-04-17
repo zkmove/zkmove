@@ -6,7 +6,6 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
-use gadgets::util::not;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -82,18 +81,6 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         //TODO: super::common::fake_empty_stack_pop(0);
         //TODO: super::common::fake_local_read_zero(0);
 
-        // third row, 'step_counter(0) == 2' and 'stack_push_value(0) = aux0(0)'
-        let is_third_row = (cb.curr.state.step_counter.expr() - 4u64.expr())
-            * (cb.curr.state.step_counter.expr() - 3u64.expr())
-            * (cb.curr.state.step_counter.expr() - 1u64.expr());
-        cb.condition(is_third_row, |cb| {
-            cb.require_equal(
-                format!("{}, stack_push_value(0) == aux0(0)", Self::NAME),
-                cb.curr.state.stack_push_value.expr(),
-                cb.curr.state.aux0.expr(),
-            );
-        });
-
         cb.not_last_row(|cb| {
             cb.require_equal(
                 format!(
@@ -116,6 +103,15 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         });
 
         cb.last_row(|cb| {
+            // in the third row, 'stack_push_value(0) = aux0(0)'
+            let stack_push_value_prev =
+                cb.cell_at_offset(&cb.curr.state.stack_push_value.clone(), -1);
+            cb.require_equal(
+                format!("{}, stack_push_value(-1) == aux0(0)", Self::NAME),
+                stack_push_value_prev.expr(),
+                cb.curr.state.aux0.expr(),
+            );
+
             cb.require_zero(
                 format!("{}, stack_push_value(0) = 0", Self::NAME),
                 cb.curr.state.stack_push_value.expr(),
