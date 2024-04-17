@@ -1,12 +1,15 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::param::STEP_CHIP_WIDTH;
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
-use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
+use crate::utils::cell_placement_strategy::{
+    CMFixedWidthStrategy, CMFixedWidthStrategyDistribution,
+};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Expression};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use std::iter;
+use strum::IntoEnumIterator;
 use types::Field;
 
 pub const FRAME_INDEX: &str = "frame_index";
@@ -60,17 +63,17 @@ pub struct StepState<F> {
 #[derive(Debug, Clone)]
 pub struct Step<F> {
     pub state: StepState<F>,
-    pub cell_manager: CellManager<CMFixedHeightStrategy>,
+    pub cell_manager: CellManager<CMFixedWidthStrategy>,
 }
 
 impl<F: Field> Step<F> {
     pub fn new(
         meta: &mut ConstraintSystem<F>,
-        advices: [Column<Advice>; STEP_CHIP_WIDTH],
+        advices: CMFixedWidthStrategyDistribution,
         offset: isize,
     ) -> Self {
         // height should always be 1
-        let strategy = CMFixedHeightStrategy::new(1, CellType::StoragePhase1);
+        let strategy = CMFixedWidthStrategy::new(advices, offset).with_max_height(1);
         let mut cell_manager = CellManager::new(strategy);
         let state = StepState {
             clk: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -106,7 +109,11 @@ impl<F: Field> Step<F> {
             local_write_value_flag: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_write_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
 
-            conditions: DynamicSelectorHalf::new(meta, &mut cell_manager, Opcode::total_numbers()),
+            conditions: DynamicSelectorHalf::new(
+                meta,
+                &mut cell_manager,
+                ExecutionState::iter().count(),
+            ),
         };
         Self {
             state,
@@ -140,7 +147,7 @@ pub(crate) struct DynamicSelectorHalf<F> {
 impl<F: Field> DynamicSelectorHalf<F> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
-        cell_manager: &mut CellManager<CMFixedHeightStrategy>,
+        cell_manager: &mut CellManager<CMFixedWidthStrategy>,
         count: usize,
     ) -> Self {
         let target_pairs = cell_manager.query_cells(meta, CellType::StoragePhase1, (count + 1) / 2);
