@@ -55,7 +55,7 @@ pub struct Cell<F> {
     expression: Option<Expression<F>>,
     column: Option<Column<Advice>>,
     column_idx: usize,
-    rotation: usize,
+    rotation: isize,
 }
 
 impl<F: Field> Cell<F> {
@@ -64,7 +64,7 @@ impl<F: Field> Cell<F> {
         meta: &mut VirtualCells<F>,
         column: Column<Advice>,
         column_idx: usize,
-        rotation: usize,
+        rotation: isize,
     ) -> Cell<F> {
         Cell {
             expression: Some(meta.query_advice(column, Rotation(rotation as i32))),
@@ -79,7 +79,7 @@ impl<F: Field> Cell<F> {
         meta: &mut ConstraintSystem<F>,
         column: Column<Advice>,
         column_idx: usize,
-        rotation: usize,
+        rotation: isize,
     ) -> Cell<F> {
         query_expression(meta, |meta| Cell::new(meta, column, column_idx, rotation))
     }
@@ -99,7 +99,7 @@ impl<F: Field> Cell<F> {
                 )
             },
             self.column.expect("wrong operation on value only cell"),
-            offset + self.rotation,
+            (offset as isize + self.rotation) as usize,
             || value,
         )
     }
@@ -109,13 +109,13 @@ impl<F: Field> Cell<F> {
             meta,
             self.column.expect("wrong operation on value only cell"),
             self.column_idx,
-            (self.rotation as i32 + offset) as usize,
+            self.rotation + offset as isize,
         )
     }
 }
 
 impl<F> Cell<F> {
-    pub(crate) fn new_value(column_idx: usize, rotation: usize) -> Self {
+    pub(crate) fn new_value(column_idx: usize, rotation: isize) -> Self {
         Self {
             expression: None,
             column: None,
@@ -128,7 +128,7 @@ impl<F> Cell<F> {
         self.column_idx
     }
 
-    pub(crate) fn get_rotation(&self) -> usize {
+    pub(crate) fn get_rotation(&self) -> isize {
         self.rotation
     }
 }
@@ -179,7 +179,7 @@ impl CellColumn {
 
 pub(crate) struct CellPlacement {
     pub column: CellColumn,
-    pub rotation: usize,
+    pub rotation: isize,
 }
 
 pub(crate) struct CellPlacementValue {

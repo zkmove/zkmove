@@ -87,7 +87,6 @@ pub mod lookup_tables;
 pub mod opcode;
 pub mod param;
 pub mod step_chip;
-pub mod step_v2;
 pub mod utils;
 
 #[derive(Clone, Debug)]

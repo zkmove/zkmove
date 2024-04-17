@@ -1,23 +1,24 @@
 pub mod common {
-
-    /// common constraints
-    constraint_clk();
-
-    if !on_last_row() {
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        frame_index(1) == frame_index(0);
-        pc(1) == pc(0);
-        opcode(1) = opcode(0);
-        //sp(1) == sp(0);
-    } else {
-        step_counter(0) == 1;
-
-        if opcode(0) != CALL && opcode(0) != RET {
+    pub fn common_constraints() {
+        /// common constraints
+        constraint_clk();
+        table_bytecode.lookup(module_index(0), function_index(0), pc(0), opcode(0), aux0(0), aux1(0));
+        if !on_last_row() {
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
-            pc(1) == pc(0) + 1;
+            pc(1) == pc(0);
+            opcode(1) = opcode(0);
+            //sp(1) == sp(0);
+        } else {
+            step_counter(0) == 1;
+
+            if opcode(0) != CALL && opcode(0) != RET {
+                module_index(1) == module_index(0);
+                function_index(1) == function_index(0);
+                frame_index(1) == frame_index(0);
+                pc(1) == pc(0) + 1;
+            }
         }
     }
 
@@ -901,23 +902,26 @@ mod write_ref {
 
 mod br_bool {
     pub fn constrain() {
-        table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
-
-        // Memory Context Constraints:
-        next_pc = aux0(0);
+        if on_first_row() {
+            step_counter(0) == 1;
+        }
+        let next_pc = aux0(0);
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-        let cond = stack_pop_value(0);
-        if opcode == BrTure {
-            cond * next_pc + (1 - cond) * (pc(0) + 1) == pc(1);
-        } else {
-            (1- cond) * next_pc + cond * (pc(0) + 1) == pc(1);
-        }
         stack_pop_version(0) < clk(0);
+        let cond = stack_pop_value(0);
         super::common::fake_empty_stack_push();
         super::common::fake_local_read_zero();
-
-        sp(1) == sp(0) - 1;
+        
+        if on_last_row() {
+            // Memory Context Constraints:
+            pc(1) == if opcode == BrTure {
+                cond * next_pc + (1 - cond) * (pc(0) + 1)
+            } else {
+                (1- cond) * next_pc + cond * (pc(0) + 1)
+            };
+            sp(1) == sp(0) - 1;
+        }
     }
 }
 

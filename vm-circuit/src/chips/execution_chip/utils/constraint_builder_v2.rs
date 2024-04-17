@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip::step_v2::Step;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder::ConditionalLookup;
-use crate::chips::execution_chip_v2::lookup_table::Lookup;
+use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
+use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellType};
 use crate::utils::challenges::Challenges;
@@ -54,6 +54,7 @@ pub(crate) struct Constraints<F> {
     pub(crate) not_first_row: Vec<(String, Expression<F>)>,
     /// Enabled when cur row is not the last row of the opcode
     pub(crate) not_last_row: Vec<(String, Expression<F>)>,
+    pub(crate) any_row: Vec<(String, Expression<F>)>,
 }
 
 pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
@@ -133,6 +134,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 not_first_row: mul_exec_state_sel(self.constraints.not_first_row),
                 last_row: mul_exec_state_sel(self.constraints.last_row),
                 not_last_row: mul_exec_state_sel(self.constraints.not_last_row),
+                any_row: mul_exec_state_sel(self.constraints.any_row),
             },
             self.lookups
                 .into_iter()
@@ -144,6 +146,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             self.stored_expressions,
             self.meta,
         )
+    }
+    pub(crate) fn query_byte(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::Lookup(Table::U8))
     }
 
     pub(crate) fn query_cell(&mut self) -> Cell<F> {
@@ -227,10 +232,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     // Lookups
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
-        debug_assert!(
-            self.constraints_location.is_some(),
-            "lookup do not support conditional without constraint location"
-        );
+        // debug_assert!(
+        //     self.constraints_location.is_some(),
+        //     "lookup do not support conditional without constraint location"
+        // );
         let lookup = match self.condition_expr_opt() {
             Some(condition) => lookup.conditional(condition),
             None => lookup,
@@ -390,19 +395,22 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
 
     /// register constraints to be applied on respective selector later
     fn push_constraint(&mut self, name: String, constraint: Expression<F>) {
-        debug_assert!(
-            self.constraints_location.is_some(),
-            "ConstraintLocation can't be combined"
-        );
-        match self.constraints_location.unwrap() {
-            ConstraintLocation::FirstRow => self.constraints.first_row.push((name, constraint)),
-            ConstraintLocation::NotFirstRow => {
+        // debug_assert!(
+        //     self.constraints_location.is_some(),
+        //     "ConstraintLocation can't be combined"
+        // );
+        match self.constraints_location {
+            Some(ConstraintLocation::FirstRow) => {
+                self.constraints.first_row.push((name, constraint))
+            }
+            Some(ConstraintLocation::NotFirstRow) => {
                 self.constraints.not_first_row.push((name, constraint))
             }
-            ConstraintLocation::LastRow => self.constraints.last_row.push((name, constraint)),
-            ConstraintLocation::NotLastRow => {
+            Some(ConstraintLocation::LastRow) => self.constraints.last_row.push((name, constraint)),
+            Some(ConstraintLocation::NotLastRow) => {
                 self.constraints.not_last_row.push((name, constraint))
             }
+            None => self.constraints.any_row.push((name, constraint)),
         }
     }
 

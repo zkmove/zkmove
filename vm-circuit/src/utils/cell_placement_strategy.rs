@@ -1,11 +1,7 @@
-use std::collections::BTreeMap;
-
+use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrategy, CellType};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem};
+use std::collections::BTreeMap;
 use types::Field;
-
-use super::cell_manager::{
-    CellManagerColumns, CellPlacement, CellPlacementStrategy, CellPlacementValue, CellType,
-};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CMFixedWidthStrategyDistribution(BTreeMap<CellType, Vec<Column<Advice>>>);
@@ -32,7 +28,7 @@ impl CMFixedWidthStrategyDistribution {
 #[derive(Clone, Debug)]
 pub(crate) struct CMFixedWidthStrategy {
     advices: CMFixedWidthStrategyDistribution,
-    height_offset: usize,
+    height_offset: isize,
 
     next: BTreeMap<CellType, (usize, usize)>,
 
@@ -47,7 +43,7 @@ impl CMFixedWidthStrategy {
     /// next step.
     pub fn new(
         advices: CMFixedWidthStrategyDistribution,
-        height_offset: usize,
+        height_offset: isize,
     ) -> CMFixedWidthStrategy {
         CMFixedWidthStrategy {
             advices,
@@ -140,7 +136,7 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
         let column = columns
             .get_column(cell_type, column_idx)
             .expect("column not found");
-        let rotation = self.height_offset + row;
+        let rotation = self.height_offset + row as isize;
         let placement = CellPlacement {
             column: column.clone(),
             rotation,
@@ -334,7 +330,7 @@ impl CMFixedHeightStrategy {
 
         CellPlacement {
             column: column.clone(),
-            rotation: row_idx,
+            rotation: row_idx as isize,
         }
     }
 }

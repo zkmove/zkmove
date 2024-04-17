@@ -1,3 +1,4 @@
+use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use gadgets::impl_expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
@@ -5,6 +6,7 @@ use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
 
+mod byecode_table;
 mod ux_table;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter)]
 /// Each item represents the lookup table to query
@@ -95,6 +97,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) u8_table: UXTable<8>,
     pub(crate) u10_table: UXTable<10>,
     pub(crate) u16_table: UXTable<16>,
+    pub(crate) bytecode_table: BytecodeLookupTable,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
@@ -103,10 +106,12 @@ impl<F: Field> LookupTableConfigV2<F> {
         let u8_table = UXTable::construct(meta);
         let u10_table = UXTable::construct(meta);
         let u16_table = UXTable::construct(meta);
+        let bytecode_table = BytecodeLookupTable::construct(meta);
         Self {
             u8_table,
             u10_table,
             u16_table,
+            bytecode_table,
             phantom_data: PhantomData,
         }
     }
