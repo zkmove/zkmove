@@ -177,6 +177,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         .query_cells(self.meta, cell_type, count)
     }
 
+    pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
+        cell.at_offset(self.meta, offset)
+    }
+
     /// require next row's execution state to be the specified `execution_state`
     pub(crate) fn require_next_state(&mut self, execution_state: Opcode) {
         let next_state = self.next.execution_state_selector([execution_state]);

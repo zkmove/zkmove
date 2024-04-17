@@ -1,5 +1,9 @@
 // Copyright (c) zkMove Authors
 #![feature(lint_reasons)]
+#![feature(adt_const_params)]
+
+extern crate movelang;
+
 pub mod chips;
 pub mod circuit;
 pub mod circuit_v2;

@@ -3,12 +3,18 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use movelang::value::Value;
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum ValueFlag {
     #[default]
     Invalid,
     Simple,
     Header,
+}
+
+impl ValueFlag {
+    pub fn to_u64(&self) -> u64 {
+        *self as u64
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
