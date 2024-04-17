@@ -1,17 +1,17 @@
+pub mod borrow_loc;
 pub mod br_bool;
 pub mod ld;
-pub mod borrow_loc;
 pub mod pack;
 
+pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
-pub use borrow_loc::*;
 pub use pack::*;
 
-use strum_macros::EnumIter;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utilities::Expr;
 use halo2_proofs::plonk::Expression;
+use strum_macros::EnumIter;
 use types::Field;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
@@ -21,8 +21,6 @@ pub enum ExecutionState {
     Stop,
     Nop,
 }
-
-
 
 #[derive(Clone, Debug)]
 pub(crate) struct ValueHeader<F> {

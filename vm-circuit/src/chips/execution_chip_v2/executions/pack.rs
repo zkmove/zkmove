@@ -1,10 +1,11 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ValueHeader;
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cell_manager::Cell;
 use crate::witness::exec_step::ValueFlag;
 use gadgets::util::{and, not};
 use types::Field;
@@ -12,6 +13,8 @@ use types::Field;
 #[derive(Clone, Debug)]
 pub struct Pack<F> {
     header: ValueHeader<F>,
+    field_index: Cell<F>,
+    field_counter: Cell<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
     const NAME: &'static str = "Pack";
@@ -20,6 +23,10 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header = ValueHeader::new(cb);
+        let field_index = cb.query_cell();
+        let field_index_next = cb.query_cell_with_cell(&field_index, 1);
+        let field_counter = cb.query_cell();
+        let field_counter_next = cb.query_cell_with_cell(&field_counter, 1);
 
         cb.first_row(|cb| {
             // TODO: add bytecode lookup
@@ -62,10 +69,9 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             //TODO: super::common::fake_empty_stack_pop(0);
             //TODO: super::common::fake_local_read_zero(0);
 
-            // reusing column aux0 to store field_idx
             cb.require_equal(
-                format!("{}, aux0(1) == aux0(0)", Self::NAME),
-                cb.next.state.aux0.expr(),
+                format!("{}, field_index(1) == aux0(0)", Self::NAME),
+                field_index_next.expr(),
                 cb.curr.state.aux0.expr(),
             );
             cb.require_equal(
@@ -96,10 +102,9 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             ]);
 
             //if is_simple then 'field_counter(0)' must equal to 1
-            // reusing column aux1 to store field_counter
             cb.require_zero(
                 format!("{}, is_simple * (field_counter(0) - 1)", Self::NAME),
-                is_simple * (cb.curr.state.aux1.expr() - 1u64.expr()),
+                is_simple * (field_counter.expr() - 1u64.expr()),
             );
 
             //if is_header then 'field_counter(0)' must equal to 'stack_pop_value(0).flen'
@@ -113,7 +118,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                     "{}, is_header * (field_counter(0) - header.flen) == 0",
                     Self::NAME
                 ),
-                is_header * (cb.curr.state.aux1.expr() - header.flen.expr()),
+                is_header * (field_counter.expr() - header.flen.expr()),
             );
 
             cb.require_equal(
@@ -134,11 +139,11 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
 
             cb.require_equal(
                 format!(
-                    "{}, stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0)",
+                    "{}, stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_index(0)",
                     Self::NAME
                 ),
                 cb.curr.state.stack_push_sub_index.expr(),
-                cb.curr.state.stack_pop_sub_index.expr() * 2u64.pow(16).expr(),
+                cb.curr.state.stack_pop_sub_index.expr() * 2u64.pow(16).expr() + field_index.expr(),
             );
             cb.require_equal(
                 format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
@@ -150,13 +155,13 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
 
             let end_of_one_field = and::expr([
                 not::expr(cb.next.state.clk.expr() - cb.curr.state.clk.expr()), //not last row
-                not::expr(cb.curr.state.aux1.expr() - 1u64.expr()), //field_counter(0) == 1
+                not::expr(field_counter.expr() - 1u64.expr()), //field_counter(0) == 1
             ]);
             cb.condition(end_of_one_field.clone(), |cb| {
                 cb.require_equal(
                     format!("{}, field_index(1) == field_index(0) - 1", Self::NAME),
-                    cb.next.state.aux0.expr(),
-                    cb.curr.state.aux0.expr() - 1u64.expr(),
+                    field_index_next.expr(),
+                    field_index.expr() - 1u64.expr(),
                 );
                 cb.require_equal(
                     format!(
@@ -177,8 +182,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             cb.condition(not::expr(end_of_one_field), |cb| {
                 cb.require_equal(
                     format!("{}, field_index(1) == field_index(0)", Self::NAME),
-                    cb.next.state.aux0.expr(),
-                    cb.curr.state.aux0.expr(),
+                    field_index_next.expr(),
+                    field_index.expr(),
                 );
                 cb.require_equal(
                     format!("{}, stack_pop_index(1) == stack_pop_index(0)", Self::NAME),
@@ -195,8 +200,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 );
                 cb.require_equal(
                     format!("{}, field_counter(1) == field_counter(0) - 1", Self::NAME),
-                    cb.next.state.aux1.expr(),
-                    cb.curr.state.aux1.expr() - 1u64.expr(),
+                    field_counter_next.expr(),
+                    field_counter.expr() - 1u64.expr(),
                 );
             });
         });
@@ -222,13 +227,13 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         cb.last_row(|cb| {
             // all fields processed
             cb.require_equal(
-                format!("{}, field_idx(0) == 1", Self::NAME),
-                cb.curr.state.aux0.expr(),
+                format!("{}, field_index(0) == 1", Self::NAME),
+                field_index.expr(),
                 1u64.expr(),
             );
             cb.require_equal(
                 format!("{}, field_counter(0) == 1", Self::NAME),
-                cb.curr.state.aux1.expr(),
+                field_counter.expr(),
                 1u64.expr(),
             );
 
@@ -245,6 +250,10 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             ]);
         });
 
-        Pack { header }
+        Pack {
+            header,
+            field_index,
+            field_counter,
+        }
     }
 }

@@ -942,12 +942,11 @@ mod branch {
     }
 }
 
-// define column field_idx (reusing column aux0)
-// define column field_counter (reusing column aux1)
+// define column field_idx
+// define column field_counter
 mod pack {
     pub fn constrain() {
         if super::common::on_first_row() {
-            table_bytecode.lookup(pc(0), PACK, aux0(0));
 
             let flen = step_counter(0);
             let num_field = aux0(0);
@@ -960,7 +959,7 @@ mod pack {
             super::common::fake_empty_stack_pop();
             super::common::fake_local_read_zero();
 
-            field_idx(1) == field_idx(0);
+            field_idx(1) == aux0(0);
             stack_pop_index(1) == sp(0);
             stack_pop_sub_index(1) == 0;
             stack_pop_version(1) < clk(0);

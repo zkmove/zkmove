@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
@@ -47,8 +47,6 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.first_row(|cb| {
-            // TODO: add bytecode lookup
-
             cb.require_equal(
                 format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
                 cb.curr.state.stack_push_index.expr(),

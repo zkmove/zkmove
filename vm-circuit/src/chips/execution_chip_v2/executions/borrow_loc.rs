@@ -1,8 +1,8 @@
 use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ValueHeader;
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::witness::exec_step::ValueFlag;
@@ -25,8 +25,6 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.first_row(|cb| {
-            // TODO: add bytecode lookup
-
             cb.require_equal(
                 format!("{}, step_counter(0) == 4", Self::NAME),
                 cb.curr.state.step_counter.expr(),
@@ -143,17 +141,6 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 format!("{}, sp(1) == sp(0)", Self::NAME),
                 cb.next.state.sp.expr(),
                 cb.curr.state.sp.expr(),
-            );
-            //TODO: add common constraints for aux0,aux1
-            cb.require_equal(
-                format!("{}, aux0(1) == aux0(0)", Self::NAME),
-                cb.next.state.aux0.expr(),
-                cb.curr.state.aux0.expr(),
-            );
-            cb.require_equal(
-                format!("{}, aux1(1) == aux1(0)", Self::NAME),
-                cb.next.state.aux1.expr(),
-                cb.curr.state.aux1.expr(),
             );
         });
 

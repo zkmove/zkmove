@@ -3,6 +3,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::executions::BorrowLoc;
 use crate::chips::execution_chip_v2::executions::BrBool;
 use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
@@ -16,7 +17,6 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::{and, not, or};
 use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
-use crate::chips::execution_chip_v2::executions::BorrowLoc;
 use std::iter;
 use types::Field;
 

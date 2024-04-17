@@ -227,13 +227,10 @@ impl fmt::Debug for Witness {
 
 use crate::witness::exec_step::ExecStep;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CircuitConfigV2 {
     pub max_steps: Option<usize>,
 }
-
-
 
 #[derive(Clone, Default)]
 pub struct ExecTrace {
