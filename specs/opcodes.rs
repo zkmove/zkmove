@@ -616,35 +616,33 @@ mod borrow_loc {
             stack_push_value(0) == (3,4);
             stack_push_value_flag(0) == ValueFlag::Header;
             stack_push_sub_index(0) == 0;
+
+            // second row
+            stack_push_value(1) = frame_index(0);
         }
 
-        if step_counter(0) == 3 {
-            stack_push_value(0) = frame_index(0);
+        if !super::common::on_first_row() {
             stack_push_value_flag(0) == ValueFlag::Simple;
-            stack_push_sub_index(0) == 1;
+        }
 
-        }
-        if step_counter(0) == 2 {
-            stack_push_value(0) = aux0(0);
-            stack_push_value_flag(0) == ValueFlag::Simple;
-            stack_push_sub_index(0) == 2;
-        }
-        if step_counter(0) == 1 {
-            stack_push_value(0) = 0;
-            stack_push_value_flag(0) == ValueFlag::Simple;
-            stack_push_sub_index(0) == 3;
-        }
         stack_push_index(0) == sp(0) + 1;
         stack_push_version(0) == clk(0);
-
         super::common::fake_empty_stack_pop(0);
         super::common::fake_local_read_zero(0);
-        
+
+        // third row
+        if step_counter(0) == 2 {
+            stack_push_value(0) = aux0(0);
+        }
+
         if !super::common::on_last_row() {
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            stack_push_sub_index(1) == stack_push_sub_index(0) + 1;
+            step_counter(1) == step_counter(0) - 1;
             sp(1) == sp(0);
         } else {
+            // last row
+            stack_push_value(0) = 0;
+            stack_push_sub_index(0) == 3;
             sp(1) == sp(0) + 1;
         }
     }

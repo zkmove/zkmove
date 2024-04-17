@@ -30,13 +30,11 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 cb.curr.state.step_counter.expr(),
                 4u64.expr(),
             );
-
             cb.require_equal(
                 format!("{}, stack_push_value(0) == (3,4)", Self::NAME),
                 cb.curr.state.stack_push_value.expr(),
                 ValueHeader::default().expr(),
             );
-
             cb.require_equal(
                 format!(
                     "{}, stack_push_value_flag(0) == ValueFlag::Header",
@@ -45,81 +43,29 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 cb.curr.state.stack_push_value_flag.expr(),
                 ValueFlag::Header.to_u64().expr(),
             );
-
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
                 cb.curr.state.stack_push_sub_index.expr(),
             );
+
+            // second row
+            cb.require_equal(
+                format!("{}, stack_push_value(1) = frame_index(0)", Self::NAME),
+                cb.next.state.stack_push_value.expr(),
+                cb.curr.state.frame_index.expr(),
+            );
         });
 
-        //step_counter(0) == 3
-        cb.condition(
-            not::expr(cb.curr.state.step_counter.expr() - 3u64.expr()),
-            |cb| {
-                cb.require_equal(
-                    format!("{}, stack_push_value(0) = frame_index(0)", Self::NAME),
-                    cb.curr.state.stack_push_value.expr(),
-                    cb.curr.state.frame_index.expr(),
-                );
-
-                cb.require_equal(
-                    format!("{}, stack_push_sub_index(0) == 1", Self::NAME),
-                    cb.curr.state.stack_push_sub_index.expr(),
-                    1u64.expr(),
-                );
-            },
-        );
-
-        //step_counter(0) == 2
-        cb.condition(
-            not::expr(cb.curr.state.step_counter.expr() - 2u64.expr()),
-            |cb| {
-                cb.require_equal(
-                    format!("{}, stack_push_value(0) = aux0(0)", Self::NAME),
-                    cb.curr.state.stack_push_value.expr(),
-                    cb.curr.state.aux0.expr(),
-                );
-                cb.require_equal(
-                    format!(
-                        "{}, stack_push_value_flag(0) == ValueFlag::Simple",
-                        Self::NAME
-                    ),
-                    cb.curr.state.stack_push_value_flag.expr(),
-                    ValueFlag::Simple.to_u64().expr(),
-                );
-
-                cb.require_equal(
-                    format!("{}, stack_push_sub_index(0) == 2", Self::NAME),
-                    cb.curr.state.stack_push_sub_index.expr(),
-                    2u64.expr(),
-                );
-            },
-        );
-
-        //step_counter(0) == 1
-        cb.condition(
-            not::expr(cb.curr.state.step_counter.expr() - 2u64.expr()),
-            |cb| {
-                cb.require_zero(
-                    format!("{}, stack_push_value(0) = 0", Self::NAME),
-                    cb.curr.state.stack_push_value.expr(),
-                );
-                cb.require_equal(
-                    format!(
-                        "{}, stack_push_value_flag(0) == ValueFlag::Simple",
-                        Self::NAME
-                    ),
-                    cb.curr.state.stack_push_value_flag.expr(),
-                    ValueFlag::Simple.to_u64().expr(),
-                );
-
-                cb.require_equal(
-                    format!("{}, stack_push_sub_index(0) == 3", Self::NAME),
-                    cb.curr.state.stack_push_sub_index.expr(),
-                    3u64.expr(),
-                );
-            },
-        );
+        cb.not_first_row(|cb| {
+            cb.require_equal(
+                format!(
+                    "{}, stack_push_value_flag(0) == ValueFlag::Simple",
+                    Self::NAME
+                ),
+                cb.curr.state.stack_push_value_flag.expr(),
+                ValueFlag::Simple.to_u64().expr(),
+            );
+        });
 
         cb.require_equal(
             format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
@@ -136,7 +82,32 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         //TODO: super::common::fake_empty_stack_pop(0);
         //TODO: super::common::fake_local_read_zero(0);
 
+        // third row, 'step_counter(0) == 2' and 'stack_push_value(0) = aux0(0)'
+        let is_third_row = (cb.curr.state.step_counter.expr() - 4u64.expr())
+            * (cb.curr.state.step_counter.expr() - 3u64.expr())
+            * (cb.curr.state.step_counter.expr() - 1u64.expr());
+        cb.condition(is_third_row, |cb| {
+            cb.require_equal(
+                format!("{}, stack_push_value(0) == aux0(0)", Self::NAME),
+                cb.curr.state.stack_push_value.expr(),
+                cb.curr.state.aux0.expr(),
+            );
+        });
+
         cb.not_last_row(|cb| {
+            cb.require_equal(
+                format!(
+                    "{}, stack_push_sub_index(1) == stack_push_sub_index(0) + 1",
+                    Self::NAME
+                ),
+                cb.next.state.stack_push_sub_index.expr(),
+                cb.curr.state.stack_push_sub_index.expr() + 1u64.expr(),
+            );
+            cb.require_equal(
+                format!("{}, step_counter(1) == step_counter(0) - 1", Self::NAME),
+                cb.next.state.step_counter.expr(),
+                cb.curr.state.step_counter.expr() - 1u64.expr(),
+            );
             cb.require_equal(
                 format!("{}, sp(1) == sp(0)", Self::NAME),
                 cb.next.state.sp.expr(),
@@ -145,6 +116,15 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         });
 
         cb.last_row(|cb| {
+            cb.require_zero(
+                format!("{}, stack_push_value(0) = 0", Self::NAME),
+                cb.curr.state.stack_push_value.expr(),
+            );
+            cb.require_equal(
+                format!("{}, stack_push_sub_index(0) == 3", Self::NAME),
+                cb.curr.state.stack_push_sub_index.expr(),
+                3u64.expr(),
+            );
             cb.require_state_transition(vec![
                 (FRAME_INDEX, Transition::Same),
                 (MODULE_INDEX, Transition::Same),
