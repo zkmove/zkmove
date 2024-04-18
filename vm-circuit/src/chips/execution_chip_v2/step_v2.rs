@@ -13,6 +13,7 @@ use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;
 
+pub const STEP_COUNTER: &str = "step_counter";
 pub const FRAME_INDEX: &str = "frame_index";
 pub const MODULE_INDEX: &str = "module_index";
 pub const FUNCTION_INDEX: &str = "function_index";

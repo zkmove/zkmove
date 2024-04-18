@@ -1,8 +1,7 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::{
-    ConstraintBuilderV2, StateTransition, Transition,
-};
+use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
+use crate::chips::execution_chip_v2::step_v2::{AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, STEP_COUNTER};
 use gadgets::util::Expr;
 use types::Field;
 
@@ -22,13 +21,17 @@ impl<F: Field> BaseConstraintGadget<F> {
             );
         });
         cb.not_last_row(|cb| {
+            // step_counter--
+            cb.require_state_transition(vec![(STEP_COUNTER, Transition::Delta((-1).expr()))]);
             cb.require_state_transition(
                 [
-                    "frame_index",
-                    "module_index",
-                    "function_index",
-                    "opcode",
-                    "pc",
+                    FRAME_INDEX,
+                    MODULE_INDEX,
+                    FUNCTION_INDEX,
+                    OPCODE,
+                    PC,
+                    AUX0,
+                    AUX1,
                     // TODO: check on aux0 and aux1
                 ]
                 .into_iter()
