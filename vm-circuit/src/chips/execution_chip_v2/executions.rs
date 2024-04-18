@@ -4,6 +4,7 @@ pub mod ld;
 pub mod pack;
 
 pub use borrow_loc::*;
+pub(crate) mod base;
 pub use br_bool::*;
 pub use ld::*;
 pub use pack::*;
@@ -18,6 +19,7 @@ use types::Field;
 pub enum ExecutionState {
     BrTrue,
     BrFalse,
+    Start,
     Stop,
     Nop,
 }

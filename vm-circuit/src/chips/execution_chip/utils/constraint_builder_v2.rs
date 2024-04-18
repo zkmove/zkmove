@@ -1,6 +1,5 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder::ConditionalLookup;
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::execution_chip_v2::utils::StoredExpression;
@@ -61,15 +60,13 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     meta: &'a mut ConstraintSystem<F>,
     challenges: &'a Challenges<Expression<F>>,
 
-    opcode: Opcode,
+    execution_state: Option<ExecutionState>,
     pub(crate) curr: Step<F>,
     pub(crate) next: Step<F>,
     // constraints: Vec<(String, ConditionalExpression<F>)>,
     constraints: Constraints<F>,
     constraints_location: Option<ConstraintLocation>,
     conditions: Vec<Expression<F>>,
-    // FIXME
-    lookups: Vec<(&'static str, ConditionalLookup<F>)>,
 
     stored_expressions: Vec<StoredExpression<F>>,
     in_next_step: bool,
@@ -95,17 +92,16 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         challenges: &'a Challenges<Expression<F>>,
         curr: Step<F>,
         next: Step<F>,
-        opcode: Opcode,
+        exec_state: Option<ExecutionState>,
     ) -> Self {
         Self {
             meta,
             challenges,
-            opcode,
+            execution_state: exec_state,
             curr,
             next,
             constraints: Default::default(),
             constraints_location: None,
-            lookups: Vec::new(),
             stored_expressions: Vec::new(),
             in_next_step: false,
             conditions: Vec::new(),
@@ -116,19 +112,23 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn build(
         self,
     ) -> (
+        Step<F>,
         Constraints<F>,
-        Vec<(&'static str, ConditionalLookup<F>)>,
         Vec<StoredExpression<F>>,
         &'a mut ConstraintSystem<F>,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
-        let op_sel = self.curr.execution_state_selector([self.opcode]);
+        let op_sel = match self.execution_state {
+            Some(s) => self.curr.execution_state_selector([s]),
+            None => 1u64.expr(),
+        };
         let mul_exec_state_sel = |c: Vec<(String, Expression<F>)>| {
             c.into_iter()
                 .map(|(name, constraint)| (name, op_sel.clone() * constraint))
                 .collect()
         };
         (
+            self.curr,
             Constraints {
                 first_row: mul_exec_state_sel(self.constraints.first_row),
                 not_first_row: mul_exec_state_sel(self.constraints.not_first_row),
@@ -136,21 +136,25 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 not_last_row: mul_exec_state_sel(self.constraints.not_last_row),
                 any_row: mul_exec_state_sel(self.constraints.any_row),
             },
-            self.lookups
-                .into_iter()
-                .map(|(name, mut lookup)| {
-                    lookup.add_conditions(vec![op_sel.clone()]);
-                    (name, lookup)
-                })
-                .collect(),
             self.stored_expressions,
             self.meta,
         )
     }
+    pub(crate) fn query_bool(&mut self) -> Cell<F> {
+        let cell = self.query_cell();
+        self.require_boolean("Constrain cell to be a bool", cell.expr());
+        cell
+    }
     pub(crate) fn query_byte(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::Lookup(Table::U8))
     }
+    pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
+        self.query_u8_dyn(N).try_into().unwrap()
+    }
 
+    pub(crate) fn query_u8_dyn(&mut self, count: usize) -> Vec<Cell<F>> {
+        self.query_cells(CellType::Lookup(Table::U8), count)
+    }
     pub(crate) fn query_cell(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::StoragePhase1)
     }
@@ -168,13 +172,35 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     fn query_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
-        if self.in_next_step {
-            &mut self.next
-        } else {
-            &mut self.curr
-        }
-        .cell_manager
-        .query_cells(self.meta, cell_type, count)
+        assert!(!self.in_next_step, "can only query cells in current step");
+        self.curr
+            .cell_manager
+            .query_cells(self.meta, cell_type, count)
+    }
+    /// This function needs to be used with extra precaution. You need to make
+    /// sure the layout is the same as the gadget for `next_step_state`.
+    /// `query_cell` will return cells in the next step in the `constraint`
+    /// function.
+    pub(crate) fn constrain_next_step<R>(
+        &mut self,
+        next_step_state: ExecutionState,
+        condition: Option<Expression<F>>,
+        constraint: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        assert!(!self.in_next_step, "Already in the next step");
+        self.in_next_step = true;
+        let ret = match condition {
+            None => {
+                self.require_next_state(next_step_state);
+                constraint(self)
+            }
+            Some(cond) => self.condition(cond, |cb| {
+                cb.require_next_state(next_step_state);
+                constraint(cb)
+            }),
+        };
+        self.in_next_step = false;
+        ret
     }
 
     pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
@@ -182,7 +208,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     /// require next row's execution state to be the specified `execution_state`
-    pub(crate) fn require_next_state(&mut self, execution_state: Opcode) {
+    pub(crate) fn require_next_state(&mut self, execution_state: ExecutionState) {
         let next_state = self.next.execution_state_selector([execution_state]);
         self.require_equal(
             "Constrain next execution state",
@@ -447,31 +473,3 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 }
-
-pub fn mul_exprs<F: Field>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
-    let mut iter = iter.as_ref().iter();
-    let first = match iter.next() {
-        Some(e) => e,
-        None => return None,
-    };
-    Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
-}
-
-// pub fn mul_exprs<F: Field>(iter: impl AsRef<[Expression<F>]>) -> Option<Expression<F>> {
-//     //let mut iter = self.conditions.iter();
-//     let iter = iter.as_ref();
-//     if iter.is_empty() {
-//         None
-//     } else if iter.len() == 1 {
-//         Some(iter[0].clone())
-//     } else {
-//         let (left, right) = iter.split_at(iter.len() / 2);
-//
-//         Some(match (mul_exprs(left), mul_exprs(right)) {
-//             (Some(l), Some(r)) => l * r,
-//             (Some(l), None) => l,
-//             (None, Some(r)) => r,
-//             _ => unreachable!(),
-//         })
-//     }
-// }

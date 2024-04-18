@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
 use crate::utils::cell_placement_strategy::{
@@ -12,6 +13,7 @@ use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;
 
+pub const STEP_COUNTER: &str = "step_counter";
 pub const FRAME_INDEX: &str = "frame_index";
 pub const MODULE_INDEX: &str = "module_index";
 pub const FUNCTION_INDEX: &str = "function_index";
@@ -58,7 +60,7 @@ pub struct StepState<F> {
     pub local_write_version: Cell<F>,
 
     /// The execution state selector for the step
-    pub(crate) conditions: DynamicSelectorHalf<F>,
+    pub(crate) execution_state: DynamicSelectorHalf<F>,
 }
 #[derive(Debug, Clone)]
 pub struct Step<F> {
@@ -74,9 +76,13 @@ impl<F: Field> Step<F> {
     ) -> Self {
         // height should always be 1
         let strategy = CMFixedWidthStrategy::new(advices, offset).with_max_height(1);
+
         let mut cell_manager = CellManager::new(strategy);
+
+        let clk = cell_manager.query_cell(meta, CellType::StoragePhase1);
+        let stack_pop_version = cell_manager.query_cell(meta, CellType::StoragePhase1);
         let state = StepState {
-            clk: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            clk: clk,
             frame_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             module_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             function_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -91,7 +97,7 @@ impl<F: Field> Step<F> {
             stack_pop_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_value_flag: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_pop_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            stack_pop_version: stack_pop_version,
 
             stack_push_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_push_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -109,7 +115,7 @@ impl<F: Field> Step<F> {
             local_write_value_flag: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_write_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
 
-            conditions: DynamicSelectorHalf::new(
+            execution_state: DynamicSelectorHalf::new(
                 meta,
                 &mut cell_manager,
                 ExecutionState::iter().count(),
@@ -123,10 +129,10 @@ impl<F: Field> Step<F> {
 
     pub(crate) fn execution_state_selector(
         &self,
-        execution_states: impl IntoIterator<Item = Opcode>,
+        execution_states: impl IntoIterator<Item = ExecutionState>,
     ) -> Expression<F> {
         self.state
-            .conditions
+            .execution_state
             .selector(execution_states.into_iter().map(|s| s as usize))
     }
 }
