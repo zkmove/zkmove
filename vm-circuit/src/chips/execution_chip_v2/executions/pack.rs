@@ -29,6 +29,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         let field_counter = cb.query_cell();
         let field_counter_next = cb.cell_at_offset(&field_counter, 1);
 
+        let next_row_state = cb.step_state_at_offset(1);
+
         cb.first_row(|cb| {
             let flen = cb.curr.state.step_counter.expr(); //flen is equal to step_counter(0)
             let num_field = cb.curr.state.aux0.expr();
@@ -75,12 +77,12 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             );
             cb.require_equal(
                 format!("{}, stack_pop_index(1) == sp(0)", Self::NAME),
-                cb.next.state.stack_pop_index.expr(),
+                next_row_state.stack_pop_index.expr(),
                 cb.curr.state.sp.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_pop_sub_index(1) == 0", Self::NAME),
-                cb.next.state.stack_pop_sub_index.expr(),
+                next_row_state.stack_pop_sub_index.expr(),
             );
 
             //TODO: stack_pop_version(1) < clk(0);
@@ -153,7 +155,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             //TODO: super::common::fake_local_read_zero(0);
 
             let end_of_one_field = and::expr([
-                not::expr(cb.next.state.clk.expr() - cb.curr.state.clk.expr()), //not last row
+                not::expr(next_row_state.clk.expr() - cb.curr.state.clk.expr()), //not last row
                 not::expr(field_counter.expr() - 1u64.expr()), //field_counter(0) == 1
             ]);
             cb.condition(end_of_one_field.clone(), |cb| {
@@ -167,12 +169,12 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                         "{}, stack_pop_index(1) == stack_pop_index(0) - 1",
                         Self::NAME
                     ),
-                    cb.next.state.stack_pop_index.expr(),
+                    next_row_state.stack_pop_index.expr(),
                     cb.curr.state.stack_pop_index.expr() - 1u64.expr(),
                 );
                 cb.require_zero(
                     format!("{}, stack_pop_sub_index(1) == 0", Self::NAME),
-                    cb.next.state.stack_pop_sub_index.expr(),
+                    next_row_state.stack_pop_sub_index.expr(),
                 );
 
                 //TODO: stack_pop_version(1) < clk(0);
@@ -186,7 +188,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 );
                 cb.require_equal(
                     format!("{}, stack_pop_index(1) == stack_pop_index(0)", Self::NAME),
-                    cb.next.state.stack_pop_index.expr(),
+                    next_row_state.stack_pop_index.expr(),
                     cb.curr.state.stack_pop_index.expr(),
                 );
                 cb.require_equal(
@@ -194,7 +196,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                         "{}, stack_pop_version(1) == stack_pop_version(0)",
                         Self::NAME
                     ),
-                    cb.next.state.stack_pop_version.expr(),
+                    next_row_state.stack_pop_version.expr(),
                     cb.curr.state.stack_pop_version.expr(),
                 );
                 cb.require_equal(
@@ -208,17 +210,17 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         cb.not_last_row(|cb| {
             cb.require_equal(
                 format!("{}, stack_push_index(1) == stack_push_index(0)", Self::NAME),
-                cb.next.state.stack_push_index.expr(),
+                next_row_state.stack_push_index.expr(),
                 cb.curr.state.stack_push_index.expr(),
             );
             cb.require_equal(
                 format!("{}, step_counter(1) == step_counter(0) - 1", Self::NAME),
-                cb.next.state.step_counter.expr(),
+                next_row_state.step_counter.expr(),
                 cb.curr.state.step_counter.expr() - 1u64.expr(),
             );
             cb.require_equal(
                 format!("{}, sp(1) == sp(0)", Self::NAME),
-                cb.next.state.sp.expr(),
+                next_row_state.sp.expr(),
                 cb.curr.state.sp.expr(),
             );
         });
@@ -238,7 +240,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
 
             cb.require_equal(
                 format!("{}, sp(1) == stack_push_index(0)", Self::NAME),
-                cb.next.state.sp.expr(),
+                next_row_state.sp.expr(),
                 cb.curr.state.stack_push_index.expr(),
             );
             cb.require_state_transition(vec![

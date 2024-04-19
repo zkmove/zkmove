@@ -22,7 +22,7 @@ pub const AUX0: &str = "aux0";
 pub const AUX1: &str = "aux1";
 
 #[derive(Clone, Debug)]
-pub struct StepState<F> {
+pub(crate) struct StepState<F> {
     pub clk: Cell<F>,
     pub frame_index: Cell<F>,
     pub module_index: Cell<F>,
@@ -60,6 +60,17 @@ pub struct StepState<F> {
     /// The execution state selector for the step
     pub(crate) execution_state: DynamicSelectorHalf<F>,
 }
+
+impl<F: Field> StepState<F> {
+    pub fn execution_state_selector(
+        &self,
+        execution_states: impl IntoIterator<Item = ExecutionState>,
+    ) -> Expression<F> {
+        self.execution_state
+            .selector(execution_states.into_iter().map(|s| s as usize))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Step<F> {
     pub state: StepState<F>,
@@ -80,7 +91,7 @@ impl<F: Field> Step<F> {
         let clk = cell_manager.query_cell(meta, CellType::StoragePhase1);
         let stack_pop_version = cell_manager.query_cell(meta, CellType::StoragePhase1);
         let state = StepState {
-            clk: clk,
+            clk,
             frame_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             module_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             function_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -95,7 +106,7 @@ impl<F: Field> Step<F> {
             stack_pop_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_value_flag: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_pop_version: stack_pop_version,
+            stack_pop_version,
 
             stack_push_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_push_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -129,9 +140,7 @@ impl<F: Field> Step<F> {
         &self,
         execution_states: impl IntoIterator<Item = ExecutionState>,
     ) -> Expression<F> {
-        self.state
-            .execution_state
-            .selector(execution_states.into_iter().map(|s| s as usize))
+        self.state.execution_state_selector(execution_states)
     }
 }
 

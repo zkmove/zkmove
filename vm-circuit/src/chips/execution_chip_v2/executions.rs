@@ -1,10 +1,11 @@
 pub mod borrow_loc;
-pub mod br_bool;
 pub mod ld;
 pub mod pack;
 
 pub use borrow_loc::*;
 pub(crate) mod base;
+pub(crate) mod br_bool;
+pub(crate) mod vec_swap;
 pub use br_bool::*;
 pub use ld::*;
 pub use pack::*;
@@ -17,9 +18,13 @@ use types::Field;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
 pub enum ExecutionState {
+    Start,
     BrTrue,
     BrFalse,
-    Start,
+    VecSwapStage1,
+    VecSwapStage2,
+    VecSwapStage3,
+    VecSwapStage4,
     Stop,
     Nop,
     MutBorrowLoc,

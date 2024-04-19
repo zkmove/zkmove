@@ -28,6 +28,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let next_row_state = cb.step_state_at_offset(1);
         cb.first_row(|cb| {
             cb.require_equal(
                 format!("{}, step_counter(0) == 4", Self::NAME),
@@ -55,7 +56,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
             // second row
             cb.require_equal(
                 format!("{}, stack_push_value(1) = frame_index(0)", Self::NAME),
-                cb.next.state.stack_push_value.expr(),
+                next_row_state.stack_push_value.expr(),
                 cb.curr.state.frame_index.expr(),
             );
         });
@@ -92,17 +93,17 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                     "{}, stack_push_sub_index(1) == stack_push_sub_index(0) + 1",
                     Self::NAME
                 ),
-                cb.next.state.stack_push_sub_index.expr(),
+                next_row_state.stack_push_sub_index.expr(),
                 cb.curr.state.stack_push_sub_index.expr() + 1u64.expr(),
             );
             cb.require_equal(
                 format!("{}, step_counter(1) == step_counter(0) - 1", Self::NAME),
-                cb.next.state.step_counter.expr(),
+                next_row_state.step_counter.expr(),
                 cb.curr.state.step_counter.expr() - 1u64.expr(),
             );
             cb.require_equal(
                 format!("{}, sp(1) == sp(0)", Self::NAME),
-                cb.next.state.sp.expr(),
+                next_row_state.sp.expr(),
                 cb.curr.state.sp.expr(),
             );
         });
