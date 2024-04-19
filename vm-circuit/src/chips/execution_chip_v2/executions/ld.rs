@@ -1,6 +1,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -43,6 +44,15 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
         LdType::LdU128 => Opcode::LdU128,
         LdType::LdTrue => Opcode::LdTrue,
         LdType::LdFalse => Opcode::LdFalse,
+    };
+    const EXECUTION_STATE: ExecutionState = match LD_TYPE {
+        LdType::LdU8 => ExecutionState::LdU8,
+        LdType::LdU16 => ExecutionState::LdU16,
+        LdType::LdU32 => ExecutionState::LdU32,
+        LdType::LdU64 => ExecutionState::LdU64,
+        LdType::LdU128 => ExecutionState::LdU128,
+        LdType::LdTrue => ExecutionState::LdTrue,
+        LdType::LdFalse => ExecutionState::LdFalse,
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

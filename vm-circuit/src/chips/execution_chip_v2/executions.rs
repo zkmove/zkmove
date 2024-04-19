@@ -22,6 +22,16 @@ pub enum ExecutionState {
     Start,
     Stop,
     Nop,
+    MutBorrowLoc,
+    ImmBorrowLoc,
+    LdFalse,
+    LdTrue,
+    LdU128,
+    LdU64,
+    LdU32,
+    LdU16,
+    LdU8,
+    Pack,
 }
 
 #[derive(Clone, Debug)]

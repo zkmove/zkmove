@@ -1,6 +1,4 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
 use crate::utils::cell_placement_strategy::{
