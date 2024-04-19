@@ -3,11 +3,11 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::BorrowLoc;
 use crate::chips::execution_chip_v2::executions::Pack;
-use crate::chips::execution_chip_v2::executions::{Ld, LdType};
-use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
+use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
