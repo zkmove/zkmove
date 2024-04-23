@@ -964,12 +964,9 @@ mod pack {
         }
 
         if !super::common::on_first_row() {
-            let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
-            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
-            if is_simple {
-                field_counter(0) == 1;
-            } else if is_header {
-                field_counter(0) == stack_pop_value(0).f_len;
+            if stack_pop_sub_index(0) == 0 {
+                if !stack_pop_value_header(0) { field_counter(0) == 1; }
+                if stack_pop_value_header(0) { field_counter(0) == stack_pop_value(0).f_len; }
             }
 
             stack_push_value(0) == stack_pop_value(0);

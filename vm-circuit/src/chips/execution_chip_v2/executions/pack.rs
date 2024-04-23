@@ -6,7 +6,6 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
-use crate::witness::exec_step::ValueFlag;
 use gadgets::util::{and, not};
 use types::Field;
 
@@ -53,13 +52,12 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 cb.curr.state.stack_push_value.expr(),
                 value_header.expr(),
             );
-            cb.require_equal(
+            cb.require_true(
                 format!(
-                    "{}, stack_push_value_flag(0) == ValueFlag::Header",
+                    "{}, stack_push_value_header(0) == true",
                     Self::NAME
                 ),
-                cb.curr.state.stack_push_value_flag.expr(),
-                ValueFlag::Header.to_u64().expr(),
+                cb.curr.state.stack_push_value_header.expr(),
             );
             cb.require_equal(
                 format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
@@ -89,38 +87,29 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         });
 
         cb.not_first_row(|cb| {
-            let is_simple = and::expr([
-                not::expr(cb.curr.state.stack_pop_sub_index.expr()),
-                not::expr(
-                    cb.curr.state.stack_pop_value_flag.expr() - ValueFlag::Simple.to_u64().expr(),
-                ),
-            ]);
-            let is_header = and::expr([
-                not::expr(cb.curr.state.stack_pop_sub_index.expr()),
-                not::expr(
-                    cb.curr.state.stack_pop_value_flag.expr() - ValueFlag::Header.to_u64().expr(),
-                ),
-            ]);
 
-            //if is_simple then 'field_counter(0)' must equal to 1
-            cb.require_zero(
-                format!("{}, is_simple * (field_counter(0) - 1)", Self::NAME),
-                is_simple * (field_counter.expr() - 1u64.expr()),
-            );
+            // TODO: if stack_pop_sub_index(0) == 0 {
+            {
+                //if is_simple then 'field_counter(0)' must equal to 1
+                cb.require_zero(
+                    format!("{}, is_simple * (field_counter(0) - 1)", Self::NAME),
+                    (1u64.expr() - cb.curr.state.stack_pop_value_header.expr()) * (field_counter.expr() - 1u64.expr()),
+                );
 
-            //if is_header then 'field_counter(0)' must equal to 'stack_pop_value(0).flen'
-            cb.require_equal(
-                format!("{}, stack_pop_value(0) == header", Self::NAME),
-                cb.curr.state.stack_pop_value.expr(),
-                header.expr(),
-            );
-            cb.require_zero(
-                format!(
-                    "{}, is_header * (field_counter(0) - header.flen) == 0",
-                    Self::NAME
-                ),
-                is_header * (field_counter.expr() - header.flen.expr()),
-            );
+                //if is_header then 'field_counter(0)' must equal to 'stack_pop_value(0).flen'
+                cb.require_equal(
+                    format!("{}, stack_pop_value(0) == header", Self::NAME),
+                    cb.curr.state.stack_pop_value.expr(),
+                    header.expr(),
+                );
+                cb.require_zero(
+                    format!(
+                        "{}, is_header * (field_counter(0) - header.flen) == 0",
+                        Self::NAME
+                    ),
+                    cb.curr.state.stack_pop_value_header.expr() * (field_counter.expr() - header.flen.expr()),
+                );
+            } //end if
 
             cb.require_equal(
                 format!("{}, stack_push_value(0) == stack_pop_value(0)", Self::NAME),
@@ -129,11 +118,11 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             );
             cb.require_equal(
                 format!(
-                    "{}, stack_push_value_flag(0) == stack_pop_value_flag(0)",
+                    "{}, stack_push_value_header(0) == stack_pop_value_header(0)",
                     Self::NAME
                 ),
-                cb.curr.state.stack_push_value_flag.expr(),
-                cb.curr.state.stack_pop_value_flag.expr(),
+                cb.curr.state.stack_push_value_header.expr(),
+                cb.curr.state.stack_pop_value_header.expr(),
             );
 
             //TODO: field_index < 2^16;
