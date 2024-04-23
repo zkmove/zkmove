@@ -40,10 +40,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 ValueHeader::default().expr(),
             );
             cb.require_true(
-                format!(
-                    "{}, stack_push_value_header(0) == true",
-                    Self::NAME
-                ),
+                format!("{}, stack_push_value_header(0) == true", Self::NAME),
                 cb.curr.state.stack_push_value_header.expr(),
             );
             cb.require_zero(
@@ -60,12 +57,9 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         });
 
         cb.not_first_row(|cb| {
-            cb.require_true(
-                format!(
-                    "{}, stack_push_value_header(0) == false",
-                    Self::NAME
-                ),
-                1u64.expr() - cb.curr.state.stack_push_value_header.expr(),
+            cb.require_zero(
+                format!("{}, stack_push_value_header(0) == false", Self::NAME),
+                cb.curr.state.stack_push_value_header.expr(),
             );
         });
 

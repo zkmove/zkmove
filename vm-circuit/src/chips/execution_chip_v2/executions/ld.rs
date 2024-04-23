@@ -83,20 +83,16 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
                     );
                 }
                 LdType::LdFalse => {
-                    cb.require_equal(
+                    cb.require_zero(
                         format!("{}, stack_push_value(0) == false", Self::NAME),
                         cb.curr.state.stack_push_value.expr(),
-                        0u64.expr(),
                     );
                 }
             }
 
-            cb.require_true(
-                format!(
-                    "{}, stack_push_value_header(0) == false",
-                    Self::NAME
-                ),
-                1u64.expr() - cb.curr.state.stack_push_value_header.expr(),
+            cb.require_zero(
+                format!("{}, stack_push_value_header(0) == false", Self::NAME),
+                cb.curr.state.stack_push_value_header.expr(),
             );
 
             cb.require_equal(

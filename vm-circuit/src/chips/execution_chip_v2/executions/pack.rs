@@ -2,6 +2,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -14,6 +15,7 @@ pub struct Pack<F> {
     header: ValueHeader<F>,
     field_index: Cell<F>,
     field_counter: Cell<F>,
+    is_zero: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
     const NAME: &'static str = "Pack";
@@ -27,7 +29,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         let field_index_next = cb.cell_at_offset(&field_index, 1);
         let field_counter = cb.query_cell();
         let field_counter_next = cb.cell_at_offset(&field_counter, 1);
-
+        let stack_pop_sub_index_is_zero =
+            IsZeroGadget::construct(cb, cb.curr.state.stack_pop_sub_index.expr());
         let next_row_state = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
@@ -53,10 +56,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 value_header.expr(),
             );
             cb.require_true(
-                format!(
-                    "{}, stack_push_value_header(0) == true",
-                    Self::NAME
-                ),
+                format!("{}, stack_push_value_header(0) == true", Self::NAME),
                 cb.curr.state.stack_push_value_header.expr(),
             );
             cb.require_equal(
@@ -87,13 +87,12 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         });
 
         cb.not_first_row(|cb| {
-
-            // TODO: if stack_pop_sub_index(0) == 0 {
-            {
+            cb.condition(stack_pop_sub_index_is_zero.expr(), |cb| {
                 //if is_simple then 'field_counter(0)' must equal to 1
                 cb.require_zero(
                     format!("{}, is_simple * (field_counter(0) - 1)", Self::NAME),
-                    (1u64.expr() - cb.curr.state.stack_pop_value_header.expr()) * (field_counter.expr() - 1u64.expr()),
+                    (1u64.expr() - cb.curr.state.stack_pop_value_header.expr())
+                        * (field_counter.expr() - 1u64.expr()),
                 );
 
                 //if is_header then 'field_counter(0)' must equal to 'stack_pop_value(0).flen'
@@ -107,9 +106,10 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                         "{}, is_header * (field_counter(0) - header.flen) == 0",
                         Self::NAME
                     ),
-                    cb.curr.state.stack_pop_value_header.expr() * (field_counter.expr() - header.flen.expr()),
+                    cb.curr.state.stack_pop_value_header.expr()
+                        * (field_counter.expr() - header.flen.expr()),
                 );
-            } //end if
+            });
 
             cb.require_equal(
                 format!("{}, stack_push_value(0) == stack_pop_value(0)", Self::NAME),
@@ -244,6 +244,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
             header,
             field_index,
             field_counter,
+            is_zero: stack_pop_sub_index_is_zero,
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -20,28 +21,20 @@ impl<F: Field> IsZeroGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, value: Expression<F>) -> Self {
         let inverse = cb.query_cell();
         let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
+
+        cb.require_zero(
+            "value * (1 - value * value_inv)",
+            value.clone() * is_zero.clone(),
+        );
+        cb.require_zero(
+            "value_inv * (1 - value * value_inv)",
+            inverse.expr() * is_zero.clone(),
+        );
         Self {
             inverse,
             is_zero,
             value,
         }
-    }
-
-    pub(crate) fn configure(&self) -> Vec<(&'static str, Expression<F>)> {
-        vec![
-            // when `value != 0` check `inverse = a.invert()`: value * (1 - value *
-            // inverse)
-            (
-                "value ⋅ (1 - value ⋅ value_inv)",
-                self.value.clone() * self.is_zero.clone(),
-            ),
-            // when `value == 0` check `inverse = 0`: `inverse ⋅ (1 - value *
-            // inverse)`
-            (
-                "value_inv ⋅ (1 - value ⋅ value_inv)",
-                self.inverse.expr() * self.is_zero.clone(),
-            ),
-        ]
     }
 
     pub(crate) fn expr(&self) -> Expression<F> {

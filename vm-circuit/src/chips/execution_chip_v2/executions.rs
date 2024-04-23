@@ -97,7 +97,11 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
         name: &'static str,
     ) -> Self {
         let bytes = cb.query_bytes();
-        let mask = cb.query_bytes();
+        let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_bool())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         let depth_pow2 = cb.query_cell();
         let reverse_limb = cb.query_cell();
 
@@ -106,29 +110,18 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             ref_sub_index.clone(),
             from_bytes::expr(&bytes),
         );
-
-        for i in 0..N_LIMB {
-            cb.require_boolean(format!("{}, mask[i] == 0 | 1", name), mask[i].expr());
-        }
         cb.require_zero(
             format!("{}, sum(mask[i]) == 1", name),
             mask.iter().fold(1u64.expr(), |acc, cell| acc - cell.expr()),
         );
 
-        let mut limbs = Vec::new();
-        match N_LIMB {
-            8 => {
-                for i in 0..N_LIMB {
-                    limbs[i] = bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + bytes[2 * i].expr();
-                }
-            }
-            16 => {
-                for i in 0..N_LIMB {
-                    limbs[i] = bytes[i].expr();
-                }
-            }
-            _ => unimplemented!(),
-        }
+        let limbs = (0..N_LIMB)
+            .map(|i| match N_LIMB {
+                8 => bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + bytes[2 * i].expr(),
+                16 => bytes[i].expr(),
+                _ => unimplemented!(),
+            })
+            .collect::<Vec<_>>();
 
         //if mask[0] == 1 { ref_sub_index == 0; }
         cb.require_zero(

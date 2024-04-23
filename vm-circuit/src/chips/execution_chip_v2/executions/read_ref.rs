@@ -3,7 +3,8 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::SubIndexGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC};
+use crate::chips::execution_chip_v2::executions::ValueHeader;
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
@@ -42,12 +43,8 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
         );
         //TODO: super::common::fake_empty_stack_push();
         //TODO: super::common::fake_local_read_zero();
-        cb.require_equal(
-            format!("{}, sp(1) == sp(0)", Self::NAME),
-            next_row_state.sp.expr(),
-            cb.curr.state.sp.expr(),
-        );
 
+        cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.not_last_row(|cb| {
             cb.require_equal(
                 format!(
@@ -76,6 +73,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
 
 #[derive(Clone, Debug)]
 pub struct ReadRefStage2<F: Field> {
+    header: ValueHeader<F>,
     header_sub_index: Cell<F>,
     sub_index_gadget: SubIndexGadget<F, 8>,
 }
@@ -85,19 +83,37 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::ReadRefStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let header = ValueHeader::new(cb);
         let header_sub_index = cb.query_cell();
         let next_row_state = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::ReadRefStage1);
 
-            //TODO: find better repr for value flag
+            //if !local_read_value_header(0) { step_counter(0) == 1; }
+            cb.require_zero(
+                format!(
+                    "{}, (1 - local_read_value_header(0)) * (step_counter(0) - 1) == 0",
+                    Self::NAME
+                ),
+                (1u64.expr() - cb.curr.state.local_read_value_header.expr())
+                    * (cb.curr.state.step_counter.expr() - 1u64.expr()),
+            );
 
-            // if local_read_value_flag(0) == HEADER {
-            //     step_counter(0) == local_read_value(0).f_len;
-            // } else {
-            //     step_counter(0) == 1;
-            // }
+            //if local_read_value_header(0) { step_counter(0) == local_read_value(0).f_len; }
+            cb.require_equal(
+                format!("{}, local_read_value(0) == header", Self::NAME),
+                cb.curr.state.local_read_value.expr(),
+                header.expr(),
+            );
+            cb.require_zero(
+                format!(
+                    "{}, local_read_value_header(0) * (step_counter(0) - header.flen) == 0",
+                    Self::NAME
+                ),
+                cb.curr.state.local_read_value_header.expr()
+                    * (cb.curr.state.step_counter.expr() - header.flen.expr()),
+            );
 
             let local_frame_index = cb.step_state_at_offset(-3).stack_pop_value.expr();
             let local_index = cb.step_state_at_offset(-2).stack_pop_value.expr();
@@ -148,11 +164,11 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         );
         cb.require_equal(
             format!(
-                "{}, stack_push_value_flag(0) == local_read_value_flag(0)",
+                "{}, stack_push_value_header(0) == local_read_value_header(0)",
                 Self::NAME
             ),
-            cb.curr.state.stack_push_value_flag.expr(),
-            cb.curr.state.local_read_value_flag.expr(),
+            cb.curr.state.stack_push_value_header.expr(),
+            cb.curr.state.local_read_value_header.expr(),
         );
         cb.require_equal(
             format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
@@ -171,11 +187,19 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         );
         cb.require_equal(
             format!(
-                "{}, local_write_value_flag(0) == local_read_value_flag(0)",
+                "{}, local_write_value_invalid(0) == local_read_value_invalid(0)",
                 Self::NAME
             ),
-            cb.curr.state.local_write_value_flag.expr(),
-            cb.curr.state.local_read_value_flag.expr(),
+            cb.curr.state.local_write_value_invalid.expr(),
+            cb.curr.state.local_read_value_invalid.expr(),
+        );
+        cb.require_equal(
+            format!(
+                "{}, local_write_value_header(0) == local_read_value_header(0)",
+                Self::NAME
+            ),
+            cb.curr.state.local_write_value_header.expr(),
+            cb.curr.state.local_read_value_header.expr(),
         );
         cb.require_equal(
             format!("{}, local_write_version(0) == clk(0)", Self::NAME),
@@ -185,11 +209,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
 
         //TODO: super::common::fake_empty_stack_pop();
 
-        cb.require_equal(
-            format!("{}, sp(1) == sp(0)", Self::NAME),
-            next_row_state.sp.expr(),
-            cb.curr.state.sp.expr(),
-        );
+        cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.not_last_row(|cb| {
             cb.require_equal(
@@ -222,6 +242,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         });
 
         ReadRefStage2 {
+            header,
             header_sub_index,
             sub_index_gadget,
         }
