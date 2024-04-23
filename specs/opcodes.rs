@@ -92,10 +92,12 @@ mod ldu256 {
             table_opcode.contain(pc(0), opcode(0), aux0(0));
             stack_push_sub_index(0) == 0;
             stack_push_value(0) == (2, 3); // len=2,flen=3
+            stack_push_value_header(0) == true;
         } else {
             // if the opcode contain multi rows.
             stack_push_sub_index(0) == stack_push_sub_index(-1) + 1;
             stack_push_value(0) == if is_last { aux1(0) } else { aux0(0) }; // (lo, hi)
+            stack_push_value_header(0) == false;
         }
         stack_push_index(0) == sp(0) + 1;
         stack_push_version(0) == clk(0);
@@ -166,6 +168,7 @@ mod add {
             // TODO: add overflow check
             // second row is write a+b to a
             stack_push_value(0) == stack_pop_value(0) + stack_pop_value(-1);
+            stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);
             stack_push_version(0) > stack_pop_version(0);
         }
@@ -204,6 +207,7 @@ mod le {
             // second row is write `a<b` to a
             let is_le = stack_pop_value(0) <= stack_pop_value(-1);
             stack_push_value(0) == is_le;
+            stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);
             stack_push_version(0) > stack_pop_version(0);
         }
@@ -331,6 +335,7 @@ mod not {
         stack_pop_index(0) == stack_push_index(0) == sp(0);
         stack_pop_sub_index(0) == stack_push_sub_index(0) == 0;
         stack_push_value(0) = !stack_pop_value(0);
+        stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
         stack_pop_version(0) < clk(0);
 
@@ -346,6 +351,7 @@ mod cast {
         stack_pop_index(0) == stack_push_index(0) == sp(0);
         stack_pop_sub_index(0) == stack_push_sub_index(0) == 0;
         stack_push_value(0) = stack_pop_value(0);
+        stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
         stack_pop_version(0) < clk(0);
 
@@ -466,6 +472,7 @@ mod move_loc {
         local_index(0) == aux0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
         local_read_value(0) == stack_push_value(0);
+        local_read_value_header(0) == stack_push_value_header(0);
         lcoal_read_value(0) != INVALID;
         local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
         // constraint local-invalidating has the same write_version
@@ -507,7 +514,9 @@ mod copy_loc {
         local_sub_index(0) == stack_push_sub_index(0);
         lcoal_read_value(0) != INVALID;
         local_read_value(0) == stack_push_value(0);
+        local_read_value_header(0) == stack_push_value_header(0);
         local_write_value(0) == local_read_value(0); // copy_loc will just read data, this the only difference with move_loc
+        local_write_value_header(0) == local_read_value_header(0);
         // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
@@ -565,7 +574,7 @@ mod store_loc {
             local_sub_index(0) == stack_pop_sub_index(0);
             // local_read_value(0) should be either INVALID or the latest value based on the version of local_write_version
             local_write_value(0) == stack_pop_value(0);
-
+            local_write_value_header(0) == stack_pop_value_header(0);
 
             local_write_version(0) == clk(0);
             clk(0) > local_read_version(0);
@@ -659,6 +668,7 @@ mod borrow_field {
             stack_pop_version(0) < clk(0);
             stack_push_index(0) == sp(0);
             stack_push_sub_index(0) == 0;
+            stack_push_value_header(0) == true;
             stack_push_version(0) == clk(0);
 
             common::context_state_transition();
@@ -675,6 +685,7 @@ mod borrow_field {
             stack_pop_version(0) == stack_pop_version(-1);
             stack_push_index(0) == sp(0);
             stack_push_sub_index(0) == stack_push_sub_index(-1) + 1;
+            stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);
 
             sp(1) == sp(0);
@@ -807,8 +818,9 @@ mod write_ref {
             }
 
             local_read_version(0) < clk(0);
-            local_write_value(0) == Invalid;
-            local_write_value_Invalid(0) == true;
+            local_write_value(0) == Invalid; // write 0
+            local_write_value_invalid(0) == true;
+            local_write_value_header == false;
             local_write_version(0) == clk(0);
             super::common::fake_empty_stack_pop();
             super::common::fake_empty_stack_push();
@@ -845,6 +857,7 @@ mod write_ref {
             local_read_value_invalid(0) == true;
             local_read_version(0) < clk(0);
             local_write_value(0) == stack_pop_value(0);
+            local_write_value_header(0) == stack_pop_value_header(0);
             local_write_version(0) == clk(0);
         }
 
@@ -1027,6 +1040,7 @@ mod unpack {
             stack_push_index(0) == sp(0) + field_index(0) - 1;
             stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
             stack_push_value(0) == stack_pop_value(0);
+            stack_push_value_header(0) == stack_pop_value_header(0);
             stack_push_version(0) == clk(0);
         }
 
@@ -1157,6 +1171,7 @@ mod vec_unpack {
             stack_push_index(0) == sp(0) + field_index(0) - 1;
             stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
             stack_push_value(0) == stack_pop_value(0);
+            stack_push_value_header(0) == stack_pop_value_header(0);
             stack_push_version(0) == clk(0);
         }
 
@@ -1265,6 +1280,7 @@ mod vec_borrow {
             //stack_pop_sub_index is constrained by the last step
             stack_push_sub_index(0) == stack_pop_sub_index(0);
             stack_push_value(0) == stack_pop_value(0);
+            stack_push_value_header(0) == stack_pop_value_header(0);
             if step_counter(0) == 4 {
                 stack_pop_version(0) < clk(0);
             } else {
@@ -1285,6 +1301,7 @@ mod vec_borrow {
             stack_push_sub_index(0) == stack_pop_sub_index(0);
             super::common::constrain_depth(stack_pop_value(0), depth(0));
             super::common::constrain_sub_index(stack_pop_value(0), stack_pop_value(-4), depth(0), stack_push_value(0));
+            stack_push_value_header(0) == stack_pop_value_header(0);
             stack_pop_version(0) == stack_pop_version(-1);
             stack_push_version(0) = clk(0);
             super::common::fake_local_read_zero();
