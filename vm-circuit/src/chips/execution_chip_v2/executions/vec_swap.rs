@@ -43,9 +43,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage1<F> {
             cb.curr.state.stack_pop_sub_index.expr(),
         );
 
-        cb.require_true(
+        cb.require_zero(
             "stack_pop_value_header(0) == false",
-            1u64.expr() - cb.curr.state.stack_pop_value_header.expr(),
+            cb.curr.state.stack_pop_value_header.expr(),
         );
         // TODO: check stack_pop_version<clk
 
@@ -109,9 +109,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage2<F> {
         });
 
         cb.not_first_row(|cb| {
-            cb.require_true(
+            cb.require_zero(
                 "stack_pop_value_header(0) == false",
-                1u64.expr() - cb.curr.state.stack_pop_value_header.expr(),
+                cb.curr.state.stack_pop_value_header.expr(),
             );
         });
 

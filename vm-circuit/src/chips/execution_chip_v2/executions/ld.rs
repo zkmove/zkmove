@@ -67,18 +67,32 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
                 cb.curr.state.stack_push_sub_index.expr(),
             );
 
-            cb.require_equal(
-                format!("{}, stack_push_value(0) == aux0(0)", Self::NAME),
-                cb.curr.state.stack_push_value.expr(),
-                cb.curr.state.aux0.expr(),
-            );
+            match LD_TYPE {
+                LdType::LdU8 | LdType::LdU16 | LdType::LdU32 | LdType::LdU64 | LdType::LdU128 => {
+                    cb.require_equal(
+                        format!("{}, stack_push_value(0) == aux0(0)", Self::NAME),
+                        cb.curr.state.stack_push_value.expr(),
+                        cb.curr.state.aux0.expr(),
+                    );
+                }
+                LdType::LdTrue => {
+                    cb.require_equal(
+                        format!("{}, stack_push_value(0) == true", Self::NAME),
+                        cb.curr.state.stack_push_value.expr(),
+                        1u64.expr(),
+                    );
+                }
+                LdType::LdFalse => {
+                    cb.require_zero(
+                        format!("{}, stack_push_value(0) == false", Self::NAME),
+                        cb.curr.state.stack_push_value.expr(),
+                    );
+                }
+            }
 
-            cb.require_true(
-                format!(
-                    "{}, stack_push_value_header(0) == false",
-                    Self::NAME
-                ),
-                1u64.expr() - cb.curr.state.stack_push_value_header.expr(),
+            cb.require_zero(
+                format!("{}, stack_push_value_header(0) == false", Self::NAME),
+                cb.curr.state.stack_push_value_header.expr(),
             );
 
             cb.require_equal(
