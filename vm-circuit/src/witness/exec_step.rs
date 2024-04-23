@@ -3,20 +3,6 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use movelang::value::Value;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
-pub enum ValueFlag {
-    #[default]
-    Invalid,
-    Simple,
-    Header,
-}
-
-impl ValueFlag {
-    pub fn to_u64(&self) -> u64 {
-        *self as u64
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct OpcodeContext {
     pub clk: u128,
@@ -36,13 +22,13 @@ pub struct StackContext {
     pub stack_pop_index: u16,
     pub stack_pop_sub_index: u128,
     pub stack_pop_value: Option<Value>,
-    pub stack_pop_value_flag: ValueFlag,
+    pub stack_pop_value_header: bool,
     pub stack_pop_version: u128,
 
     pub stack_push_index: u16,
     pub stack_push_sub_index: u128,
     pub stack_push_value: Option<Value>,
-    pub stack_push_value_flag: ValueFlag,
+    pub stack_push_value_header: bool,
     pub stack_push_version: u128,
 }
 
@@ -52,11 +38,13 @@ pub struct LocalContext {
     pub local_index: u16, //MAX_LOCALS = 256
     pub local_sub_index: u128,
     pub local_read_value: Option<Value>,
-    pub local_read_value_flag: ValueFlag,
+    pub local_read_value_header: bool,
+    pub local_read_value_invalid: bool,
     pub local_read_version: u128,
 
     pub local_write_value: Option<Value>,
-    pub local_write_value_flag: ValueFlag,
+    pub local_write_value_header: bool,
+    pub local_write_value_invalid: bool,
     pub local_write_version: u128,
 }
 

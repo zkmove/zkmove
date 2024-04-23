@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
-use crate::witness::exec_step::ValueFlag;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -40,13 +39,12 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 cb.curr.state.stack_push_value.expr(),
                 ValueHeader::default().expr(),
             );
-            cb.require_equal(
+            cb.require_true(
                 format!(
-                    "{}, stack_push_value_flag(0) == ValueFlag::Header",
+                    "{}, stack_push_value_header(0) == true",
                     Self::NAME
                 ),
-                cb.curr.state.stack_push_value_flag.expr(),
-                ValueFlag::Header.to_u64().expr(),
+                cb.curr.state.stack_push_value_header.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
@@ -62,13 +60,12 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         });
 
         cb.not_first_row(|cb| {
-            cb.require_equal(
+            cb.require_true(
                 format!(
-                    "{}, stack_push_value_flag(0) == ValueFlag::Simple",
+                    "{}, stack_push_value_header(0) == false",
                     Self::NAME
                 ),
-                cb.curr.state.stack_push_value_flag.expr(),
-                ValueFlag::Simple.to_u64().expr(),
+                1u64.expr() - cb.curr.state.stack_push_value_header.expr(),
             );
         });
 

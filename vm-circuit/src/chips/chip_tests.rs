@@ -3,7 +3,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::circuit_v2::VmCircuit;
 use crate::witness::exec_step::ExecStep;
-use crate::witness::exec_step::{LocalContext, OpcodeContext, StackContext, ValueFlag};
+use crate::witness::exec_step::{LocalContext, OpcodeContext, StackContext};
 use crate::witness::{CircuitConfigV2, WitnessV2};
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::dev::MockProver;
@@ -44,13 +44,13 @@ fn test_execution_chip() -> VmResult<()> {
         stack_pop_index: 0,
         stack_pop_sub_index: 0,
         stack_pop_value: None,
-        stack_pop_value_flag: ValueFlag::Invalid,
+        stack_pop_value_header: false,
         stack_pop_version: 0,
 
         stack_push_index: 1,
         stack_push_sub_index: 0,
         stack_push_value: Some(Value::u64(1)),
-        stack_push_value_flag: ValueFlag::Simple,
+        stack_push_value_header: false,
         stack_push_version: 0,
     };
     let step_0 = ExecStep::new(opcode_context, stack_context, LocalContext::default());
@@ -72,13 +72,13 @@ fn test_execution_chip() -> VmResult<()> {
         stack_pop_index: 0,
         stack_pop_sub_index: 0,
         stack_pop_value: None,
-        stack_pop_value_flag: ValueFlag::Invalid,
+        stack_pop_value_header: false,
         stack_pop_version: 0,
 
         stack_push_index: 2,
         stack_push_sub_index: 0,
         stack_push_value: Some(Value::u64(2)),
-        stack_push_value_flag: ValueFlag::Simple,
+        stack_push_value_header: false,
         stack_push_version: 2,
     };
     let step_1 = ExecStep::new(opcode_context, stack_context, LocalContext::default());
@@ -100,13 +100,13 @@ fn test_execution_chip() -> VmResult<()> {
         stack_pop_index: 2,
         stack_pop_sub_index: 0,
         stack_pop_value: Some(Value::u64(2)),
-        stack_pop_value_flag: ValueFlag::Simple,
+        stack_pop_value_header: false,
         stack_pop_version: 2,
 
         stack_push_index: 0,
         stack_push_sub_index: 0,
         stack_push_value: None,
-        stack_push_value_flag: ValueFlag::Invalid,
+        stack_push_value_header: false,
         stack_push_version: 0,
     };
     let step_2 = ExecStep::new(opcode_context, stack_context, LocalContext::default());
@@ -128,13 +128,13 @@ fn test_execution_chip() -> VmResult<()> {
         stack_pop_index: 1,
         stack_pop_sub_index: 0,
         stack_pop_value: Some(Value::u64(1)),
-        stack_pop_value_flag: ValueFlag::Simple,
+        stack_pop_value_header: false,
         stack_pop_version: 0,
 
         stack_push_index: 1,
         stack_push_sub_index: 0,
         stack_push_value: Some(Value::u64(3)),
-        stack_push_value_flag: ValueFlag::Simple,
+        stack_push_value_header: false,
         stack_push_version: 6,
     };
     let step_3 = ExecStep::new(opcode_context, stack_context, LocalContext::default());
@@ -156,13 +156,13 @@ fn test_execution_chip() -> VmResult<()> {
         stack_pop_index: 1,
         stack_pop_sub_index: 0,
         stack_pop_value: Some(Value::u64(3)),
-        stack_pop_value_flag: ValueFlag::Simple,
+        stack_pop_value_header: false,
         stack_pop_version: 6,
 
         stack_push_index: 0,
         stack_push_sub_index: 0,
         stack_push_value: None,
-        stack_push_value_flag: ValueFlag::Invalid,
+        stack_push_value_header: false,
         stack_push_version: 0,
     };
     let step_4 = ExecStep::new(opcode_context, stack_context, LocalContext::default());

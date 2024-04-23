@@ -272,14 +272,14 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.stack_pop_index.expr(),
                 step_curr.state.stack_pop_sub_index.expr(),
                 step_curr.state.stack_pop_value.expr(),
-                step_curr.state.stack_pop_value_flag.expr(),
+                step_curr.state.stack_pop_value_header.expr(),
                 step_curr.state.stack_pop_version.expr(),
             ];
             let push_set = [
                 step_curr.state.stack_push_index.expr(),
                 step_curr.state.stack_push_sub_index.expr(),
                 step_curr.state.stack_push_value.expr(),
-                step_curr.state.stack_push_value_flag.expr(),
+                step_curr.state.stack_push_value_header.expr(),
                 step_curr.state.stack_push_version.expr(),
             ];
             pop_set.into_iter().zip(push_set).collect()
@@ -290,7 +290,8 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
                 step_curr.state.local_read_value.expr(),
-                step_curr.state.local_read_value_flag.expr(),
+                step_curr.state.local_read_value_header.expr(),
+                step_curr.state.local_read_value_invalid.expr(),
                 step_curr.state.local_read_version.expr(),
             ];
             let write_set = [
@@ -298,7 +299,8 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
                 step_curr.state.local_write_value.expr(),
-                step_curr.state.local_write_value_flag.expr(),
+                step_curr.state.local_write_value_header.expr(),
+                step_curr.state.local_write_value_invalid.expr(),
                 step_curr.state.local_write_version.expr(),
             ];
             read_set.into_iter().zip(write_set).collect()
