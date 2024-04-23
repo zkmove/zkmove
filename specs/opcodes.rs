@@ -75,7 +75,7 @@ mod ld {
         stack_push_index(0) == sp(0) + 1;
         stack_push_sub_index(0) == 0;
         stack_push_value(0) == aux0(0);
-        stack_push_value_flag(0) == ValueFlag::Simple;
+        stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
         // Local Context Constraints: fake local memory operation.
         super::common::fake_local_read_zero();
@@ -244,8 +244,8 @@ mod eq {
     fn constrain_first() {
         table_opcode.contain(pc(0), EQ, 0);
 
-        let flen_b = if stack_pop_value_flag(0) == SIMPLE { 1 } else { stack_pop_value(0).flen };
-        let flen_a = if stack_pop_value_flag(1) == SIMPLE { 1 } else { stack_pop_value(1).flen };
+        let flen_b = if !stack_pop_value_header(0) { 1 } else { stack_pop_value(0).flen };
+        let flen_a = if !stack_pop_value_header(1) { 1 } else { stack_pop_value(1).flen };
         step_counter(0) == flen_b + flen_a + diff(flen_b, flen_a);
 
         field_counter(0) == flen_b;
@@ -263,15 +263,15 @@ mod eq {
         stack_push_index(0) == sp(0) - 1;
         stack_push_sub_index(0) == 0;
         stack_push_value(0) == intermediate_result(0);
-        stack_push_value_flag(0) == SIMPLE;
+        stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
 
         super::common::fake_empty_stack_push(1);
         super::common::fake_local_read_zero(0);
         super::common::fake_local_read_zero(1); //next row
 
-        let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_flag(0))
-            == (stack_pop_sub_index(1), stack_pop_value(1), stack_pop_value_flag(1));
+        let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_header(0))
+            == (stack_pop_sub_index(1), stack_pop_value(1), stack_pop_value_header(1));
         if step_counter(0) == 2 { //both a and b are simple value
             intermediate_result(0) == is_equal;
         } else {
@@ -313,8 +313,8 @@ mod eq {
             super::common::fake_local_read_zero(1); //next row
 
             // constrain intermediate_result
-            let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_flag(0))
-                == (stack_pop_sub_index(1), stack_pop_value(1), stack_pop_value_flag(1));
+            let is_equal = (stack_pop_sub_index(0), stack_pop_value(0), stack_pop_value_header(0))
+                == (stack_pop_sub_index(1), stack_pop_value(1), stack_pop_value_header(1));
             if step_counter(1) == 1 { //last pair
                 intermediate_result(0) == is_equal;
             } else {
@@ -396,15 +396,15 @@ mod call {
         if !super::common::on_last_row() {
             stack_pop_index(0) == sp(0);
             stack_pop_value(0) == local_write_value(0);
-            stack_pop_value_flag(0) == local_write_value_flag(0);;
+            stack_pop_value_header(0) == local_write_value_header(0);;
             stack_pop_sub_index(0) == local_sub_index(0);
             local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
             local_write_version(0) == clk(0);
             common::local_write_first_time(0); //TODO:constrain local_read_version
             super::common::fake_empty_stack_push(0);
 
-            let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
-            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
+            let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
+            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
 
             if is_simple {
                 field_counter(0) == 1;
@@ -547,7 +547,7 @@ mod store_loc {
 
             // constraint step_counter
             let invalidate_old = local_write_version(0) != 0;
-            if invalidate_old && local_read_value_flag != SIMPLE {
+            if invalidate_old && local_read_value_header {
                 let (len, flen) = local_read_value(0);
                 step_counter(0) == w_flen(0) + flen - 1; // step counter should be the old_local_value_flen+new_local_value_flen - 1
             } else {
@@ -614,7 +614,7 @@ mod borrow_loc {
             table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
             step_counter(0) == 4;
             stack_push_value(0) == (3,4);
-            stack_push_value_flag(0) == ValueFlag::Header;
+            stack_push_value_header(0) == true;
             stack_push_sub_index(0) == 0;
 
             // second row
@@ -622,7 +622,7 @@ mod borrow_loc {
         }
 
         if !super::common::on_first_row() {
-            stack_push_value_flag(0) == ValueFlag::Simple;
+            stack_push_value_header(0) == false;
         }
 
         stack_push_index(0) == sp(0) + 1;
@@ -706,7 +706,7 @@ mod read_ref {
 
         if stage(0) == STAGE_READ_LOCAL_AND_PUSH_STACK {
             if step_counter(-1) == 1 { // first step in the stage
-                if local_read_value_flag(0) == HEADER {
+                if local_read_value_header(0) {
                     step_counter(0) == local_read_value(0).f_len;
                 } else {
                     step_counter(0) == 1;
@@ -723,11 +723,12 @@ mod read_ref {
             stack_push_index(0) == sp(0);
             super::common::constrain_sub_index(header_sub_addr(0), stack_push_sub_index(0), depth(0), local_sub_index(0));
             stack_push_value(0) == local_read_value(0);
-            stack_push_value_flag(0) == local_read_value_flag(0);
+            stack_push_value_header(0) == local_read_value_header(0);
             stack_push_version(0) == clk(0);
             local_read_version(0) < clk(0);
             local_write_value(0) == local_read_value(0);
-            local_write_value_flag(0) == local_read_value_flag(0);
+            local_write_value_header(0) == local_read_value_header(0);
+            local_write_value_invalid(0) == local_read_value_invalid(0);
             local_write_version(0) == clk(0);
             super::common::fake_empty_stack_pop();
 
@@ -807,7 +808,7 @@ mod write_ref {
 
             local_read_version(0) < clk(0);
             local_write_value(0) == Invalid;
-            local_write_value_flag(0) == Invalid;
+            local_write_value_Invalid(0) == true;
             local_write_version(0) == clk(0);
             super::common::fake_empty_stack_pop();
             super::common::fake_empty_stack_push();
@@ -841,7 +842,7 @@ mod write_ref {
 
             super::common::constrain_sub_index(header_sub_addr(0), stack_pop_sub_index(0), depth(0), local_sub_index(0));
             local_read_value(0) == Invalid;
-            local_read_value_flag(0) == Invalid;
+            local_read_value_invalid(0) == true;
             local_read_version(0) < clk(0);
             local_write_value(0) == stack_pop_value(0);
             local_write_version(0) == clk(0);
@@ -869,7 +870,8 @@ mod write_ref {
             local_read_version(0) < clk(0);
             local_sub_index(0) == header_sub_addr(0);
             local_write_value(0) == local_read_value(0) + header_flen_delta(0);
-            local_write_value_flag(0) == local_read_value_flag(0);
+            local_write_value_header(0) == local_read_value_header(0);
+            local_write_value_invalid(0) == local_read_value_invalid(0);
             local_write_version(0) == clk(0);
         }
 
@@ -949,7 +951,7 @@ mod pack {
             stack_push_index(0) == sp(0) - num_field + 1;
             stack_push_sub_index(0) == 0;
             stack_push_value(0) == (num_field, flen);
-            stack_push_value_flag(0) == HEADER;
+            stack_push_value_header(0) == true;
             stack_push_version(0) == clk(0);
 
             super::common::fake_empty_stack_pop();
@@ -962,8 +964,8 @@ mod pack {
         }
 
         if !super::common::on_first_row() {
-            let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
-            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
+            let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
+            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
             if is_simple {
                 field_counter(0) == 1;
             } else if is_header {
@@ -971,7 +973,7 @@ mod pack {
             }
 
             stack_push_value(0) == stack_pop_value(0);
-            stack_push_value_flag(0) == stack_pop_value_flag(0);
+            stack_push_value_header(0) == stack_pop_value_header(0);
             field_index(0) == lower_two_types(field_index(0); //field_index < 2^16;
             stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
             stack_push_version(0) == clk(0);
@@ -1037,7 +1039,7 @@ mod unpack {
                 field_index(1) == field_index(0) - 1;
                 // 保证 subindex 是第  field_index 个元素的header
                 stack_pop_sub_index(1).to_u16_vec() == vec![0,0,0,0,0,0,0,field_index(1)];
-                if stack_pop_value_flag(1) == SIMPLE {
+                if !stack_pop_value_header(1) {
                     field_counter(1) == 1;
                 } else {
                     let (len, flen) = stack_pop_value(1);
@@ -1080,7 +1082,7 @@ mod vec_pack {
         stack_push_index(0) == sp(0) - num_field(0) + 1;
         stack_push_sub_index(0) == 0;
         stack_push_value(0) == (num_field, flen);
-        stack_push_value_flag(0) == HEADER;
+        stack_push_value_header(0) == true;
         stack_push_version(0) == clk(0);
 
         field_idx(1) == field_idx(0);
@@ -1098,8 +1100,8 @@ mod vec_pack {
     }
 
     fn constrain_remain() {
-        let is_simple = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == SIMPLE;
-        let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_flag(0) == HEADER;
+        let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
+        let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
         if is_simple {
             field_counter(0) == 1;
         } else if is_header {
@@ -1107,7 +1109,7 @@ mod vec_pack {
         }
 
         stack_push_value(0) == stack_pop_value(0);
-        stack_push_value_flag(0) == stack_pop_value_flag(0);
+        stack_push_value_header(0) == stack_pop_value_header(0);
         field_index(0) == lower_two_types(field_index(0); //field_index < 2^16;
         stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
@@ -1165,7 +1167,7 @@ mod vec_unpack {
             if field_index(0) != 1 {
                 field_index(1) == field_index(0) - 1;
                 stack_pop_sub_index(1).to_u16_vec() == vec![0,0,0,0,0,0,0,field_index(1)];
-                if stack_pop_value_flag(1) == SIMPLE {
+                if !stack_pop_value_header(1) {
                     field_counter(1) == 1;
                 } else {
                     let (len, flen) = stack_pop_value(1);
@@ -1218,7 +1220,8 @@ mod vec_len {
             local_index(0) == stack_pop_value(-1);
             local_sub_index(0) == stack_pop_value(0);
             local_write_value(0) == local_read_value(0);
-            local_write_value_flag(0) == local_read_value_flag(0);
+            local_write_value_header(0) == local_read_value_header(0);
+            local_write_value_invalid(0) == local_read_value_invalid(0);
             local_read_version(0) < clk(0);
             local_write_version(0) == clk(0);
 
@@ -1226,7 +1229,7 @@ mod vec_len {
             stack_push_index(0) == sp(0);
             stack_push_sub_index(0) == 0;
             stack_push_value(0) == local_read_value(0).len;
-            stack_push_value_flag(0) == SIMPLE;
+            stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);
 
             sp(1) == sp(0);
@@ -1311,7 +1314,7 @@ mod vec_swap {
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
             stack_pop_value(0) != INVALID;
-            stack_pop_value_flag(0) == SIMPLE;
+            stack_pop_value_header(0) == false;
             stack_pop_version(0) < clk(0);
             fake_local_read_zero();
         }
@@ -1324,9 +1327,9 @@ mod vec_swap {
                 flen == 4;
                 step_counter(0) == flen; // in fact, it should always 4.
                 stack_pop_sub_index(0) == 0;
-                stack_pop_value_flag(0) == HEADER_FLAG;
+                stack_pop_value_header(0) == true;
             } else {
-                stack_pop_value_flag(0) == SIMPLE_FLAG;
+                stack_pop_value_header(0) == false;
             }
 
             stack_pop_index(0) == sp(0);
@@ -1357,7 +1360,7 @@ mod vec_swap {
                 local_sub_index(0) == ref_local_index(0) * 16 + index2;
                 local_sub_index(1) == ref_local_index(0) * 16 + index1;
 
-                let is_simple = local_read_value_flag(0) == SIMPLE_FLAG;
+                let is_simple = !local_read_value_header(0);
                 if is_simple {
                     step_counter(0) == 1 * 2;
                 } else {
@@ -1400,7 +1403,7 @@ mod vec_swap {
                 local_sub_index(0) == stack_read_value(-1) * 16 + index1;
                 local_sub_index(1) == stack_read_value(-1) * 16 + index2;
 
-                let is_simple = local_read_value_flag(0) == SIMPLE_FLAG;
+                let is_simple = !local_read_value_header(0);
                 if is_simple {
                     step_counter(0) == 1 * 2;
                 } else {
@@ -1475,9 +1478,9 @@ mod vec_pop_back {
                 flen == 4;
                 step_counter(0) == flen; // in fact, it should always 4.
                 stack_pop_sub_index(0) == 0;
-                stack_pop_value_flag(0) == HEADER_FLAG;
+                stack_pop_value_header(0) == true;
             } else {
-                stack_pop_value_flag(0) == SIMPLE_FLAG;
+                stack_pop_value_header(0) == false;
             }
 
             stack_pop_index(0) == sp(0);
@@ -1507,7 +1510,7 @@ mod vec_pop_back {
             if step_counter(-1) == 1 {
                 // firt row of the stage
 
-                let (pop_elem_len, pop_elem_flen) = if local_read_value_flag(0) == SIMPLE {
+                let (pop_elem_len, pop_elem_flen) = if !local_read_value_header(0) {
                     (1, 1)
                 } else {
                     local_read_value(0)
@@ -1585,9 +1588,9 @@ mod vec_push_back {
                 flen == 4;
                 step_counter(0) == flen; // in fact, it should always 4.
                 stack_pop_sub_index(0) == 0;
-                stack_pop_value_flag(0) == HEADER_FLAG;
+                stack_pop_value_header(0) == true;
             } else {
-                stack_pop_value_flag(0) == SIMPLE_FLAG;
+                stack_pop_value_header(0) == false;
             }
             stack_pop_index(0) == sp(0);
             stack_pop_value(0) != INVALID;
@@ -1618,7 +1621,7 @@ mod vec_push_back {
             if is_first {
                 // firt row of the stage
 
-                let (pop_elem_len, pop_elem_flen) = if stack_pop_value_flag(0) == SIMPLE {
+                let (pop_elem_len, pop_elem_flen) = if !stack_pop_value_header(0) {
                     (1, 1)
                 } else {
                     stack_pop_value(0)
