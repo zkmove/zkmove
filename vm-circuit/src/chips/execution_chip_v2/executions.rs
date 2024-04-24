@@ -1,10 +1,12 @@
 pub(crate) mod base;
+pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
 pub(crate) mod ld;
 pub(crate) mod pack;
 pub(crate) mod read_ref;
 pub(crate) mod vec_swap;
+pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
@@ -45,6 +47,8 @@ pub enum ExecutionState {
     Pack,
     ReadRefStage1,
     ReadRefStage2,
+    MutBorrowField,
+    ImmBorrowField,
 }
 
 #[derive(Clone, Debug)]
