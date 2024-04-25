@@ -80,88 +80,171 @@ impl<F: Field> Expr<F> for ValueHeader<F> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct SubIndexGadget<F: Field, const N_LIMB: usize> {
-    bytes: [Cell<F>; 16],
+    //used for both membership check and concat
+    header_bytes: [Cell<F>; 16],
     mask: [Cell<F>; N_LIMB],
-    depth_pow2: Cell<F>,   //2^(depth * (128 / N_LIMB))
-    reverse_limb: Cell<F>, //reverse of limb[depth-1]
+    reverse_limbs: [Cell<F>; N_LIMB],
+
+    //only used for membership check
+    field_bytes: [Cell<F>; 16],
+
+    //only used for concat
+    depth_pow2: Cell<F>, //2^(depth * (128 / N_LIMB))
 }
 impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
-    /// common constraints for move a filed under a reference, for example(N_LIMB = 8):
-    /// ref_sub_index = [3,2,0,0,0,0,0,0], field_sub_index = [4,0,0,0,0,0,0,0], depth = 2,
-    /// reslult = [3,2,4,0,0,0,0,0]
-    pub(crate) fn construct(
-        cb: &mut ConstraintBuilderV2<F>,
-        ref_sub_index: Expression<F>,
-        field_sub_index: Expression<F>,
-        result: Expression<F>,
-        name: &'static str,
-    ) -> Self {
-        let bytes = cb.query_bytes();
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let header_bytes = cb.query_bytes();
+        let field_bytes = cb.query_bytes();
         let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
             .map(|_| cb.query_bool())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
         let depth_pow2 = cb.query_cell();
-        let reverse_limb = cb.query_cell();
+        let reverse_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_cell())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
 
+        Self {
+            header_bytes,
+            field_bytes,
+            mask,
+            depth_pow2,
+            reverse_limbs,
+        }
+    }
+
+    pub(crate) fn configure_membership(
+        &self,
+        cb: &mut ConstraintBuilderV2<F>,
+        header_sub_index: Expression<F>,
+        field_sub_index: Expression<F>,
+        name: &'static str,
+    ) {
         cb.require_equal(
-            format!("{}, ref_sub_index == from_bytes(&bytes)", name),
-            ref_sub_index.clone(),
-            from_bytes::expr(&bytes),
+            format!(
+                "{}, header_sub_index == from_bytes(&self.header_bytes)",
+                name
+            ),
+            header_sub_index.clone(),
+            from_bytes::expr(&self.header_bytes),
         );
-        cb.require_zero(
-            format!("{}, sum(mask[i]) == 1", name),
-            mask.iter().fold(1u64.expr(), |acc, cell| acc - cell.expr()),
+        cb.require_equal(
+            format!("{}, field_sub_index == from_bytes(&self.field_bytes)", name),
+            field_sub_index.clone(),
+            from_bytes::expr(&self.field_bytes),
         );
-
-        let limbs = (0..N_LIMB)
+        let header_limbs = (0..N_LIMB)
             .map(|i| match N_LIMB {
-                8 => bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + bytes[2 * i].expr(),
-                16 => bytes[i].expr(),
+                8 => {
+                    self.header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
+                        + self.header_bytes[2 * i].expr()
+                }
+                16 => self.header_bytes[i].expr(),
+                _ => unimplemented!(),
+            })
+            .collect::<Vec<_>>();
+        let field_limbs = (0..N_LIMB)
+            .map(|i| match N_LIMB {
+                8 => {
+                    self.field_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
+                        + self.field_bytes[2 * i].expr()
+                }
+                16 => self.field_bytes[i].expr(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>();
 
-        //if mask[0] == 1 { ref_sub_index == 0; }
+        for i in 0..N_LIMB {
+            cb.require_zero(
+                format!(
+                    "{}, self.mask[i] * (header_limbs[i] * self.reverse_limbs[i] - 1) == 0",
+                    name
+                ),
+                self.mask[i].expr()
+                    * (header_limbs[i].clone() * self.reverse_limbs[i].expr() - 1u64.expr()),
+            );
+            cb.require_zero(
+                format!("{}, (1 - self.mask[i]) * header_limbs[i] == 0", name),
+                (1u64.expr() - self.mask[i].expr()) * header_limbs[i].clone(),
+            );
+            cb.require_zero(
+                format!(
+                    "{}, self.mask[i] * (header_limbs[i] - field_limbs[i]) == 0",
+                    name
+                ),
+                self.mask[i].expr() * (header_limbs[i].clone() - field_limbs[i].clone()),
+            );
+        }
+    }
+
+    /// common constraints for move a filed under a reference, for example(N_LIMB = 8):
+    /// sub_index_a = [3,2,0,0,0,0,0,0], sub_index_b = [4,0,0,0,0,0,0,0], depth = 2,
+    /// sub_index_c = [3,2,4,0,0,0,0,0]
+    pub(crate) fn configure_sub_index_concact(
+        &self,
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index_a: Expression<F>,
+        sub_index_b: Expression<F>,
+        sub_index_c: Expression<F>,
+        name: &'static str,
+    ) {
+        cb.require_equal(
+            format!("{}, sub_index_a == from_bytes(&self.header_bytes)", name),
+            sub_index_a.clone(),
+            from_bytes::expr(&self.header_bytes),
+        );
         cb.require_zero(
-            format!("{}, mask[0] * ref_sub_index", name),
-            mask[0].expr() * ref_sub_index.clone(),
+            format!("{}, sum(mask[i]) == 1", name),
+            self.mask
+                .iter()
+                .fold(1u64.expr(), |acc, cell| acc - cell.expr()),
+        );
+
+        let limbs = (0..N_LIMB)
+            .map(|i| match N_LIMB {
+                8 => {
+                    self.header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
+                        + self.header_bytes[2 * i].expr()
+                }
+                16 => self.header_bytes[i].expr(),
+                _ => unimplemented!(),
+            })
+            .collect::<Vec<_>>();
+
+        //constrain: if mask[0] == 1 { sub_index_a == 0; }
+        cb.require_zero(
+            format!("{}, mask[0] * sub_index_a", name),
+            self.mask[0].expr() * sub_index_a.clone(),
         );
         for i in 1..N_LIMB {
-            // if mask[i] == 1 { limbs[i] == 0; }
             cb.require_zero(
-                format!("{}, mask[i] * limbs[i]", name),
-                mask[i].expr() * limbs[i].clone(),
+                format!("{}, mask[i] * limbs[i] == 0", name),
+                self.mask[i].expr() * limbs[i].clone(),
             );
-            // if mask[i] == 1 { limbs[i-1] != 0; }
             cb.require_zero(
-                format!("{}, !mask[i] * limbs[i-1]", name),
-                mask[i].expr() * (limbs[i - 1].clone() * reverse_limb.expr() - 1u64.expr()),
+                format!("{}, mask[i] * limbs[i-1] != 0", name),
+                self.mask[i].expr()
+                    * (limbs[i - 1].clone() * self.reverse_limbs[i - 1].expr() - 1u64.expr()),
             );
         }
 
         cb.require_equal(
             format!("{}, depth_pow2 = from_bytes(&mask)", name),
-            depth_pow2.expr(),
-            from_bytes::expr(&mask),
+            self.depth_pow2.expr(),
+            from_bytes::expr(&self.mask),
         );
 
         cb.require_equal(
             format!(
-                "{}, result == ref_sub_index + field_sub_index * depth_pow2",
+                "{}, sub_index_c == sub_index_a + sub_index_b * depth_pow2",
                 name
             ),
-            result,
-            ref_sub_index + field_sub_index * depth_pow2.expr(),
+            sub_index_c,
+            sub_index_a + sub_index_b * self.depth_pow2.expr(),
         );
-
-        Self {
-            bytes,
-            mask,
-            depth_pow2,
-            reverse_limb,
-        }
     }
 
     pub(crate) fn assign(
@@ -171,36 +254,36 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
         ref_sub_index: u128,
         depth: usize,
     ) -> Result<(), Error> {
-        let ref_sub_index_bytes = F::from_u128(ref_sub_index).to_repr();
-        for (idx, byte) in self.bytes.iter().enumerate() {
-            byte.assign(
-                region,
-                offset,
-                Value::known(F::from(ref_sub_index_bytes[idx] as u64)),
-            )?;
-        }
-
-        let depth_pow2 = F::from_u128(2u128.pow((depth * (128 / N_LIMB)).try_into().unwrap()));
-        self.depth_pow2
-            .assign(region, offset, Value::known(depth_pow2))?;
-        let depth_pow2_bytes = depth_pow2.to_repr();
-        for (idx, mask) in self.mask.iter().enumerate() {
-            mask.assign(
-                region,
-                offset,
-                Value::known(F::from(depth_pow2_bytes[idx] as u64)),
-            )?;
-        }
-
-        let reverse_limb = if depth != 0 {
-            F::from(ref_sub_index_bytes[depth - 1] as u64)
-                .invert()
-                .unwrap_or(F::ZERO)
-        } else {
-            F::ZERO
-        };
-        self.reverse_limb
-            .assign(region, offset, Value::known(reverse_limb))?;
+        // let ref_sub_index_bytes = F::from_u128(ref_sub_index).to_repr();
+        // for (idx, byte) in self.bytes.iter().enumerate() {
+        //     byte.assign(
+        //         region,
+        //         offset,
+        //         Value::known(F::from(ref_sub_index_bytes[idx] as u64)),
+        //     )?;
+        // }
+        //
+        // let depth_pow2 = F::from_u128(2u128.pow((depth * (128 / N_LIMB)).try_into().unwrap()));
+        // self.depth_pow2
+        //     .assign(region, offset, Value::known(depth_pow2))?;
+        // let depth_pow2_bytes = depth_pow2.to_repr();
+        // for (idx, mask) in self.mask.iter().enumerate() {
+        //     mask.assign(
+        //         region,
+        //         offset,
+        //         Value::known(F::from(depth_pow2_bytes[idx] as u64)),
+        //     )?;
+        // }
+        //
+        // let reverse_limb = if depth != 0 {
+        //     F::from(ref_sub_index_bytes[depth - 1] as u64)
+        //         .invert()
+        //         .unwrap_or(F::ZERO)
+        // } else {
+        //     F::ZERO
+        // };
+        // self.reverse_limb
+        //     .assign(region, offset, Value::known(reverse_limb))?;
 
         Ok(())
     }

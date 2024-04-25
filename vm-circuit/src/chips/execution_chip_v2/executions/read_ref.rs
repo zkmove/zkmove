@@ -86,6 +86,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         let header = ValueHeader::new(cb);
         let header_sub_index = cb.query_cell();
         let next_row_state = cb.step_state_at_offset(1);
+        let sub_index_gadget = SubIndexGadget::construct(cb);
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::ReadRefStage1);
@@ -149,7 +150,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
             cb.curr.state.sp.expr(),
         );
 
-        let sub_index_gadget = SubIndexGadget::construct(
+        sub_index_gadget.configure_sub_index_concact(
             cb,
             header_sub_index.expr(),
             cb.curr.state.stack_push_index.expr(),
