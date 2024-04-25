@@ -34,6 +34,8 @@ pub enum ExecutionState {
     VecSwapStage2,
     VecSwapStage3,
     VecSwapStage4,
+    VecSwapStage5,
+    VecSwapStage6,
     Stop,
     Nop,
     MutBorrowLoc,
