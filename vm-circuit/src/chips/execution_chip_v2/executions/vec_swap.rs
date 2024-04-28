@@ -1,8 +1,9 @@
-use crate::chips::execution_chip::instructions::common::ValueHeaderGadget;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
+use crate::chips::execution_chip_v2::executions::{
+    ExecutionState, ExtendedSubIndex, ValueHeader, DEPTH_POW_OF_ONE_LEVEL,
+};
 use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -10,15 +11,14 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cell_manager::Cell;
 use gadgets::util::Expr;
 use std::iter::once;
-use std::marker::PhantomData;
 use types::Field;
 
-pub struct VecSwapStage1<F> {
+#[derive(Clone)]
+pub struct VecSwapStage_1<F> {
     index1: Cell<F>,
     index2: Cell<F>,
-    phantom_data: PhantomData<F>,
 }
-impl<F: Field> InstructionGadgetV2<F> for VecSwapStage1<F> {
+impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
     const NAME: &'static str = "VecSwap_Stage1";
     const OPCODE: Opcode = Opcode::VecSwap;
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecSwapStage1;
@@ -56,7 +56,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage1<F> {
         );
         cb.require_no_stack_push();
         cb.require_no_local_op();
-
+        let step_prev = cb.step_state_at_offset(-1);
         cb.last_row(|cb| {
             cb.require_equal(
                 "index1(0) == stack_pop_value(0)",
@@ -66,7 +66,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage1<F> {
             cb.require_equal(
                 "index2(0) == stack_pop_value(-1)",
                 index1.expr(),
-                cb.step_state_at_offset(-1).stack_pop_value.expr(),
+                step_prev.stack_pop_value.expr(),
             );
         });
         cb.require_state_transition(
@@ -89,20 +89,16 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage1<F> {
             cb.require_cell_transition(index1.clone(), Transition::Same);
             cb.require_cell_transition(index2.clone(), Transition::Same);
         });
-        VecSwapStage1 {
-            index1,
-            index2,
-            phantom_data: PhantomData,
-        }
+        VecSwapStage_1 { index1, index2 }
     }
 }
-pub struct VecSwapStage2<F> {
+#[derive(Clone)]
+pub struct VecSwapStage_2<F> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
-    phantom_data: PhantomData<F>,
 }
-impl<F: Field> InstructionGadgetV2<F> for VecSwapStage2<F> {
+impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_2<F> {
     const NAME: &'static str = "VecSwap_Stage2";
     const OPCODE: Opcode = Opcode::VecSwap;
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecSwapStage2;
@@ -195,18 +191,17 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage2<F> {
             index1,
             index2,
             ref_local_sub_index,
-            phantom_data: PhantomData,
         }
     }
 }
 
 /// Stage 3/4 move local value of index1/index2 to stack
+#[derive(Clone)]
 pub struct VecSwapStage_3_Or_4<F, const THREE: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
     value_len: Cell<F>,
-    phantom_data: PhantomData<F>,
 }
 impl<F: Field, const THREE: bool> VecSwapStage_3_Or_4<F, THREE> {
     const PREV_STATE: ExecutionState = if THREE {
@@ -238,6 +233,11 @@ impl<F: Field, const THREE: bool> InstructionGadgetV2<F> for VecSwapStage_3_Or_4
         let index2 = cb.query_cell();
         let ref_local_sub_index = cb.query_cell();
         let value_len = cb.query_cell();
+        let extended_sub_index = ExtendedSubIndex::<_, 8>::construct(
+            cb,
+            "ref_local_sub_index",
+            ref_local_sub_index.expr(),
+        );
 
         let step_curr = cb.curr.state.clone();
         cb.first_row(|cb| {
@@ -281,33 +281,36 @@ impl<F: Field, const THREE: bool> InstructionGadgetV2<F> for VecSwapStage_3_Or_4
         cb.first_row(|cb| {
             // only need to look back on stack_pop_value for stage3
             if THREE {
+                let reference_local_frame_index =
+                    cb.cell_at_offset(&step_curr.stack_pop_value, -3).expr();
                 cb.require_equal(
                     "local_frame_index(0) == stack_pop_value(-3)",
                     step_curr.local_frame_index.expr(),
-                    cb.cell_at_offset(&step_curr.stack_pop_value, -3).expr(),
+                    reference_local_frame_index,
                 );
+                let reference_local_index =
+                    cb.cell_at_offset(&step_curr.stack_pop_value, -2).expr();
                 cb.require_equal(
                     "local_index(0) == stack_pop_value(-2)",
                     step_curr.local_index.expr(),
-                    cb.cell_at_offset(&step_curr.stack_pop_value, -2).expr(),
+                    reference_local_index,
                 );
+                let reference_sub_index = cb.cell_at_offset(&step_curr.stack_pop_value, -1).expr();
                 cb.require_equal(
                     "ref_local_sub_index(0) == stack_pop_value(-1)",
                     ref_local_sub_index.expr(),
-                    cb.cell_at_offset(&step_curr.stack_pop_value, -1).expr(),
+                    reference_sub_index,
                 );
             }
         });
-        // FIXME: check the equals
+
         cb.require_equal(
-            concat!(
-                "local_sub_index(0) == ref_local_sub_index(0) + ",
-                if THREE { "index1" } else { "index2" },
-                "<<(16*depth)"
-            ),
+            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_push_sub_index(0)))", if THREE { "index1" } else { "index2"}),
             step_curr.local_sub_index.expr(),
-            ref_local_sub_index.expr()
-                + if THREE { index1.expr() } else { index2.expr() } *16 /* *depth */
+            extended_sub_index.concat_sub_index(
+                if THREE { index1.expr() } else { index2.expr() }
+                    + step_curr.stack_push_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
+            )
         );
         cb.require_zero(
             "local_read_value_invalid(0) == false",
@@ -369,18 +372,17 @@ impl<F: Field, const THREE: bool> InstructionGadgetV2<F> for VecSwapStage_3_Or_4
             index2,
             ref_local_sub_index,
             value_len,
-            phantom_data: PhantomData,
         }
     }
 }
 
 /// Stage 3/4 move local value of index1/index2 to stack
+#[derive(Clone)]
 pub struct VecSwapStage_5_Or_6<F, const FIVE: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
     value_len: Cell<F>,
-    phantom_data: PhantomData<F>,
 }
 /// Stage 5/6 pop from stack and write to local of index1/index2
 impl<F: Field, const FIVE: bool> VecSwapStage_5_Or_6<F, FIVE> {
@@ -408,6 +410,11 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
         let index2 = cb.query_cell();
         let ref_local_sub_index = cb.query_cell();
         let value_len = cb.query_cell();
+        let extended_sub_index = ExtendedSubIndex::<_, 8>::construct(
+            cb,
+            "ref_local_sub_index",
+            ref_local_sub_index.expr(),
+        );
 
         let step_curr = cb.curr.state.clone();
         cb.first_row(|cb| {
@@ -449,16 +456,15 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
         });
 
         // -- local op constraints
-        // FIXME: check the equals
         cb.require_equal(
-            concat!(
-                "local_sub_index(0) == ref_local_sub_index(0) * 16 + ",
-                if FIVE { "index1" } else { "index2" }
-            ),
+            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_pop_sub_index(0)))", if FIVE { "index1" } else { "index2"}),
             step_curr.local_sub_index.expr(),
-            ref_local_sub_index.expr() * 16u64.expr()
-                + if FIVE { index1.expr() } else { index2.expr() },
+            extended_sub_index.concat_sub_index(
+                if FIVE { index1.expr() } else { index2.expr() }
+                    + step_curr.stack_pop_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
+            )
         );
+
         cb.require_true(
             "local_read_value_invalid(0) == true",
             step_curr.local_read_value_invalid.expr(),
@@ -485,7 +491,7 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
             step_curr.clk.expr(),
         );
 
-        let constraints = |cb| {
+        let constraints = |cb: &mut ConstraintBuilderV2<F>| {
             cb.require_state_transition(
                 [
                     FRAME_INDEX,
@@ -516,7 +522,7 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
             cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
         });
 
-        let constraints = |cb| {
+        let constraints = |cb: &mut ConstraintBuilderV2<F>| {
             cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(ref_local_sub_index.clone(), Transition::Same);
@@ -536,7 +542,6 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
             index2,
             ref_local_sub_index,
             value_len,
-            phantom_data: PhantomData,
         }
     }
 }

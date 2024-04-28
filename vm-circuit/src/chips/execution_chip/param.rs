@@ -12,7 +12,7 @@ pub const STEP_HEIGHT: usize = 40; // default max step height
 
 pub const GENERIC_TYPE_CAPACITY: usize = 4;
 
-thread_local!(pub static WORD_CAPACITY: RefCell<usize> = RefCell::new(DEFAULT_WORD_CAPACITY));
+thread_local!(pub static WORD_CAPACITY: RefCell<usize> = const { RefCell::new(DEFAULT_WORD_CAPACITY) });
 
 #[inline]
 pub fn word_capacity() -> usize {

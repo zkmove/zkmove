@@ -239,17 +239,17 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         let cell_next = self.cell_at_offset(&cell, 1);
         match transition {
             Transition::Same => self.require_equal(
-                "cell transition (same) constraint".to_string(),
+                "cell transition (same) constraint",
                 cell_next.expr(),
                 cell.expr(),
             ),
             Transition::Delta(delta) => self.require_equal(
-                "Cell transition (delta) constraint".to_string(),
+                "Cell transition (delta) constraint",
                 cell_next.expr(),
                 cell.expr() + delta,
             ),
             Transition::To(to) => self.require_equal(
-                "Cell transition (to) constraint".to_string(),
+                "Cell transition (to) constraint",
                 cell_next.expr(),
                 to,
             ),

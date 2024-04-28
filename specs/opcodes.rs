@@ -1484,9 +1484,9 @@ mod vec_swap {
         };
         local_sub_index(0)
             == concat(
-                nonzero(stack_push_sub_index(0)),
+                ref_local_sub_index(0),
                 if is_stage_3 { index1 } else { index2 },
-                nonzero(ref_local_sub_index(0)),
+                nonzero(stack_push_sub_index(0)),
             );
         local_read_value(0) == stack_push_value(0);
         local_read_value_header(0) == stack_push_value_header(0);
@@ -1536,9 +1536,9 @@ mod vec_swap {
         // NOTICE: local_frame_index(0) and local_index(0) are constrained by prev state.
         local_sub_index(0)
             == concat(
-                nonzero(stack_pop_sub_index(0)),
-                if FIVE { index1 } else { index2 },
                 nonzero(ref_local_sub_index(0)),
+                if FIVE { index1 } else { index2 },
+                nonzero(stack_pop_sub_index(0)),
             );
         local_read_value_invalid(0) == true;
         local_write_value_invalid(0) == false;

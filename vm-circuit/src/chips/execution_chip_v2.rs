@@ -4,6 +4,9 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::vec_swap::{
+    VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
+};
 use crate::chips::execution_chip_v2::executions::BorrowLoc;
 use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
@@ -36,6 +39,12 @@ pub(crate) struct ExecChipConfig<F> {
     pub ld: Box<Ld<F, { LdType::LdU64 }>>,
     pub pack: Box<Pack<F>>,
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
+    pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
+    pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
+    pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
+    pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
+    pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
+    pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
     pub step: Step<F>,
 }
 
@@ -165,6 +174,12 @@ impl<F: Field> ExecChipConfig<F> {
             ld: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),
             pack: configure_opcode_gadget!(),
+            vec_swap_stage_1: configure_opcode_gadget!(),
+            vec_swap_stage_2: configure_opcode_gadget!(),
+            vec_swap_stage_3: configure_opcode_gadget!(),
+            vec_swap_stage_4: configure_opcode_gadget!(),
+            vec_swap_stage_5: configure_opcode_gadget!(),
+            vec_swap_stage_6: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
