@@ -150,7 +150,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
             cb.curr.state.sp.expr(),
         );
 
-        sub_index_gadget.configure_sub_index_concact(
+        sub_index_gadget.configure(
             cb,
             header_sub_index.expr(),
             cb.curr.state.stack_push_index.expr(),
