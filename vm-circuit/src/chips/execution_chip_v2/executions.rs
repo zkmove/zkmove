@@ -84,6 +84,7 @@ pub(crate) struct SubIndexGadget<F: Field, const N_LIMB: usize> {
     header_bytes: [Cell<F>; 16],
     mask: [Cell<F>; N_LIMB],
     reverse_limbs: [Cell<F>; N_LIMB],
+    reverse_header_field_diff: Cell<F>,
 
     //only used for membership check
     field_bytes: [Cell<F>; 16],
@@ -106,6 +107,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+        let reverse_header_field_diff = cb.query_cell();
 
         Self {
             header_bytes,
@@ -113,6 +115,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             mask,
             depth_pow2,
             reverse_limbs,
+            reverse_header_field_diff,
         }
     }
 
@@ -178,6 +181,16 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
                 self.mask[i].expr() * (header_limbs[i].clone() - field_limbs[i].clone()),
             );
         }
+
+        //we need field_sub_index != header_sub_index
+        let header_field_diff = field_sub_index - header_sub_index;
+        cb.require_zero(
+            format!(
+                "{}, header_field_diff * reverse_header_field_diff - 1 == 0",
+                name
+            ),
+            header_field_diff * self.reverse_header_field_diff.expr() - 1u64.expr(),
+        );
     }
 
     /// common constraints for move a filed under a reference, for example(N_LIMB = 8):
