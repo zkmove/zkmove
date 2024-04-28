@@ -209,11 +209,10 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             sub_index_a.clone(),
             from_bytes::expr(&self.header_bytes),
         );
-        cb.require_zero(
+        cb.require_equal(
             format!("{}, sum(mask[i]) == 1", name),
-            self.mask
-                .iter()
-                .fold(1u64.expr(), |acc, cell| acc - cell.expr()),
+            self.mask.iter().map(|c| c.expr()).sum(),
+            1u64.expr(),
         );
 
         let limbs = (0..N_LIMB)
