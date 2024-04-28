@@ -1430,11 +1430,12 @@ mod vec_swap {
             let (len, flen) = stack_pop_value(0);
             flen == 4;
             step_counter(0) == flen; // in fact, it should always 4.
-            stack_pop_sub_index(0) == 0;
             stack_pop_value_flag(0) == HEADER_FLAG;
         } else {
             stack_pop_value_flag(0) == SIMPLE_FLAG;
         }
+        // sub_index is 0,1,2,3, so just use step_counter to constrain it.
+        stack_pop_sub_index(0) == 4 - step_counter(0);
         stack_pop_index(0) == sp(0);
         fake_stach_push();
         fake_local_read_zero();

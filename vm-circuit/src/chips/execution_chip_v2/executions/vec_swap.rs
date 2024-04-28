@@ -121,10 +121,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_2<F> {
                 cb.curr.state.step_counter.expr(),
                 4u64.expr(),
             );
-            cb.require_zero(
-                "stack_pop_sub_index(0) == 0",
-                cb.curr.state.stack_pop_sub_index.expr(),
-            );
+
             cb.require_true(
                 "stack_pop_value_header(0) == true",
                 cb.curr.state.stack_pop_value_header.expr(),
@@ -143,7 +140,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_2<F> {
             cb.curr.state.stack_pop_index.expr(),
             cb.curr.state.sp.expr(),
         );
-
+        cb.require_equal(
+            "stack_pop_sub_index(0) == 4 - step_counter(0)",
+            cb.curr.state.stack_pop_sub_index.expr(),
+            4u64.expr() - cb.curr.state.step_counter.expr(),
+        );
         cb.last_row(|cb| {
             cb.require_equal(
                 "ref_local_sub_index(0) == stack_pop_value(0)",
