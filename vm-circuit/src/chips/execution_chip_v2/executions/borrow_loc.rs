@@ -75,8 +75,8 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
             cb.curr.state.clk.expr(),
         );
 
-        //TODO: super::common::fake_empty_stack_pop(0);
-        //TODO: super::common::fake_local_read_zero(0);
+        cb.require_no_stack_pop();
+        cb.require_no_local_op();
 
         cb.not_last_row(|cb| {
             cb.require_equal(
@@ -92,11 +92,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
                 next_row_state.step_counter.expr(),
                 cb.curr.state.step_counter.expr() - 1u64.expr(),
             );
-            cb.require_equal(
-                format!("{}, sp(1) == sp(0)", Self::NAME),
-                next_row_state.sp.expr(),
-                cb.curr.state.sp.expr(),
-            );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
         cb.last_row(|cb| {

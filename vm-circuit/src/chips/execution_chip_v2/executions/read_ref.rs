@@ -41,8 +41,8 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
             cb.curr.state.stack_pop_index.expr(),
             cb.curr.state.sp.expr(),
         );
-        //TODO: super::common::fake_empty_stack_push();
-        //TODO: super::common::fake_local_read_zero();
+        cb.require_no_stack_push();
+        cb.require_no_local_op();
 
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.not_last_row(|cb| {
@@ -207,7 +207,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
             cb.curr.state.clk.expr(),
         );
 
-        //TODO: super::common::fake_empty_stack_pop();
+        cb.require_no_stack_pop();
 
         cb.require_state_transition(vec![(SP, Transition::Same)]);
 
