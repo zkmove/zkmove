@@ -9,8 +9,6 @@ pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
 pub use pack::*;
-pub use read_ref::*;
-pub use vec_swap::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -18,10 +16,7 @@ use crate::chips::execution_chip_v2::utils::from_bytes;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use halo2_proofs::{
-    circuit::Value,
-    plonk::{Error, Expression},
-};
+use halo2_proofs::plonk::{Error, Expression};
 use strum_macros::EnumIter;
 use types::Field;
 
@@ -34,6 +29,8 @@ pub enum ExecutionState {
     VecSwapStage2,
     VecSwapStage3,
     VecSwapStage4,
+    VecSwapStage5,
+    VecSwapStage6,
     Stop,
     Nop,
     MutBorrowLoc,
@@ -186,15 +183,23 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
     }
 }
 
+pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(16);
+
+/// Extended SubIndex used for manipulate sub_index, like concat
 #[derive(Clone, Debug)]
-pub(crate) struct SubIndexGadget<F: Field, const N_LIMB: usize> {
+pub(crate) struct ExtendedSubIndex<F: Field, const N_LIMB: usize> {
+    header_sub_index: Expression<F>,
     header_bytes: [Cell<F>; 16],
     mask_bytes: [Cell<F>; 16],
     reverse_limb: Cell<F>,
     depth_pow2: Cell<F>, //2^(depth * (128 / N_LIMB))
 }
-impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
-    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
+impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        name: impl AsRef<str>,
+        header_sub_index: Expression<F>,
+    ) -> Self {
         let header_bytes = cb.query_bytes(); //TODO: query_u16_cells()
         let mask_bytes: [Cell<F>; 16] = (0..16)
             .map(|_| cb.query_bool())
@@ -203,49 +208,26 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             .unwrap();
         let reverse_limb = cb.query_cell();
         let depth_pow2 = cb.query_cell();
-
-        Self {
-            header_bytes,
-            mask_bytes,
-            reverse_limb,
-            depth_pow2,
-        }
-    }
-
-    /// common constraints for move a filed under a reference, for example(N_LIMB = 8):
-    /// sub_index_a = [3,2,0,0,0,0,0,0], sub_index_b = [4,1,0,0,0,0,0,0], depth = 2,
-    /// sub_index_c = [3,2,4,1,0,0,0,0]
-    pub(crate) fn configure(
-        &self,
-        cb: &mut ConstraintBuilderV2<F>,
-        sub_index_a: Expression<F>,
-        sub_index_b: Expression<F>,
-        sub_index_c: Expression<F>,
-        name: &'static str,
-    ) {
+        let name = name.as_ref();
         cb.require_equal(
             format!("{}, sub_index_a == from_bytes(&self.header_bytes)", name),
-            sub_index_a.clone(),
-            from_bytes::expr(&self.header_bytes),
+            header_sub_index.clone(),
+            from_bytes::expr(&header_bytes),
         );
 
         let limbs = (0..N_LIMB)
             .map(|i| match N_LIMB {
                 8 => {
-                    self.header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
-                        + self.header_bytes[2 * i].expr()
+                    header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + header_bytes[2 * i].expr()
                 }
-                16 => self.header_bytes[i].expr(),
+                16 => header_bytes[i].expr(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>();
         let mask_limbs = (0..N_LIMB)
             .map(|i| match N_LIMB {
-                8 => {
-                    self.mask_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
-                        + self.mask_bytes[2 * i].expr()
-                }
-                16 => self.mask_bytes[i].expr(),
+                8 => mask_bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + mask_bytes[2 * i].expr(),
+                16 => mask_bytes[i].expr(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>();
@@ -258,7 +240,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
         //constrain: if mask[0] == 1 { sub_index_a == 0; }
         cb.require_zero(
             format!("{}, mask_limbs[0] * sub_index_a", name),
-            mask_limbs[0].clone() * sub_index_a.clone(),
+            mask_limbs[0].clone() * header_sub_index.clone(),
         );
         for i in 1..N_LIMB {
             cb.require_zero(
@@ -267,25 +249,36 @@ impl<F: Field, const N_LIMB: usize> SubIndexGadget<F, N_LIMB> {
             );
             cb.require_zero(
                 format!("{}, mask_limbs[i] * limbs[i-1] != 0", name),
-                mask_limbs[i].clone()
-                    * (limbs[i - 1].clone() * self.reverse_limb.expr() - 1u64.expr()),
+                mask_limbs[i].clone() * (limbs[i - 1].clone() * reverse_limb.expr() - 1u64.expr()),
             );
         }
 
         cb.require_equal(
             format!("{}, depth_pow2 = from_bytes(&mask)", name),
-            self.depth_pow2.expr(),
-            from_bytes::expr(&self.mask_bytes),
+            depth_pow2.expr(),
+            from_bytes::expr(&mask_bytes),
         );
 
-        cb.require_equal(
-            format!(
-                "{}, sub_index_c == sub_index_a + sub_index_b * depth_pow2",
-                name
-            ),
-            sub_index_c,
-            sub_index_a + sub_index_b * self.depth_pow2.expr(),
-        );
+        Self {
+            header_sub_index,
+            header_bytes,
+            mask_bytes,
+            reverse_limb,
+            depth_pow2,
+        }
+    }
+
+    pub(crate) fn get_depth_pow(&self) -> Expression<F> {
+        self.depth_pow2.expr()
+    }
+
+    /// TODO: change to a better name
+    /// concat the header's sub_index with another sub_index, and return the resulted sub_index
+    /// current header_sub_index  = [3,2,0,0,0,0,0,0] of depth = 2,
+    ///  concat other_sub_index = [4,1,0,0,0,0,0,0],
+    /// expected_sub_index = [3,2,4,1,0,0,0,0]
+    pub(crate) fn concat_sub_index(&self, other_sub_index: Expression<F>) -> Expression<F> {
+        self.header_sub_index.expr() + other_sub_index * self.depth_pow2.expr()
     }
 
     pub(crate) fn assign(

@@ -2,7 +2,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::executions::SubIndexGadget;
+use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
@@ -75,7 +75,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
 pub struct ReadRefStage2<F: Field> {
     header: ValueHeader<F>,
     header_sub_index: Cell<F>,
-    sub_index_gadget: SubIndexGadget<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
     const NAME: &'static str = "ReadRef_Stage2";
@@ -86,7 +86,8 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         let header = ValueHeader::new(cb);
         let header_sub_index = cb.query_cell();
         let next_row_state = cb.step_state_at_offset(1);
-        let sub_index_gadget = SubIndexGadget::construct(cb);
+        let header_sub_index_ext =
+            ExtendedSubIndex::<_, 8>::construct(cb, "header_sub_index", header_sub_index.expr());
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::ReadRefStage1);
@@ -150,12 +151,10 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
             cb.curr.state.sp.expr(),
         );
 
-        sub_index_gadget.configure(
-            cb,
-            header_sub_index.expr(),
-            cb.curr.state.stack_push_index.expr(),
+        cb.require_equal(
+            format!("{}, local_sub_index(0) == concat(header_sub_index(0), nonzero(stack_push_sub_index(0)))" , Self::NAME),
             cb.curr.state.local_sub_index.expr(),
-            Self::NAME,
+            header_sub_index_ext.concat_sub_index(cb.curr.state.stack_push_sub_index.expr()),
         );
 
         cb.require_equal(
@@ -245,7 +244,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
         ReadRefStage2 {
             header,
             header_sub_index,
-            sub_index_gadget,
+            header_sub_index_ext,
         }
     }
 }

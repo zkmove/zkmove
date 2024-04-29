@@ -231,6 +231,29 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 
+    pub(crate) fn require_cell_transition(
+        &mut self,
+        cell: Cell<F>,
+        transition: Transition<Expression<F>>,
+    ) {
+        let cell_next = self.cell_at_offset(&cell, 1);
+        match transition {
+            Transition::Same => self.require_equal(
+                "cell transition (same) constraint",
+                cell_next.expr(),
+                cell.expr(),
+            ),
+            Transition::Delta(delta) => self.require_equal(
+                "Cell transition (delta) constraint",
+                cell_next.expr(),
+                cell.expr() + delta,
+            ),
+            Transition::To(to) => {
+                self.require_equal("Cell transition (to) constraint", cell_next.expr(), to)
+            }
+        }
+    }
+
     pub(crate) fn require_state_transition(
         &mut self,
         step_state_transition: Vec<StateTransition<Expression<F>>>,
@@ -272,6 +295,19 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         constrain!(step_state_transition, aux1);
         constrain!(step_state_transition, step_counter);
         // TODO: add other state variable
+    }
+
+    /// FIXME: implement this.
+    pub(crate) fn require_no_stack_push(&mut self) {
+        self.require_zero("none stack push", self.curr.state.stack_push_version.expr());
+    }
+    /// FIXME: implement this.
+    pub(crate) fn require_no_stack_pop(&mut self) {
+        self.require_zero("none stack pop", self.curr.state.stack_pop_version.expr());
+    }
+    /// FIXME: implement this.
+    pub(crate) fn require_no_local_op(&mut self) {
+        self.require_zero("none local op", self.curr.state.local_read_version.expr());
     }
 
     // Lookups
