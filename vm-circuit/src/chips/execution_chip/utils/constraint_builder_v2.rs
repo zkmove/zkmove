@@ -248,11 +248,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 cell_next.expr(),
                 cell.expr() + delta,
             ),
-            Transition::To(to) => self.require_equal(
-                "Cell transition (to) constraint",
-                cell_next.expr(),
-                to,
-            ),
+            Transition::To(to) => {
+                self.require_equal("Cell transition (to) constraint", cell_next.expr(), to)
+            }
         }
     }
 
