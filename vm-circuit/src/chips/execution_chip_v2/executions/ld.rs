@@ -101,7 +101,7 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
                 cb.curr.state.clk.expr(),
             );
 
-            //TODO: super::common::fake_local_read_zero();
+            cb.require_no_local_op();
 
             cb.require_state_transition(vec![
                 (FRAME_INDEX, Transition::Same),

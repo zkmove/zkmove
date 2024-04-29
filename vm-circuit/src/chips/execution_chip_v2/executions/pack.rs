@@ -65,8 +65,8 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 cb.curr.state.clk.expr(),
             );
 
-            //TODO: super::common::fake_empty_stack_pop(0);
-            //TODO: super::common::fake_local_read_zero(0);
+            cb.require_no_stack_pop();
+            cb.require_no_local_op();
 
             cb.require_equal(
                 format!("{}, field_index(1) == aux0(0)", Self::NAME),
@@ -141,7 +141,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
                 cb.curr.state.clk.expr(),
             );
 
-            //TODO: super::common::fake_local_read_zero(0);
+            cb.require_no_local_op();
 
             let end_of_one_field = and::expr([
                 not::expr(next_row_state.clk.expr() - cb.curr.state.clk.expr()), //not last row

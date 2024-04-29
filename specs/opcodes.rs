@@ -719,7 +719,6 @@ mod borrow_field {
     pub fn constrain() {
         if common::on_first_row() {
             step_counter(0) == 4;
-            stack_pop_sub_index(0) == 0;
             stack_push_value_header(0) == true;
         } else {
             stack_push_value_header(0) == false;
@@ -728,6 +727,7 @@ mod borrow_field {
         stack_pop_index(0) == sp(0);
         stack_pop_version(0) < clk(0);
         stack_push_index(0) == sp(0);
+        stack_pop_sub_index(0) == 4 - step_counter(0);
         stack_push_sub_index(0) == stack_pop_sub_index(0);
         stack_push_version(0) == clk(0);
         sp(1) == sp(0);
@@ -735,9 +735,9 @@ mod borrow_field {
 
         if !common::on_last_row() {
             stack_pop_value(0) == stack_push_value(0);
-            stack_pop_sub_index(1) == stack_pop_sub_index(0) + 1;
         } else  {
-            SubIndexGadget::construct(stack_pop_value(0), aux0(0)+1, stack_push_value(0));
+            //fh_idx starts from 0, but sub_index starts from 1, so add 1 on aux0
+            stack_push_value(0) == stack_pop_value(0).concat(aux0(0)+1);
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
@@ -746,8 +746,8 @@ mod borrow_field {
     }
 }
 
-mod read_ref_stage_1 {
-    pub fn constrain() {
+mod read_ref {
+    pub fn constrain_read_ref_stage_1() {
         if super::common::on_first_row() {
             // first step
             step_counter(0) == 4;
@@ -771,9 +771,7 @@ mod read_ref_stage_1 {
             execution_state_next == read_ref_stage_2;
         }
     }
-}
-mod read_ref_stage_2 {
-    pub fn constrain() {
+    pub fn constrain_read_ref_stage_2() {
         if super::common::on_first_row() {
             // first step in the stage
             execution_state_prev == read_ref_stage_1;
@@ -1018,8 +1016,6 @@ mod branch {
     }
 }
 
-// define column field_idx
-// define column field_counter
 mod pack {
     pub fn constrain() {
         if super::common::on_first_row() {

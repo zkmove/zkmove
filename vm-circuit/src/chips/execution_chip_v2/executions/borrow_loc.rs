@@ -75,8 +75,8 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
             cb.curr.state.clk.expr(),
         );
 
-        //TODO: super::common::fake_empty_stack_pop(0);
-        //TODO: super::common::fake_local_read_zero(0);
+        cb.require_no_stack_pop();
+        cb.require_no_local_op();
 
         cb.not_last_row(|cb| {
             cb.require_equal(
