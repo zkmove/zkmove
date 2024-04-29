@@ -1465,10 +1465,8 @@ mod vec_swap {
         stack_push_index(0) == sp(0) + 1;
         if is_first {
             stack_push_sub_index(0) == 0;
-        } else {
-            // first level's 16bits != 0
-            stack_pop_sub_index(0).l0 != 0;
         }
+
         if is_first {
             stack_push_value_header(0) == true;
             (value_len(0), step_counter(0)) == stack_push_value(0);

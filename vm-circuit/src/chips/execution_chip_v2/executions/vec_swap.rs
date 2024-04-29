@@ -65,7 +65,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             );
             cb.require_equal(
                 "index2(0) == stack_pop_value(-1)",
-                index1.expr(),
+                index2.expr(),
                 step_prev.stack_pop_value.expr(),
             );
         });
@@ -340,20 +340,23 @@ impl<F: Field, const THREE: bool> InstructionGadgetV2<F> for VecSwapStage_3_Or_4
             step_curr.local_write_value_invalid.expr(),
         );
 
-        cb.require_state_transition(
-            [
-                FRAME_INDEX,
-                MODULE_INDEX,
-                FUNCTION_INDEX,
-                PC,
-                OPCODE,
-                AUX0,
-                AUX1,
-            ]
-            .into_iter()
-            .map(|s| (s, Transition::Same))
-            .collect(),
-        );
+        cb.last_row(|cb| {
+            cb.require_state_transition(
+                [
+                    FRAME_INDEX,
+                    MODULE_INDEX,
+                    FUNCTION_INDEX,
+                    PC,
+                    OPCODE,
+                    AUX0,
+                    AUX1,
+                ]
+                .into_iter()
+                .map(|s| (s, Transition::Same))
+                .collect(),
+            );
+        });
+
         // sp = sp+1 for last row
         cb.not_last_row(|cb| {
             cb.require_state_transition(vec![(SP, Transition::Same)]);
@@ -377,7 +380,7 @@ impl<F: Field, const THREE: bool> InstructionGadgetV2<F> for VecSwapStage_3_Or_4
     }
 }
 
-/// Stage 3/4 move local value of index1/index2 to stack
+/// Stage 5/6 move local value of index1/index2 to stack
 #[derive(Clone)]
 pub struct VecSwapStage_5_Or_6<F, const FIVE: bool> {
     index1: Cell<F>,
@@ -492,27 +495,22 @@ impl<F: Field, const FIVE: bool> InstructionGadgetV2<F> for VecSwapStage_5_Or_6<
             step_curr.clk.expr(),
         );
 
-        let constraints = |cb: &mut ConstraintBuilderV2<F>| {
-            cb.require_state_transition(
-                [
-                    FRAME_INDEX,
-                    MODULE_INDEX,
-                    FUNCTION_INDEX,
-                    PC,
-                    OPCODE,
-                    AUX0,
-                    AUX1,
-                ]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
-            );
-        };
         if FIVE {
-            constraints(cb);
-        } else {
-            cb.not_last_row(|cb| {
-                constraints(cb);
+            cb.last_row(|cb| {
+                cb.require_state_transition(
+                    [
+                        FRAME_INDEX,
+                        MODULE_INDEX,
+                        FUNCTION_INDEX,
+                        PC,
+                        OPCODE,
+                        AUX0,
+                        AUX1,
+                    ]
+                    .into_iter()
+                    .map(|s| (s, Transition::Same))
+                    .collect(),
+                );
             });
         }
         // sp = sp-1 for last row
