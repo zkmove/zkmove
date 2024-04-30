@@ -4,6 +4,7 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::MembershipGadget;
+use crate::chips::execution_chip_v2::executions::SubIndexDepth;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::executions::DEPTH_POW_OF_ONE_LEVEL;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
@@ -326,9 +327,9 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
 ///STAGE_UPDATE_PARENT
 #[derive(Clone, Debug)]
 pub struct WriteRefStage4<F: Field> {
-    header_sub_index: Cell<F>,
-    header_flen_delta: Cell<F>,
-    header_sub_index_ext_prev: ExtendedSubIndex<F, 8>,
+    header_sub_index: Cell<F>, //NOTICE: must be in the same column as prev stage.
+    header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
+    header_sub_index_depth: SubIndexDepth<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
     const NAME: &'static str = "WriteRef_Stage4";
@@ -339,14 +340,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
         let header_sub_index = cb.query_cell(); //NOTICE: must be in the same column as stage 3.
         let header_flen_delta = cb.query_cell(); //NOTICE: must be in the same column as stage 3.
         let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
-        let header_sub_index_ext_prev =
-            ExtendedSubIndex::<_, 8>::construct(cb, Self::NAME, header_sub_index_prev);
+        let header_sub_index_depth =
+            SubIndexDepth::<_, 8>::construct(cb, header_sub_index_prev.clone(), Self::NAME);
+        let depth = cb.query_cell();
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage3);
 
-            let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
             cb.require_equal(
                 format!(
                     "{}, header_sub_index(0) == header_sub_index(-1)",
@@ -361,7 +362,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
                     Self::NAME
                 ),
                 step_curr.step_counter.expr(),
-                header_sub_index_ext_prev.depth(),
+                header_sub_index_depth.expr(),
             );
             let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
             cb.require_equal(
@@ -455,7 +456,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
         WriteRefStage4 {
             header_sub_index,
             header_flen_delta,
-            header_sub_index_ext_prev,
+            header_sub_index_depth,
         }
     }
 }

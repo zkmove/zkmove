@@ -152,6 +152,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn query_byte(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::Lookup(Table::U8))
     }
+    pub(crate) fn query_u16(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::Lookup(Table::U16))
+    }
     pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_u8_dyn(N).try_into().unwrap()
     }

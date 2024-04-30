@@ -16,7 +16,7 @@ pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::execution_chip_v2::utils::from_bytes;
+use crate::chips::execution_chip_v2::utils::from_u16_limbs;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -87,16 +87,24 @@ impl<F: Field> Expr<F> for ValueHeader<F> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
-    header_bytes: [Cell<F>; 16],
-    field_bytes: [Cell<F>; 16],
+    header_limbs: [Cell<F>; N_LIMB],
+    field_limbs: [Cell<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_limbs: [Cell<F>; N_LIMB],
     reverse_header_field_diff: Cell<F>,
 }
 impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let header_bytes = cb.query_bytes();
-        let field_bytes = cb.query_bytes();
+        let header_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let field_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
             .map(|_| cb.query_bool())
             .collect::<Vec<_>>()
@@ -110,8 +118,8 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
         let reverse_header_field_diff = cb.query_cell();
 
         Self {
-            header_bytes,
-            field_bytes,
+            header_limbs,
+            field_limbs,
             mask,
             reverse_limbs,
             reverse_header_field_diff,
@@ -126,58 +134,35 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
         name: &'static str,
     ) {
         cb.require_equal(
-            format!(
-                "{}, header_sub_index == from_bytes(&self.header_bytes)",
-                name
-            ),
+            format!("{}, header_sub_index == from_u16_limbs(header_limbs)", name),
             header_sub_index.clone(),
-            from_bytes::expr(&self.header_bytes),
+            from_u16_limbs::expr(&self.header_limbs),
         );
         cb.require_equal(
-            format!("{}, field_sub_index == from_bytes(&self.field_bytes)", name),
+            format!("{}, field_sub_index == from_u16_limbs(&field_limbs)", name),
             field_sub_index.clone(),
-            from_bytes::expr(&self.field_bytes),
+            from_u16_limbs::expr(&self.field_limbs),
         );
-        let header_limbs = (0..N_LIMB)
-            .map(|i| match N_LIMB {
-                8 => {
-                    self.header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
-                        + self.header_bytes[2 * i].expr()
-                }
-                16 => self.header_bytes[i].expr(),
-                _ => unimplemented!(),
-            })
-            .collect::<Vec<_>>();
-        let field_limbs = (0..N_LIMB)
-            .map(|i| match N_LIMB {
-                8 => {
-                    self.field_bytes[2 * i + 1].expr() * 2u64.pow(8).expr()
-                        + self.field_bytes[2 * i].expr()
-                }
-                16 => self.field_bytes[i].expr(),
-                _ => unimplemented!(),
-            })
-            .collect::<Vec<_>>();
 
         for i in 0..N_LIMB {
             cb.require_zero(
                 format!(
-                    "{}, self.mask[i] * (header_limbs[i] * self.reverse_limbs[i] - 1) == 0",
+                    "{}, mask[i] * (header_limbs[i] * reverse_limbs[i] - 1) == 0",
                     name
                 ),
                 self.mask[i].expr()
-                    * (header_limbs[i].clone() * self.reverse_limbs[i].expr() - 1u64.expr()),
+                    * (self.header_limbs[i].expr() * self.reverse_limbs[i].expr() - 1u64.expr()),
             );
             cb.require_zero(
-                format!("{}, (1 - self.mask[i]) * header_limbs[i] == 0", name),
-                (1u64.expr() - self.mask[i].expr()) * header_limbs[i].clone(),
+                format!("{}, (1 - mask[i]) * header_limbs[i] == 0", name),
+                (1u64.expr() - self.mask[i].expr()) * self.header_limbs[i].expr(),
             );
             cb.require_zero(
                 format!(
-                    "{}, self.mask[i] * (header_limbs[i] - field_limbs[i]) == 0",
+                    "{}, mask[i] * (header_limbs[i] - field_limbs[i]) == 0",
                     name
                 ),
-                self.mask[i].expr() * (header_limbs[i].clone() - field_limbs[i].clone()),
+                self.mask[i].expr() * (self.header_limbs[i].expr() - self.field_limbs[i].expr()),
             );
         }
 
@@ -199,10 +184,10 @@ pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(16);
 #[derive(Clone, Debug)]
 pub(crate) struct ExtendedSubIndex<F: Field, const N_LIMB: usize> {
     header_sub_index: Expression<F>,
-    header_bytes: [Cell<F>; 16],
-    mask_bytes: [Cell<F>; 16],
+    header_limbs: [Cell<F>; N_LIMB],
+    mask: [Cell<F>; N_LIMB],
     reverse_limb: Cell<F>,
-    depth_pow2: Cell<F>, //2^(depth * (128 / N_LIMB))
+    depth_pow2: Cell<F>, //2^(depth * 16)
 }
 impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     pub(crate) fn construct(
@@ -210,8 +195,12 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         name: impl AsRef<str>,
         header_sub_index: Expression<F>,
     ) -> Self {
-        let header_bytes = cb.query_bytes(); //TODO: query_u16_cells()
-        let mask_bytes: [Cell<F>; 16] = (0..16)
+        let header_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
             .map(|_| cb.query_bool())
             .collect::<Vec<_>>()
             .try_into()
@@ -220,59 +209,42 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         let depth_pow2 = cb.query_cell();
         let name = name.as_ref();
         cb.require_equal(
-            format!("{}, sub_index_a == from_bytes(&self.header_bytes)", name),
+            format!("{}, header_sub_index == from_u16_limbs(header_limbs)", name),
             header_sub_index.clone(),
-            from_bytes::expr(&header_bytes),
+            from_u16_limbs::expr(&header_limbs),
         );
-
-        let limbs = (0..N_LIMB)
-            .map(|i| match N_LIMB {
-                8 => {
-                    header_bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + header_bytes[2 * i].expr()
-                }
-                16 => header_bytes[i].expr(),
-                _ => unimplemented!(),
-            })
-            .collect::<Vec<_>>();
-        let mask_limbs = (0..N_LIMB)
-            .map(|i| match N_LIMB {
-                8 => mask_bytes[2 * i + 1].expr() * 2u64.pow(8).expr() + mask_bytes[2 * i].expr(),
-                16 => mask_bytes[i].expr(),
-                _ => unimplemented!(),
-            })
-            .collect::<Vec<_>>();
         cb.require_equal(
             format!("{}, sum(mask[i]) == 1", name),
-            mask_limbs.iter().cloned().sum(),
+            mask.iter().map(|c| c.expr()).sum(),
             1u64.expr(),
         );
 
         //constrain: if mask[0] == 1 { sub_index_a == 0; }
         cb.require_zero(
-            format!("{}, mask_limbs[0] * sub_index_a", name),
-            mask_limbs[0].clone() * header_sub_index.clone(),
+            format!("{}, mask[0] * header_sub_index", name),
+            mask[0].expr() * header_sub_index.clone(),
         );
         for i in 1..N_LIMB {
             cb.require_zero(
-                format!("{}, mask_limbs[i] * limbs[i] == 0", name),
-                mask_limbs[i].clone() * limbs[i].clone(),
+                format!("{}, mask[i] * header_limbs[i] == 0", name),
+                mask[i].expr() * header_limbs[i].expr(),
             );
             cb.require_zero(
-                format!("{}, mask_limbs[i] * limbs[i-1] != 0", name),
-                mask_limbs[i].clone() * (limbs[i - 1].clone() * reverse_limb.expr() - 1u64.expr()),
+                format!("{}, mask[i] * header_limbs[i-1] != 0", name),
+                mask[i].expr() * (header_limbs[i - 1].expr() * reverse_limb.expr() - 1u64.expr()),
             );
         }
 
         cb.require_equal(
-            format!("{}, depth_pow2 = from_bytes(&mask)", name),
+            format!("{}, depth_pow2 = from_u16_limbs(&mask)", name),
             depth_pow2.expr(),
-            from_bytes::expr(&mask_bytes),
+            from_u16_limbs::expr(&mask),
         );
 
         Self {
             header_sub_index,
-            header_bytes,
-            mask_bytes,
+            header_limbs,
+            mask,
             reverse_limb,
             depth_pow2,
         }
@@ -280,10 +252,6 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 
     pub(crate) fn get_depth_pow(&self) -> Expression<F> {
         self.depth_pow2.expr()
-    }
-
-    pub(crate) fn depth(&self) -> Expression<F> {
-        0u64.expr() //Fixme
     }
 
     /// TODO: change to a better name
@@ -334,5 +302,63 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         //     .assign(region, offset, Value::known(reverse_limb))?;
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SubIndexDepth<F: Field, const N_LIMB: usize> {
+    sub_index: Expression<F>,
+    limbs: [Cell<F>; N_LIMB],
+    mask: [Cell<F>; N_LIMB],
+    reverse_limbs: [Cell<F>; N_LIMB],
+}
+impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index: Expression<F>,
+        name: &'static str,
+    ) -> Self {
+        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_bool())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let reverse_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_cell())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        cb.require_equal(
+            format!("{}, header_sub_index == from_u16_limbs(limbs)", name),
+            sub_index.clone(),
+            from_u16_limbs::expr(&limbs),
+        );
+        for i in 0..N_LIMB {
+            cb.require_zero(
+                format!("{}, mask[i] * (limbs[i] * reverse_limbs[i] - 1) == 0", name),
+                mask[i].expr() * (limbs[i].expr() * reverse_limbs[i].expr() - 1u64.expr()),
+            );
+            cb.require_zero(
+                format!("{}, (1 - mask[i]) * limbs[i] == 0", name),
+                (1u64.expr() - mask[i].expr()) * limbs[i].expr(),
+            );
+        }
+
+        Self {
+            sub_index,
+            limbs,
+            mask,
+            reverse_limbs,
+        }
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        self.mask.iter().map(|c| c.expr()).sum()
     }
 }

@@ -104,6 +104,46 @@ pub(crate) mod from_bytes {
     }
 }
 
+/// Maximum number of u16 limbs that an integer can fit in field without wrapping
+/// around.
+pub(crate) const MAX_N_16BITS_INTEGER: usize = 15;
+
+/// Decodes a field element from its u16 limbs representation in little endian order
+pub(crate) mod from_u16_limbs {
+    use super::MAX_N_16BITS_INTEGER;
+    use gadgets::util::Expr;
+    use halo2_proofs::plonk::Expression;
+    use types::Field;
+
+    pub(crate) fn expr<F: Field, E: Expr<F>>(limbs: &[E]) -> Expression<F> {
+        debug_assert!(
+            limbs.len() <= MAX_N_16BITS_INTEGER,
+            "Too many u16 limbs to compose an integer in field"
+        );
+        let mut value = 0.expr();
+        let mut multiplier = F::ONE;
+        for limb in limbs.iter() {
+            value = value + limb.expr() * multiplier;
+            multiplier *= F::from(1u64 << 16);
+        }
+        value
+    }
+
+    pub(crate) fn value<F: Field>(limbs: &[u16]) -> F {
+        debug_assert!(
+            limbs.len() <= MAX_N_16BITS_INTEGER,
+            "Too many u16 limbs to compose an integer in field"
+        );
+        let mut value = F::ZERO;
+        let mut multiplier = F::ONE;
+        for limb in limbs.iter() {
+            value += F::from(*limb as u64) * multiplier;
+            multiplier *= F::from(1u64 << 16);
+        }
+        value
+    }
+}
+
 /// Transposes an `Value` of a [`Result`] into a [`Result`] of an `Value`.
 pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Value<F>, E> {
     let mut ret = Ok(Value::unknown());
