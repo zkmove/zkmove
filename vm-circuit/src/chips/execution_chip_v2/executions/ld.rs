@@ -57,6 +57,12 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.first_row(|cb| {
             cb.require_equal(
+                "opcode",
+                cb.curr.state.opcode.expr(),
+                (Self::OPCODE as u64).expr(),
+            );
+
+            cb.require_equal(
                 format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
                 cb.curr.state.stack_push_index.expr(),
                 cb.curr.state.sp.expr() + 1u64.expr(),

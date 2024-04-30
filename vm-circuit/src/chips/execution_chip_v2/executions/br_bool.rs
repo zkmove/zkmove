@@ -29,6 +29,11 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.first_row(|cb| {
+            cb.require_equal(
+                "opcode",
+                cb.curr.state.opcode.expr(),
+                (Self::OPCODE as u64).expr(),
+            );
             cb.require_zero(
                 format!("{}, step_counter(0) == 1", Self::NAME),
                 cb.curr.state.step_counter.expr() - 1u64.expr(),

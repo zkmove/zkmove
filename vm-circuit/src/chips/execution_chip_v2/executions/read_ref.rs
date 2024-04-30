@@ -22,39 +22,36 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::ReadRefStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let next_row_state = cb.step_state_at_offset(1);
+        let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
             cb.require_equal(
+                "opcode",
+                step_curr.opcode.expr(),
+                (Self::OPCODE as u64).expr(),
+            );
+            cb.require_equal(
                 format!("{}, step_counter(0) == 4", Self::NAME),
-                cb.curr.state.step_counter.expr(),
+                step_curr.step_counter.expr(),
                 4u64.expr(),
             );
-            cb.require_zero(
-                format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
-                cb.curr.state.stack_pop_sub_index.expr(),
-            );
         });
-
         cb.require_equal(
             format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
-            cb.curr.state.stack_pop_index.expr(),
-            cb.curr.state.sp.expr(),
+            step_curr.stack_pop_index.expr(),
+            step_curr.sp.expr(),
+        );
+        cb.require_equal(
+            format!(
+                "{}, stack_pop_sub_index(0) == 4 - step_counter(0)",
+                Self::NAME
+            ),
+            step_curr.stack_pop_sub_index.expr(),
+            4u64.expr() - step_curr.step_counter.expr(),
         );
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
-        cb.require_state_transition(vec![(SP, Transition::Same)]);
-        cb.not_last_row(|cb| {
-            cb.require_equal(
-                format!(
-                    "{}, stack_pop_sub_index(1) == stack_pop_sub_index(0) + 1",
-                    Self::NAME
-                ),
-                next_row_state.stack_pop_sub_index.expr(),
-                cb.curr.state.stack_pop_sub_index.expr() + 1u64.expr(),
-            );
-        });
         cb.last_row(|cb| {
             cb.require_next_state(ExecutionState::ReadRefStage2);
             cb.require_state_transition(vec![
@@ -62,6 +59,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage1<F> {
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
                 (PC, Transition::Same),
+                (SP, Transition::Delta((-1).expr())),
             ]);
         });
 
@@ -146,9 +144,9 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
             );
         });
         cb.require_equal(
-            format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
+            format!("{}, stack_push_index(0) == sp(0) + 1", Self::NAME),
             cb.curr.state.stack_push_index.expr(),
-            cb.curr.state.sp.expr(),
+            cb.curr.state.sp.expr() + 1u64.expr(),
         );
 
         cb.require_equal(
@@ -209,8 +207,6 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
 
         cb.require_no_stack_pop();
 
-        cb.require_state_transition(vec![(SP, Transition::Same)]);
-
         cb.not_last_row(|cb| {
             cb.require_equal(
                 format!(
@@ -231,6 +227,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
                 header_sub_index_next,
                 header_sub_index.expr(),
             );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
         cb.last_row(|cb| {
             cb.require_state_transition(vec![
@@ -238,6 +235,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRefStage2<F> {
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
                 (PC, Transition::Delta(1.expr())),
+                (SP, Transition::Delta(1.expr())),
             ]);
         });
 
