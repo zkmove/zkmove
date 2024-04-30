@@ -6,11 +6,13 @@ pub(crate) mod ld;
 pub(crate) mod pack;
 pub(crate) mod read_ref;
 pub(crate) mod vec_swap;
+pub(crate) mod write_ref;
 pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
 pub use pack::*;
+pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -49,6 +51,10 @@ pub enum ExecutionState {
     ReadRefStage2,
     MutBorrowField,
     ImmBorrowField,
+    WriteRefStage1,
+    WriteRefStage2,
+    WriteRefStage3,
+    WriteRefStage4,
 }
 
 #[derive(Clone, Debug)]
@@ -274,6 +280,10 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 
     pub(crate) fn get_depth_pow(&self) -> Expression<F> {
         self.depth_pow2.expr()
+    }
+
+    pub(crate) fn depth(&self) -> Expression<F> {
+        0u64.expr() //Fixme
     }
 
     /// TODO: change to a better name
