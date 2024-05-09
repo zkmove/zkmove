@@ -226,131 +226,82 @@ mod le {
     }
 }
 
-// TODO: Reference type value comparison, actually it can convert to (pop,pop,read_ref,read_ref,push)
+// TODO: Reference type value comparison, actually it can convert to (pop,pop,read_ref,read_ref,stage1...)
 mod eq {
-    pub fn constrain() {
+    pub fn constrain_eq_stage_1_or_2(is_stage_1: bool) {
+        let stack_pop_rlc = stack_pop_sub_index(0) + gamma * stack_pop_value(0) + gamma ^ 2 * stack_pop_value_header(0);
+
         if super::common::on_first_row() {
-            constrain_first();
-        } else {
-            constrain_remain();
+            if !is_stage_1 {
+                execution_state_prev == EqStage1;
+            }
+            opcode(0) == OpCode::EQ;
+            stack_pop_sub_index(0) == 0;
+
+            if stack_pop_value_header(0) {
+                step_counter(0) == stack_pop_value(0).flen;
+            } else {
+                step_counter(0) == 1;
+            }
+            stack_pop_sub_index_reverse(0) == 0;
+
+            if is_stage_1 {
+                rlc1(0) == stack_pop_rlc;
+            } else {
+                rlc1(0) == rlc1(-1);
+                rlc2(0) == stack_pop_rlc;
+            }
         }
 
-        if !super::common::on_last_row() {
-            step_counter(1) == step_counter(0) - 1;
-            sp(1) == sp(0);
-        } else {
-            sp(1) == sp(0) - 1;
+        if !super::common::on_first_row() {
+            // define stack_pop_sub_index_reverse to constrain sub_index monotonically increasing.
+            // prevents malicious prover from faking eq as neq by comparing different sub_index.
+            stack_pop_sub_index_reverse(0) == SubIndexReverse::expr(stack_pop_sub_index(0));
+            stack_pop_sub_index_reverse(0) > stack_pop_sub_index_reverse(-1);
+
+            if is_stage_1 {
+                rlc1(0) == gamma * rlc1(-1) + stack_pop_rlc;
+            } else {
+                rlc1(0) == rlc1(-1);
+                rlc2(0) == gamma * rlc2(-1) + stack_pop_rlc;
+            }
         }
-    }
-
-    fn constrain_first() {
-        table_opcode.contain(pc(0), EQ, 0);
-
-        let flen_b = if !stack_pop_value_header(0) {
-            1
-        } else {
-            stack_pop_value(0).flen
-        };
-        let flen_a = if !stack_pop_value_header(1) {
-            1
-        } else {
-            stack_pop_value(1).flen
-        };
-        step_counter(0) == flen_b + flen_a + diff(flen_b, flen_a);
-
-        field_counter(0) == flen_b;
-        field_counter(1) == flen_a;
-        is_odd(0) == 1;
-        is_odd(1) == 0;
 
         stack_pop_index(0) == sp(0);
-        stack_pop_index(1) == sp(0) - 1;
-        stack_pop_sub_index(0) == 0;
-        stack_pop_sub_index(1) == 0;
         stack_pop_version(0) < clk(0);
-        stack_pop_version(1) < clk(0);
+        super::common::fake_local_read_zero();
 
-        stack_push_index(0) == sp(0) - 1;
-        stack_push_sub_index(0) == 0;
-        stack_push_value(0) == intermediate_result(0);
-        stack_push_value_header(0) == false;
-        stack_push_version(0) == clk(0);
-
-        super::common::fake_empty_stack_push(1);
-        super::common::fake_local_read_zero(0);
-        super::common::fake_local_read_zero(1); //next row
-
-        let is_equal = (
-            stack_pop_sub_index(0),
-            stack_pop_value(0),
-            stack_pop_value_header(0),
-        ) == (
-            stack_pop_sub_index(1),
-            stack_pop_value(1),
-            stack_pop_value_header(1),
-        );
-        if step_counter(0) == 2 {
-            //both a and b are simple value
-            intermediate_result(0) == is_equal;
-        } else {
-            intermediate_result(0) == is_equal && intermediate_result(2);
-        }
-    }
-
-    fn constrain_remain() {
-        let is_last = super::common::on_last_row();
-        !is_last && is_odd(1) == is_odd(-1);
-
-        if field_counter(0) > 1 {
-            field_counter(2) == field_counter(0) - 1;
-        } else {
-            if is_odd(0) == 1 && field_counter(1) > 1 {
-                field_counter(2) == 0;
-            }
-            if is_odd(0) == 0 && field_counter(-1) > 1 {
-                field_counter(2) == 0;
-            }
-        }
-
-        if is_odd(0) == 1 {
-            if field_counter(0) != 0 {
-                //normal stack pop
-                stack_pop_index(0) == sp(0);
-                stack_pop_sub_index(0) == 0;
-                stack_pop_version(0) == stack_pop_version(-2);
-            } else {
-                super::common::fake_empty_stack_pop(0);
-            }
-
-            if field_counter(1) != 0 {
-                //normal stack pop
-                stack_pop_index(1) == sp(0) - 1;
-                stack_pop_sub_index(1) == 0;
-                stack_pop_version(1) == stack_pop_version(-1);
-            } else {
-                super::common::fake_empty_stack_pop(1); //next row
-            }
-
+        if !super::common::on_last_row() {
+            sp(1) == sp(0);
             super::common::fake_empty_stack_push(0);
-            super::common::fake_local_read_zero(0);
-            super::common::fake_empty_stack_push(1); //next row
-            super::common::fake_local_read_zero(1); //next row
+        }
 
-            // constrain intermediate_result
-            let is_equal = (
-                stack_pop_sub_index(0),
-                stack_pop_value(0),
-                stack_pop_value_header(0),
-            ) == (
-                stack_pop_sub_index(1),
-                stack_pop_value(1),
-                stack_pop_value_header(1),
-            );
-            if step_counter(1) == 1 {
-                //last pair
-                intermediate_result(0) == is_equal;
+        if super::common::on_last_row() {
+            if is_stage_1 {
+                module_index(1) == module_index(0);
+                function_index(1) == function_index(0);
+                frame_index(1) == frame_index(0);
+                sp(1) == sp(0) - 1;
+                pc(1) == pc(0);
+                execution_state_next == EqStage2;
             } else {
-                intermediate_result(0) == is_equal && intermediate_result(2);
+                stack_push_index(0) == sp(0);
+                stack_push_sub_index(0) == 0;
+                stack_push_value(0) == true | false;
+                stack_push_value_header(0) == false;
+                stack_push_version(0) == clk(0);
+
+                if stack_push_value(0) {
+                    rlc1(0) == rlc2(0);
+                } else {
+                    rlc1(0) != rlc2(0);
+                }
+
+                module_index(1) == module_index(0);
+                function_index(1) == function_index(0);
+                frame_index(1) == frame_index(0);
+                sp(1) == sp(0);
+                pc(1) == pc(0) + 1;
             }
         }
     }
