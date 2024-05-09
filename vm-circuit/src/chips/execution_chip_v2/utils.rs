@@ -64,7 +64,7 @@ impl<F: Field> StoredExpression<F> {
         Ok(value)
     }
 }
-
+// TODO: remove this
 /// Decodes a field element from its byte representation in little endian order
 pub(crate) mod from_bytes {
     use gadgets::util::Expr;

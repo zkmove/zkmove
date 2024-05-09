@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::execution_chip_v2::utils::{from_bytes, transpose_val_ret};
+use crate::chips::execution_chip_v2::utils::{from_limbs, transpose_val_ret};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use gadgets::util::{pow_of_two, Expr};
@@ -41,7 +41,7 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         cb.require_equal(
             "lhs - rhs == diff - (lt ⋅ range)",
             lhs - rhs,
-            from_bytes::expr(&diff) - (lt.expr() * range),
+            from_limbs::expr::<_, _, 8>(&diff) - (lt.expr() * range),
         );
 
         Self { lt, diff, range }
