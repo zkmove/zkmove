@@ -11,6 +11,7 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
+use gadgets::util::not;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -116,30 +117,46 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                 local_sub_index,
             );
 
-            let header = ValueHeader::new(cb);
-            cb.require_equal(
-                format!("{}, local_read_value(0) == header", Self::NAME),
-                step_curr.local_read_value.expr(),
-                header.expr(),
-            );
-            cb.require_equal(
-                format!("{}, step_counter(0) == header.flen", Self::NAME),
-                step_curr.step_counter.expr(),
-                header.flen.expr(),
-            );
-
+            cb.condition(step_curr.local_read_value_header.expr(), |cb| {
+                let header = ValueHeader::new(cb);
+                cb.require_equal(
+                    format!("{}, local_read_value(0) == header", Self::NAME),
+                    step_curr.local_read_value.expr(),
+                    header.expr(),
+                );
+                cb.require_equal(
+                    format!("{}, step_counter(0) == header.flen", Self::NAME),
+                    step_curr.step_counter.expr(),
+                    header.flen.expr(),
+                );
+                cb.require_equal(
+                    format!(
+                        "{}, header_flen_delta(0) == local_read_value(0).f_len",
+                        Self::NAME
+                    ),
+                    header_flen_delta.expr(),
+                    header.flen.expr(),
+                );
+            });
+            cb.condition(not::expr(step_curr.local_read_value_header.expr()), |cb| {
+                cb.require_equal(
+                    format!("{}, step_counter(0) == 1", Self::NAME),
+                    step_curr.step_counter.expr(),
+                    1u64.expr(),
+                );
+                cb.require_equal(
+                    format!(
+                        "{}, header_flen_delta(0) == local_read_value(0).f_len",
+                        Self::NAME
+                    ),
+                    header_flen_delta.expr(),
+                    1u64.expr(),
+                );
+            });
             cb.require_equal(
                 format!("{}, header_sub_index(0) == local_sub_index(0)", Self::NAME),
                 header_sub_index.expr(),
                 step_curr.local_sub_index.expr(),
-            );
-            cb.require_equal(
-                format!(
-                    "{}, header_flen_delta(0) == local_read_value(0).f_len",
-                    Self::NAME
-                ),
-                header_flen_delta.expr(),
-                header.flen.expr(),
             );
         });
 
@@ -163,11 +180,11 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
         cb.require_state_transition(vec![(SP, Transition::Same)]);
+        cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+        cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
+        cb.require_cell_transition(header_sub_index.clone(), Transition::Same);
 
         cb.not_last_row(|cb| {
-            cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
-            cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
-            cb.require_cell_transition(header_sub_index.clone(), Transition::Same);
             cb.require_cell_transition(header_flen_delta.clone(), Transition::Same);
         });
 
@@ -211,54 +228,47 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage2);
 
-            let header = ValueHeader::new(cb);
-            cb.require_equal(
-                format!("{}, stack_pop_value(0) == header", Self::NAME),
-                step_curr.stack_pop_value.expr(),
-                header.expr(),
-            );
-            cb.require_equal(
-                format!("{}, step_counter(0) == header.flen", Self::NAME),
-                step_curr.step_counter.expr(),
-                header.flen.expr(),
-            );
-            let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
-            cb.require_equal(
-                format!(
-                    "{}, header_sub_index(0) == header_sub_index(-1)",
-                    Self::NAME
-                ),
-                header_sub_index.expr(),
-                header_sub_index_prev,
-            );
             let header_flen_delta_prev = cb.cell_at_offset(&header_flen_delta, -1).expr();
-            cb.require_equal(
-                format!(
-                    "{}, header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1)",
-                    Self::NAME
-                ),
-                header_flen_delta.expr(),
-                header.flen.expr() - header_flen_delta_prev,
-            );
+            cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
+                let header = ValueHeader::new(cb);
+                cb.require_equal(
+                    format!("{}, stack_pop_value(0) == header", Self::NAME),
+                    step_curr.stack_pop_value.expr(),
+                    header.expr(),
+                );
+                cb.require_equal(
+                    format!("{}, step_counter(0) == header.flen", Self::NAME),
+                    step_curr.step_counter.expr(),
+                    header.flen.expr(),
+                );
+                cb.require_equal(
+                    format!(
+                        "{}, header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1)",
+                        Self::NAME
+                    ),
+                    header_flen_delta.expr(),
+                    header.flen.expr() - header_flen_delta_prev.clone(),
+                );
+            });
+            cb.condition(not::expr(step_curr.stack_pop_value_header.expr()), |cb| {
+                cb.require_equal(
+                    format!("{}, step_counter(0) == 1", Self::NAME),
+                    step_curr.step_counter.expr(),
+                    1u64.expr(),
+                );
+                cb.require_equal(
+                    format!(
+                        "{}, header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1)",
+                        Self::NAME
+                    ),
+                    header_flen_delta.expr(),
+                    1u64.expr() - header_flen_delta_prev,
+                );
+            });
 
             cb.require_zero(
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
-            );
-            let local_frame_index_prev = cb.cell_at_offset(&step_curr.local_frame_index, -1).expr();
-            cb.require_equal(
-                format!(
-                    "{}, local_frame_index(0) == local_frame_index(-1)",
-                    Self::NAME
-                ),
-                step_curr.local_frame_index.expr(),
-                local_frame_index_prev,
-            );
-            let local_index_prev = cb.cell_at_offset(&step_curr.local_index, -1).expr();
-            cb.require_equal(
-                format!("{}, local_index(0) == local_index(-1)", Self::NAME),
-                step_curr.local_index.expr(),
-                local_index_prev,
             );
         });
 

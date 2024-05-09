@@ -879,11 +879,11 @@ mod write_ref {
         super::common::fake_empty_stack_push();
         // sp always the same, even for last row
         sp(1) == sp(0);
+        local_frame_index(1) == local_frame_index(0);
+        local_index(1) == local_index(0);
+        header_sub_index(1) == header_sub_index(0);
 
         if !super::common::on_last_row() {
-            local_frame_index(1) == local_frame_index(0);
-            local_index(1) == local_index(0);
-            header_sub_index(1) == header_sub_index(0);
             header_flen_delta(1) == header_flen_delta(0);
         }
 
@@ -901,12 +901,8 @@ mod write_ref {
         if super::common::on_first_row() {
             execution_state_prev == WriteRefStage2;
             step_counter(0) == stack_pop_value(0).f_len;
-            header_sub_index(0) == header_sub_index(-1);
             header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1);
-
             stack_pop_sub_index(0) == 0;
-            local_frame_index(0) == local_frame_index(-1);
-            local_index(0) == local_index(-1);
         }
 
         stack_pop_index(0) == sp(0);

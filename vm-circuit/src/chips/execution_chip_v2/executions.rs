@@ -16,7 +16,7 @@ pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::execution_chip_v2::utils::from_u16_limbs;
+use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -134,14 +134,14 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
         name: &'static str,
     ) {
         cb.require_equal(
-            format!("{}, header_sub_index == from_u16_limbs(header_limbs)", name),
+            format!("{}, header_sub_index == from_limbs(header_limbs)", name),
             header_sub_index.clone(),
-            from_u16_limbs::expr(&self.header_limbs),
+            from_limbs::expr::<_, _, 16>(&self.header_limbs),
         );
         cb.require_equal(
-            format!("{}, field_sub_index == from_u16_limbs(&field_limbs)", name),
+            format!("{}, field_sub_index == from_limbs(&field_limbs)", name),
             field_sub_index.clone(),
-            from_u16_limbs::expr(&self.field_limbs),
+            from_limbs::expr::<_, _, 16>(&self.field_limbs),
         );
 
         for i in 0..N_LIMB {
@@ -209,9 +209,9 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         let depth_pow2 = cb.query_cell();
         let name = name.as_ref();
         cb.require_equal(
-            format!("{}, header_sub_index == from_u16_limbs(header_limbs)", name),
+            format!("{}, header_sub_index == from_limbs(header_limbs)", name),
             header_sub_index.clone(),
-            from_u16_limbs::expr(&header_limbs),
+            from_limbs::expr::<_, _, 16>(&header_limbs),
         );
         cb.require_equal(
             format!("{}, sum(mask[i]) == 1", name),
@@ -236,9 +236,9 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         }
 
         cb.require_equal(
-            format!("{}, depth_pow2 = from_u16_limbs(&mask)", name),
+            format!("{}, depth_pow2 = from_limbs(&mask)", name),
             depth_pow2.expr(),
-            from_u16_limbs::expr(&mask),
+            from_limbs::expr::<_, _, 16>(&mask),
         );
 
         Self {
@@ -335,9 +335,9 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
             .unwrap();
 
         cb.require_equal(
-            format!("{}, header_sub_index == from_u16_limbs(limbs)", name),
+            format!("{}, header_sub_index == from_limbs(limbs)", name),
             sub_index.clone(),
-            from_u16_limbs::expr(&limbs),
+            from_limbs::expr::<_, _, 16>(&limbs),
         );
         for i in 0..N_LIMB {
             cb.require_zero(
