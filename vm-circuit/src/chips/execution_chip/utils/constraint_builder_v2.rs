@@ -152,6 +152,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn query_byte(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::Lookup(Table::U8))
     }
+    pub(crate) fn query_u16(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::Lookup(Table::U16))
+    }
     pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_u8_dyn(N).try_into().unwrap()
     }
@@ -308,6 +311,36 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     /// FIXME: implement this.
     pub(crate) fn require_no_local_op(&mut self) {
         self.require_zero("none local op", self.curr.state.local_read_version.expr());
+    }
+    /// FIXME: implement this.
+    pub(crate) fn require_read_invalid_value(&mut self) {
+        self.require_zero(
+            "local read invalid",
+            self.curr.state.local_read_value.expr(),
+        );
+        self.require_true(
+            "read value is invalid",
+            self.curr.state.local_read_value_invalid.expr(),
+        );
+        self.require_zero(
+            "read value is not header",
+            self.curr.state.local_read_value_header.expr(),
+        );
+    }
+    /// FIXME: implement this.
+    pub(crate) fn require_write_invalid_value(&mut self) {
+        self.require_zero(
+            "local write invalid",
+            self.curr.state.local_write_value.expr(),
+        );
+        self.require_true(
+            "write value is invalid",
+            self.curr.state.local_write_value_invalid.expr(),
+        );
+        self.require_zero(
+            "write value is not header",
+            self.curr.state.local_write_value_header.expr(),
+        );
     }
 
     // Lookups

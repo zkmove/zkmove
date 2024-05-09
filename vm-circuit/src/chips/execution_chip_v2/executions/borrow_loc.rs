@@ -30,6 +30,11 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         let next_row_state = cb.step_state_at_offset(1);
         cb.first_row(|cb| {
             cb.require_equal(
+                "opcode",
+                cb.curr.state.opcode.expr(),
+                (Self::OPCODE as u64).expr(),
+            );
+            cb.require_equal(
                 format!("{}, step_counter(0) == 4", Self::NAME),
                 cb.curr.state.step_counter.expr(),
                 4u64.expr(),

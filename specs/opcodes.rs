@@ -749,26 +749,26 @@ mod borrow_field {
 mod read_ref {
     pub fn constrain_read_ref_stage_1() {
         if super::common::on_first_row() {
-            // first step
-            step_counter(0) == 4;
-            stack_pop_sub_index(0) == 0;
-        }
+        opcode(0) == OpCode::READ_REF;
+        step_counter(0) == 4;
+    }
 
         stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 4 - step_counter(0);
         super::common::fake_empty_stack_push();
         super::common::fake_local_read_zero();
 
-        // sp always the same, even for last row
-        sp(1) == sp(0);
-        if super::common::not_last_row() {
-            stack_pop_sub_index(1) == stack_pop_sub_index(0) + 1;
+        if !super::common::on_last_row() {
+            sp(1) == sp(0);
         }
+
         if super::common::on_last_row() {
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0);
-            execution_state_next == read_ref_stage_2;
+            sp(1) == sp(0) - 1;
+            execution_state_next == ReadRefStage2;
         }
     }
     pub fn constrain_read_ref_stage_2() {
@@ -789,7 +789,7 @@ mod read_ref {
             header_sub_index(0) == local_sub_index(0);
         }
 
-        stack_push_index(0) == sp(0);
+        stack_push_index(0) == sp(0) + 1;
         super::common::constrain_sub_index(
             header_sub_index(0),
             stack_push_sub_index(0),
@@ -805,14 +805,13 @@ mod read_ref {
         local_write_value_invalid(0) == local_read_value_invalid(0);
         local_write_version(0) == clk(0);
         super::common::fake_empty_stack_pop();
-        // sp always the same, even for last row
-        sp(1) == sp(0);
 
         if super::common::not_last_row() {
             // non-last step
             local_frame_index(1) == local_frame_index(0);
             local_index(1) == local_index(0);
             header_sub_index(1) == header_sub_index(0);
+            sp(1) == sp(0);
         }
 
         if super::common::on_last_row() {
@@ -820,159 +819,160 @@ mod read_ref {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
         }
     }
 }
 
 mod write_ref {
-    const STAGE_POP_REF: u64 = 4;
-    const STAGE_INVALIDATE_OLD: u64 = 3;
-    const STAGE_WRITE_NEW: u64 = 2;
-    const STAGE_UPDATE_PARENT: u64 = 1;
-    const STAGE_NUM: u64 = 4;
-
-    pub fn constrain() {
-        if stage(0) == STAGE_POP_REF {
-            if step_counter(-1) == 1 {
-                // first step
-                table_bytecode.lookup(pc(0), OpCode::WRITE_REF, 0);
-                step_counter(0) == 4;
-                stack_pop_sub_index(0) == 0;
-                stack_pop_version(0) < clk(0);
-            } else {
-                stack_pop_sub_index(0) == stack_pop_sub_index(-1) + 1;
-                stack_pop_version(0) == stack_pop_version(-1);
-            }
-
-            stack_pop_index(0) == sp(0);
-            super::common::fake_empty_stack_push();
-            super::common::fake_local_read_zero();
+    //STAGE_POP_REF
+    pub fn constrain_write_ref_stage_1() {
+        if super::common::on_first_row() {
+            opcode(0) == OpCode::WRITE_REF;
+            step_counter(0) == 4;
         }
 
-        if stage(0) == STAGE_INVALIDATE_OLD {
-            if step_counter(-1) == 1 {
-                // first step
-                local_frame_index(0) == stack_pop_value(-3);
-                local_index(0) == stack_pop_value(-2);
-                local_sub_index(0) == stack_pop_value(-1);
-                step_counter(0) == local_read_value(0).f_len;
-                // record the sub index of the referenced value,
-                // for updating parent header later
-                header_sub_addr(0) == local_sub_index(0);
-                header_flen_delta(0) == step_counter(0);
-            }
-
-            if step_counter(0) != 1 {
-                // non-last step
-                local_frame_index(1) == local_frame_index(0);
-                local_index(1) == local_index(0);
-                header_sub_addr(1) == header_sub_addr(0);
-                header_flen_delta(1) == header_flen_delta(0);
-            }
-
-            local_read_version(0) < clk(0);
-            local_write_value(0) == Invalid; // write 0
-            local_write_value_invalid(0) == true;
-            local_write_value_header == false;
-            local_write_version(0) == clk(0);
-            super::common::fake_empty_stack_pop();
-            super::common::fake_empty_stack_push();
-        }
-
-        if stage(0) == STAGE_WRITE_NEW {
-            if step_counter(-1) == 1 {
-                // first step of the stage
-                step_counter(0) == stack_pop_value(0).f_len;
-                header_sub_addr(0) == header_sub_addr(-1);
-                header_flen_delta(0) == step_counter(0) - header_flen_delta(-1);
-                super::common::constrain_depth(header_sub_addr(0), depth(0));
-
-                stack_pop_sub_index(0) == 0;
-                stack_pop_version(0) < clk(0);
-                local_frame_index(0) == local_frame_index(-1);
-                local_index(0) == local_index(-1);
-            }
-
-            if step_counter(0) != 1 {
-                // non-last step
-                header_sub_addr(1) == header_sub_addr(0);
-                header_flen_delta(1) == header_flen_delta(0);
-                depth(1) == depth(0);
-
-                stack_pop_version(1) == stack_pop_version(0);
-                local_frame_index(1) == local_frame_index(0);
-                local_index(1) == local_index(0);
-            }
-
-            stack_pop_index(0) == sp(0);
-            super::common::fake_empty_stack_push();
-
-            super::common::constrain_sub_index(
-                header_sub_addr(0),
-                stack_pop_sub_index(0),
-                depth(0),
-                local_sub_index(0),
-            );
-            local_read_value(0) == Invalid;
-            local_read_value_invalid(0) == true;
-            local_read_version(0) < clk(0);
-            local_write_value(0) == stack_pop_value(0);
-            local_write_value_header(0) == stack_pop_value_header(0);
-            local_write_version(0) == clk(0);
-        }
-
-        if stage(0) == STAGE_UPDATE_PARENT {
-            if step_counter(-1) == 1 {
-                // first step
-
-                step_counter(0) == header_sub_addr(-1).depth();
-                header_sub_addr(0) == header_sub_addr(-1) / 2 ^ 16;
-                header_flen_delta(0) == header_flen_delta(-1);
-
-                local_frame_index(0) == local_frame_index(-1);
-                local_index(0) == local_index(-1);
-            }
-
-            if step_counter(0) != 1 {
-                // non-last step
-                header_sub_addr(1) == header_sub_addr(0) / 2 ^ 16;
-                header_flen_delta(1) == header_flen_delta(0);
-
-                local_frame_index(1) == local_frame_index(0);
-                local_index(1) == local_index(0);
-            }
-
-            local_read_version(0) < clk(0);
-            local_sub_index(0) == header_sub_addr(0);
-            local_write_value(0) == local_read_value(0) + header_flen_delta(0);
-            local_write_value_header(0) == local_read_value_header(0);
-            local_write_value_invalid(0) == local_read_value_invalid(0);
-            local_write_version(0) == clk(0);
-        }
-
-        // init stage and step_counter
-        super::common::on_first_row() && stage(0) == STAGE_NUM;
-
-        // Constraint next row's counter
-        // constraint next row's step_counter and stage.
-        if step_counter(0) == 1 {
-            if stage(0) != 1 {
-                stage(1) == stage(0) - 1;
-            }
-        } else {
-            stage(1) == stage(0);
-            step_counter(1) == step_counter(0) - 1;
-        }
-
-        if (stage(0) == STAGE_POP_REF || stage(0) == STAGE_WRITE_NEW) && step_counter(0) == 1 {
-            sp(1) == sp(0) - 1
-        } else {
-            sp(1) == sp(0)
-        };
+        stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 4 - step_counter(0);
+        super::common::fake_empty_stack_push();
+        super::common::fake_local_read_zero();
 
         if !super::common::on_last_row() {
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            sp(1) == sp(0);
+        }
+
+        if super::common::on_last_row() {
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0);
+            sp(1) == sp(0) - 1;
+            execution_state_next == WriteRefStage2;
+        }
+    }
+
+    //STAGE_INVALIDATE_OLD
+    pub fn constrain_write_ref_stage_2() {
+        if super::common::on_first_row() {
+            execution_state_prev == WriteRefStage1;
+
+            local_frame_index(0) == stack_pop_value(-3);
+            local_index(0) == stack_pop_value(-2);
+            local_sub_index(0) == stack_pop_value(-1);
+            if local_read_value_header(0) {
+                step_counter(0) == local_read_value(0).f_len;
+            } else {
+                step_counter(0) == 1;
+            }
+            // record the sub index of the referenced value,
+            // for updating parent header later
+            header_sub_index(0) == local_sub_index(0);
+            header_flen_delta(0) == step_counter(0);
+        }
+
+        if !super::common::on_first_row() {
+            SubIndexGadget::configure_membership(header_sub_index(0), local_sub_index(0));
+        }
+
+        local_read_version(0) < clk(0);
+        local_write_value(0) == Invalid; // write 0
+        local_write_value_invalid(0) == true;
+        local_write_value_header == false;
+        local_write_version(0) == clk(0);
+        super::common::fake_empty_stack_pop();
+        super::common::fake_empty_stack_push();
+        // sp always the same, even for last row
+        sp(1) == sp(0);
+        local_frame_index(1) == local_frame_index(0);
+        local_index(1) == local_index(0);
+        header_sub_index(1) == header_sub_index(0);
+
+        if !super::common::on_last_row() {
+            header_flen_delta(1) == header_flen_delta(0);
+        }
+
+        if super::common::on_last_row() {
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0);
+            execution_state_next == WriteRefStage3;
+        }
+    }
+
+    //STAGE_WRITE_NEW
+    pub fn constrain_write_ref_stage_3() {
+        if super::common::on_first_row() {
+            execution_state_prev == WriteRefStage2;
+            if stack_pop_value_header(0) {
+                step_counter(0) == stack_pop_value(0).f_len;
+            } else {
+                step_counter(0) == 1;
+            }
+            header_flen_delta(0) == step_counter(0) - header_flen_delta(-1);
+            stack_pop_sub_index(0) == 0;
+        }
+
+        stack_pop_index(0) == sp(0);
+        stack_pop_version(0) < clk(0);
+        SubIndexGadget::configure_sub_index_concact(header_sub_index(0), stack_pop_sub_index(0), local_sub_index(0));
+        local_read_value(0) == Invalid;
+        local_read_value_invalid(0) == true;
+        local_read_version(0) < clk(0);
+        local_write_value(0) == stack_pop_value(0);
+        local_write_value_header(0) == stack_pop_value_header(0);
+        local_write_version(0) == clk(0);
+        super::common::fake_empty_stack_push(0);
+
+        if !super::common::on_last_row() {
+            header_sub_index(1) == header_sub_index(0);
+            header_flen_delta(1) == header_flen_delta(0);
+            local_frame_index(1) == local_frame_index(0);
+            local_index(1) == local_index(0);
+            sp(1) == sp(0);
+        }
+
+        if super::common::on_last_row() {
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0);
+            sp(1) == sp(0) - 1;
+            execution_state_next == WriteRefStage4;
+        }
+    }
+
+    //STAGE_UPDATE_PARENT
+    pub fn constrain_write_ref_stage_4() {
+        if super::common::on_first_row() {
+            execution_state_prev == WriteRefStage3;
+            step_counter(0) == header_sub_index(-1).depth();
+            header_sub_index(0) == header_sub_index(-1) / 2 ^ 16;
+            header_flen_delta(0) == header_flen_delta(-1);
+            local_frame_index(0) == local_frame_index(-1);
+            local_index(0) == local_index(-1);
+        }
+
+        local_read_version(0) < clk(0);
+        local_sub_index(0) == header_sub_index(0);
+        local_write_value(0) == local_read_value(0) + header_flen_delta(0);
+        local_write_value_header(0) == local_read_value_header(0);
+        local_write_value_invalid(0) == local_read_value_invalid(0);
+        local_write_version(0) == clk(0);
+        // sp always the same, even for last row
+        sp(1) == sp(0);
+
+        if !super::common::on_last_row() {
+            header_sub_index(1) == header_sub_index(0) / 2 ^ 16;
+            header_flen_delta(1) == header_flen_delta(0);
+            local_frame_index(1) == local_frame_index(0);
+            local_index(1) == local_index(0);
+        }
+        if super::common::on_last_row() {
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
         }
     }
 }

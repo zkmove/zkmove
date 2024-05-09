@@ -34,6 +34,12 @@ impl<F: Field> InstructionGadgetV2<F> for Pack<F> {
         let next_row_state = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
+            cb.require_equal(
+                "opcode",
+                cb.curr.state.opcode.expr(),
+                (Self::OPCODE as u64).expr(),
+            );
+
             let flen = cb.curr.state.step_counter.expr(); //flen is equal to step_counter(0)
             let num_field = cb.curr.state.aux0.expr();
 

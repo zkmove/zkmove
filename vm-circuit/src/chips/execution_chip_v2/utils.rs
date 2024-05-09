@@ -64,41 +64,83 @@ impl<F: Field> StoredExpression<F> {
         Ok(value)
     }
 }
-/// Maximum number of bytes that an integer can fit in field without wrapping
-/// around.
-pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
-
+// TODO: remove this
 /// Decodes a field element from its byte representation in little endian order
-pub(crate) mod from_bytes {
-    use super::MAX_N_BYTES_INTEGER;
+// pub(crate) mod from_bytes {
+//     use gadgets::util::Expr;
+//     use halo2_proofs::plonk::Expression;
+//     use types::Field;
+//     /// Maximum number of bytes that an integer can fit in field without wrapping
+//     /// around.
+//     const MAX_N_BYTES_INTEGER: usize = 31;
+//
+//     pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+//         debug_assert!(
+//             bytes.len() <= MAX_N_BYTES_INTEGER,
+//             "Too many bytes to compose an integer in field"
+//         );
+//         let mut value = 0.expr();
+//         let mut multiplier = F::ONE;
+//         for byte in bytes.iter() {
+//             value = value + byte.expr() * multiplier;
+//             multiplier *= F::from(256);
+//         }
+//         value
+//     }
+//
+//     pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
+//         debug_assert!(
+//             bytes.len() <= MAX_N_BYTES_INTEGER,
+//             "Too many bytes to compose an integer in field"
+//         );
+//         let mut value = F::ZERO;
+//         let mut multiplier = F::ONE;
+//         for byte in bytes.iter() {
+//             value += F::from(*byte as u64) * multiplier;
+//             multiplier *= F::from(256);
+//         }
+//         value
+//     }
+// }
+
+/// Decodes a field element from its bytes representation or 16bits limbs representation in little endian order
+pub(crate) mod from_limbs {
     use gadgets::util::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
-    pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+    pub(crate) fn expr<F: Field, E: Expr<F>, const LIMB_BITS: usize>(limbs: &[E]) -> Expression<F> {
         debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
+            limbs.len() <= 255 / LIMB_BITS,
+            "Too many limbs to compose an integer in field"
+        );
+        debug_assert!(
+            LIMB_BITS == 8 || LIMB_BITS == 16,
+            "Only 8-bit or 16-bit limbs supported"
         );
         let mut value = 0.expr();
         let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value = value + byte.expr() * multiplier;
-            multiplier *= F::from(256);
+        for limb in limbs.iter() {
+            value = value + limb.expr() * multiplier;
+            multiplier *= F::from(1u64 << LIMB_BITS);
         }
         value
     }
 
-    pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
+    pub(crate) fn value<F: Field, const LIMB_BITS: usize>(limbs: &[u16]) -> F {
         debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
+            limbs.len() <= 255 / LIMB_BITS,
+            "Too many limbs to compose an integer in field"
+        );
+        debug_assert!(
+            LIMB_BITS == 8 || LIMB_BITS == 16,
+            "Only 8-bit or 16-bit limbs supported"
         );
         let mut value = F::ZERO;
         let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value += F::from(*byte as u64) * multiplier;
-            multiplier *= F::from(256);
+        for limb in limbs.iter() {
+            value += F::from(*limb as u64) * multiplier;
+            multiplier *= F::from(1u64 << LIMB_BITS);
         }
         value
     }
