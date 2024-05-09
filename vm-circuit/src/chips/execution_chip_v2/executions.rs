@@ -2,6 +2,7 @@ pub(crate) mod base;
 pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
+pub(crate) mod equality;
 pub(crate) mod call;
 pub(crate) mod cast;
 pub(crate) mod ld;
@@ -21,6 +22,9 @@ pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
 pub use borrow_loc::*;
 pub use br_bool::*;
+pub use call::*;
+pub use cast::*;
+pub use equality::*;
 pub use ld::*;
 pub use ld_bool::*;
 pub(crate) use move_or_copy_loc::*;
@@ -320,5 +324,46 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 
     pub(crate) fn expr(&self) -> Expression<F> {
         self.mask.iter().map(|c| c.expr()).sum()
+    }
+}
+
+//TODO: add LIMB_BITS to configure num bits of each limb (8 or 16)
+/// Used to get the reverse of a sub_index. For example,
+///
+/// let a = [3,2,0,0];
+/// assert_eq!(a.to_u128(), 0x20003);
+///
+/// let b = [0,0,2,3]; // the reverse of a
+/// assert_eq!(b.to_u128(), 0x0003000200000000);
+///
+#[derive(Clone, Debug)]
+pub(crate) struct SubIndexReverse<F: Field, const N_LIMB: usize> {
+    sub_index: Expression<F>,
+    limbs: [Cell<F>; N_LIMB],
+}
+impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index: Expression<F>,
+        name: &'static str,
+    ) -> Self {
+        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        cb.require_equal(
+            format!("{}, sub_index == from_limbs(limbs)", name),
+            sub_index.clone(),
+            from_limbs::expr::<_, _, 16>(&limbs),
+        );
+
+        Self { sub_index, limbs }
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        let reverse_limbs = self.limbs.iter().rev().collect::<Vec<_>>();
+        from_limbs::expr::<_, _, 16>(&reverse_limbs)
     }
 }

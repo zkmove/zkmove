@@ -352,6 +352,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 
+    pub(crate) fn rlc(&mut self, expressions: &[Expression<F>]) -> Expression<F> {
+        rlc::expr(expressions, self.challenges.keccak_input())
+    }
+
     // Lookups
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
