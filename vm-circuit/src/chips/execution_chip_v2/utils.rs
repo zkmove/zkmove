@@ -66,42 +66,42 @@ impl<F: Field> StoredExpression<F> {
 }
 // TODO: remove this
 /// Decodes a field element from its byte representation in little endian order
-pub(crate) mod from_bytes {
-    use gadgets::util::Expr;
-    use halo2_proofs::plonk::Expression;
-    use types::Field;
-    /// Maximum number of bytes that an integer can fit in field without wrapping
-    /// around.
-    const MAX_N_BYTES_INTEGER: usize = 31;
-
-    pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
-        debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
-        );
-        let mut value = 0.expr();
-        let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value = value + byte.expr() * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-
-    pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
-        debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
-        );
-        let mut value = F::ZERO;
-        let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value += F::from(*byte as u64) * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-}
+// pub(crate) mod from_bytes {
+//     use gadgets::util::Expr;
+//     use halo2_proofs::plonk::Expression;
+//     use types::Field;
+//     /// Maximum number of bytes that an integer can fit in field without wrapping
+//     /// around.
+//     const MAX_N_BYTES_INTEGER: usize = 31;
+//
+//     pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
+//         debug_assert!(
+//             bytes.len() <= MAX_N_BYTES_INTEGER,
+//             "Too many bytes to compose an integer in field"
+//         );
+//         let mut value = 0.expr();
+//         let mut multiplier = F::ONE;
+//         for byte in bytes.iter() {
+//             value = value + byte.expr() * multiplier;
+//             multiplier *= F::from(256);
+//         }
+//         value
+//     }
+//
+//     pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
+//         debug_assert!(
+//             bytes.len() <= MAX_N_BYTES_INTEGER,
+//             "Too many bytes to compose an integer in field"
+//         );
+//         let mut value = F::ZERO;
+//         let mut multiplier = F::ONE;
+//         for byte in bytes.iter() {
+//             value += F::from(*byte as u64) * multiplier;
+//             multiplier *= F::from(256);
+//         }
+//         value
+//     }
+// }
 
 /// Decodes a field element from its bytes representation or 16bits limbs representation in little endian order
 pub(crate) mod from_limbs {

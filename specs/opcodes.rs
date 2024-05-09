@@ -859,11 +859,15 @@ mod write_ref {
             local_frame_index(0) == stack_pop_value(-3);
             local_index(0) == stack_pop_value(-2);
             local_sub_index(0) == stack_pop_value(-1);
-            step_counter(0) == local_read_value(0).f_len;
+            if local_read_value_header(0) {
+                step_counter(0) == local_read_value(0).f_len;
+            } else {
+                step_counter(0) == 1;
+            }
             // record the sub index of the referenced value,
             // for updating parent header later
             header_sub_index(0) == local_sub_index(0);
-            header_flen_delta(0) == local_read_value(0).f_len;
+            header_flen_delta(0) == step_counter(0);
         }
 
         if !super::common::on_first_row() {
@@ -900,8 +904,12 @@ mod write_ref {
     pub fn constrain_write_ref_stage_3() {
         if super::common::on_first_row() {
             execution_state_prev == WriteRefStage2;
-            step_counter(0) == stack_pop_value(0).f_len;
-            header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1);
+            if stack_pop_value_header(0) {
+                step_counter(0) == stack_pop_value(0).f_len;
+            } else {
+                step_counter(0) == 1;
+            }
+            header_flen_delta(0) == step_counter(0) - header_flen_delta(-1);
             stack_pop_sub_index(0) == 0;
         }
 

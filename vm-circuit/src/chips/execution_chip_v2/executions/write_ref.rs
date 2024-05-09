@@ -129,14 +129,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     step_curr.step_counter.expr(),
                     header.flen.expr(),
                 );
-                cb.require_equal(
-                    format!(
-                        "{}, header_flen_delta(0) == local_read_value(0).f_len",
-                        Self::NAME
-                    ),
-                    header_flen_delta.expr(),
-                    header.flen.expr(),
-                );
             });
             cb.condition(not::expr(step_curr.local_read_value_header.expr()), |cb| {
                 cb.require_equal(
@@ -144,15 +136,12 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     step_curr.step_counter.expr(),
                     1u64.expr(),
                 );
-                cb.require_equal(
-                    format!(
-                        "{}, header_flen_delta(0) == local_read_value(0).f_len",
-                        Self::NAME
-                    ),
-                    header_flen_delta.expr(),
-                    1u64.expr(),
-                );
             });
+            cb.require_equal(
+                format!("{}, header_flen_delta(0) == step_counter(0)", Self::NAME),
+                header_flen_delta.expr(),
+                step_curr.step_counter.expr(),
+            );
             cb.require_equal(
                 format!("{}, header_sub_index(0) == local_sub_index(0)", Self::NAME),
                 header_sub_index.expr(),
@@ -241,14 +230,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                     step_curr.step_counter.expr(),
                     header.flen.expr(),
                 );
-                cb.require_equal(
-                    format!(
-                        "{}, header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1)",
-                        Self::NAME
-                    ),
-                    header_flen_delta.expr(),
-                    header.flen.expr() - header_flen_delta_prev.clone(),
-                );
             });
             cb.condition(not::expr(step_curr.stack_pop_value_header.expr()), |cb| {
                 cb.require_equal(
@@ -256,16 +237,15 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                     step_curr.step_counter.expr(),
                     1u64.expr(),
                 );
-                cb.require_equal(
-                    format!(
-                        "{}, header_flen_delta(0) == stack_pop_value(0).f_len - header_flen_delta(-1)",
-                        Self::NAME
-                    ),
-                    header_flen_delta.expr(),
-                    1u64.expr() - header_flen_delta_prev,
-                );
             });
-
+            cb.require_equal(
+                format!(
+                    "{}, header_flen_delta(0) == step_counter(0) - header_flen_delta(-1)",
+                    Self::NAME
+                ),
+                header_flen_delta.expr(),
+                step_curr.step_counter.expr() - header_flen_delta_prev.clone(),
+            );
             cb.require_zero(
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
