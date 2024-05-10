@@ -183,19 +183,18 @@ pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(16);
 /// Extended SubIndex used for manipulate sub_index, like concat
 #[derive(Clone, Debug)]
 pub(crate) struct ExtendedSubIndex<F: Field, const N_LIMB: usize> {
-    header_sub_index: Expression<F>,
-    header_limbs: [Cell<F>; N_LIMB],
+    sub_index: Expression<F>,
+    limbs: [Cell<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_limb: Cell<F>,
-    depth_pow2: Cell<F>, //2^(depth * 16)
 }
 impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     pub(crate) fn construct(
         cb: &mut ConstraintBuilderV2<F>,
         name: impl AsRef<str>,
-        header_sub_index: Expression<F>,
+        sub_index: Expression<F>,
     ) -> Self {
-        let header_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
             .map(|_| cb.query_u16())
             .collect::<Vec<_>>()
             .try_into()
@@ -209,9 +208,9 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         let depth_pow2 = cb.query_cell();
         let name = name.as_ref();
         cb.require_equal(
-            format!("{}, header_sub_index == from_limbs(header_limbs)", name),
-            header_sub_index.clone(),
-            from_limbs::expr::<_, _, 16>(&header_limbs),
+            format!("{}, sub_index == from_limbs(limbs)", name),
+            sub_index.clone(),
+            from_limbs::expr::<_, _, 16>(&limbs),
         );
         cb.require_equal(
             format!("{}, sum(mask[i]) == 1", name),
@@ -219,48 +218,48 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
             1u64.expr(),
         );
 
-        //constrain: if mask[0] == 1 { sub_index_a == 0; }
-        cb.require_zero(
-            format!("{}, mask[0] * header_sub_index", name),
-            mask[0].expr() * header_sub_index.clone(),
-        );
-        for i in 1..N_LIMB {
+        for i in 0..N_LIMB {
             cb.require_zero(
-                format!("{}, mask[i] * header_limbs[i] == 0", name),
-                mask[i].expr() * header_limbs[i].expr(),
+                format!("{}, mask[i] * limbs[i] != 0", name),
+                mask[i].expr() * (limbs[i].expr() * reverse_limb.expr() - 1u64.expr()),
             );
+        }
+        for i in 0..(N_LIMB - 1) {
             cb.require_zero(
-                format!("{}, mask[i] * header_limbs[i-1] != 0", name),
-                mask[i].expr() * (header_limbs[i - 1].expr() * reverse_limb.expr() - 1u64.expr()),
+                format!("{}, mask[i] * limbs[i+1] == 0", name),
+                mask[i].expr() * limbs[i + 1].expr(),
             );
         }
 
-        cb.require_equal(
-            format!("{}, depth_pow2 = from_limbs(&mask)", name),
-            depth_pow2.expr(),
-            from_limbs::expr::<_, _, 16>(&mask),
-        );
-
         Self {
-            header_sub_index,
-            header_limbs,
+            sub_index,
+            limbs,
             mask,
             reverse_limb,
-            depth_pow2,
         }
     }
 
     pub(crate) fn get_depth_pow(&self) -> Expression<F> {
-        self.depth_pow2.expr()
+        from_limbs::expr::<_, _, 16>(&self.mask) * DEPTH_POW_OF_ONE_LEVEL.expr()
+    }
+
+    pub(crate) fn get_parent_sub_index(&self) -> Expression<F> {
+        let parent_sub_index_limbs = self
+            .limbs
+            .iter()
+            .enumerate()
+            .map(|(i, c)| c.expr() * (1u64.expr() - self.mask[i].expr()))
+            .collect::<Vec<_>>();
+        from_limbs::expr::<_, _, 16>(&parent_sub_index_limbs)
     }
 
     /// TODO: change to a better name
-    /// concat the header's sub_index with another sub_index, and return the resulted sub_index
-    /// current header_sub_index  = [3,2,0,0,0,0,0,0] of depth = 2,
+    /// concat sub_index with another sub_index, and return the resulted sub_index
+    /// current sub_index  = [3,2,0,0,0,0,0,0] of depth = 2,
     ///  concat other_sub_index = [4,1,0,0,0,0,0,0],
     /// expected_sub_index = [3,2,4,1,0,0,0,0]
     pub(crate) fn concat_sub_index(&self, other_sub_index: Expression<F>) -> Expression<F> {
-        self.header_sub_index.expr() + other_sub_index * self.depth_pow2.expr()
+        self.sub_index.expr() + other_sub_index * self.get_depth_pow()
     }
 
     pub(crate) fn assign(
@@ -335,7 +334,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
             .unwrap();
 
         cb.require_equal(
-            format!("{}, header_sub_index == from_limbs(limbs)", name),
+            format!("{}, sub_index == from_limbs(limbs)", name),
             sub_index.clone(),
             from_limbs::expr::<_, _, 16>(&limbs),
         );

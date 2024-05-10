@@ -947,12 +947,12 @@ mod write_ref {
         if super::common::on_first_row() {
             execution_state_prev == WriteRefStage3;
             step_counter(0) == header_sub_index(-1).depth();
-            header_sub_index(0) == header_sub_index(-1) / 2 ^ 16;
             header_flen_delta(0) == header_flen_delta(-1);
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
         }
 
+        header_sub_index(0) == header_sub_index(-1).parent;
         local_read_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0);
         local_write_value(0) == local_read_value(0) + header_flen_delta(0);
@@ -963,7 +963,6 @@ mod write_ref {
         sp(1) == sp(0);
 
         if !super::common::on_last_row() {
-            header_sub_index(1) == header_sub_index(0) / 2 ^ 16;
             header_flen_delta(1) == header_flen_delta(0);
             local_frame_index(1) == local_frame_index(0);
             local_index(1) == local_index(0);

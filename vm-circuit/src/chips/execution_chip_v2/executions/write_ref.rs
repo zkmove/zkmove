@@ -320,6 +320,7 @@ pub struct WriteRefStage4<F: Field> {
     header_sub_index: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_sub_index_depth: SubIndexDepth<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
     const NAME: &'static str = "WriteRef_Stage4";
@@ -333,6 +334,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
         let header_sub_index_depth =
             SubIndexDepth::<_, 8>::construct(cb, header_sub_index_prev.clone(), Self::NAME);
         let depth = cb.query_cell();
+        let header_sub_index_ext =
+            ExtendedSubIndex::construct(cb, Self::NAME, header_sub_index_prev.clone());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -353,15 +356,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
                 ),
                 step_curr.step_counter.expr(),
                 header_sub_index_depth.expr(),
-            );
-            let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
-            cb.require_equal(
-                format!(
-                    "{}, header_sub_index(0) * 2^16 == header_sub_index(-1)",
-                    Self::NAME
-                ),
-                header_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
-                header_sub_index_prev,
             );
             let header_flen_delta_prev = cb.cell_at_offset(&header_flen_delta, -1).expr();
             cb.require_equal(
@@ -389,6 +383,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
             );
         });
 
+        cb.require_equal(
+            format!(
+                "{}, header_sub_index(0) == header_sub_index(-1).parent",
+                Self::NAME
+            ),
+            header_sub_index.expr(),
+            header_sub_index_ext.get_parent_sub_index(),
+        );
         //TODO: local_read_version(0) < clk(0);
         cb.require_equal(
             format!("{}, local_sub_index(0) == header_sub_index(0)", Self::NAME),
@@ -419,15 +421,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
         cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.not_last_row(|cb| {
-            let header_sub_index_next = cb.cell_at_offset(&header_sub_index, 1).expr();
-            cb.require_equal(
-                format!(
-                    "{}, header_sub_index(1) * 2^16 == header_sub_index(0)",
-                    Self::NAME
-                ),
-                header_sub_index_next * DEPTH_POW_OF_ONE_LEVEL.expr(),
-                header_sub_index.expr(),
-            );
             cb.require_cell_transition(header_flen_delta.clone(), Transition::Same);
             cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
@@ -447,6 +440,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
             header_sub_index,
             header_flen_delta,
             header_sub_index_depth,
+            header_sub_index_ext,
         }
     }
 }
