@@ -952,7 +952,7 @@ mod write_ref {
             local_index(0) == local_index(-1);
         }
 
-        header_sub_index(0) == header_sub_index(-1).header();
+        header_sub_index(0) == header_sub_index(-1).parent;
         local_read_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0);
         local_write_value(0) == local_read_value(0) + header_flen_delta(0);
