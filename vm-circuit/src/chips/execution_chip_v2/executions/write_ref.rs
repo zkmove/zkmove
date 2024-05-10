@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::MembershipGadget;
 use crate::chips::execution_chip_v2::executions::SubIndexDepth;
-use crate::chips::execution_chip_v2::executions::SubIndexHeader;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::executions::DEPTH_POW_OF_ONE_LEVEL;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
@@ -321,7 +320,7 @@ pub struct WriteRefStage4<F: Field> {
     header_sub_index: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_sub_index_depth: SubIndexDepth<F, 8>,
-    header_sub_index_header: SubIndexHeader<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
     const NAME: &'static str = "WriteRef_Stage4";
@@ -335,8 +334,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
         let header_sub_index_depth =
             SubIndexDepth::<_, 8>::construct(cb, header_sub_index_prev.clone(), Self::NAME);
         let depth = cb.query_cell();
-        let header_sub_index_header =
-            SubIndexHeader::construct(cb, header_sub_index_prev.clone(), Self::NAME);
+        let header_sub_index_ext =
+            ExtendedSubIndex::construct(cb, Self::NAME, header_sub_index_prev.clone());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -386,11 +385,11 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
 
         cb.require_equal(
             format!(
-                "{}, header_sub_index(0) == header_sub_index(-1).header()",
+                "{}, header_sub_index(0) == header_sub_index(-1).parent",
                 Self::NAME
             ),
             header_sub_index.expr(),
-            header_sub_index_header.expr(),
+            header_sub_index_ext.get_parent_sub_index(),
         );
         //TODO: local_read_version(0) < clk(0);
         cb.require_equal(
@@ -441,7 +440,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage4<F> {
             header_sub_index,
             header_flen_delta,
             header_sub_index_depth,
-            header_sub_index_header,
+            header_sub_index_ext,
         }
     }
 }
