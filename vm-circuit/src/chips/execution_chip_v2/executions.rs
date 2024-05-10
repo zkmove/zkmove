@@ -335,7 +335,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
             .unwrap();
 
         cb.require_equal(
-            format!("{}, header_sub_index == from_limbs(limbs)", name),
+            format!("{}, sub_index == from_limbs(limbs)", name),
             sub_index.clone(),
             from_limbs::expr::<_, _, 16>(&limbs),
         );
@@ -360,5 +360,77 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 
     pub(crate) fn expr(&self) -> Expression<F> {
         self.mask.iter().map(|c| c.expr()).sum()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SubIndexHeader<F: Field, const N_LIMB: usize> {
+    sub_index: Expression<F>,
+    limbs: [Cell<F>; N_LIMB],
+    mask: [Cell<F>; N_LIMB],
+    reverse_limb: Cell<F>,
+}
+impl<F: Field, const N_LIMB: usize> SubIndexHeader<F, N_LIMB> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index: Expression<F>,
+        name: &'static str,
+    ) -> Self {
+        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_bool())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let reverse_limb = cb.query_cell();
+
+        cb.require_equal(
+            format!("{}, sub_index == from_limbs(limbs)", name),
+            sub_index.clone(),
+            from_limbs::expr::<_, _, 16>(&limbs),
+        );
+        cb.require_equal(
+            format!("{}, sum(mask[i]) == 1", name),
+            mask.iter().map(|c| c.expr()).sum(),
+            1u64.expr(),
+        );
+
+        for i in 0..N_LIMB {
+            cb.require_zero(
+                format!("{}, mask[i] * limbs[i] != 0", name),
+                mask[i].expr() * (limbs[i].expr() * reverse_limb.expr() - 1u64.expr()),
+            );
+            cb.require_zero(
+                format!("{}, mask[i] * limbs[i+1] == 0", name),
+                mask[i].expr() * limbs[i + 1].expr(),
+            );
+        }
+
+        Self {
+            sub_index,
+            limbs,
+            mask,
+            reverse_limb,
+        }
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        let header_limbs = self
+            .limbs
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                if self.mask[i].expr() == 0u64.expr() {
+                    c.expr()
+                } else {
+                    0u64.expr()
+                }
+            })
+            .collect::<Vec<_>>();
+        from_limbs::expr::<_, _, 16>(&header_limbs)
     }
 }
