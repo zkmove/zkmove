@@ -39,6 +39,10 @@ pub(crate) trait ConstrainBuilderCommon<F: Field> {
         self.require_equal(name, value, 1u64.expr());
     }
 
+    fn require_false(&mut self, name: impl AsRef<str>, value: Expression<F>) {
+        self.add_constraint(name.as_ref().to_string(), value);
+    }
+
     fn require_in_set(
         &mut self,
         name: impl AsRef<str>,

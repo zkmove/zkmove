@@ -2,6 +2,7 @@ pub(crate) mod base;
 pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
+pub(crate) mod call;
 pub(crate) mod ld;
 pub(crate) mod pack;
 pub(crate) mod read_ref;
@@ -10,6 +11,7 @@ pub(crate) mod write_ref;
 pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
+pub use call::*;
 pub use ld::*;
 pub use pack::*;
 pub use write_ref::*;
@@ -55,6 +57,8 @@ pub enum ExecutionState {
     WriteRefStage2,
     WriteRefStage3,
     WriteRefStage4,
+    CallWithNoArgs,
+    CallWithArgs,
 }
 
 #[derive(Clone, Debug)]
