@@ -1,0 +1,90 @@
+use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
+use crate::chips::execution_chip_v2::step_v2::{
+    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+};
+use crate::chips::execution_chip_v2::InstructionGadgetV2;
+use crate::chips::utilities::Expr;
+use std::marker::PhantomData;
+use types::Field;
+
+#[derive(Clone, Debug, Default)]
+pub struct Pop<F>(PhantomData<F>);
+impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
+    const NAME: &'static str = "Pop";
+
+    const OPCODE: Opcode = Opcode::Pop;
+    const EXECUTION_STATE: ExecutionState = ExecutionState::Pop;
+
+    fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let value_len = cb.query_u16();
+        let value_flen = cb.query_u16();
+        let header = ValueHeader::pair(value_len.expr(), value_flen.expr());
+
+        let step_curr = cb.curr.state.clone();
+
+        cb.first_row(|cb| {
+            cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
+                cb.require_equal(
+                    "(len, flen) = stack_pop_value(0)",
+                    step_curr.stack_pop_value.expr(),
+                    header.expr(),
+                );
+                cb.require_equal(
+                    "step_counter(0) == flen",
+                    step_curr.step_counter.expr(),
+                    value_flen.expr(),
+                );
+            });
+            cb.condition(
+                1u64.expr() - step_curr.stack_pop_value_header.expr(),
+                |cb| {
+                    cb.require_equal(
+                        "step_counter(0) == 1",
+                        step_curr.step_counter.expr(),
+                        1u64.expr(),
+                    );
+                },
+            );
+        });
+        cb.require_equal(
+            format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+            step_curr.stack_pop_index.expr(),
+            step_curr.sp.expr(),
+        );
+        cb.first_row(|cb| {
+            cb.require_zero(
+                format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
+                step_curr.stack_pop_sub_index.expr(),
+            );
+        });
+        // TODO: stack_pop_version(0) < clk(0);
+        cb.require_no_stack_push();
+        cb.require_no_local_op();
+
+        // nexts
+        cb.require_state_transition(
+            [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
+                .into_iter()
+                .map(|s| (s, Transition::Same))
+                .collect(),
+        );
+        cb.not_last_row(|cb| {
+            cb.require_state_transition(
+                [SP, PC, OPCODE, AUX0, AUX1]
+                    .into_iter()
+                    .map(|s| (s, Transition::Same))
+                    .collect(),
+            );
+        });
+        cb.last_row(|cb| {
+            cb.require_state_transition(vec![
+                (PC, Transition::Delta(1.expr())),
+                (SP, Transition::Delta((-1).expr())),
+            ]);
+        });
+        Self::default()
+    }
+}

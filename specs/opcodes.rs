@@ -140,29 +140,35 @@ mod pop {
         let is_last = super::common::on_last_row();
 
         if is_first {
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-            stack_pop_sub_index(0) == 0; // simple value or header
-                                         // TODO: reduce to is_last
-            let is_simple = step_counter(0) == 1;
-            if !is_simple {
+            // if is complex value
+            if stack_pop_value_header {
                 // !simple value
                 let (len, flen) = stack_pop_value(0);
-                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+                step_counter(0) == flen;
+            } else {
+                step_counter(0) == 1;
             }
         }
         stack_pop_index(0) = sp(0);
+        if is_first {
+            stack_pop_sub_index(0) == 0;
+        }
         stack_pop_version(0) < clk(0);
         super::common::fake_empty_stack_push();
         super::common::fake_local_read_zero();
 
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
         if is_last {
             sp(1) == sp(0) - 1;
+            pc(1) = pc(0) + 1;
         } else {
             sp(1) == sp(0);
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
             aux0(1) == aux0(0);
             aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //stack_sub_index(1) > stack_sub_index(0);
         }
     }
 }
