@@ -1595,7 +1595,7 @@ mod vec_pop_back {
     /// stage2 update parent from up to bottom
     pub fn constraint_stage2() {
         declare!(vector_sub_index);
-        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(-1));
+        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len, vector_origin_flen);
 
         fake_stack_push();
@@ -1626,11 +1626,16 @@ mod vec_pop_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_last {
-            // the delta should be the same for not-last-row
-            local_read_value(0) - local_write_value(0)
-                == local_read_value(1) - local_write_value(1);
-        } else {
+        if !is_first {
+            if !is_last {
+                // the delta should be the same for not-last-row
+                local_read_value(0) - local_write_value(0)
+                    == local_read_value(-1) - local_write_value(-1);
+            } else {
+                local_read_value(-1) - local_write_value(-1) == step_counter(1);
+            }
+        }
+        if is_last {
             // then last row the delta is (old_len-1, old_flen - elem_flen)
             local_read_value(0) == ValueHeader::new(vector_origin_len, vector_origin_flen);
             local_write_value(0)
@@ -1777,17 +1782,22 @@ mod vec_push_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_last {
-            // the delta should be the same for not-last-row
-            local_write_value(0) - local_read_value(0)
-                == local_write_value(1) - local_read_value(1);
-        } else {
+        if !is_first {
+            if !is_last {
+                // the delta should be the same for not-last-row
+                local_write_value(0) - local_read_value(0)
+                    == local_write_value(-1) - local_read_value(-1);
+            } else {
+                local_read_value(-1) + step_counter(1) == local_write_value(-1);
+            }
+        }
+        if is_last {
             // then last row the delta is (old_len+1, old_flen + elem_flen)
             local_read_value(0) == ValueHeader::new(vector_origin_len, vector_origin_flen);
             local_write_value(0)
                 == ValueHeader::new(vector_origin_len + 1, vector_origin_flen + step_counter(1));
             // suppose we use u16 to represent flen.
-            // local_read_value(0) - local_write_value(0) == step_counter(1) + 1 * u16::MAX;
+            // local_read_value(0) + step_counter(1) + 1 * u16::MAX == local_write_value(0);
         }
 
         // next

@@ -205,13 +205,19 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         //         local_read_version(0) < clk(0);
         //         local_write_version(0) == clk(0);
 
-        cb.not_last_row(|cb| {
-            cb.require_equal(
-                "local_write_value(0) - local_read_value(0) == local_write_value(1) - local_read_value(1)",
-                step_curr.local_read_value.expr() + step_next.local_write_value.expr(),
-                step_curr.local_write_value.expr() + step_next.local_read_value.expr(),
-            );
+        cb.not_first_row(|cb| {
+            cb.not_last_row(|cb| {
+                cb.require_equal(
+                    "local_write_value(0) - local_read_value(0) == local_write_value(1) - local_read_value(1)",
+                    step_curr.local_read_value.expr() + step_next.local_write_value.expr(),
+                    step_curr.local_write_value.expr() + step_next.local_read_value.expr(),
+                );
+            });
+            cb.last_row(|cb| {
+                cb.require_equal("local_read_value(-1) + step_counter(1) == local_write_value(-1)", step_prev.local_read_value.expr()+step_curr.step_counter.expr() , step_prev.local_write_value.expr());
+            });
         });
+
         cb.last_row(|cb| {
             cb.require_equal(
                 "local_read_value(0) == ValueHeader::new(vector_origin_len, vector_origin_flen)",

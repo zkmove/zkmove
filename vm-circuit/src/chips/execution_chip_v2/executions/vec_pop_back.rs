@@ -205,12 +205,21 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         //         local_read_version(0) < clk(0);
         //         local_write_version(0) == clk(0);
 
-        cb.not_last_row(|cb| {
-            cb.require_equal(
-                "local_read_value(0) - local_write_value(0) == local_read_value(1) - local_write_value(1)",
-                step_curr.local_read_value.expr() + step_next.local_write_value.expr(),
-                step_curr.local_write_value.expr() + step_next.local_read_value.expr(),
-            );
+        cb.not_first_row(|cb| {
+            cb.not_last_row(|cb| {
+                cb.require_equal(
+                "local_read_value(0) - local_write_value(0) == local_read_value(-1) - local_write_value(-1)",
+                step_curr.local_read_value.expr() + step_prev.local_write_value.expr(),
+                step_curr.local_write_value.expr() + step_prev.local_read_value.expr(),
+                );
+            });
+            cb.last_row(|cb| {
+                cb.require_equal(
+                    "local_read_value(-1) - local_write_value(-1) == step_counter(1)",
+                    step_prev.local_read_value.expr(),
+                    step_prev.local_write_value.expr()+step_curr.step_counter.expr()
+                );
+            });
         });
         cb.last_row(|cb| {
             cb.require_equal(
@@ -222,10 +231,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
                 "local_write_value(0) == ValueHeader::new(vector_origin_len - 1, vector_origin_flen - step_counter(1))",
                 step_curr.local_write_value.expr(),
                 ValueHeader::pair(vector_origin_len.expr() - 1u64.expr(),
-                vector_origin_flen.expr() - step_next.step_counter.expr()).expr()
+                                  vector_origin_flen.expr() - step_next.step_counter.expr()).expr()
             );
         });
-
         cb.require_state_transition(
             [
                 FRAME_INDEX,
