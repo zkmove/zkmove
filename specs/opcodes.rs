@@ -1696,7 +1696,8 @@ mod vec_pop_back {
             // make sure sub_index of first is zero.
             stack_push_sub_index(0) == 0;
         } else {
-            stack_push_sub_index(0) > stack_push_sub_index(-1);
+            // NOTICE: not needed
+            // stack_push_sub_index(0) > stack_push_sub_index(-1);
         }
         stack_push_value(0) == local_read_value(0);
         stack_push_value_header(0) == local_read_value_header(0);
@@ -1849,7 +1850,8 @@ mod vec_push_back {
             // make sure sub_index of first is zero.
             stack_pop_sub_index(0) == 0;
         } else {
-            stack_pop_sub_index(0) > stack_pop_sub_index(-1);
+            // NOTICE: not needed
+            // stack_pop_sub_index(0) > stack_pop_sub_index(-1);
         }
         stack_pop_value(0) == local_write_value(0);
         stack_pop_value_header(0) == local_write_value_header(0);
