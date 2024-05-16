@@ -1270,39 +1270,32 @@ mod vec_unpack {
 
 mod vec_len {
     pub fn constrain() {
-        let is_first = super::common::on_first_row();
-        let is_last = super::common::on_last_row();
-        // pop ref
-        if is_first {
-            // first step
-            table_bytecode.lookup(pc(0), VEC_LEN, 0);
+        if super::common::on_first_row() {
+            opcode(0) == OpCode::VecLen;
             step_counter(0) == 4;
-            stack_pop_index(0) == sp(0);
-            stack_pop_sub_index(0) == 0;
             stack_pop_version(0) < clk(0);
-        } else {
-            stack_pop_index(0) == sp(0);
-            stack_pop_sub_index(0) == stack_pop_sub_index(-1) + 1;
-            stack_pop_version(0) == stack_pop_version(-1);
         }
 
-        if !is_last {
-            super::common::fake_empty_stack_push();
-            super::common::fake_local_read_zero();
+        stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 4 - step_counter(0);
+        sp(1) == sp(0);
 
-            sp(1) == sp(0);
-            step_counter(1) == step_counter(0) - 1;
-        } else {
+        if !super::common::on_last_row() {
+            super::common::fake_empty_stack_push(0);
+            super::common::fake_local_read_zero();
+        }
+
+        if super::common::on_last_row() {
             // read vec header
             local_frame_index(0) == stack_pop_value(-2);
             local_index(0) == stack_pop_value(-1);
             local_sub_index(0) == stack_pop_value(0);
             local_write_value(0) == local_read_value(0);
             local_write_value_header(0) == local_read_value_header(0);
+            local_read_value_header(0) == true;
             local_write_value_invalid(0) == local_read_value_invalid(0);
             local_read_version(0) < clk(0);
             local_write_version(0) == clk(0);
-
             // push length
             stack_push_index(0) == sp(0);
             stack_push_sub_index(0) == 0;
@@ -1310,7 +1303,10 @@ mod vec_len {
             stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);
 
-            sp(1) == sp(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
         }
     }
 }
