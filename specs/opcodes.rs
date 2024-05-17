@@ -1313,67 +1313,47 @@ mod vec_len {
 
 mod vec_borrow {
     pub fn constrain() {
-        let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
-        // first step, pop the index
-        if is_first {
-            table_bytecode.lookup(pc(0), VEC_BORROW, 0);
+
+        // pop the index
+        if super::common::on_first_row() {
+            opcode(0) == OpCode::VecBorrow;
             step_counter(0) == 5;
 
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
+            stack_pop_value_header(0) == false;
             stack_pop_version(0) < clk(0);
-            super::common::fake_empty_stack_push();
-            super::common::fake_local_read_zero();
-
-            opcode(1) == opcode(0);
-            pc(1) == pc(0);
-            module_index(1) == module_index(0);
-            function_index(1) == function_index(0);
-            step_counter(1) == step_counter(0) - 1;
-            //clk(1) == clk(0);
+            super::common::fake_empty_stack_push(0);
             sp(1) == sp(0) - 1;
-            stack_pop_sub_index(1) == 0;
         }
 
-        // middle steps
-        if !is_first && !is_last {
+        // pop the reference and push back the new reference
+        if !super::common::on_first_row() {
             stack_pop_index(0) == sp(0);
-            //stack_pop_sub_index is constrained by the last step
-            stack_push_sub_index(0) == stack_pop_sub_index(0);
-            stack_push_value(0) == stack_pop_value(0);
-            stack_push_value_header(0) == stack_pop_value_header(0);
-            if step_counter(0) == 4 {
-                stack_pop_version(0) < clk(0);
-            } else {
-                stack_pop_version(0) == stack_pop_version(-1);
-            }
-            stack_push_version(0) = clk(0);
-            super::common::fake_local_read_zero();
-
-            sp(1) == sp(0);
-            stack_pop_sub_index(1) == stack_pop_sub_index(0) + 1;
-            step_counter(1) == step_counter(0) - 1;
-        }
-
-        // last step
-        if is_last {
-            stack_pop_index(0) == sp(0);
+            stack_pop_sub_index(0) == 4 - step_counter(0);
+            stack_pop_version(0) < clk(0);
             stack_push_index(0) == stack_pop_index(0);
             stack_push_sub_index(0) == stack_pop_sub_index(0);
-            super::common::constrain_depth(stack_pop_value(0), depth(0));
-            super::common::constrain_sub_index(
-                stack_pop_value(0),
-                stack_pop_value(-4),
-                depth(0),
-                stack_push_value(0),
-            );
+            if !is_last {
+                stack_push_value(0) == stack_pop_value(0);
+            }
             stack_push_value_header(0) == stack_pop_value_header(0);
-            stack_pop_version(0) == stack_pop_version(-1);
             stack_push_version(0) = clk(0);
-            super::common::fake_local_read_zero();
-
             sp(1) == sp(0);
+        }
+
+        super::common::fake_local_read_zero();
+
+        if super::common::on_last_row() {
+            //push back the last row of the new reference
+            let index = stack_pop_value(-4);
+            stack_push_value(0) == stack_pop_value(0).concat(index);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
         }
     }
 }
