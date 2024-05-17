@@ -4,11 +4,16 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::vec_push_back::{
+    VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
+};
 use crate::chips::execution_chip_v2::executions::vec_swap::{
     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
 };
-use crate::chips::execution_chip_v2::executions::BorrowLoc;
 use crate::chips::execution_chip_v2::executions::Pack;
+use crate::chips::execution_chip_v2::executions::{
+    BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
+};
 use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
@@ -21,6 +26,7 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::{and, not, or};
 use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
+use itertools::PadUsing;
 use std::iter;
 use types::Field;
 
@@ -45,6 +51,12 @@ pub(crate) struct ExecChipConfig<F> {
     pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
     pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
     pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
+    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
+    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
+    pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
+    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
+    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
+    pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
     pub step: Step<F>,
 }
 
@@ -180,6 +192,13 @@ impl<F: Field> ExecChipConfig<F> {
             vec_swap_stage_4: configure_opcode_gadget!(),
             vec_swap_stage_5: configure_opcode_gadget!(),
             vec_swap_stage_6: configure_opcode_gadget!(),
+            vec_pop_back_stage1: configure_opcode_gadget!(),
+            vec_pop_back_stage2: configure_opcode_gadget!(),
+            vec_pop_back_stage3: configure_opcode_gadget!(),
+            vec_push_back_stage1: configure_opcode_gadget!(),
+            vec_push_back_stage2: configure_opcode_gadget!(),
+            vec_push_back_stage3: configure_opcode_gadget!(),
+
             advices: advices.clone(),
             step: step_curr,
         };

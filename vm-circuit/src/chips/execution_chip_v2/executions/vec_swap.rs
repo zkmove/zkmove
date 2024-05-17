@@ -2,7 +2,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{
-    ExecutionState, ExtendedSubIndex, ValueHeader, DEPTH_POW_OF_ONE_LEVEL,
+    ExecutionState, ExtendedSubIndex, ValueHeader, DEPTH_POW_OF_ONE_LEVEL, REFERENCE_VALUE_FLEN,
 };
 use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
@@ -119,7 +119,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_2<F> {
             cb.require_equal(
                 "step_counter(0)==4",
                 cb.curr.state.step_counter.expr(),
-                4u64.expr(),
+                REFERENCE_VALUE_FLEN.expr(),
             );
 
             cb.require_true(
