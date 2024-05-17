@@ -1752,7 +1752,7 @@ mod vec_push_back {
     /// stage2 update parent from up to bottom
     pub fn constraint_stage2() {
         declare!(vector_sub_index);
-        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(-1));
+        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len, vector_origin_flen);
 
         fake_stack_push();
@@ -1811,7 +1811,7 @@ mod vec_push_back {
         aux1(1) == aux1(0);
         sp(1) == sp(0);
     }
-    // move value from local to stack
+    // move value from stack to local
     pub fn constraint_stage3() {
         declare!(vector_sub_index);
         let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
