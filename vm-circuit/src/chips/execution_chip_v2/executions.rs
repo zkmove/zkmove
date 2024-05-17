@@ -9,6 +9,8 @@ pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
 pub(crate) mod vec_pop_back;
 pub(crate) mod vec_swap;
+
+pub(crate) mod move_or_copy_loc;
 pub(crate) mod pop;
 pub(crate) mod vec_push_back;
 pub(crate) mod write_ref;
@@ -16,6 +18,7 @@ pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
+pub(crate) use move_or_copy_loc::*;
 pub use pack::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
@@ -73,6 +76,8 @@ pub enum ExecutionState {
     VecImmBorrow,
     VecMutBorrow,
     Pop,
+    MoveLoc,
+    CopyLoc,
 }
 
 #[derive(Clone, Debug)]

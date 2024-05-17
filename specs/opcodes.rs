@@ -516,16 +516,18 @@ mod move_loc {
 
         if is_first {
             // first row
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
             local_sub_index(0) == 0; // simple value or header
-            if !is_last {
+            if stack_push_value_header {
                 // !simple value
-                let (len, flen) = stack_read_value(0);
+                let (len, flen) = stack_push_value(0);
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            } else {
+                step_counter(0) == 1;
             }
         }
 
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
+        stack_push_version == clk(0);
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
@@ -536,16 +538,13 @@ mod move_loc {
                                          // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
-        stack_push_version == clk(0);
 
         if is_last {
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
-        } else {
-            sp(1) == sp(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
         }
     }
 }
@@ -557,16 +556,18 @@ mod copy_loc {
 
         if is_first {
             // first row
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
             local_sub_index(0) == 0; // simple value or header
-            if !is_last {
+            if stack_push_value_header {
                 // !simple value
-                let (len, flen) = stack_read_value(0);
+                let (len, flen) = stack_push_value(0);
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            } else {
+                step_counter(0) == 1;
             }
         }
 
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
+        stack_push_version == clk(0);
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
@@ -575,19 +576,17 @@ mod copy_loc {
         local_read_value_header(0) == stack_push_value_header(0);
         local_write_value(0) == local_read_value(0); // copy_loc will just read data, this the only difference with move_loc
         local_write_value_header(0) == local_read_value_header(0);
+        local_write_value_invalid(0) == local_read_value_invalid(0);
         // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
-        stack_push_version == clk(0);
 
         if is_last {
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            pc(1) == pc(0) + 1;
             sp(1) == sp(0) + 1;
-        } else {
-            sp(1) == sp(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            //local_sub_index(1) > local_sub_index(0); // make sure sub_index of complex value is increasing.
         }
     }
 }

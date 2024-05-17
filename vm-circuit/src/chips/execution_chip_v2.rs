@@ -11,12 +11,12 @@ use crate::chips::execution_chip_v2::executions::vec_push_back::{
 use crate::chips::execution_chip_v2::executions::vec_swap::{
     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
 };
-use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::{
     BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
 };
 use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
@@ -59,6 +59,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
     pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
     pub pop: Box<Pop<F>>,
+    pub move_loc: Box<MoveOrCopyLoc<F, true>>,
+    pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
     pub step: Step<F>,
 }
 
@@ -201,6 +203,8 @@ impl<F: Field> ExecChipConfig<F> {
             vec_push_back_stage2: configure_opcode_gadget!(),
             vec_push_back_stage3: configure_opcode_gadget!(),
             pop: configure_opcode_gadget!(),
+            move_loc: configure_opcode_gadget!(),
+            copy_loc: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
