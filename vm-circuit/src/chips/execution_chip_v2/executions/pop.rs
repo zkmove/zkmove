@@ -7,6 +7,7 @@ use crate::chips::execution_chip_v2::step_v2::{
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use std::io::Read;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -65,25 +66,17 @@ impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
         cb.require_no_local_op();
 
         // nexts
-        cb.require_state_transition(
-            [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
-        );
-        cb.not_last_row(|cb| {
+        cb.last_row(|cb| {
             cb.require_state_transition(
-                [SP, PC, OPCODE, AUX0, AUX1]
+                [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
                     .into_iter()
                     .map(|s| (s, Transition::Same))
+                    .chain(vec![
+                        (PC, Transition::Delta(1.expr())),
+                        (SP, Transition::Delta((-1).expr())),
+                    ])
                     .collect(),
             );
-        });
-        cb.last_row(|cb| {
-            cb.require_state_transition(vec![
-                (PC, Transition::Delta(1.expr())),
-                (SP, Transition::Delta((-1).expr())),
-            ]);
         });
         Self::default()
     }

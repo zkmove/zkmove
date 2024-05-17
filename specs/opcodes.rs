@@ -157,18 +157,12 @@ mod pop {
         super::common::fake_empty_stack_push();
         super::common::fake_local_read_zero();
 
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
         if is_last {
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
             sp(1) == sp(0) - 1;
             pc(1) = pc(0) + 1;
-        } else {
-            sp(1) == sp(0);
-            pc(1) == pc(0);
-            opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
         }
     }
 }
