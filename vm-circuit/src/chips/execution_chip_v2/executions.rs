@@ -7,7 +7,10 @@ pub(crate) mod pack;
 pub(crate) mod read_ref;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
+pub(crate) mod vec_pop_back;
 pub(crate) mod vec_swap;
+pub(crate) mod pop;
+pub(crate) mod vec_push_back;
 pub(crate) mod write_ref;
 pub use borrow_field::*;
 pub use borrow_loc::*;
@@ -16,6 +19,7 @@ pub use ld::*;
 pub use pack::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
+pub(crate) use vec_pop_back::*;
 pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
@@ -39,6 +43,12 @@ pub enum ExecutionState {
     VecSwapStage4,
     VecSwapStage5,
     VecSwapStage6,
+    VecPopBackStage1,
+    VecPopBackStage2,
+    VecPopBackStage3,
+    VecPushBackStage1,
+    VecPushBackStage2,
+    VecPushBackStage3,
     Stop,
     Nop,
     MutBorrowLoc,
@@ -62,6 +72,7 @@ pub enum ExecutionState {
     VecLen,
     VecImmBorrow,
     VecMutBorrow,
+    Pop,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +80,8 @@ pub(crate) struct ValueHeader<F> {
     len: Expression<F>,
     flen: Expression<F>,
 }
+pub(crate) const REFERENCE_VALUE_LEN: u64 = 3;
+pub(crate) const REFERENCE_VALUE_FLEN: u64 = REFERENCE_VALUE_LEN + 1;
 
 impl<F: Field> ValueHeader<F> {
     fn new(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -82,7 +95,7 @@ impl<F: Field> ValueHeader<F> {
     }
     // header for any reference value
     pub fn default() -> Self {
-        Self::pair(3u64.expr(), 4u64.expr())
+        Self::pair(REFERENCE_VALUE_LEN.expr(), REFERENCE_VALUE_FLEN.expr())
     }
 }
 
@@ -189,7 +202,7 @@ pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(16);
 
 /// Extended SubIndex used for manipulate sub_index, like concat
 #[derive(Clone, Debug)]
-pub(crate) struct ExtendedSubIndex<F: Field, const N_LIMB: usize> {
+pub(crate) struct ExtendedSubIndex<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
     limbs: [Cell<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
