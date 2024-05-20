@@ -8,9 +8,9 @@ pub(crate) mod read_ref;
 pub(crate) mod vec_pop_back;
 pub(crate) mod vec_swap;
 
+pub(crate) mod pop;
 pub(crate) mod vec_push_back;
 pub(crate) mod write_ref;
-
 pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
@@ -66,6 +66,7 @@ pub enum ExecutionState {
     WriteRefStage2,
     WriteRefStage3,
     WriteRefStage4,
+    Pop,
 }
 
 #[derive(Clone, Debug)]

@@ -4,6 +4,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::pop::Pop;
 use crate::chips::execution_chip_v2::executions::vec_push_back::{
     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
 };
@@ -57,6 +58,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
     pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
     pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
+    pub pop: Box<Pop<F>>,
     pub step: Step<F>,
 }
 
@@ -198,7 +200,7 @@ impl<F: Field> ExecChipConfig<F> {
             vec_push_back_stage1: configure_opcode_gadget!(),
             vec_push_back_stage2: configure_opcode_gadget!(),
             vec_push_back_stage3: configure_opcode_gadget!(),
-
+            pop: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
