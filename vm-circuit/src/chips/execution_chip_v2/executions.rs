@@ -5,9 +5,10 @@ pub(crate) mod br_bool;
 pub(crate) mod ld;
 pub(crate) mod pack;
 pub(crate) mod read_ref;
+pub(crate) mod vec_borrow;
+pub(crate) mod vec_len;
 pub(crate) mod vec_pop_back;
 pub(crate) mod vec_swap;
-
 pub(crate) mod pop;
 pub(crate) mod vec_push_back;
 pub(crate) mod write_ref;
@@ -16,6 +17,8 @@ pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
 pub use pack::*;
+pub use vec_borrow::*;
+pub use vec_len::*;
 pub(crate) use vec_pop_back::*;
 pub use write_ref::*;
 
@@ -66,6 +69,9 @@ pub enum ExecutionState {
     WriteRefStage2,
     WriteRefStage3,
     WriteRefStage4,
+    VecLen,
+    VecImmBorrow,
+    VecMutBorrow,
     Pop,
 }
 
