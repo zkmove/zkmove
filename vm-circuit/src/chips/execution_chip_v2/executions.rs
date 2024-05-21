@@ -4,6 +4,7 @@ pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
 pub(crate) mod cast;
 pub(crate) mod ld;
+pub(crate) mod not;
 pub(crate) mod pack;
 pub(crate) mod pop;
 pub(crate) mod read_ref;
@@ -18,6 +19,7 @@ pub use borrow_loc::*;
 pub use br_bool::*;
 pub use cast::*;
 pub use ld::*;
+pub use not::*;
 pub use pack::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
@@ -80,6 +82,7 @@ pub enum ExecutionState {
     CastU32,
     CastU16,
     CastU8,
+    Not,
 }
 
 #[derive(Clone, Debug)]
