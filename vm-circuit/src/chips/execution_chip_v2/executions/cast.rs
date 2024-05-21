@@ -41,68 +41,72 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES>
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let step_curr = cb.curr.state.clone();
         let range_check =
-            IntegerRangeCheck::<_, N_BYTES>::construct(cb, cb.curr.state.stack_pop_value.expr());
-        cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
-                cb.curr.state.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
-            );
-            cb.require_equal(
-                format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
-                cb.curr.state.stack_pop_index.expr(),
-                cb.curr.state.sp.expr(),
-            );
-            cb.require_zero(
-                format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
-                cb.curr.state.stack_pop_sub_index.expr(),
-            );
-            cb.require_zero(
-                format!("{}, stack_pop_value_header(0) == false", Self::NAME),
-                cb.curr.state.stack_pop_value_header.expr(),
-            );
-            cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
-                cb.curr.state.stack_push_index.expr(),
-                cb.curr.state.sp.expr(),
-            );
+            IntegerRangeCheck::<_, N_BYTES>::construct(cb, step_curr.stack_pop_value.expr());
+        cb.require_equal(
+            "opcode",
+            step_curr.opcode.expr(),
+            (Self::OPCODE as u64).expr(),
+        );
+        cb.require_equal(
+            "step_counter(0) == 1",
+            step_curr.step_counter.expr(),
+            1u64.expr(),
+        );
+        cb.require_equal(
+            format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+            step_curr.stack_pop_index.expr(),
+            step_curr.sp.expr(),
+        );
+        cb.require_zero(
+            format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
+            step_curr.stack_pop_sub_index.expr(),
+        );
+        cb.require_zero(
+            format!("{}, stack_pop_value_header(0) == false", Self::NAME),
+            step_curr.stack_pop_value_header.expr(),
+        );
+        cb.require_equal(
+            format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
+            step_curr.stack_push_index.expr(),
+            step_curr.sp.expr(),
+        );
 
-            cb.require_zero(
-                format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
-                cb.curr.state.stack_push_sub_index.expr(),
-            );
-            cb.require_zero(
-                format!("{}, stack_push_value_header(0) == false", Self::NAME),
-                cb.curr.state.stack_push_value_header.expr(),
-            );
+        cb.require_zero(
+            format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
+            step_curr.stack_push_sub_index.expr(),
+        );
+        cb.require_zero(
+            format!("{}, stack_push_value_header(0) == false", Self::NAME),
+            step_curr.stack_push_value_header.expr(),
+        );
+        cb.require_equal(
+            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
+            step_curr.stack_push_version.expr(),
+            step_curr.clk.expr(),
+        );
+
+        cb.require_no_local_op();
+
+        cb.condition(range_check.expr(), |cb| {
             cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                cb.curr.state.stack_push_version.expr(),
-                cb.curr.state.clk.expr(),
+                format!("{}, stack_push_value(0) == stack_pop_value(0)", Self::NAME),
+                step_curr.stack_push_value.expr(),
+                step_curr.stack_pop_value.expr(),
             );
-
-            cb.require_no_local_op();
-
-            cb.condition(range_check.expr(), |cb| {
-                cb.require_equal(
-                    format!("{}, stack_push_value(0) == stack_pop_value(0)", Self::NAME),
-                    cb.curr.state.stack_push_value.expr(),
-                    cb.curr.state.stack_pop_value.expr(),
-                );
-                cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
-                    (SP, Transition::Same),
-                    (PC, Transition::Delta(1.expr())),
-                ]);
-            });
-            cb.condition(not::expr(range_check.expr()), |cb| {
-                // TODO: error state
-                // cb.require_next_state(ExecutionState::ErrorState);
-                // ErrorCode == StatusCode::ArithmeticError
-            });
+            cb.require_state_transition(vec![
+                (FRAME_INDEX, Transition::Same),
+                (MODULE_INDEX, Transition::Same),
+                (FUNCTION_INDEX, Transition::Same),
+                (SP, Transition::Same),
+                (PC, Transition::Delta(1.expr())),
+            ]);
+        });
+        cb.condition(not::expr(range_check.expr()), |cb| {
+            // TODO: error state
+            // cb.require_next_state(ExecutionState::ErrorState);
+            // ErrorCode == StatusCode::ArithmeticError
         });
 
         Cast { range_check }

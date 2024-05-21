@@ -392,6 +392,7 @@ mod not {
 mod cast {
     pub fn constrain_cast_u8() {
         opcode(0) == OpCode::CastU8;
+        step_counter(0) == 1;
 
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
