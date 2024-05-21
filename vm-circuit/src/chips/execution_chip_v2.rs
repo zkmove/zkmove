@@ -27,7 +27,6 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::{and, not, or};
 use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
-use itertools::PadUsing;
 use std::iter;
 use types::Field;
 

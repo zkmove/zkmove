@@ -12,6 +12,7 @@ pub(crate) mod vec_swap;
 
 pub(crate) mod move_or_copy_loc;
 pub(crate) mod pop;
+pub(crate) mod store_loc;
 pub(crate) mod vec_push_back;
 pub(crate) mod write_ref;
 pub use borrow_field::*;
@@ -78,6 +79,8 @@ pub enum ExecutionState {
     Pop,
     MoveLoc,
     CopyLoc,
+    StoreLocStage1,
+    StoreLocStage2,
 }
 
 #[derive(Clone, Debug)]

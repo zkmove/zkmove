@@ -591,85 +591,86 @@ mod copy_loc {
     }
 }
 
+/// store_loc have two stages.
+/// 1. first, we invalidate the local slot to store. If the local is empty, it should read as invalid, and write back the invalid, increasing the version.
+/// 2. then, we move the value on stack to loc.
 mod store_loc {
-    fn constraint() {
+    fn stage1() {
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+        if is_first {
+            if local_read_value_header {
+                // !simple value
+                let (len, flen) = local_read_value(0);
+                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
+            } else {
+                step_counter(0) == 1;
+            }
+        }
+        local_frame_index(0) == frame_index(0);
+        // ensure local_index equal to operand0
+        local_index(0) == aux0(0);
+        if is_first {
+            // first row
+            local_sub_index(0) == 0; // simple value or header
+        }
+        // we don't care local is invalid or not.
+        // local_read_value_invalid,local_read_value_header, local_read_value, local_read_value_version.
+        local_read_value_version(0) < clk(0);
+        local_write_value_invalid(0) == true;
+        local_write_value_header(0) == local_read_value_header(0);
+        local_write_value_version(0) == clk(0);
+
+        sp(1) == sp(0);
+        if is_last {
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        }
+    }
+    // move value from stack to local
+    fn stage2() {
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
 
+        stack_pop_index(0) == sp(0);
         if is_first {
             // first row
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
-
-            stack_pop_sub_index(0) == 0;
-
-            // constraint w_flen.
-            w_flen(0) != 0; // ensure w_flen > 0 in first row
-            let is_complex_value = w_flen(0) != 1; // TODO: should change to use HEADER flag?
-            if is_complex_value {
-                // complex value
+            stack_pop_sub_index(0) == 0; // simple value or header
+        }
+        if is_first {
+            if stack_pop_value_header {
+                // !simple value
                 let (len, flen) = stack_pop_value(0);
-                w_flen(0) == flen; // need to constraint flen == step_counter in the first row.
-            }
-
-            // constraint step_counter
-            let invalidate_old = local_write_version(0) != 0;
-            if invalidate_old && local_read_value_header {
-                let (len, flen) = local_read_value(0);
-                step_counter(0) == w_flen(0) + flen - 1; // step counter should be the old_local_value_flen+new_local_value_flen - 1
+                step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
             } else {
-                step_counter(0) == w_flen(0); // if old value is simple or store_to_empty, we donnt need to invalidate.
+                step_counter(0) == 1;
             }
         }
-        let in_store_stage = w_flen(0) != 0;
-        // in this stage, we copy stack value into local, and invalidate stack.
-        if in_store_stage {
-            stack_pop_index(0) == sp(0); // write invalid to current stack
-                                         // !is_first_row && stack_sub_index(0) > stack_sub_index(-1); // make sure value sub_index increasing.
-            stack_pop_version(0) < clk(0);
-            local_frame_index(0) == frame_index(0);
-            local_index(0) == aux0(0); // ensure local_index equal to operand0
-            local_sub_index(0) == stack_pop_sub_index(0);
-            // local_read_value(0) should be either INVALID or the latest value based on the version of local_write_version
-            local_write_value(0) == stack_pop_value(0);
-            local_write_value_header(0) == stack_pop_value_header(0);
+        stack_pop_version(0) < clk(0);
 
-            local_write_version(0) == clk(0);
-            clk(0) > local_read_version(0);
-            // !is_first_row && local_read_value(0) == INVALID; // if not first row, local_read old_value should be INVALID.
-        }
+        local_frame_index(0) == frame_index(0);
+        local_index(0) == aux0(0);
+        local_sub_index(0) == stack_pop_sub_index(0);
 
-        let in_invalidate_local_stage = w_flen(0) == 0;
-        if in_invalidate_local_stage {
-            local_frame_index(0) == frame_index(0);
-            local_index(0) == aux(0);
-            local_sub_index(0) != 0; // not header
-            local_read_value(0) != INVALID;
-            local_write_value(0) == INVALID;
-            // we constraint that version only increase 1 in invalid stage.
-            local_read_version(0) + 1 = local_write_version(0);
-            // or we can
-            // clk(0) - 1 = local_write_version(0);
-        }
-
-        // constraint next row,
-        // iterate each columns to add constraint.
-
+        local_read_value_invalid(0) == true;
+        local_read_value_version(0) < clk(0);
+        local_write_value(0) == stack_pop_value(0);
+        local_write_value_header(0) == stack_pop_value_header(0);
+        local_write_value_invalid(0) == false;
+        local_write_version(0) == clk(0);
         if is_last {
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            pc(1) == pc(0) + 1;
             sp(1) == sp(0) - 1;
         } else {
             sp(1) == sp(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
-            if in_store_stage {
-                w_flen(1) == w_flen(0) - 1;
-            }
-            if in_invalidate_local_stage {
-                w_flen(1) == w_flen(0); // == 0
-            }
-            // if in_invalidate_local_stage {
-            //     local_sub_index(1) > local_sub_index(0);
-            // }
         }
     }
 }
