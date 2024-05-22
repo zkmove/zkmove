@@ -6,7 +6,6 @@ use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::MembershipGadget;
 use crate::chips::execution_chip_v2::executions::SubIndexDepth;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
-use crate::chips::execution_chip_v2::executions::DEPTH_POW_OF_ONE_LEVEL;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
