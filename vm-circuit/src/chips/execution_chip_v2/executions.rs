@@ -10,6 +10,10 @@ pub(crate) mod read_ref;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
 pub(crate) mod vec_pop_back;
+pub(crate) mod vec_swap;
+pub(crate) mod move_or_copy_loc;
+pub(crate) mod pop;
+pub(crate) mod store_loc;
 pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
@@ -18,6 +22,7 @@ pub use borrow_loc::*;
 pub use br_bool::*;
 pub use cast::*;
 pub use ld::*;
+pub(crate) use move_or_copy_loc::*;
 pub use pack::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
@@ -80,6 +85,10 @@ pub enum ExecutionState {
     CastU32,
     CastU16,
     CastU8,
+    MoveLoc,
+    CopyLoc,
+    StoreLocStage1,
+    StoreLocStage2,
 }
 
 #[derive(Clone, Debug)]
