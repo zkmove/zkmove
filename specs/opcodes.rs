@@ -428,105 +428,169 @@ mod cast {
     }
 }
 
-// TODO: support smart contract return value
 mod ret {
     pub fn constrain() {
-        table_opcode.contain(pc(0), Opcode::Ret, 0);
+        opcode(0) == OpCode::Ret;
+        step_counter(0) == 1;
 
         super::common::fake_empty_stack_pop(0);
         super::common::fake_empty_stack_push(0);
-        super::common::fake_local_read_zero(0);
+        super::common::fake_local_read_zero();
 
         // constrain Opcode Context of the next step
         if frame_index == 0 {
-            opcode(1) == Opcode::Nop || opcode(1) == Opcode::Stop;
-            pc(1) == pc(0);
+            execution_state_next == STOP;
+            pc(1) == pc(0); //TODO: go to NOP when necessary
         } else {
-            // not the first frame, lookup call table to constrain next pc
-            table_call.contain(
-                EntryType::RET,
-                module_index(0),
-                function_index(0),
-                pc(0),
-                module_index(1),
-                function_index(1),
-                pc(1),
-            );
+            // not the first frame
+            module_index(1) == caller_module_index(0);
+            function_index(1) == caller_function_index(0);
+            pc(1) == caller_pc(0) + 1;
+            frame_index(1) == frame_index(0) - 1;
         }
     }
 }
 
-// define new column field_counter(reuse aux1), to record the number of members sitll
-// need to be processed. when local_index and field_counter both equal to 1, we will
-// go into the last step
-// TODO: add (function_instantiataion_index, arg_num) into table_func
 mod call {
-    pub fn constrain() {
+    /// check the number of argument. If the function has no arguments, enter callee, else enter stage2
+    pub fn constrain_call_stage_1() {
+        opcode(0) == OpCode::Call;
+        //aux0 is module_index of callee, aux1 is function_index of callee
+        table_func.contain(aux0(0), aux1(0), num_arg(0));
+        step_counter(0) == 1;
+
+        super::common::fake_empty_stack_pop(0);
+        super::common::fake_empty_stack_push(0);
+        super::common::fake_local_read_zero();
+
+        sp(1) == sp(0);
+        if num_arg(0) == 0 {
+            module_index(1) == aux0(0);
+            function_index(1) == aux1(0);
+            pc(1) == 0;
+            frame_index(1) == frame_index(0) + 1;
+        } else {
+            execution_state_next == call_stage_2;
+            num_arg(1) == num_arg(0);
+            local_index(1) == num_arg(0) - 1;
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            caller_module_index(1) == caller_module_index(0);
+            caller_function_index(1) == caller_function_index(0);
+            caller_pc(1) == caller_pc(0);
+        }
+    }
+
+    /// invalidate old value in the local_index corresponding to an argument.
+    /// we need to enter this stage 'num_arg' times.
+    pub fn constrain_call_stage_2() {
         if super::common::on_first_row() {
-            table_func.contain(aux0(0), arg_num); //aux0 is callee function_instantiation_index
-            table_opcode.contain(pc(0), CALL, aux0(0));
-            local_index(0) == arg_num;
-            if aug_num != 0 {
-                stack_pop_sub_index(0) == 0; //the first step must pop a simple value or a header
+            execution_state_prev == call_stage_1 | call_stage_2;
+            local_sub_index(0) == 0;
+
+            if local_read_value_header(0) {
+                step_counter(0) == local_read_value(0).f_len;
             } else {
                 step_counter(0) == 1;
             }
         }
 
+        local_frame_index(0) == frame_index(0) + 1; // write to local of the next frame
+        // local_index(0) is constrained in the last row
+        // actually we don't care about old local is invalid or not.
+        local_read_value_version(0) < clk(0);
+        local_write_value_invalid(0) == true;
+        local_write_value_header(0) == local_read_value_header(0);
+        local_write_value_version(0) == clk(0);
+
+        sp(1) == sp(0);
         if !super::common::on_last_row() {
-            stack_pop_index(0) == sp(0);
-            stack_pop_value(0) == local_write_value(0);
-            stack_pop_value_header(0) == local_write_value_header(0);
-            stack_pop_sub_index(0) == local_sub_index(0);
-            local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
-            local_write_version(0) == clk(0);
-            common::local_write_first_time(0); //TODO:constrain local_read_version
-            super::common::fake_empty_stack_push(0);
-
-            let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
-            let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
-
-            if is_simple {
-                field_counter(0) == 1;
-            } else if is_header {
-                field_counter(0) == stack_pop_value(0).f_len;
-            }
-
-            let end_of_one_arg = field_counter(0) == 1;
-            if is_simple || end_of_one_arg {
-                local_index(1) == local_index(0) - 1;
-                sp(1) == sp(0) - 1;
-                stack_pop_sub_index(1) == 0;
-                stack_pop_version(1) < clk(0);
-            } else {
-                local_index(1) == local_index(0);
-                sp(1) == sp(0);
-                field_counter(1) == field_counter(0) - 1;
-                stack_pop_version(1) == stack_pop_version(0);
-            }
-
-            step_counter(1) == step_counter(0) - 1;
-            // all args processed
-            if local_index(0) == 1 && field_counter(0) == 1 {
-                step_counter(1) == 1;
-            }
+            local_index(1) == local_index(0);
         }
 
         if super::common::on_last_row() {
-            super::common::fake_empty_stack_pop();
-            super::common::fake_empty_stack_push();
-            super::common::fake_local_read_zero();
-            pc(1) == 0;
+            if local_index == 0 {
+                local_index(1) == num_arg(0) - 1;
+                execution_state_next == call_stage_3;
+            } else {
+                local_index(1) == local_index(0) - 1;
+                execution_state_next == call_stage_2;
+            }
+            frame_index(1) == frame_index(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            caller_module_index(1) == caller_module_index(0);
+            caller_function_index(1) == caller_function_index(0);
+            caller_pc(1) == caller_pc(0);
+        }
+    }
+
+    /// pop an argument and store into local of the next frame. We need to enter this stage 'num_arg' times.
+    pub fn constrain_call_stage_3() {
+        if super::common::on_first_row() {
+            execution_state_prev == call_stage_2 | call_stage_3;
+
+            stack_pop_sub_index(0) == 0;
+            if stack_pop_value_header(0) {
+                step_counter(0) == stack_pop_value(0).f_len;
+            } else {
+                step_counter(0) == 1;
+            }
+        }
+
+        stack_pop_index(0) == sp(0);
+        stack_pop_version(1) < clk(0);
+
+        local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
+        local_sub_index(0) == stack_pop_sub_index(0);
+        local_read_value_header(0) == 0;
+        local_read_value_invalid == 1;
+        local_read_version(0) < clk(0);
+        local_write_value(0) == stack_pop_value(0);
+        local_write_value_header(0) == stack_pop_value_header(0);
+        local_write_value_invalid == 0;
+        local_write_version(0) == clk(0);
+        super::common::fake_empty_stack_push(0);
+
+        if !super::common::on_last_row() {
             sp(1) == sp(0);
-            table_call.contain(
-                EntryType::CALL,
-                module_index(0),
-                function_index(0),
-                pc(0),
-                module_index(1),
-                function_index(1),
-                pc(1),
-            );
+            local_index(1) == local_index(0);
+        }
+        if super::common::on_last_row() {
+            sp(1) == sp(0) - 1;
+            if local_index == 0 {
+                //all args have been processed
+                module_index(1) == aux0(0);
+                function_index(1) == aux1(0);
+                frame_index(1) == frame_index(0) + 1;
+                pc(1) == 0;
+                caller_module_index(1) == module_index(0);
+                caller_function_index(1) == function_index(0);
+                caller_pc(1) == pc(0);
+            } else {
+                local_index(1) == local_index(0) - 1;
+                module_index(1) == module_index(0);
+                function_index(1) == function_index(0);
+                frame_index(1) == frame_index(0);
+                pc(1) == pc(0);
+                opcode(1) == opcode(0);
+                aux0(1) == aux0(0);
+                aux1(1) == aux1(0);
+                caller_module_index(1) == caller_module_index(0);
+                caller_function_index(1) == caller_function_index(0);
+                caller_pc(1) == caller_pc(0);
+                execution_state_next == call_stage_3;
+            }
         }
     }
 }
@@ -621,7 +685,7 @@ mod store_loc {
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
-            if local_read_value_header {
+            if local_read_value_header(0) {
                 // !simple value
                 let (len, flen) = local_read_value(0);
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
