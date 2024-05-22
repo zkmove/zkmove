@@ -390,19 +390,33 @@ mod not {
 }
 
 mod cast {
-    pub fn constrain() {
-        table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
+    pub fn constrain_cast_u8() {
+        opcode(0) == OpCode::CastU8;
+        step_counter(0) == 1;
 
-        stack_pop_index(0) == stack_push_index(0) && stack_push_index(0) == sp(0);
+        stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
+        stack_pop_value_header(0) == false;
+        stack_pop_version(0) < clk(0);
+        stack_push_index(0) == sp(0);
         stack_push_sub_index(0) == 0;
-        stack_push_value(0) = stack_pop_value(0);
         stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
-        stack_pop_version(0) < clk(0);
 
-        sp(1) == sp(0);
-        super::common::fake_local_read_zero(0);
+        super::common::fake_local_read_zero();
+
+        let ok = [0, u8::MAX].range_check(stack_pop_value(0));
+        if ok {
+            stack_push_value(0) == stack_pop_value(0);
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0);
+        } else {
+            execution_state_next == ErrorState;
+            ErrorCode == StatusCode::ArithmeticError;
+        }
     }
 }
 
