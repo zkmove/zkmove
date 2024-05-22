@@ -49,6 +49,7 @@ pub(crate) struct StepState<F> {
     pub local_frame_index: Cell<F>,
     pub local_index: Cell<F>,
     pub local_sub_index: Cell<F>,
+
     pub local_read_value: Cell<F>,
     pub local_read_value_header: Cell<F>,
     pub local_read_value_invalid: Cell<F>,
