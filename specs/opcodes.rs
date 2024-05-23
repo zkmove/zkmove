@@ -440,13 +440,14 @@ mod ret {
         // constrain Opcode Context of the next step
         if frame_index == 0 {
             execution_state_next == STOP;
-            pc(1) == pc(0); //TODO: go to NOP when necessary
+            //TODO: state transition, go to NOP when necessary
         } else {
             // not the first frame
             module_index(1) == caller_module_index(0);
             function_index(1) == caller_function_index(0);
             pc(1) == caller_pc(0) + 1;
             frame_index(1) == frame_index(0) - 1;
+            sp(1) == sp(0);
         }
     }
 }
@@ -488,40 +489,36 @@ mod call {
     }
 
     /// invalidate old value in the local_index corresponding to an argument.
-    /// we need to enter this stage 'num_arg' times.
+    /// the next stage must be stage3. we need to enter this stage 'num_arg' times.
     pub fn constrain_call_stage_2() {
         if super::common::on_first_row() {
-            execution_state_prev == call_stage_1 | call_stage_2;
+            execution_state_prev == call_stage_1 | call_stage_3;
             local_sub_index(0) == 0;
 
-            if local_read_value_header(0) {
+            if !local_read_value_invalid(0) && local_read_value_header(0) {
                 step_counter(0) == local_read_value(0).f_len;
             } else {
                 step_counter(0) == 1;
             }
         }
 
+        super::common::fake_empty_stack_pop(0);
+        super::common::fake_empty_stack_push(0);
+
         local_frame_index(0) == frame_index(0) + 1; // write to local of the next frame
         // local_index(0) is constrained in the last row
         // actually we don't care about old local is invalid or not.
-        local_read_value_version(0) < clk(0);
+        local_read_version(0) < clk(0);
+        local_write_value(0) == local_read_value(0);
         local_write_value_invalid(0) == true;
         local_write_value_header(0) == local_read_value_header(0);
-        local_write_value_version(0) == clk(0);
+        local_write_version(0) == clk(0);
 
         sp(1) == sp(0);
-        if !super::common::on_last_row() {
-            local_index(1) == local_index(0);
-        }
+        local_index(1) == local_index(0);
 
         if super::common::on_last_row() {
-            if local_index == 0 {
-                local_index(1) == num_arg(0) - 1;
-                execution_state_next == call_stage_3;
-            } else {
-                local_index(1) == local_index(0) - 1;
-                execution_state_next == call_stage_2;
-            }
+            execution_state_next == call_stage_3;
             frame_index(1) == frame_index(0);
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
@@ -535,10 +532,12 @@ mod call {
         }
     }
 
-    /// pop an argument and store into local of the next frame. We need to enter this stage 'num_arg' times.
+    /// pop an argument and store into local of the next frame.
+    /// the previous stage must be stage2. The next stage is still stage2, unless we have
+    /// processed all the arguments. We need to enter this stage 'num_arg' times.
     pub fn constrain_call_stage_3() {
         if super::common::on_first_row() {
-            execution_state_prev == call_stage_2 | call_stage_3;
+            execution_state_prev == call_stage_2;
 
             stack_pop_sub_index(0) == 0;
             if stack_pop_value_header(0) {
@@ -553,7 +552,6 @@ mod call {
 
         local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
         local_sub_index(0) == stack_pop_sub_index(0);
-        local_read_value_header(0) == 0;
         local_read_value_invalid == 1;
         local_read_version(0) < clk(0);
         local_write_value(0) == stack_pop_value(0);
@@ -578,6 +576,7 @@ mod call {
                 caller_function_index(1) == function_index(0);
                 caller_pc(1) == pc(0);
             } else {
+                execution_state_next == call_stage_2;
                 local_index(1) == local_index(0) - 1;
                 module_index(1) == module_index(0);
                 function_index(1) == function_index(0);
@@ -589,7 +588,6 @@ mod call {
                 caller_module_index(1) == caller_module_index(0);
                 caller_function_index(1) == caller_function_index(0);
                 caller_pc(1) == caller_pc(0);
-                execution_state_next == call_stage_3;
             }
         }
     }
@@ -701,11 +699,11 @@ mod store_loc {
             local_sub_index(0) == 0; // simple value or header
         }
         // we don't care local is invalid or not.
-        // local_read_value_invalid,local_read_value_header, local_read_value, local_read_value_version.
-        local_read_value_version(0) < clk(0);
+        // local_read_value_invalid,local_read_value_header, local_read_value, local_read_version.
+        local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_value_header(0) == local_read_value_header(0);
-        local_write_value_version(0) == clk(0);
+        local_write_version(0) == clk(0);
 
         sp(1) == sp(0);
         if is_last {
@@ -744,7 +742,7 @@ mod store_loc {
         local_sub_index(0) == stack_pop_sub_index(0);
 
         local_read_value_invalid(0) == true;
-        local_read_value_version(0) < clk(0);
+        local_read_version(0) < clk(0);
         local_write_value(0) == stack_pop_value(0);
         local_write_value_header(0) == stack_pop_value_header(0);
         local_write_value_invalid(0) == false;
