@@ -470,6 +470,9 @@ mod call {
             function_index(1) == aux1(0);
             pc(1) == 0;
             frame_index(1) == frame_index(0) + 1;
+            caller_module_index(1) == module_index(0);
+            caller_function_index(1) == function_index(0);
+            caller_pc(1) == pc(0);
         } else {
             execution_state_next == call_stage_2;
             num_arg(1) == num_arg(0);
@@ -509,8 +512,8 @@ mod call {
         // local_index(0) is constrained in the last row
         // actually we don't care about old local is invalid or not.
         local_read_version(0) < clk(0);
-        local_write_value(0) == local_read_value(0);
         local_write_value_invalid(0) == true;
+        local_write_value(0) == local_read_value(0);
         local_write_value_header(0) == local_read_value_header(0);
         local_write_version(0) == clk(0);
 
