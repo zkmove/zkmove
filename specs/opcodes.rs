@@ -248,7 +248,6 @@ mod eq {
             if is_stage_1 {
                 rlc1(0) == stack_pop_rlc;
             } else {
-                rlc1(0) == rlc1(-1);
                 rlc2(0) == stack_pop_rlc;
             }
         }
@@ -262,7 +261,6 @@ mod eq {
             if is_stage_1 {
                 rlc1(0) == gamma * rlc1(-1) + stack_pop_rlc;
             } else {
-                rlc1(0) == rlc1(-1);
                 rlc2(0) == gamma * rlc2(-1) + stack_pop_rlc;
             }
         }
@@ -270,6 +268,9 @@ mod eq {
         stack_pop_index(0) == sp(0);
         stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
+        if !is_stage_1 {
+            rlc1(0) == rlc1(-1);
+        }
 
         if !super::common::on_last_row() {
             sp(1) == sp(0);

@@ -111,12 +111,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                     stack_pop_rlc.clone(),
                 );
             } else {
-                let rlc1_prev = cb.cell_at_offset(&rlc1, -1).expr();
-                cb.require_equal(
-                    format!("{}, rlc1(0) == rlc1(-1)", Self::NAME),
-                    rlc1.expr(),
-                    rlc1_prev,
-                );
                 cb.require_equal(
                     format!("{}, rlc2(0) == stack_pop_rlc", Self::NAME),
                     rlc2.expr(),
@@ -144,12 +138,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                     rlc1_curr,
                 );
             } else {
-                let rlc1_prev = cb.cell_at_offset(&rlc1, -1).expr();
-                cb.require_equal(
-                    format!("{}, rlc1(0) == rlc1(-1)", Self::NAME),
-                    rlc1.expr(),
-                    rlc1_prev,
-                );
                 let rlc2_prev = cb.cell_at_offset(&rlc2, -1).expr();
                 let rlc2_curr = cb.rlc(&[stack_pop_rlc.clone(), rlc2_prev]);
                 cb.require_equal(
@@ -166,6 +154,14 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             step_curr.sp.expr(),
         );
         cb.require_no_local_op();
+        if !STAGE1 {
+            let rlc1_prev = cb.cell_at_offset(&rlc1, -1).expr();
+            cb.require_equal(
+                format!("{}, rlc1(0) == rlc1(-1)", Self::NAME),
+                rlc1.expr(),
+                rlc1_prev,
+            );
+        }
 
         cb.not_last_row(|cb| {
             cb.require_no_stack_push();
