@@ -367,6 +367,7 @@ impl<F: Field> ExecChipConfig<F> {
                     let table_expressions = match table {
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
+                        Table::Function => lookup_table_config.function_table.table_exprs(meta),
                         _ => unimplemented!(),
                     };
                     vec![(
