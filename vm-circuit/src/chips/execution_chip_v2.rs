@@ -18,6 +18,7 @@ use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
+use crate::chips::execution_chip_v2::shuffle::Shuffle;
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
@@ -33,6 +34,7 @@ use types::Field;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
+pub(crate) mod shuffle;
 pub(crate) mod step_v2;
 pub(crate) mod utils;
 
@@ -153,6 +155,8 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        let mut shuffles = Vec::new();
+
         // base configuration for every opcode gadgets
         let step_curr = {
             let mut cb = ConstraintBuilderV2::new(meta, &challenges, step_curr, None);
@@ -165,6 +169,7 @@ impl<F: Field> ExecChipConfig<F> {
                 s_step_last,
                 "base constraints",
                 cb,
+                &mut shuffles,
             );
             step_curr
         };
@@ -173,6 +178,7 @@ impl<F: Field> ExecChipConfig<F> {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
                     &challenges,
+                    &mut shuffles,
                     advices.clone(),
                     s_usable,
                     s_step_first,
@@ -207,7 +213,14 @@ impl<F: Field> ExecChipConfig<F> {
             advices: advices.clone(),
             step: step_curr,
         };
-        Self::configure_lookup(meta, &challenges, &lookup_table_configs, &config.step);
+        Self::configure_lookup(
+            meta,
+            &challenges,
+            &lookup_table_configs,
+            &config.step,
+            s_usable,
+        );
+        Self::configure_shuffle(meta, &config.step, shuffles, s_usable);
 
         config
     }
@@ -215,7 +228,7 @@ impl<F: Field> ExecChipConfig<F> {
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
         challenges: &Challenges<Expression<F>>,
-        //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
+        shuffles: &mut Vec<(String, Shuffle<F>)>,
         _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
@@ -231,7 +244,14 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
-        Self::configure_opcode_gadget_impl(s_usable, s_step_first, s_step_last, G::NAME, cb);
+        Self::configure_opcode_gadget_impl(
+            s_usable,
+            s_step_first,
+            s_step_last,
+            G::NAME,
+            cb,
+            shuffles,
+        );
         gadget
     }
 
@@ -241,10 +261,11 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_last: Selector,
         name: &'static str,
         mut cb: ConstraintBuilderV2<F>,
+        shuffles: &mut Vec<(String, Shuffle<F>)>,
     ) {
         let step_prev = cb.step_state_at_offset(-1);
         let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, _store_expressions, meta) = cb.build();
+        let (step_curr, constraints, _store_expressions, mut op_shuffles, meta) = cb.build();
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
@@ -297,6 +318,8 @@ impl<F: Field> ExecChipConfig<F> {
                 });
             }
         }
+
+        shuffles.append(&mut op_shuffles);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -305,47 +328,10 @@ impl<F: Field> ExecChipConfig<F> {
         challenges: &Challenges<Expression<F>>,
         lookup_table_config: &LookupTableConfigV2<F>,
         step_curr: &Step<F>,
+        s_usable: Selector,
     ) {
-        meta.shuffle("stack consistency check", |_meta| {
-            let pop_set = [
-                step_curr.state.stack_pop_index.expr(),
-                step_curr.state.stack_pop_sub_index.expr(),
-                step_curr.state.stack_pop_value.expr(),
-                step_curr.state.stack_pop_value_header.expr(),
-                step_curr.state.stack_pop_version.expr(),
-            ];
-            let push_set = [
-                step_curr.state.stack_push_index.expr(),
-                step_curr.state.stack_push_sub_index.expr(),
-                step_curr.state.stack_push_value.expr(),
-                step_curr.state.stack_push_value_header.expr(),
-                step_curr.state.stack_push_version.expr(),
-            ];
-            pop_set.into_iter().zip(push_set).collect()
-        });
-        meta.shuffle("local consistency check", |_meta| {
-            let read_set = [
-                step_curr.state.local_frame_index.expr(),
-                step_curr.state.local_index.expr(),
-                step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_read_value.expr(),
-                step_curr.state.local_read_value_header.expr(),
-                step_curr.state.local_read_value_invalid.expr(),
-                step_curr.state.local_read_version.expr(),
-            ];
-            let write_set = [
-                step_curr.state.local_frame_index.expr(),
-                step_curr.state.local_index.expr(),
-                step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_write_value.expr(),
-                step_curr.state.local_write_value_header.expr(),
-                step_curr.state.local_write_value_invalid.expr(),
-                step_curr.state.local_write_version.expr(),
-            ];
-            read_set.into_iter().zip(write_set).collect()
-        });
-
         meta.lookup_any("bytecode_lookup", |meta| {
+            let s_usable = meta.query_selector(s_usable);
             let table_expressions = lookup_table_config.bytecode_table.table_exprs(meta);
             [
                 step_curr.state.module_index.expr(),
@@ -356,6 +342,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.aux1.expr(),
             ]
             .into_iter()
+            .map(|e| s_usable.clone() * e)
             .zip(table_expressions)
             .collect()
         });
@@ -364,6 +351,7 @@ impl<F: Field> ExecChipConfig<F> {
                 let name = format!("{:?}", table);
                 let column_expr = column.expr(meta);
                 meta.lookup_any(name.as_str(), |meta| {
+                    let s_usable = meta.query_selector(s_usable);
                     let table_expressions = match table {
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
@@ -371,11 +359,82 @@ impl<F: Field> ExecChipConfig<F> {
                         _ => unimplemented!(),
                     };
                     vec![(
-                        column_expr,
+                        s_usable * column_expr,
                         rlc::expr(&table_expressions, challenges.lookup_input()),
                     )]
                 });
             }
+        }
+    }
+
+    fn configure_shuffle(
+        meta: &mut ConstraintSystem<F>,
+        step_curr: &Step<F>,
+        shuffles: Vec<(String, Shuffle<F>)>,
+        s_usable: Selector,
+    ) {
+        meta.shuffle("stack consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let pop_set = [
+                step_curr.state.stack_pop_index.expr(),
+                step_curr.state.stack_pop_sub_index.expr(),
+                step_curr.state.stack_pop_value.expr(),
+                step_curr.state.stack_pop_value_header.expr(),
+                step_curr.state.stack_pop_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            let push_set = [
+                step_curr.state.stack_push_index.expr(),
+                step_curr.state.stack_push_sub_index.expr(),
+                step_curr.state.stack_push_value.expr(),
+                step_curr.state.stack_push_value_header.expr(),
+                step_curr.state.stack_push_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            pop_set.zip(push_set).collect()
+        });
+        meta.shuffle("local consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let read_set = [
+                step_curr.state.local_frame_index.expr(),
+                step_curr.state.local_index.expr(),
+                step_curr.state.local_sub_index.expr(),
+                step_curr.state.local_read_value.expr(),
+                step_curr.state.local_read_value_header.expr(),
+                step_curr.state.local_read_value_invalid.expr(),
+                step_curr.state.local_read_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            let write_set = [
+                step_curr.state.local_frame_index.expr(),
+                step_curr.state.local_index.expr(),
+                step_curr.state.local_sub_index.expr(),
+                step_curr.state.local_write_value.expr(),
+                step_curr.state.local_write_value_header.expr(),
+                step_curr.state.local_write_value_invalid.expr(),
+                step_curr.state.local_write_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            read_set.zip(write_set).collect()
+        });
+
+        for (name, shuffle) in shuffles {
+            meta.shuffle(name, |meta| {
+                let s_usable = meta.query_selector(s_usable);
+                let input_exprs = shuffle
+                    .input_exprs()
+                    .into_iter()
+                    .map(|e| s_usable.clone() * e);
+                let shuffled_exprs = shuffle
+                    .shuffled_exprs()
+                    .into_iter()
+                    .map(|e| s_usable.clone() * e);
+                input_exprs.into_iter().zip(shuffled_exprs).collect()
+            });
         }
     }
 }

@@ -3,17 +3,18 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::step_v2::{
-    FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
-};
+use crate::chips::execution_chip_v2::shuffle::CallContext;
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cell_manager::Cell;
 use gadgets::util::not;
 use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Ret<F> {
     is_zero_frame_index: IsZeroGadget<F>,
+    call_context_version: Cell<F>,
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
@@ -24,6 +25,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let is_zero_frame_index = IsZeroGadget::construct(cb, step_curr.frame_index.expr());
+        let call_context_version = cb.query_cell();
 
         cb.require_equal(
             "opcode",
@@ -46,22 +48,27 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         });
         cb.condition(not::expr(is_zero_frame_index.expr()), |cb| {
             cb.require_state_transition(vec![
-                (
-                    MODULE_INDEX,
-                    Transition::To(step_curr.caller_module_index.expr()),
-                ),
-                (
-                    FUNCTION_INDEX,
-                    Transition::To(step_curr.caller_function_index.expr()),
-                ),
-                (PC, Transition::To(step_curr.caller_pc.expr() + 1u64.expr())),
                 (FRAME_INDEX, Transition::Delta((-1).expr())),
                 (SP, Transition::Same),
             ]);
+            let frame_index_next = cb.cell_at_offset(&step_curr.frame_index, 1).expr();
+            let module_index_next = cb.cell_at_offset(&step_curr.module_index, 1).expr();
+            let function_index_next = cb.cell_at_offset(&step_curr.function_index, 1).expr();
+            let pc_next = cb.cell_at_offset(&step_curr.pc, 1).expr();
+            let call_context = CallContext {
+                index: frame_index_next,
+                caller_module_index: module_index_next,
+                caller_function_index: function_index_next,
+                caller_pc: pc_next - 1u64.expr(),
+                version: call_context_version.expr(),
+            };
+            // TODO: call_context_version < clk(0)
+            cb.callstack_pop("callstack pop".to_string(), call_context);
         });
 
         Ret {
             is_zero_frame_index,
+            call_context_version,
         }
     }
 }

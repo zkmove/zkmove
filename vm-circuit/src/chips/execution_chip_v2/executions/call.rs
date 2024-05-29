@@ -3,10 +3,11 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
+use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
+use crate::chips::execution_chip_v2::shuffle::CallContext;
 use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, CALLER_FUNCTION_INDEX, CALLER_MODULE_INDEX, CALLER_PC, FRAME_INDEX, FUNCTION_INDEX,
-    MODULE_INDEX, OPCODE, PC, SP,
+    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -41,9 +42,14 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             step_curr.step_counter.expr(),
             1u64.expr(),
         );
-
-        // TODO: add lookup table 'table_func'
-        //table_func.contain(aux0(0)/*callee's module_index*/, aux1(0)/*callee's function_index*/, 0/*num_arg(0)==0*/);
+        cb.add_lookup(
+            "function lookup",
+            Lookup::Function {
+                module_index: step_curr.aux0.expr(),
+                function_index: step_curr.aux1.expr(),
+                num_arg: num_arg.expr(),
+            },
+        );
 
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
@@ -56,16 +62,15 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                 (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
-                (
-                    CALLER_MODULE_INDEX,
-                    Transition::To(step_curr.module_index.expr()),
-                ),
-                (
-                    CALLER_FUNCTION_INDEX,
-                    Transition::To(step_curr.function_index.expr()),
-                ),
-                (CALLER_PC, Transition::To(step_curr.pc.expr())),
             ]);
+            let call_context = CallContext {
+                index: step_curr.frame_index.expr(),
+                caller_module_index: step_curr.module_index.expr(),
+                caller_function_index: step_curr.function_index.expr(),
+                caller_pc: step_curr.pc.expr(),
+                version: step_curr.clk.expr(),
+            };
+            cb.callstack_push("callstack push".to_string(), call_context);
         });
         cb.condition(not::expr(is_zero_num_arg.expr()), |cb| {
             cb.require_next_state(ExecutionState::CallStage2);
@@ -85,9 +90,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                     OPCODE,
                     AUX0,
                     AUX1,
-                    CALLER_MODULE_INDEX,
-                    CALLER_FUNCTION_INDEX,
-                    CALLER_PC,
                 ]
                 .into_iter()
                 .map(|s| (s, Transition::Same))
@@ -197,9 +199,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
                     OPCODE,
                     AUX0,
                     AUX1,
-                    CALLER_MODULE_INDEX,
-                    CALLER_FUNCTION_INDEX,
-                    CALLER_PC,
                 ]
                 .into_iter()
                 .map(|s| (s, Transition::Same))
@@ -218,6 +217,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 pub struct CallStage3<F: Field> {
     header: ValueHeader<F>,
     is_zero_local_index: IsZeroGadget<F>,
+    last_row: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const NAME: &'static str = "CallStage3";
@@ -227,6 +227,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header = ValueHeader::new(cb);
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
+        let last_row = IsZeroGadget::construct(cb, cb.curr.state.step_counter.expr() - 1u64.expr());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -316,15 +317,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                     (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
                     (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                     (PC, Transition::To(0.expr())),
-                    (
-                        CALLER_MODULE_INDEX,
-                        Transition::To(step_curr.module_index.expr()),
-                    ),
-                    (
-                        CALLER_FUNCTION_INDEX,
-                        Transition::To(step_curr.function_index.expr()),
-                    ),
-                    (CALLER_PC, Transition::To(step_curr.pc.expr())),
                 ]);
             });
             cb.condition(not::expr(is_zero_local_index.expr()), |cb| {
@@ -339,9 +331,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                         OPCODE,
                         AUX0,
                         AUX1,
-                        CALLER_MODULE_INDEX,
-                        CALLER_FUNCTION_INDEX,
-                        CALLER_PC,
                     ]
                     .into_iter()
                     .map(|s| (s, Transition::Same))
@@ -350,9 +339,25 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             });
         });
 
+        // push callstack separately since we can't do shuffle in cb.last_row() now
+        cb.condition(
+            and::expr([last_row.expr(), is_zero_local_index.expr()]),
+            |cb| {
+                let call_context = CallContext {
+                    index: step_curr.frame_index.expr(),
+                    caller_module_index: step_curr.module_index.expr(),
+                    caller_function_index: step_curr.function_index.expr(),
+                    caller_pc: step_curr.pc.expr(),
+                    version: step_curr.clk.expr(),
+                };
+                cb.callstack_push("callstack push".to_string(), call_context);
+            },
+        );
+
         CallStage3 {
             header,
             is_zero_local_index,
+            last_row,
         }
     }
 }

@@ -79,6 +79,25 @@ pub mod common {
     }
 }
 
+mod call_stack {
+    pub fn push() {
+        let index = frame_index(0);
+        let caller_module_index = module_index(0);
+        let caller_function_index = function_index(0);
+        let caller_pc = pc(0);
+        let version = clk(0);
+        callstack_push((index, caller_module_index, caller_function_index, caller_pc, version));
+    }
+    pub fn pop() {
+        let (index, caller_module_index, caller_function_index, caller_pc, version) = callstack_pop();
+        frame_index(1) == index;
+        module_index(1) == caller_module_index;
+        function_index(1) == caller_function_index;
+        pc(1) == caller_pc + 1;
+        version < clk(0);
+    }
+}
+
 mod ld {
     fn constraint_ld() {
         table_opcode.contain(pc(0), opcode(0), aux0(0));
@@ -443,9 +462,7 @@ mod ret {
             //TODO: state transition, go to NOP when necessary
         } else {
             // not the first frame
-            module_index(1) == caller_module_index(0);
-            function_index(1) == caller_function_index(0);
-            pc(1) == caller_pc(0) + 1;
+            super::call_stack::pop();
             frame_index(1) == frame_index(0) - 1;
             sp(1) == sp(0);
         }
@@ -470,9 +487,7 @@ mod call {
             function_index(1) == aux1(0);
             pc(1) == 0;
             frame_index(1) == frame_index(0) + 1;
-            caller_module_index(1) == module_index(0);
-            caller_function_index(1) == function_index(0);
-            caller_pc(1) == pc(0);
+            super::call_stack::push();
         } else {
             execution_state_next == call_stage_2;
             num_arg(1) == num_arg(0);
@@ -485,9 +500,6 @@ mod call {
             opcode(1) == opcode(0);
             aux0(1) == aux0(0);
             aux1(1) == aux1(0);
-            caller_module_index(1) == caller_module_index(0);
-            caller_function_index(1) == caller_function_index(0);
-            caller_pc(1) == caller_pc(0);
         }
     }
 
@@ -529,9 +541,6 @@ mod call {
             opcode(1) == opcode(0);
             aux0(1) == aux0(0);
             aux1(1) == aux1(0);
-            caller_module_index(1) == caller_module_index(0);
-            caller_function_index(1) == caller_function_index(0);
-            caller_pc(1) == caller_pc(0);
         }
     }
 
@@ -575,9 +584,7 @@ mod call {
                 function_index(1) == aux1(0);
                 frame_index(1) == frame_index(0) + 1;
                 pc(1) == 0;
-                caller_module_index(1) == module_index(0);
-                caller_function_index(1) == function_index(0);
-                caller_pc(1) == pc(0);
+                super::call_stack::push();
             } else {
                 execution_state_next == call_stage_2;
                 local_index(1) == local_index(0) - 1;
@@ -588,9 +595,6 @@ mod call {
                 opcode(1) == opcode(0);
                 aux0(1) == aux0(0);
                 aux1(1) == aux1(0);
-                caller_module_index(1) == caller_module_index(0);
-                caller_function_index(1) == caller_function_index(0);
-                caller_pc(1) == caller_pc(0);
             }
         }
     }

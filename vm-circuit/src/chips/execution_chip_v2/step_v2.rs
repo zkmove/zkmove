@@ -20,9 +20,6 @@ pub const SP: &str = "sp";
 pub const OPCODE: &str = "OPCODE";
 pub const AUX0: &str = "aux0";
 pub const AUX1: &str = "aux1";
-pub const CALLER_MODULE_INDEX: &str = "caller_module_index";
-pub const CALLER_FUNCTION_INDEX: &str = "caller_function_index";
-pub const CALLER_PC: &str = "caller_pc";
 
 #[derive(Clone, Debug)]
 pub(crate) struct StepState<F> {
@@ -36,9 +33,6 @@ pub(crate) struct StepState<F> {
     pub aux0: Cell<F>,
     pub aux1: Cell<F>,
     pub step_counter: Cell<F>,
-    pub caller_module_index: Cell<F>,
-    pub caller_function_index: Cell<F>,
-    pub caller_pc: Cell<F>,
 
     pub stack_pop_index: Cell<F>,
     pub stack_pop_sub_index: Cell<F>,
@@ -110,9 +104,6 @@ impl<F: Field> Step<F> {
             aux0: cell_manager.query_cell(meta, CellType::StoragePhase1),
             aux1: cell_manager.query_cell(meta, CellType::StoragePhase1),
             step_counter: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            caller_module_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            caller_function_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            caller_pc: cell_manager.query_cell(meta, CellType::StoragePhase1),
 
             stack_pop_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
