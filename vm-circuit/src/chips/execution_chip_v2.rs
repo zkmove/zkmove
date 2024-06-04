@@ -4,7 +4,9 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
 use crate::chips::execution_chip_v2::executions::pop::Pop;
+use crate::chips::execution_chip_v2::executions::ret::Ret;
 use crate::chips::execution_chip_v2::executions::vec_push_back::{
     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
 };
@@ -30,6 +32,7 @@ use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
 
+pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
@@ -60,6 +63,10 @@ pub(crate) struct ExecChipConfig<F> {
     pub pop: Box<Pop<F>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
     pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
+    pub call_stage_1: Box<CallStage1<F>>,
+    pub call_stage_2: Box<CallStage2<F>>,
+    pub call_stage_3: Box<CallStage3<F>>,
+    pub ret: Box<Ret<F>>,
     pub step: Step<F>,
 }
 
@@ -204,10 +211,21 @@ impl<F: Field> ExecChipConfig<F> {
             pop: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
             copy_loc: configure_opcode_gadget!(),
+            call_stage_1: configure_opcode_gadget!(),
+            call_stage_2: configure_opcode_gadget!(),
+            call_stage_3: configure_opcode_gadget!(),
+            ret: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
-        Self::configure_lookup(meta, &challenges, &lookup_table_configs, &config.step);
+        Self::configure_lookup(
+            meta,
+            &challenges,
+            &lookup_table_configs,
+            &config.step,
+            s_usable,
+        );
+        Self::configure_shuffle(meta, &config, s_usable);
 
         config
     }
@@ -305,47 +323,10 @@ impl<F: Field> ExecChipConfig<F> {
         challenges: &Challenges<Expression<F>>,
         lookup_table_config: &LookupTableConfigV2<F>,
         step_curr: &Step<F>,
+        s_usable: Selector,
     ) {
-        meta.shuffle("stack consistency check", |_meta| {
-            let pop_set = [
-                step_curr.state.stack_pop_index.expr(),
-                step_curr.state.stack_pop_sub_index.expr(),
-                step_curr.state.stack_pop_value.expr(),
-                step_curr.state.stack_pop_value_header.expr(),
-                step_curr.state.stack_pop_version.expr(),
-            ];
-            let push_set = [
-                step_curr.state.stack_push_index.expr(),
-                step_curr.state.stack_push_sub_index.expr(),
-                step_curr.state.stack_push_value.expr(),
-                step_curr.state.stack_push_value_header.expr(),
-                step_curr.state.stack_push_version.expr(),
-            ];
-            pop_set.into_iter().zip(push_set).collect()
-        });
-        meta.shuffle("local consistency check", |_meta| {
-            let read_set = [
-                step_curr.state.local_frame_index.expr(),
-                step_curr.state.local_index.expr(),
-                step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_read_value.expr(),
-                step_curr.state.local_read_value_header.expr(),
-                step_curr.state.local_read_value_invalid.expr(),
-                step_curr.state.local_read_version.expr(),
-            ];
-            let write_set = [
-                step_curr.state.local_frame_index.expr(),
-                step_curr.state.local_index.expr(),
-                step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_write_value.expr(),
-                step_curr.state.local_write_value_header.expr(),
-                step_curr.state.local_write_value_invalid.expr(),
-                step_curr.state.local_write_version.expr(),
-            ];
-            read_set.into_iter().zip(write_set).collect()
-        });
-
         meta.lookup_any("bytecode_lookup", |meta| {
+            let s_usable = meta.query_selector(s_usable);
             let table_expressions = lookup_table_config.bytecode_table.table_exprs(meta);
             [
                 step_curr.state.module_index.expr(),
@@ -356,6 +337,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.aux1.expr(),
             ]
             .into_iter()
+            .map(|e| s_usable.clone() * e)
             .zip(table_expressions)
             .collect()
         });
@@ -364,18 +346,96 @@ impl<F: Field> ExecChipConfig<F> {
                 let name = format!("{:?}", table);
                 let column_expr = column.expr(meta);
                 meta.lookup_any(name.as_str(), |meta| {
+                    let s_usable = meta.query_selector(s_usable);
                     let table_expressions = match table {
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
+                        Table::Function => lookup_table_config.function_table.table_exprs(meta),
                         _ => unimplemented!(),
                     };
                     vec![(
-                        column_expr,
+                        s_usable * column_expr,
                         rlc::expr(&table_expressions, challenges.lookup_input()),
                     )]
                 });
             }
         }
+    }
+
+    fn configure_shuffle(
+        meta: &mut ConstraintSystem<F>,
+        config: &ExecChipConfig<F>,
+        s_usable: Selector,
+    ) {
+        let step_curr = &config.step;
+        meta.shuffle("stack consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let pop_set = [
+                step_curr.state.stack_pop_index.expr(),
+                step_curr.state.stack_pop_sub_index.expr(),
+                step_curr.state.stack_pop_value.expr(),
+                step_curr.state.stack_pop_value_header.expr(),
+                step_curr.state.stack_pop_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            let push_set = [
+                step_curr.state.stack_push_index.expr(),
+                step_curr.state.stack_push_sub_index.expr(),
+                step_curr.state.stack_push_value.expr(),
+                step_curr.state.stack_push_value_header.expr(),
+                step_curr.state.stack_push_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            pop_set.zip(push_set).collect()
+        });
+        meta.shuffle("local consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let read_set = [
+                step_curr.state.local_frame_index.expr(),
+                step_curr.state.local_index.expr(),
+                step_curr.state.local_sub_index.expr(),
+                step_curr.state.local_read_value.expr(),
+                step_curr.state.local_read_value_header.expr(),
+                step_curr.state.local_read_value_invalid.expr(),
+                step_curr.state.local_read_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            let write_set = [
+                step_curr.state.local_frame_index.expr(),
+                step_curr.state.local_index.expr(),
+                step_curr.state.local_sub_index.expr(),
+                step_curr.state.local_write_value.expr(),
+                step_curr.state.local_write_value_header.expr(),
+                step_curr.state.local_write_value_invalid.expr(),
+                step_curr.state.local_write_version.expr(),
+            ]
+            .into_iter()
+            .map(|e| s_usable.clone() * e);
+            read_set.zip(write_set).collect()
+        });
+
+        meta.shuffle("callstack consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let s_callstack_push = step_curr
+                .execution_state_selector([ExecutionState::CallStage1, ExecutionState::CallStage3]);
+            let input_exprs = config
+                .call_stage_1 // either call_stage_1 or call_stage_3 is ok
+                .call_context
+                .exprs()
+                .into_iter()
+                .map(|e| s_usable.clone() * s_callstack_push.clone() * e);
+            let s_callstack_pop = step_curr.execution_state_selector([ExecutionState::Ret]);
+            let shuffled_exprs = config
+                .ret
+                .call_context
+                .exprs()
+                .into_iter()
+                .map(|e| s_usable.clone() * s_callstack_pop.clone() * e);
+            input_exprs.into_iter().zip(shuffled_exprs).collect()
+        });
     }
 }
 

@@ -67,7 +67,7 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
         cb.first_row(|cb| {
             cb.require_zero("local_sub_index(0) == 0", step_curr.local_sub_index.expr());
         });
-        // TODO: local_read_value_version(0) < clk(0);
+        // TODO: local_read_version(0) < clk(0);
         cb.require_true(
             "local_write_value_invalid(0) == true",
             step_curr.local_write_value_invalid.expr(),
@@ -188,7 +188,7 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
             "local_read_value_invalid(0) == true",
             step_curr.local_read_value_invalid.expr(),
         );
-        // TODO:local_read_value_version(0) < clk(0)
+        // TODO:local_read_version(0) < clk(0)
         cb.require_equal(
             "local_write_value(0) == stack_pop_value(0)",
             step_curr.local_write_value.expr(),

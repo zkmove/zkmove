@@ -4,7 +4,6 @@ use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellType};
-
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::Expr;
@@ -227,6 +226,16 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn require_prev_state(&mut self, execution_state: ExecutionState) {
         let prev = self.step_state_at_offset(-1);
         let prev_state = prev.execution_state_selector([execution_state]);
+        self.require_equal(
+            "Constrain prev execution state",
+            1u64.expr(),
+            prev_state.expr(),
+        );
+    }
+
+    pub(crate) fn require_prev_states(&mut self, execution_states: Vec<ExecutionState>) {
+        let prev = self.step_state_at_offset(-1);
+        let prev_state = prev.execution_state_selector(execution_states);
         self.require_equal(
             "Constrain prev execution state",
             1u64.expr(),

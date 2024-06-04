@@ -2,28 +2,32 @@ pub(crate) mod base;
 pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
+pub(crate) mod call;
 pub(crate) mod cast;
 pub(crate) mod ld;
+pub(crate) mod move_or_copy_loc;
 pub(crate) mod not;
 pub(crate) mod pack;
 pub(crate) mod pop;
 pub(crate) mod read_ref;
+pub(crate) mod ret;
+pub(crate) mod store_loc;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
 pub(crate) mod vec_pop_back;
-pub(crate) mod vec_swap;
-pub(crate) mod move_or_copy_loc;
-pub(crate) mod store_loc;
 pub(crate) mod vec_push_back;
+pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
 pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
+pub use call::*;
 pub use cast::*;
 pub use ld::*;
-pub use not::*;
 pub(crate) use move_or_copy_loc::*;
+pub use not::*;
 pub use pack::*;
+pub use ret::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
 pub(crate) use vec_pop_back::*;
@@ -90,6 +94,10 @@ pub enum ExecutionState {
     CopyLoc,
     StoreLocStage1,
     StoreLocStage2,
+    CallStage1,
+    CallStage2,
+    CallStage3,
+    Ret,
 }
 
 #[derive(Clone, Debug)]
