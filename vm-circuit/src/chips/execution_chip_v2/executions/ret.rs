@@ -1,9 +1,9 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::shuffle::CallContext;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -13,6 +13,7 @@ use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Ret<F> {
+    pub call_context: CallContext<F>,
     is_zero_frame_index: IsZeroGadget<F>,
     call_context_version: Cell<F>,
 }
@@ -24,6 +25,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
+        let call_context = CallContext::construct(cb);
         let is_zero_frame_index = IsZeroGadget::construct(cb, step_curr.frame_index.expr());
         let call_context_version = cb.query_cell();
 
@@ -43,6 +45,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         cb.require_no_local_op();
 
         cb.condition(is_zero_frame_index.expr(), |cb| {
+            call_context.require_zero(cb);
             cb.require_next_state(ExecutionState::Stop);
             //TODO: state transition, go to NOP when necessary
         });
@@ -55,18 +58,19 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
             let module_index_next = cb.cell_at_offset(&step_curr.module_index, 1).expr();
             let function_index_next = cb.cell_at_offset(&step_curr.function_index, 1).expr();
             let pc_next = cb.cell_at_offset(&step_curr.pc, 1).expr();
-            let call_context = CallContext {
-                index: frame_index_next,
-                caller_module_index: module_index_next,
-                caller_function_index: function_index_next,
-                caller_pc: pc_next - 1u64.expr(),
-                version: call_context_version.expr(),
-            };
+            call_context.configure(
+                cb,
+                frame_index_next,
+                module_index_next,
+                function_index_next,
+                pc_next - 1u64.expr(),
+                call_context_version.expr(),
+            );
             // TODO: call_context_version < clk(0)
-            cb.callstack_pop("callstack pop".to_string(), call_context);
         });
 
         Ret {
+            call_context,
             is_zero_frame_index,
             call_context_version,
         }

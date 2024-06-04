@@ -4,7 +4,9 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
 use crate::chips::execution_chip_v2::executions::pop::Pop;
+use crate::chips::execution_chip_v2::executions::ret::Ret;
 use crate::chips::execution_chip_v2::executions::vec_push_back::{
     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
 };
@@ -18,7 +20,6 @@ use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
 use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
-use crate::chips::execution_chip_v2::shuffle::Shuffle;
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
@@ -31,15 +32,15 @@ use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
 
+pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
-pub(crate) mod shuffle;
 pub(crate) mod step_v2;
 pub(crate) mod utils;
 
 #[derive(Clone)]
-pub(crate) struct ExecChipConfig<F> {
+pub(crate) struct ExecChipConfig<F: Field> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
@@ -62,6 +63,10 @@ pub(crate) struct ExecChipConfig<F> {
     pub pop: Box<Pop<F>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
     pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
+    pub call_stage_1: Box<CallStage1<F>>,
+    pub call_stage_2: Box<CallStage2<F>>,
+    pub call_stage_3: Box<CallStage3<F>>,
+    pub ret: Box<Ret<F>>,
     pub step: Step<F>,
 }
 
@@ -155,8 +160,6 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
-        let mut shuffles = Vec::new();
-
         // base configuration for every opcode gadgets
         let step_curr = {
             let mut cb = ConstraintBuilderV2::new(meta, &challenges, step_curr, None);
@@ -169,7 +172,6 @@ impl<F: Field> ExecChipConfig<F> {
                 s_step_last,
                 "base constraints",
                 cb,
-                &mut shuffles,
             );
             step_curr
         };
@@ -178,7 +180,6 @@ impl<F: Field> ExecChipConfig<F> {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
                     &challenges,
-                    &mut shuffles,
                     advices.clone(),
                     s_usable,
                     s_step_first,
@@ -210,6 +211,10 @@ impl<F: Field> ExecChipConfig<F> {
             pop: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
             copy_loc: configure_opcode_gadget!(),
+            call_stage_1: configure_opcode_gadget!(),
+            call_stage_2: configure_opcode_gadget!(),
+            call_stage_3: configure_opcode_gadget!(),
+            ret: configure_opcode_gadget!(),
             advices: advices.clone(),
             step: step_curr,
         };
@@ -220,7 +225,7 @@ impl<F: Field> ExecChipConfig<F> {
             &config.step,
             s_usable,
         );
-        Self::configure_shuffle(meta, &config.step, shuffles, s_usable);
+        Self::configure_shuffle(meta, &config, s_usable);
 
         config
     }
@@ -228,7 +233,7 @@ impl<F: Field> ExecChipConfig<F> {
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
         challenges: &Challenges<Expression<F>>,
-        shuffles: &mut Vec<(String, Shuffle<F>)>,
+        //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
         _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
@@ -244,14 +249,7 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
-        Self::configure_opcode_gadget_impl(
-            s_usable,
-            s_step_first,
-            s_step_last,
-            G::NAME,
-            cb,
-            shuffles,
-        );
+        Self::configure_opcode_gadget_impl(s_usable, s_step_first, s_step_last, G::NAME, cb);
         gadget
     }
 
@@ -261,11 +259,10 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_last: Selector,
         name: &'static str,
         mut cb: ConstraintBuilderV2<F>,
-        shuffles: &mut Vec<(String, Shuffle<F>)>,
     ) {
         let step_prev = cb.step_state_at_offset(-1);
         let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, _store_expressions, mut op_shuffles, meta) = cb.build();
+        let (step_curr, constraints, _store_expressions, meta) = cb.build();
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
@@ -318,8 +315,6 @@ impl<F: Field> ExecChipConfig<F> {
                 });
             }
         }
-
-        shuffles.append(&mut op_shuffles);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -369,10 +364,10 @@ impl<F: Field> ExecChipConfig<F> {
 
     fn configure_shuffle(
         meta: &mut ConstraintSystem<F>,
-        step_curr: &Step<F>,
-        shuffles: Vec<(String, Shuffle<F>)>,
+        config: &ExecChipConfig<F>,
         s_usable: Selector,
     ) {
+        let step_curr = &config.step;
         meta.shuffle("stack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
             let pop_set = [
@@ -422,20 +417,25 @@ impl<F: Field> ExecChipConfig<F> {
             read_set.zip(write_set).collect()
         });
 
-        for (name, shuffle) in shuffles {
-            meta.shuffle(name, |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let input_exprs = shuffle
-                    .input_exprs()
-                    .into_iter()
-                    .map(|e| s_usable.clone() * e);
-                let shuffled_exprs = shuffle
-                    .shuffled_exprs()
-                    .into_iter()
-                    .map(|e| s_usable.clone() * e);
-                input_exprs.into_iter().zip(shuffled_exprs).collect()
-            });
-        }
+        meta.shuffle("callstack consistency check", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let s_callstack_push = step_curr
+                .execution_state_selector([ExecutionState::CallStage1, ExecutionState::CallStage3]);
+            let input_exprs = config
+                .call_stage_1 // either call_stage_1 or call_stage_3 is ok
+                .call_context
+                .exprs()
+                .into_iter()
+                .map(|e| s_usable.clone() * s_callstack_push.clone() * e);
+            let s_callstack_pop = step_curr.execution_state_selector([ExecutionState::Ret]);
+            let shuffled_exprs = config
+                .ret
+                .call_context
+                .exprs()
+                .into_iter()
+                .map(|e| s_usable.clone() * s_callstack_pop.clone() * e);
+            input_exprs.into_iter().zip(shuffled_exprs).collect()
+        });
     }
 }
 

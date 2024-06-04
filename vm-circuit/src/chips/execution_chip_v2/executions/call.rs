@@ -1,11 +1,11 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::shuffle::CallContext;
 use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -18,6 +18,7 @@ use types::Field;
 /// check the number of argument. If the function has no arguments, enter callee, else enter stage2
 #[derive(Clone, Debug)]
 pub struct CallStage1<F> {
+    pub call_context: CallContext<F>,
     num_arg: Cell<F>,
     is_zero_num_arg: IsZeroGadget<F>,
 }
@@ -28,6 +29,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let call_context = CallContext::construct(cb);
         let num_arg = cb.query_cell();
         let is_zero_num_arg = IsZeroGadget::construct(cb, num_arg.expr());
         let step_curr = cb.curr.state.clone();
@@ -57,23 +59,24 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.condition(is_zero_num_arg.expr(), |cb| {
+            call_context.configure(
+                cb,
+                step_curr.frame_index.expr(),
+                step_curr.module_index.expr(),
+                step_curr.function_index.expr(),
+                step_curr.pc.expr(),
+                step_curr.clk.expr(),
+            );
             cb.require_state_transition(vec![
                 (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
                 (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
             ]);
-            let call_context = CallContext {
-                index: step_curr.frame_index.expr(),
-                caller_module_index: step_curr.module_index.expr(),
-                caller_function_index: step_curr.function_index.expr(),
-                caller_pc: step_curr.pc.expr(),
-                version: step_curr.clk.expr(),
-            };
-            cb.callstack_push("callstack push".to_string(), call_context);
         });
         cb.condition(not::expr(is_zero_num_arg.expr()), |cb| {
             cb.require_next_state(ExecutionState::CallStage2);
+            call_context.require_zero(cb);
             cb.require_cell_transition(num_arg.clone(), Transition::Same);
             let local_index_next = cb.cell_at_offset(&step_curr.local_index, 1).expr();
             cb.require_equal(
@@ -98,6 +101,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         });
 
         CallStage1 {
+            call_context,
             num_arg,
             is_zero_num_arg,
         }
@@ -215,9 +219,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 /// processed all the arguments. We need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
 pub struct CallStage3<F: Field> {
+    call_context: CallContext<F>,
     header: ValueHeader<F>,
     is_zero_local_index: IsZeroGadget<F>,
-    last_row: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const NAME: &'static str = "CallStage3";
@@ -225,9 +229,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let call_context = CallContext::construct(cb);
         let header = ValueHeader::new(cb);
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
-        let last_row = IsZeroGadget::construct(cb, cb.curr.state.step_counter.expr() - 1u64.expr());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -305,6 +309,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         cb.require_no_stack_push();
 
         cb.not_last_row(|cb| {
+            call_context.require_zero(cb);
             cb.require_state_transition(vec![(SP, Transition::Same)]);
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
         });
@@ -312,6 +317,14 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
             cb.condition(is_zero_local_index.expr(), |cb| {
                 //all args have been processed
+                call_context.configure(
+                    cb,
+                    step_curr.frame_index.expr(),
+                    step_curr.module_index.expr(),
+                    step_curr.function_index.expr(),
+                    step_curr.pc.expr(),
+                    step_curr.clk.expr(),
+                );
                 cb.require_state_transition(vec![
                     (FRAME_INDEX, Transition::Delta(1.expr())),
                     (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
@@ -321,6 +334,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             });
             cb.condition(not::expr(is_zero_local_index.expr()), |cb| {
                 cb.require_next_state(ExecutionState::CallStage2);
+                call_context.require_zero(cb);
                 cb.require_cell_transition(step_curr.local_index, Transition::Delta((-1).expr()));
                 cb.require_state_transition(
                     [
@@ -339,25 +353,10 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             });
         });
 
-        // push callstack separately since we can't do shuffle in cb.last_row() now
-        cb.condition(
-            and::expr([last_row.expr(), is_zero_local_index.expr()]),
-            |cb| {
-                let call_context = CallContext {
-                    index: step_curr.frame_index.expr(),
-                    caller_module_index: step_curr.module_index.expr(),
-                    caller_function_index: step_curr.function_index.expr(),
-                    caller_pc: step_curr.pc.expr(),
-                    version: step_curr.clk.expr(),
-                };
-                cb.callstack_push("callstack push".to_string(), call_context);
-            },
-        );
-
         CallStage3 {
+            call_context,
             header,
             is_zero_local_index,
-            last_row,
         }
     }
 }

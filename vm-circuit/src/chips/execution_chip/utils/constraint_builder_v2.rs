@@ -4,8 +4,6 @@ use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellType};
-
-use crate::chips::execution_chip_v2::shuffle::{CallContext, CallStackPop, CallStackPush, Shuffle};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use gadgets::util::Expr;
@@ -71,7 +69,6 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
 
     stored_expressions: Vec<StoredExpression<F>>,
     in_next_step: bool,
-    shuffles: Vec<(String, Shuffle<F>)>,
 }
 
 impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
@@ -105,7 +102,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             stored_expressions: Vec::new(),
             in_next_step: false,
             conditions: Vec::new(),
-            shuffles: Vec::new(),
         }
     }
 
@@ -116,7 +112,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         Step<F>,
         Constraints<F>,
         Vec<StoredExpression<F>>,
-        Vec<(String, Shuffle<F>)>,
         &'a mut ConstraintSystem<F>,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
@@ -139,7 +134,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 any_row: mul_exec_state_sel(self.constraints.any_row),
             },
             self.stored_expressions,
-            self.shuffles,
             self.meta,
         )
     }
@@ -358,29 +352,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 
-    // Shuffles
-    pub(crate) fn add_shuffle(&mut self, name: String, shuffle: Shuffle<F>) {
-        let shuffle = match self.condition_expr_opt() {
-            Some(condition) => shuffle.conditional(condition),
-            None => shuffle,
-        };
-        let op_sel = match self.execution_state {
-            Some(s) => self.curr.execution_state_selector([s]),
-            None => 1u64.expr(),
-        };
-        let shuffle = shuffle.conditional(op_sel);
-        self.shuffles.push((name, shuffle));
-    }
-    // Callstack
-    pub(crate) fn callstack_push(&mut self, name: String, call_context: CallContext<F>) {
-        let shuffle = Shuffle::CallStack(CallStackPush(call_context), CallStackPop::default());
-        self.add_shuffle(name, shuffle);
-    }
-    pub(crate) fn callstack_pop(&mut self, name: String, call_context: CallContext<F>) {
-        let shuffle = Shuffle::CallStack(CallStackPush::default(), CallStackPop(call_context));
-        self.add_shuffle(name, shuffle);
-    }
-
     // Lookups
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
@@ -392,11 +363,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             Some(condition) => lookup.conditional(condition),
             None => lookup,
         };
-        let op_sel = match self.execution_state {
-            Some(s) => self.curr.execution_state_selector([s]),
-            None => 1u64.expr(),
-        };
-        let lookup = lookup.conditional(op_sel);
         let lookup_rlc_expr = rlc::expr(&lookup.input_exprs(), self.challenges.lookup_input());
         // FIXME: check the compression.
         // let compressed_expr = self.split_expression(
