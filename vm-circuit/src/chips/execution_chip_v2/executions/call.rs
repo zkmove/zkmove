@@ -111,7 +111,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
 /// invalidate old value in the local_index corresponding to an argument.
 /// the next stage must be stage3. we need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
-pub struct CallStage2<F: Field> {
+pub struct CallStage2<F> {
     header: ValueHeader<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
@@ -218,7 +218,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 /// the previous stage must be stage2. The next stage is still stage2, unless we have
 /// processed all the arguments. We need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
-pub struct CallStage3<F: Field> {
+pub struct CallStage3<F> {
     call_context: CallContext<F>,
     header: ValueHeader<F>,
     is_zero_local_index: IsZeroGadget<F>,

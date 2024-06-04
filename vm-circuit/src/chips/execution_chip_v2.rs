@@ -40,7 +40,7 @@ pub(crate) mod step_v2;
 pub(crate) mod utils;
 
 #[derive(Clone)]
-pub(crate) struct ExecChipConfig<F: Field> {
+pub(crate) struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
