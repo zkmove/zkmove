@@ -14,10 +14,10 @@ use crate::chips::execution_chip_v2::executions::ret::Ret;
 //     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
 // };
 // use crate::chips::execution_chip_v2::executions::{
-//     BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
+//     VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
 // };
-use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
-// use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState};
+use crate::chips::execution_chip_v2::executions::{Ld, LdType};
 // use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
@@ -46,9 +46,9 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
-    // pub ld: Box<Ld<F, { LdType::LdU64 }>>,
+    pub ld: Box<Ld<F, { LdType::LdU64 }>>,
     // pub pack: Box<Pack<F>>,
-    // pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
+    pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
     // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
     // pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
     // pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
@@ -194,8 +194,8 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             br_true: configure_opcode_gadget!(),
-            // ld: configure_opcode_gadget!(),
-            // imm_borrow_loc: configure_opcode_gadget!(),
+            ld: configure_opcode_gadget!(),
+            imm_borrow_loc: configure_opcode_gadget!(),
             // pack: configure_opcode_gadget!(),
             // vec_swap_stage_1: configure_opcode_gadget!(),
             // vec_swap_stage_2: configure_opcode_gadget!(),

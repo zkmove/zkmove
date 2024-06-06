@@ -1,6 +1,6 @@
 pub(crate) mod base;
 // pub(crate) mod borrow_field;
-// pub(crate) mod borrow_loc;
+pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
 pub(crate) mod call;
 // pub(crate) mod cast;
@@ -19,7 +19,7 @@ pub(crate) mod ret;
 // pub(crate) mod vec_swap;
 // pub(crate) mod write_ref;
 // pub use borrow_field::*;
-// pub use borrow_loc::*;
+pub use borrow_loc::*;
 pub use br_bool::*;
 pub use call::*;
 // pub use cast::*;
@@ -62,8 +62,8 @@ pub enum ExecutionState {
     // VecPushBackStage3,
     Stop,
     Nop,
-    // MutBorrowLoc,
-    // ImmBorrowLoc,
+    MutBorrowLoc,
+    ImmBorrowLoc,
     LdFalse,
     LdTrue,
     LdU128,

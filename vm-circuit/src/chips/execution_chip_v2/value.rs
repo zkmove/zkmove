@@ -31,15 +31,6 @@ impl<F: Field, const N: usize> Value<F, N> {
     pub(crate) fn expr(&self) -> Expression<F> {
         rlc::expr(&self.exprs(), self.challenge.clone())
     }
-    // pub(crate) fn one(&self) -> Expression<F> {
-    //     (1..N).iter()
-    //     let mut exprs = [0u64.expr(); N].to_vec();
-    //     let one = std::mem::replace(&mut exprs[0], 1u64.expr());
-    //     rlc::expr(one, self.challenge.clone())
-    // }
-    // pub(crate) fn zero(&self) -> Expression<F> {
-    //     rlc::expr(&[0u64.expr(); N], self.challenge.clone())
-    // }
     pub(crate) fn exprs(&self) -> [Expression<F>; N] {
         self.cells.clone().map(|c| c.expr())
     }
@@ -63,6 +54,15 @@ impl<F: Field, const N: usize> Value<F, N> {
             2 => ValueHeader {
                 flen: self.cells[0].expr(),
                 len: self.cells[1].expr(),
+            },
+            _ => unimplemented!(),
+        }
+    }
+    pub(crate) fn as_reference(&self) -> Reference<F> {
+        match N {
+            2 => Reference {
+                index: self.cells[0].expr(),
+                sub_index: self.cells[1].expr(),
             },
             _ => unimplemented!(),
         }
@@ -117,9 +117,31 @@ impl<F: Field> ValueHeader<F> {
     }
 }
 
-// TODO: put reference cells into one row as a simple value
-pub(crate) struct Reference<F> {
+pub(crate) struct Index<F> {
     frame_index: Expression<F>,
     local_index: Expression<F>,
+}
+impl<F: Field> Index<F> {
+    pub(crate) fn new(frame_index: Expression<F>, local_index: Expression<F>) -> Self {
+        Self {
+            frame_index,
+            local_index,
+        }
+    }
+    pub(crate) fn expr(&self) -> Expression<F> {
+        self.frame_index.clone() + self.local_index.clone() * 2u64.pow(16).expr()
+    }
+}
+pub(crate) struct Reference<F> {
+    index: Expression<F>,
     sub_index: Expression<F>,
+}
+
+impl<F: Field> Reference<F> {
+    pub(crate) fn index(&self) -> Expression<F> {
+        self.index.clone()
+    }
+    pub(crate) fn sub_index(&self) -> Expression<F> {
+        self.sub_index.clone()
+    }
 }

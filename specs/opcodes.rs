@@ -768,41 +768,23 @@ mod store_loc {
 
 mod borrow_loc {
     pub fn constrain() {
-        if super::common::on_first_row() {
-            table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
-            step_counter(0) == 4;
-            stack_push_value(0) == (3, 4);
-            stack_push_value_header(0) == true;
-            stack_push_sub_index(0) == 0;
-            // second row
-            stack_push_value(1) = frame_index(0);
-        }
-
-        if !super::common::on_first_row() {
-            stack_push_value_header(0) == false;
-        }
-
+        step_counter(0) == 1;
+        let index = frame_index(0) + aux(0) << 16; //both frame_index and local_index are u16
+        let sub_index = 0;
+        stack_push_value(0) == [index, sub_index];
+        stack_push_value_header(0) == false;
         stack_push_index(0) == sp(0) + 1;
+        stack_push_sub_index(0) == 0;
         stack_push_version(0) == clk(0);
+
         super::common::fake_empty_stack_pop(0);
-        super::common::fake_local_read_zero(0);
+        super::common::fake_local_read_zero();
 
-        if !super::common::on_last_row() {
-            stack_push_sub_index(1) == stack_push_sub_index(0) + 1;
-            sp(1) == sp(0);
-        } else {
-            // third row
-            stack_push_value(-1) = aux0(0);
-            // last row
-            stack_push_value(0) = 0;
-            stack_push_sub_index(0) == 3;
-
-            module_index(1) == module_index(0);
-            function_index(1) == function_index(0);
-            frame_index(1) == frame_index(0);
-            pc(1) == pc(0) + 1;
-            sp(1) == sp(0) + 1;
-        }
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        frame_index(1) == frame_index(0);
+        pc(1) == pc(0) + 1;
+        sp(1) == sp(0) + 1;
     }
 }
 
