@@ -7,18 +7,18 @@ use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
 use crate::chips::execution_chip_v2::executions::pop::Pop;
 use crate::chips::execution_chip_v2::executions::ret::Ret;
-use crate::chips::execution_chip_v2::executions::vec_push_back::{
-    VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
-};
-use crate::chips::execution_chip_v2::executions::vec_swap::{
-    VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
-};
-use crate::chips::execution_chip_v2::executions::{
-    BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
-};
+// use crate::chips::execution_chip_v2::executions::vec_push_back::{
+//     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
+// };
+// use crate::chips::execution_chip_v2::executions::vec_swap::{
+//     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
+// };
+// use crate::chips::execution_chip_v2::executions::{
+//     BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
+// };
 use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
-use crate::chips::execution_chip_v2::executions::{Ld, LdType};
-use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
+// use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+// use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
 use crate::chips::utilities::Expr;
@@ -38,6 +38,7 @@ pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
 pub(crate) mod utils;
+pub(crate) mod value;
 
 #[derive(Clone)]
 pub(crate) struct ExecChipConfig<F> {
@@ -45,24 +46,24 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
-    pub ld: Box<Ld<F, { LdType::LdU64 }>>,
-    pub pack: Box<Pack<F>>,
-    pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
-    pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
-    pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
-    pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
-    pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
-    pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
-    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
-    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
-    pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
-    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
-    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
-    pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
+    // pub ld: Box<Ld<F, { LdType::LdU64 }>>,
+    // pub pack: Box<Pack<F>>,
+    // pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
+    // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
+    // pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
+    // pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
+    // pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
+    // pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
+    // pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
+    // pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
+    // pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
+    // pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
+    // pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
+    // pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
+    // pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
     pub pop: Box<Pop<F>>,
-    pub move_loc: Box<MoveOrCopyLoc<F, true>>,
-    pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
+    // pub move_loc: Box<MoveOrCopyLoc<F, true>>,
+    // pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
     pub call_stage_1: Box<CallStage1<F>>,
     pub call_stage_2: Box<CallStage2<F>>,
     pub call_stage_3: Box<CallStage3<F>>,
@@ -80,9 +81,9 @@ impl<F: Field> ExecChipConfig<F> {
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
         let advices: CMFixedWidthStrategyDistribution = cm_distribute_advice(meta);
-        let step_curr = Step::new(meta, advices.clone(), 0);
-        let step_next = Step::new(meta, advices.clone(), 1);
-        let _step_prev = Step::new(meta, advices.clone(), -1);
+        let step_curr = Step::new(meta, advices.clone(), 0, &challenges);
+        let step_next = Step::new(meta, advices.clone(), 1, &challenges);
+        let _step_prev = Step::new(meta, advices.clone(), -1, &challenges);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -193,24 +194,24 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             br_true: configure_opcode_gadget!(),
-            ld: configure_opcode_gadget!(),
-            imm_borrow_loc: configure_opcode_gadget!(),
-            pack: configure_opcode_gadget!(),
-            vec_swap_stage_1: configure_opcode_gadget!(),
-            vec_swap_stage_2: configure_opcode_gadget!(),
-            vec_swap_stage_3: configure_opcode_gadget!(),
-            vec_swap_stage_4: configure_opcode_gadget!(),
-            vec_swap_stage_5: configure_opcode_gadget!(),
-            vec_swap_stage_6: configure_opcode_gadget!(),
-            vec_pop_back_stage1: configure_opcode_gadget!(),
-            vec_pop_back_stage2: configure_opcode_gadget!(),
-            vec_pop_back_stage3: configure_opcode_gadget!(),
-            vec_push_back_stage1: configure_opcode_gadget!(),
-            vec_push_back_stage2: configure_opcode_gadget!(),
-            vec_push_back_stage3: configure_opcode_gadget!(),
+            // ld: configure_opcode_gadget!(),
+            // imm_borrow_loc: configure_opcode_gadget!(),
+            // pack: configure_opcode_gadget!(),
+            // vec_swap_stage_1: configure_opcode_gadget!(),
+            // vec_swap_stage_2: configure_opcode_gadget!(),
+            // vec_swap_stage_3: configure_opcode_gadget!(),
+            // vec_swap_stage_4: configure_opcode_gadget!(),
+            // vec_swap_stage_5: configure_opcode_gadget!(),
+            // vec_swap_stage_6: configure_opcode_gadget!(),
+            // vec_pop_back_stage1: configure_opcode_gadget!(),
+            // vec_pop_back_stage2: configure_opcode_gadget!(),
+            // vec_pop_back_stage3: configure_opcode_gadget!(),
+            // vec_push_back_stage1: configure_opcode_gadget!(),
+            // vec_push_back_stage2: configure_opcode_gadget!(),
+            // vec_push_back_stage3: configure_opcode_gadget!(),
             pop: configure_opcode_gadget!(),
-            move_loc: configure_opcode_gadget!(),
-            copy_loc: configure_opcode_gadget!(),
+            // move_loc: configure_opcode_gadget!(),
+            // copy_loc: configure_opcode_gadget!(),
             call_stage_1: configure_opcode_gadget!(),
             call_stage_2: configure_opcode_gadget!(),
             call_stage_3: configure_opcode_gadget!(),
@@ -373,20 +374,20 @@ impl<F: Field> ExecChipConfig<F> {
             let pop_set = [
                 step_curr.state.stack_pop_index.expr(),
                 step_curr.state.stack_pop_sub_index.expr(),
-                step_curr.state.stack_pop_value.expr(),
                 step_curr.state.stack_pop_value_header.expr(),
                 step_curr.state.stack_pop_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.stack_pop_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             let push_set = [
                 step_curr.state.stack_push_index.expr(),
                 step_curr.state.stack_push_sub_index.expr(),
-                step_curr.state.stack_push_value.expr(),
                 step_curr.state.stack_push_value_header.expr(),
                 step_curr.state.stack_push_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.stack_push_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             pop_set.zip(push_set).collect()
         });
@@ -396,23 +397,23 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_read_value.expr(),
                 step_curr.state.local_read_value_header.expr(),
                 step_curr.state.local_read_value_invalid.expr(),
                 step_curr.state.local_read_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.local_read_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             let write_set = [
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_write_value.expr(),
                 step_curr.state.local_write_value_header.expr(),
                 step_curr.state.local_write_value_invalid.expr(),
                 step_curr.state.local_write_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.local_write_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             read_set.zip(write_set).collect()
         });

@@ -140,7 +140,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
 
     pub fn step_state_at_offset(&mut self, offset: isize) -> StepState<F> {
         let advices = self.curr.cell_manager.get_strategy().advices().clone();
-        Step::new(self.meta, advices, offset).state
+        Step::new(self.meta, advices, offset, self.challenges).state
     }
 
     pub(crate) fn query_bool(&mut self) -> Cell<F> {

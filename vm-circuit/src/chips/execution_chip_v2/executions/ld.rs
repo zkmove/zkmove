@@ -3,6 +3,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::value::Integer;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use std::marker::ConstParamTy;
@@ -77,12 +78,13 @@ impl<F: Field, const LD_TYPE: LdType> InstructionGadgetV2<F> for Ld<F, LD_TYPE> 
                 LdType::LdU8 | LdType::LdU16 | LdType::LdU32 | LdType::LdU64 | LdType::LdU128 => {
                     cb.require_equal(
                         format!("{}, stack_push_value(0) == aux0(0)", Self::NAME),
-                        cb.curr.state.stack_push_value.expr(),
+                        cb.curr.state.stack_push_value.as_integer().lo(),
                         cb.curr.state.aux0.expr(),
                     );
                 }
                 LdType::LdTrue => {
                     cb.require_equal(
+                        // value[0] + value[1] * gamma == 1
                         format!("{}, stack_push_value(0) == true", Self::NAME),
                         cb.curr.state.stack_push_value.expr(),
                         1u64.expr(),

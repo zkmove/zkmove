@@ -3,7 +3,6 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
@@ -13,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
 use gadgets::util::{and, not};
+use std::marker::PhantomData;
 use types::Field;
 
 /// check the number of argument. If the function has no arguments, enter callee, else enter stage2
@@ -112,15 +112,15 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
 /// the next stage must be stage3. we need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
 pub struct CallStage2<F> {
-    header: ValueHeader<F>,
+    phantom_data: PhantomData<F>,
 }
+
 impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
     const NAME: &'static str = "CallStage2";
     const OPCODE: Opcode = Opcode::Call;
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let header = ValueHeader::new(cb);
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -135,14 +135,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             ]);
             cb.condition(valid_complex_value.clone(), |cb| {
                 cb.require_equal(
-                    format!("{}, stack_pop_value(0) == header", Self::NAME),
-                    step_curr.stack_pop_value.expr(),
-                    header.expr(),
-                );
-                cb.require_equal(
-                    format!("{}, step_counter(0) == header.flen", Self::NAME),
+                    "step_counter(0) == flen",
                     step_curr.step_counter.expr(),
-                    header.flen.expr(),
+                    step_curr.stack_pop_value.as_header().flen(),
                 );
             });
             cb.condition(not::expr(valid_complex_value), |cb| {
@@ -210,7 +205,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             );
         });
 
-        CallStage2 { header }
+        CallStage2 {
+            phantom_data: PhantomData,
+        }
     }
 }
 
@@ -220,7 +217,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 #[derive(Clone, Debug)]
 pub struct CallStage3<F> {
     call_context: CallContext<F>,
-    header: ValueHeader<F>,
     is_zero_local_index: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
@@ -230,7 +226,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let call_context = CallContext::construct(cb);
-        let header = ValueHeader::new(cb);
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
         let step_curr = cb.curr.state.clone();
 
@@ -241,14 +236,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             );
             cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
                 cb.require_equal(
-                    format!("{}, stack_pop_value(0) == header", Self::NAME),
-                    step_curr.stack_pop_value.expr(),
-                    header.expr(),
-                );
-                cb.require_equal(
-                    format!("{}, step_counter(0) == header.flen", Self::NAME),
+                    "step_counter(0) == flen",
                     step_curr.step_counter.expr(),
-                    header.flen.expr(),
+                    step_curr.stack_pop_value.as_header().flen(),
                 );
             });
             cb.condition(not::expr(step_curr.stack_pop_value_header.expr()), |cb| {
@@ -355,7 +345,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
 
         CallStage3 {
             call_context,
-            header,
             is_zero_local_index,
         }
     }
