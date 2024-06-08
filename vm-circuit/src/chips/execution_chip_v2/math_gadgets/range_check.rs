@@ -27,7 +27,7 @@ impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
         cb.require_equal(
             "Constrain bytes recomposited to value",
             value,
-            from_limbs::expr::<_, _, 8>(&parts),
+            from_limbs::expr::<_, _, N_BYTES>(&parts),
         );
 
         Self { parts }
@@ -64,8 +64,8 @@ impl<F: Field, const N_BYTES: usize> IntegerRangeCheck<F, N_BYTES> {
             from_bytes::expr(&bytes),
         );
 
-        let casted_value = from_bytes::expr(&bytes.iter().take(N_BYTES).collect::<Vec<_>>());
-        let is_zero = IsZeroGadget::construct(cb, value - casted_value);
+        let expected_value = from_bytes::expr(&bytes.iter().take(N_BYTES).collect::<Vec<_>>());
+        let is_zero = IsZeroGadget::construct(cb, value - expected_value);
         Self { bytes, is_zero }
     }
     pub(crate) fn expr(&self) -> Expression<F> {

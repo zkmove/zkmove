@@ -5,6 +5,7 @@ pub(crate) mod br_bool;
 pub(crate) mod call;
 // pub(crate) mod cast;
 pub(crate) mod ld;
+pub(crate) mod ld_bool;
 // pub(crate) mod move_or_copy_loc;
 // pub(crate) mod not;
 // pub(crate) mod pack;
@@ -18,12 +19,14 @@ pub(crate) mod ret;
 // pub(crate) mod vec_push_back;
 // pub(crate) mod vec_swap;
 // pub(crate) mod write_ref;
+pub(crate) mod add_sub;
 // pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use call::*;
 // pub use cast::*;
 pub use ld::*;
+pub use ld_bool::*;
 // pub(crate) use move_or_copy_loc::*;
 // pub use not::*;
 // pub use pack::*;
@@ -32,6 +35,7 @@ pub use ret::*;
 // pub use vec_len::*;
 // pub(crate) use vec_pop_back::*;
 // pub use write_ref::*;
+pub use add_sub::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -66,6 +70,7 @@ pub enum ExecutionState {
     ImmBorrowLoc,
     LdFalse,
     LdTrue,
+    LdU256,
     LdU128,
     LdU64,
     LdU32,
@@ -98,6 +103,8 @@ pub enum ExecutionState {
     CallStage2,
     CallStage3,
     Ret,
+    Add,
+    Sub,
 }
 
 #[derive(Clone, Debug)]

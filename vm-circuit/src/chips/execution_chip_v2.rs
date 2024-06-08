@@ -17,10 +17,15 @@ use crate::chips::execution_chip_v2::executions::ret::Ret;
 //     VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
 // };
 use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState};
-use crate::chips::execution_chip_v2::executions::{Ld, LdType};
+use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
 // use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
+use crate::chips::execution_chip_v2::executions::add_sub::AddSub;
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
+use crate::chips::execution_chip_v2::value::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cell_manager::CellType;
@@ -46,7 +51,17 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
-    pub ld: Box<Ld<F, { LdType::LdU64 }>>,
+    pub br_false: Box<BrBool<F, false>>,
+    pub ld_u8: Box<Ld<F, NUM_OF_BYTES_U8>>,
+    pub ld_u16: Box<Ld<F, NUM_OF_BYTES_U16>>,
+    pub ld_u32: Box<Ld<F, NUM_OF_BYTES_U32>>,
+    pub ld_u64: Box<Ld<F, NUM_OF_BYTES_U64>>,
+    pub ld_u128: Box<Ld<F, NUM_OF_BYTES_U128>>,
+    pub ld_u256: Box<Ld<F, NUM_OF_BYTES_U256>>,
+    pub ld_true: Box<LdBool<F, true>>,
+    pub ld_false: Box<LdBool<F, false>>,
+    pub add: Box<AddSub<F, true>>,
+    pub sub: Box<AddSub<F, false>>,
     // pub pack: Box<Pack<F>>,
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
     // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
@@ -194,7 +209,17 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             br_true: configure_opcode_gadget!(),
-            ld: configure_opcode_gadget!(),
+            br_false: configure_opcode_gadget!(),
+            ld_u8: configure_opcode_gadget!(),
+            ld_u16: configure_opcode_gadget!(),
+            ld_u32: configure_opcode_gadget!(),
+            ld_u64: configure_opcode_gadget!(),
+            ld_u128: configure_opcode_gadget!(),
+            ld_u256: configure_opcode_gadget!(),
+            ld_true: configure_opcode_gadget!(),
+            ld_false: configure_opcode_gadget!(),
+            add: configure_opcode_gadget!(),
+            sub: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),
             // pack: configure_opcode_gadget!(),
             // vec_swap_stage_1: configure_opcode_gadget!(),

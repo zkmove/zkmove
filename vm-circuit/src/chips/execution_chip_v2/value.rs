@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategy;
@@ -6,6 +5,13 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use types::Field;
+
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
+pub const NUM_OF_BYTES_U64: usize = 8;
+pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Value<F, const N: usize> {
@@ -84,6 +90,9 @@ impl<F: Field> Integer<F> {
     }
     pub(crate) fn hi(&self) -> Expression<F> {
         self.hi.clone()
+    }
+    pub(crate) fn expr(&self) -> (Expression<F>, Expression<F>) {
+        (self.lo.clone(), self.hi.clone())
     }
 }
 
