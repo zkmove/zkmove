@@ -1,5 +1,5 @@
 pub(crate) mod base;
-// pub(crate) mod borrow_field;
+pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
 pub(crate) mod call;
@@ -10,7 +10,7 @@ pub(crate) mod ld_bool;
 // pub(crate) mod not;
 // pub(crate) mod pack;
 pub(crate) mod pop;
-// pub(crate) mod read_ref;
+pub(crate) mod read_ref;
 pub(crate) mod ret;
 // pub(crate) mod store_loc;
 // pub(crate) mod vec_borrow;
@@ -18,9 +18,9 @@ pub(crate) mod ret;
 // pub(crate) mod vec_pop_back;
 // pub(crate) mod vec_push_back;
 // pub(crate) mod vec_swap;
-// pub(crate) mod write_ref;
 pub(crate) mod add_sub;
-// pub use borrow_field::*;
+pub(crate) mod write_ref;
+pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use call::*;
@@ -34,8 +34,8 @@ pub use ret::*;
 // pub use vec_borrow::*;
 // pub use vec_len::*;
 // pub(crate) use vec_pop_back::*;
-// pub use write_ref::*;
 pub use add_sub::*;
+pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -77,14 +77,12 @@ pub enum ExecutionState {
     LdU16,
     LdU8,
     // Pack,
-    // ReadRefStage1,
-    // ReadRefStage2,
-    // MutBorrowField,
-    // ImmBorrowField,
-    // WriteRefStage1,
-    // WriteRefStage2,
-    // WriteRefStage3,
-    // WriteRefStage4,
+    ReadRef,
+    MutBorrowField,
+    ImmBorrowField,
+    WriteRefStage1,
+    WriteRefStage2,
+    WriteRefStage3,
     // VecLen,
     // VecImmBorrow,
     // VecMutBorrow,
