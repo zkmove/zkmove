@@ -7,20 +7,25 @@ use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
 use crate::chips::execution_chip_v2::executions::pop::Pop;
 use crate::chips::execution_chip_v2::executions::ret::Ret;
-use crate::chips::execution_chip_v2::executions::vec_push_back::{
-    VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
-};
-use crate::chips::execution_chip_v2::executions::vec_swap::{
-    VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
-};
-use crate::chips::execution_chip_v2::executions::{
-    BorrowLoc, VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
-};
-use crate::chips::execution_chip_v2::executions::{BrBool, ExecutionState};
-use crate::chips::execution_chip_v2::executions::{Ld, LdType};
-use crate::chips::execution_chip_v2::executions::{MoveOrCopyLoc, Pack};
+// use crate::chips::execution_chip_v2::executions::vec_push_back::{
+//     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
+// };
+// use crate::chips::execution_chip_v2::executions::vec_swap::{
+//     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
+// };
+// use crate::chips::execution_chip_v2::executions::{
+//     VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
+// };
+use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState};
+use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
+// use crate::chips::execution_chip_v2::executions::Pack;
+use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
+use crate::chips::execution_chip_v2::value::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cell_manager::CellType;
@@ -46,21 +51,29 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
-    pub ld: Box<Ld<F, { LdType::LdU64 }>>,
-    pub pack: Box<Pack<F>>,
+    pub br_false: Box<BrBool<F, false>>,
+    pub ld_u8: Box<Ld<F, NUM_OF_BYTES_U8>>,
+    pub ld_u16: Box<Ld<F, NUM_OF_BYTES_U16>>,
+    pub ld_u32: Box<Ld<F, NUM_OF_BYTES_U32>>,
+    pub ld_u64: Box<Ld<F, NUM_OF_BYTES_U64>>,
+    pub ld_u128: Box<Ld<F, NUM_OF_BYTES_U128>>,
+    pub ld_u256: Box<Ld<F, NUM_OF_BYTES_U256>>,
+    pub ld_true: Box<LdBool<F, true>>,
+    pub ld_false: Box<LdBool<F, false>>,
+    // pub pack: Box<Pack<F>>,
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
-    pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
-    pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
-    pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
-    pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
-    pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
-    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
-    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
-    pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
-    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
-    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
-    pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
+    // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
+    // pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
+    // pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
+    // pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
+    // pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
+    // pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
+    // pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
+    // pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
+    // pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
+    // pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
+    // pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
+    // pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
     pub pop: Box<Pop<F>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
     pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
@@ -194,21 +207,29 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             br_true: configure_opcode_gadget!(),
-            ld: configure_opcode_gadget!(),
+            br_false: configure_opcode_gadget!(),
+            ld_u8: configure_opcode_gadget!(),
+            ld_u16: configure_opcode_gadget!(),
+            ld_u32: configure_opcode_gadget!(),
+            ld_u64: configure_opcode_gadget!(),
+            ld_u128: configure_opcode_gadget!(),
+            ld_u256: configure_opcode_gadget!(),
+            ld_true: configure_opcode_gadget!(),
+            ld_false: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),
-            pack: configure_opcode_gadget!(),
-            vec_swap_stage_1: configure_opcode_gadget!(),
-            vec_swap_stage_2: configure_opcode_gadget!(),
-            vec_swap_stage_3: configure_opcode_gadget!(),
-            vec_swap_stage_4: configure_opcode_gadget!(),
-            vec_swap_stage_5: configure_opcode_gadget!(),
-            vec_swap_stage_6: configure_opcode_gadget!(),
-            vec_pop_back_stage1: configure_opcode_gadget!(),
-            vec_pop_back_stage2: configure_opcode_gadget!(),
-            vec_pop_back_stage3: configure_opcode_gadget!(),
-            vec_push_back_stage1: configure_opcode_gadget!(),
-            vec_push_back_stage2: configure_opcode_gadget!(),
-            vec_push_back_stage3: configure_opcode_gadget!(),
+            // pack: configure_opcode_gadget!(),
+            // vec_swap_stage_1: configure_opcode_gadget!(),
+            // vec_swap_stage_2: configure_opcode_gadget!(),
+            // vec_swap_stage_3: configure_opcode_gadget!(),
+            // vec_swap_stage_4: configure_opcode_gadget!(),
+            // vec_swap_stage_5: configure_opcode_gadget!(),
+            // vec_swap_stage_6: configure_opcode_gadget!(),
+            // vec_pop_back_stage1: configure_opcode_gadget!(),
+            // vec_pop_back_stage2: configure_opcode_gadget!(),
+            // vec_pop_back_stage3: configure_opcode_gadget!(),
+            // vec_push_back_stage1: configure_opcode_gadget!(),
+            // vec_push_back_stage2: configure_opcode_gadget!(),
+            // vec_push_back_stage3: configure_opcode_gadget!(),
             pop: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
             copy_loc: configure_opcode_gadget!(),

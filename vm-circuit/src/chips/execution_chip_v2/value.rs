@@ -6,6 +6,13 @@ use crate::utils::rlc::rlc;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use types::Field;
 
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
+pub const NUM_OF_BYTES_U64: usize = 8;
+pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
+
 #[derive(Clone, Debug)]
 pub(crate) struct Value<F, const N: usize> {
     cells: [Cell<F>; N],
