@@ -88,6 +88,7 @@ mod call_stack {
         let version = clk(0);
         callstack_push((index, caller_module_index, caller_function_index, caller_pc, version));
     }
+
     pub fn pop() {
         let (index, caller_module_index, caller_function_index, caller_pc, version) = callstack_pop();
         frame_index(1) == index;
@@ -162,7 +163,7 @@ mod pop {
             // if is complex value
             if stack_pop_value_header {
                 // !simple value
-                let (len, flen) = stack_pop_value(0);
+                let flen = stack_pop_value(0).as_header().flen;
                 step_counter(0) == flen;
             } else {
                 step_counter(0) == 1;
@@ -511,7 +512,7 @@ mod call {
             local_sub_index(0) == 0;
 
             if !local_read_value_invalid(0) && local_read_value_header(0) {
-                step_counter(0) == local_read_value(0).f_len;
+                step_counter(0) == local_read_value(0).as_header().flen;
             } else {
                 step_counter(0) == 1;
             }
@@ -553,7 +554,7 @@ mod call {
 
             stack_pop_sub_index(0) == 0;
             if stack_pop_value_header(0) {
-                step_counter(0) == stack_pop_value(0).f_len;
+                step_counter(0) == stack_pop_value(0).as_header().flen;
             } else {
                 step_counter(0) == 1;
             }
@@ -610,7 +611,7 @@ mod move_loc {
             local_sub_index(0) == 0; // simple value or header
             if stack_push_value_header {
                 // !simple value
-                let (len, flen) = stack_push_value(0);
+                let flen = stack_push_value(0).as_header().flen;
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
             } else {
                 step_counter(0) == 1;
@@ -626,7 +627,7 @@ mod move_loc {
         local_read_value_header(0) == stack_push_value_header(0);
         lcoal_read_value(0) != INVALID;
         local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
-                                         // constraint local-invalidating has the same write_version
+        // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
 
@@ -650,7 +651,7 @@ mod copy_loc {
             local_sub_index(0) == 0; // simple value or header
             if stack_push_value_header {
                 // !simple value
-                let (len, flen) = stack_push_value(0);
+                let flen = stack_push_value(0).as_header().flen;
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
             } else {
                 step_counter(0) == 1;
@@ -692,7 +693,7 @@ mod store_loc {
         if is_first {
             if local_read_value_header(0) {
                 // !simple value
-                let (len, flen) = local_read_value(0);
+                let flen = local_read_value(0).as_header().flen;
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
             } else {
                 step_counter(0) == 1;
@@ -723,6 +724,7 @@ mod store_loc {
             aux1(1) == aux1(0);
         }
     }
+
     // move value from stack to local
     fn stage2() {
         let is_first = super::common::on_first_row();
@@ -736,7 +738,7 @@ mod store_loc {
         if is_first {
             if stack_pop_value_header {
                 // !simple value
-                let (len, flen) = stack_pop_value(0);
+                let flen = stack_pop_value(0).as_header().flen;
                 step_counter(0) == flen; // need to constraint flen == step_counter in the first row.
             } else {
                 step_counter(0) == 1;
@@ -1088,10 +1090,10 @@ mod br_bool {
             // Memory Context Constraints:
             pc(1)
                 == if opcode == BrTure {
-                    cond * next_pc + (1 - cond) * (pc(0) + 1)
-                } else {
-                    (1 - cond) * next_pc + cond * (pc(0) + 1)
-                };
+                cond * next_pc + (1 - cond) * (pc(0) + 1)
+            } else {
+                (1 - cond) * next_pc + cond * (pc(0) + 1)
+            };
             sp(1) == sp(0) - 1;
         }
     }
