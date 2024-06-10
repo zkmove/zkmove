@@ -101,36 +101,6 @@ pub enum ExecutionState {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ValueHeader<F> {
-    len: Expression<F>,
-    flen: Expression<F>,
-}
-pub(crate) const REFERENCE_VALUE_LEN: u64 = 3;
-pub(crate) const REFERENCE_VALUE_FLEN: u64 = REFERENCE_VALUE_LEN + 1;
-
-impl<F: Field> ValueHeader<F> {
-    fn new(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        Self {
-            len: cb.query_cell().expr(),
-            flen: cb.query_cell().expr(),
-        }
-    }
-    fn pair(len: Expression<F>, flen: Expression<F>) -> Self {
-        Self { len, flen }
-    }
-    // header for any reference value
-    pub fn default() -> Self {
-        Self::pair(REFERENCE_VALUE_LEN.expr(), REFERENCE_VALUE_FLEN.expr())
-    }
-}
-
-impl<F: Field> Expr<F> for ValueHeader<F> {
-    fn expr(&self) -> Expression<F> {
-        self.flen.clone() + self.len.clone() * 2u64.pow(16).expr()
-    }
-}
-
-#[derive(Clone, Debug)]
 pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
     header_limbs: [Cell<F>; N_LIMB],
     field_limbs: [Cell<F>; N_LIMB],

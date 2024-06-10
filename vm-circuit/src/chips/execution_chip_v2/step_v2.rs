@@ -1,11 +1,13 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::value::Value;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
 use crate::utils::cell_placement_strategy::{
     CMFixedWidthStrategy, CMFixedWidthStrategyDistribution,
 };
+use crate::utils::challenges::Challenges;
 use gadgets::util::Expr;
-use halo2_proofs::circuit::Value;
+use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
@@ -36,13 +38,13 @@ pub(crate) struct StepState<F> {
 
     pub stack_pop_index: Cell<F>,
     pub stack_pop_sub_index: Cell<F>,
-    pub stack_pop_value: Cell<F>,
+    pub stack_pop_value: Value<F, 2>,
     pub stack_pop_value_header: Cell<F>,
     pub stack_pop_version: Cell<F>,
 
     pub stack_push_index: Cell<F>,
     pub stack_push_sub_index: Cell<F>,
-    pub stack_push_value: Cell<F>,
+    pub stack_push_value: Value<F, 2>,
     pub stack_push_value_header: Cell<F>,
     pub stack_push_version: Cell<F>,
 
@@ -50,12 +52,12 @@ pub(crate) struct StepState<F> {
     pub local_index: Cell<F>,
     pub local_sub_index: Cell<F>,
 
-    pub local_read_value: Cell<F>,
+    pub local_read_value: Value<F, 2>,
     pub local_read_value_header: Cell<F>,
     pub local_read_value_invalid: Cell<F>,
     pub local_read_version: Cell<F>,
 
-    pub local_write_value: Cell<F>,
+    pub local_write_value: Value<F, 2>,
     pub local_write_value_header: Cell<F>,
     pub local_write_value_invalid: Cell<F>,
     pub local_write_version: Cell<F>,
@@ -85,6 +87,7 @@ impl<F: Field> Step<F> {
         meta: &mut ConstraintSystem<F>,
         advices: CMFixedWidthStrategyDistribution,
         offset: isize,
+        challenges: &Challenges<Expression<F>>,
     ) -> Self {
         // height should always be 1
         let strategy = CMFixedWidthStrategy::new(advices, offset).with_max_height(1);
@@ -107,24 +110,24 @@ impl<F: Field> Step<F> {
 
             stack_pop_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_pop_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            stack_pop_value: Value::new(meta, &mut cell_manager, challenges),
             stack_pop_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_pop_version,
 
             stack_push_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_push_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_push_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            stack_push_value: Value::new(meta, &mut cell_manager, challenges),
             stack_push_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
             stack_push_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
 
             local_frame_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_read_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            local_read_value: Value::new(meta, &mut cell_manager, challenges),
             local_read_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_read_value_invalid: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_read_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_write_value: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            local_write_value: Value::new(meta, &mut cell_manager, challenges),
             local_write_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_write_value_invalid: cell_manager.query_cell(meta, CellType::StoragePhase1),
             local_write_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
@@ -235,13 +238,13 @@ impl<F: Field> DynamicSelectorHalf<F> {
         self.target_odd.assign(
             region,
             offset,
-            Value::known(if odd { F::ONE } else { F::ZERO }),
+            Halo2Value::known(if odd { F::ONE } else { F::ZERO }),
         )?;
         for (index, cell) in self.target_pairs.iter().enumerate() {
             cell.assign(
                 region,
                 offset,
-                Value::known(if index == pair_index { F::ONE } else { F::ZERO }),
+                Halo2Value::known(if index == pair_index { F::ONE } else { F::ZERO }),
             )?;
         }
         Ok(())

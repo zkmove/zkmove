@@ -38,6 +38,7 @@ pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
 pub(crate) mod utils;
+pub(crate) mod value;
 
 #[derive(Clone)]
 pub(crate) struct ExecChipConfig<F> {
@@ -80,9 +81,9 @@ impl<F: Field> ExecChipConfig<F> {
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
         let advices: CMFixedWidthStrategyDistribution = cm_distribute_advice(meta);
-        let step_curr = Step::new(meta, advices.clone(), 0);
-        let step_next = Step::new(meta, advices.clone(), 1);
-        let _step_prev = Step::new(meta, advices.clone(), -1);
+        let step_curr = Step::new(meta, advices.clone(), 0, &challenges);
+        let step_next = Step::new(meta, advices.clone(), 1, &challenges);
+        let _step_prev = Step::new(meta, advices.clone(), -1, &challenges);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -373,20 +374,20 @@ impl<F: Field> ExecChipConfig<F> {
             let pop_set = [
                 step_curr.state.stack_pop_index.expr(),
                 step_curr.state.stack_pop_sub_index.expr(),
-                step_curr.state.stack_pop_value.expr(),
                 step_curr.state.stack_pop_value_header.expr(),
                 step_curr.state.stack_pop_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.stack_pop_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             let push_set = [
                 step_curr.state.stack_push_index.expr(),
                 step_curr.state.stack_push_sub_index.expr(),
-                step_curr.state.stack_push_value.expr(),
                 step_curr.state.stack_push_value_header.expr(),
                 step_curr.state.stack_push_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.stack_push_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             pop_set.zip(push_set).collect()
         });
@@ -396,23 +397,23 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_read_value.expr(),
                 step_curr.state.local_read_value_header.expr(),
                 step_curr.state.local_read_value_invalid.expr(),
                 step_curr.state.local_read_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.local_read_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             let write_set = [
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
-                step_curr.state.local_write_value.expr(),
                 step_curr.state.local_write_value_header.expr(),
                 step_curr.state.local_write_value_invalid.expr(),
                 step_curr.state.local_write_version.expr(),
             ]
             .into_iter()
+            .chain(step_curr.state.local_write_value.exprs().into_iter())
             .map(|e| s_usable.clone() * e);
             read_set.zip(write_set).collect()
         });
