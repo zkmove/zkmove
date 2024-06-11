@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -20,23 +20,14 @@ impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::Pop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let value_len = cb.query_u16();
-        let value_flen = cb.query_u16();
-        let header = ValueHeader::pair(value_len.expr(), value_flen.expr());
-
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
             cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
                 cb.require_equal(
-                    "(len, flen) = stack_pop_value(0)",
-                    step_curr.stack_pop_value.expr(),
-                    header.expr(),
-                );
-                cb.require_equal(
                     "step_counter(0) == flen",
                     step_curr.step_counter.expr(),
-                    value_flen.expr(),
+                    step_curr.stack_pop_value.as_header().flen(),
                 );
             });
             cb.condition(

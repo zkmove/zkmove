@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::chips::execution_chip_v2::executions::{ExecutionState, ValueHeader};
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use gadgets::util::Expr;
@@ -26,23 +26,14 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let value_len = cb.query_u16();
-        let value_flen = cb.query_u16();
-        let header = ValueHeader::pair(value_len.expr(), value_flen.expr());
-
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
             cb.condition(step_curr.stack_push_value_header.expr(), |cb| {
                 cb.require_equal(
-                    "(len, flen) = stack_push_value(0)",
-                    step_curr.stack_push_value.expr(),
-                    header.expr(),
-                );
-                cb.require_equal(
-                    "step_counter(0) == flen",
+                    "step_counter(0) == stack_push_value(0).as_header().flen",
                     step_curr.step_counter.expr(),
-                    value_flen.expr(),
+                    step_curr.stack_push_value.as_header().flen(),
                 );
             });
             cb.condition(
