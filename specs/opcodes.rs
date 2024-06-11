@@ -803,7 +803,7 @@ mod write_ref {
         }
 
         if !super::common::on_first_row() {
-            SubIndexGadget::configure_membership(header_sub_index(0), local_sub_index(0));
+            MembershipGadget::configure(header_sub_index(0), local_sub_index(0));
             super::common::fake_empty_stack_pop(0);
         }
 
@@ -945,24 +945,34 @@ mod branch {
     }
 }
 
+//todo: constrain field_index: let field_index = query_u16() or query_byte()
 mod pack {
-    pub fn constrain() {
+    pub fn constrain(is_vec_pack: bool) {
+        let num_field = aux0(0);
         if super::common::on_first_row() {
-            let flen = step_counter(0);
-            let num_field = aux0(0);
+            if is_vec_pack {
+                opcode(0) == OpCode::VecPack;
+            } else {
+                opcode(0) == OpCode::Pack;
+            }
             stack_push_index(0) == sp(0) - num_field + 1;
             stack_push_sub_index(0) == 0;
-            stack_push_value(0) == (num_field, flen);
+            stack_push_value(0).as_header().len() == num_field;
+            stack_push_value(0).as_header().flen() == step_counter(0);
             stack_push_value_header(0) == true;
             stack_push_version(0) == clk(0);
 
             super::common::fake_empty_stack_pop();
             super::common::fake_local_read_zero();
 
-            field_idx(1) == aux0(0);
-            stack_pop_index(1) == sp(0);
-            stack_pop_sub_index(1) == 0;
-            stack_pop_version(1) < clk(0);
+            if num_field != 0 {
+                field_index(1) == aux0(0);
+                stack_pop_index(1) == sp(0);
+                stack_pop_sub_index(1) == 0;
+            }
+            if num_field == 0 { //empty vec
+                step_counter(0) == 1;
+            }
         }
 
         if !super::common::on_first_row() {
@@ -971,16 +981,17 @@ mod pack {
                     field_counter(0) == 1;
                 }
                 if stack_pop_value_header(0) {
-                    field_counter(0) == stack_pop_value(0).f_len;
+                    field_counter(0) == stack_pop_value(0).as_header().flen;
                 }
             }
 
+            stack_pop_version(0) < clk(0);
+            stack_push_index(0) == sp(0) - num_field + 1;
+            stack_push_sub_index(0) == stack_pop_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0);
             stack_push_value(0) == stack_pop_value(0);
             stack_push_value_header(0) == stack_pop_value_header(0);
-            field_index(0) == lower_two_types(field_index(0)); //field_index < 2^16;
-            stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
             stack_push_version(0) == clk(0);
-            super::common::fake_local_read_zero(0);
+            super::common::fake_local_read_zero();
 
             if !super::common::on_last_row() {
                 let end_of_one_field = field_counter(0) == 1;
@@ -988,212 +999,121 @@ mod pack {
                     field_index(1) == field_index(0) - 1;
                     stack_pop_index(1) == stack_pop_index(0) - 1;
                     stack_pop_sub_index(1) == 0;
-                    stack_pop_version(1) < clk(0);
+
                 } else {
                     field_index(1) == field_index(0);
-                    stack_pop_index(1) == stack_pop_index(0);
-                    stack_pop_version(1) == stack_pop_version(0);
                     field_counter(1) == field_counter(0) - 1;
+                    stack_pop_index(1) == stack_pop_index(0);
                 }
             }
         }
 
         if !super::common::on_last_row() {
-            stack_push_index(1) == stack_push_index(0);
-            step_counter(1) == step_counter(0) - 1;
             sp(1) == sp(0);
         }
 
         if super::common::on_last_row() {
-            // all fields processed
-            field_idx(0) == 1 && field_counter(0) == 1;
-
-            sp(1) == stack_push_index(0);
-            // module_index(1) == module_index(0);
-            // function_index(1) == function_index(0);
-            // frame_index(1) == frame_index(0);
-            // pc(1) == pc(0) + 1;
+            if num_field != 0 {
+                // all fields processed
+                field_index(0) == 1;
+                field_counter(0) == 1;
+            }
+            sp(1) == sp(0) - num_field + 1;
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
         }
     }
 }
 
 mod unpack {
-    fn constraint() {
-        let is_first_row = super::common::on_first_row();
-        let on_last_row = super::common::on_last_row();
-        if is_first_row {
-            // first row of current step
+    /// pop vector header
+    pub fn constrain_stage_1(is_vec_unpack: bool) {
+        if super::common::on_first_row() {
+            if is_vec_unpack {
+                opcode(0) == OpCode::VecUnpack;
+            } else {
+                opcode(0) == OpCode::Unpack;
+            }
+            step_counter(0) == 1;
+            stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_value(0) == (num_field(0), step_counter(0));
-            field_index(0) == aux(0) + 1;
-            field_counter(0) == 1;
-        }
-        stack_pop_index(0) == sp(0);
-        stack_pop_version(0) < clk(0);
-        if !is_first_row {
-            stack_push_index(0) == sp(0) + field_index(0) - 1;
-            stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
-            stack_push_value(0) == stack_pop_value(0);
-            stack_push_value_header(0) == stack_pop_value_header(0);
-            stack_push_version(0) == clk(0);
-        }
+            stack_pop_value(0).as_header().len() == aux0(0);
+            stack_pop_version(0) < clk(0);
 
-        if field_counter(0) == 1 {
-            // 在上一个元素的结束时，约束下一个元素的field_counter
-            if field_index(0) != 1 {
-                field_index(1) == field_index(0) - 1;
-                // 保证 subindex 是第  field_index 个元素的header
-                stack_pop_sub_index(1).to_u16_vec() == vec![0, 0, 0, 0, 0, 0, 0, field_index(1)];
-                if !stack_pop_value_header(1) {
-                    field_counter(1) == 1;
-                } else {
-                    let (len, flen) = stack_pop_value(1);
-                    field_counter(1) == flen;
+            super::common::fake_empty_stack_push();
+            super::common::fake_local_read_zero();
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            if !is_vec_unpack {
+                execution_state_next == UnpackStage2;
+                pc(1) == pc(0);
+                sp(1) == sp(0);
+                field_index(1) == aux0(0);
+            }
+            // the difference between vec_unpack and unpack is that vec can be empty
+            if is_vec_unpack {
+                if aux0(0) != 0 {
+                    execution_state_next == UnpackStage2;
+                    pc(1) == pc(0);
+                    sp(1) == sp(0);
+                    field_index(1) == aux0(0);
+                } else {//num_field == 0
+                    pc(1) == pc(0) + 1;
+                    sp(1) == sp(0) - 1;
                 }
             }
-        } else {
-            field_counter(1) == field_counter(0) - 1;
-            field_index(1) == field_index(0);
-        }
-
-        if on_last_row {
-            field_index(0) == 1;
-            field_counter(0) == 1;
-            sp(1) == sp(0) + aux0(0) - 1; // sp(0)+num_field-1
-        } else {
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            sp(1) == sp(0);
-            step_counter(1) == step_counter(0) - 1;
         }
     }
-}
 
-// define column field_idx (reusing column aux0)
-// define column value_menber_counter (reusing column aux1)
-mod vec_pack {
-    pub fn constrain() {
+    /// pop one field and push to stack
+    pub fn constrain_stage_2() {
         if super::common::on_first_row() {
-            constrain_header();
-        } else {
-            constrain_remain();
-        }
-    }
-    fn constrain_header() {
-        table_bytecode.lookup(pc(0), VEC_PACK, field_idx(0));
-
-        let flen = step_counter(0);
-        stack_push_index(0) == sp(0) - num_field(0) + 1;
-        stack_push_sub_index(0) == 0;
-        stack_push_value(0) == (num_field, flen);
-        stack_push_value_header(0) == true;
-        stack_push_version(0) == clk(0);
-
-        field_idx(1) == field_idx(0);
-        stack_pop_index(1) == sp(0);
-        stack_pop_sub_index(1) == 0;
-        stack_pop_version(1) < clk(0);
-        stack_push_index(1) == stack_push_index(0);
-
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0);
-        sp(1) == sp(0);
-        opcode(1) == opcode(0);
-        //clk(1) == clk(0);
-    }
-
-    fn constrain_remain() {
-        let is_simple = stack_pop_sub_index(0) == 0 && !stack_pop_value_header(0);
-        let is_header = stack_pop_sub_index(0) == 0 && stack_pop_value_header(0);
-        if is_simple {
-            field_counter(0) == 1;
-        } else if is_header {
-            field_counter(0) == stack_pop_value(0).f_len;
+            execution_state_prev == UnpackStage1 | UnpackStage2;
+            stack_pop_sub_index(0) == field_index(0); // [field_index,0,0,0]
+            if stack_pop_value_header(0) {
+                step_counter(0) == stack_pop_value(0).as_header().flen;
+            } else {
+                step_counter(0) == 1;
+            }
         }
 
+        if !super::common::on_first_row() {
+            // we can only pop the member of [field_index,0,0,0]
+            MembershipGadget::configure(field_index(0), stack_pop_sub_index(0));
+        }
+
+        stack_pop_index(0) == sp(0);
+        stack_pop_version(0) < clk(0);
+        stack_push_index(0) == sp(0) + field_index(0) - 1;
+        stack_push_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0) == stack_pop_sub_index(0);
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_header(0) == stack_pop_value_header(0);
-        field_index(0) == lower_two_types(field_index(0)); //field_index < 2^16;
-        stack_push_sub_index(0) == stack_pop_sub_index(0) << 16 + field_idx(0);
         stack_push_version(0) == clk(0);
-        super::common::fake_local_read_zero(0);
-
-        // all fields processed
-        if field_idx(0) == 1 && field_counter(0) == 1 {
-            step_counter(0) == 1;
-        }
+        super::common::fake_local_read_zero();
 
         if !super::common::on_last_row() {
-            let end_of_one_field = field_counter(0) == 1;
-            if end_of_one_field {
-                field_index(1) == field_index(0) - 1;
-                stack_pop_index(1) == stack_pop_index(0) - 1;
-                stack_pop_sub_index(1) == 0;
-                stack_pop_version(1) < clk(0);
-                stack_push_index(1) == stack_push_index(0);
-            } else {
-                field_index(1) == field_index(0);
-                stack_pop_index(1) == stack_pop_index(0);
-                stack_pop_version(1) == stack_pop_version(0);
-                stack_push_index(1) == stack_push_index(0);
-                field_counter(1) == field_counter(0) - 1;
-            }
-
             sp(1) == sp(0);
-            step_counter(1) == step_counter(0) - 1;
-        } else {
-            sp(1) == stack_push_index(0);
-        }
-    }
-}
-
-mod vec_unpack {
-    fn constraint() {
-        let is_first_row = super::common::on_first_row();
-        let on_last_row = super::common::on_last_row();
-        if is_first_row {
-            // first row of current step
-            stack_pop_sub_index(0) == 0;
-            stack_pop_value(0) == (num_field(0), step_counter(0));
-            field_index(0) == aux(0) + 1;
-            field_counter(0) == 1;
-        }
-        stack_pop_index(0) == sp(0);
-        stack_pop_version(0) < clk(0);
-        if !is_first_row {
-            stack_push_index(0) == sp(0) + field_index(0) - 1;
-            stack_push_sub_index(0) << 16 + field_index(0) == stack_pop_index(0);
-            stack_push_value(0) == stack_pop_value(0);
-            stack_push_value_header(0) == stack_pop_value_header(0);
-            stack_push_version(0) == clk(0);
-        }
-
-        if field_counter(0) == 1 {
-            if field_index(0) != 1 {
-                field_index(1) == field_index(0) - 1;
-                stack_pop_sub_index(1).to_u16_vec() == vec![0, 0, 0, 0, 0, 0, 0, field_index(1)];
-                if !stack_pop_value_header(1) {
-                    field_counter(1) == 1;
-                } else {
-                    let (len, flen) = stack_pop_value(1);
-                    field_counter(1) == flen;
-                }
-            }
-        } else {
-            field_counter(1) == field_counter(0) - 1;
             field_index(1) == field_index(0);
         }
 
-        if on_last_row {
-            field_index(0) == 1;
-            field_counter(0) == 1;
-            sp(1) == sp(0) + aux0(0) - 1; // sp(0)+num_field-1
-        } else {
-            sp(1) == sp(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            step_counter(1) == step_counter(0) - 1;
+        if super::common::on_last_row() {
+            if field_index(0) != 1 {
+                execution_state_next == UnpackStage2;
+                pc(1) == pc(0);
+                sp(1) == sp(0);
+                field_index(1) == field_index(0) - 1;
+            }
+            if field_index(0) == 1 {
+                pc(1) == pc(0) + 1;
+                sp(1) == sp(0) + aux0(0) - 1; // sp(0)+num_field-1
+            }
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
         }
     }
 }

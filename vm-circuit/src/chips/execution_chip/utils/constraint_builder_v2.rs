@@ -232,7 +232,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             prev_state.expr(),
         );
     }
-
     pub(crate) fn require_prev_states(&mut self, execution_states: Vec<ExecutionState>) {
         let prev = self.step_state_at_offset(-1);
         let prev_state = prev.execution_state_selector(execution_states);
