@@ -229,7 +229,7 @@ mod le {
 // TODO: Reference type value comparison, actually it can convert to (pop,pop,read_ref,read_ref,stage1...)
 mod eq {
     pub fn constrain_eq_stage_1_or_2(is_stage_1: bool) {
-        let stack_pop_rlc = stack_pop_sub_index(0) + gamma * stack_pop_value(0) + gamma ^ 2 * stack_pop_value_header(0);
+        let stack_pop_rlc = stack_pop_sub_index(0) + gamma * stack_pop_value_header(0) + gamma^2 * stack_pop_value(0);
 
         if super::common::on_first_row() {
             if !is_stage_1 {
@@ -239,7 +239,7 @@ mod eq {
             stack_pop_sub_index(0) == 0;
 
             if stack_pop_value_header(0) {
-                step_counter(0) == stack_pop_value(0).flen;
+                step_counter(0) == stack_pop_value(0).as_header().flen;
             } else {
                 step_counter(0) == 1;
             }
@@ -259,9 +259,10 @@ mod eq {
             stack_pop_sub_index_reverse(0) > stack_pop_sub_index_reverse(-1);
 
             if is_stage_1 {
-                rlc1(0) == gamma * rlc1(-1) + stack_pop_rlc;
+                //in order not to conflict with inner rlc, we use gamma^4 as randomness
+                rlc1(0) == gamma^4 * rlc1(-1) + stack_pop_rlc;
             } else {
-                rlc2(0) == gamma * rlc2(-1) + stack_pop_rlc;
+                rlc2(0) == gamma^4 * rlc2(-1) + stack_pop_rlc;
             }
         }
 

@@ -3,7 +3,6 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::SubIndexReverse;
-use crate::chips::execution_chip_v2::executions::ValueHeader;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
@@ -55,8 +54,8 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         let rlc1_rlc2_eq = IsZeroGadget::construct(cb, rlc1.expr() - rlc2.expr());
         let stack_pop_rlc = cb.rlc(&[
             step_curr.stack_pop_sub_index.expr(),
-            step_curr.stack_pop_value.expr(),
             step_curr.stack_pop_value_header.expr(),
+            step_curr.stack_pop_value.expr(), //stack_pop_value must be the last element of the array
         ]);
 
         cb.first_row(|cb| {
@@ -79,16 +78,13 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             );
 
             cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
-                let header = ValueHeader::new(cb);
                 cb.require_equal(
-                    format!("{}, stack_pop_value(0) == header", Self::NAME),
-                    step_curr.stack_pop_value.expr(),
-                    header.expr(),
-                );
-                cb.require_equal(
-                    format!("{}, step_counter(0) == header.flen", Self::NAME),
+                    format!(
+                        "{}, step_counter(0) == stack_pop_value(0).as_header().flen",
+                        Self::NAME
+                    ),
                     step_curr.step_counter.expr(),
-                    header.flen.expr(),
+                    step_curr.stack_pop_value.as_header().flen(),
                 );
             });
             cb.condition(not::expr(step_curr.stack_pop_value_header.expr()), |cb| {
@@ -129,19 +125,21 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 format!("{}, stack_pop_sub_index_reverse(-1) < stack_pop_sub_index_reverse(0)", Self::NAME),
                 sub_index_lt.expr(),
             );
+            //in order not to conflict with inner rlc, we use gamma^4 as randomness
+            let randomness = cb.randomness().square().square();
             if STAGE1 {
                 let rlc1_prev = cb.cell_at_offset(&rlc1, -1).expr();
-                let rlc1_curr = cb.rlc(&[stack_pop_rlc.clone(), rlc1_prev]);
+                let rlc1_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc1_prev], randomness.clone());
                 cb.require_equal(
-                    format!("{}, rlc1(0) == rlc + gamma * rlc1(-1)", Self::NAME),
+                    format!("{}, rlc1(0) == gamma^4 * rlc1(-1) + stack_pop_rlc", Self::NAME),
                     rlc1.expr(),
                     rlc1_curr,
                 );
             } else {
                 let rlc2_prev = cb.cell_at_offset(&rlc2, -1).expr();
-                let rlc2_curr = cb.rlc(&[stack_pop_rlc.clone(), rlc2_prev]);
+                let rlc2_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc2_prev], randomness);
                 cb.require_equal(
-                    format!("{}, rlc2(0) == rlc + gamma * rlc2(-1)", Self::NAME),
+                    format!("{}, rlc2(0) == gamma^4 * rlc2(-1) + stack_pop_rlc", Self::NAME),
                     rlc2.expr(),
                     rlc2_curr,
                 );

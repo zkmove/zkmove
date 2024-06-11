@@ -51,4 +51,8 @@ pub enum ExecutionState {
     CallStage2,
     CallStage3,
     Ret,
+    EqStage1,
+    EqStage2,
+    NeqStage1,
+    NeqStage2,
 }

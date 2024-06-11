@@ -352,8 +352,18 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 
-    pub(crate) fn rlc(&mut self, expressions: &[Expression<F>]) -> Expression<F> {
+    pub(crate) fn rlc(&self, expressions: &[Expression<F>]) -> Expression<F> {
         rlc::expr(expressions, self.challenges.keccak_input())
+    }
+    pub(crate) fn rlc_with_randomness(
+        &self,
+        expressions: &[Expression<F>],
+        randomness: Expression<F>,
+    ) -> Expression<F> {
+        rlc::expr(expressions, randomness)
+    }
+    pub(crate) fn randomness(&self) -> Expression<F> {
+        self.challenges.keccak_input()
     }
 
     // Lookups
