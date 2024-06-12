@@ -1315,12 +1315,11 @@ mod vec_swap {
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
-            step_counter(0) == 2;
+            step_counter(0) == 3;
         }
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-        stack_pop_value(0) != INVALID;
-        stack_pop_value_flag(0) == SIMPLE;
+        stack_pop_value_header(0) == false;
 
         fake_stach_push();
         fake_local_read_zero();
@@ -1339,43 +1338,8 @@ mod vec_swap {
         }
     }
 
-    pub fn constraint_stage_2() {
-        let is_first = super::common::on_first_row();
-        let is_last = super::common::on_last_row();
-        if is_first {
-            // initialize the step_counter of the stage
-            let (len, flen) = stack_pop_value(0);
-            flen == 4;
-            step_counter(0) == flen; // in fact, it should always 4.
-            stack_pop_value_flag(0) == HEADER_FLAG;
-        } else {
-            stack_pop_value_flag(0) == SIMPLE_FLAG;
-        }
-        // sub_index is 0,1,2,3, so just use step_counter to constrain it.
-        stack_pop_sub_index(0) == 4 - step_counter(0);
-        stack_pop_index(0) == sp(0);
-        fake_stach_push();
-        fake_local_read_zero();
-
-        // todo: enable them for vec_swap as a whole
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0);
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-
-        if is_last {
-            requre_next_state("vec_swap_stage3");
-            sp(1) == sp(0) - 1;
-        } else {
-            sp(1) == sp(0);
-        }
-    }
-
     // move value at index1/index2 to stack
-    pub fn constraint_stage_3_or_4(is_stage_3: bool) {
+    pub fn constraint_stage_2_or_3(is_stage_2: bool) {
         declare!(index1, index2, value_len, ref_local_sub_index);
         no_stack_pop();
         // stack push
@@ -1385,23 +1349,26 @@ mod vec_swap {
         }
 
         if is_first {
-            stack_push_value_header(0) == true;
-            (value_len(0), step_counter(0)) == stack_push_value(0);
+            if stack_push_value_header(0) == true {
+                (value_len(0), step_counter(0)) == stack_push_value(0);
+            } else {
+                step_counter(0) == 1;
+            }
+
         }
         stack_push_version(0) == clk(0);
 
         // local constraints
-        if is_stage_3 {
+        if is_stage_2 {
             if is_first {
-                local_frame_index(0) == stack_pop_value(-3);
-                local_index(0) == stack_pop_value(-2);
-                ref_local_sub_index(0) == stack_pop_value(-1);
+                (local_frame_index(0), local_index(0)) == stack_pop_value(-1).as_reference().index();
+                ref_local_sub_index(0) == stack_pop_value(-1).as_reference().sub_index();
             }
         };
         local_sub_index(0)
             == concat(
                 ref_local_sub_index(0),
-                if is_stage_3 { index1 } else { index2 },
+                if is_stage_2 { index1 } else { index2 },
                 nonzero(stack_push_sub_index(0)),
             );
         local_read_value(0) == stack_push_value(0);
@@ -1430,7 +1397,7 @@ mod vec_swap {
     }
 
     // pop stack, and write to index1/index2
-    pub fn constraint_stage_5<const FIVE: bool>() {
+    pub fn constraint_stage_4<const FOUR: bool>() {
         declare!(index1, index2, value_len, ref_local_sub_index);
         no_stack_push();
 
@@ -1443,8 +1410,11 @@ mod vec_swap {
             // stack_pop_sub_index(0).l0 != 0;
         }
         if is_first {
-            stack_pop_value_header(0) == true;
-            (value_len(0), step_counter(0)) == stack_pop_value(0);
+            if stack_pop_value_header(0) == true {
+                (value_len(0), step_counter(0)) == stack_pop_value(0);
+            } else {
+                step_counter(0) == 1;
+            }
         }
         stack_pop_version(0) < clk(0);
 
@@ -1453,7 +1423,7 @@ mod vec_swap {
         local_sub_index(0)
             == concat(
                 nonzero(ref_local_sub_index(0)),
-                if FIVE { index1 } else { index2 },
+                if FOUR { index1 } else { index2 },
                 nonzero(stack_pop_sub_index(0)),
             );
         local_read_value_invalid(0) == true;
@@ -1478,7 +1448,7 @@ mod vec_swap {
             index1(1) == index1(0);
             index2(1) == index2(0);
         };
-        if FIVE {
+        if FOUR {
             constraints();
         } else {
             if !is_last {
@@ -1488,52 +1458,26 @@ mod vec_swap {
     }
 }
 mod vec_pop_back {
-    /// stage1 pop vector_ref from stack
+    /// pop vector_ref from stack and update parent from up to bottom
     pub fn constraint_stage1() {
-        let is_first = super::common::on_first_row();
-        // pop ref from stack
-        if is_first {
-            // initialize the step_counter of the stage
-            let (len, flen) = stack_pop_value(0);
-            flen == 4;
-            step_counter(0) == flen; // in fact, it should always 4.
-        }
-
-        stack_pop_index(0) == sp(0);
-        stack_pop_sub_index(0) == 4 - step_counter(0);
-        stack_pop_value_header(0) == is_first;
-        stack_pop_version(0) < clk(0);
-        fake_stack_push();
-        fake_local_read_zero();
-
-        // next
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0);
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-        sp(1) == sp(0);
-    }
-    /// stage2 update parent from up to bottom
-    pub fn constraint_stage2() {
         declare!(vector_sub_index);
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len, vector_origin_flen);
 
         fake_stack_push();
-        fake_stack_pop();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
-            local_frame_index(0) == stack_pop_value(-3);
-            local_index(0) == stack_pop_value(-2);
-            vector_sub_index(0) == stack_pop_value(-1);
+            stack_pop_index(0) == sp(0);
+            stack_pop_sub_index(0) == 0;
+            stack_pop_version(0) < clk(0);
+            (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
+            vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
             // start from top to bottom
             local_sub_index(0) == 0;
         } else {
+            fake_stack_pop();
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
             vector_sub_index(0) == vector_sub_index(-1);
@@ -1553,17 +1497,19 @@ mod vec_pop_back {
         if !is_first {
             if !is_last {
                 // the delta should be the same for not-last-row
-                local_read_value(0) - local_write_value(0)
-                    == local_read_value(-1) - local_write_value(-1);
+                local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
+                    == local_read_value(-1).as_header().flen - local_write_value(-1).as_header().flen;
+                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
             } else {
-                local_read_value(-1) - local_write_value(-1) == step_counter(1);
+                local_read_value(-1).as_header().flen - local_write_value(-1).as_header().flen == step_counter(1);
             }
         }
         if is_last {
             // then last row the delta is (old_len-1, old_flen - elem_flen)
-            local_read_value(0) == ValueHeader::new(vector_origin_len, vector_origin_flen);
-            local_write_value(0)
-                == ValueHeader::new(vector_origin_len - 1, vector_origin_flen - step_counter(1));
+            local_read_value(0).as_header().len() == vector_origin_len;
+            local_read_value(0).as_header().flen() == vector_origin_flen;
+            local_write_value(0).as_header().len() == vector_origin_len - 1;
+            local_write_value(0).as_header().flen() == vector_origin_flen - step_counter(1);
             // suppose we use u16 to represent flen.
             // local_read_value(0) - local_write_value(0) == step_counter(1) + 1 * u16::MAX;
         }
@@ -1578,11 +1524,11 @@ mod vec_pop_back {
         aux1(1) == aux1(0);
         sp(1) == sp(0);
     }
-    // move value from local to stack
-    pub fn constraint_stage3() {
+    /// move value from local to stack
+    pub fn constraint_stage2() {
         declare!(vector_sub_index);
         let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
-        declare!(vector_origin_len, elem_len);
+        declare!(vector_origin_len);
 
         fake_stack_pop();
 
@@ -1598,14 +1544,10 @@ mod vec_pop_back {
             == extend_vector_sub_index.concat(vector_origin_len(0) + stack_push_sub_index(0) << 16);
 
         if is_first {
-            // simple value
-            if local_read_value_header == false {
-                step_counter(0) == 1;
+            if local_read_value_header(0) {
+                step_counter(0) == local_read_value(0).as_header().flen;
             } else {
-                // FIXME: this seems buggy.
-                // because: a * 2^16 + b == (a-1) * 2^16 + (b+2^16).
-                // we need to constraint b <= 2^16
-                local_read_value(0) == ValueHeader::new(elem_len(0), step_counter(0));
+                step_counter(0) == 1;
             }
         }
         local_write_value(0) == INVALID;
@@ -1645,52 +1587,26 @@ mod vec_pop_back {
 
 // vec_push_back have same constraints structures as vec_pop_back with minimal changes
 mod vec_push_back {
-    /// stage1 pop vector_ref from stack
+    /// pop vector_ref from stack and update parent from up to bottom
     pub fn constraint_stage1() {
-        let is_first = super::common::on_first_row();
-        // pop ref from stack first
-        if is_first {
-            // initialize the step_counter of the stage
-            let (len, flen) = stack_pop_value(0);
-            flen == 4;
-            step_counter(0) == flen; // in fact, it should always 4.
-        }
-        // keep sp the same all the way down, and change stack_pop_index accordingly.
-        stack_pop_index(0) == sp(0) - 1;
-        stack_pop_sub_index(0) == 4 - step_counter(0);
-        stack_pop_value_header(0) == is_first;
-        stack_pop_version(0) < clk(0);
-        fake_stack_push();
-        fake_local_read_zero();
-
-        // next
-        frame_index(1) == frame_index(0);
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        pc(1) == pc(0);
-        opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
-        sp(1) == sp(0);
-    }
-    /// stage2 update parent from up to bottom
-    pub fn constraint_stage2() {
         declare!(vector_sub_index);
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len, vector_origin_flen);
 
         fake_stack_push();
-        fake_stack_pop();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
-            local_frame_index(0) == stack_pop_value(-3);
-            local_index(0) == stack_pop_value(-2);
-            vector_sub_index(0) == stack_pop_value(-1);
+            stack_pop_index(0) == sp(0);
+            stack_pop_sub_index(0) == 0;
+            stack_pop_version(0) < clk(0);
+            (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
+            vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
             // start from top to bottom
             local_sub_index(0) == 0;
         } else {
+            fake_stack_pop();
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
             vector_sub_index(0) == vector_sub_index(-1);
@@ -1710,17 +1626,19 @@ mod vec_push_back {
         if !is_first {
             if !is_last {
                 // the delta should be the same for not-last-row
-                local_write_value(0) - local_read_value(0)
-                    == local_write_value(-1) - local_read_value(-1);
+                local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
+                    == local_write_value(-1).as_header().flen - local_read_value(-1).as_header().flen;
+                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
             } else {
-                local_read_value(-1) + step_counter(1) == local_write_value(-1);
+                local_read_value(-1).as_header().flen + step_counter(1) == local_write_value(-1).as_header().flen;
             }
         }
         if is_last {
             // then last row the delta is (old_len+1, old_flen + elem_flen)
-            local_read_value(0) == ValueHeader::new(vector_origin_len, vector_origin_flen);
-            local_write_value(0)
-                == ValueHeader::new(vector_origin_len + 1, vector_origin_flen + step_counter(1));
+            local_read_value(0).as_header().len() == vector_origin_len;
+            local_read_value(0).as_header().flen() == vector_origin_flen;
+            local_write_value(0).as_header().len() == vector_origin_len + 1;
+            local_write_value(0).as_header().flen() == vector_origin_flen + step_counter(1);
             // suppose we use u16 to represent flen.
             // local_read_value(0) + step_counter(1) + 1 * u16::MAX == local_write_value(0);
         }
@@ -1735,11 +1653,11 @@ mod vec_push_back {
         aux1(1) == aux1(0);
         sp(1) == sp(0);
     }
-    // move value from stack to local
-    pub fn constraint_stage3() {
+    /// move value from stack to local
+    pub fn constraint_stage2() {
         declare!(vector_sub_index);
         let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
-        declare!(vector_origin_len, elem_len);
+        declare!(vector_origin_len);
 
         fake_stack_push();
 
@@ -1754,14 +1672,10 @@ mod vec_push_back {
             == extend_vector_sub_index.concat(vector_origin_len(0) + stack_pop_sub_index(0) << 16);
 
         if is_first {
-            // simple value
-            if local_write_value_header == false {
-                step_counter(0) == 1;
+            if local_write_value_header(0) {
+                step_counter(0) == local_write_value(0).as_header().flen;
             } else {
-                // FIXME: this seems buggy.
-                // because: a * 2^16 + b == (a-1) * 2^16 + (b+2^16).
-                // we need to constraint b <= 2^16
-                local_write_value(0) == ValueHeader::new(elem_len(0), step_counter(0));
+                step_counter(0) == 1;
             }
         }
         local_read_value_invalid(0) == true;
