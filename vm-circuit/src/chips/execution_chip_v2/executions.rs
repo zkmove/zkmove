@@ -15,9 +15,9 @@ pub(crate) mod ret;
 pub(crate) mod store_loc;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
-// pub(crate) mod vec_pop_back;
-// pub(crate) mod vec_push_back;
-// pub(crate) mod vec_swap;
+pub(crate) mod vec_pop_back;
+pub(crate) mod vec_push_back;
+pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
 pub use borrow_field::*;
 pub use borrow_loc::*;
@@ -32,7 +32,9 @@ pub use not::*;
 pub use ret::*;
 pub use vec_borrow::*;
 pub use vec_len::*;
-// pub(crate) use vec_pop_back::*;
+pub(crate) use vec_pop_back::*;
+pub(crate) use vec_push_back::*;
+pub use vec_swap::*;
 pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
@@ -50,18 +52,15 @@ pub enum ExecutionState {
     Start,
     BrTrue,
     BrFalse,
-    // VecSwapStage1,
-    // VecSwapStage2,
-    // VecSwapStage3,
-    // VecSwapStage4,
-    // VecSwapStage5,
-    // VecSwapStage6,
-    // VecPopBackStage1,
-    // VecPopBackStage2,
-    // VecPopBackStage3,
-    // VecPushBackStage1,
-    // VecPushBackStage2,
-    // VecPushBackStage3,
+    VecSwapStage1,
+    VecSwapStage2,
+    VecSwapStage3,
+    VecSwapStage4,
+    VecSwapStage5,
+    VecPopBackStage1,
+    VecPopBackStage2,
+    VecPushBackStage1,
+    VecPushBackStage2,
     Stop,
     Nop,
     MutBorrowLoc,
