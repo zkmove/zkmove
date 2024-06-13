@@ -16,7 +16,7 @@ use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Cast<F, const N_BYTES: usize> {
-    in_range_lo: Option<IntegerRangeCheck<F, N_BYTES>>,
+    in_range_lo: Option<IntegerRangeCheck<F>>,
     is_zero_hi: Option<IsZeroGadget<F>>,
 }
 impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES> {
@@ -98,9 +98,10 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES>
         cb.require_no_local_op();
 
         let in_range_lo = if N_BYTES != NUM_OF_BYTES_U256 {
-            Some(IntegerRangeCheck::<_, N_BYTES>::construct(
+            Some(IntegerRangeCheck::construct(
                 cb,
                 step_curr.stack_pop_value.as_integer().lo(),
+                N_BYTES,
             ))
         } else {
             None

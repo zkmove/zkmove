@@ -49,13 +49,17 @@ impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
 
 /// Check if the input value is in the range of U8,U16,U32,U64 or U128
 #[derive(Clone, Debug)]
-pub struct IntegerRangeCheck<F, const N_BYTES: usize> {
+pub struct IntegerRangeCheck<F> {
     bytes: [Cell<F>; NUM_OF_BYTES_U128],
     is_zero: IsZeroGadget<F>,
 }
 
-impl<F: Field, const N_BYTES: usize> IntegerRangeCheck<F, N_BYTES> {
-    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, value: Expression<F>) -> Self {
+impl<F: Field> IntegerRangeCheck<F> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        value: Expression<F>,
+        n_bytes: usize,
+    ) -> Self {
         let bytes = cb.query_bytes();
 
         cb.require_equal(
@@ -64,7 +68,7 @@ impl<F: Field, const N_BYTES: usize> IntegerRangeCheck<F, N_BYTES> {
             from_bytes::expr(&bytes),
         );
 
-        let expected_value = from_bytes::expr(&bytes.iter().take(N_BYTES).collect::<Vec<_>>());
+        let expected_value = from_bytes::expr(&bytes.iter().take(n_bytes).collect::<Vec<_>>());
         let is_zero = IsZeroGadget::construct(cb, value - expected_value);
         Self { bytes, is_zero }
     }

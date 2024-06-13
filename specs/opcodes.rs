@@ -152,39 +152,44 @@ mod pop {
     }
 }
 
-// TODO: support u256
 mod add {
-    fn constraint_add() {
-        let is_first = super::common::on_first_row();
-        let is_last = super::common::on_last_row();
-
-        if is_first {
-            // first row
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+    pub fn constrain(is_add: bool) {
+        if super::common::on_first_row() {
+            if is_add {
+                opcode(0) == OpCode::Add;
+            } else {
+                opcode(0) == OpCode::Sub;
+            }
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push();
-        } else {
-            stack_push_index(0) == stack_pop_index(0);
-            stack_push_sub_index(0) == stack_pop_sub_index(0);
-            // TODO: add overflow check
-            // second row is write a+b to a
-            stack_push_value(0) == stack_pop_value(0) + stack_pop_value(-1);
-            stack_push_value_header(0) == false;
-            stack_push_version(0) == clk(0);
-            stack_push_version(0) > stack_pop_version(0);
+            super::common::fake_empty_stack_push(0);
+            sp(1) == sp(0) - 1;
         }
+
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-
+        stack_pop_value_header(0) == false;
+        stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
 
-        if is_last {
+        if super::common::on_last_row() {
+            stack_push_index(0) == sp(0);
+            stack_push_sub_index(0) == 0;
+            let out = if is_add {
+                stack_pop_value(0) + stack_pop_value(-1)
+            } else {
+                stack_pop_value(0) - stack_pop_value(-1)
+            };
+            common::super::range_check();
+            common::super::overflow_check();
+            stack_push_value(0) == out;
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
             sp(1) == sp(0);
-        } else {
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
-            sp(1) == sp(0) - 1;
-            step_counter(1) == step_counter(0) - 1;
         }
     }
 }
