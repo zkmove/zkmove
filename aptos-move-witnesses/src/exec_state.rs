@@ -63,4 +63,8 @@ pub enum ExecutionState {
     NeqStage1,
     NeqStage2,
     MulDivMod,
+    Le,
+    Gt,
+    Lt,
+    Ge,
 }

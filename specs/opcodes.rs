@@ -202,39 +202,86 @@ mod add {
     }
 }
 
-// TODO: u256 support
 mod le {
-    fn constraint_le() {
+    fn constraint_le(is_le: bool) {
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
 
         if is_first {
-            // first row
-            table_opcode.contain(pc(0), opcode(0), aux0(0), aux0(1));
+            if is_le {
+                opcode(0) == OpCode::Le;
+            } else {
+                opcode(0) == OpCode::Gt;
+            }
             step_counter(0) == 2;
-            // first row is write invalid to b,
-        } else {
-            stack_push_index(0) == stack_pop_index(0);
-            stack_push_sub_index(0) == stack_pop_sub_index(0);
-            // second row is write `a<b` to a
-            let is_le = stack_pop_value(0) <= stack_pop_value(-1);
-            stack_push_value(0) == is_le;
-            stack_push_value_header(0) == false;
-            stack_push_version(0) == clk(0);
-            stack_push_version(0) > stack_pop_version(0);
+            super::common::fake_empty_stack_push(0);
+            sp(1) == sp(0) - 1;
         }
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-
+        stack_pop_value_header(0) == false;
+        stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
 
         if is_last {
+            stack_push_index(0) == sp(0);
+            stack_push_sub_index(0) == 0;
+            let out = if is_le {
+                stack_pop_value(0) <= stack_pop_value(-1)
+            } else {
+                stack_pop_value(0) > stack_pop_value(-1)
+            };
+            stack_push_value(0) == out;
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
             sp(1) == sp(0);
-        } else {
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+        }
+    }
+}
+
+mod lt {
+    fn constraint_le(is_le: bool) {
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+
+        if is_first {
+            if is_lt {
+                opcode(0) == OpCode::Lt;
+            } else {
+                opcode(0) == OpCode::Ge;
+            }
+            step_counter(0) == 2;
+            super::common::fake_empty_stack_push(0);
             sp(1) == sp(0) - 1;
-            step_counter(1) == step_counter(0) - 1;
+        }
+        stack_pop_index(0) == sp(0);
+        stack_pop_sub_index(0) == 0;
+        stack_pop_value_header(0) == false;
+        stack_pop_version(0) < clk(0);
+        super::common::fake_local_read_zero();
+
+        if is_last {
+            stack_push_index(0) == sp(0);
+            stack_push_sub_index(0) == 0;
+            let out = if is_lt {
+                stack_pop_value(0) < stack_pop_value(-1)
+            } else {
+                stack_pop_value(0) >= stack_pop_value(-1)
+            };
+            stack_push_value(0) == out;
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0);
         }
     }
 }
