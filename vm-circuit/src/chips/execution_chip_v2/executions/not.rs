@@ -21,16 +21,16 @@ pub struct Not<F> {
 impl<F: Field> InstructionGadgetV2<F> for Not<F> {
     const NAME: &'static str = "Not";
 
-    const OPCODE: Opcode = Opcode::Not;
+    const OPCODES: &'static [Opcode] = &[Opcode::Not];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Not;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
 
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             "step_counter(0) == 1",

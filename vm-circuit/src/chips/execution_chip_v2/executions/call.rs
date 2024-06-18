@@ -25,7 +25,7 @@ pub struct CallStage1<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
     const NAME: &'static str = "CallStage1";
-    const OPCODE: Opcode = Opcode::Call;
+    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -34,10 +34,10 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         let is_zero_num_arg = IsZeroGadget::construct(cb, num_arg.expr());
         let step_curr = cb.curr.state.clone();
 
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),
@@ -117,7 +117,7 @@ pub struct CallStage2<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
     const NAME: &'static str = "CallStage2";
-    const OPCODE: Opcode = Opcode::Call;
+    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -221,7 +221,7 @@ pub struct CallStage3<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const NAME: &'static str = "CallStage3";
-    const OPCODE: Opcode = Opcode::Call;
+    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

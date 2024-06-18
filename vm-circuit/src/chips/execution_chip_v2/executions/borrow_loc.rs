@@ -16,10 +16,10 @@ pub struct BorrowLoc<const MUTABLE: bool, F> {
 impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE, F> {
     const NAME: &'static str = "BorrowLoc";
 
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::MutBorrowLoc
+    const OPCODES: &'static [Opcode] = if MUTABLE {
+        &[Opcode::MutBorrowLoc]
     } else {
-        Opcode::ImmBorrowLoc
+        &[Opcode::ImmBorrowLoc]
     };
     const EXECUTION_STATE: ExecutionState = if MUTABLE {
         ExecutionState::MutBorrowLoc
@@ -29,10 +29,10 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),

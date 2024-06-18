@@ -20,7 +20,7 @@ pub struct Ret<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
     const NAME: &'static str = "Ret";
-    const OPCODE: Opcode = Opcode::Ret;
+    const OPCODES: &'static [Opcode] = &[Opcode::Ret];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Ret;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -29,10 +29,10 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         let is_zero_frame_index = IsZeroGadget::construct(cb, step_curr.frame_index.expr());
         let call_context_version = cb.query_cell();
 
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),

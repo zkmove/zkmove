@@ -21,10 +21,10 @@ pub struct VecBorrow<const MUTABLE: bool, F: Field> {
 
 impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE, F> {
     const NAME: &'static str = "VecBorrow";
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::VecMutBorrow
+    const OPCODES: &'static [Opcode] = if MUTABLE {
+        &[Opcode::VecMutBorrow]
     } else {
-        Opcode::VecImmBorrow
+        &[Opcode::VecImmBorrow]
     };
     const EXECUTION_STATE: ExecutionState = if MUTABLE {
         ExecutionState::VecMutBorrow
@@ -42,10 +42,10 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
         );
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!("{}, step_counter(0) == 2", Self::NAME),

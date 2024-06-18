@@ -3,6 +3,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::add::AddGadget;
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
@@ -13,42 +14,30 @@ use crate::chips::utilities::Expr;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Add<F, const N_BYTES: usize, const ADD: bool> {
-    add_gadget: Option<AddGadget<F, N_BYTES, ADD>>,
+pub struct AddSub<F, const N_BYTES: usize> {
+    add_gadget: Option<AddGadget<F, N_BYTES>>,
+    is_add: IsZeroGadget<F>,
 }
-impl<F: Field, const N_BYTES: usize, const ADD: bool> InstructionGadgetV2<F>
-    for Add<F, N_BYTES, ADD>
-{
-    const NAME: &'static str = if ADD { "Add" } else { "Sub" };
-    const OPCODE: Opcode = if ADD { Opcode::Add } else { Opcode::Sub };
-    const EXECUTION_STATE: ExecutionState = if ADD {
-        match N_BYTES {
-            NUM_OF_BYTES_U8 => ExecutionState::AddU8,
-            NUM_OF_BYTES_U16 => ExecutionState::AddU16,
-            NUM_OF_BYTES_U32 => ExecutionState::AddU32,
-            NUM_OF_BYTES_U64 => ExecutionState::AddU64,
-            NUM_OF_BYTES_U128 => ExecutionState::AddU128,
-            NUM_OF_BYTES_U256 => ExecutionState::AddU256,
-            _ => unreachable!(),
-        }
-    } else {
-        match N_BYTES {
-            NUM_OF_BYTES_U8 => ExecutionState::SubU8,
-            NUM_OF_BYTES_U16 => ExecutionState::SubU16,
-            NUM_OF_BYTES_U32 => ExecutionState::SubU32,
-            NUM_OF_BYTES_U64 => ExecutionState::SubU64,
-            NUM_OF_BYTES_U128 => ExecutionState::SubU128,
-            NUM_OF_BYTES_U256 => ExecutionState::SubU256,
-            _ => unreachable!(),
-        }
+impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for AddSub<F, N_BYTES> {
+    const NAME: &'static str = "AddSub";
+    const OPCODES: &'static [Opcode] = &[Opcode::Add, Opcode::Sub];
+    const EXECUTION_STATE: ExecutionState = match N_BYTES {
+        NUM_OF_BYTES_U8 => ExecutionState::AddSubU8,
+        NUM_OF_BYTES_U16 => ExecutionState::AddSubU16,
+        NUM_OF_BYTES_U32 => ExecutionState::AddSubU32,
+        NUM_OF_BYTES_U64 => ExecutionState::AddSubU64,
+        NUM_OF_BYTES_U128 => ExecutionState::AddSubU128,
+        NUM_OF_BYTES_U256 => ExecutionState::AddSubU256,
+        _ => unreachable!(),
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
         let mut add_gadget = None;
+        let is_add =
+            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcode::Add as u64).expr());
 
-        // TODO: pass type info with operand
         cb.require_equal(
             "aux0 == N_BYTES",
             step_curr.aux0.expr(),
@@ -56,10 +45,10 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> InstructionGadgetV2<F>
         );
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",
@@ -98,8 +87,7 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> InstructionGadgetV2<F>
             let lhs = step_curr.stack_pop_value.as_integer();
             let rhs = step_prev.stack_pop_value.as_integer();
             let out = step_curr.stack_push_value.as_integer();
-
-            let add = AddGadget::<_, N_BYTES, ADD>::construct(cb, lhs, rhs, out);
+            let add = AddGadget::<_, N_BYTES>::construct(cb, lhs, rhs, out, is_add.expr());
             cb.condition(add.overflow(), |_cb| {
                 // cb.require_next_state(ExecutionState::ErrorState);
                 // ErrorCode == StatusCode::ArithmeticError
@@ -124,6 +112,6 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> InstructionGadgetV2<F>
             ]);
         });
 
-        Add { add_gadget }
+        AddSub { add_gadget, is_add }
     }
 }

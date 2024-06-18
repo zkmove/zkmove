@@ -14,7 +14,7 @@ pub struct Pop<F>(PhantomData<F>);
 impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
     const NAME: &'static str = "Pop";
 
-    const OPCODE: Opcode = Opcode::Pop;
+    const OPCODES: &'static [Opcode] = &[Opcode::Pop];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Pop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

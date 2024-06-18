@@ -28,13 +28,13 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Ld<F, N_BYTES> {
         _ => unreachable!(),
     };
 
-    const OPCODE: Opcode = match N_BYTES {
-        NUM_OF_BYTES_U8 => Opcode::LdU8,
-        NUM_OF_BYTES_U16 => Opcode::LdU16,
-        NUM_OF_BYTES_U32 => Opcode::LdU32,
-        NUM_OF_BYTES_U64 => Opcode::LdU64,
-        NUM_OF_BYTES_U128 => Opcode::LdU128,
-        NUM_OF_BYTES_U256 => Opcode::LdU256,
+    const OPCODES: &'static [Opcode] = match N_BYTES {
+        NUM_OF_BYTES_U8 => &[Opcode::LdU8],
+        NUM_OF_BYTES_U16 => &[Opcode::LdU16],
+        NUM_OF_BYTES_U32 => &[Opcode::LdU32],
+        NUM_OF_BYTES_U64 => &[Opcode::LdU64],
+        NUM_OF_BYTES_U128 => &[Opcode::LdU128],
+        NUM_OF_BYTES_U256 => &[Opcode::LdU256],
         _ => unreachable!(),
     };
     const EXECUTION_STATE: ExecutionState = match N_BYTES {
@@ -48,10 +48,10 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Ld<F, N_BYTES> {
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             cb.curr.state.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
 
         cb.require_equal(

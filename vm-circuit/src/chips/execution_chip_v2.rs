@@ -558,7 +558,7 @@ impl<F: Field> ExecChipConfig<F> {
 pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
-    const OPCODE: Opcode;
+    const OPCODES: &'static [Opcode];
     const EXECUTION_STATE: ExecutionState;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;

@@ -18,9 +18,9 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
         false => "BRFALSE",
     };
 
-    const OPCODE: Opcode = match TRUE {
-        true => Opcode::BrTrue,
-        false => Opcode::BrFalse,
+    const OPCODES: &'static [Opcode] = match TRUE {
+        true => &[Opcode::BrTrue],
+        false => &[Opcode::BrFalse],
     };
     const EXECUTION_STATE: ExecutionState = match TRUE {
         true => ExecutionState::BrTrue,
@@ -29,10 +29,10 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 cb.curr.state.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_zero(
                 format!("{}, step_counter(0) == 1", Self::NAME),

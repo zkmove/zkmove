@@ -21,10 +21,10 @@ pub struct BorrowField<const MUTABLE: bool, F: Field> {
 impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTABLE, F> {
     const NAME: &'static str = "BorrowField";
 
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::MutBorrowField
+    const OPCODES: &'static [Opcode] = if MUTABLE {
+        &[Opcode::MutBorrowField]
     } else {
-        Opcode::ImmBorrowField
+        &[Opcode::ImmBorrowField]
     };
     const EXECUTION_STATE: ExecutionState = if MUTABLE {
         ExecutionState::MutBorrowField
@@ -34,10 +34,10 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),

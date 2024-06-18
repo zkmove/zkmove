@@ -14,10 +14,10 @@ pub struct MoveOrCopyLoc<F, const MOVE: bool>(PhantomData<F>);
 impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOVE> {
     const NAME: &'static str = if MOVE { "MoveLoc" } else { "CopyLoc" };
 
-    const OPCODE: Opcode = if MOVE {
-        Opcode::MoveLoc
+    const OPCODES: &'static [Opcode] = if MOVE {
+        &[Opcode::MoveLoc]
     } else {
-        Opcode::CopyLoc
+        &[Opcode::CopyLoc]
     };
     const EXECUTION_STATE: ExecutionState = if MOVE {
         ExecutionState::MoveLoc

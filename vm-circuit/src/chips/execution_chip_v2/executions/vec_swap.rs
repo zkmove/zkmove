@@ -26,7 +26,7 @@ impl<F: Field> VecSwapStage_1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
     const NAME: &'static str = "VecSwap_Stage1";
-    const OPCODE: Opcode = Opcode::VecSwap;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecSwapStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -34,10 +34,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
         let index2 = cb.query_cell();
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
-                cb.curr.state.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0)==3",
@@ -125,7 +125,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
     } else {
         "VecSwap_Stage_3"
     };
-    const OPCODE: Opcode = Opcode::VecSwap;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = if TWO {
         ExecutionState::VecSwapStage2
     } else {
@@ -297,7 +297,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
     } else {
         "VecSwap_Stage_5"
     };
-    const OPCODE: Opcode = Opcode::VecSwap;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = if FOUR {
         ExecutionState::VecSwapStage4
     } else {

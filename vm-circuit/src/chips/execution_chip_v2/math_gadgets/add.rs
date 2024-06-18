@@ -8,30 +8,30 @@ use crate::chips::execution_chip_v2::value::{
 };
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
+use gadgets::util::not;
 use halo2_proofs::plonk::Expression;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct AddGadget<F, const N_BYTES: usize, const ADD: bool> {
+pub struct AddGadget<F, const N_BYTES: usize> {
     carry_lo: Cell<F>,
     carry_hi: Cell<F>,
-    range_check_out_lo: Option<IntegerRangeCheck<F>>,
+    range_check_out_lo: IntegerRangeCheck<F>,
     range_check_out_hi: Option<IntegerRangeCheck<F>>,
 }
 
-impl<F: Field, const N_BYTES: usize, const ADD: bool> AddGadget<F, N_BYTES, ADD> {
+impl<F: Field, const N_BYTES: usize> AddGadget<F, N_BYTES> {
     pub(crate) fn construct(
         cb: &mut ConstraintBuilderV2<F>,
         lhs: Integer<F>,
         rhs: Integer<F>,
         out: Integer<F>,
+        is_add: Expression<F>, // boolean
     ) -> Self {
         let carry_lo = cb.query_cell();
         let carry_hi = cb.query_cell();
-        let mut range_check_out_lo = None;
-        let mut range_check_out_hi = None;
 
-        if ADD {
+        cb.condition(is_add.clone(), |cb| {
             cb.require_equal(
                 "lhs_lo + rhs_lo == out_lo + carry_lo * 2^128",
                 lhs.lo() + rhs.lo(),
@@ -42,7 +42,9 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> AddGadget<F, N_BYTES, ADD>
                 lhs.hi() + rhs.hi() + carry_lo.expr(),
                 out.hi() + carry_hi.expr() * 2u64.pow(128).expr(),
             );
-        } else {
+        });
+
+        cb.condition(not::expr(is_add), |cb| {
             cb.require_equal(
                 "out_lo + rhs_lo == lhs_lo + carry_lo * 2^128",
                 out.lo().clone() + rhs.lo(),
@@ -53,7 +55,7 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> AddGadget<F, N_BYTES, ADD>
                 out.hi() + rhs.hi() + carry_lo.expr(),
                 lhs.hi() + carry_hi.expr() * 2u64.pow(128).expr(),
             );
-        }
+        });
 
         match N_BYTES {
             NUM_OF_BYTES_U8 | NUM_OF_BYTES_U16 | NUM_OF_BYTES_U32 | NUM_OF_BYTES_U64 => {
@@ -84,29 +86,28 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> AddGadget<F, N_BYTES, ADD>
         }
 
         // range check on the output, no need on the inputs
-        match N_BYTES {
+        let (range_check_out_lo, range_check_out_hi) = match N_BYTES {
             NUM_OF_BYTES_U8 | NUM_OF_BYTES_U16 | NUM_OF_BYTES_U32 | NUM_OF_BYTES_U64 => {
-                let out_lo_in_range = IntegerRangeCheck::construct(cb, out.lo(), N_BYTES);
-                range_check_out_lo = Some(out_lo_in_range);
-                // no need to check out_hi, it must be zero.
+                (IntegerRangeCheck::construct(cb, out.lo(), N_BYTES), None)
             }
             NUM_OF_BYTES_U128 => {
-                let out_lo_in_range = IntegerRangeCheck::construct(cb, out.lo(), N_BYTES);
-                cb.require_true("out_lo < 2^128", out_lo_in_range.expr());
-                range_check_out_lo = Some(out_lo_in_range);
+                let range_check_out_lo = IntegerRangeCheck::construct(cb, out.lo(), N_BYTES);
+                cb.require_true("out_lo < 2^128", range_check_out_lo.expr());
                 // no need to check out_hi, it must be zero.
+                (range_check_out_lo, None)
             }
             NUM_OF_BYTES_U256 => {
                 // out_lo < 2^128, out_hi < 2^128
-                let out_lo_in_range = IntegerRangeCheck::construct(cb, out.lo(), NUM_OF_BYTES_U128);
-                cb.require_true("out_lo < 2^128", out_lo_in_range.expr());
-                let out_hi_in_range = IntegerRangeCheck::construct(cb, out.hi(), NUM_OF_BYTES_U128);
-                cb.require_true("out_hi < 2^128", out_hi_in_range.expr());
-                range_check_out_lo = Some(out_lo_in_range);
-                range_check_out_hi = Some(out_hi_in_range);
+                let range_check_out_lo =
+                    IntegerRangeCheck::construct(cb, out.lo(), NUM_OF_BYTES_U128);
+                cb.require_true("out_lo < 2^128", range_check_out_lo.expr());
+                let range_check_out_hi =
+                    IntegerRangeCheck::construct(cb, out.hi(), NUM_OF_BYTES_U128);
+                cb.require_true("out_hi < 2^128", range_check_out_hi.expr());
+                (range_check_out_lo, Some(range_check_out_hi))
             }
             _ => unreachable!(),
-        }
+        };
 
         Self {
             carry_lo,
@@ -119,15 +120,13 @@ impl<F: Field, const N_BYTES: usize, const ADD: bool> AddGadget<F, N_BYTES, ADD>
     pub(crate) fn overflow(&self) -> Expression<F> {
         match N_BYTES {
             NUM_OF_BYTES_U8 | NUM_OF_BYTES_U16 | NUM_OF_BYTES_U32 | NUM_OF_BYTES_U64 => {
-                1u64.expr() - self.range_check_out_lo.clone().unwrap().expr()
+                1u64.expr() - self.range_check_out_lo.clone().expr() // overflow if output is out of range
             }
             NUM_OF_BYTES_U128 => {
-                // if carry_lo == 1, overflow
-                self.carry_lo.expr()
+                self.carry_lo.expr() // overflow if carry_lo == 1
             }
             NUM_OF_BYTES_U256 => {
-                // if carry_hi == 1, overflow
-                self.carry_hi.expr()
+                self.carry_hi.expr() // overflow if carry_hi == 1
             }
             _ => unreachable!(),
         }

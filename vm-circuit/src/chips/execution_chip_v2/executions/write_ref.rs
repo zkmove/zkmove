@@ -31,7 +31,7 @@ pub struct WriteRefStage1<F: Field> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     const NAME: &'static str = "WriteRef_Stage1";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -41,10 +41,10 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
@@ -202,7 +202,7 @@ pub struct WriteRefStage2<F: Field> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
     const NAME: &'static str = "WriteRef_Stage2";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -365,7 +365,7 @@ pub struct WriteRefStage3<F: Field> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
     const NAME: &'static str = "WriteRef_Stage3";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

@@ -26,7 +26,7 @@ impl<F: Field> VecPushBackStage1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
     const NAME: &'static str = "VecPushBackStage1";
-    const OPCODE: Opcode = Opcode::VecPushBack;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -230,7 +230,7 @@ impl<F: Field> VecPushBackStage2<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
     const NAME: &'static str = "VecPushBackStage2";
-    const OPCODE: Opcode = Opcode::VecPushBack;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
