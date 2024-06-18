@@ -1,0 +1,11 @@
+[package]
+name = "aptos-move-witnesses"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+move-vm-runtime = { workspace = true }
+move-vm-types = { workspace = true }
+
+move-compiler = { workspace = true }
+move-compiler-v2 = { workspace = true }
