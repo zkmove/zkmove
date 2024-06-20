@@ -2,6 +2,7 @@
 // Copyright (c) zkMove Authors
 
 use move_core_types::account_address::AccountAddress as MoveAccountAddress;
+use move_core_types::u256::U256;
 use types::Field;
 
 #[derive(Default, Clone, Copy, Ord, PartialOrd, PartialEq, Eq, Debug)]
@@ -30,12 +31,13 @@ impl AccountAddress {
 
 impl From<MoveAccountAddress> for AccountAddress {
     fn from(addr: MoveAccountAddress) -> AccountAddress {
-        Self(u128::from_be_bytes(addr.into_bytes()))
+        // FIXME, if the struct is not needed, delete then. or else fix the api
+        Self(U256::from_le_bytes(&addr.into_bytes()).unchecked_as_u128())
     }
 }
 
 impl From<AccountAddress> for MoveAccountAddress {
     fn from(addr: AccountAddress) -> MoveAccountAddress {
-        addr.value().to_be_bytes().into()
+        MoveAccountAddress::from(U256::from(addr.0).to_le_bytes())
     }
 }

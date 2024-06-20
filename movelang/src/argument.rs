@@ -98,7 +98,7 @@ pub fn convert_type_tag_to_type(t: TypeTag) -> Type {
             module: struct_tag.module,
             name: struct_tag.name,
             type_arguments: struct_tag
-                .type_params
+                .type_args
                 .into_iter()
                 .map(convert_type_tag_to_type)
                 .collect(),

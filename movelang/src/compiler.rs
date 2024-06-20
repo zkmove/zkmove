@@ -6,16 +6,19 @@ use move_binary_format::CompiledModule;
 use move_compiler::compiled_unit::{CompiledUnit, NamedCompiledModule, NamedCompiledScript};
 use move_compiler::shared::NumericalAddress;
 use move_compiler::{self, Compiler, Flags};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub fn compile_source_files(
     targets: Vec<String>,
 ) -> Result<(Option<CompiledScript>, Vec<CompiledModule>)> {
-    let (_, compiled_units) =
-        Compiler::from_files(targets, vec![], BTreeMap::<String, NumericalAddress>::new())
-            .set_flags(Flags::empty().set_sources_shadow_deps(false))
-            .build_and_report()?;
-
+    let (_, compiled_units) = Compiler::from_files(
+        targets,
+        vec![],
+        BTreeMap::<String, NumericalAddress>::new(),
+        Flags::empty().set_sources_shadow_deps(false),
+        &BTreeSet::new(),
+    )
+    .build_and_report()?;
     let mut compiled_script = None;
     let mut modules = vec![];
     for c in compiled_units {

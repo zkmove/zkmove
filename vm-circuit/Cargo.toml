@@ -8,6 +8,7 @@ authors = [
 edition = "2021"
 
 [dependencies]
+aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 crypto = { path = "../common/crypto" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
@@ -23,7 +24,7 @@ gadgets.workspace = true
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 itertools = "0.10.5"
 petgraph = "0.6"
-plotters = { version = "0.3.0" }
+plotters = { version = "0.3.0", default-features = false, features = ["svg_backend"] }
 rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 strum_macros = "0.26"

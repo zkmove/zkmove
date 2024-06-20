@@ -10,6 +10,7 @@ use crate::witness::function_calls::FunctionCall;
 use crate::witness::input_type_elements::{GenericTypeMaterialization, InputTypeElementTableData};
 use crate::witness::rw_operations::{RWOperation, RWOperations};
 use crate::witness::type_instantiation_table::GenericTypeInstantiationTableData;
+use aptos_move_witnesses::Footprint;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -239,6 +240,7 @@ pub struct ExecTrace {
 
 #[derive(Clone, Default)]
 pub struct WitnessV2 {
+    pub opcode_witnesses: Vec<Footprint>,
     pub exec_steps: Vec<ExecStep>,
     pub bytecode_table: BytecodeTable,
     pub circuit_config: CircuitConfigV2,
