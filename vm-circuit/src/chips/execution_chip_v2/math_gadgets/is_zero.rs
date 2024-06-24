@@ -56,3 +56,49 @@ impl<F: Field> IsZeroGadget<F> {
         })
     }
 }
+
+/// Returns `1` when `value == 0`, and returns `0` otherwise.
+#[derive(Clone, Debug)]
+pub struct IsZero<F> {
+    inverse: Cell<F>,
+}
+
+impl<F: Field> IsZero<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        Self {
+            inverse: cb.query_cell(),
+        }
+    }
+
+    pub(crate) fn expr(
+        &self,
+        cb: &mut ConstraintBuilderV2<F>,
+        value: Expression<F>,
+    ) -> Expression<F> {
+        let is_zero = 1u64.expr() - (value.clone() * self.inverse.expr());
+        cb.require_zero(
+            "value * (1 - value * value_inv)",
+            value.clone() * is_zero.clone(),
+        );
+        cb.require_zero(
+            "value_inv * (1 - value * value_inv)",
+            self.inverse.expr() * is_zero.clone(),
+        );
+        is_zero
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: F,
+    ) -> Result<F, Error> {
+        let inverse = value.invert().unwrap_or(F::ZERO);
+        self.inverse.assign(region, offset, Value::known(inverse))?;
+        Ok(if value.is_zero().into() {
+            F::ONE
+        } else {
+            F::ZERO
+        })
+    }
+}

@@ -38,7 +38,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
     for Equality<F, STAGE1, EQ>
 {
     const NAME: &'static str = if EQ { "Eq" } else { "Neq" };
-    const OPCODE: Opcode = if EQ { Opcode::Eq } else { Opcode::Neq };
+    const OPCODES: &'static [Opcode] = if EQ { &[Opcode::Eq] } else { &[Opcode::Neq] };
     const EXECUTION_STATE: ExecutionState = match (EQ, STAGE1) {
         (true, true) => ExecutionState::EqStage1,
         (true, false) => ExecutionState::EqStage2,
@@ -78,10 +78,10 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 });
             }
 
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_zero(
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),

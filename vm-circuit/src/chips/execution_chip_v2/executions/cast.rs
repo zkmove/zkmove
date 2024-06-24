@@ -39,6 +39,7 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES>
         NUM_OF_BYTES_U256 => &[Opcode::CastU256],
         _ => unreachable!(),
     };
+    //TODO: merge into one state
     const EXECUTION_STATE: ExecutionState = match N_BYTES {
         NUM_OF_BYTES_U8 => ExecutionState::CastU8,
         NUM_OF_BYTES_U16 => ExecutionState::CastU16,
@@ -98,11 +99,7 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES>
         cb.require_no_local_op();
 
         let in_range_lo = if N_BYTES != NUM_OF_BYTES_U256 {
-            Some(IntegerRangeCheck::construct(
-                cb,
-                step_curr.stack_pop_value.as_integer().lo(),
-                N_BYTES,
-            ))
+            Some(IntegerRangeCheck::construct(cb))
         } else {
             None
         };
@@ -116,7 +113,11 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Cast<F, N_BYTES>
         };
         let castable = if N_BYTES != NUM_OF_BYTES_U256 {
             and::expr([
-                in_range_lo.clone().unwrap().expr(),
+                in_range_lo.clone().unwrap().expr(
+                    cb,
+                    step_curr.stack_pop_value.as_integer().lo(),
+                    N_BYTES,
+                ),
                 is_zero_hi.clone().unwrap().expr(),
             ])
         } else {
