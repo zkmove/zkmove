@@ -10,10 +10,8 @@ const MAX_RADIX_BYTES: usize = 9;
 
 #[derive(Clone, Debug)]
 pub(crate) struct MulAddExprs<F> {
-    pub a_hi: Expression<F>,
-    pub a_lo: Expression<F>,
-    pub b_hi: Expression<F>,
-    pub b_lo: Expression<F>,
+    pub a_limbs: [Expression<F>; 4],
+    pub b_limbs: [Expression<F>; 4],
     pub c_hi: Expression<F>,
     pub c_lo: Expression<F>,
     pub d_hi: Expression<F>,
@@ -53,39 +51,20 @@ pub(crate) struct MulAddExprs<F> {
 ///
 #[derive(Clone, Debug)]
 pub(crate) struct MulAddGadget<F> {
-    a_limbs: [Cell<F>; 4],
-    b_limbs: [Cell<F>; 4],
-    c_hi: Cell<F>,
-    c_lo: Cell<F>,
-    d_hi: Cell<F>,
-    d_lo: Cell<F>,
     carry_lo: [Cell<F>; MAX_RADIX_BYTES],
     carry_hi: [Cell<F>; MAX_RADIX_BYTES],
-    exprs: MulAddExprs<F>,
+    overflow: Expression<F>,
 }
 
 impl<F: Field> MulAddGadget<F> {
-    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        // Todo. constrain a_limbs/b_limbs less than 2**64,and c_lo/d_lo less than 2**128
-        let a_limbs: [Cell<F>; 4] = (0..4)
-            .map(|_| cb.query_cell())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        let b_limbs: [Cell<F>; 4] = (0..4)
-            .map(|_| cb.query_cell())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        let c_hi = cb.query_cell();
-        let c_lo = cb.query_cell();
-        let d_hi = cb.query_cell();
-        let d_lo = cb.query_cell();
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, cells: &MulAddExprs<F>) -> Self {
         let carry_lo = cb.query_bytes();
         let carry_hi = cb.query_bytes();
         let carry_lo_expr = from_bytes::expr(&carry_lo);
         let carry_hi_expr = from_bytes::expr(&carry_hi);
 
+        let a_limbs = &cells.a_limbs;
+        let b_limbs = &cells.b_limbs;
         let t0 = a_limbs[0].expr() * b_limbs[0].expr();
         let t1 = a_limbs[0].expr() * b_limbs[1].expr() + a_limbs[1].expr() * b_limbs[0].expr();
         let t2 = a_limbs[0].expr() * b_limbs[2].expr()
@@ -95,61 +74,33 @@ impl<F: Field> MulAddGadget<F> {
             + a_limbs[1].expr() * b_limbs[2].expr()
             + a_limbs[2].expr() * b_limbs[1].expr()
             + a_limbs[3].expr() * b_limbs[0].expr();
+        let overflow = carry_hi_expr.clone()
+            + a_limbs[1].expr() * b_limbs[3].expr()
+            + a_limbs[2].expr() * b_limbs[2].expr()
+            + a_limbs[2].expr() * b_limbs[3].expr()
+            + a_limbs[3].expr() * b_limbs[1].expr()
+            + a_limbs[3].expr() * b_limbs[2].expr()
+            + a_limbs[3].expr() * b_limbs[3].expr();
 
         cb.require_equal(
             "(a * b)_lo + c_lo == d_lo + carry_lo * 2^128",
-            t0 + t1 * 2u64.pow(64).expr() + c_lo.expr(),
-            d_lo.expr() + carry_lo_expr.clone() * 2u64.pow(128).expr(),
+            t0 + t1 * 2u64.pow(64).expr() + cells.c_lo.expr(),
+            cells.d_lo.expr() + carry_lo_expr.clone() * 2u64.pow(128).expr(),
         );
         cb.require_equal(
             "(a * b)_hi + c_hi + carry_lo == d_hi + carry_hi * 2^128",
-            t2 + t3 * 2u64.pow(64).expr() + c_hi.expr() + carry_lo_expr,
-            d_hi.expr() + carry_hi_expr.clone() * 2u64.pow(128).expr(),
+            t2 + t3 * 2u64.pow(64).expr() + cells.c_hi.expr() + carry_lo_expr,
+            cells.d_hi.expr() + carry_hi_expr.clone() * 2u64.pow(128).expr(),
         );
 
-        let a_hi = a_limbs[3].expr() * 2u64.pow(64).expr() + a_limbs[2].expr();
-        let a_lo = a_limbs[1].expr() * 2u64.pow(64).expr() + a_limbs[0].expr();
-        let b_hi = b_limbs[3].expr() * 2u64.pow(64).expr() + b_limbs[2].expr();
-        let b_lo = b_limbs[1].expr() * 2u64.pow(64).expr() + b_limbs[0].expr();
-        let exprs = MulAddExprs {
-            a_hi,
-            a_lo,
-            b_hi,
-            b_lo,
-            c_hi: c_hi.expr(),
-            c_lo: c_lo.expr(),
-            d_hi: d_hi.expr(),
-            d_lo: d_lo.expr(),
-        };
-
         Self {
-            a_limbs,
-            b_limbs,
-            c_hi,
-            c_lo,
-            d_hi,
-            d_lo,
             carry_lo,
             carry_hi,
-            exprs,
+            overflow,
         }
     }
 
     pub(crate) fn overflow(&self) -> Expression<F> {
-        let carry_hi = from_bytes::expr(&self.carry_hi);
-        let a_limbs = self.a_limbs.clone().map(|cell| cell.expr());
-        let b_limbs = self.b_limbs.clone().map(|cell| cell.expr());
-        let overflow = carry_hi
-            + a_limbs[1].clone() * b_limbs[3].clone()
-            + a_limbs[2].clone() * b_limbs[2].clone()
-            + a_limbs[2].clone() * b_limbs[3].clone()
-            + a_limbs[3].clone() * b_limbs[1].clone()
-            + a_limbs[3].clone() * b_limbs[2].clone()
-            + a_limbs[3].clone() * b_limbs[3].clone();
-        overflow
-    }
-
-    pub(crate) fn exprs(&self) -> MulAddExprs<F> {
-        self.exprs.clone()
+        self.overflow.clone()
     }
 }

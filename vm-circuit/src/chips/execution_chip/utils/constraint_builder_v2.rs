@@ -212,6 +212,13 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
         cell.at_offset(self.meta, offset)
     }
+    pub(crate) fn cells_at_offset<const N: usize>(
+        &mut self,
+        cells: [Cell<F>; N],
+        offset: i32,
+    ) -> [Cell<F>; N] {
+        cells.map(|c| self.cell_at_offset(&c, offset))
+    }
 
     /// require next row's execution state to be the specified `execution_state`
     pub(crate) fn require_next_state(&mut self, execution_state: ExecutionState) {

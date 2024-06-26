@@ -10,6 +10,7 @@ pub(crate) mod equality;
 pub(crate) mod ld;
 pub(crate) mod ld_bool;
 pub(crate) mod move_or_copy_loc;
+pub(crate) mod mul_div_mod;
 pub(crate) mod not;
 pub(crate) mod pack;
 pub(crate) mod pop;
