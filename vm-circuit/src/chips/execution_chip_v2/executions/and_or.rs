@@ -25,6 +25,7 @@ impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
+        let step_prev = cb.step_state_at_offset(-1);
         cb.first_row(|cb| {
             cb.require_equal(
                 "opcode",
@@ -69,11 +70,16 @@ impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_push_sub_index.expr(),
             );
-            let stack_pop_value_prev = cb.cell_at_offset(&step_curr.stack_pop_value, -1).expr();
             let expected = if AND {
-                and::expr([stack_pop_value_prev, step_curr.stack_pop_value.expr()])
+                and::expr([
+                    step_prev.stack_pop_value.expr(),
+                    step_curr.stack_pop_value.expr(),
+                ])
             } else {
-                or::expr([stack_pop_value_prev, step_curr.stack_pop_value.expr()])
+                or::expr([
+                    step_prev.stack_pop_value.expr(),
+                    step_curr.stack_pop_value.expr(),
+                ])
             };
             cb.require_equal(
                 format!("{}, stack_push_value(0) == expected", Self::NAME),
