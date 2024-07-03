@@ -6,9 +6,9 @@ use crate::utils::cell_placement_strategy::{
     CMFixedWidthStrategy, CMFixedWidthStrategyDistribution,
 };
 use crate::utils::challenges::Challenges;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 use gadgets::util::Expr;
-use halo2_proofs::circuit::{Region, Value as Halo2Value};
+use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
@@ -156,15 +156,16 @@ impl<F: Field> Step<F> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        step: &ExecStepState,
+        step_state: &StepStateWitness,
+        memory_op: &MemoryOp,
     ) -> Result<(), Error> {
         self.state
             .clk
-            .assign(region, offset, Halo2Value::known(step.clk.into()))?;
+            .assign(region, offset, Halo2Value::known(step_state.clk.into()))?;
         self.state.frame_index.assign(
             region,
             offset,
-            Halo2Value::known(step.frame_index.into()),
+            Halo2Value::known(F::from_u128(step_state.frame_index as u128)),
         )?;
         // TODO: assign others
         Ok(())

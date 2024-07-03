@@ -2,12 +2,15 @@ use crate::exec_state::ExecutionState;
 use crate::{Footprint, Operation};
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
 use std::collections::BTreeMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
+#[derive(Clone, Debug)]
 pub struct ExecStepState {
     pub step_state: StepState,
     pub memory_ops: Vec<MemoryOp>,
 }
+
+#[derive(Clone, Copy, Debug)]
 pub struct StepState {
     pub clk: u64,
     pub frame_index: u16,
@@ -53,7 +56,6 @@ impl StepState {
     }
 }
 
-impl ExecStepState {}
 #[derive(Default, Clone, Debug)]
 pub struct MemoryOp(
     pub Option<StackPop>,
@@ -135,9 +137,9 @@ impl Locals {
         sub_index: &SubIndex,
     ) -> Option<&Slot> {
         self.values
-            .get(frame_index as usize)
-            .and_then(|l| l.get(local_index as usize))
-            .and_then(|l| l.get(&sub_index))
+            .get(frame_index)
+            .and_then(|l| l.get(local_index))
+            .and_then(|l| l.get(sub_index))
     }
     pub fn read_local_slot_with_clk(
         &mut self,
@@ -182,19 +184,19 @@ impl Locals {
     ) -> Slot {
         let slot = self
             .values
-            .get_mut(frame_index as usize)
+            .get_mut(frame_index)
             .and_then(|l| l.get_mut(local_index))
-            .and_then(|l| l.get_mut(&sub_index));
+            .and_then(|l| l.get_mut(sub_index));
         match slot {
             None => {
                 let old = Slot::default();
 
                 if frame_index + 1 > self.values.len() {
-                    self.values.resize_with(frame_index + 1, || vec![]);
+                    self.values.resize_with(frame_index + 1, std::vec::Vec::new);
                 }
                 let locals = self.values.get_mut(frame_index).unwrap();
                 if local_index + 1 > locals.len() {
-                    locals.resize_with(local_index + 1, || Local::default());
+                    locals.resize_with(local_index + 1, Local::default);
                 }
                 let local = locals.get_mut(local_index).unwrap();
                 // insert the new slot to local
@@ -222,6 +224,12 @@ impl Deref for Local {
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl DerefMut for Local {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
 
@@ -274,7 +282,7 @@ impl WitnessPreProcessor {
                 new_value,
             } => {
                 // stage1 of st_loc.
-                let step_state = StepState::new(self.clk, ExecutionState::StoreLocStage1, &trace);
+                let step_state = StepState::new(self.clk, ExecutionState::StoreLocStage1, trace);
                 let stage1_state = {
                     let header_check_sub_index = vec![0];
 
@@ -335,7 +343,7 @@ impl WitnessPreProcessor {
                         }
                     };
                     ExecStepState {
-                        step_state: step_state.clone(),
+                        step_state,
                         memory_ops,
                     }
                 };
@@ -359,16 +367,16 @@ impl WitnessPreProcessor {
                         };
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
                             current_frame_index,
-                            *local_index as u16,
-                            stack_pop.sub_index.clone(),
+                            *local_index as u16 as usize,
+                            &stack_pop.sub_index,
                             stack_pop.value.clone(),
                             stack_pop.value_header,
                             false,
                             self.clk,
                         );
                         let local_op = LocalReadWrite::new(
-                            current_frame_index,
-                            *local_index,
+                            current_frame_index as u16,
+                            *local_index as u16,
                             stack_pop.sub_index.clone(),
                             old_,
                             new_,
@@ -384,7 +392,7 @@ impl WitnessPreProcessor {
             }
             Operation::VecLen { si, vec_ref, len } => {
                 let stack_pop = StackPop {
-                    index: sp as u64,
+                    index: sp,
                     sub_index: vec![0],
                     value: SimpleValue::Reference(vec_ref.clone()),
                     value_header: false,
@@ -392,7 +400,7 @@ impl WitnessPreProcessor {
                 };
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
-                    index: sp as u64,
+                    index: sp,
                     sub_index: vec![0],
                     value: SimpleValue::U64(*len),
                     value_header: false,
@@ -411,8 +419,6 @@ impl WitnessPreProcessor {
                     old_slot,
                     new_slot,
                 );
-
-                self.clk += 1;
 
                 vec![ExecStepState {
                     step_state: StepState::new(self.clk, ExecutionState::VecLen, trace),

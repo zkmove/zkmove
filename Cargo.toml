@@ -30,6 +30,8 @@ move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "d9fbe3f
 move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "d9fbe3feb6" }
 move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "d9fbe3feb6" }
 
+strum_macros = "0.26"
+strum = "0.26"
 
 [profile.dev]
 opt-level = 3

@@ -2,12 +2,14 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::step_state::ExecStepState;
-use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;
@@ -149,12 +151,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
 
     fn assign(
         &self,
-        region: Region<F>,
-        offset: usize,
-        witnesses: &Vec<ExecStepState>,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
     ) -> Result<usize, Error> {
-        assert_eq!(witnesses.len(), 1);
-
-        todo!()
+        // no need to assign anything else
+        Ok(step_state.memory_ops.len())
     }
 }

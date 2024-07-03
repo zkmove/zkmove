@@ -189,7 +189,8 @@ fn test_execution_chip() -> VmResult<()> {
 
     let exec_steps = vec![step_0, step_1, step_2, step_3, step_4, step_5];
 
-    let witness = WitnessV2::new(exec_steps, bytecodes, CircuitConfigV2::default());
+    // FIXME
+    let witness = WitnessV2::new(vec![], exec_steps, bytecodes, CircuitConfigV2::default());
     let vm_circuit = VmCircuit {
         witness,
         public_input: None,

@@ -620,7 +620,7 @@ impl ModuleResolver for RemoteStore {
     }
 
     fn get_module(&self, module_id: &ModuleId) -> Result<Option<bytes::Bytes>, Self::Error> {
-        Ok(self.modules.get(module_id).cloned().map(|d| Bytes::from(d)))
+        Ok(self.modules.get(module_id).cloned().map(Bytes::from))
     }
 }
 

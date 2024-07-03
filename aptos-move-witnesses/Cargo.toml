@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 move-vm-runtime = { workspace = true }
 serde = { version = "1.0.203", features = ["derive"] }
-strum_macros = "0.26.4"
+strum_macros = { workspace = true }
+strum = { workspace = true }
