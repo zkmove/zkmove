@@ -13,7 +13,7 @@ use halo2_proofs::halo2curves::ff::{FromUniformBytes, WithSmallOrderMulGroup};
 use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
 use halo2_proofs::halo2curves::serde::SerdeObject;
 use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, ProvingKey,
+    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error, ProvingKey,
     VerifyingKey, VirtualCells,
 };
 use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
@@ -26,7 +26,10 @@ use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
 // use instant;
+use crate::utils::challenges::Challenges;
+use crate::witness::WitnessV2;
 use gadgets::util::Expr;
+use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::halo2curves::CurveExt;
 use logger::{debug, info};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
@@ -34,6 +37,7 @@ use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use types::Field;
+
 pub(crate) fn query_expression<F: Field, T>(
     meta: &mut ConstraintSystem<F>,
     mut f: impl FnMut(&mut VirtualCells<F>) -> T,
@@ -321,4 +325,51 @@ where
     info!("verify time: {} ms", verify_time.as_millis());
     assert!(result.is_ok());
     Ok(())
+}
+
+/// SubCircuit is a circuit that performs the verification of a specific part of
+/// the full move verification.  The SubCircuit's interact with each
+/// other via lookup tables and/or shared public inputs.  This type must contain
+/// all the inputs required to synthesize this circuit (and the contained
+/// table(s) if any).
+pub trait SubCircuit<F: Field> {
+    /// Configuration of the SubCircuit.
+    type Config: SubCircuitConfig<F>;
+
+    /// Returns number of unusable rows of the SubCircuit, which should be
+    /// `meta.blinding_factors() + 1`.
+    fn unusable_rows() -> usize {
+        256
+    }
+
+    /// Create a new SubCircuit from a witness Block
+    fn new_from_witness(witness: &WitnessV2) -> Self;
+
+    /// Returns the instance columns required for this circuit.
+    fn instance(&self) -> Vec<Vec<F>> {
+        vec![]
+    }
+    /// Assign only the columns used by this sub-circuit.  This includes the
+    /// columns that belong to the exposed lookup table contained within, if
+    /// any; and excludes external tables that this sub-circuit does lookups
+    /// to.
+    fn synthesize_sub(
+        &self,
+        config: &Self::Config,
+        challenges: &Challenges<Value<F>>,
+        layouter: &mut impl Layouter<F>,
+    ) -> Result<(), Error>;
+
+    /// Return the minimum number of rows required to prove the witness.
+    /// Row numbers without/with padding are both returned.
+    fn min_num_rows(witness: &WitnessV2) -> (usize, usize);
+}
+
+/// SubCircuit configuration
+pub trait SubCircuitConfig<F: Field> {
+    /// Config constructor arguments
+    type ConfigArgs;
+
+    /// Type constructor
+    fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self;
 }

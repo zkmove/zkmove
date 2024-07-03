@@ -28,12 +28,17 @@ use crate::chips::execution_chip_v2::value::{
 };
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::CellType;
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
+use crate::utils::SubCircuitConfig;
+use crate::witness::WitnessV2;
+use aptos_move_witnesses::step_state::ExecStepState;
 use gadgets::util::{and, not, or};
-use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
+use halo2_proofs::circuit::{Layouter, Region, Value};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
 
@@ -49,6 +54,7 @@ pub(crate) mod value;
 pub(crate) struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
+    pub s_step_last: Selector,
     pub advices: CMFixedWidthStrategyDistribution,
     pub br_true: Box<BrBool<F, true>>,
     pub br_false: Box<BrBool<F, false>>,
@@ -206,6 +212,7 @@ impl<F: Field> ExecChipConfig<F> {
         let config = ExecChipConfig {
             s_usable,
             s_step_first,
+            s_step_last,
             br_true: configure_opcode_gadget!(),
             br_false: configure_opcode_gadget!(),
             ld_u8: configure_opcode_gadget!(),
@@ -459,6 +466,19 @@ impl<F: Field> ExecChipConfig<F> {
             input_exprs.into_iter().zip(shuffled_exprs).collect()
         });
     }
+
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        witness: &WitnessV2,
+        challenges: &Challenges<Value<F>>,
+    ) -> Result<(), Error> {
+        layouter.assign_region(|| "execution region", |region| todo!())?;
+
+        // TODO: assign each state gadget.
+
+        Ok(())
+    }
 }
 
 pub(crate) trait InstructionGadgetV2<F: Field> {
@@ -479,6 +499,15 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     // ) -> Result<(), Error>;
 
     // fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
+
+    fn assign(
+        &self,
+        region: Region<F>,
+        offset: usize,
+        witnesses: &Vec<ExecStepState>,
+    ) -> Result<usize, Error> {
+        unimplemented!()
+    }
 }
 
 /// FIXME: setup columns

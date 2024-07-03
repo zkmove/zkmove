@@ -8,3 +8,5 @@ use serde::{Deserialize, Serialize};
 pub struct Witnesses {
     pub opcode_witnesses: Vec<Footprint>,
 }
+pub mod exec_state;
+pub mod step_state;

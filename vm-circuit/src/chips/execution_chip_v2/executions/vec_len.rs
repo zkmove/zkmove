@@ -6,6 +6,9 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use aptos_move_witnesses::step_state::ExecStepState;
+use halo2_proofs::circuit::Region;
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -142,5 +145,16 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
         VecLen {
             phantom_data: PhantomData,
         }
+    }
+
+    fn assign(
+        &self,
+        region: Region<F>,
+        offset: usize,
+        witnesses: &Vec<ExecStepState>,
+    ) -> Result<usize, Error> {
+        assert_eq!(witnesses.len(), 1);
+
+        todo!()
     }
 }

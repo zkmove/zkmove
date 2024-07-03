@@ -15,6 +15,10 @@ pub struct StoreLocStage1<F> {
     phantom_data: PhantomData<F>,
 }
 
+/// FIXME: what if there is no old value or old value is already invalid
+/// solution?: in this stage, we need to check the first row is invalid.
+/// if invalid, then no need to invalidate anything.
+/// if not, set the step counter, and invalidate the whole thing.
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
     const NAME: &'static str = "StoreLoc_Stage1";
     const OPCODE: Opcode = Opcode::StLoc;

@@ -43,63 +43,9 @@ use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+pub use aptos_move_witnesses::exec_state::ExecutionState;
 use halo2_proofs::plonk::{Error, Expression};
-use strum_macros::EnumIter;
 use types::Field;
-
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
-pub enum ExecutionState {
-    Start,
-    BrTrue,
-    BrFalse,
-    VecSwapStage1,
-    VecSwapStage2,
-    VecSwapStage3,
-    VecSwapStage4,
-    VecSwapStage5,
-    VecPopBackStage1,
-    VecPopBackStage2,
-    VecPushBackStage1,
-    VecPushBackStage2,
-    Stop,
-    Nop,
-    MutBorrowLoc,
-    ImmBorrowLoc,
-    LdFalse,
-    LdTrue,
-    LdU256,
-    LdU128,
-    LdU64,
-    LdU32,
-    LdU16,
-    LdU8,
-    // Pack,
-    ReadRef,
-    MutBorrowField,
-    ImmBorrowField,
-    WriteRefStage1,
-    WriteRefStage2,
-    WriteRefStage3,
-    VecLen,
-    VecImmBorrow,
-    VecMutBorrow,
-    Pop,
-    CastU256,
-    CastU128,
-    CastU64,
-    CastU32,
-    CastU16,
-    CastU8,
-    Not,
-    MoveLoc,
-    CopyLoc,
-    StoreLocStage1,
-    StoreLocStage2,
-    CallStage1,
-    CallStage2,
-    CallStage3,
-    Ret,
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
