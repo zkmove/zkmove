@@ -496,8 +496,6 @@ impl<F: Field> ExecChipConfig<F> {
             },
         )?;
 
-        // TODO: assign each state gadget.
-
         Ok(())
     }
     fn assign_exec_step(
@@ -518,7 +516,7 @@ impl<F: Field> ExecChipConfig<F> {
             self.step
                 .assign_exec_step(region, i, &exec_step_state.step_state, memory_op)?;
         }
-        self.vec_len.assign(region, exec_step_state)?;
+
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
