@@ -29,6 +29,7 @@ move-core-types = { git = "https://github.com/zkmove/aptos-core", rev = "bfab761
 move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "bfab761c61" }
 move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "bfab761c61" }
 move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "bfab761c61" }
+move-package = { git = "https://github.com/zkmove/aptos-core", rev = "bfab761c61" }
 
 strum_macros = "0.26"
 strum = "0.26"
