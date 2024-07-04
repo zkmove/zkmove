@@ -143,6 +143,79 @@ impl WitnessPreProcessor {
                 };
                 vec![stage1_state, stage2_state]
             }
+            Operation::MoveLoc { local_index, local } => {
+                let step_state = StepState::new(self.clk, ExecutionState::MoveLoc, trace);
+                let memory_ops = local
+                    .iter()
+                    .map(|item| {
+                        // invalidate the local
+                        let (old_, new_) = self.locals.write_local_slot_with_clk(
+                            current_frame_index,
+                            *local_index as usize,
+                            &item.sub_index,
+                            item.value.clone(),
+                            item.header,
+                            true,
+                            self.clk,
+                        );
+                        // TODO: check old_ == local[sub_index]
+                        let stack_push = StackPush {
+                            index: step_state.sp + 1,
+                            sub_index: item.sub_index.clone(),
+                            value: old_.value.clone(),
+                            value_header: old_.value_header,
+                            version: self.clk,
+                        };
+                        let local_op = LocalReadWrite::new(
+                            current_frame_index as u16,
+                            *local_index as u16,
+                            item.sub_index.clone(),
+                            old_,
+                            new_,
+                        );
+                        MemoryOp(None, Some(stack_push), Some(local_op))
+                    })
+                    .collect();
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops,
+                }]
+            }
+            Operation::CopyLoc { local_index, local } => {
+                let step_state = StepState::new(self.clk, ExecutionState::CopyLoc, trace);
+                let memory_ops = local
+                    .iter()
+                    .map(|item| {
+                        // invalidate the local
+                        let (old_, new_) = self.locals.read_local_slot_with_clk(
+                            current_frame_index,
+                            *local_index as usize,
+                            &item.sub_index,
+                            self.clk,
+                        );
+                        // TODO: check old_ == local[sub_index]
+                        let stack_push = StackPush {
+                            index: step_state.sp + 1,
+                            sub_index: item.sub_index.clone(),
+                            value: old_.value.clone(),
+                            value_header: old_.value_header,
+                            version: self.clk,
+                        };
+                        let local_op = LocalReadWrite::new(
+                            current_frame_index as u16,
+                            *local_index as u16,
+                            item.sub_index.clone(),
+                            old_,
+                            new_,
+                        );
+                        MemoryOp(None, Some(stack_push), Some(local_op))
+                    })
+                    .collect();
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops,
+                }]
+            }
             Operation::VecLen { si, vec_ref, len } => {
                 let stack_pop = StackPop {
                     index: sp,
