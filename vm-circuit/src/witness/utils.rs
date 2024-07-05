@@ -25,7 +25,7 @@ impl ModuleIdMapping {
             .collect();
         Self(module_ids)
     }
-    pub fn module_index(&self, module_id: ModuleId) -> usize {
+    pub fn get_module_index(&self, module_id: ModuleId) -> usize {
         self.0
             .iter()
             .position(|m| m == &module_id)
