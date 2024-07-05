@@ -9,7 +9,9 @@ use crate::witness::utils::convert_u256_to_fe_pair;
 use crate::witness::utils::ModuleIdMapping;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
-use move_binary_format::file_format::{Bytecode, FunctionDefinitionIndex, SignatureToken};
+use move_binary_format::file_format::{
+    Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
+};
 use move_core_types::language_storage::ModuleId;
 use move_package::compilation::compiled_package::CompiledPackage;
 use movelang::type_transition;
@@ -27,6 +29,22 @@ pub struct BytecodeTableRow {
 }
 
 impl BytecodeTableRow {
+    pub fn new(
+        module_index: usize,
+        function_index: usize,
+        pc: u16,
+        bytecode: Bytecode,
+        ty_out: Vec<SignatureToken>,
+    ) -> Self {
+        BytecodeTableRow {
+            module_index,
+            function_index,
+            pc,
+            bytecode,
+            ty_out,
+        }
+    }
+
     pub fn to_fe<F: Field>(&self) -> Vec<F> {
         let mut field_elements = vec![
             F::from_u128(self.module_index as u128),
@@ -139,47 +157,52 @@ impl BytecodeTableRow {
 }
 
 /// parse bytecode in the transitive dependencies of `module_id`
-pub fn parse_bytecode(module_id: &ModuleId, package: &CompiledPackage) -> Vec<BytecodeTableRow> {
+pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<BytecodeTableRow> {
     let modules = package.all_modules_map();
     let deps = modules.get_transitive_dependencies(module_id).unwrap();
     let module_id_mapping = ModuleIdMapping::construct(package);
     deps.iter()
         .flat_map(|module| {
-            module
-                .function_defs
-                .iter()
-                .enumerate()
-                .filter_map(|(func_index, func)| {
-                    if let Some(code) = func.code.as_ref() {
-                        let fh = module.function_handle_at(func.function);
-                        let transitions = type_transition::generate(
-                            &BinaryIndexedView::Module(module),
-                            &FunctionView::function(
-                                module,
-                                FunctionDefinitionIndex(func_index as u16),
-                                code,
-                                fh,
-                            ),
-                        )
-                        .expect("generate type transition success.");
-                        let module_index = module_id_mapping.get_module_index(module.self_id());
-                        Some((module_index, func_index, transitions))
-                    } else {
-                        None
-                    }
-                })
+            let module_index = module_id_mapping.get_module_index(module.self_id());
+            parse_module(module, module_index)
         })
-        .flat_map(|(module_index, func_index, type_transitions)| {
-            type_transitions
-                .into_iter()
-                .map(move |(i, transition)| BytecodeTableRow {
-                    module_index,
-                    function_index: func_index,
-                    pc: i as u16,
-                    bytecode: transition.instr,
-                    ty_out: transition.output,
-                })
+        .collect()
+}
+
+pub fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeTableRow> {
+    module
+        .function_defs
+        .iter()
+        .enumerate()
+        .filter_map(move |(func_index, func)| {
+            if let Some(code) = func.code.as_ref() {
+                let fh = module.function_handle_at(func.function);
+                let transitions = type_transition::generate(
+                    &BinaryIndexedView::Module(module),
+                    &FunctionView::function(
+                        module,
+                        FunctionDefinitionIndex(func_index as u16),
+                        code,
+                        fh,
+                    ),
+                )
+                .expect("generate type transition should not fail");
+                let rows = transitions
+                    .into_iter()
+                    .map(move |(i, transition)| BytecodeTableRow {
+                        module_index,
+                        function_index: func_index,
+                        pc: i as u16,
+                        bytecode: transition.instr,
+                        ty_out: transition.output,
+                    })
+                    .collect::<Vec<_>>();
+                Some(rows)
+            } else {
+                None
+            }
         })
+        .flatten()
         .collect()
 }
 
@@ -192,5 +215,111 @@ fn get_num_bytes(s: &SignatureToken) -> usize {
         SignatureToken::U128 => NUM_OF_BYTES_U128,
         SignatureToken::U256 => NUM_OF_BYTES_U256,
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::witness::bytecode::{parse_module, BytecodeTableRow};
+    use error::VmResult;
+    use move_binary_format::file_format::{
+        empty_module, empty_script, Bytecode, CodeUnit, CompiledModule, CompiledScript,
+        FunctionDefinition, FunctionHandle, FunctionHandleIndex, IdentifierIndex,
+        ModuleHandleIndex, SignatureIndex, SignatureToken, Visibility,
+    };
+    use move_core_types::identifier::Identifier;
+
+    /// A dummy compiled module:
+    ///
+    /// module {
+    ///    func1() {
+    ///    }
+    ///    func2() {
+    ///    }
+    /// }
+    ///
+    fn dummy_module() -> CompiledModule {
+        let mut m = empty_module();
+
+        // func1
+        m.identifiers
+            .push(Identifier::new("func1".to_string()).unwrap());
+        m.function_handles.push(FunctionHandle {
+            module: ModuleHandleIndex(0),
+            name: IdentifierIndex(m.identifiers.len() as u16),
+            parameters: SignatureIndex(0),
+            return_: SignatureIndex(0),
+            type_parameters: vec![],
+            access_specifiers: None,
+        });
+        m.function_defs.push(FunctionDefinition {
+            function: FunctionHandleIndex(0),
+            visibility: Visibility::Private,
+            is_entry: false,
+            acquires_global_resources: vec![],
+            code: Some(CodeUnit {
+                locals: SignatureIndex(0),
+                code: vec![
+                    Bytecode::LdU64(1u64),
+                    Bytecode::LdU64(2u64),
+                    Bytecode::Add,
+                    Bytecode::Pop,
+                    Bytecode::Ret,
+                ],
+            }),
+        });
+
+        // func2
+        m.identifiers
+            .push(Identifier::new("func2".to_string()).unwrap());
+        m.function_handles.push(FunctionHandle {
+            module: ModuleHandleIndex(0),
+            name: IdentifierIndex(m.identifiers.len() as u16),
+            parameters: SignatureIndex(0),
+            return_: SignatureIndex(0),
+            type_parameters: vec![],
+            access_specifiers: None,
+        });
+        m.function_defs.push(FunctionDefinition {
+            function: FunctionHandleIndex(1),
+            visibility: Visibility::Private,
+            is_entry: false,
+            acquires_global_resources: vec![],
+            code: Some(CodeUnit {
+                locals: SignatureIndex(0),
+                code: vec![
+                    Bytecode::LdU64(1u64),
+                    Bytecode::LdU64(2u64),
+                    Bytecode::Sub,
+                    Bytecode::Pop,
+                    Bytecode::Ret,
+                ],
+            }),
+        });
+        m
+    }
+
+    #[test]
+    fn test_bytecode_table() -> VmResult<()> {
+        logger::init_for_test();
+
+        let module = dummy_module();
+        let bytecodes = parse_module(&module, 0);
+
+        let expected_bytecode_table = vec![
+            BytecodeTableRow::new(0, 0, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 0, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 0, 2, Bytecode::Add, vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 0, 3, Bytecode::Pop, vec![]),
+            BytecodeTableRow::new(0, 0, 4, Bytecode::Ret, vec![]),
+            BytecodeTableRow::new(0, 1, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 1, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 1, 2, Bytecode::Sub, vec![SignatureToken::U64]),
+            BytecodeTableRow::new(0, 1, 3, Bytecode::Pop, vec![]),
+            BytecodeTableRow::new(0, 1, 4, Bytecode::Ret, vec![]),
+        ];
+
+        assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");
+        Ok(())
     }
 }
