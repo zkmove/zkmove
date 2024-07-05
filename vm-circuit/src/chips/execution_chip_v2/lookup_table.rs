@@ -7,9 +7,9 @@ use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
 
-mod byecode_table;
-mod function_table;
-mod ux_table;
+pub(crate) mod byecode_table;
+pub(crate) mod function_table;
+pub(crate) mod ux_table;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter)]
 /// Each item represents the lookup table to query

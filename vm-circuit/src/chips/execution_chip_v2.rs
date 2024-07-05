@@ -16,9 +16,10 @@ use crate::chips::execution_chip_v2::executions::ret::Ret;
 // use crate::chips::execution_chip_v2::executions::{
 //     VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
 // };
-use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState};
+use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState, VecLen};
 use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
 // use crate::chips::execution_chip_v2::executions::Pack;
+use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, StoreLocStage2};
 use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::Step;
@@ -28,12 +29,19 @@ use crate::chips::execution_chip_v2::value::{
 };
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::CellType;
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
+use crate::utils::SubCircuitConfig;
+use crate::witness::WitnessV2;
+use aptos_move_witnesses::step_state::ExecStepState;
 use gadgets::util::{and, not, or};
-use halo2_proofs::plonk::{ConstraintSystem, Expression, Selector, VirtualCells};
+use halo2_proofs::circuit::{Layouter, Region, Value};
+use halo2_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Error, Expression, Selector, VirtualCells,
+};
 use std::iter;
 use types::Field;
 
@@ -49,7 +57,8 @@ pub(crate) mod value;
 pub(crate) struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
-    pub advices: CMFixedWidthStrategyDistribution,
+    pub s_step_last: Selector,
+    pub advices: Vec<Column<Advice>>,
     pub br_true: Box<BrBool<F, true>>,
     pub br_false: Box<BrBool<F, false>>,
     pub ld_u8: Box<Ld<F, NUM_OF_BYTES_U8>>,
@@ -74,12 +83,15 @@ pub(crate) struct ExecChipConfig<F> {
     // pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
     // pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
     // pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
+    pub vec_len: Box<VecLen<F>>,
     pub pop: Box<Pop<F>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
     pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
     pub call_stage_1: Box<CallStage1<F>>,
     pub call_stage_2: Box<CallStage2<F>>,
     pub call_stage_3: Box<CallStage3<F>>,
+    pub store_loc_stage1: Box<StoreLocStage1<F>>,
+    pub store_loc_stage2: Box<StoreLocStage2<F>>,
     pub ret: Box<Ret<F>>,
     pub step: Step<F>,
 }
@@ -93,10 +105,12 @@ impl<F: Field> ExecChipConfig<F> {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
-        let advices: CMFixedWidthStrategyDistribution = cm_distribute_advice(meta);
-        let step_curr = Step::new(meta, advices.clone(), 0, &challenges);
-        let step_next = Step::new(meta, advices.clone(), 1, &challenges);
-        let _step_prev = Step::new(meta, advices.clone(), -1, &challenges);
+        let advices = alloc_columns(meta);
+        let advices_distribution: CMFixedWidthStrategyDistribution =
+            cm_distribute_advice(meta, &advices);
+        let step_curr = Step::new(meta, advices_distribution.clone(), 0, &challenges);
+        let step_next = Step::new(meta, advices_distribution.clone(), 1, &challenges);
+        let _step_prev = Step::new(meta, advices_distribution.clone(), -1, &challenges);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -194,7 +208,7 @@ impl<F: Field> ExecChipConfig<F> {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
                     &challenges,
-                    advices.clone(),
+                    advices_distribution.clone(),
                     s_usable,
                     s_step_first,
                     s_step_last,
@@ -206,6 +220,7 @@ impl<F: Field> ExecChipConfig<F> {
         let config = ExecChipConfig {
             s_usable,
             s_step_first,
+            s_step_last,
             br_true: configure_opcode_gadget!(),
             br_false: configure_opcode_gadget!(),
             ld_u8: configure_opcode_gadget!(),
@@ -230,14 +245,17 @@ impl<F: Field> ExecChipConfig<F> {
             // vec_push_back_stage1: configure_opcode_gadget!(),
             // vec_push_back_stage2: configure_opcode_gadget!(),
             // vec_push_back_stage3: configure_opcode_gadget!(),
+            vec_len: configure_opcode_gadget!(),
             pop: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
             copy_loc: configure_opcode_gadget!(),
             call_stage_1: configure_opcode_gadget!(),
             call_stage_2: configure_opcode_gadget!(),
             call_stage_3: configure_opcode_gadget!(),
+            store_loc_stage1: configure_opcode_gadget!(),
+            store_loc_stage2: configure_opcode_gadget!(),
             ret: configure_opcode_gadget!(),
-            advices: advices.clone(),
+            advices,
             step: step_curr,
         };
         Self::configure_lookup(
@@ -399,7 +417,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.stack_pop_version.expr(),
             ]
             .into_iter()
-            .chain(step_curr.state.stack_pop_value.exprs().into_iter())
+            .chain(step_curr.state.stack_pop_value.exprs())
             .map(|e| s_usable.clone() * e);
             let push_set = [
                 step_curr.state.stack_push_index.expr(),
@@ -408,7 +426,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.stack_push_version.expr(),
             ]
             .into_iter()
-            .chain(step_curr.state.stack_push_value.exprs().into_iter())
+            .chain(step_curr.state.stack_push_value.exprs())
             .map(|e| s_usable.clone() * e);
             pop_set.zip(push_set).collect()
         });
@@ -423,7 +441,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_read_version.expr(),
             ]
             .into_iter()
-            .chain(step_curr.state.local_read_value.exprs().into_iter())
+            .chain(step_curr.state.local_read_value.exprs())
             .map(|e| s_usable.clone() * e);
             let write_set = [
                 step_curr.state.local_frame_index.expr(),
@@ -434,7 +452,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.local_write_version.expr(),
             ]
             .into_iter()
-            .chain(step_curr.state.local_write_value.exprs().into_iter())
+            .chain(step_curr.state.local_write_value.exprs())
             .map(|e| s_usable.clone() * e);
             read_set.zip(write_set).collect()
         });
@@ -459,6 +477,61 @@ impl<F: Field> ExecChipConfig<F> {
             input_exprs.into_iter().zip(shuffled_exprs).collect()
         });
     }
+
+    pub fn assign(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        witness: &WitnessV2,
+        challenges: &Challenges<Value<F>>,
+    ) -> Result<(), Error> {
+        layouter.assign_region(
+            || "execution region",
+            |mut region| {
+                let mut offset = 0;
+                for opcode_witness in &witness.opcode_witnesses {
+                    offset +=
+                        self.assign_exec_step(&mut region, offset, opcode_witness, challenges)?;
+                }
+                Ok(())
+            },
+        )?;
+
+        Ok(())
+    }
+    fn assign_exec_step(
+        &self,
+        region: &mut Region<'_, F>,
+        offset_begin: usize,
+        exec_step_state: &ExecStepState,
+        challenges: &Challenges<Value<F>>,
+    ) -> Result<usize, Error> {
+        let region = &mut CachedRegion::<'_, '_, F>::new(
+            region,
+            challenges,
+            self.advices.to_vec(),
+            1,
+            offset_begin,
+        );
+        for (i, memory_op) in exec_step_state.memory_ops.iter().enumerate() {
+            self.step
+                .assign_exec_step(region, i, &exec_step_state.step_state, memory_op)?;
+        }
+
+        macro_rules! assign_exec_step {
+            ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
+                match $state {
+                    $(($exec_state)=>$gadget_field.assign(region, &exec_step_state),)*
+                    _=>unimplemented!()
+                }
+            };
+        }
+        assign_exec_step!(exec_step_state.step_state.exec_state, {
+            ExecutionState::VecLen => self.vec_len,
+            ExecutionState::StoreLocStage1 => self.store_loc_stage1,
+            ExecutionState::StoreLocStage2 => self.store_loc_stage2,
+        })?;
+        Ok(exec_step_state.memory_ops.len())
+    }
 }
 
 pub(crate) trait InstructionGadgetV2<F: Field> {
@@ -479,13 +552,24 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     // ) -> Result<(), Error>;
 
     // fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        Ok(step_state.memory_ops.len())
+    }
 }
 
 /// FIXME: setup columns
+pub(crate) fn alloc_columns<F: Field>(_meta: &mut ConstraintSystem<F>) -> Vec<Column<Advice>> {
+    todo!()
+}
 #[allow(clippy::mut_range_bound)]
 pub(crate) fn cm_distribute_advice<F: Field>(
     _meta: &mut ConstraintSystem<F>,
-    // advices: &[Column<Advice>],
+    _advices: &[Column<Advice>],
 ) -> CMFixedWidthStrategyDistribution {
     // let mut column_idx = 0;
     // // Mark columns used for lookups in Phase3

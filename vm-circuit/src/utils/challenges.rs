@@ -38,7 +38,7 @@ impl Challenges {
     }
 
     /// Returns `Value` of challenges from `Layouter`.
-    pub fn values<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Challenges<Value<F>> {
+    pub fn values<F: Field>(&self, layouter: &impl Layouter<F>) -> Challenges<Value<F>> {
         Challenges {
             keccak_input: layouter.get_challenge(self.keccak_input),
             lookup_input: layouter.get_challenge(self.lookup_input),

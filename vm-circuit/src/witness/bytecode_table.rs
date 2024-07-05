@@ -394,6 +394,7 @@ mod tests {
             parameters: SignatureIndex(0),
             return_: SignatureIndex(0),
             type_parameters: vec![],
+            access_specifiers: None,
         });
         m.identifiers
             .push(Identifier::new("foo".to_string()).unwrap());

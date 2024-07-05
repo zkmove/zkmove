@@ -19,23 +19,13 @@ pub(crate) mod vec_pop_back;
 pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
-pub use borrow_field::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
-pub use call::*;
-pub use cast::*;
 pub use ld::*;
 pub use ld_bool::*;
 pub(crate) use move_or_copy_loc::*;
-pub use not::*;
 // pub use pack::*;
-pub use ret::*;
-pub use vec_borrow::*;
 pub use vec_len::*;
-pub(crate) use vec_pop_back::*;
-pub(crate) use vec_push_back::*;
-pub use vec_swap::*;
-pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -43,63 +33,9 @@ use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+pub use aptos_move_witnesses::exec_state::ExecutionState;
 use halo2_proofs::plonk::{Error, Expression};
-use strum_macros::EnumIter;
 use types::Field;
-
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
-pub enum ExecutionState {
-    Start,
-    BrTrue,
-    BrFalse,
-    VecSwapStage1,
-    VecSwapStage2,
-    VecSwapStage3,
-    VecSwapStage4,
-    VecSwapStage5,
-    VecPopBackStage1,
-    VecPopBackStage2,
-    VecPushBackStage1,
-    VecPushBackStage2,
-    Stop,
-    Nop,
-    MutBorrowLoc,
-    ImmBorrowLoc,
-    LdFalse,
-    LdTrue,
-    LdU256,
-    LdU128,
-    LdU64,
-    LdU32,
-    LdU16,
-    LdU8,
-    // Pack,
-    ReadRef,
-    MutBorrowField,
-    ImmBorrowField,
-    WriteRefStage1,
-    WriteRefStage2,
-    WriteRefStage3,
-    VecLen,
-    VecImmBorrow,
-    VecMutBorrow,
-    Pop,
-    CastU256,
-    CastU128,
-    CastU64,
-    CastU32,
-    CastU16,
-    CastU8,
-    Not,
-    MoveLoc,
-    CopyLoc,
-    StoreLocStage1,
-    StoreLocStage2,
-    CallStage1,
-    CallStage2,
-    CallStage3,
-    Ret,
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {

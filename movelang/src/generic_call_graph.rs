@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use move_binary_format::access::ScriptAccess;
 use move_binary_format::file_format::{CompiledScript, SignatureToken, Visibility};
 use move_binary_format::normalized::Type;
@@ -10,6 +11,7 @@ use move_binary_format::{
 };
 use move_core_types::identifier::IdentStr;
 use move_core_types::language_storage::ModuleId;
+use move_core_types::metadata::Metadata;
 use move_core_types::resolver::ModuleResolver;
 use petgraph::prelude::EdgeRef;
 pub use petgraph::prelude::NodeIndex;
@@ -611,8 +613,14 @@ impl RemoteStore {
 
 impl ModuleResolver for RemoteStore {
     type Error = move_binary_format::errors::VMError;
-    fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
-        Ok(self.modules.get(module_id).cloned())
+
+    fn get_module_metadata(&self, module_id: &ModuleId) -> Vec<Metadata> {
+        // fixme
+        vec![]
+    }
+
+    fn get_module(&self, module_id: &ModuleId) -> Result<Option<bytes::Bytes>, Self::Error> {
+        Ok(self.modules.get(module_id).cloned().map(Bytes::from))
     }
 }
 

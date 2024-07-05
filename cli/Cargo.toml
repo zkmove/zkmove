@@ -11,7 +11,7 @@ logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
 types = { path = "../common/types" }
 halo2_proofs.workspace = true
-move-binary-format = { git = "https://github.com/young-rocks/move", rev = "b036995a" }
+move-binary-format = { workspace = true }
 rand = "0.8"
 structopt = "0.3.25"
 vm = { path = "../vm" }

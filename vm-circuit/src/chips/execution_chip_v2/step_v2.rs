@@ -6,6 +6,7 @@ use crate::utils::cell_placement_strategy::{
     CMFixedWidthStrategy, CMFixedWidthStrategyDistribution,
 };
 use crate::utils::challenges::Challenges;
+use aptos_move_witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
@@ -149,6 +150,25 @@ impl<F: Field> Step<F> {
         execution_states: impl IntoIterator<Item = ExecutionState>,
     ) -> Expression<F> {
         self.state.execution_state_selector(execution_states)
+    }
+
+    pub(crate) fn assign_exec_step(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &StepStateWitness,
+        memory_op: &MemoryOp,
+    ) -> Result<(), Error> {
+        self.state
+            .clk
+            .assign(region, offset, Halo2Value::known(step_state.clk.into()))?;
+        self.state.frame_index.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.frame_index as u128)),
+        )?;
+        // TODO: assign others
+        Ok(())
     }
 }
 

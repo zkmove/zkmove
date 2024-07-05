@@ -140,7 +140,7 @@ pub(crate) mod from_limbs {
         let mut value = F::ZERO;
         let mut multiplier = F::ONE;
         for limb in limbs.iter() {
-            value += F::from(*limb as u64) * multiplier;
+            value += F::from(*limb) * multiplier;
             multiplier *= F::from(1u64 << LIMB_BITS);
         }
         value
