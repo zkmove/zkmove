@@ -3,7 +3,7 @@ use crate::step_state::{
     ExecStepState, LocalReadWrite, MemoryOp, Slot, StackPop, StackPush, StepState, SubIndex,
     Version,
 };
-use move_vm_runtime::witnessing::traced_value::SimpleValue;
+use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue};
 use move_vm_runtime::witnessing::{Footprint, Operation};
 use std::collections::BTreeMap;
 use std::ops::{Deref, DerefMut};
@@ -249,6 +249,54 @@ impl WitnessPreProcessor {
                 vec![ExecStepState {
                     step_state: StepState::new(self.clk, ExecutionState::VecLen, trace),
                     memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), Some(local_op))],
+                }]
+            }
+            Operation::VecBorrow {
+                si,
+                imm,
+                idx,
+                vec_ref,
+            } => {
+                let exec_state = if *imm {
+                    ExecutionState::VecImmBorrow
+                } else {
+                    ExecutionState::VecMutBorrow
+                };
+                let stack_pop_idx = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::U64(*idx),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let stack_pop_vec_ref = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(vec_ref.clone()),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let mut sub_index = vec_ref.sub_index.clone();
+                sub_index.push((*idx + 1) as usize);
+                let element_ref = Reference {
+                    frame_index: vec_ref.frame_index,
+                    local_index: vec_ref.local_index,
+                    sub_index,
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(element_ref),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                vec![ExecStepState {
+                    step_state: StepState::new(self.clk, exec_state, trace),
+                    memory_ops: vec![
+                        MemoryOp(Some(stack_pop_idx), None, None),
+                        MemoryOp(Some(stack_pop_vec_ref), Some(stack_push), None),
+                    ],
                 }]
             }
             _ => unimplemented!(),

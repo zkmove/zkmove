@@ -1285,16 +1285,17 @@ mod vec_borrow {
             opcode(0) == OpCode::VecBorrow;
             step_counter(0) == 2;
             super::common::fake_empty_stack_push(0);
-            sp(1) == sp(0) - 1;
+            stack_pop_index(0) == sp(0);
         }
-        stack_pop_index(0) == sp(0);
+
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
         stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
 
         if super::common::on_last_row() {
-            stack_push_index(0) == sp(0);
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
             stack_push_value(0).as_reference().index == stack_pop_value(0).as_reference().index;
             stack_push_value(0).as_reference().sub_index == stack_pop_value(0).as_reference().sub_index.concat(stack_pop_value(-1).as_integer().lo() + 1);
@@ -1305,7 +1306,7 @@ mod vec_borrow {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0) + 1;
-            sp(1) == sp(0);
+            sp(1) == sp(0) - 1;
         }
     }
 }
