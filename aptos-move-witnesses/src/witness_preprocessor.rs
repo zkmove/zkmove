@@ -251,6 +251,68 @@ impl WitnessPreProcessor {
                     memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), Some(local_op))],
                 }]
             }
+            Operation::BorrowLoc { imm, local_index } => {
+                let exec_state = if *imm {
+                    ExecutionState::ImmBorrowLoc
+                } else {
+                    ExecutionState::MutBorrowLoc
+                };
+                let loc_ref = Reference {
+                    frame_index: current_frame_index,
+                    local_index: *local_index as usize,
+                    sub_index: vec![0],
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(loc_ref),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                vec![ExecStepState {
+                    step_state: StepState::new(self.clk, exec_state, trace),
+                    memory_ops: vec![MemoryOp(None, Some(stack_push), None)],
+                }]
+            }
+            Operation::BorrowField {
+                imm,
+                fh_idx,
+                reference,
+                field_offset,
+            } => {
+                let exec_state = if *imm {
+                    ExecutionState::ImmBorrowField
+                } else {
+                    ExecutionState::MutBorrowField
+                };
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(reference.clone()),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let mut sub_index = reference.sub_index.clone();
+                sub_index.push((*field_offset + 1) as usize);
+                let field_ref = Reference {
+                    frame_index: reference.frame_index,
+                    local_index: reference.local_index,
+                    sub_index,
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(field_ref),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                vec![ExecStepState {
+                    step_state: StepState::new(self.clk, exec_state, trace),
+                    memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
+                }]
+            }
             Operation::VecBorrow {
                 si,
                 imm,
