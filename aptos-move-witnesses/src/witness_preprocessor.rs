@@ -427,6 +427,53 @@ impl WitnessPreProcessor {
 
                 vec![stage1_state, stage2_state]
             }
+            Operation::ReadRef { reference, value } => {
+                let step_state = StepState::new(self.clk, ExecutionState::ReadRef, trace);
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Reference(reference.clone()),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let memory_ops = value
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, item)| {
+                        let (old_, new_) = self.locals.read_local_slot_with_clk(
+                            reference.frame_index,
+                            reference.local_index,
+                            &item.sub_index,
+                            self.clk,
+                        );
+                        let stack_push = StackPush {
+                            index: sp,
+                            sub_index: item.sub_index.clone(),
+                            value: old_.value.clone(),
+                            value_header: old_.value_header,
+                            version: self.clk,
+                        };
+                        let local_op = LocalReadWrite::new(
+                            reference.frame_index.try_into().unwrap(),
+                            reference.local_index.try_into().unwrap(),
+                            item.sub_index.clone(),
+                            old_,
+                            new_,
+                        );
+                        let stack_pop_opt = if idx == 0 {
+                            Some(stack_pop.clone())
+                        } else {
+                            None
+                        };
+                        MemoryOp(stack_pop_opt, Some(stack_push), Some(local_op))
+                    })
+                    .collect();
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops,
+                }]
+            }
             _ => unimplemented!(),
         }
     }
