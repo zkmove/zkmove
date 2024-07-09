@@ -52,6 +52,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
                 step_curr.stack_pop_index.expr(),
                 step_curr.sp.expr(),
             );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
         cb.require_zero(

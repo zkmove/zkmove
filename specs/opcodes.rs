@@ -1286,6 +1286,7 @@ mod vec_borrow {
             step_counter(0) == 2;
             super::common::fake_empty_stack_push(0);
             stack_pop_index(0) == sp(0);
+            sp(1) == sp(0);
         }
 
         stack_pop_sub_index(0) == 0;
