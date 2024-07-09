@@ -264,7 +264,7 @@ impl WitnessPreProcessor {
                 };
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
-                    index: sp,
+                    index: sp + 1,
                     sub_index: vec![0],
                     value: SimpleValue::Reference(loc_ref),
                     value_header: false,
