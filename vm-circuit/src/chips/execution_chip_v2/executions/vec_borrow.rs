@@ -6,6 +6,10 @@ use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::SubIndexUtils;
+use halo2_proofs::plonk::Error;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -47,14 +51,14 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
                 2u64.expr(),
             );
             cb.require_no_stack_push();
-            cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
+            cb.require_equal(
+                format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr(),
+            );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
-        cb.require_equal(
-            format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
-            step_curr.stack_pop_index.expr(),
-            step_curr.sp.expr(),
-        );
         cb.require_zero(
             format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
             step_curr.stack_pop_sub_index.expr(),
@@ -67,9 +71,14 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
 
         cb.last_row(|cb| {
             cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
+                format!("{}, stack_pop_index(0) == sp(0) - 1", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
+            );
+            cb.require_equal(
+                format!("{}, stack_push_index(0) == sp(0) - 1", Self::NAME),
                 step_curr.stack_push_index.expr(),
-                step_curr.sp.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
@@ -102,10 +111,25 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
                 (PC, Transition::Delta(1.expr())),
-                (SP, Transition::Same),
+                (SP, Transition::Delta((-1).expr())),
             ]);
         });
 
         VecBorrow { vec_ref_sub_index }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let vec_ref_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
+        self.vec_ref_sub_index.assign(
+            region,
+            0,
+            vec_ref_sub_index.into_u128(),
+            vec_ref_sub_index.len(),
+        )?;
+        Ok(step_state.memory_ops.len())
     }
 }

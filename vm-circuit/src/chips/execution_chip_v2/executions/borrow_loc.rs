@@ -6,6 +6,9 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::step_state::ExecStepState;
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -81,5 +84,14 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE
         BorrowLoc {
             phantom_data: PhantomData,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(step_state.memory_ops.len())
     }
 }

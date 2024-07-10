@@ -30,11 +30,15 @@ pub use vec_len::*;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::from_limbs;
+use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
-use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -133,12 +137,14 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
 pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(16);
 
 /// Extended SubIndex used for manipulate sub_index, like concat
+/// NOTICE: N_LIMB is configurable, but N_BITS for each limb is always 16
 #[derive(Clone, Debug)]
 pub(crate) struct ExtendedSubIndex<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    limbs: [Cell<F>; N_LIMB],
+    bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
-    reverse_limb: Cell<F>,
+    reverse_limb: Cell<F>, // reverse of limbs[depth-1]
 }
 impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     pub(crate) fn construct(
@@ -146,8 +152,9 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         name: impl AsRef<str>,
         sub_index: Expression<F>,
     ) -> Self {
-        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_u16())
+        let bytes = cb.query_bytes();
+        let limbs: [Expression<F>; N_LIMB] = (0..N_LIMB)
+            .map(|i| bytes[i * 2 + 1].expr() * 2u64.pow(8).expr() + bytes[i * 2].expr())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -157,8 +164,8 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
             .try_into()
             .unwrap();
         let reverse_limb = cb.query_cell();
-        let depth_pow2 = cb.query_cell();
         let name = name.as_ref();
+
         cb.require_equal(
             format!("{}, sub_index == from_limbs(limbs)", name),
             sub_index.clone(),
@@ -172,19 +179,20 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 
         for i in 0..N_LIMB {
             cb.require_zero(
-                format!("{}, mask[i] * limbs[i] != 0", name),
-                mask[i].expr() * (limbs[i].expr() * reverse_limb.expr() - 1u64.expr()),
+                format!("{}, if mask[i] == 1, limbs[i] != 0", name),
+                mask[i].expr() * (limbs[i].clone() * reverse_limb.expr() - 1u64.expr()),
             );
         }
         for i in 0..(N_LIMB - 1) {
             cb.require_zero(
                 format!("{}, mask[i] * limbs[i+1] == 0", name),
-                mask[i].expr() * limbs[i + 1].expr(),
+                mask[i].expr() * limbs[i + 1].clone(),
             );
         }
 
         Self {
             sub_index,
+            bytes,
             limbs,
             mask,
             reverse_limb,
@@ -214,6 +222,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         self.sub_index.expr() + other_sub_index * self.get_depth_pow()
     }
 
+    // FIXME: sub_index and depth could be zero
     pub(crate) fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
@@ -221,36 +230,36 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         ref_sub_index: u128,
         depth: usize,
     ) -> Result<(), Error> {
-        // let ref_sub_index_bytes = F::from_u128(ref_sub_index).to_repr();
-        // for (idx, byte) in self.bytes.iter().enumerate() {
-        //     byte.assign(
-        //         region,
-        //         offset,
-        //         Value::known(F::from(ref_sub_index_bytes[idx] as u64)),
-        //     )?;
-        // }
-        //
-        // let depth_pow2 = F::from_u128(2u128.pow((depth * (128 / N_LIMB)).try_into().unwrap()));
-        // self.depth_pow2
-        //     .assign(region, offset, Value::known(depth_pow2))?;
-        // let depth_pow2_bytes = depth_pow2.to_repr();
-        // for (idx, mask) in self.mask.iter().enumerate() {
-        //     mask.assign(
-        //         region,
-        //         offset,
-        //         Value::known(F::from(depth_pow2_bytes[idx] as u64)),
-        //     )?;
-        // }
-        //
-        // let reverse_limb = if depth != 0 {
-        //     F::from(ref_sub_index_bytes[depth - 1] as u64)
-        //         .invert()
-        //         .unwrap_or(F::ZERO)
-        // } else {
-        //     F::ZERO
-        // };
-        // self.reverse_limb
-        //     .assign(region, offset, Value::known(reverse_limb))?;
+        // assign bytes
+        let ref_sub_index_bytes = F::from_u128(ref_sub_index).to_repr();
+        for (idx, byte) in self.bytes.iter().enumerate() {
+            byte.assign(
+                region,
+                offset,
+                Value::known(F::from(ref_sub_index_bytes[idx] as u64)),
+            )?;
+        }
+        let limbs = (0..N_LIMB)
+            .map(|i| {
+                (ref_sub_index_bytes[i * 2 + 1] as u64) * 2u64.pow(8)
+                    + ref_sub_index_bytes[i * 2] as u64
+            })
+            .collect::<Vec<_>>();
+
+        // assign mask
+        for i in 0..N_LIMB {
+            let mask = i == depth - 1;
+            self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
+        }
+
+        // assign reverse of limbs[depth-1]
+        let reverse_limb = if depth != 0 {
+            F::from(limbs[depth - 1]).invert().unwrap_or(F::ZERO)
+        } else {
+            F::ZERO
+        };
+        self.reverse_limb
+            .assign(region, offset, Value::known(reverse_limb))?;
 
         Ok(())
     }
