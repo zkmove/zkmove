@@ -3,6 +3,17 @@ use crate::Footprint;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
 
 pub type SubIndex = Vec<usize>;
+
+pub trait SubIndexUtils {
+    fn into_u128(&self) -> u128;
+}
+
+impl SubIndexUtils for SubIndex {
+    fn into_u128(&self) -> u128 {
+        unimplemented!()
+    }
+}
+
 pub type Version = u64;
 
 #[derive(Clone, Debug)]

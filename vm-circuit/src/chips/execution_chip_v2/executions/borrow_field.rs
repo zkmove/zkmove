@@ -6,6 +6,10 @@ use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::SubIndexUtils;
+use halo2_proofs::plonk::Error;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -94,5 +98,20 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
         BorrowField {
             stack_pop_value_sub_index,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let stack_pop_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
+        self.stack_pop_value_sub_index.assign(
+            region,
+            0,
+            stack_pop_sub_index.into_u128(),
+            stack_pop_sub_index.len(),
+        )?;
+        Ok(step_state.memory_ops.len())
     }
 }
