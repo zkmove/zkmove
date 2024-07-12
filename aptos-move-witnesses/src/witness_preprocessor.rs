@@ -3,6 +3,7 @@ use crate::step_state::{
     ExecStepState, LocalReadWrite, MemoryOp, Slot, StackPop, StackPush, StepState, SubIndex,
     Version,
 };
+use crate::utils::{SubIndexUtils, ValueHeader};
 use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue};
 use move_vm_runtime::witnessing::{Footprint, Operation};
 use std::collections::BTreeMap;
@@ -474,6 +475,159 @@ impl WitnessPreProcessor {
                     memory_ops,
                 }]
             }
+            Operation::WriteRef {
+                reference,
+                old_value,
+                new_value,
+            } => {
+                // stage1: STAGE_POP_REF_AND_INVALIDATE_OLD
+                let step_state = StepState::new(self.clk, ExecutionState::WriteRefStage1, trace);
+                let stage1_state = {
+                    let stack_pop = StackPop {
+                        index: sp,
+                        sub_index: vec![0],
+                        value: SimpleValue::Reference(reference.clone()),
+                        value_header: false,
+                        version: self.version_stack.pop().unwrap(),
+                    };
+                    let memory_ops = old_value
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, item)| {
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                reference.frame_index,
+                                reference.local_index,
+                                &item.sub_index,
+                                item.value.clone(),
+                                item.header,
+                                true,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                reference.frame_index.try_into().unwrap(),
+                                reference.local_index.try_into().unwrap(),
+                                item.sub_index.clone(),
+                                old_,
+                                new_,
+                            );
+                            let stack_pop_opt = if idx == 0 {
+                                Some(stack_pop.clone())
+                            } else {
+                                None
+                            };
+                            MemoryOp(stack_pop_opt, None, Some(local_op))
+                        })
+                        .collect();
+                    ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }
+                };
+                // stage2: STAGE_POP_NEW_VALUE_AND_WRITE
+                self.clk += 1;
+                let step_state = step_state
+                    .change_state(ExecutionState::WriteRefStage2)
+                    .change_clk(self.clk)
+                    .dec_sp(1);
+                let stage2_state = {
+                    let memory_ops: Vec<_> = new_value
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: self.version_stack.pop().unwrap(),
+                            };
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                reference.frame_index,
+                                reference.local_index,
+                                &stack_pop.sub_index,
+                                stack_pop.value.clone(),
+                                stack_pop.value_header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                reference.frame_index.try_into().unwrap(),
+                                reference.local_index.try_into().unwrap(),
+                                stack_pop.sub_index.clone(),
+                                old_,
+                                new_,
+                            );
+                            MemoryOp(Some(stack_pop), None, Some(local_op))
+                        })
+                        .collect();
+                    ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }
+                };
+                // stage3: STAGE_UPDATE_PARENT
+                self.clk += 1;
+                let step_state = step_state
+                    .change_state(ExecutionState::WriteRefStage3)
+                    .change_clk(self.clk)
+                    .dec_sp(1);
+                let stage3_state = {
+                    let depth = reference.sub_index.len();
+                    let memory_ops: Vec<_> = (0..depth)
+                        .map(|i| {
+                            // we come here, then depth >= 1, reference.sub_index != 0
+                            // at least we have one parent
+                            let sub_index = reference.sub_index.parent(i).unwrap();
+                            let parent_value = self
+                                .locals
+                                .peek_local_slot(
+                                    reference.frame_index,
+                                    reference.local_index,
+                                    &sub_index,
+                                )
+                                .unwrap()
+                                .value
+                                .clone();
+                            let len = ValueHeader::from(parent_value).len;
+
+                            // TODO: save flen in the traced value while footprinting?
+                            let members = self.locals.members(
+                                reference.frame_index,
+                                reference.local_index,
+                                &sub_index,
+                            );
+                            let flen = match members {
+                                Some(members) => members.len(),
+                                None => unreachable!(),
+                            };
+
+                            let new_parent_value: SimpleValue =
+                                ValueHeader::new(flen as u16, len).into();
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                reference.frame_index,
+                                reference.local_index,
+                                &sub_index,
+                                new_parent_value,
+                                true,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                reference.frame_index.try_into().unwrap(),
+                                reference.local_index.try_into().unwrap(),
+                                sub_index.clone(),
+                                old_,
+                                new_,
+                            );
+                            MemoryOp(None, None, Some(local_op))
+                        })
+                        .collect();
+                    ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }
+                };
+                vec![stage1_state, stage2_state, stage3_state]
+            }
             _ => unimplemented!(),
         }
     }
@@ -561,6 +715,30 @@ impl Locals {
                 *slot = new_;
                 old
             }
+        }
+    }
+
+    /// Return member slots include itself
+    pub fn members(
+        &self,
+        frame_index: usize,
+        local_index: usize,
+        sub_index: &SubIndex,
+    ) -> Option<Vec<(SubIndex, Slot)>> {
+        let local = self
+            .values
+            .get(frame_index)
+            .and_then(|l| l.get(local_index));
+        if let Some(local) = local {
+            let members = local
+                .deref()
+                .iter()
+                .map(|(si, slot)| (si.clone(), slot.clone()))
+                .filter(|(si, slot)| si.starts_with(sub_index.as_slice()) && !slot.value_invalid)
+                .collect::<Vec<_>>();
+            Some(members)
+        } else {
+            None
         }
     }
 }

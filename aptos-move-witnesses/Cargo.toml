@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 move-vm-runtime = { workspace = true }
+types = { path = "../common/types" }
 serde = { version = "1.0.203", features = ["derive"] }
 strum_macros = { workspace = true }
 strum = { workspace = true }
