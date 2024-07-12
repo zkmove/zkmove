@@ -4,6 +4,7 @@ use types::Field;
 
 pub trait SubIndexUtils {
     fn into_u128(&self) -> u128;
+    fn from_u128(sub_index: u128) -> Self;
     fn parent(&self, depth: usize) -> Option<Self>
     where
         Self: Sized;
@@ -11,6 +12,9 @@ pub trait SubIndexUtils {
 
 impl SubIndexUtils for SubIndex {
     fn into_u128(&self) -> u128 {
+        unimplemented!()
+    }
+    fn from_u128(sub_index: u128) -> Self {
         unimplemented!()
     }
     fn parent(&self, depth: usize) -> Option<Self> {
