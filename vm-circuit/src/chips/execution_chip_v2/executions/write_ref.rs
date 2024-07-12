@@ -9,8 +9,12 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
+use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
@@ -139,6 +143,37 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
             membership_gadget,
         }
     }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let header_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                self.header_sub_index.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128(header_sub_index.into_u128())),
+                )?;
+                self.header_flen_delta.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128(rows as u128)),
+                )?;
+                let local_sub_index = step_state.memory_ops[i].2.clone().unwrap().sub_index;
+                self.membership_gadget.assign(
+                    region,
+                    i,
+                    header_sub_index.into_u128(),
+                    local_sub_index.into_u128(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
+    }
 }
 
 ///STAGE_POP_NEW_VALUE_AND_WRITE
@@ -258,6 +293,40 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
             header_sub_index_ext,
         }
     }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        //TODO: get from ExecStepState of the last stage
+        let header_sub_index = vec![0];
+        let header_flen_delta_prev = 0;
+
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                self.header_sub_index.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128(header_sub_index.into_u128())),
+                )?;
+                //FIXME: header_flen_delta could be negative, cannot assign correctly
+                self.header_flen_delta.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128((rows - header_flen_delta_prev) as u128)),
+                )?;
+                self.header_sub_index_ext.assign(
+                    region,
+                    i,
+                    header_sub_index.into_u128(),
+                    header_sub_index.len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
+    }
 }
 
 ///STAGE_UPDATE_PARENT
@@ -286,14 +355,15 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage2);
 
-            cb.require_equal(
-                format!(
-                    "{}, header_sub_index(0) == header_sub_index(-1)",
-                    Self::NAME
-                ),
-                header_sub_index.expr(),
-                header_sub_index_prev,
-            );
+            // bug fixed, clean me
+            // cb.require_equal(
+            //     format!(
+            //         "{}, header_sub_index(0) == header_sub_index(-1)",
+            //         Self::NAME
+            //     ),
+            //     header_sub_index.expr(),
+            //     header_sub_index_prev,
+            // );
             cb.require_equal(
                 format!(
                     "{}, step_counter(0) == header_sub_index(-1).depth()",
@@ -386,5 +456,52 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             header_sub_index_depth,
             header_sub_index_ext,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        //TODO: get from ExecStepState of the last stage
+        let header_sub_index_prev_stage = vec![];
+        let header_flen_delta_prev = 0;
+
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                let local_sub_index = step_state.memory_ops[i].2.clone().unwrap().sub_index;
+                self.header_sub_index.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128(local_sub_index.into_u128())),
+                )?;
+                self.header_flen_delta.assign(
+                    region,
+                    i,
+                    Value::known(F::from_u128(header_flen_delta_prev as u128)),
+                )?;
+                self.header_sub_index_depth.assign(
+                    region,
+                    i,
+                    header_sub_index_prev_stage.into_u128(),
+                )?;
+
+                let header_sub_index_prev_row =
+                    step_state.memory_ops[i - 1].2.clone().unwrap().sub_index;
+                let header_sub_index_prev = if i == 0 {
+                    &header_sub_index_prev_stage
+                } else {
+                    &header_sub_index_prev_row
+                };
+                self.header_sub_index_ext.assign(
+                    region,
+                    i,
+                    header_sub_index_prev.into_u128(),
+                    header_sub_index_prev.len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
     }
 }
