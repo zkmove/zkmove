@@ -361,7 +361,7 @@ impl WitnessPreProcessor {
                     ],
                 }]
             }
-            Operation::Eq { lhs, rhs } => {
+            Operation::Neq { lhs, rhs } | Operation::Eq { lhs, rhs } => {
                 let step_state = StepState::new(self.clk, ExecutionState::EqStage1, trace);
                 let stage1_state = {
                     let value_version = self.version_stack.pop().unwrap();
@@ -410,7 +410,11 @@ impl WitnessPreProcessor {
                     let _ = memory_ops.last_mut().unwrap().1.insert(StackPush {
                         index: step_state.sp - 1,
                         sub_index: vec![0],
-                        value: SimpleValue::Bool(lhs_sorted == rhs_sorted),
+                        value: SimpleValue::Bool(if matches!(&trace.data, Operation::Eq { .. }) {
+                            lhs_sorted == rhs_sorted
+                        } else {
+                            lhs_sorted != rhs_sorted
+                        }),
                         value_header: false,
                         version: self.clk,
                     });
