@@ -520,16 +520,18 @@ impl<F: Field> ExecChipConfig<F> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(region, &exec_step_state),)*
+                    $(($exec_state)=>$gadget_field.assign(region, offset_begin, &exec_step_state),)*
                     _=>unimplemented!()
                 }
             };
         }
-        assign_exec_step!(exec_step_state.step_state.exec_state, {
+        let assigned_rows = assign_exec_step!(exec_step_state.step_state.exec_state, {
             ExecutionState::VecLen => self.vec_len,
             ExecutionState::StoreLocStage1 => self.store_loc_stage1,
             ExecutionState::StoreLocStage2 => self.store_loc_stage2,
         })?;
+        debug_assert_eq!(assigned_rows, exec_step_state.memory_ops.len());
+
         Ok(exec_step_state.memory_ops.len())
     }
 }
@@ -556,6 +558,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
         Ok(step_state.memory_ops.len())

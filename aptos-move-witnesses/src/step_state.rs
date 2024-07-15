@@ -78,7 +78,7 @@ pub struct MemoryOp(
 #[derive(Clone, Debug)]
 pub struct StackPop {
     pub index: u64,
-    pub sub_index: SubIndex, // TODO change to u256
+    pub sub_index: SubIndex, // TODO change to u256, or change to [u64]
     pub value: SimpleValue,
     pub value_header: bool,
     pub version: u64,

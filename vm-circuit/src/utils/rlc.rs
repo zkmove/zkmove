@@ -31,7 +31,7 @@ pub(crate) mod rlc {
         }
     }
 
-    fn generic<V, I>(values: I, randomness: V) -> V
+    pub(crate) fn generic<V, I>(values: I, randomness: V) -> V
     where
         I: IntoIterator<Item = V>,
         <I as IntoIterator>::IntoIter: DoubleEndedIterator,

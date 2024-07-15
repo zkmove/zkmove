@@ -4,6 +4,7 @@ pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
 pub(crate) mod call;
 pub(crate) mod cast;
+pub(crate) mod equality;
 pub(crate) mod ld;
 pub(crate) mod ld_bool;
 pub(crate) mod move_or_copy_loc;
@@ -35,6 +36,7 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::step_state::SubIndex;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -320,5 +322,58 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 
     pub(crate) fn expr(&self) -> Expression<F> {
         self.mask.iter().map(|c| c.expr()).sum()
+    }
+}
+
+//TODO: add LIMB_BITS to configure num bits of each limb (8 or 16)
+/// Used to get the reverse of a sub_index. For example,
+///
+/// let a = [3,2,0,0];
+/// assert_eq!(a.to_u128(), 0x20003);
+///
+/// let b = [0,0,2,3]; // the reverse of a
+/// assert_eq!(b.to_u128(), 0x0003000200000000);
+///
+#[derive(Clone, Debug)]
+pub(crate) struct SubIndexReverse<F: Field, const N_LIMB: usize> {
+    sub_index: Expression<F>,
+    limbs: [Cell<F>; N_LIMB],
+}
+impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index: Expression<F>,
+        name: &'static str,
+    ) -> Self {
+        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+            .map(|_| cb.query_u16())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        cb.require_equal(
+            format!("{}, sub_index == from_limbs(limbs)", name),
+            sub_index.clone(),
+            from_limbs::expr::<_, _, 16>(&limbs),
+        );
+
+        Self { sub_index, limbs }
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        let reverse_limbs = self.limbs.iter().rev().collect::<Vec<_>>();
+        from_limbs::expr::<_, _, 16>(&reverse_limbs)
+    }
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        sub_index: SubIndex,
+    ) -> Result<(), Error> {
+        debug_assert!(sub_index.len() == self.limbs.len());
+        for (i, v) in sub_index.into_iter().enumerate() {
+            self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
+        }
+        Ok(())
     }
 }
