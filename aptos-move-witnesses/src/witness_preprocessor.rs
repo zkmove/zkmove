@@ -387,13 +387,14 @@ impl WitnessPreProcessor {
                 let stage2_state = {
                     let step_state = step_state
                         .change_state(ExecutionState::EqStage2)
-                        .change_clk(self.clk).dec_sp(1);
+                        .change_clk(self.clk)
+                        .dec_sp(1);
                     let value_version = self.version_stack.pop().unwrap();
                     let mut memory_ops = lhs
                         .iter()
                         .map(|item| {
                             let stack_pop = StackPop {
-                                index: step_state.sp - 1,
+                                index: step_state.sp,
                                 sub_index: item.sub_index.clone(),
                                 value: item.value.clone(),
                                 value_header: item.header,
@@ -408,7 +409,7 @@ impl WitnessPreProcessor {
                     rhs_sorted.sort_by_key(|item| item.sub_index.clone());
 
                     let _ = memory_ops.last_mut().unwrap().1.insert(StackPush {
-                        index: step_state.sp - 1,
+                        index: step_state.sp,
                         sub_index: vec![0],
                         value: SimpleValue::Bool(if matches!(&trace.data, Operation::Eq { .. }) {
                             lhs_sorted == rhs_sorted
