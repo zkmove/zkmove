@@ -103,12 +103,13 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
     fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
         let stack_pop_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
         self.stack_pop_value_sub_index.assign(
             region,
-            0,
+            offset,
             stack_pop_sub_index.into_u128(),
             stack_pop_sub_index.len(),
         )?;

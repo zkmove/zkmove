@@ -294,7 +294,7 @@ impl WitnessPreProcessor {
                     version: self.version_stack.pop().unwrap(),
                 };
                 let mut sub_index = reference.sub_index.clone();
-                sub_index.push((*field_offset + 1) as usize);
+                sub_index.push(*field_offset + 1);
                 let field_ref = Reference {
                     frame_index: reference.frame_index,
                     local_index: reference.local_index,
@@ -360,6 +360,67 @@ impl WitnessPreProcessor {
                         MemoryOp(Some(stack_pop_vec_ref), Some(stack_push), None),
                     ],
                 }]
+            }
+            Operation::Eq { lhs, rhs } => {
+                let step_state = StepState::new(self.clk, ExecutionState::EqStage1, trace);
+                let stage1_state = {
+                    let value_version = self.version_stack.pop().unwrap();
+                    let memory_ops = rhs
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: value_version,
+                            };
+                            MemoryOp(Some(stack_pop), None, None)
+                        })
+                        .collect::<Vec<_>>();
+                    ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }
+                };
+                self.clk += 1;
+                let stage2_state = {
+                    let step_state = step_state
+                        .change_state(ExecutionState::EqStage2)
+                        .change_clk(self.clk);
+                    let value_version = self.version_stack.pop().unwrap();
+                    let mut memory_ops = lhs
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp - 1,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: value_version,
+                            };
+                            MemoryOp(Some(stack_pop), None, None)
+                        })
+                        .collect::<Vec<_>>();
+                    let mut lhs_sorted = lhs.clone();
+                    lhs_sorted.sort_by_key(|item| item.sub_index.clone());
+                    let mut rhs_sorted = rhs.clone();
+                    rhs_sorted.sort_by_key(|item| item.sub_index.clone());
+
+                    let _ = memory_ops.last_mut().unwrap().1.insert(StackPush {
+                        index: step_state.sp - 1,
+                        sub_index: vec![0],
+                        value: SimpleValue::Bool(lhs_sorted == rhs_sorted),
+                        value_header: false,
+                        version: self.clk,
+                    });
+                    ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }
+                };
+
+                vec![stage1_state, stage2_state]
             }
             _ => unimplemented!(),
         }

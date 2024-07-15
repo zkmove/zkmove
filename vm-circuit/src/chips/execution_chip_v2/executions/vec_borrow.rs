@@ -121,12 +121,13 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
     fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
         let vec_ref_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
         self.vec_ref_sub_index.assign(
             region,
-            0,
+            offset,
             vec_ref_sub_index.into_u128(),
             vec_ref_sub_index.len(),
         )?;

@@ -6,10 +6,19 @@ use crate::chips::execution_chip_v2::executions::SubIndexReverse;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::rlc::rlc;
+use crate::witness::to_field::ToField;
+use aptos_move_witnesses::step_state::ExecStepState;
 use gadgets::util::not;
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::poly::Rotation;
+use itertools::Itertools;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -252,5 +261,88 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             sub_index_lt,
             rlc1_rlc2_eq,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let mut stack_pop_sub_index_reverse_prev = F::zero();
+        let mut prev_rlc = F::zero();
+        for (i, op) in step_state.memory_ops.iter().enumerate() {
+            let current_offset = offset + i;
+            let stack_pop = op.0.as_ref().unwrap();
+            let mut sub_index = op.0.as_ref().unwrap().sub_index.clone();
+            debug_assert!(sub_index.len() < self.sub_index_reverse.limbs.len());
+            sub_index.resize(self.sub_index_reverse.limbs.len(), 0);
+            self.sub_index_reverse
+                .assign(region, current_offset, sub_index.clone())?;
+            let sub_index_value = from_limbs::value::<F, 16>(
+                sub_index.iter().map(|v| *v as u64).collect_vec().as_slice(),
+            );
+            let v_reverse = if sub_index_value.is_zero().into() {
+                F::zero()
+            } else {
+                F::invert(&sub_index_value).unwrap()
+            };
+            self.stack_pop_sub_index_reverse.assign(
+                region,
+                current_offset,
+                Value::known(v_reverse),
+            )?;
+            self.sub_index_lt.assign(
+                region,
+                current_offset,
+                stack_pop_sub_index_reverse_prev,
+                v_reverse,
+            )?;
+
+            stack_pop_sub_index_reverse_prev = v_reverse;
+
+            let stack_pop_rlc = region.challenges().keccak_input().map(|randomness| {
+                rlc::generic(
+                    [
+                        sub_index_value,
+                        if stack_pop.value_header {
+                            F::one()
+                        } else {
+                            F::zero()
+                        },
+                        stack_pop.value.to_field(),
+                    ],
+                    randomness,
+                )
+            });
+            let current_rlc_value = stack_pop_rlc.zip(region.challenges().keccak_input()).map(
+                |(stack_pop_rlc, randomness)| {
+                    prev_rlc = rlc::generic([stack_pop_rlc, prev_rlc], randomness);
+                    prev_rlc
+                },
+            );
+
+            let (rlc1_value, rlc2_value) = if STAGE1 {
+                (current_rlc_value, Value::known(F::zero()))
+            } else {
+                let rlc1_prev = region.get_advice(
+                    current_offset,
+                    self.rlc1.get_column_idx(),
+                    Rotation(self.rlc1.get_rotation() as i32 - 1), // get prev rlc1
+                );
+                (Value::known(rlc1_prev), current_rlc_value)
+            };
+            self.rlc1.assign(region, current_offset, rlc1_value)?;
+            self.rlc2.assign(region, current_offset, rlc2_value)?;
+            rlc1_value
+                .zip(rlc2_value)
+                .map(|(v1, v2)| v1 - v2)
+                .error_if_known_and(|v| {
+                    self.rlc1_rlc2_eq
+                        .assign(region, current_offset, *v)
+                        .is_err()
+                })?;
+        }
+        Ok(step_state.memory_ops.len())
     }
 }

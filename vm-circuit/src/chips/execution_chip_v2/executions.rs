@@ -22,9 +22,6 @@ pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
 pub use borrow_loc::*;
 pub use br_bool::*;
-pub use call::*;
-pub use cast::*;
-pub use equality::*;
 pub use ld::*;
 pub use ld_bool::*;
 pub(crate) use move_or_copy_loc::*;
@@ -39,6 +36,7 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::step_state::SubIndex;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -365,5 +363,17 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
     pub(crate) fn expr(&self) -> Expression<F> {
         let reverse_limbs = self.limbs.iter().rev().collect::<Vec<_>>();
         from_limbs::expr::<_, _, 16>(&reverse_limbs)
+    }
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        sub_index: SubIndex,
+    ) -> Result<(), Error> {
+        debug_assert!(sub_index.len() == self.limbs.len());
+        for (i, v) in sub_index.into_iter().enumerate() {
+            self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
+        }
+        Ok(())
     }
 }
