@@ -571,18 +571,19 @@ impl WitnessPreProcessor {
                     .change_clk(self.clk)
                     .dec_sp(1);
                 let stage3_state = {
-                    let depth = reference.sub_index.len();
+                    let depth = reference.sub_index.len(); //TODO: vec![0] vs vec![]
+                    let parents = reference.sub_index.parents().unwrap();
                     let memory_ops: Vec<_> = (0..depth)
                         .map(|i| {
                             // we come here, then depth >= 1, reference.sub_index != 0
                             // at least we have one parent
-                            let sub_index = reference.sub_index.parent(i).unwrap();
+                            let sub_index = &parents[i];
                             let parent_value = self
                                 .locals
                                 .peek_local_slot(
                                     reference.frame_index,
                                     reference.local_index,
-                                    &sub_index,
+                                    sub_index,
                                 )
                                 .unwrap()
                                 .value
@@ -593,7 +594,7 @@ impl WitnessPreProcessor {
                             let members = self.locals.members(
                                 reference.frame_index,
                                 reference.local_index,
-                                &sub_index,
+                                sub_index,
                             );
                             let flen = match members {
                                 Some(members) => members.len(),
@@ -605,7 +606,7 @@ impl WitnessPreProcessor {
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
                                 reference.frame_index,
                                 reference.local_index,
-                                &sub_index,
+                                sub_index,
                                 new_parent_value,
                                 true,
                                 false,

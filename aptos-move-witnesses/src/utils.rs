@@ -5,7 +5,8 @@ use types::Field;
 pub trait SubIndexUtils {
     fn into_u128(&self) -> u128;
     fn from_u128(sub_index: u128) -> Self;
-    fn parent(&self, depth: usize) -> Option<Self>
+    fn to_fe<F: Field>(&self) -> F;
+    fn parents(&self) -> Option<Vec<Self>>
     where
         Self: Sized;
 }
@@ -17,17 +18,15 @@ impl SubIndexUtils for SubIndex {
     fn from_u128(sub_index: u128) -> Self {
         unimplemented!()
     }
-    fn parent(&self, depth: usize) -> Option<Self> {
-        if depth == 0 {
-            None // no parent when sub_index is 0
-        } else {
-            Some(
-                self.iter()
-                    .map(|item| *item)
-                    .take(depth)
-                    .collect::<Vec<usize>>(),
-            )
-        }
+    fn to_fe<F: Field>(&self) -> F {
+        F::from_u128(self.into_u128())
+    }
+    fn parents(&self) -> Option<Vec<Self>> {
+        //TODO: a depth-n sub_index must have n parents. Return all parents in a vector,
+        // in a order starting with direct relatives.
+        // for example, [1,2,3]'s parents will be [[1,2],[1],[0]]
+
+        unimplemented!()
     }
 }
 
@@ -49,7 +48,7 @@ impl ValueHeader {
         (self.flen as u64) + ((self.len as u64) << 16)
     }
 
-    pub fn fe<F: Field>(&self) -> (F, F) {
+    pub fn to_fe<F: Field>(&self) -> (F, F) {
         (
             F::from_u128(self.flen as u128),
             F::from_u128(self.len as u128),

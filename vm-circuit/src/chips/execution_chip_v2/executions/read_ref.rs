@@ -187,20 +187,21 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
     fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
-        let header_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
+        let header_sub_index = &step_state.memory_ops[0].0.as_ref().unwrap().sub_index;
         let rows = step_state.memory_ops.len();
         (0..rows)
             .map(|i| {
                 self.header_sub_index.assign(
                     region,
-                    i,
-                    Value::known(F::from_u128(header_sub_index.into_u128())),
+                    offset + i,
+                    Value::known(header_sub_index.to_fe()),
                 )?;
                 self.header_sub_index_ext.assign(
                     region,
-                    i,
+                    offset + i,
                     header_sub_index.into_u128(),
                     header_sub_index.len(),
                 )
