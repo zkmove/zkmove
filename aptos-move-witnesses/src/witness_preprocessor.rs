@@ -387,7 +387,7 @@ impl WitnessPreProcessor {
                 let stage2_state = {
                     let step_state = step_state
                         .change_state(ExecutionState::EqStage2)
-                        .change_clk(self.clk);
+                        .change_clk(self.clk).dec_sp(1);
                     let value_version = self.version_stack.pop().unwrap();
                     let mut memory_ops = lhs
                         .iter()
