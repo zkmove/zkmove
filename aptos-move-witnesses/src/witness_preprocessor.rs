@@ -953,6 +953,67 @@ impl WitnessPreProcessor {
                 }
                 stages
             }
+            Operation::And { lhs, rhs } | Operation::Or { lhs, rhs } => {
+                let (is_and, out) = match &trace.data {
+                    Operation::And { lhs, rhs } => (true, *lhs && *rhs),
+                    Operation::Or { lhs, rhs } => (false, *lhs || *rhs),
+                    _ => unreachable!(),
+                };
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::AndOr, trace).set_aux0(is_and as u128);
+
+                let stack_pop_rhs = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(*rhs),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let stack_pop_lhs = StackPop {
+                    index: sp - 1,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(*lhs),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp - 1,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(out),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops: vec![
+                        MemoryOp(Some(stack_pop_rhs), None, None),
+                        MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                    ],
+                }]
+            }
+            Operation::Not { value } => {
+                let step_state = StepState::new(self.clk, ExecutionState::Not, trace);
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(*value),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(!(*value)),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
+                }]
+            }
             _ => unimplemented!(),
         }
     }
