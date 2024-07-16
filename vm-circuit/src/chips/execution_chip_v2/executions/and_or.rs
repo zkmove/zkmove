@@ -10,27 +10,28 @@ use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct AndOr<F, const AND: bool> {
+pub struct AndOr<F> {
     phantom_data: PhantomData<F>,
 }
-impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
-    const NAME: &'static str = if AND { "And" } else { "Or" };
+impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
+    const NAME: &'static str = "AndOr";
 
-    const OPCODE: Opcode = if AND { Opcode::And } else { Opcode::Or };
-    const EXECUTION_STATE: ExecutionState = if AND {
-        ExecutionState::And
-    } else {
-        ExecutionState::Or
-    };
+    const OPCODE: Opcode = Opcode::And; //TODO: support multiple opcodes: [Opcode::And, Opcode::Or]
+    const EXECUTION_STATE: ExecutionState = ExecutionState::AndOr;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
         cb.first_row(|cb| {
+            cb.require_boolean(
+                format!("{}, aux(0) == 0 | 1", Self::NAME),
+                step_curr.aux0.expr(),
+            );
             cb.require_equal(
                 "opcode",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                step_curr.aux0.expr() * (Opcode::And as u64).expr()
+                    + (1u64.expr() - step_curr.aux0.expr()) * (Opcode::Or as u64).expr(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",
@@ -38,14 +39,14 @@ impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
                 2u64.expr(),
             );
             cb.require_no_stack_push();
-            cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
+            cb.require_equal(
+                format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr(),
+            );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
-        cb.require_equal(
-            format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
-            step_curr.stack_pop_index.expr(),
-            step_curr.sp.expr(),
-        );
         cb.require_zero(
             format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
             step_curr.stack_pop_sub_index.expr(),
@@ -62,25 +63,28 @@ impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
 
         cb.last_row(|cb| {
             cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
+                format!("{}, stack_pop_index(0) == sp(0) - 1", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
+            );
+            cb.require_equal(
+                format!("{}, stack_push_index(0) == sp(0) - 1", Self::NAME),
                 step_curr.stack_push_index.expr(),
-                step_curr.sp.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_push_sub_index.expr(),
             );
-            let expected = if AND {
-                and::expr([
-                    step_prev.stack_pop_value.expr(),
-                    step_curr.stack_pop_value.expr(),
-                ])
-            } else {
-                or::expr([
-                    step_prev.stack_pop_value.expr(),
-                    step_curr.stack_pop_value.expr(),
-                ])
-            };
+            let and = and::expr([
+                step_prev.stack_pop_value.expr(),
+                step_curr.stack_pop_value.expr(),
+            ]);
+            let or = or::expr([
+                step_prev.stack_pop_value.expr(),
+                step_curr.stack_pop_value.expr(),
+            ]);
+            let expected = step_curr.aux0.expr() * and + (1u64.expr() - step_curr.aux0.expr()) * or;
             cb.require_equal(
                 format!("{}, stack_push_value(0) == expected", Self::NAME),
                 step_curr.stack_push_value.expr(),
@@ -100,7 +104,7 @@ impl<F: Field, const AND: bool> InstructionGadgetV2<F> for AndOr<F, AND> {
                 (FRAME_INDEX, Transition::Same),
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
-                (SP, Transition::Same),
+                (SP, Transition::Delta((-1).expr())),
                 (PC, Transition::Delta(1.expr())),
             ]);
         });

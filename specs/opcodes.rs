@@ -336,19 +336,20 @@ mod not {
 }
 
 mod and_or {
-    pub fn constrain(is_and: bool) {
+    pub fn constrain() {
         if super::common::on_first_row() {
-            if is_and {
+            aux(0) == 0 | 1;
+            if aux(0) {
                 opcode(0) == OpCode::And;
             } else {
                 opcode(0) == OpCode::Not;
             }
             step_counter(0) == 2;
             super::common::fake_empty_stack_push(0);
-            sp(1) == sp(0) - 1;
+            stack_pop_index(0) == sp(0);
+            sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
 
-        stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         stack_pop_value(0) == 0 | 1;
         stack_pop_value_header(0) == false;
@@ -356,9 +357,10 @@ mod and_or {
         super::common::fake_local_read_zero();
 
         if super::common::on_last_row() {
-            stack_push_index(0) == sp(0);
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
-            let expected = if is_and {
+            let expected = if aux(0) {
                 stack_pop_value(-1) && stack_pop_value(0)
             } else {
                 stack_pop_value(-1) || stack_pop_value(0)
@@ -371,7 +373,7 @@ mod and_or {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0) + 1;
-            sp(1) == sp(0);
+            sp(1) == sp(0) - 1;
         }
     }
 }
