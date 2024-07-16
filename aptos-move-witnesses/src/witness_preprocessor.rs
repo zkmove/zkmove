@@ -525,6 +525,7 @@ impl WitnessPreProcessor {
                 };
                 // stage2: STAGE_POP_NEW_VALUE_AND_WRITE
                 self.clk += 1;
+                let value_version = self.version_stack.pop().unwrap();
                 let step_state = step_state
                     .change_state(ExecutionState::WriteRefStage2)
                     .change_clk(self.clk)
@@ -538,7 +539,7 @@ impl WitnessPreProcessor {
                                 sub_index: item.sub_index.clone(),
                                 value: item.value.clone(),
                                 value_header: item.header,
-                                version: self.version_stack.pop().unwrap(),
+                                version: value_version,
                             };
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
                                 reference.frame_index,

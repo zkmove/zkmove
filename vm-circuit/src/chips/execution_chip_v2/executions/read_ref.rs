@@ -9,6 +9,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::witness::to_field::ToField;
 use aptos_move_witnesses::step_state::ExecStepState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{circuit::Value, plonk::Error};
@@ -190,14 +191,22 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
         offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
-        let header_sub_index = &step_state.memory_ops[0].0.as_ref().unwrap().sub_index;
+        debug_assert!(!step_state.memory_ops.is_empty());
+        let header_sub_index = &step_state
+            .memory_ops
+            .first()
+            .unwrap()
+            .0
+            .as_ref()
+            .unwrap()
+            .sub_index;
         let rows = step_state.memory_ops.len();
         (0..rows)
             .map(|i| {
                 self.header_sub_index.assign(
                     region,
                     offset + i,
-                    Value::known(header_sub_index.to_fe()),
+                    Value::known(header_sub_index.to_field()),
                 )?;
                 self.header_sub_index_ext.assign(
                     region,

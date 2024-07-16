@@ -5,7 +5,6 @@ use types::Field;
 pub trait SubIndexUtils {
     fn into_u128(&self) -> u128;
     fn from_u128(sub_index: u128) -> Self;
-    fn to_fe<F: Field>(&self) -> F;
     fn parents(&self) -> Option<Vec<Self>>
     where
         Self: Sized;
@@ -17,9 +16,6 @@ impl SubIndexUtils for SubIndex {
     }
     fn from_u128(sub_index: u128) -> Self {
         unimplemented!()
-    }
-    fn to_fe<F: Field>(&self) -> F {
-        F::from_u128(self.into_u128())
     }
     fn parents(&self) -> Option<Vec<Self>> {
         //TODO: a depth-n sub_index must have n parents. Return all parents in a vector,
