@@ -67,6 +67,14 @@ impl StepState {
         self.clk = clk;
         self
     }
+    pub fn set_aux0(mut self, value: u128) -> Self {
+        self.aux0 = value;
+        self
+    }
+    pub fn set_aux1(mut self, value: u128) -> Self {
+        self.aux1 = value;
+        self
+    }
 }
 
 #[derive(Default, Clone, Debug)]
