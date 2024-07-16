@@ -288,7 +288,6 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         for arg in args.into_values() {
             let mut field_counter = arg.len() as u64;
             for (i, memory_op) in arg {
-                let stack_pop = memory_op.0.as_ref().unwrap();
                 self.field_index.assign(
                     region,
                     start_offset + i,
@@ -321,8 +320,11 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
                 );
                 self.last_row
                     .assign(region, start_offset + i, cur_step_counter - F::one())?;
-                self.last_row_of_field
-                    .assign(region, start_offset + i, F::from(field_counter))?;
+                self.last_row_of_field.assign(
+                    region,
+                    start_offset + i,
+                    F::from(field_counter - 1),
+                )?;
 
                 field_counter -= 1;
             }

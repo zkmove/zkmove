@@ -633,7 +633,7 @@ impl WitnessPreProcessor {
             Operation::Pack { sd_idx, args } => {
                 let step_state = StepState::new(self.clk, ExecutionState::Pack, trace);
 
-                let flen = args.iter().fold(0usize, |sum, arg| sum + args.len()) + 1;
+                let flen = args.iter().fold(0usize, |sum, arg| sum + arg.len()) + 1;
                 let len = args.len() as u64;
 
                 let mut memory_ops = vec![MemoryOp(
