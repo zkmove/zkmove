@@ -26,14 +26,10 @@ pub use br_bool::*;
 pub use ld::*;
 pub use ld_bool::*;
 pub(crate) use move_or_copy_loc::*;
-pub use not::*;
 pub use pack::*;
-pub use ret::*;
-pub use vec_borrow::*;
 pub use vec_len::*;
 // pub(crate) use vec_pop_back::*;
 pub use unpack::*;
-pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;

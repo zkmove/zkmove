@@ -5,7 +5,9 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::SubIndexReverse;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -265,6 +267,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,

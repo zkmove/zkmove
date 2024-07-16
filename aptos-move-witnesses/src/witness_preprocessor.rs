@@ -630,6 +630,53 @@ impl WitnessPreProcessor {
                 };
                 vec![stage1_state, stage2_state, stage3_state]
             }
+            Operation::Pack { sd_idx, args } => {
+                let step_state = StepState::new(self.clk, ExecutionState::Pack, trace);
+
+                let flen = args.iter().fold(0usize, |sum, arg| sum + args.len()) + 1;
+                let len = args.len() as u64;
+
+                let mut memory_ops = vec![MemoryOp(
+                    None,
+                    Some(StackPush {
+                        index: step_state.sp + 1 - len,
+                        sub_index: vec![0],
+                        value: SimpleValue::U128((len as u128) << (64 + flen)), // TODO: check on this
+                        value_header: true,
+                        version: step_state.clk,
+                    }),
+                    None,
+                )];
+                for (i, arg) in args.iter().enumerate().rev() {
+                    let version = self.version_stack.pop().unwrap();
+                    memory_ops.extend(arg.iter().map(|item| {
+                        let stack_pop = StackPop {
+                            index: step_state.sp - i as u64,
+                            sub_index: item.sub_index.clone(),
+                            value: item.value.clone(),
+                            value_header: item.header,
+                            version,
+                        };
+                        let stack_push = StackPush {
+                            index: step_state.sp + 1 - len,
+                            sub_index: {
+                                let mut sub_index = item.sub_index.clone();
+                                sub_index.insert(0, i + 1);
+                                sub_index
+                            },
+                            value: item.value.clone(),
+                            value_header: item.header,
+                            version: step_state.clk,
+                        };
+                        MemoryOp(Some(stack_pop), Some(stack_push), None)
+                    }));
+                }
+
+                vec![ExecStepState {
+                    step_state,
+                    memory_ops,
+                }]
+            }
             _ => unimplemented!(),
         }
     }

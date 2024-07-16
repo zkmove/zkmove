@@ -3,11 +3,21 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{ExecutionState, DEPTH_POW_OF_ONE_LEVEL};
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::ExecStepState;
 use gadgets::util::{and, not};
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::poly::Rotation;
+use itertools::Itertools;
+use std::collections::HashMap;
+
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -222,5 +232,103 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             last_row,
             last_row_of_field,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        start_offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        debug_assert!(!step_state.memory_ops.is_empty());
+        let cur_step_counter = region.get_advice(
+            start_offset,
+            step.step_counter.get_column_idx(),
+            Rotation::cur(),
+        );
+        debug_assert!(cur_step_counter == F::from(step_state.memory_ops.len() as u64));
+        let step_counter = step_state.memory_ops.len(); // TODO: fetch from Step
+        let field_counters = step_state
+            .memory_ops
+            .iter()
+            .skip(1)
+            .counts_by(|item| item.0.as_ref().unwrap().index);
+        let num_field = field_counters.len();
+
+        self.field_index
+            .assign(region, start_offset, Value::unknown())?;
+        self.field_counter
+            .assign(region, start_offset, Value::unknown())?;
+        self.last_row_of_field
+            .assign(region, start_offset, F::zero())?;
+
+        self.is_zero_stack_pop_sub_index
+            .assign(region, start_offset, F::zero())?;
+        self.is_zero_num_field
+            .assign(region, start_offset, F::from(num_field as u64))?;
+        self.last_row
+            .assign(region, start_offset, cur_step_counter - F::one())?;
+
+        let mut args = HashMap::new();
+        for (stack_index, d) in step_state
+            .memory_ops
+            .clone()
+            .into_iter()
+            .enumerate()
+            .skip(1)
+            .group_by(|(i, memory_ops)| memory_ops.0.as_ref().unwrap().index)
+            .into_iter()
+        {
+            let old = args.insert(stack_index, d.collect::<Vec<_>>());
+            debug_assert!(old.is_none());
+        }
+        debug_assert_eq!(args.len(), num_field);
+        let mut field_index = num_field as u64;
+        for arg in args.into_values() {
+            let mut field_counter = arg.len() as u64;
+            for (i, memory_op) in arg {
+                let stack_pop = memory_op.0.as_ref().unwrap();
+                self.field_index.assign(
+                    region,
+                    start_offset + i,
+                    Value::known(F::from(field_index)),
+                )?;
+                self.field_counter.assign(
+                    region,
+                    start_offset + i,
+                    Value::known(F::from(field_counter)),
+                )?;
+                let stack_pop_sub_index = region.get_advice(
+                    start_offset + i,
+                    step.stack_pop_sub_index.get_column_idx(),
+                    Rotation::cur(),
+                );
+                self.is_zero_stack_pop_sub_index.assign(
+                    region,
+                    start_offset + i,
+                    stack_pop_sub_index,
+                )?;
+                self.is_zero_num_field.assign(
+                    region,
+                    start_offset + i,
+                    F::from(num_field as u64),
+                )?;
+                let cur_step_counter = region.get_advice(
+                    start_offset + i,
+                    step.step_counter.get_column_idx(),
+                    Rotation::cur(),
+                );
+                self.last_row
+                    .assign(region, start_offset + i, cur_step_counter - F::one())?;
+                self.last_row_of_field
+                    .assign(region, start_offset + i, F::from(field_counter))?;
+
+                field_counter -= 1;
+            }
+
+            field_index -= 1;
+        }
+        Ok(step_state.memory_ops.len())
     }
 }

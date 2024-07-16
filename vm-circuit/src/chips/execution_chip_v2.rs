@@ -23,7 +23,7 @@ use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, Sto
 use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
 use crate::chips::execution_chip_v2::executions::{Pack, UnpackStage1, UnpackStage2};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
-use crate::chips::execution_chip_v2::step_v2::Step;
+use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
@@ -532,7 +532,7 @@ impl<F: Field> ExecChipConfig<F> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(region, offset_begin, &exec_step_state),)*
+                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, &exec_step_state),)*
                     _=>unimplemented!()
                 }
             };
@@ -569,6 +569,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,
