@@ -48,7 +48,7 @@ use halo2_proofs::{
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
+pub(crate) struct MembershipGadget<F, const N_LIMB: usize> {
     header_bytes: [Cell<F>; NUM_OF_BYTES_U256],
     header_limbs: [Expression<F>; N_LIMB],
     member_bytes: [Cell<F>; NUM_OF_BYTES_U256],
