@@ -215,7 +215,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
                     region,
                     offset + i,
                     header_sub_index.into_u128(),
-                    header_sub_index.len(),
+                    header_sub_index.depth(),
                 )
             })
             .try_fold((), |_, res| res)?;

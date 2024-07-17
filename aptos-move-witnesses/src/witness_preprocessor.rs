@@ -572,7 +572,7 @@ impl WitnessPreProcessor {
                     .change_clk(self.clk)
                     .dec_sp(1);
                 let stage3_state = {
-                    let depth = reference.sub_index.len(); //TODO: vec![0] vs vec![]
+                    let depth = reference.sub_index.depth();
                     let parents = reference.sub_index.parents().unwrap();
                     let memory_ops: Vec<_> = (0..depth)
                         .map(|i| {

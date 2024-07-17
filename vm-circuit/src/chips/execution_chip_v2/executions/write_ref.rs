@@ -342,7 +342,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     region,
                     offset + i,
                     header_sub_index.get_lower_128(),
-                    SubIndex::from_u128(header_sub_index.get_lower_128()).len(),
+                    SubIndex::from_u128(header_sub_index.get_lower_128()).depth(),
                 )
             })
             .try_fold((), |_, res| res)?;
@@ -529,7 +529,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                     region,
                     offset + i,
                     header_sub_index_prev,
-                    SubIndex::from_u128(header_sub_index_prev).len(),
+                    SubIndex::from_u128(header_sub_index_prev).depth(),
                 )
             })
             .try_fold((), |_, res| res)?;

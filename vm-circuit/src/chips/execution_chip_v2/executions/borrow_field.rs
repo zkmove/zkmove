@@ -114,7 +114,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
             region,
             offset,
             stack_pop_sub_index.into_u128(),
-            stack_pop_sub_index.len(),
+            stack_pop_sub_index.depth(),
         )?;
         Ok(step_state.memory_ops.len())
     }

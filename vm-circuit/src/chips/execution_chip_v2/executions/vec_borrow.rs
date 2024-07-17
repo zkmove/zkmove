@@ -135,7 +135,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
                     region,
                     offset + i,
                     vec_ref_sub_index.into_u128(),
-                    vec_ref_sub_index.len(),
+                    vec_ref_sub_index.depth(),
                 )
             })
             .try_fold((), |_, res| res)?;

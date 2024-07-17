@@ -459,10 +459,12 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        sub_index: SubIndex,
+        sub_index: &SubIndex,
     ) -> Result<(), Error> {
-        debug_assert!(sub_index.len() == self.limbs.len());
-        for (i, v) in sub_index.into_iter().enumerate() {
+        debug_assert!(sub_index.len() <= N_LIMB);
+        let mut sub_index_padded = sub_index.clone();
+        sub_index_padded.resize(N_LIMB, 0);
+        for (i, v) in sub_index_padded.into_iter().enumerate() {
             self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
         }
         Ok(())
