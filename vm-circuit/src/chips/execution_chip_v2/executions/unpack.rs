@@ -5,11 +5,19 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, MembershipGadget, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::poly::Rotation;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -107,6 +115,22 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
             field_index,
             is_zero_num_field,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        debug_assert_eq!(step_state.memory_ops.len(), 1);
+
+        self.field_index.assign(region, offset, Value::unknown())?;
+        let aux_value = region.get_advice(offset, step.aux0.get_column_idx(), Rotation::cur());
+        self.is_zero_num_field.assign(region, offset, aux_value)?;
+
+        Ok(step_state.memory_ops.len())
     }
 }
 
@@ -247,5 +271,31 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
             is_last_field,
             membership_gadget,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let header_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
+        let field_index = header_pop.sub_index.first().cloned().unwrap() as u64;
+        for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
+            let stack_pop = memory_op.0.as_ref().unwrap();
+            self.field_index
+                .assign(region, offset + i, Value::known(F::from(field_index)))?;
+            self.is_last_field
+                .assign(region, offset + i, F::from(field_index - 1))?;
+            // TODO: unify the api of sub_index and header_index to membership gadget
+            self.membership_gadget.assign(
+                region,
+                offset + i,
+                field_index as u128,
+                stack_pop.sub_index.into_u128(),
+            )?;
+        }
+        Ok(step_state.memory_ops.len())
     }
 }

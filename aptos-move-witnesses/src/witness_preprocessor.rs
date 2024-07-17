@@ -4,7 +4,7 @@ use crate::step_state::{
     Version,
 };
 use crate::utils::{SubIndexUtils, ValueHeader};
-use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue};
+use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{Footprint, Operation};
 use std::collections::BTreeMap;
 use std::ops::{Deref, DerefMut};
@@ -676,6 +676,84 @@ impl WitnessPreProcessor {
                     step_state,
                     memory_ops,
                 }]
+            }
+            Operation::Unpack { sd_idx, arg } => {
+                debug_assert!(!arg.is_empty());
+                let step_state = StepState::new(self.clk, ExecutionState::UnpackStage1, trace);
+                let arg_header = arg.first().unwrap();
+                let arg_version = self.version_stack.pop().unwrap();
+                let stack_pop = StackPop {
+                    index: step_state.sp,
+                    sub_index: arg_header.sub_index.clone(),
+                    value: arg_header.value.clone(),
+                    value_header: arg_header.header,
+                    version: arg_version,
+                };
+                let mut stages = vec![ExecStepState {
+                    step_state,
+                    memory_ops: vec![MemoryOp(Some(stack_pop), None, None)],
+                }];
+
+                let mut fields = arg.iter().skip(1).fold(
+                    BTreeMap::<_, Vec<ValueItem>>::new(),
+                    |mut acc, item| {
+                        let field_index = item.sub_index.first().cloned().unwrap();
+                        acc.entry(field_index).or_default().push(item.clone());
+                        acc
+                    },
+                );
+
+                // sort the items
+                fields
+                    .values_mut()
+                    .for_each(|v| v.sort_by_key(|item| item.sub_index.clone()));
+
+                assert_eq!(
+                    fields.keys().cloned().collect::<Vec<_>>(),
+                    (1..=fields.len()).collect::<Vec<_>>()
+                );
+
+                if !fields.is_empty() {
+                    // ----- stage2
+                    for (field_index, field) in fields.into_iter().rev() {
+                        self.clk += 1;
+                        let step_state = step_state
+                            .change_state(ExecutionState::UnpackStage2)
+                            .change_clk(self.clk);
+                        let memory_ops = field
+                            .into_iter()
+                            .map(|item| {
+                                let stack_pop = StackPop {
+                                    index: step_state.sp,
+                                    sub_index: item.sub_index.clone(),
+                                    value: item.value.clone(),
+                                    value_header: item.header,
+                                    version: arg_version,
+                                };
+                                let stack_push = StackPush {
+                                    index: step_state.sp + field_index as u64 - 1,
+                                    sub_index: {
+                                        let mut sub_index = item.sub_index.clone();
+                                        sub_index.remove(0); // drop the field_index
+                                        sub_index.push(0); // in case sub_index only have 1 elem.
+                                        sub_index
+                                    },
+                                    value: item.value.clone(),
+                                    value_header: item.header,
+                                    version: step_state.clk,
+                                };
+                                self.version_stack.push(step_state.clk);
+
+                                MemoryOp(Some(stack_pop), Some(stack_push), None)
+                            })
+                            .collect();
+                        stages.push(ExecStepState {
+                            step_state,
+                            memory_ops,
+                        });
+                    }
+                }
+                stages
             }
             _ => unimplemented!(),
         }
