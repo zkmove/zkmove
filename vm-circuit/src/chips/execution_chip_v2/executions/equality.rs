@@ -5,7 +5,9 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::SubIndexReverse;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -265,6 +267,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,
@@ -274,11 +277,9 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         for (i, op) in step_state.memory_ops.iter().enumerate() {
             let current_offset = offset + i;
             let stack_pop = op.0.as_ref().unwrap();
-            let mut sub_index = op.0.as_ref().unwrap().sub_index.clone();
-            debug_assert!(sub_index.len() < self.sub_index_reverse.limbs.len());
-            sub_index.resize(self.sub_index_reverse.limbs.len(), 0);
+            let sub_index = op.0.as_ref().unwrap().sub_index.clone();
             self.sub_index_reverse
-                .assign(region, current_offset, sub_index.clone())?;
+                .assign(region, current_offset, &sub_index)?;
             let sub_index_value = from_limbs::value::<F, 16>(
                 sub_index.iter().map(|v| *v as u64).collect_vec().as_slice(),
             );

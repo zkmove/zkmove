@@ -21,8 +21,9 @@ use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
 // use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, StoreLocStage2};
 use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
+use crate::chips::execution_chip_v2::executions::{Pack, UnpackStage1, UnpackStage2};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
-use crate::chips::execution_chip_v2::step_v2::Step;
+use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
@@ -69,7 +70,13 @@ pub(crate) struct ExecChipConfig<F> {
     pub ld_u256: Box<Ld<F, NUM_OF_BYTES_U256>>,
     pub ld_true: Box<LdBool<F, true>>,
     pub ld_false: Box<LdBool<F, false>>,
-    // pub pack: Box<Pack<F>>,
+    pub pack: Box<Pack<F, false>>,
+    pub unpack_stage_1: Box<UnpackStage1<F, false>>,
+    pub unpack_stage_2: Box<UnpackStage2<F, false>>,
+    pub vec_pack: Box<Pack<F, true>>,
+    pub vec_unpack_stage_1: Box<UnpackStage1<F, true>>,
+    pub vec_unpack_stage_2: Box<UnpackStage2<F, true>>,
+
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
     // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
     // pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
@@ -232,7 +239,12 @@ impl<F: Field> ExecChipConfig<F> {
             ld_true: configure_opcode_gadget!(),
             ld_false: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),
-            // pack: configure_opcode_gadget!(),
+            pack: configure_opcode_gadget!(),
+            unpack_stage_1: configure_opcode_gadget!(),
+            unpack_stage_2: configure_opcode_gadget!(),
+            vec_pack: configure_opcode_gadget!(),
+            vec_unpack_stage_1: configure_opcode_gadget!(),
+            vec_unpack_stage_2: configure_opcode_gadget!(),
             // vec_swap_stage_1: configure_opcode_gadget!(),
             // vec_swap_stage_2: configure_opcode_gadget!(),
             // vec_swap_stage_3: configure_opcode_gadget!(),
@@ -520,7 +532,7 @@ impl<F: Field> ExecChipConfig<F> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(region, offset_begin, &exec_step_state),)*
+                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, &exec_step_state),)*
                     _=>unimplemented!()
                 }
             };
@@ -557,6 +569,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,

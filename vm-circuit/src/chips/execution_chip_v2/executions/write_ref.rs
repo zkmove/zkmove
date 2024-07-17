@@ -5,7 +5,9 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::MembershipGadget;
 use crate::chips::execution_chip_v2::executions::SubIndexDepth;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -149,6 +151,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,
@@ -308,6 +311,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,
@@ -338,7 +342,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     region,
                     offset + i,
                     header_sub_index.get_lower_128(),
-                    SubIndex::from_u128(header_sub_index.get_lower_128()).len(),
+                    SubIndex::from_u128(header_sub_index.get_lower_128()).depth(),
                 )
             })
             .try_fold((), |_, res| res)?;
@@ -477,6 +481,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
 
     fn assign(
         &self,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         step_state: &ExecStepState,
@@ -524,7 +529,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                     region,
                     offset + i,
                     header_sub_index_prev,
-                    SubIndex::from_u128(header_sub_index_prev).len(),
+                    SubIndex::from_u128(header_sub_index_prev).depth(),
                 )
             })
             .try_fold((), |_, res| res)?;

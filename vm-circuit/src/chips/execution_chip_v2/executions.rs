@@ -9,24 +9,27 @@ pub(crate) mod ld;
 pub(crate) mod ld_bool;
 pub(crate) mod move_or_copy_loc;
 pub(crate) mod not;
-// pub(crate) mod pack;
+pub(crate) mod pack;
 pub(crate) mod pop;
 pub(crate) mod read_ref;
 pub(crate) mod ret;
 pub(crate) mod store_loc;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
-pub(crate) mod vec_pop_back;
-pub(crate) mod vec_push_back;
-pub(crate) mod vec_swap;
+// pub(crate) mod vec_pop_back;
+// pub(crate) mod vec_push_back;
+// pub(crate) mod vec_swap;
+pub(crate) mod unpack;
 pub(crate) mod write_ref;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;
 pub use ld_bool::*;
 pub(crate) use move_or_copy_loc::*;
-// pub use pack::*;
+pub use pack::*;
 pub use vec_len::*;
+// pub(crate) use vec_pop_back::*;
+pub use unpack::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -45,7 +48,7 @@ use halo2_proofs::{
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
+pub(crate) struct MembershipGadget<F, const N_LIMB: usize> {
     header_bytes: [Cell<F>; NUM_OF_BYTES_U256],
     header_limbs: [Expression<F>; N_LIMB],
     member_bytes: [Cell<F>; NUM_OF_BYTES_U256],
@@ -456,10 +459,12 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        sub_index: SubIndex,
+        sub_index: &SubIndex,
     ) -> Result<(), Error> {
-        debug_assert!(sub_index.len() == self.limbs.len());
-        for (i, v) in sub_index.into_iter().enumerate() {
+        debug_assert!(sub_index.len() <= N_LIMB);
+        let mut sub_index_padded = sub_index.clone();
+        sub_index_padded.resize(N_LIMB, 0);
+        for (i, v) in sub_index_padded.into_iter().enumerate() {
             self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
         }
         Ok(())
