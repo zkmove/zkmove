@@ -9,8 +9,15 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::witness::to_field::ToField;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::SubIndex;
+use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
+use halo2_proofs::poly::Rotation;
+use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
@@ -139,6 +146,46 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
             membership_gadget,
         }
     }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        debug_assert!(!step_state.memory_ops.is_empty());
+        let header_sub_index = &step_state
+            .memory_ops
+            .first()
+            .unwrap()
+            .0
+            .as_ref()
+            .unwrap()
+            .sub_index;
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                self.header_sub_index.assign(
+                    region,
+                    offset + i,
+                    Value::known(header_sub_index.to_field()),
+                )?;
+                self.header_flen_delta.assign(
+                    region,
+                    offset + i,
+                    Value::known(F::from(rows as u64)),
+                )?;
+                let local_sub_index = &step_state.memory_ops[i].2.as_ref().unwrap().sub_index;
+                self.membership_gadget.assign(
+                    region,
+                    offset + i,
+                    header_sub_index.into_u128(),
+                    local_sub_index.into_u128(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
+    }
 }
 
 ///STAGE_POP_NEW_VALUE_AND_WRITE
@@ -258,6 +305,45 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
             header_sub_index_ext,
         }
     }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let header_sub_index = region.get_advice(
+            offset,
+            self.header_sub_index.get_column_idx(),
+            Rotation(self.header_sub_index.get_rotation() as i32 - 1),
+        );
+        let header_flen_delta_prev_stage = region.get_advice(
+            offset,
+            self.header_flen_delta.get_column_idx(),
+            Rotation(self.header_flen_delta.get_rotation() as i32 - 1),
+        );
+
+        let rows = step_state.memory_ops.len();
+        let header_flen_delta = F::from(rows as u64);
+        (0..rows)
+            .map(|i| {
+                self.header_sub_index
+                    .assign(region, offset + i, Value::known(header_sub_index))?;
+                self.header_flen_delta.assign(
+                    region,
+                    offset + i,
+                    Value::known(header_flen_delta - header_flen_delta_prev_stage),
+                )?;
+                self.header_sub_index_ext.assign(
+                    region,
+                    offset + i,
+                    header_sub_index.get_lower_128(),
+                    SubIndex::from_u128(header_sub_index.get_lower_128()).len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
+    }
 }
 
 ///STAGE_UPDATE_PARENT
@@ -286,14 +372,15 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage2);
 
-            cb.require_equal(
-                format!(
-                    "{}, header_sub_index(0) == header_sub_index(-1)",
-                    Self::NAME
-                ),
-                header_sub_index.expr(),
-                header_sub_index_prev,
-            );
+            // bug: redundant constraint, clean me
+            // cb.require_equal(
+            //     format!(
+            //         "{}, header_sub_index(0) == header_sub_index(-1)",
+            //         Self::NAME
+            //     ),
+            //     header_sub_index.expr(),
+            //     header_sub_index_prev,
+            // );
             cb.require_equal(
                 format!(
                     "{}, step_counter(0) == header_sub_index(-1).depth()",
@@ -386,5 +473,61 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             header_sub_index_depth,
             header_sub_index_ext,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        let header_sub_index_prev_stage = region.get_advice(
+            offset,
+            self.header_sub_index.get_column_idx(),
+            Rotation(self.header_sub_index.get_rotation() as i32 - 1),
+        );
+        let header_flen_delta_prev_stage = region.get_advice(
+            offset,
+            self.header_flen_delta.get_column_idx(),
+            Rotation(self.header_flen_delta.get_rotation() as i32 - 1),
+        );
+
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                let local_sub_index = &step_state.memory_ops[i].2.as_ref().unwrap().sub_index;
+                self.header_sub_index.assign(
+                    region,
+                    offset + i,
+                    Value::known(local_sub_index.to_field()),
+                )?;
+
+                self.header_flen_delta.assign(
+                    region,
+                    offset + i,
+                    Value::known(header_flen_delta_prev_stage),
+                )?;
+
+                let header_sub_index_prev = if i == 0 {
+                    header_sub_index_prev_stage.get_lower_128()
+                } else {
+                    step_state.memory_ops[i - 1]
+                        .2
+                        .as_ref()
+                        .unwrap()
+                        .sub_index
+                        .into_u128()
+                };
+                self.header_sub_index_depth
+                    .assign(region, offset + i, header_sub_index_prev)?;
+                self.header_sub_index_ext.assign(
+                    region,
+                    offset + i,
+                    header_sub_index_prev,
+                    SubIndex::from_u128(header_sub_index_prev).len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
     }
 }

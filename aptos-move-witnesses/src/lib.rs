@@ -10,5 +10,6 @@ pub struct Witnesses {
 }
 pub mod exec_state;
 pub mod step_state;
+pub mod utils;
 
 pub mod witness_preprocessor;

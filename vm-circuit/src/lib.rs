@@ -2,6 +2,7 @@
 #![feature(lint_reasons)]
 #![feature(adt_const_params)]
 
+extern crate aptos_move_witnesses;
 extern crate movelang;
 
 pub mod chips;

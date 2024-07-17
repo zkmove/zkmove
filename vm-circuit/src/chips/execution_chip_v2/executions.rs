@@ -37,6 +37,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::step_state::SubIndex;
+use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -45,21 +46,29 @@ use types::Field;
 
 #[derive(Clone, Debug)]
 pub(crate) struct MembershipGadget<F: Field, const N_LIMB: usize> {
-    header_limbs: [Cell<F>; N_LIMB],
-    field_limbs: [Cell<F>; N_LIMB],
+    header_bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    header_limbs: [Expression<F>; N_LIMB],
+    member_bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    member_limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
-    reverse_limbs: [Cell<F>; N_LIMB],
-    reverse_header_field_diff: Cell<F>,
+    reverse_header_limbs: [Cell<F>; N_LIMB],
+    reverse_header_member_diff: Cell<F>,
 }
 impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let header_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_u16())
+        let header_bytes = cb.query_bytes();
+        let header_limbs: [Expression<F>; N_LIMB] = (0..N_LIMB)
+            .map(|i| {
+                header_bytes[i * 2 + 1].expr() * 2u64.pow(8).expr() + header_bytes[i * 2].expr()
+            })
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        let field_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_u16())
+        let member_bytes = cb.query_bytes();
+        let member_limbs: [Expression<F>; N_LIMB] = (0..N_LIMB)
+            .map(|i| {
+                member_bytes[i * 2 + 1].expr() * 2u64.pow(8).expr() + member_bytes[i * 2].expr()
+            })
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -68,19 +77,21 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        let reverse_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
+        let reverse_header_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
             .map(|_| cb.query_cell())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        let reverse_header_field_diff = cb.query_cell();
+        let reverse_header_member_diff = cb.query_cell();
 
         Self {
+            header_bytes,
             header_limbs,
-            field_limbs,
+            member_bytes,
+            member_limbs,
             mask,
-            reverse_limbs,
-            reverse_header_field_diff,
+            reverse_header_limbs,
+            reverse_header_member_diff,
         }
     }
 
@@ -88,7 +99,7 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
         &self,
         cb: &mut ConstraintBuilderV2<F>,
         header_sub_index: Expression<F>,
-        field_sub_index: Expression<F>,
+        member_sub_index: Expression<F>,
         name: &'static str,
     ) {
         cb.require_equal(
@@ -97,19 +108,20 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
             from_limbs::expr::<_, _, 16>(&self.header_limbs),
         );
         cb.require_equal(
-            format!("{}, field_sub_index == from_limbs(&field_limbs)", name),
-            field_sub_index.clone(),
-            from_limbs::expr::<_, _, 16>(&self.field_limbs),
+            format!("{}, member_sub_index == from_limbs(&member_limbs)", name),
+            member_sub_index.clone(),
+            from_limbs::expr::<_, _, 16>(&self.member_limbs),
         );
 
         for i in 0..N_LIMB {
             cb.require_zero(
                 format!(
-                    "{}, mask[i] * (header_limbs[i] * reverse_limbs[i] - 1) == 0",
+                    "{}, mask[i] * (header_limbs[i] * reverse_header_limbs[i] - 1) == 0",
                     name
                 ),
                 self.mask[i].expr()
-                    * (self.header_limbs[i].expr() * self.reverse_limbs[i].expr() - 1u64.expr()),
+                    * (self.header_limbs[i].expr() * self.reverse_header_limbs[i].expr()
+                        - 1u64.expr()),
             );
             cb.require_zero(
                 format!("{}, (1 - mask[i]) * header_limbs[i] == 0", name),
@@ -117,22 +129,68 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
             );
             cb.require_zero(
                 format!(
-                    "{}, mask[i] * (header_limbs[i] - field_limbs[i]) == 0",
+                    "{}, mask[i] * (header_limbs[i] - member_limbs[i]) == 0",
                     name
                 ),
-                self.mask[i].expr() * (self.header_limbs[i].expr() - self.field_limbs[i].expr()),
+                self.mask[i].expr() * (self.header_limbs[i].expr() - self.member_limbs[i].expr()),
             );
         }
 
-        //we need field_sub_index != header_sub_index
-        let header_field_diff = field_sub_index - header_sub_index;
+        // As a member, we need member_sub_index != header_sub_index
+        let header_member_diff = member_sub_index - header_sub_index;
         cb.require_zero(
             format!(
-                "{}, header_field_diff * reverse_header_field_diff - 1 == 0",
+                "{}, header_member_diff * reverse_header_member_diff - 1 == 0",
                 name
             ),
-            header_field_diff * self.reverse_header_field_diff.expr() - 1u64.expr(),
+            header_member_diff * self.reverse_header_member_diff.expr() - 1u64.expr(),
         );
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        header_sub_index: u128,
+        member_sub_index: u128,
+    ) -> Result<(), Error> {
+        // assign bytes
+        let header_sub_index_bytes = F::from_u128(header_sub_index).to_repr();
+        for (idx, byte) in self.header_bytes.iter().enumerate() {
+            byte.assign(
+                region,
+                offset,
+                Value::known(F::from(header_sub_index_bytes[idx] as u64)),
+            )?;
+        }
+        let member_sub_index_bytes = F::from_u128(member_sub_index).to_repr();
+        for (idx, byte) in self.member_bytes.iter().enumerate() {
+            byte.assign(
+                region,
+                offset,
+                Value::known(F::from(member_sub_index_bytes[idx] as u64)),
+            )?;
+        }
+
+        // assign mask and reverse_header_limbs
+        let header_limbs = SubIndex::from_u128(header_sub_index);
+        for i in 0..N_LIMB {
+            let mask = header_limbs[i] != 0;
+            self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
+            let reverse_limb = F::from(header_limbs[i] as u64).invert().unwrap_or(F::ZERO);
+            self.reverse_header_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
+        }
+
+        // assign reverse of header_member_diff
+        let header_member_diff = F::from_u128(member_sub_index) - F::from_u128(header_sub_index);
+        let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::ZERO);
+        self.reverse_header_member_diff.assign(
+            region,
+            offset,
+            Value::known(reverse_header_member_diff),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -270,7 +328,8 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 #[derive(Clone, Debug)]
 pub(crate) struct SubIndexDepth<F: Field, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    limbs: [Cell<F>; N_LIMB],
+    bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_limbs: [Cell<F>; N_LIMB],
 }
@@ -280,8 +339,9 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
         sub_index: Expression<F>,
         name: &'static str,
     ) -> Self {
-        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_u16())
+        let bytes = cb.query_bytes();
+        let limbs: [Expression<F>; N_LIMB] = (0..N_LIMB)
+            .map(|i| bytes[i * 2 + 1].expr() * 2u64.pow(8).expr() + bytes[i * 2].expr())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -314,6 +374,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 
         Self {
             sub_index,
+            bytes,
             limbs,
             mask,
             reverse_limbs,
@@ -322,6 +383,33 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 
     pub(crate) fn expr(&self) -> Expression<F> {
         self.mask.iter().map(|c| c.expr()).sum()
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        sub_index: u128,
+    ) -> Result<(), Error> {
+        // assign bytes
+        let sub_index_bytes = F::from_u128(sub_index).to_repr();
+        for (idx, byte) in self.bytes.iter().enumerate() {
+            byte.assign(
+                region,
+                offset,
+                Value::known(F::from(sub_index_bytes[idx] as u64)),
+            )?;
+        }
+
+        // assign mask and reverse_limbs
+        let limbs = SubIndex::from_u128(sub_index);
+        for i in 0..N_LIMB {
+            let mask = limbs[i] != 0;
+            self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
+            let reverse_limb = F::from(limbs[i] as u64).invert().unwrap_or(F::ZERO);
+            self.reverse_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
+        }
+        Ok(())
     }
 }
 

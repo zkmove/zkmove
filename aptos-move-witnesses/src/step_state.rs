@@ -4,16 +4,6 @@ use move_vm_runtime::witnessing::traced_value::SimpleValue;
 
 pub type SubIndex = Vec<usize>;
 
-pub trait SubIndexUtils {
-    fn into_u128(&self) -> u128;
-}
-
-impl SubIndexUtils for SubIndex {
-    fn into_u128(&self) -> u128 {
-        unimplemented!()
-    }
-}
-
 pub type Version = u64;
 
 #[derive(Clone, Debug)]
@@ -93,17 +83,17 @@ pub struct StackPush {
 }
 #[derive(Clone, Debug)]
 pub struct LocalReadWrite {
-    frame_index: u16, // TODO: types of frame_index and local_index
-    index: u16,
-    sub_index: SubIndex,
-    read_value: SimpleValue,
-    read_value_header: bool,
-    read_value_invalid: bool,
-    read_version: u64,
-    write_value: SimpleValue,
-    write_value_header: bool,
-    write_value_invalid: bool,
-    write_version: u64,
+    pub frame_index: u16, // TODO: types of frame_index and local_index
+    pub index: u16,
+    pub sub_index: SubIndex,
+    pub read_value: SimpleValue,
+    pub read_value_header: bool,
+    pub read_value_invalid: bool,
+    pub read_version: u64,
+    pub write_value: SimpleValue,
+    pub write_value_header: bool,
+    pub write_value_invalid: bool,
+    pub write_version: u64,
 }
 
 impl LocalReadWrite {

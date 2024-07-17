@@ -7,7 +7,12 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::witness::to_field::ToField;
+use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::utils::SubIndexUtils;
+use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -178,5 +183,39 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
             header_sub_index,
             header_sub_index_ext,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_state: &ExecStepState,
+    ) -> Result<usize, Error> {
+        debug_assert!(!step_state.memory_ops.is_empty());
+        let header_sub_index = &step_state
+            .memory_ops
+            .first()
+            .unwrap()
+            .0
+            .as_ref()
+            .unwrap()
+            .sub_index;
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                self.header_sub_index.assign(
+                    region,
+                    offset + i,
+                    Value::known(header_sub_index.to_field()),
+                )?;
+                self.header_sub_index_ext.assign(
+                    region,
+                    offset + i,
+                    header_sub_index.into_u128(),
+                    header_sub_index.len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
     }
 }

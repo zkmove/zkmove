@@ -8,7 +8,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::step_state::ExecStepState;
-use aptos_move_witnesses::step_state::SubIndexUtils;
+use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
 use types::Field;
 
@@ -125,12 +125,17 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
         let vec_ref_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
-        self.vec_ref_sub_index.assign(
-            region,
-            offset,
-            vec_ref_sub_index.into_u128(),
-            vec_ref_sub_index.len(),
-        )?;
-        Ok(step_state.memory_ops.len())
+        let rows = step_state.memory_ops.len();
+        (0..rows)
+            .map(|i| {
+                self.vec_ref_sub_index.assign(
+                    region,
+                    offset + i,
+                    vec_ref_sub_index.into_u128(),
+                    vec_ref_sub_index.len(),
+                )
+            })
+            .try_fold((), |_, res| res)?;
+        Ok(rows)
     }
 }
