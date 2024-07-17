@@ -72,14 +72,14 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
                 2u64.expr(),
             );
             cb.require_no_stack_push();
-            cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
+            cb.require_equal(
+                format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr(),
+            );
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
-        cb.require_equal(
-            format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
-            step_curr.stack_pop_index.expr(),
-            step_curr.sp.expr(),
-        );
         cb.require_zero(
             format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
             step_curr.stack_pop_sub_index.expr(),
@@ -92,9 +92,14 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
 
         cb.last_row(|cb| {
             cb.require_equal(
-                format!("{}, stack_push_index(0) == sp(0)", Self::NAME),
+                format!("{}, stack_pop_index(0) == sp(0) - 1", Self::NAME),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
+            );
+            cb.require_equal(
+                format!("{}, stack_push_index(0) == sp(0) - 1", Self::NAME),
                 step_curr.stack_push_index.expr(),
-                step_curr.sp.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
@@ -192,7 +197,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
                 (FRAME_INDEX, Transition::Same),
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
-                (SP, Transition::Same),
+                (SP, Transition::Delta((-1).expr())),
                 (PC, Transition::Delta(1.expr())),
             ]);
         });
