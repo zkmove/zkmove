@@ -37,7 +37,7 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use crate::utils::SubCircuitConfig;
 use crate::witness::WitnessV2;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Region, Value};
 use halo2_proofs::plonk::{
@@ -514,9 +514,11 @@ impl<F: Field> ExecChipConfig<F> {
         &self,
         region: &mut Region<'_, F>,
         offset_begin: usize,
-        exec_step_state: &ExecStepState,
+        stage_state: &StageState,
         challenges: &Challenges<Value<F>>,
     ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+
         let region = &mut CachedRegion::<'_, '_, F>::new(
             region,
             challenges,
@@ -524,27 +526,32 @@ impl<F: Field> ExecChipConfig<F> {
             1,
             offset_begin,
         );
-        for (i, memory_op) in exec_step_state.memory_ops.iter().enumerate() {
-            self.step
-                .assign_exec_step(region, i, &exec_step_state.step_state, memory_op)?;
+
+        let mut i = 0;
+        for exec_step_state in &stage_state.step_states {
+            for memory_op in exec_step_state.memory_ops.iter() {
+                self.step
+                    .assign_exec_step(region, i, &exec_step_state.step_state, memory_op)?;
+                i += 1;
+            }
         }
 
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, &exec_step_state),)*
+                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state),)*
                     _=>unimplemented!()
                 }
             };
         }
-        let assigned_rows = assign_exec_step!(exec_step_state.step_state.exec_state, {
+        let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
             ExecutionState::VecLen => self.vec_len,
             ExecutionState::StoreLocStage1 => self.store_loc_stage1,
             ExecutionState::StoreLocStage2 => self.store_loc_stage2,
         })?;
-        debug_assert_eq!(assigned_rows, exec_step_state.memory_ops.len());
+        debug_assert_eq!(assigned_rows, stage_state.rows());
 
-        Ok(exec_step_state.memory_ops.len())
+        Ok(assigned_rows)
     }
 }
 
@@ -572,9 +579,9 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
-        Ok(step_state.memory_ops.len())
+        Ok(stage_state.rows())
     }
 }
 

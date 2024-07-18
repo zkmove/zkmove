@@ -7,6 +7,17 @@ pub type SubIndex = Vec<usize>;
 pub type Version = u64;
 
 #[derive(Clone, Debug)]
+pub struct StageState {
+    pub step_states: Vec<ExecStepState>,
+}
+
+impl StageState {
+    pub fn rows(&self) -> usize {
+        self.step_states.iter().map(|s| s.memory_ops.len()).sum()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ExecStepState {
     pub step_state: StepState,
     pub memory_ops: Vec<MemoryOp>,

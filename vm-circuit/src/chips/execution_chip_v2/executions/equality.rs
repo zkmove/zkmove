@@ -15,7 +15,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::rlc::rlc;
 use crate::witness::to_field::ToField;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
@@ -270,8 +270,10 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
         let mut stack_pop_sub_index_reverse_prev = F::zero();
         let mut prev_rlc = F::zero();
         for (i, op) in step_state.memory_ops.iter().enumerate() {

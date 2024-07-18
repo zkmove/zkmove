@@ -20,6 +20,10 @@ pub struct VecSwapStage_1<F> {
     index1: Cell<F>,
     index2: Cell<F>,
 }
+
+impl<F: Field> VecSwapStage_1<F> {
+    const STEP_ROWS: u64 = 3;
+}
 impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
     const NAME: &'static str = "VecSwap_Stage1";
     const OPCODE: Opcode = Opcode::VecSwap;
@@ -38,7 +42,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             cb.require_equal(
                 "step_counter(0)==3",
                 cb.curr.state.step_counter.expr(),
-                3u64.expr(),
+                Self::STEP_ROWS.expr(),
             );
         });
 
