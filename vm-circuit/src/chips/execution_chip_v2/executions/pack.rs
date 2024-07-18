@@ -10,7 +10,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not};
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
@@ -239,8 +239,11 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         start_offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
+
         debug_assert!(!step_state.memory_ops.is_empty());
         let cur_step_counter = region.get_advice(
             start_offset,

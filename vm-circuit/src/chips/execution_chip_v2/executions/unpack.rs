@@ -12,7 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
@@ -122,8 +122,11 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
+
         debug_assert_eq!(step_state.memory_ops.len(), 1);
 
         self.field_index.assign(region, offset, Value::unknown())?;
@@ -278,8 +281,10 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
         let header_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
         let field_index = header_pop.sub_index.first().cloned().unwrap() as u64;
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
