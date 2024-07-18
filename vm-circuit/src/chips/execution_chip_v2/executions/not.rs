@@ -2,7 +2,9 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -93,8 +95,9 @@ impl<F: Field> InstructionGadgetV2<F> for Not<F> {
 
     fn assign(
         &self,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
         step_state: &ExecStepState,
     ) -> Result<usize, Error> {
         // no need to assign anything else
