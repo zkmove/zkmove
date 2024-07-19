@@ -20,8 +20,7 @@ pub struct AndOr<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
     const NAME: &'static str = "AndOr";
-
-    const OPCODE: Opcode = Opcode::And; //TODO: support multiple opcodes: [Opcode::And, Opcode::Or]
+    const OPCODES: &'static [Opcode] = &[Opcode::And, Opcode::Or];
     const EXECUTION_STATE: ExecutionState = ExecutionState::AndOr;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

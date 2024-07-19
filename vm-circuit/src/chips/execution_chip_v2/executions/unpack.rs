@@ -32,11 +32,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
     } else {
         "UnpackStage1"
     };
-    const OPCODE: Opcode = if VEC_UNPACK {
-        Opcode::VecUnpack
-    } else {
-        Opcode::Unpack
-    };
+    const OPCODES: &'static [Opcode] = &[Opcode::VecUnpack, Opcode::Unpack];
     const EXECUTION_STATE: ExecutionState = if VEC_UNPACK {
         ExecutionState::VecUnpackStage1
     } else {
@@ -48,10 +44,10 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         let step_curr = cb.curr.state.clone();
         let is_zero_num_field = IsZeroGadget::construct(cb, step_curr.aux0.expr());
 
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),
@@ -149,11 +145,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
     } else {
         "UnpackStage2"
     };
-    const OPCODE: Opcode = if VEC_UNPACK {
-        Opcode::VecUnpack
-    } else {
-        Opcode::Unpack
-    };
+    const OPCODES: &'static [Opcode] = &[Opcode::VecUnpack, Opcode::Unpack];
     const EXECUTION_STATE: ExecutionState = if VEC_UNPACK {
         ExecutionState::VecUnpackStage2
     } else {

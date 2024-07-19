@@ -32,8 +32,8 @@ pub use pack::*;
 pub use vec_len::*;
 // pub(crate) use vec_pop_back::*;
 pub use add_sub::*;
-pub use write_ref::*;
 pub use unpack::*;
+pub use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;

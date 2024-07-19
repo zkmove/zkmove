@@ -35,7 +35,6 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
     const OPCODES: &'static [Opcode] = &[Opcode::Pack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Pack;
 
-
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let field_index = cb.query_cell(); //TODO: query byte for each LIMB_BITS
         let field_counter = cb.query_cell();

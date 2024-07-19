@@ -2,9 +2,14 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::value::Integer;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use gadgets::util::not;
-use halo2_proofs::plonk::Expression;
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
+use move_core_types::{u256, u256::U256};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -70,5 +75,59 @@ impl<F: Field> AddGadget<F> {
 
     pub(crate) fn overflow(&self) -> Expression<F> {
         self.carry_hi.expr() // overflow if carry_hi == 1
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lhs_lo: u128,
+        lhs_hi: u128,
+        rhs_lo: u128,
+        rhs_hi: u128,
+        out_lo: u128,
+        out_hi: u128,
+        is_add: bool,
+    ) -> Result<(), Error> {
+        let rhs_lo = U256::from(rhs_lo);
+        let rhs_hi = U256::from(rhs_hi);
+        let lhs_lo = if is_add {
+            U256::from(lhs_lo)
+        } else {
+            U256::from(out_lo)
+        };
+        let lhs_hi = if is_add {
+            U256::from(lhs_hi)
+        } else {
+            U256::from(out_hi)
+        };
+        let out_lo = if is_add {
+            U256::from(out_lo)
+        } else {
+            U256::from(lhs_lo)
+        };
+        let out_hi = if is_add {
+            U256::from(out_hi)
+        } else {
+            U256::from(lhs_hi)
+        };
+
+        let sum_lo = U256::wrapping_add(lhs_lo, rhs_lo);
+        let sum_hi = U256::wrapping_add(lhs_hi, rhs_hi);
+        let carry_lo = U256::wrapping_sub(sum_lo, out_lo) >> 128;
+        debug_assert!(carry_lo == U256::zero() || carry_lo == U256::one());
+        let carry_hi = U256::wrapping_sub(U256::wrapping_add(sum_hi, carry_lo), out_hi) >> 128;
+        debug_assert!(carry_hi == U256::zero() || carry_hi == U256::one());
+        self.carry_lo.assign(
+            region,
+            offset,
+            Value::known(F::from_u128(carry_lo.unchecked_as_u128())),
+        )?;
+        self.carry_hi.assign(
+            region,
+            offset,
+            Value::known(F::from_u128(carry_hi.unchecked_as_u128())),
+        )?;
+        Ok(())
     }
 }
