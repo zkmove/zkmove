@@ -8,7 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
-use aptos_move_witnesses::step_state::ExecStepState;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
@@ -98,9 +98,9 @@ impl<F: Field> InstructionGadgetV2<F> for Not<F> {
         _step: StepState<F>,
         _region: &mut CachedRegion<'_, '_, F>,
         _offset: usize,
-        step_state: &ExecStepState,
+        stage_state: &StageState,
     ) -> Result<usize, Error> {
         // no need to assign anything else
-        Ok(step_state.memory_ops.len())
+        Ok(stage_state.rows())
     }
 }
