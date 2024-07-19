@@ -984,12 +984,15 @@ impl WitnessPreProcessor {
                     value_header: false,
                     version: *self.version_stack.last().unwrap(),
                 };
-                vec![ExecStepState {
-                    step_state,
-                    memory_ops: vec![
-                        MemoryOp(Some(stack_pop_rhs), None, None),
-                        MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
-                    ],
+                let memory_ops = vec![
+                    MemoryOp(Some(stack_pop_rhs), None, None),
+                    MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                ];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
                 }]
             }
             Operation::Not { value } => {
@@ -1009,9 +1012,12 @@ impl WitnessPreProcessor {
                     value_header: false,
                     version: *self.version_stack.last().unwrap(),
                 };
-                vec![ExecStepState {
-                    step_state,
-                    memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
+                let memory_ops = vec![MemoryOp(Some(stack_pop), Some(stack_push), None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
                 }]
             }
             _ => unimplemented!(),
