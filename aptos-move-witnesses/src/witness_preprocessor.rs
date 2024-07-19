@@ -8,8 +8,10 @@ use crate::step_state::{
 };
 use crate::sub_index;
 use crate::utils::{SubIndexUtils, ValueHeader};
-use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue, ValueItem};
-use move_vm_runtime::witnessing::{Footprint, Operation};
+use crate::witness_preprocessor::to_u256::ToU256;
+use move_core_types::{u256, u256::U256};
+use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
+use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use std::collections::BTreeMap;
 use std::ops::{Deref, DerefMut};
 
@@ -1020,6 +1022,66 @@ impl WitnessPreProcessor {
                     }],
                 }]
             }
+            Operation::BinaryOp { ty, rhs, lhs } => {
+                let num_bytes = match (lhs, rhs) {
+                    (Integer::U8(l), Integer::U8(r)) => 1usize,
+                    (Integer::U16(l), Integer::U16(r)) => 2usize,
+                    (Integer::U32(l), Integer::U32(r)) => 4usize,
+                    (Integer::U64(l), Integer::U64(r)) => 8usize,
+                    (Integer::U128(l), Integer::U128(r)) => 16usize,
+                    (Integer::U256(l), Integer::U256(r)) => 32usize,
+                    _ => unreachable!(),
+                };
+
+                // while calculating the result, wrapping around at the boundary of the u256,
+                // to prevent overflow from stopping the computing.
+                let out = match ty {
+                    BinaryIntegerOperationType::Add => {
+                        let output = U256::wrapping_add(lhs.to_u256(), rhs.to_u256());
+                        SimpleValue::U256(output)
+                    }
+                    BinaryIntegerOperationType::Sub => {
+                        let output = U256::wrapping_sub(lhs.to_u256(), rhs.to_u256());
+                        SimpleValue::U256(output)
+                    }
+                    _ => todo!(),
+                };
+
+                let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
+                    .set_aux0(num_bytes as u128);
+                let stack_pop_rhs = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: rhs.clone().into(),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let stack_pop_lhs = StackPop {
+                    index: sp - 1,
+                    sub_index: vec![0],
+                    value: lhs.clone().into(),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp - 1,
+                    sub_index: vec![0],
+                    value: out,
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                let memory_ops = vec![
+                    MemoryOp(Some(stack_pop_rhs), None, None),
+                    MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                ];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
             _ => unimplemented!(),
         }
     }
@@ -1152,5 +1214,47 @@ impl Deref for Local {
 impl DerefMut for Local {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+///TODO: move to other place
+
+pub mod to_u256 {
+    use move_core_types::{u256, u256::U256};
+    use move_vm_runtime::witnessing::traced_value::Integer;
+
+    pub trait ToU256 {
+        fn to_u256(&self) -> U256;
+    }
+
+    impl ToU256 for Integer {
+        fn to_u256(&self) -> U256 {
+            match self {
+                Integer::U8(v) => U256::from(*v),
+                Integer::U16(v) => U256::from(*v),
+                Integer::U32(v) => U256::from(*v),
+                Integer::U64(v) => U256::from(*v),
+                Integer::U128(v) => U256::from(*v),
+                Integer::U256(v) => U256::from(*v),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use move_core_types::{u256, u256::U256};
+
+    #[test]
+    fn test_overflowing_sub() {
+        let a = U256::from(0u8);
+        let b = U256::max_value();
+        let c = U256::from(1u8);
+        assert_eq!(U256::wrapping_sub(a, b), c);
+
+        let a = U256::from(0u8);
+        let b = U256::from(1u8);
+        let c = U256::max_value();
+        assert_eq!(U256::wrapping_sub(a, b), c);
     }
 }

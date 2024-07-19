@@ -1,3 +1,4 @@
+pub(crate) mod add_sub;
 pub(crate) mod and_or;
 pub(crate) mod base;
 pub(crate) mod borrow_field;
@@ -30,6 +31,7 @@ pub(crate) use move_or_copy_loc::*;
 pub use pack::*;
 pub use unpack::*;
 pub use vec_len::*;
+pub use add_sub::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
