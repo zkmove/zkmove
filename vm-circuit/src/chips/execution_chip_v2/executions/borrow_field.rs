@@ -9,6 +9,7 @@ use crate::chips::execution_chip_v2::step_v2::{
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
+use crate::witness::to_field::ToField;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
@@ -115,8 +116,8 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
         self.stack_pop_value_sub_index.assign(
             region,
             offset,
-            stack_pop_sub_index.into_u128(),
-            stack_pop_sub_index.depth(),
+            stack_pop_sub_index.to_field(), // FIXME
+            stack_pop_sub_index.depth(),    // FIXME
         )?;
         Ok(step_state.memory_ops.len())
     }

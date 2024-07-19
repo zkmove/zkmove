@@ -9,6 +9,7 @@ use crate::chips::execution_chip_v2::step_v2::{
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
+use crate::witness::to_field::ToField;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
@@ -136,7 +137,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
                 self.vec_ref_sub_index.assign(
                     region,
                     offset + i,
-                    vec_ref_sub_index.into_u128(),
+                    vec_ref_sub_index.to_field(), // FIXME
                     vec_ref_sub_index.depth(),
                 )
             })

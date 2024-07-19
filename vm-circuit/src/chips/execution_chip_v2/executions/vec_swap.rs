@@ -5,13 +5,19 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+    StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::witness::to_field::ToField;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use gadgets::util::Expr;
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::poly::Rotation;
 use std::iter::once;
 use types::Field;
 
@@ -19,6 +25,7 @@ use types::Field;
 pub struct VecSwapStage_1<F> {
     index1: Cell<F>,
     index2: Cell<F>,
+    ref_local_sub_index: Cell<F>,
 }
 
 impl<F: Field> VecSwapStage_1<F> {
@@ -32,6 +39,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let index1 = cb.query_cell();
         let index2 = cb.query_cell();
+        let ref_local_sub_index = cb.query_cell();
 
         cb.first_row(|cb| {
             cb.require_equal(
@@ -96,7 +104,53 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             cb.require_cell_transition(index1.clone(), Transition::Same);
             cb.require_cell_transition(index2.clone(), Transition::Same);
         });
-        VecSwapStage_1 { index1, index2 }
+        VecSwapStage_1 {
+            index1,
+            index2,
+            ref_local_sub_index,
+        }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert_eq!(stage_state.step_states.len() as u64, Self::STEP_ROWS);
+        debug_assert!(stage_state
+            .step_states
+            .iter()
+            .all(|s| s.memory_ops.len() == 1));
+        let index2 = stage_state.step_states[0].memory_ops[0]
+            .0
+            .as_ref()
+            .unwrap()
+            .value
+            .to_field();
+        let index1 = stage_state.step_states[1].memory_ops[0]
+            .0
+            .as_ref()
+            .unwrap()
+            .value
+            .to_field();
+        // TODO: get reference's sub_index
+        let ref_sub_index = stage_state.step_states[2].memory_ops[0]
+            .0
+            .as_ref()
+            .unwrap()
+            .value
+            .to_field();
+        for i in 0..stage_state.rows() {
+            self.index1
+                .assign(region, offset + i, Value::known(index1))?;
+            self.index2
+                .assign(region, offset + i, Value::known(index2))?;
+            self.ref_local_sub_index
+                .assign(region, offset + i, Value::known(ref_sub_index))?;
+        }
+        Ok(stage_state.rows())
     }
 }
 
@@ -106,6 +160,7 @@ pub struct VecSwapStage_2_Or_3<F, const TWO: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
+    ref_local_sub_index_extended: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field, const TWO: bool> VecSwapStage_2_Or_3<F, TWO> {
     const PREV_STATE: ExecutionState = if TWO {
@@ -272,7 +327,43 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
             index1,
             index2,
             ref_local_sub_index,
+            ref_local_sub_index_extended: extended_sub_index,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert_eq!(stage_state.step_states.len(), 1);
+
+        let index1 = region.get_advice(offset, self.index1.get_column_idx(), Rotation::prev());
+        let index2 = region.get_advice(offset, self.index2.get_column_idx(), Rotation::prev());
+        let ref_local_sub_index = region.get_advice(
+            offset,
+            self.ref_local_sub_index.get_column_idx(),
+            Rotation::prev(),
+        );
+
+        for (i, memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
+            self.index1
+                .assign(region, offset + i, Value::known(index1))?;
+            self.index2
+                .assign(region, offset + i, Value::known(index2))?;
+            self.ref_local_sub_index.assign(
+                region,
+                offset + i,
+                Value::known(ref_local_sub_index),
+            )?;
+            // FIXME: depth can be eliminated
+            self.ref_local_sub_index_extended
+                .assign(region, offset + i, ref_local_sub_index, 0)?;
+        }
+
+        Ok(stage_state.rows())
     }
 }
 
@@ -282,6 +373,7 @@ pub struct VecSwapStage_4_Or_5<F, const FOUR: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
+    ref_local_sub_index_extended: ExtendedSubIndex<F, 8>,
 }
 /// Stage 5/6 pop from stack and write to local of index1/index2
 impl<F: Field, const FOUR: bool> VecSwapStage_4_Or_5<F, FOUR> {
@@ -438,6 +530,42 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
             index1,
             index2,
             ref_local_sub_index,
+            ref_local_sub_index_extended: extended_sub_index,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert_eq!(stage_state.step_states.len(), 1);
+
+        let index1 = region.get_advice(offset, self.index1.get_column_idx(), Rotation::prev());
+        let index2 = region.get_advice(offset, self.index2.get_column_idx(), Rotation::prev());
+        let ref_local_sub_index = region.get_advice(
+            offset,
+            self.ref_local_sub_index.get_column_idx(),
+            Rotation::prev(),
+        );
+
+        for (i, memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
+            self.index1
+                .assign(region, offset + i, Value::known(index1))?;
+            self.index2
+                .assign(region, offset + i, Value::known(index2))?;
+            self.ref_local_sub_index.assign(
+                region,
+                offset + i,
+                Value::known(ref_local_sub_index),
+            )?;
+            // FIXME: depth can be eliminated
+            self.ref_local_sub_index_extended
+                .assign(region, offset + i, ref_local_sub_index, 0)?;
+        }
+
+        Ok(stage_state.rows())
     }
 }

@@ -14,8 +14,8 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::witness::to_field::ToField;
-use aptos_move_witnesses::step_state::SubIndex;
 use aptos_move_witnesses::step_state::StageState;
+use aptos_move_witnesses::step_state::SubIndex;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
 use halo2_proofs::poly::Rotation;
@@ -346,8 +346,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                 self.header_sub_index_ext.assign(
                     region,
                     offset + i,
-                    header_sub_index.get_lower_128(),
-                    SubIndex::from_u128(header_sub_index.get_lower_128()).depth(),
+                    header_sub_index,
+                    SubIndex::from_u128(header_sub_index.get_lower_128()).depth(), // FIXME
                 )
             })
             .try_fold((), |_, res| res)?;
@@ -522,14 +522,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 )?;
 
                 let header_sub_index_prev = if i == 0 {
-                    header_sub_index_prev_stage.get_lower_128()
+                    header_sub_index_prev_stage
                 } else {
                     step_state.memory_ops[i - 1]
                         .2
                         .as_ref()
                         .unwrap()
                         .sub_index
-                        .into_u128()
+                        .to_field() // FIXME
                 };
                 self.header_sub_index_depth
                     .assign(region, offset + i, header_sub_index_prev)?;
@@ -537,7 +537,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                     region,
                     offset + i,
                     header_sub_index_prev,
-                    SubIndex::from_u128(header_sub_index_prev).depth(),
+                    0, // FIXME
                 )
             })
             .try_fold((), |_, res| res)?;

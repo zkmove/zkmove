@@ -2,6 +2,7 @@ use crate::exec_state::ExecutionState;
 use crate::Footprint;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
 
+// TODO: abstract
 pub type SubIndex = Vec<usize>;
 
 pub type Version = u64;

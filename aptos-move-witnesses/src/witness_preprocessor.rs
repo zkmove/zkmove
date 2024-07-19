@@ -1,8 +1,12 @@
 use crate::exec_state::ExecutionState;
+use crate::exec_state::ExecutionState::{
+    VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
+};
 use crate::step_state::{
     ExecStepState, LocalReadWrite, MemoryOp, Slot, StackPop, StackPush, StageState, StepState,
     SubIndex, Version,
 };
+use crate::sub_index;
 use crate::utils::{SubIndexUtils, ValueHeader};
 use move_vm_runtime::witnessing::traced_value::{Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{Footprint, Operation};
@@ -797,6 +801,155 @@ impl WitnessPreProcessor {
                             }],
                         });
                     }
+                }
+                stages
+            }
+            Operation::VecSwap {
+                si,
+                vec_ref,
+                vec_len,
+                idx1,
+                idx2,
+                idx1_elem,
+                idx2_elem,
+            } => {
+                let mut step_state = StepState::new(self.clk, ExecutionState::VecSwapStage1, trace);
+
+                let stage1 = {
+                    let states = [
+                        SimpleValue::U64(*idx2),
+                        SimpleValue::U64(*idx1),
+                        SimpleValue::Reference(vec_ref.clone()),
+                    ]
+                    .map(|value| {
+                        let s = ExecStepState {
+                            step_state,
+                            memory_ops: vec![MemoryOp(
+                                Some(StackPop {
+                                    index: step_state.sp,
+                                    sub_index: vec![0],
+                                    value,
+                                    value_header: false,
+                                    version: self.version_stack.pop().unwrap(),
+                                }),
+                                None,
+                                None,
+                            )],
+                        };
+                        step_state = step_state.dec_sp(1);
+                        s
+                    })
+                    .to_vec();
+                    StageState {
+                        step_states: states,
+                    }
+                };
+
+                let mut stages = vec![stage1];
+                // stage 2/3
+                for (idx, idx_elem, new_state) in [
+                    (idx1, idx1_elem, VecSwapStage2),
+                    (idx2, idx2_elem, VecSwapStage3),
+                ] {
+                    self.clk += 1;
+                    step_state = step_state.change_state(new_state).change_clk(self.clk);
+                    let idx_items_sub_index_prefix =
+                        sub_index::concat(vec_ref.sub_index.clone(), vec![*idx as usize]);
+                    let memory_ops = idx_elem
+                        .iter()
+                        .map(|item| {
+                            let item_sub_index = sub_index::concat(
+                                idx_items_sub_index_prefix.clone(),
+                                item.sub_index.clone(),
+                            );
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &item_sub_index,
+                                item.value.clone(),
+                                item.header,
+                                true,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u16,
+                                item_sub_index,
+                                old_,
+                                new_,
+                            );
+                            let stack_push = StackPush {
+                                index: step_state.sp + 1,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: self.clk,
+                            };
+                            MemoryOp(None, Some(stack_push), Some(local_op))
+                        })
+                        .collect();
+                    self.version_stack.push(self.clk);
+
+                    stages.push(StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    });
+                    step_state = step_state.inc_sp(1);
+                }
+
+                // stage4/5
+                for (idx, idx_elem, new_state) in [
+                    (idx1, idx2_elem, VecSwapStage4),
+                    (idx2, idx1_elem, VecSwapStage5),
+                ] {
+                    self.clk += 1;
+                    step_state = step_state.change_state(new_state).change_clk(self.clk);
+                    let idx_items_sub_index_prefix =
+                        sub_index::concat(vec_ref.sub_index.clone(), vec![*idx as usize]);
+                    let stack_value_version = self.version_stack.pop().unwrap();
+                    let memory_ops = idx_elem
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: stack_value_version,
+                            };
+                            let item_sub_index = sub_index::concat(
+                                idx_items_sub_index_prefix.clone(),
+                                item.sub_index.clone(),
+                            );
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &item_sub_index,
+                                item.value.clone(),
+                                item.header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u16,
+                                item_sub_index,
+                                old_,
+                                new_,
+                            );
+
+                            MemoryOp(Some(stack_pop), None, Some(local_op))
+                        })
+                        .collect();
+                    stages.push(StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    });
+                    step_state = step_state.dec_sp(1);
                 }
                 stages
             }
