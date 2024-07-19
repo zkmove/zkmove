@@ -289,11 +289,11 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        ref_sub_index: u128,
+        ref_sub_index: F,
         depth: usize,
     ) -> Result<(), Error> {
         // assign bytes
-        let ref_sub_index_bytes = F::from_u128(ref_sub_index).to_repr();
+        let ref_sub_index_bytes = ref_sub_index.to_repr();
         for (idx, byte) in self.bytes.iter().enumerate() {
             byte.assign(
                 region,
@@ -391,10 +391,10 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        sub_index: u128,
+        sub_index: F,
     ) -> Result<(), Error> {
         // assign bytes
-        let sub_index_bytes = F::from_u128(sub_index).to_repr();
+        let sub_index_bytes = sub_index.to_repr();
         for (idx, byte) in self.bytes.iter().enumerate() {
             byte.assign(
                 region,
@@ -402,13 +402,17 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
                 Value::known(F::from(sub_index_bytes[idx] as u64)),
             )?;
         }
+        let limbs = (0..N_LIMB)
+            .map(|i| {
+                (sub_index_bytes[i * 2 + 1] as u64) * 2u64.pow(8) + sub_index_bytes[i * 2] as u64
+            })
+            .collect::<Vec<_>>();
 
         // assign mask and reverse_limbs
-        let limbs = SubIndex::from_u128(sub_index);
         for i in 0..N_LIMB {
             let mask = limbs[i] != 0;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
-            let reverse_limb = F::from(limbs[i] as u64).invert().unwrap_or(F::ZERO);
+            let reverse_limb = F::from(limbs[i]).invert().unwrap_or(F::ZERO);
             self.reverse_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
         }
         Ok(())
