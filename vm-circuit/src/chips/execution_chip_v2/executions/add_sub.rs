@@ -9,8 +9,8 @@ use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
 use crate::chips::execution_chip_v2::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
+    INTEGER_NUM_OF_BYTES_SET, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256,
+    NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -39,7 +39,7 @@ pub struct AddSub<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
     const NAME: &'static str = "AddSub";
-    const OPCODES: &'static [Opcode] = &[Opcode::Add, Opcode::Sub];
+    const OPCODE: Opcode = Opcode::Add; // TODO: remove this const?
     const EXECUTION_STATE: ExecutionState = ExecutionState::AddSub;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -59,9 +59,12 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
 
         cb.first_row(|cb| {
             cb.require_in_set(
-                "opcode in OPCODES",
-                step_curr.opcode.expr(),
-                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+                "aux(0) in set INTEGER_NUM_OF_BYTES",
+                step_curr.aux0.expr(),
+                INTEGER_NUM_OF_BYTES_SET
+                    .iter()
+                    .map(|n| (*n as u64).expr())
+                    .collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",

@@ -13,6 +13,15 @@ pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const NUM_OF_BYTES_U256: usize = 32;
 
+pub const INTEGER_NUM_OF_BYTES_SET: [usize; 6] = [
+    NUM_OF_BYTES_U8,
+    NUM_OF_BYTES_U16,
+    NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U128,
+    NUM_OF_BYTES_U256,
+];
+
 #[derive(Clone, Debug)]
 pub(crate) struct Value<F, const N: usize> {
     cells: [Cell<F>; N],
