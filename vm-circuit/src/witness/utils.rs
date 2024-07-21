@@ -16,13 +16,14 @@ pub fn convert_u256_to_fe_pair<F: Field>(input: U256) -> (F, F) {
 pub struct ModuleIdMapping(Vec<ModuleId>);
 
 impl ModuleIdMapping {
-    pub fn construct(package: &CompiledPackage) -> Self {
-        let module_ids = package
-            .all_modules_map()
-            .get_map()
-            .keys()
-            .cloned()
-            .collect();
+    pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
+        let modules = package.all_modules_map();
+        let deps = modules.get_transitive_dependencies(module_id).unwrap();
+        let mut module_ids = deps
+            .iter()
+            .map(|module| module.self_id())
+            .collect::<Vec<_>>();
+        module_ids.sort();
         Self(module_ids)
     }
     pub fn get_module_index(&self, module_id: ModuleId) -> usize {

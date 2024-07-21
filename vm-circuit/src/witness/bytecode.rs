@@ -160,7 +160,7 @@ impl BytecodeTableRow {
 pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<BytecodeTableRow> {
     let modules = package.all_modules_map();
     let deps = modules.get_transitive_dependencies(module_id).unwrap();
-    let module_id_mapping = ModuleIdMapping::construct(package);
+    let module_id_mapping = ModuleIdMapping::construct(module_id, package);
     deps.iter()
         .flat_map(|module| {
             let module_index = module_id_mapping.get_module_index(module.self_id());
