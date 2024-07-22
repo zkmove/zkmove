@@ -2,10 +2,15 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -86,5 +91,16 @@ impl<F: Field> InstructionGadgetV2<F> for Not<F> {
         Not {
             phantom_data: PhantomData,
         }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(stage_state.rows())
     }
 }

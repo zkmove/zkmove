@@ -47,6 +47,7 @@ pub enum ExecutionState {
     CastU32,
     CastU16,
     CastU8,
+    AndOr,
     Not,
     MoveLoc,
     CopyLoc,

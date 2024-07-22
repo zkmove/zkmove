@@ -335,6 +335,49 @@ mod not {
     }
 }
 
+mod and_or {
+    pub fn constrain() {
+        if super::common::on_first_row() {
+            aux(0) == 0 | 1;
+            if aux(0) {
+                opcode(0) == OpCode::And;
+            } else {
+                opcode(0) == OpCode::Not;
+            }
+            step_counter(0) == 2;
+            super::common::fake_empty_stack_push(0);
+            stack_pop_index(0) == sp(0);
+            sp(1) == sp(0); //keep sp unchanged to make assign easier
+        }
+
+        stack_pop_sub_index(0) == 0;
+        stack_pop_value(0) == 0 | 1;
+        stack_pop_value_header(0) == false;
+        stack_pop_version(0) < clk(0);
+        super::common::fake_local_read_zero();
+
+        if super::common::on_last_row() {
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
+            stack_push_sub_index(0) == 0;
+            let expected = if aux(0) {
+                stack_pop_value(-1) && stack_pop_value(0)
+            } else {
+                stack_pop_value(-1) || stack_pop_value(0)
+            };
+            stack_push_value(0) == expected;
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1;
+        }
+    }
+}
+
 mod cast {
     pub fn constrain_cast() {
         step_counter(0) == 1;
