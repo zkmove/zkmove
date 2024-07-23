@@ -9,6 +9,7 @@ use types::Field;
 
 pub(crate) mod byecode_table;
 pub(crate) mod function_table;
+pub(crate) mod utils;
 pub(crate) mod ux_table;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter)]

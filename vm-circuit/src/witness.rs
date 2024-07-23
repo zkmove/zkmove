@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub mod arith_operations;
+pub mod bytecode;
 pub mod bytecode_table;
 pub mod call_trace_table;
 pub mod const_table;
@@ -24,6 +25,7 @@ pub mod function_calls;
 pub mod input_type_elements;
 pub mod rw_operations;
 pub mod type_instantiation_table;
+pub mod utils;
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
 pub const DEFAULT_MAX_STACK_SIZE: usize = 256;

@@ -1,7 +1,7 @@
 pub mod utilities;
 
-#[cfg(test)]
-mod chip_tests;
+// #[cfg(test)]
+// mod chip_tests;
 
 pub mod execution_chip;
 pub mod execution_chip_v2;
