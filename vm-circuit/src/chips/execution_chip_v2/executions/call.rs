@@ -6,20 +6,23 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+    StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not};
-use std::marker::PhantomData;
+use halo2_proofs::poly::Rotation;
+use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 /// check the number of argument. If the function has no arguments, enter callee, else enter stage2
 #[derive(Clone, Debug)]
 pub struct CallStage1<F> {
-    pub call_context: CallContext<F>,
     num_arg: Cell<F>,
+    pub call_context: CallContext<F>,
     is_zero_num_arg: IsZeroGadget<F>,
 }
 
@@ -33,6 +36,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         let num_arg = cb.query_cell();
         let is_zero_num_arg = IsZeroGadget::construct(cb, num_arg.expr());
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
 
         cb.require_equal(
             "opcode",
@@ -44,14 +48,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             step_curr.step_counter.expr(),
             1u64.expr(),
         );
-        cb.add_lookup(
-            "function lookup",
-            Lookup::Function {
-                module_index: step_curr.aux0.expr(),
-                function_index: step_curr.aux1.expr(),
-                num_arg: num_arg.expr(),
-            },
-        );
 
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
@@ -59,6 +55,16 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.condition(is_zero_num_arg.expr(), |cb| {
+            cb.add_lookup(
+                "function lookup",
+                Lookup::Function {
+                    module_index: step_curr.module_index.expr(),
+                    function_handle_index: step_curr.aux0.expr(),
+                    def_module_index: step_next.module_index.expr(),
+                    function_index: step_next.function_index.expr(),
+                    num_arg: num_arg.expr(),
+                },
+            );
             call_context.configure(
                 cb,
                 step_curr.frame_index.expr(),
@@ -68,8 +74,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                 step_curr.clk.expr(),
             );
             cb.require_state_transition(vec![
-                (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
-                (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
             ]);
@@ -101,10 +105,40 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         });
 
         CallStage1 {
-            call_context,
             num_arg,
+            call_context,
             is_zero_num_arg,
         }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        let state = stage_state.step_states.first().unwrap();
+        let frame_index = F::from(state.step_state.frame_index as u64);
+        let module_index = F::from(state.step_state.module_index);
+        let function_index = F::from(state.step_state.function_index as u64);
+        let pc = F::from(state.step_state.pc);
+        let clk = F::from(state.step_state.clk);
+        let num_arg = F::zero(); // TODO: fetch num_arg from state of the next stage
+
+        self.num_arg.assign(region, offset, Value::known(num_arg))?;
+        self.call_context.assign(
+            region,
+            offset,
+            frame_index,
+            module_index,
+            function_index,
+            pc,
+            clk,
+        )?;
+        self.is_zero_num_arg.assign(region, offset, num_arg)?;
+
+        Ok(1)
     }
 }
 
@@ -112,7 +146,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
 /// the next stage must be stage3. we need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
 pub struct CallStage2<F> {
-    phantom_data: PhantomData<F>,
+    num_arg: Cell<F>,
 }
 
 impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
@@ -121,6 +155,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let num_arg = cb.query_cell();
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -186,6 +221,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
+        cb.require_cell_transition(num_arg.clone(), Transition::Same);
 
         cb.last_row(|cb| {
             cb.require_next_state(ExecutionState::CallStage3);
@@ -205,9 +241,25 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             );
         });
 
-        CallStage2 {
-            phantom_data: PhantomData,
+        CallStage2 { num_arg }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        let rows = stage_state.rows();
+        let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
+
+        for i in 0..rows {
+            self.num_arg
+                .assign(region, offset + i, Value::known(num_arg))?;
         }
+
+        Ok(rows)
     }
 }
 
@@ -216,6 +268,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 /// processed all the arguments. We need to enter this stage 'num_arg' times.
 #[derive(Clone, Debug)]
 pub struct CallStage3<F> {
+    num_arg: Cell<F>,
     call_context: CallContext<F>,
     is_zero_local_index: IsZeroGadget<F>,
 }
@@ -225,9 +278,11 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let num_arg = cb.query_cell();
         let call_context = CallContext::construct(cb);
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
             cb.require_zero(
@@ -302,11 +357,22 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             call_context.require_zero(cb);
             cb.require_state_transition(vec![(SP, Transition::Same)]);
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
+            cb.require_cell_transition(num_arg.clone(), Transition::Same);
         });
         cb.last_row(|cb| {
             cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
             cb.condition(is_zero_local_index.expr(), |cb| {
                 //all args have been processed
+                cb.add_lookup(
+                    "function lookup",
+                    Lookup::Function {
+                        module_index: step_curr.module_index.expr(),
+                        function_handle_index: step_curr.aux0.expr(),
+                        def_module_index: step_next.module_index.expr(),
+                        function_index: step_next.function_index.expr(),
+                        num_arg: num_arg.expr(),
+                    },
+                );
                 call_context.configure(
                     cb,
                     step_curr.frame_index.expr(),
@@ -317,8 +383,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                 );
                 cb.require_state_transition(vec![
                     (FRAME_INDEX, Transition::Delta(1.expr())),
-                    (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
-                    (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                     (PC, Transition::To(0.expr())),
                 ]);
             });
@@ -344,8 +408,58 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         });
 
         CallStage3 {
+            num_arg,
             call_context,
             is_zero_local_index,
         }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        let step_state = stage_state.step_states.first().unwrap();
+        let rows = step_state.memory_ops.len();
+        let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
+
+        for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
+            self.num_arg
+                .assign(region, offset + i, Value::known(num_arg))?;
+            let local_index = memory_op.2.as_ref().unwrap().index;
+            self.is_zero_local_index
+                .assign(region, offset + i, F::from(local_index as u64))?;
+        }
+
+        for i in 0..(rows - 1) {
+            self.call_context.assign(
+                region,
+                offset + i,
+                F::zero(),
+                F::zero(),
+                F::zero(),
+                F::zero(),
+                F::zero(),
+            )?;
+        }
+
+        let frame_index = F::from(step_state.step_state.frame_index as u64);
+        let module_index = F::from(step_state.step_state.module_index);
+        let function_index = F::from(step_state.step_state.function_index as u64);
+        let pc = F::from(step_state.step_state.pc);
+        let clk = F::from(step_state.step_state.clk);
+        self.call_context.assign(
+            region,
+            offset + rows - 1,
+            frame_index,
+            module_index,
+            function_index,
+            pc,
+            clk,
+        )?;
+
+        Ok(rows)
     }
 }

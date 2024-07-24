@@ -536,8 +536,6 @@ mod call {
     /// check the number of argument. If the function has no arguments, enter callee, else enter stage2
     pub fn constrain_call_stage_1() {
         opcode(0) == OpCode::Call;
-        //aux0 is module_index of callee, aux1 is function_index of callee
-        table_func.contain(aux0(0), aux1(0), num_arg(0));
         step_counter(0) == 1;
 
         super::common::fake_empty_stack_pop(0);
@@ -546,8 +544,13 @@ mod call {
 
         sp(1) == sp(0);
         if num_arg(0) == 0 {
-            module_index(1) == aux0(0);
-            function_index(1) == aux1(0);
+            table_func.contain(
+                module_index(0),
+                aux0(0), //fh_idx
+                module_index(1),
+                function_index(1),
+                num_arg(0)
+            );
             pc(1) == 0;
             frame_index(1) == frame_index(0) + 1;
             super::call_stack::push();
@@ -594,6 +597,7 @@ mod call {
 
         sp(1) == sp(0);
         local_index(1) == local_index(0);
+        num_arg(1) == num_arg(0);
 
         if super::common::on_last_row() {
             execution_state_next == call_stage_3;
@@ -638,13 +642,19 @@ mod call {
         if !super::common::on_last_row() {
             sp(1) == sp(0);
             local_index(1) == local_index(0);
+            num_arg(1) == num_arg(0);
         }
         if super::common::on_last_row() {
             sp(1) == sp(0) - 1;
             if local_index == 0 {
                 //all args have been processed
-                module_index(1) == aux0(0);
-                function_index(1) == aux1(0);
+                table_func.contain(
+                    module_index(0),
+                    aux0(0), //fh_index
+                    module_index(1),
+                    function_index(1),
+                    num_arg(0)
+                );
                 frame_index(1) == frame_index(0) + 1;
                 pc(1) == 0;
                 super::call_stack::push();
