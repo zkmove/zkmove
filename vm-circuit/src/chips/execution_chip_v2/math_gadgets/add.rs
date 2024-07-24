@@ -4,12 +4,11 @@ use crate::chips::execution_chip_v2::value::Integer;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use gadgets::util::not;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
-use move_core_types::{u256, u256::U256};
+use move_core_types::{u256::U256};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -44,33 +43,17 @@ impl<F: Field> AddGadget<F> {
         lhs: Integer<F>,
         rhs: Integer<F>,
         out: Integer<F>,
-        is_add: Expression<F>, // boolean
     ) {
-        cb.condition(is_add.clone(), |cb| {
-            cb.require_equal(
-                "lhs_lo + rhs_lo == out_lo + carry_lo * 2^128",
-                lhs.lo() + rhs.lo(),
-                out.lo().clone() + self.carry_lo.expr() * 2u64.pow(128).expr(),
-            );
-            cb.require_equal(
-                "lhs_hi + rhs_hi + carry_lo == out_hi + carry_hi * 2^128",
-                lhs.hi() + rhs.hi() + self.carry_lo.expr(),
-                out.hi() + self.carry_hi.expr() * 2u64.pow(128).expr(),
-            );
-        });
-
-        cb.condition(not::expr(is_add), |cb| {
-            cb.require_equal(
-                "out_lo + rhs_lo == lhs_lo + carry_lo * 2^128",
-                out.lo().clone() + rhs.lo(),
-                lhs.lo() + self.carry_lo.expr() * 2u64.pow(128).expr(),
-            );
-            cb.require_equal(
-                "out_hi + rhs_hi + carry_lo == lhs_hi + carry_hi * 2^128",
-                out.hi() + rhs.hi() + self.carry_lo.expr(),
-                lhs.hi() + self.carry_hi.expr() * 2u64.pow(128).expr(),
-            );
-        });
+        cb.require_equal(
+            "lhs_lo + rhs_lo == out_lo + carry_lo * 2^128",
+            lhs.lo() + rhs.lo(),
+            out.lo().clone() + self.carry_lo.expr() * 2u64.pow(128).expr(),
+        );
+        cb.require_equal(
+            "lhs_hi + rhs_hi + carry_lo == out_hi + carry_hi * 2^128",
+            lhs.hi() + rhs.hi() + self.carry_lo.expr(),
+            out.hi() + self.carry_hi.expr() * 2u64.pow(128).expr(),
+        );
     }
 
     pub(crate) fn overflow(&self) -> Expression<F> {
@@ -87,31 +70,13 @@ impl<F: Field> AddGadget<F> {
         rhs_hi: u128,
         out_lo: u128,
         out_hi: u128,
-        is_add: bool,
     ) -> Result<(), Error> {
         let rhs_lo = U256::from(rhs_lo);
         let rhs_hi = U256::from(rhs_hi);
-        let lhs_lo = if is_add {
-            U256::from(lhs_lo)
-        } else {
-            U256::from(out_lo)
-        };
-        let lhs_hi = if is_add {
-            U256::from(lhs_hi)
-        } else {
-            U256::from(out_hi)
-        };
-        let out_lo = if is_add {
-            U256::from(out_lo)
-        } else {
-            U256::from(lhs_lo)
-        };
-        let out_hi = if is_add {
-            U256::from(out_hi)
-        } else {
-            U256::from(lhs_hi)
-        };
-
+        let lhs_lo = U256::from(lhs_lo);
+        let lhs_hi = U256::from(lhs_hi);
+        let out_lo = U256::from(out_lo);
+        let out_hi = U256::from(out_hi);
         let sum_lo = U256::wrapping_add(lhs_lo, rhs_lo);
         let sum_hi = U256::wrapping_add(lhs_hi, rhs_hi);
         let carry_lo = U256::wrapping_sub(sum_lo, out_lo) >> 128;

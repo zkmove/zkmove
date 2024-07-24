@@ -103,6 +103,18 @@ impl<F: Field> Integer<F> {
     pub(crate) fn expr(&self) -> (Expression<F>, Expression<F>) {
         (self.lo.clone(), self.hi.clone())
     }
+    pub(crate) fn select(
+        selector: Expression<F>,
+        when_true: Integer<F>,
+        when_false: Integer<F>,
+    ) -> Integer<F> {
+        let (true_lo, true_hi) = when_true.expr();
+        let (false_lo, false_hi) = when_false.expr();
+        Integer::new(
+            selector.clone() * true_lo + (1u64.expr() - selector.clone()) * false_lo,
+            selector.clone() * true_hi + (1u64.expr() - selector.clone()) * false_hi,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
