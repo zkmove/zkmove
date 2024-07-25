@@ -18,14 +18,17 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::step_state::StageState;
-use halo2_proofs::{circuit::Value, plonk::{Error, Expression},};
-use move_core_types::{u256::U256};
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
+use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::Integer;
 use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct AddSub<F> {
-    add_sub_gadget: Option<AddSubGadget<F>>,
+    add_sub_gadget: AddSubGadget<F>,
     is_add: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
@@ -101,7 +104,8 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             let lhs = step_curr.stack_pop_value.as_integer();
             let rhs = step_prev.stack_pop_value.as_integer();
             let out = step_curr.stack_push_value.as_integer();
-            let add_sub = AddSubGadget::construct(cb, is_add.expr(), step_curr.aux0.expr(), lhs, rhs, out);
+            let add_sub =
+                AddSubGadget::construct(cb, is_add.expr(), step_curr.aux0.expr(), lhs, rhs, out);
             let overflow = add_sub.overflow();
             add_sub_gadget = Some(add_sub);
 
@@ -120,7 +124,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
         });
 
         AddSub {
-            add_sub_gadget,
+            add_sub_gadget: add_sub_gadget.unwrap(),
             is_add,
         }
     }
@@ -161,7 +165,18 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             )?;
         }
 
-        self.add_sub_gadget.as_ref().unwrap().assign(region, offset + 1, is_add, num_bytes, lhs_lo, lhs_hi, rhs_lo, rhs_hi, out_lo, out_hi)?;
+        self.add_sub_gadget.assign(
+            region,
+            offset + 1,
+            is_add,
+            num_bytes,
+            lhs_lo,
+            lhs_hi,
+            rhs_lo,
+            rhs_hi,
+            out_lo,
+            out_hi,
+        )?;
         //TODO: we need assign row 'offset' too, since add_sub_gadget is also allocated in row 'offset'
 
         Ok(step_state.memory_ops.len())
@@ -194,30 +209,16 @@ impl<F: Field> AddSubGadget<F> {
         let range_check_lo = IntegerRangeCheck::construct(cb);
         let range_check_hi = IntegerRangeCheck::construct(cb);
         let add = AddGadget::construct(cb);
-        let is_u8 = IsZeroGadget::construct(
-            cb,
-            n_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr(),
-        );
-        let is_u16 = IsZeroGadget::construct(
-            cb,
-            n_bytes.clone() - (NUM_OF_BYTES_U16 as u64).expr(),
-        );
-        let is_u32 = IsZeroGadget::construct(
-            cb,
-            n_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr(),
-        );
-        let is_u64 = IsZeroGadget::construct(
-            cb,
-            n_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr(),
-        );
-        let is_u128 = IsZeroGadget::construct(
-            cb,
-            n_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr(),
-        );
-        let is_u256 = IsZeroGadget::construct(
-            cb,
-            n_bytes - (NUM_OF_BYTES_U256 as u64).expr(),
-        );
+        let is_u8 = IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr());
+        let is_u16 =
+            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U16 as u64).expr());
+        let is_u32 =
+            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr());
+        let is_u64 =
+            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr());
+        let is_u128 =
+            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr());
+        let is_u256 = IsZeroGadget::construct(cb, n_bytes - (NUM_OF_BYTES_U256 as u64).expr());
         let overflow = cb.query_bool();
 
         // configure add gadget
@@ -379,11 +380,8 @@ impl<F: Field> AddSubGadget<F> {
                 } else {
                     F::zero()
                 };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             NUM_OF_BYTES_U16 => {
                 self.range_check_lo.assign(
@@ -398,11 +396,8 @@ impl<F: Field> AddSubGadget<F> {
                 } else {
                     F::zero()
                 };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             NUM_OF_BYTES_U32 => {
                 self.range_check_lo.assign(
@@ -417,11 +412,8 @@ impl<F: Field> AddSubGadget<F> {
                 } else {
                     F::zero()
                 };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             NUM_OF_BYTES_U64 => {
                 self.range_check_lo.assign(
@@ -436,11 +428,8 @@ impl<F: Field> AddSubGadget<F> {
                 } else {
                     F::zero()
                 };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             NUM_OF_BYTES_U128 => {
                 self.range_check_lo.assign(
@@ -451,11 +440,8 @@ impl<F: Field> AddSubGadget<F> {
                 )?;
                 debug_assert!(out_hi == 0u128 || out_hi == 1u128);
                 let overflow = if out_hi == 1u128 { F::one() } else { F::zero() };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             NUM_OF_BYTES_U256 => {
                 self.range_check_lo.assign(
@@ -497,11 +483,8 @@ impl<F: Field> AddSubGadget<F> {
                 } else {
                     F::zero()
                 };
-                self.overflow.assign(
-                    region,
-                    offset,
-                    Value::known(overflow),
-                )?;
+                self.overflow
+                    .assign(region, offset, Value::known(overflow))?;
             }
             _ => unreachable!(),
         }

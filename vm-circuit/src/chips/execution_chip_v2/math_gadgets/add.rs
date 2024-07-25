@@ -8,7 +8,7 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
-use move_core_types::{u256::U256};
+use move_core_types::u256::U256;
 use types::Field;
 
 #[derive(Clone, Debug)]
