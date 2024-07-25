@@ -17,6 +17,7 @@ types = { path = "../common/types" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
 move-package = { workspace = true }
+move-vm-runtime = { workspace = true }
 halo2_proofs = { workspace = true, features = ["dev-graph"] }
 halo2_poseidon.workspace = true
 field-exts.workspace = true

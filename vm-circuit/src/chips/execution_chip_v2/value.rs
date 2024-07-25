@@ -13,6 +13,15 @@ pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const NUM_OF_BYTES_U256: usize = 32;
 
+pub const INTEGER_NUM_OF_BYTES_SET: [usize; 6] = [
+    NUM_OF_BYTES_U8,
+    NUM_OF_BYTES_U16,
+    NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U128,
+    NUM_OF_BYTES_U256,
+];
+
 #[derive(Clone, Debug)]
 pub(crate) struct Value<F, const N: usize> {
     cells: [Cell<F>; N],
@@ -93,6 +102,18 @@ impl<F: Field> Integer<F> {
     }
     pub(crate) fn expr(&self) -> (Expression<F>, Expression<F>) {
         (self.lo.clone(), self.hi.clone())
+    }
+    pub(crate) fn select(
+        selector: Expression<F>,
+        when_true: Integer<F>,
+        when_false: Integer<F>,
+    ) -> Integer<F> {
+        let (true_lo, true_hi) = when_true.expr();
+        let (false_lo, false_hi) = when_false.expr();
+        Integer::new(
+            selector.clone() * true_lo + (1u64.expr() - selector.clone()) * false_lo,
+            selector.clone() * true_hi + (1u64.expr() - selector.clone()) * false_hi,
+        )
     }
 }
 

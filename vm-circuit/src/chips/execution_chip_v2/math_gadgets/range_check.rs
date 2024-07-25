@@ -1,6 +1,6 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZero;
 use crate::chips::execution_chip_v2::utils::{from_bytes, from_limbs};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -49,27 +49,30 @@ impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
 
 /// Check if the input value is in the range of U8,U16,U32,U64 or U128
 #[derive(Clone, Debug)]
-pub struct IntegerRangeCheck<F, const N_BYTES: usize> {
+pub struct IntegerRangeCheck<F> {
     bytes: [Cell<F>; NUM_OF_BYTES_U128],
-    is_zero: IsZeroGadget<F>,
+    is_zero: IsZero<F>,
 }
 
-impl<F: Field, const N_BYTES: usize> IntegerRangeCheck<F, N_BYTES> {
-    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, value: Expression<F>) -> Self {
+impl<F: Field> IntegerRangeCheck<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let bytes = cb.query_bytes();
-
+        let is_zero = IsZero::construct(cb);
+        Self { bytes, is_zero }
+    }
+    pub(crate) fn expr(
+        &self,
+        cb: &mut ConstraintBuilderV2<F>,
+        value: Expression<F>,
+        n_bytes: usize,
+    ) -> Expression<F> {
         cb.require_equal(
             "the input value is well assigned",
             value.clone(),
-            from_bytes::expr(&bytes),
+            from_bytes::expr(&self.bytes),
         );
-
-        let expected_value = from_bytes::expr(&bytes.iter().take(N_BYTES).collect::<Vec<_>>());
-        let is_zero = IsZeroGadget::construct(cb, value - expected_value);
-        Self { bytes, is_zero }
-    }
-    pub(crate) fn expr(&self) -> Expression<F> {
-        self.is_zero.expr()
+        let expected = from_bytes::expr(&self.bytes[..n_bytes]);
+        self.is_zero.expr(cb, value - expected)
     }
 
     pub(crate) fn assign(
@@ -77,11 +80,14 @@ impl<F: Field, const N_BYTES: usize> IntegerRangeCheck<F, N_BYTES> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         value: F,
+        n_bytes: usize,
     ) -> Result<(), Error> {
         let bytes = value.to_repr();
         for (idx, part) in self.bytes.iter().enumerate() {
             part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
         }
+        let expected: F = from_bytes::value(&bytes[..n_bytes]);
+        let _ = self.is_zero.assign(region, offset, value - expected);
         Ok(())
     }
 }
