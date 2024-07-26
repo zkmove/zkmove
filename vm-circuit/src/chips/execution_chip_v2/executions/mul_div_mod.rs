@@ -141,7 +141,7 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             );
 
             // for Div&Mod, go to Error state if divisor == 0
-            let divide_by_zero = (1.expr() - is_mul.expr()) * divisor_is_zero_.expr();
+            let divide_by_zero = (1u64.expr() - is_mul.expr()) * divisor_is_zero_.expr();
             let overflow = mul_div_mod_.overflow();
             let error = or::expr([divide_by_zero, overflow]);
             cb.condition(error.clone(), |cb| {
@@ -271,7 +271,7 @@ impl<F: Field> MulDivModGadget<F> {
         cb.require_zero(
             "remainder < divisor when divisor != 0",
             (1u64.expr() - remainder_lt_divisor.expr())
-                * (1.expr() - divisor_is_zero)
+                * (1.expr() - divisor_is_zero.clone())
                 * (1.expr() - is_mul.expr()),
         );
         cb.require_zero(
@@ -323,6 +323,11 @@ impl<F: Field> MulDivModGadget<F> {
             + is_u32.expr() * (1u64.expr() - is_out_lo_in_range_u32)
             + is_u64.expr() * (1u64.expr() - is_out_lo_in_range_u64)
             + is_u128.expr() * (1u64.expr() - is_out_lo_in_range_u128);
+
+        // when divide by zero, 'out' must be zero, but 'out_lo_bytes' may not be zero
+        // we need avoid the conflict
+        let divide_by_zero = (1u64.expr() - is_mul.expr()) * divisor_is_zero;
+        let overflow_out_lo = (1u64.expr() - divide_by_zero) * overflow_out_lo;
 
         let is_zero_out_hi = IsZero::construct(cb);
         let overflow_out_hi =
