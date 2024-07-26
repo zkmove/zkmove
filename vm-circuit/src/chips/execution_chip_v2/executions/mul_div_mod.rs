@@ -268,9 +268,11 @@ impl<F: Field> MulDivModGadget<F> {
         // for Div&Mod, overflow == 0
         cb.require_zero("c == 0 for Mul", c.clone() * is_mul.clone());
         let remainder_lt_divisor = LtGadget::construct(cb, c.clone(), b.clone());
-        cb.require_true(
+        cb.require_zero(
             "remainder < divisor when divisor != 0",
-            remainder_lt_divisor.expr() * (1.expr() - divisor_is_zero) * (1.expr() - is_mul.expr()),
+            (1u64.expr() - remainder_lt_divisor.expr())
+                * (1.expr() - divisor_is_zero)
+                * (1.expr() - is_mul.expr()),
         );
         cb.require_zero(
             "for DIV/MOD, overflow == 0",
