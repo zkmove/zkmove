@@ -215,16 +215,17 @@ mod le {
             }
             step_counter(0) == 2;
             super::common::fake_empty_stack_push(0);
-            sp(1) == sp(0) - 1;
+            stack_pop_index(0) == sp(0);
+            sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
-        stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
         stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
 
         if is_last {
-            stack_push_index(0) == sp(0);
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
             let out = if is_le {
                 stack_pop_value(0) <= stack_pop_value(-1)
@@ -239,7 +240,7 @@ mod le {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0) + 1;
-            sp(1) == sp(0);
+            sp(1) == sp(0) - 1;
         }
     }
 }
@@ -257,16 +258,17 @@ mod lt {
             }
             step_counter(0) == 2;
             super::common::fake_empty_stack_push(0);
-            sp(1) == sp(0) - 1;
+            stack_pop_index(0) == sp(0);
+            sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
-        stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
         stack_pop_version(0) < clk(0);
         super::common::fake_local_read_zero();
 
         if is_last {
-            stack_push_index(0) == sp(0);
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
             let out = if is_lt {
                 stack_pop_value(0) < stack_pop_value(-1)
@@ -281,7 +283,7 @@ mod lt {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0) + 1;
-            sp(1) == sp(0);
+            sp(1) == sp(0) - 1;
         }
     }
 }
