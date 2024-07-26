@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::utils::from_bytes;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
@@ -53,7 +54,7 @@ pub(crate) struct MulAddExprs<F> {
 pub(crate) struct MulAddGadget<F> {
     carry_lo: [Cell<F>; MAX_RADIX_BYTES],
     carry_hi: [Cell<F>; MAX_RADIX_BYTES],
-    overflow: Expression<F>,
+    is_zero_overflow: IsZeroGadget<F>,
 }
 
 impl<F: Field> MulAddGadget<F> {
@@ -81,6 +82,7 @@ impl<F: Field> MulAddGadget<F> {
             + a_limbs[3].expr() * b_limbs[1].expr()
             + a_limbs[3].expr() * b_limbs[2].expr()
             + a_limbs[3].expr() * b_limbs[3].expr();
+        let is_zero_overflow = IsZeroGadget::construct(cb, overflow);
 
         cb.require_equal(
             "(a * b)_lo + c_lo == d_lo + carry_lo * 2^128",
@@ -96,11 +98,11 @@ impl<F: Field> MulAddGadget<F> {
         Self {
             carry_lo,
             carry_hi,
-            overflow,
+            is_zero_overflow,
         }
     }
 
     pub(crate) fn overflow(&self) -> Expression<F> {
-        self.overflow.clone()
+        1u64.expr() - self.is_zero_overflow.expr()
     }
 }
