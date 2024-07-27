@@ -109,18 +109,20 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             let overflow = add_sub.overflow();
             add_sub_gadget = Some(add_sub);
 
-            cb.condition(overflow, |_cb| {
+            cb.condition(overflow.clone(), |_cb| {
                 // cb.require_next_state(ExecutionState::ErrorState);
                 // ErrorCode == StatusCode::ArithmeticError
             });
 
-            cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
-                (SP, Transition::Delta((-1).expr())),
-                (PC, Transition::Delta(1.expr())),
-            ]);
+            cb.condition(1u64.expr() - overflow, |cb| {
+                cb.require_state_transition(vec![
+                    (FRAME_INDEX, Transition::Same),
+                    (MODULE_INDEX, Transition::Same),
+                    (FUNCTION_INDEX, Transition::Same),
+                    (SP, Transition::Delta((-1).expr())),
+                    (PC, Transition::Delta(1.expr())),
+                ]);
+            });
         });
 
         AddSub {
