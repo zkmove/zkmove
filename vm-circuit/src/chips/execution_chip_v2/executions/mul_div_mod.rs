@@ -17,7 +17,7 @@ use crate::chips::execution_chip_v2::value::{
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::Cell;
-use gadgets::util::{and, or, select};
+use gadgets::util::{or, select};
 use halo2_proofs::plonk::Expression;
 use itertools::izip;
 use types::Field;

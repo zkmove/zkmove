@@ -5,12 +5,19 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+    StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::witness::to_field::ToField;
+use aptos_move_witnesses::step_state::StageState;
+use aptos_move_witnesses::utils::ValueHeader;
 use gadgets::util::Expr;
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::poly::Rotation;
 use types::Field;
 
 /// pop vector_ref from stack and update parent from up to bottom
@@ -19,7 +26,6 @@ pub struct VecPushBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
     vector_origin_len: Cell<F>,
-    vector_origin_flen: Cell<F>,
 }
 impl<F: Field> VecPushBackStage1<F> {
     const NEXT_STATE: ExecutionState = ExecutionState::VecPushBackStage2;
@@ -44,7 +50,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         // make sure len and flen are < u16
         // TODO: what happens if vector len > u16
         let vector_origin_len = cb.query_u16();
-        let vector_origin_flen = cb.query_u16();
 
         cb.require_no_stack_push();
 
@@ -141,19 +146,14 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         //         local_read_version(0) < clk(0);
         //         local_write_version(0) == clk(0);
 
+        // FIXME: cannot nest row selector.
         cb.not_first_row(|cb| {
             cb.not_last_row(|cb| {
-                // cb.require_equal(
-                //     "local_write_value(0) - local_read_value(0) == local_write_value(1) - local_read_value(1)",
-                //     step_curr.local_read_value.expr() + step_next.local_write_value.expr(),
-                //     step_curr.local_write_value.expr() + step_next.local_read_value.expr(),
-                // );
-
                 cb.require_equal(
                     "local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
-                    == local_write_value(-1).as_header().flen - local_read_value(-1).as_header().flen",
-                    step_curr.local_read_value.as_header().flen() + step_prev.local_write_value.as_header().flen(),
-                    step_curr.local_write_value.as_header().flen() + step_prev.local_read_value.as_header().flen(),
+                    == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen",
+                    step_curr.local_write_value.as_header().flen() - step_curr.local_read_value.as_header().flen(),
+                    step_next.local_write_value.as_header().flen() - step_next.local_read_value.as_header().flen(),
                 );
                 cb.require_equal(
                     "local_read_value(0).as_header().len == local_write_value(0).as_header().len",
@@ -163,34 +163,17 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
             });
             cb.last_row(|cb| {
                 cb.require_equal(
-                    "local_read_value(-1).as_header().flen + step_counter(1) == local_write_value(-1).as_header().flen",
-                    step_prev.local_read_value.as_header().flen() + step_next.step_counter.expr(),
-                    step_prev.local_write_value.as_header().flen(),
+                    "local_read_value(0).as_header().flen + step_counter(1) == local_write_value(0).as_header().flen",
+                    step_curr.local_read_value.as_header().flen() + step_next.step_counter.expr(),
+                    step_curr.local_write_value.as_header().flen(),
                 );
+                cb.require_equal(
+                    "local_read_value(0).as_header().len + 1 == local_write_value(0).as_header().len",
+                    step_curr.local_read_value.as_header().len() + 1u64.expr(),
+                    step_curr.local_write_value.as_header().len()
+                );
+                cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
             });
-        });
-
-        cb.last_row(|cb| {
-            cb.require_equal(
-                "local_read_value(0).as_header().len() == vector_origin_len",
-                step_curr.local_read_value.as_header().len(),
-                vector_origin_len.expr(),
-            );
-            cb.require_equal(
-                "local_read_value(0).as_header().flen() == vector_origin_flen",
-                step_curr.local_read_value.as_header().flen(),
-                vector_origin_flen.expr(),
-            );
-            cb.require_equal(
-                "local_write_value(0).as_header().len() == vector_origin_len + 1",
-                step_curr.local_write_value.as_header().len(),
-                vector_origin_len.expr() + 1u64.expr(),
-            );
-            cb.require_equal(
-                "local_write_value(0).as_header().flen() == vector_origin_flen + step_counter(1)",
-                step_curr.local_write_value.as_header().flen(),
-                vector_origin_flen.expr() + step_next.step_counter.expr(),
-            );
         });
 
         cb.require_state_transition(
@@ -213,8 +196,71 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
             vector_sub_index,
             extended_local_sub_index_of_next_row,
             vector_origin_len,
-            vector_origin_flen,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert_eq!(stage_state.step_states.len(), 1);
+
+        let step_state = stage_state.step_states.first().unwrap();
+
+        let vec_ref_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
+        let vector_sub_index = vec_ref_pop.sub_index.to_field();
+
+        let last_header_local_op = step_state.memory_ops.last().unwrap().2.as_ref().unwrap();
+
+        let vector_origin_len = ValueHeader::from(last_header_local_op.read_value.clone()).len;
+
+        let local_frame_index = last_header_local_op.frame_index;
+        let local_index = last_header_local_op.index;
+
+        // TODO: remove this
+        step.local_frame_index.assign(
+            region,
+            offset,
+            Value::known(F::from(local_frame_index as u64)),
+        )?;
+        step.local_index
+            .assign(region, offset, Value::known(F::from(local_index as u64)))?;
+
+        for i in 0..stage_state.rows() {
+            self.vector_sub_index
+                .assign(region, offset + i, Value::known(vector_sub_index))?;
+            // last row
+            if i == stage_state.rows() - 1 {
+                self.extended_local_sub_index_of_next_row
+                    .assign(region, offset + i, F::ZERO, 0)?;
+
+                self.vector_origin_len.assign(
+                    region,
+                    offset + i,
+                    Value::known(F::from(vector_origin_len as u64)),
+                )?;
+            } else {
+                let next_local_sub_index = step_state.memory_ops[i + 1]
+                    .2
+                    .as_ref()
+                    .unwrap()
+                    .sub_index
+                    .clone();
+                // FIXME: get depth within assign function
+                self.extended_local_sub_index_of_next_row.assign(
+                    region,
+                    offset + i,
+                    next_local_sub_index.to_field(),
+                    0,
+                )?;
+                self.vector_origin_len
+                    .assign(region, offset + i, Value::known(F::from(0)))?;
+            }
+        }
+        Ok(stage_state.rows())
     }
 }
 
@@ -265,10 +311,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         );
         cb.require_equal(
             "local_sub_index(0)
-            == extend_vector_sub_index.concat(vector_origin_len(0) + stack_pop_sub_index(0) << 16)",
+            == extend_vector_sub_index.concat(vector_origin_len(0)+1 + stack_pop_sub_index(0) << 16)",
             step_curr.local_sub_index.expr(),
             extended_vector_sub_index.concat_sub_index(
-                vector_origin_len.expr()
+                (vector_origin_len.expr()+1u64.expr())
                     + step_curr.stack_pop_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
             ),
         );
@@ -307,11 +353,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         //         local_read_version(0) < clk(0);
         //         local_write_version(0) == clk(0);
 
-        // --- stack push constraints
+        // --- stack pop constraints
         cb.require_equal(
-            "stack_pop_index(0) == sp(0)",
+            "stack_pop_index(0) == sp(0) - 1",
             step_curr.stack_pop_index.expr(),
-            step_curr.sp.expr(),
+            step_curr.sp.expr() - 1u64.expr(),
         );
         // sub_index at first row must be zero
         cb.first_row(|cb| {
@@ -334,11 +380,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
             step_curr.local_write_value_header.expr(),
         );
         // TODO: do it in common?
-        cb.require_equal(
-            "stack_pop_version(0)==clk(0)",
-            step_curr.stack_pop_version.expr(),
-            step_curr.clk.expr(),
-        );
+        // cb.require_equal(
+        //     "stack_pop_version(0)<clk(0)",
+        //     step_curr.stack_pop_version.expr(),
+        //     step_curr.clk.expr(),
+        // );
 
         // next
         cb.require_state_transition(
@@ -366,5 +412,32 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
             extended_vector_sub_index,
             vector_origin_len,
         }
+    }
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        let vector_sub_index = region.get_advice(
+            offset,
+            self.vector_sub_index.get_column_idx(),
+            Rotation::prev(),
+        );
+        let vector_origin_len = region.get_advice(
+            offset,
+            self.vector_origin_len.get_column_idx(),
+            Rotation::prev(),
+        );
+        for i in 0..stage_state.rows() {
+            self.vector_origin_len
+                .assign(region, offset + i, Value::known(vector_origin_len))?;
+            self.vector_sub_index
+                .assign(region, offset + i, Value::known(vector_sub_index))?;
+            self.extended_vector_sub_index
+                .assign(region, offset + i, vector_sub_index, 0)?;
+        }
+        Ok(stage_state.rows())
     }
 }

@@ -2,7 +2,7 @@ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
 use crate::witness::bytecode::BytecodeTableRow;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed, TableColumn};
+use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
 
 #[derive(Copy, Clone, Debug)]

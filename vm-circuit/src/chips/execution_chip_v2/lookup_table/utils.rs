@@ -1,5 +1,5 @@
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::plonk::{Any, Column, Error, Fixed};
+use halo2_proofs::plonk::{Column, Error, Fixed};
 use types::Field;
 
 pub(crate) fn assign_fixed_table<F: Field>(
@@ -9,7 +9,7 @@ pub(crate) fn assign_fixed_table<F: Field>(
     table_name: &str,
 ) -> Result<(), Error> {
     layouter.assign_region(
-        || format!("assign fixed table"),
+        || "assign fixed table".to_string(),
         |mut region| {
             for (column_idx, column) in table_columns.iter().enumerate() {
                 region.assign_fixed(

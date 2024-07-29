@@ -140,11 +140,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
-        let is_add = if step_state.step_state.opcode == Opcode::Add as u16 {
-            true
-        } else {
-            false
-        };
+        let is_add = step_state.step_state.opcode == Opcode::Add as u16;
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs = step_state.memory_ops[1].0.clone().unwrap().value;

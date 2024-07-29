@@ -192,7 +192,7 @@ pub fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<Bytecod
                     .map(move |(i, transition)| BytecodeTableRow {
                         module_index,
                         function_index: func_index,
-                        pc: i as u16,
+                        pc: i,
                         bytecode: transition.instr,
                         ty_out: transition.output,
                     })
@@ -223,7 +223,7 @@ mod tests {
     use crate::witness::bytecode::{parse_module, BytecodeTableRow};
     use error::VmResult;
     use move_binary_format::file_format::{
-        empty_module, empty_script, Bytecode, CodeUnit, CompiledModule, CompiledScript,
+        empty_module, Bytecode, CodeUnit, CompiledModule,
         FunctionDefinition, FunctionHandle, FunctionHandleIndex, IdentifierIndex,
         ModuleHandleIndex, SignatureIndex, SignatureToken, Visibility,
     };
