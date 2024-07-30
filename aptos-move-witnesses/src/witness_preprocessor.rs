@@ -971,7 +971,7 @@ impl WitnessPreProcessor {
                         value_header: false,
                         version: self.version_stack.pop().unwrap(),
                     };
-                    let mut memory_ops = vec![MemoryOp(Some(ref_pop), None, None)];
+                    let mut memory_ops = vec![];
 
                     let mut parents = vec_ref.sub_index.parents().unwrap_or_default();
                     // insert itself
@@ -1022,6 +1022,8 @@ impl WitnessPreProcessor {
                         }
                         memory_ops.push(MemoryOp(None, None, Some(local_op)));
                     }
+
+                    memory_ops[0].0 = Some(ref_pop);
 
                     StageState {
                         step_states: vec![ExecStepState {
@@ -1096,7 +1098,7 @@ impl WitnessPreProcessor {
                         value_header: false,
                         version: self.version_stack.pop().unwrap(),
                     };
-                    let mut memory_ops = vec![MemoryOp(Some(ref_pop), None, None)];
+                    let mut memory_ops = vec![];
 
                     let mut parents = vec_ref.sub_index.parents().unwrap_or_default();
                     // insert itself
@@ -1147,6 +1149,8 @@ impl WitnessPreProcessor {
                         }
                         memory_ops.push(MemoryOp(None, None, Some(local_op)));
                     }
+
+                    memory_ops[0].0 = Some(ref_pop);
 
                     StageState {
                         step_states: vec![ExecStepState {

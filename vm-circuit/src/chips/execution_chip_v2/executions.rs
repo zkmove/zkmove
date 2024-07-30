@@ -288,6 +288,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     }
 
     // FIXME: sub_index and depth could be zero
+    // FIXME: get depth from ref_sub_index directly.
     pub(crate) fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,

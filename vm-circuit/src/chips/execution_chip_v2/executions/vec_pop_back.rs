@@ -13,7 +13,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::witness::to_field::ToField;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::ValueHeader;
+use aptos_move_witnesses::utils::{SubIndexUtils, ValueHeader};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
@@ -145,8 +145,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         // TODO:
         //         local_read_version(0) < clk(0);
         //         local_write_version(0) == clk(0);
-        cb.not_first_row(|cb| {
-            cb.not_last_row(|cb| {
+
+        cb.not_last_row(|cb| {
                 cb.require_equal(
                     "local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
                     == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen",
@@ -159,7 +159,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     step_curr.local_write_value.as_header().len(),
                 );
             });
-            cb.last_row(|cb| {
+        cb.last_row(|cb| {
                 cb.require_equal(
                     "local_read_value(0).as_header().flen == step_counter(1) + local_write_value(0).as_header().flen",
                     step_curr.local_read_value.as_header().flen(),
@@ -171,7 +171,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     step_curr.local_write_value.as_header().len() + 1u64.expr()
                 );
                 cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
-            });
         });
 
         cb.require_state_transition(
@@ -215,18 +214,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
 
         let vector_origin_len = ValueHeader::from(last_header_local_op.read_value.clone()).len;
 
-        let local_frame_index = last_header_local_op.frame_index;
-        let local_index = last_header_local_op.index;
-
-        // TODO: remove this
-        step.local_frame_index.assign(
-            region,
-            offset,
-            Value::known(F::from(local_frame_index as u64)),
-        )?;
-        step.local_index
-            .assign(region, offset, Value::known(F::from(local_index as u64)))?;
-
         for i in 0..stage_state.rows() {
             self.vector_sub_index
                 .assign(region, offset + i, Value::known(vector_sub_index))?;
@@ -252,7 +239,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     region,
                     offset + i,
                     next_local_sub_index.to_field(),
-                    0,
+                    next_local_sub_index.depth(),
                 )?;
                 self.vector_origin_len
                     .assign(region, offset + i, Value::known(F::from(0)))?;

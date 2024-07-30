@@ -1437,19 +1437,18 @@ mod vec_pop_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_first {
-            if !is_last {
-                // the delta should be the same for not-last-row
-                local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
-                    == local_read_value(1).as_header().flen - local_write_value(1).as_header().flen;
-                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
-            } else {
-                // for last row,  the delta is (old_len-1, old_flen - elem_flen)
-                local_read_value(0).as_header().flen
-                    == local_write_value(0).as_header().flen + step_counter(1);
-                local_read_value(0).as_header().len == local_write_value(0).as_header().len() + 1;
-                vector_origin_len(0) == local_read_value(0).as_header().len;
-            }
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
+                == local_read_value(1).as_header().flen - local_write_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row,  the delta is (old_len-1, old_flen - elem_flen)
+            local_read_value(0).as_header().flen
+                == local_write_value(0).as_header().flen + step_counter(1);
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len() + 1;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
         }
 
         // next
@@ -1561,19 +1560,18 @@ mod vec_push_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_first {
-            if !is_last {
-                // the delta should be the same for not-last-row
-                local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
-                    == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen;
-                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
-            } else {
-                // for last row the delta is (old_len+1, old_flen + elem_flen)
-                local_read_value(0).as_header().len + 1 == local_write_value(0).as_header().len;
-                local_read_value(0).as_header().flen + step_counter(1)
-                    == local_write_value(0).as_header().flen;
-                vector_origin_len(0) == local_read_value(0).as_header().len;
-            }
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
+                == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row the delta is (old_len+1, old_flen + elem_flen)
+            local_read_value(0).as_header().len + 1 == local_write_value(0).as_header().len;
+            local_read_value(0).as_header().flen + step_counter(1)
+                == local_write_value(0).as_header().flen;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
         }
 
         // next
