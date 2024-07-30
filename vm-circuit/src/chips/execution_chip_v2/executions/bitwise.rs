@@ -1,0 +1,186 @@
+use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::lookup_table::Lookup;
+use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::utils::from_limbs;
+use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
+use crate::chips::execution_chip_v2::InstructionGadgetV2;
+use crate::chips::utilities::Expr;
+use crate::utils::cell_manager::Cell;
+use halo2_proofs::plonk::Expression;
+use itertools::izip;
+use std::marker::PhantomData;
+use types::Field;
+
+#[derive(Clone, Debug)]
+pub struct Bitwise<F> {
+    nibbles: [Cell<F>; NUM_OF_BYTES_U256 * 2],
+}
+impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
+    const NAME: &'static str = "Bitwise";
+    const OPCODE: Opcode = Opcode::BitAnd; //TODO: remove this
+    const EXECUTION_STATE: ExecutionState = ExecutionState::Bitwise;
+
+    fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let step_curr = cb.curr.state.clone();
+        let step_prev = cb.step_state_at_offset(-1);
+        let step_prev_2 = cb.step_state_at_offset(-2);
+        let nibbles: [Cell<F>; NUM_OF_BYTES_U256 * 2] = (0..NUM_OF_BYTES_U256 * 2)
+            .map(|_| cb.query_nibble())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in [BitAnd, BitOr, Xor]",
+                step_curr.opcode.expr(),
+                vec![
+                    (Opcode::BitAnd as u64).expr(),
+                    (Opcode::BitOr as u64).expr(),
+                    (Opcode::Xor as u64).expr(),
+                ],
+            );
+            cb.require_equal(
+                "step_counter(0) == 3",
+                step_curr.step_counter.expr(),
+                3u64.expr(),
+            );
+        });
+
+        cb.not_last_row(|cb| {
+            cb.require_equal(
+                format!(
+                    "{}, stack_pop_index(0) == sp(0) + step_counter(0) - 3",
+                    Self::NAME
+                ),
+                step_curr.stack_pop_index.expr(),
+                step_curr.sp.expr() + step_curr.step_counter.expr() - 3u64.expr(),
+            );
+            cb.require_zero(
+                format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
+                step_curr.stack_pop_sub_index.expr(),
+            );
+            cb.require_zero(
+                format!("{}, stack_pop_value_header(0) == false", Self::NAME),
+                step_curr.stack_pop_value_header.expr(),
+            );
+            cb.require_no_stack_push();
+            cb.require_state_transition(vec![(SP, Transition::Same)]);
+        });
+
+        cb.require_no_local_op();
+
+        cb.last_row(|cb| {
+            cb.require_no_stack_pop();
+
+            cb.require_equal(
+                format!("{}, stack_push_index(0) == sp(0) - 1", Self::NAME),
+                step_curr.stack_push_index.expr(),
+                step_curr.sp.expr() - 1u64.expr(),
+            );
+            cb.require_zero(
+                format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
+                step_curr.stack_push_sub_index.expr(),
+            );
+
+            // constrain lhs
+            let lhs = step_prev.stack_pop_value.as_integer();
+            let nibbles_lhs = nibbles.clone().map(|cell| cb.cell_at_offset(&cell, -1));
+            cb.require_equal(
+                "lhs.lo = from_limbs(nibbles_lhs[0..32])",
+                lhs.lo(),
+                from_limbs::expr::<_, _, 4>(&nibbles_lhs[..32]),
+            );
+            cb.require_equal(
+                "lhs.hi = from_limbs(nibbles_lhs[32..])",
+                lhs.hi(),
+                from_limbs::expr::<_, _, 4>(&nibbles_lhs[32..]),
+            );
+
+            // constrain rhs
+            let rhs = step_prev_2.stack_pop_value.as_integer();
+            let nibbles_rhs = nibbles.clone().map(|cell| cb.cell_at_offset(&cell, -2));
+            cb.require_equal(
+                "rhs.lo = from_limbs(nibbles_rhs[0..32])",
+                rhs.lo(),
+                from_limbs::expr::<_, _, 4>(&nibbles_rhs[..32]),
+            );
+            cb.require_equal(
+                "rhs.hi = from_limbs(nibbles_rhs[32..])",
+                rhs.hi(),
+                from_limbs::expr::<_, _, 4>(&nibbles_rhs[32..]),
+            );
+
+            // constrain output
+            let out = step_curr.stack_push_value.as_integer();
+            cb.require_equal(
+                "out.lo = from_limbs(nibbles[0..32])",
+                out.lo(),
+                from_limbs::expr::<_, _, 4>(&nibbles[..32]),
+            );
+            cb.require_equal(
+                "out.hi = from_limbs(nibbles[32..])",
+                out.hi(),
+                from_limbs::expr::<_, _, 4>(&nibbles[32..]),
+            );
+
+            let op = BitwiseOperation {
+                opcode: step_curr.opcode.expr(),
+                nibbles_lhs,
+                nibbles_rhs,
+                nibbles_out: nibbles.clone(),
+            };
+            LookupBitwise::lookup(cb, op);
+
+            cb.require_zero(
+                format!("{}, stack_push_value_header(0) == false", Self::NAME),
+                step_curr.stack_push_value_header.expr(),
+            );
+            cb.require_equal(
+                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
+                step_curr.stack_push_version.expr(),
+                step_curr.clk.expr(),
+            );
+
+            cb.require_state_transition(vec![
+                (FRAME_INDEX, Transition::Same),
+                (MODULE_INDEX, Transition::Same),
+                (FUNCTION_INDEX, Transition::Same),
+                (SP, Transition::Delta((-1).expr())),
+                (PC, Transition::Delta(1.expr())),
+            ]);
+        });
+
+        Bitwise { nibbles }
+    }
+}
+
+struct BitwiseOperation<F: Field> {
+    opcode: Expression<F>,
+    nibbles_lhs: [Cell<F>; NUM_OF_BYTES_U256 * 2],
+    nibbles_rhs: [Cell<F>; NUM_OF_BYTES_U256 * 2],
+    nibbles_out: [Cell<F>; NUM_OF_BYTES_U256 * 2],
+}
+
+struct LookupBitwise<F> {
+    phantom_data: PhantomData<F>,
+}
+impl<F: Field> LookupBitwise<F> {
+    fn lookup(cb: &mut ConstraintBuilderV2<F>, op: BitwiseOperation<F>) {
+        for (operand_1, operand_2, result) in izip!(op.nibbles_lhs, op.nibbles_rhs, op.nibbles_out)
+        {
+            cb.add_lookup(
+                "bitwise lookup",
+                Lookup::Bitwise {
+                    opcode: op.opcode.clone(),
+                    value_1: operand_1.expr(),
+                    value_2: operand_2.expr(),
+                    result: result.expr(),
+                },
+            );
+        }
+    }
+}

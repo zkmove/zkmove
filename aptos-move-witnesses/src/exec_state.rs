@@ -5,6 +5,7 @@ pub enum ExecutionState {
     AddSub,
     BrTrue,
     BrFalse,
+    Bitwise,
     VecSwapStage1,
     VecSwapStage2,
     VecSwapStage3,

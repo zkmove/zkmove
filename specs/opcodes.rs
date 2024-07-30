@@ -202,6 +202,45 @@ mod add {
     }
 }
 
+mod bitwise {
+    pub fn constrain() {
+        if super::common::on_first_row() {
+            step_counter(0) == 3;
+        }
+
+        if !super::common::on_last_row() {
+            stack_pop_index(0) == sp(0) + step_counter(0) - 3;
+            stack_pop_sub_index(0) == 0;
+            stack_pop_value_header(0) == false;
+            stack_pop_version(0) < clk(0);
+            super::common::fake_empty_stack_push(0);
+            sp(1) == sp(0); //keep sp unchanged to make assign easier
+        }
+
+        super::common::fake_local_read_zero();
+
+        if super::common::on_last_row() {
+            super::common::fake_empty_stack_pop(0);
+            stack_push_index(0) == sp(0) - 1;
+            stack_push_sub_index(0) == 0;
+            bitwise_table.lookup(
+                opcode(0),
+                stack_pop_value(-1),
+                stack_pop_value(-2),
+                stack_push_value(0),
+            );
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1;
+        }
+    }
+}
+
 mod le {
     fn constraint_le(is_le: bool) {
         let is_first = super::common::on_first_row();
