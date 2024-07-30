@@ -1,3 +1,5 @@
+extern crate move_vm_runtime;
+
 pub use move_vm_runtime::witnessing::{
     traced_value::{Integer, Reference, SimpleValue, ValueItem},
     BinaryIntegerOperationType, Footprint, Operation,

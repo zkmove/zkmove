@@ -1,15 +1,25 @@
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::chips::execution_chip_v2::executions::bitwise::to_nibbles::ToNibbles;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use halo2_proofs::plonk::Expression;
+use aptos_move_witnesses::step_state::StageState;
+use aptos_move_witnesses::witness_preprocessor::to_u256::ToU256;
+use aptos_move_witnesses::Integer;
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
 use itertools::izip;
 use std::marker::PhantomData;
 use types::Field;
@@ -156,6 +166,38 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
 
         Bitwise { nibbles }
     }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
+        let rhs = Integer::try_from(step_state.memory_ops[0].0.clone().unwrap().value)
+            .unwrap()
+            .to_u256();
+        let lhs = Integer::try_from(step_state.memory_ops[1].0.clone().unwrap().value)
+            .unwrap()
+            .to_u256();
+        let out = Integer::try_from(step_state.memory_ops[2].1.clone().unwrap().value)
+            .unwrap()
+            .to_u256();
+
+        debug_assert_eq!(step_state.memory_ops.len(), 3);
+        for (cell, nibble) in izip!(self.nibbles.clone(), rhs.to_nibbles()) {
+            cell.assign(region, offset, Value::known(F::from(nibble as u64)))?;
+        }
+        for (cell, nibble) in izip!(self.nibbles.clone(), lhs.to_nibbles()) {
+            cell.assign(region, offset + 1, Value::known(F::from(nibble as u64)))?;
+        }
+        for (cell, nibble) in izip!(self.nibbles.clone(), out.to_nibbles()) {
+            cell.assign(region, offset + 2, Value::known(F::from(nibble as u64)))?;
+        }
+        Ok(step_state.memory_ops.len())
+    }
 }
 
 struct BitwiseOperation<F: Field> {
@@ -181,6 +223,62 @@ impl<F: Field> LookupBitwise<F> {
                     result: result.expr(),
                 },
             );
+        }
+    }
+}
+
+pub mod to_nibbles {
+    use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
+    use move_core_types::u256::U256;
+
+    // Convert to half-byte array in little-endian order
+    pub trait ToNibbles {
+        fn to_nibbles(&self) -> [u8; NUM_OF_BYTES_U256 * 2];
+    }
+
+    impl ToNibbles for U256 {
+        fn to_nibbles(&self) -> [u8; NUM_OF_BYTES_U256 * 2] {
+            let bytes = self.to_le_bytes();
+            bytes
+                .into_iter()
+                .flat_map(|byte| {
+                    let lo = byte & 0x0F;
+                    let hi = (byte & 0xF0) >> 4;
+                    [lo, hi]
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::ToNibbles;
+        use move_core_types::u256::U256;
+
+        #[test]
+        fn test_to_nibbles() {
+            let expected = [
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+            assert_eq!(U256::one().to_nibbles(), expected);
+
+            let expected = [
+                0, 0xF, 0, 0xE, 0, 0xF, 0, 0xF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+            assert_eq!(U256::from(0xF0F0E0F0u32).to_nibbles(), expected);
+
+            let expected = [
+                0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+            assert_eq!(U256::from(u64::MAX as u128).to_nibbles(), expected);
         }
     }
 }
