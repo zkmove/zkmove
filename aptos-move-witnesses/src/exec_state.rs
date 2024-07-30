@@ -56,4 +56,5 @@ pub enum ExecutionState {
     Gt,
     Lt,
     Ge,
+    Shift,
 }
