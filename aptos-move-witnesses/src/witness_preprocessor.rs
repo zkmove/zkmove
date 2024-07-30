@@ -9,7 +9,7 @@ use crate::step_state::{
 use crate::sub_index;
 use crate::utils::{SubIndexUtils, ValueHeader};
 use crate::witness_preprocessor::to_u256::ToU256;
-use move_core_types::{u256, u256::U256};
+use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use std::collections::BTreeMap;
@@ -955,6 +955,265 @@ impl WitnessPreProcessor {
                 }
                 stages
             }
+            Operation::VecPopBack {
+                si,
+                vec_len,
+                vec_ref,
+                elem,
+            } => {
+                let step_state = StepState::new(self.clk, ExecutionState::VecPopBackStage1, trace);
+
+                let stage1 = {
+                    let ref_pop = StackPop {
+                        index: step_state.sp,
+                        sub_index: vec![0],
+                        value: SimpleValue::Reference(vec_ref.clone()),
+                        value_header: false,
+                        version: self.version_stack.pop().unwrap(),
+                    };
+                    let mut memory_ops = vec![];
+
+                    let mut parents = vec_ref.sub_index.parents().unwrap_or_default();
+                    // insert itself
+                    parents.insert(0, vec_ref.sub_index.clone());
+                    for (i, parent_sub_index) in parents.into_iter().enumerate().rev() {
+                        let parent_header = self
+                            .locals
+                            .peek_local_slot(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &parent_sub_index,
+                            )
+                            .unwrap()
+                            .value
+                            .clone();
+                        let parent_header = ValueHeader::from(parent_header);
+                        let new_header = ValueHeader::new(
+                            parent_header.flen - elem.len() as u16,
+                            if i == 0 {
+                                parent_header.len - 1
+                            } else {
+                                parent_header.len
+                            },
+                        )
+                        .into();
+                        let (old_, new_) = self.locals.write_local_slot_with_clk(
+                            vec_ref.frame_index,
+                            vec_ref.local_index,
+                            &parent_sub_index,
+                            new_header,
+                            true,
+                            false,
+                            self.clk,
+                        );
+                        let local_op = LocalReadWrite::new(
+                            vec_ref.frame_index as u16,
+                            vec_ref.local_index as u16,
+                            parent_sub_index.clone(),
+                            old_,
+                            new_,
+                        );
+                        if i == 0 {
+                            debug_assert!(local_op.read_value_header);
+                            debug_assert_eq!(
+                                *vec_len,
+                                ValueHeader::from(local_op.read_value.clone()).len as u64
+                            );
+                        }
+                        memory_ops.push(MemoryOp(None, None, Some(local_op)));
+                    }
+
+                    memory_ops[0].0 = Some(ref_pop);
+
+                    StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    }
+                };
+
+                self.clk += 1;
+
+                let stage2 = {
+                    self.version_stack.push(self.clk);
+                    let step_state = step_state.change_state(ExecutionState::VecPopBackStage2);
+
+                    let memory_ops = elem
+                        .iter()
+                        .map(|item| {
+                            let local_item_sub_index = sub_index::concat(
+                                vec_ref.sub_index.clone(),
+                                sub_index::concat(vec![*vec_len as usize], item.sub_index.clone()),
+                            );
+                            // invalidate local slot
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &local_item_sub_index,
+                                item.value.clone(),
+                                item.header,
+                                true,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u16,
+                                local_item_sub_index,
+                                old_,
+                                new_,
+                            );
+                            let stack_push = StackPush {
+                                index: step_state.sp,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: self.version_stack.last().cloned().unwrap(),
+                            };
+                            MemoryOp(None, Some(stack_push), Some(local_op))
+                        })
+                        .collect();
+                    StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    }
+                };
+                vec![stage1, stage2]
+            }
+            Operation::VecPushBack {
+                si,
+                vec_len,
+                vec_ref,
+                elem,
+            } => {
+                let step_state = StepState::new(self.clk, ExecutionState::VecPushBackStage1, trace);
+
+                let stage1 = {
+                    let ref_pop = StackPop {
+                        index: step_state.sp,
+                        sub_index: vec![0],
+                        value: SimpleValue::Reference(vec_ref.clone()),
+                        value_header: false,
+                        version: self.version_stack.pop().unwrap(),
+                    };
+                    let mut memory_ops = vec![];
+
+                    let mut parents = vec_ref.sub_index.parents().unwrap_or_default();
+                    // insert itself
+                    parents.insert(0, vec_ref.sub_index.clone());
+                    for (i, parent_sub_index) in parents.into_iter().enumerate().rev() {
+                        let parent_header = self
+                            .locals
+                            .peek_local_slot(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &parent_sub_index,
+                            )
+                            .unwrap()
+                            .value
+                            .clone();
+                        let parent_header = ValueHeader::from(parent_header);
+                        let new_header = ValueHeader::new(
+                            parent_header.flen + elem.len() as u16,
+                            if i == 0 {
+                                parent_header.len + 1
+                            } else {
+                                parent_header.len
+                            },
+                        )
+                        .into();
+                        let (old_, new_) = self.locals.write_local_slot_with_clk(
+                            vec_ref.frame_index,
+                            vec_ref.local_index,
+                            &parent_sub_index,
+                            new_header,
+                            true,
+                            false,
+                            self.clk,
+                        );
+                        let local_op = LocalReadWrite::new(
+                            vec_ref.frame_index as u16,
+                            vec_ref.local_index as u16,
+                            parent_sub_index.clone(),
+                            old_,
+                            new_,
+                        );
+                        if i == 0 {
+                            debug_assert!(local_op.read_value_header);
+                            debug_assert_eq!(
+                                *vec_len,
+                                ValueHeader::from(local_op.read_value.clone()).len as u64
+                            );
+                        }
+                        memory_ops.push(MemoryOp(None, None, Some(local_op)));
+                    }
+
+                    memory_ops[0].0 = Some(ref_pop);
+
+                    StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    }
+                };
+
+                self.clk += 1;
+
+                let stage2 = {
+                    let step_state = step_state.change_state(ExecutionState::VecPushBackStage2);
+
+                    let version = self.version_stack.pop().unwrap();
+
+                    let memory_ops = elem
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp - 1,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version,
+                            };
+                            let local_item_sub_index = sub_index::concat(
+                                vec_ref.sub_index.clone(),
+                                sub_index::concat(
+                                    vec![*vec_len as usize + 1],
+                                    item.sub_index.clone(),
+                                ),
+                            );
+                            // invalidate local slot
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                vec_ref.frame_index,
+                                vec_ref.local_index,
+                                &local_item_sub_index,
+                                item.value.clone(),
+                                item.header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u16,
+                                local_item_sub_index,
+                                old_,
+                                new_,
+                            );
+
+                            MemoryOp(Some(stack_pop), None, Some(local_op))
+                        })
+                        .collect();
+                    StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    }
+                };
+                vec![stage1, stage2]
+            }
             Operation::And { lhs, rhs } | Operation::Or { lhs, rhs } => {
                 let (is_and, out) = match &trace.data {
                     Operation::And { lhs, rhs } => (true, *lhs && *rhs),
@@ -1220,7 +1479,7 @@ impl DerefMut for Local {
 ///TODO: move to other place
 
 pub mod to_u256 {
-    use move_core_types::{u256, u256::U256};
+    use move_core_types::u256::U256;
     use move_vm_runtime::witnessing::traced_value::Integer;
 
     pub trait ToU256 {
@@ -1235,7 +1494,7 @@ pub mod to_u256 {
                 Integer::U32(v) => U256::from(*v),
                 Integer::U64(v) => U256::from(*v),
                 Integer::U128(v) => U256::from(*v),
-                Integer::U256(v) => U256::from(*v),
+                Integer::U256(v) => *v,
             }
         }
     }
@@ -1243,7 +1502,7 @@ pub mod to_u256 {
 
 #[cfg(test)]
 mod tests {
-    use move_core_types::{u256, u256::U256};
+    use move_core_types::u256::U256;
 
     #[test]
     fn test_overflowing_sub() {

@@ -20,6 +20,15 @@ use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionSt
 use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
 // use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, StoreLocStage2};
+use crate::chips::execution_chip_v2::executions::vec_pop_back::{
+    VecPopBackStage1, VecPopBackStage2,
+};
+use crate::chips::execution_chip_v2::executions::vec_push_back::{
+    VecPushBackStage1, VecPushBackStage2,
+};
+use crate::chips::execution_chip_v2::executions::vec_swap::{
+    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5,
+};
 use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
 use crate::chips::execution_chip_v2::executions::{Pack, UnpackStage1, UnpackStage2};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
@@ -78,18 +87,16 @@ pub(crate) struct ExecChipConfig<F> {
     pub vec_unpack_stage_2: Box<UnpackStage2<F, true>>,
 
     pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
-    // pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
-    // pub vec_swap_stage_2: Box<VecSwapStage_2<F>>,
-    // pub vec_swap_stage_3: Box<VecSwapStage_3_Or_4<F, true>>,
-    // pub vec_swap_stage_4: Box<VecSwapStage_3_Or_4<F, false>>,
-    // pub vec_swap_stage_5: Box<VecSwapStage_5_Or_6<F, true>>,
-    // pub vec_swap_stage_6: Box<VecSwapStage_5_Or_6<F, false>>,
-    // pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
-    // pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
-    // pub vec_pop_back_stage3: Box<VecPopBackStage3<F>>,
-    // pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
-    // pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
-    // pub vec_push_back_stage3: Box<VecPushBackStage3<F>>,
+    pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
+    pub vec_swap_stage_2: Box<VecSwapStage_2_Or_3<F, true>>,
+    pub vec_swap_stage_3: Box<VecSwapStage_2_Or_3<F, false>>,
+    pub vec_swap_stage_4: Box<VecSwapStage_4_Or_5<F, true>>,
+    pub vec_swap_stage_5: Box<VecSwapStage_4_Or_5<F, false>>,
+    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
+    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
+    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
+    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
+
     pub vec_len: Box<VecLen<F>>,
     pub pop: Box<Pop<F>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
@@ -245,18 +252,16 @@ impl<F: Field> ExecChipConfig<F> {
             vec_pack: configure_opcode_gadget!(),
             vec_unpack_stage_1: configure_opcode_gadget!(),
             vec_unpack_stage_2: configure_opcode_gadget!(),
-            // vec_swap_stage_1: configure_opcode_gadget!(),
-            // vec_swap_stage_2: configure_opcode_gadget!(),
-            // vec_swap_stage_3: configure_opcode_gadget!(),
-            // vec_swap_stage_4: configure_opcode_gadget!(),
-            // vec_swap_stage_5: configure_opcode_gadget!(),
-            // vec_swap_stage_6: configure_opcode_gadget!(),
-            // vec_pop_back_stage1: configure_opcode_gadget!(),
-            // vec_pop_back_stage2: configure_opcode_gadget!(),
-            // vec_pop_back_stage3: configure_opcode_gadget!(),
-            // vec_push_back_stage1: configure_opcode_gadget!(),
-            // vec_push_back_stage2: configure_opcode_gadget!(),
-            // vec_push_back_stage3: configure_opcode_gadget!(),
+            vec_swap_stage_1: configure_opcode_gadget!(),
+            vec_swap_stage_2: configure_opcode_gadget!(),
+            vec_swap_stage_3: configure_opcode_gadget!(),
+            vec_swap_stage_4: configure_opcode_gadget!(),
+            vec_swap_stage_5: configure_opcode_gadget!(),
+            vec_pop_back_stage1: configure_opcode_gadget!(),
+            vec_pop_back_stage2: configure_opcode_gadget!(),
+            vec_push_back_stage1: configure_opcode_gadget!(),
+            vec_push_back_stage2: configure_opcode_gadget!(),
+
             vec_len: configure_opcode_gadget!(),
             pop: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
@@ -548,7 +553,16 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::VecLen => self.vec_len,
             ExecutionState::StoreLocStage1 => self.store_loc_stage1,
             ExecutionState::StoreLocStage2 => self.store_loc_stage2,
-        })?;
+            ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
+            ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
+                ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
+                ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
+                ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
+        ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
+        ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
+                ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
+                ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
+            })?;
         debug_assert_eq!(assigned_rows, stage_state.rows());
 
         Ok(assigned_rows)

@@ -86,11 +86,18 @@ mod call_stack {
         let caller_function_index = function_index(0);
         let caller_pc = pc(0);
         let version = clk(0);
-        callstack_push((index, caller_module_index, caller_function_index, caller_pc, version));
+        callstack_push((
+            index,
+            caller_module_index,
+            caller_function_index,
+            caller_pc,
+            version,
+        ));
     }
 
     pub fn pop() {
-        let (index, caller_module_index, caller_function_index, caller_pc, version) = callstack_pop();
+        let (index, caller_module_index, caller_function_index, caller_pc, version) =
+            callstack_pop();
         frame_index(1) == index;
         module_index(1) == caller_module_index;
         function_index(1) == caller_function_index;
@@ -235,7 +242,8 @@ mod le {
 // TODO: Reference type value comparison, actually it can convert to (pop,pop,read_ref,read_ref,stage1...)
 mod eq {
     pub fn constrain_eq_stage_1_or_2(is_stage_1: bool) {
-        let stack_pop_rlc = stack_pop_sub_index(0) + gamma * stack_pop_value_header(0) + gamma^2 * stack_pop_value(0);
+        let stack_pop_rlc = stack_pop_sub_index(0) + gamma * stack_pop_value_header(0) + gamma
+            ^ 2 * stack_pop_value(0);
 
         if super::common::on_first_row() {
             if !is_stage_1 {
@@ -266,9 +274,9 @@ mod eq {
 
             if is_stage_1 {
                 //in order not to conflict with inner rlc, we use gamma^4 as randomness
-                rlc1(0) == gamma^4 * rlc1(-1) + stack_pop_rlc;
+                rlc1(0) == gamma ^ 4 * rlc1(-1) + stack_pop_rlc;
             } else {
-                rlc2(0) == gamma^4 * rlc2(-1) + stack_pop_rlc;
+                rlc2(0) == gamma ^ 4 * rlc2(-1) + stack_pop_rlc;
             }
         }
 
@@ -488,8 +496,8 @@ mod call {
         super::common::fake_empty_stack_push(0);
 
         local_frame_index(0) == frame_index(0) + 1; // write to local of the next frame
-        // local_index(0) is constrained in the last row
-        // actually we don't care about old local is invalid or not.
+                                                    // local_index(0) is constrained in the last row
+                                                    // actually we don't care about old local is invalid or not.
         local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_value(0) == local_read_value(0);
@@ -593,7 +601,7 @@ mod move_loc {
         local_read_value_header(0) == stack_push_value_header(0);
         lcoal_read_value(0) != INVALID;
         local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
-        // constraint local-invalidating has the same write_version
+                                         // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
         local_write_version(0) > local_read_version(0);
 
@@ -764,7 +772,11 @@ mod borrow_field {
         stack_pop_version(0) < clk(0);
 
         stack_push_value(0).as_reference().index == stack_pop_value(0).as_reference().index;
-        stack_push_value(0).as_reference().sub_index == stack_pop_value(0).as_reference().sub_index.concat(aux0(0) + 1);
+        stack_push_value(0).as_reference().sub_index
+            == stack_pop_value(0)
+                .as_reference()
+                .sub_index
+                .concat(aux0(0) + 1);
         stack_push_value_header(0) == stack_pop_value_header(0);
         stack_push_index(0) == sp(0);
         stack_push_sub_index(0) == 0;
@@ -934,7 +946,8 @@ mod write_ref {
         header_sub_index(0) == header_sub_index(-1).parent;
         local_read_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0);
-        local_write_value(0).as_header().flen == local_read_value(0).as_header().flen + header_flen_delta(0);
+        local_write_value(0).as_header().flen
+            == local_read_value(0).as_header().flen + header_flen_delta(0);
         local_write_value_header(0) == local_read_value_header(0);
         local_write_value_invalid(0) == local_read_value_invalid(0);
         local_write_version(0) == clk(0);
@@ -972,10 +985,10 @@ mod br_bool {
             // Memory Context Constraints:
             pc(1)
                 == if opcode == BrTure {
-                cond * next_pc + (1 - cond) * (pc(0) + 1)
-            } else {
-                (1 - cond) * next_pc + cond * (pc(0) + 1)
-            };
+                    cond * next_pc + (1 - cond) * (pc(0) + 1)
+                } else {
+                    (1 - cond) * next_pc + cond * (pc(0) + 1)
+                };
             sp(1) == sp(0) - 1;
         }
     }
@@ -1019,7 +1032,8 @@ mod pack {
                 stack_pop_index(1) == sp(0);
                 stack_pop_sub_index(1) == 0;
             }
-            if num_field == 0 { //empty vec
+            if num_field == 0 {
+                //empty vec
                 step_counter(0) == 1;
             }
         }
@@ -1036,7 +1050,8 @@ mod pack {
 
             stack_pop_version(0) < clk(0);
             stack_push_index(0) == sp(0) - num_field + 1;
-            stack_push_sub_index(0) == stack_pop_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0);
+            stack_push_sub_index(0)
+                == stack_pop_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0);
             stack_push_value(0) == stack_pop_value(0);
             stack_push_value_header(0) == stack_pop_value_header(0);
             stack_push_version(0) == clk(0);
@@ -1048,7 +1063,6 @@ mod pack {
                     field_index(1) == field_index(0) - 1;
                     stack_pop_index(1) == stack_pop_index(0) - 1;
                     stack_pop_sub_index(1) == 0;
-
                 } else {
                     field_index(1) == field_index(0);
                     field_counter(1) == field_counter(0) - 1;
@@ -1110,7 +1124,8 @@ mod unpack {
                     pc(1) == pc(0);
                     sp(1) == sp(0);
                     field_index(1) == aux0(0);
-                } else {//num_field == 0
+                } else {
+                    //num_field == 0
                     pc(1) == pc(0) + 1;
                     sp(1) == sp(0) - 1;
                 }
@@ -1221,7 +1236,11 @@ mod vec_borrow {
             stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
             stack_push_value(0).as_reference().index == stack_pop_value(0).as_reference().index;
-            stack_push_value(0).as_reference().sub_index == stack_pop_value(0).as_reference().sub_index.concat(stack_pop_value(-1).as_integer().lo() + 1);
+            stack_push_value(0).as_reference().sub_index
+                == stack_pop_value(0)
+                    .as_reference()
+                    .sub_index
+                    .concat(stack_pop_value(-1).as_integer().lo() + 1);
             stack_push_value_header(0) == stack_pop_value_header(0);
             stack_push_version(0) == clk(0);
 
@@ -1278,14 +1297,14 @@ mod vec_swap {
             } else {
                 step_counter(0) == 1;
             }
-
         }
         stack_push_version(0) == clk(0);
 
         // local constraints
         if is_stage_2 {
             if is_first {
-                (local_frame_index(0), local_index(0)) == stack_pop_value(-1).as_reference().index();
+                (local_frame_index(0), local_index(0))
+                    == stack_pop_value(-1).as_reference().index();
                 ref_local_sub_index(0) == stack_pop_value(-1).as_reference().sub_index();
             }
         };
@@ -1386,7 +1405,7 @@ mod vec_pop_back {
     pub fn constraint_stage1() {
         declare!(vector_sub_index);
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
-        declare!(vector_origin_len, vector_origin_flen);
+        declare!(vector_origin_len);
 
         fake_stack_push();
 
@@ -1418,24 +1437,18 @@ mod vec_pop_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_first {
-            if !is_last {
-                // the delta should be the same for not-last-row
-                local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
-                    == local_read_value(-1).as_header().flen - local_write_value(-1).as_header().flen;
-                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
-            } else {
-                local_read_value(-1).as_header().flen - local_write_value(-1).as_header().flen == step_counter(1);
-            }
-        }
-        if is_last {
-            // then last row the delta is (old_len-1, old_flen - elem_flen)
-            local_read_value(0).as_header().len() == vector_origin_len;
-            local_read_value(0).as_header().flen() == vector_origin_flen;
-            local_write_value(0).as_header().len() == vector_origin_len - 1;
-            local_write_value(0).as_header().flen() == vector_origin_flen - step_counter(1);
-            // suppose we use u16 to represent flen.
-            // local_read_value(0) - local_write_value(0) == step_counter(1) + 1 * u16::MAX;
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
+                == local_read_value(1).as_header().flen - local_write_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row,  the delta is (old_len-1, old_flen - elem_flen)
+            local_read_value(0).as_header().flen
+                == local_write_value(0).as_header().flen + step_counter(1);
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len() + 1;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
         }
 
         // next
@@ -1515,7 +1528,7 @@ mod vec_push_back {
     pub fn constraint_stage1() {
         declare!(vector_sub_index);
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
-        declare!(vector_origin_len, vector_origin_flen);
+        declare!(vector_origin_len);
 
         fake_stack_push();
 
@@ -1547,24 +1560,18 @@ mod vec_push_back {
         local_write_value_invalid(0) == false;
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
-        if !is_first {
-            if !is_last {
-                // the delta should be the same for not-last-row
-                local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
-                    == local_write_value(-1).as_header().flen - local_read_value(-1).as_header().flen;
-                local_read_value(0).as_header().len == local_write_value(0).as_header().len;
-            } else {
-                local_read_value(-1).as_header().flen + step_counter(1) == local_write_value(-1).as_header().flen;
-            }
-        }
-        if is_last {
-            // then last row the delta is (old_len+1, old_flen + elem_flen)
-            local_read_value(0).as_header().len() == vector_origin_len;
-            local_read_value(0).as_header().flen() == vector_origin_flen;
-            local_write_value(0).as_header().len() == vector_origin_len + 1;
-            local_write_value(0).as_header().flen() == vector_origin_flen + step_counter(1);
-            // suppose we use u16 to represent flen.
-            // local_read_value(0) + step_counter(1) + 1 * u16::MAX == local_write_value(0);
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
+                == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row the delta is (old_len+1, old_flen + elem_flen)
+            local_read_value(0).as_header().len + 1 == local_write_value(0).as_header().len;
+            local_read_value(0).as_header().flen + step_counter(1)
+                == local_write_value(0).as_header().flen;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
         }
 
         // next
@@ -1593,7 +1600,8 @@ mod vec_push_back {
         local_frame_index(0) == local_frame_index(-1);
         local_index(0) == local_index(-1);
         local_sub_index(0)
-            == extend_vector_sub_index.concat(vector_origin_len(0) + stack_pop_sub_index(0) << 16);
+            == extend_vector_sub_index
+                .concat(vector_origin_len(0) + 1 + stack_pop_sub_index(0) << 16);
 
         if is_first {
             if local_write_value_header(0) {
@@ -1607,7 +1615,7 @@ mod vec_push_back {
         local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
 
-        stack_pop_index(0) == sp(0);
+        stack_pop_index(0) == sp(0) - 1;
         if is_first {
             // make sure sub_index of first is zero.
             stack_pop_sub_index(0) == 0;
@@ -1617,7 +1625,7 @@ mod vec_push_back {
         }
         stack_pop_value(0) == local_write_value(0);
         stack_pop_value_header(0) == local_write_value_header(0);
-        stack_pop_version(0) == clk(0);
+        stack_pop_version(0) < clk(0);
 
         // next
         frame_index(1) == frame_index(0);

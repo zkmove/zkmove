@@ -30,6 +30,6 @@ impl ModuleIdMapping {
         self.0
             .iter()
             .position(|m| m == &module_id)
-            .expect(&format!("cannot find module {:?}", module_id))
+            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id))
     }
 }
