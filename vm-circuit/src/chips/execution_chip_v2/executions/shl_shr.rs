@@ -4,21 +4,32 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
+use crate::chips::execution_chip_v2::math_gadgets::lt::{LtGadget, LtInteger};
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddExprs;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::utils::{from_bytes, from_limbs};
-use crate::chips::execution_chip_v2::value::Integer;
+use crate::chips::execution_chip_v2::value::Integer as IntegerExpr;
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::select;
-use halo2_proofs::plonk::Expression;
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
+use itertools::izip;
+use move_core_types::u256::U256;
+use move_vm_runtime::witnessing::traced_value::{Integer, SimpleValue};
+use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -40,13 +51,13 @@ pub struct Shift<F> {
     bytes_2_lo: [Cell<F>; NUM_OF_BYTES_U128],
     bytes_2_hi: [Cell<F>; NUM_OF_BYTES_U128],
     is_shl: IsZeroGadget<F>,
-    shift_gadget: Option<ShiftGadget<F>>,
-    rhs_lt256: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
-    rhs_lt128: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
-    rhs_lt64: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
-    rhs_lt32: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
-    rhs_lt16: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
-    rhs_lt8: Option<LtGadget<F, NUM_OF_BYTES_U8>>,
+    shift_gadget: ShiftGadget<F>,
+    rhs_lt256: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt128: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt64: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt32: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt16: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt8: LtGadget<F, NUM_OF_BYTES_U8>,
     is_u8: IsZeroGadget<F>,
     is_u16: IsZeroGadget<F>,
     is_u32: IsZeroGadget<F>,
@@ -162,25 +173,19 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 // cb.require_next_state(ExecutionState::ErrorState);
                 // ErrorCode == StatusCode::ArithmeticError
             });
-            rhs_lt256 = Some(rhs_lt_256);
-            rhs_lt128 = Some(rhs_lt_128);
-            rhs_lt64 = Some(rhs_lt_64);
-            rhs_lt32 = Some(rhs_lt_32);
-            rhs_lt16 = Some(rhs_lt_16);
-            rhs_lt8 = Some(rhs_lt_8);
 
             let cells = ShiftCells {
-                a_lo: bytes_1_lo.clone(),
-                a_hi: bytes_1_hi.clone(),
-                b_lo: bytes_2_lo.clone(),
-                b_hi: bytes_2_hi.clone(),
-                c_lo: cb.cells_at_offset(bytes_1_lo.clone(), -1),
-                c_hi: cb.cells_at_offset(bytes_1_hi.clone(), -1),
-                d_lo: cb.cells_at_offset(bytes_2_lo.clone(), -1),
-                d_hi: cb.cells_at_offset(bytes_2_hi.clone(), -1),
+                a_lo: cb.cells_at_offset(bytes_1_lo.clone(), -1),
+                a_hi: cb.cells_at_offset(bytes_1_hi.clone(), -1),
+                b_lo: cb.cells_at_offset(bytes_2_lo.clone(), -1),
+                b_hi: cb.cells_at_offset(bytes_2_hi.clone(), -1),
+                c_lo: bytes_1_lo.clone(),
+                c_hi: bytes_1_hi.clone(),
+                d_lo: bytes_2_lo.clone(),
+                d_hi: bytes_2_hi.clone(),
             };
 
-            shift_gadget = Some(ShiftGadget::construct(
+            let shift = ShiftGadget::construct(
                 cb,
                 cells,
                 lhs,
@@ -193,7 +198,15 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 is_u64.expr(),
                 is_u128.expr(),
                 is_u256.expr(),
-            ));
+            );
+
+            rhs_lt256 = Some(rhs_lt_256);
+            rhs_lt128 = Some(rhs_lt_128);
+            rhs_lt64 = Some(rhs_lt_64);
+            rhs_lt32 = Some(rhs_lt_32);
+            rhs_lt16 = Some(rhs_lt_16);
+            rhs_lt8 = Some(rhs_lt_8);
+            shift_gadget = Some(shift);
 
             cb.require_zero(
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
@@ -220,13 +233,13 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             bytes_2_lo,
             bytes_2_hi,
             is_shl,
-            shift_gadget,
-            rhs_lt256,
-            rhs_lt128,
-            rhs_lt64,
-            rhs_lt32,
-            rhs_lt16,
-            rhs_lt8,
+            shift_gadget: shift_gadget.unwrap(),
+            rhs_lt256: rhs_lt256.unwrap(),
+            rhs_lt128: rhs_lt128.unwrap(),
+            rhs_lt64: rhs_lt64.unwrap(),
+            rhs_lt32: rhs_lt32.unwrap(),
+            rhs_lt16: rhs_lt16.unwrap(),
+            rhs_lt8: rhs_lt8.unwrap(),
             is_u8,
             is_u16,
             is_u32,
@@ -235,22 +248,111 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             is_u256,
         }
     }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
+        let step_state = stage_state.step_states.first().unwrap();
+        let opcode = step_state.step_state.opcode;
+        debug_assert!(opcode == Opcode::Shl as u16 || opcode == Opcode::Shr as u16);
+        let is_shl = opcode == Opcode::Shl as u16;
+        let num_bytes = step_state.step_state.aux0 as usize;
+        let pop0 = step_state.memory_ops[0].0.clone().unwrap().value;
+        let rhs = match pop0 {
+            SimpleValue::U8(n) => n,
+            _ => panic!("type mismatch: {:?} is not Integer::U8", pop0),
+        };
+        let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
+        let out = step_state.memory_ops[1].1.clone().unwrap().value;
+        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
+        let (out_lo, out_hi) = Integer::try_from(out).unwrap().into();
+
+        debug_assert_eq!(step_state.memory_ops.len(), 2);
+        for i in 0..step_state.memory_ops.len() {
+            self.is_shl.assign(
+                region,
+                offset + i,
+                F::from(Opcode::Shl as u64) - F::from(step_state.step_state.opcode as u64),
+            )?;
+            self.is_u8.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U8 as u64),
+            )?;
+            self.is_u16.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U16 as u64),
+            )?;
+            self.is_u32.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U32 as u64),
+            )?;
+            self.is_u64.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U64 as u64),
+            )?;
+            self.is_u128.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U128 as u64),
+            )?;
+            self.is_u256.assign(
+                region,
+                offset + i,
+                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U256 as u64),
+            )?;
+        }
+
+        //for below gadget, we only assign the last row
+        self.shift_gadget.assign(
+            region,
+            offset + 1,
+            is_shl,
+            rhs,
+            lhs_lo,
+            lhs_hi,
+            out_lo,
+            out_hi,
+        )?;
+        self.rhs_lt256
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(256u64))?;
+        self.rhs_lt128
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(128u64))?;
+        self.rhs_lt64
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(64u64))?;
+        self.rhs_lt32
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(32u64))?;
+        self.rhs_lt16
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(16u64))?;
+        self.rhs_lt8
+            .assign(region, offset + 1, F::from(rhs as u64), F::from(8u64))?;
+
+        Ok(step_state.memory_ops.len())
+    }
 }
 
 #[derive(Clone, Debug)]
 struct ShiftGadget<F> {
     cells: ShiftCells<F>,
     mul_add: MulAddGadget<F>,
-    remainder_lt_divisor: LtGadget<F, NUM_OF_BYTES_U256>,
+    remainder_lt_divisor: LtInteger<F>,
 }
 
 impl<F: Field> ShiftGadget<F> {
     fn construct(
         cb: &mut ConstraintBuilderV2<F>,
         cells: ShiftCells<F>,
-        lhs: Integer<F>,
-        rhs: Integer<F>,
-        out: Integer<F>,
+        lhs: IntegerExpr<F>,
+        rhs: IntegerExpr<F>,
+        out: IntegerExpr<F>,
         is_shl: Expression<F>,
         is_u8: Expression<F>,
         is_u16: Expression<F>,
@@ -272,7 +374,7 @@ impl<F: Field> ShiftGadget<F> {
             from_bytes::expr(&cells.b_hi[NUM_OF_BYTES_U64..]),
         ];
         let a = from_limbs::expr::<_, _, 64>(&a_limbs);
-        let b = from_limbs::expr::<_, _, 64>(&b_limbs);
+        let _b = from_limbs::expr::<_, _, 64>(&b_limbs);
 
         let b_lo = from_bytes::expr(&cells.b_lo);
         let b_hi = from_bytes::expr(&cells.b_hi);
@@ -284,12 +386,12 @@ impl<F: Field> ShiftGadget<F> {
         let c = c_hi.clone() * 2u64.pow(128).expr() + c_lo.clone();
         let d = d_hi.clone() * 2u64.pow(128).expr() + d_lo.clone();
 
-        /// Connect "lhs,rhs,out" with "a,b,c,d":
-        ///
-        /// lhs == select(is_shl, a, d);
-        /// 2^rhs == b; (b != 0, because rhs < 256)
-        /// out == is_shl * from_bytes(d[..n_bytes]) + is_shr * a;
-        ///
+        // Connect "lhs,rhs,out" with "a,b,c,d":
+        //
+        // lhs == select(is_shl, a, d);
+        // 2^rhs == b; (b != 0, because rhs < 256)
+        // out == is_shl * from_bytes(d[..n_bytes]) + is_shr * a;
+        //
         let is_shr = 1u64.expr() - is_shl.expr();
         cb.require_equal(
             "lhs == select::expr(is_shl.expr(), a, d)",
@@ -302,8 +404,8 @@ impl<F: Field> ShiftGadget<F> {
             "2^rhs == b",
             Lookup::Pow2 {
                 value: rhs.expr(),
-                pow_lo: b_lo,
-                pow_hi: b_hi,
+                pow_lo: b_lo.clone(),
+                pow_hi: b_hi.clone(),
             },
         );
         cb.require_equal(
@@ -318,13 +420,13 @@ impl<F: Field> ShiftGadget<F> {
                 + is_shl.clone() * is_u256 * d,
         );
 
-        /// Constraints for a, b, c, d:
-        ///
-        /// for shl, c must be 0, mul_add could overflow, it doesn't impact shift result
-        /// for shr, c < b (remainder < divisor, shl also applicable), mul_add never overflow
-        ///
+        // Constraints for a, b, c, d:
+        //
+        // for shl, c must be 0, mul_add could overflow, it doesn't impact shift result
+        // for shr, c < b (remainder < divisor, shl also applicable), mul_add never overflow
+        //
         cb.require_zero("c == 0 for shl", c.clone() * is_shl.clone());
-        let remainder_lt_divisor = LtGadget::construct(cb, c.clone(), b.clone());
+        let remainder_lt_divisor = LtInteger::construct(cb, c_lo.clone(), c_hi.clone(), b_lo, b_hi);
         cb.require_true("remainder < divisor", remainder_lt_divisor.expr());
         let mul_add_exprs = MulAddExprs {
             a_limbs,
@@ -345,5 +447,74 @@ impl<F: Field> ShiftGadget<F> {
             mul_add,
             remainder_lt_divisor,
         }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        is_shl: bool,
+        rhs: u8,
+        lhs_lo: u128,
+        lhs_hi: u128,
+        out_lo: u128,
+        out_hi: u128,
+    ) -> Result<(), Error> {
+        let lhs = pair_u128_to_u256(lhs_lo, lhs_hi);
+        let out = pair_u128_to_u256(out_lo, out_hi);
+
+        // (b_lo, b_hi) == (2^rhs, 0), when rhs < 128
+        // (b_lo, b_hi) == (0, 2^(rhs - 128)), when rhs >= 128
+        let (b_lo, b_hi) = if rhs < 128 {
+            (1u128 << rhs, 0u128)
+        } else {
+            (0u128, 1u128 << (rhs - 128))
+        };
+        let b = pair_u128_to_u256(b_lo, b_hi);
+
+        let (a, c, d) = if is_shl {
+            (lhs, U256::zero(), out)
+        } else {
+            (out, lhs - out * rhs.into(), lhs)
+        };
+
+        let (a_lo, a_hi) = split_u256_to_u128(a);
+        let (c_lo, c_hi) = split_u256_to_u128(c);
+        let (d_lo, d_hi) = split_u256_to_u128(d);
+
+        let cells = [
+            self.cells.a_lo.clone(),
+            self.cells.a_hi.clone(),
+            self.cells.b_lo.clone(),
+            self.cells.b_hi.clone(),
+            self.cells.c_lo.clone(),
+            self.cells.c_hi.clone(),
+            self.cells.d_lo.clone(),
+            self.cells.d_hi.clone(),
+        ]
+        .concat();
+        let bytes = [
+            a_lo.to_le_bytes(),
+            a_hi.to_le_bytes(),
+            b_lo.to_le_bytes(),
+            b_hi.to_le_bytes(),
+            c_lo.to_le_bytes(),
+            c_hi.to_le_bytes(),
+            d_lo.to_le_bytes(),
+            d_hi.to_le_bytes(),
+        ]
+        .concat();
+
+        izip!(cells, bytes)
+            .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(byte as u64))))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        self.mul_add.assign(region, offset, a, b, c, d)?;
+
+        // assign remainder_lt_divisor
+        self.remainder_lt_divisor
+            .assign(region, offset, Integer::U256(c), Integer::U256(b))?;
+
+        Ok(())
     }
 }
