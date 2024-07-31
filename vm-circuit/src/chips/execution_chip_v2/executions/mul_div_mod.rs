@@ -20,9 +20,8 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use gadgets::util::{or, select};
-use halo2_proofs::plonk::Expression;
 use aptos_move_witnesses::step_state::StageState;
+use gadgets::util::{or, select};
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -30,7 +29,7 @@ use halo2_proofs::{
 use itertools::izip;
 use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::Integer;
-use movelang::utility::pair_u128_to_u256;
+use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -212,21 +211,9 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                 || opcode == Opcode::Div as u16
                 || opcode == Opcode::Mod as u16
         );
-        let is_mul = if opcode == Opcode::Mul as u16 {
-            true
-        } else {
-            false
-        };
-        let is_div = if opcode == Opcode::Div as u16 {
-            true
-        } else {
-            false
-        };
-        let is_mod = if opcode == Opcode::Mod as u16 {
-            true
-        } else {
-            false
-        };
+        let is_mul = opcode == Opcode::Mul as u16;
+        let is_div = opcode == Opcode::Div as u16;
+        let is_mod = opcode == Opcode::Mod as u16;
 
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
@@ -241,17 +228,17 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             self.is_mul.assign(
                 region,
                 offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Mul as u64),
+                F::from(Opcode::Mul as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_div.assign(
                 region,
                 offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Div as u64),
+                F::from(Opcode::Div as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_mod.assign(
                 region,
                 offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Mod as u64),
+                F::from(Opcode::Mod as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
         }
 
@@ -499,6 +486,38 @@ impl<F: Field> MulDivModGadget<F> {
             )
         };
 
+        let (a_lo, a_hi) = split_u256_to_u128(a);
+        let (b_lo, b_hi) = split_u256_to_u128(b);
+        let (c_lo, c_hi) = split_u256_to_u128(c);
+        let (d_lo, d_hi) = split_u256_to_u128(d);
+
+        let cells = [
+            self.cells.a_lo.clone(),
+            self.cells.a_hi.clone(),
+            self.cells.b_lo.clone(),
+            self.cells.b_hi.clone(),
+            self.cells.c_lo.clone(),
+            self.cells.c_hi.clone(),
+            self.cells.d_lo.clone(),
+            self.cells.d_hi.clone(),
+        ]
+        .concat();
+        let bytes = [
+            a_lo.to_le_bytes(),
+            a_hi.to_le_bytes(),
+            b_lo.to_le_bytes(),
+            b_hi.to_le_bytes(),
+            c_lo.to_le_bytes(),
+            c_hi.to_le_bytes(),
+            d_lo.to_le_bytes(),
+            d_hi.to_le_bytes(),
+        ]
+        .concat();
+
+        izip!(cells, bytes)
+            .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(byte as u64))))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let mul_add_overflow = self.mul_add.assign(region, offset, a, b, c, d)?;
 
         // assign remainder_lt_divisor
@@ -512,8 +531,8 @@ impl<F: Field> MulDivModGadget<F> {
             NUM_OF_BYTES_U16 => u16::from_le_bytes(out_lo_bytes[..2].try_into().unwrap()) as u128,
             NUM_OF_BYTES_U32 => u32::from_le_bytes(out_lo_bytes[..4].try_into().unwrap()) as u128,
             NUM_OF_BYTES_U64 => u64::from_le_bytes(out_lo_bytes[..8].try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U128 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U256 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()) as u128,
+            NUM_OF_BYTES_U128 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()),
+            NUM_OF_BYTES_U256 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()),
             _ => unreachable!(),
         };
         self.is_out_lo_in_range.assign(
@@ -529,8 +548,8 @@ impl<F: Field> MulDivModGadget<F> {
             NUM_OF_BYTES_U16 => out_lo > u16::MAX as u128,
             NUM_OF_BYTES_U32 => out_lo > u32::MAX as u128,
             NUM_OF_BYTES_U64 => out_lo > u64::MAX as u128,
-            NUM_OF_BYTES_U128 => out_lo > u128::MAX as u128,
-            NUM_OF_BYTES_U256 => out_lo > u128::MAX as u128,
+            NUM_OF_BYTES_U128 => out_lo > u128::MAX,
+            NUM_OF_BYTES_U256 => out_lo > u128::MAX,
             _ => unreachable!(),
         };
         let overflow_out_lo = !divide_by_zero && out_lo_not_in_range;

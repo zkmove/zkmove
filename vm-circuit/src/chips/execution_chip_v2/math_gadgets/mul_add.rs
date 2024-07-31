@@ -162,11 +162,7 @@ impl<F: Field> MulAddGadget<F> {
             .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(*byte as u64))))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(if overflow != U256::zero() {
-            true
-        } else {
-            false
-        })
+        Ok(overflow != U256::zero())
     }
 }
 
