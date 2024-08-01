@@ -37,6 +37,48 @@ impl WitnessPreProcessor {
         let sp = trace.stack_pointer as u64;
         let current_frame_index = trace.frame_index;
         match &trace.data {
+            Operation::LdSimple(v) => {
+                let step_state = StepState::new(self.clk, ExecutionState::LdSimple, trace);
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp + 1,
+                    sub_index: vec![0],
+                    value: SimpleValue::from(v.clone()),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                let memory_ops = vec![MemoryOp(None, Some(stack_push), None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
+            Operation::LdTrue | Operation::LdFalse => {
+                let (state, out) = match &trace.data {
+                    Operation::LdTrue => (ExecutionState::LdTrue, true),
+                    Operation::LdFalse => (ExecutionState::LdTrue, false),
+                    _ => unreachable!(),
+                };
+
+                let step_state = StepState::new(self.clk, state, trace);
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp + 1,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(out),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                let memory_ops = vec![MemoryOp(None, Some(stack_push), None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
             Operation::StLoc {
                 local_index,
                 old_local,

@@ -3,56 +3,39 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+};
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::step_state::StageState;
+use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Ld<F, const N_BYTES: usize> {
+pub struct LdSimple<F> {
     phantom_data: PhantomData<F>,
 }
-impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Ld<F, N_BYTES> {
-    const NAME: &'static str = match N_BYTES {
-        NUM_OF_BYTES_U8 => "LdU8",
-        NUM_OF_BYTES_U16 => "LdU16",
-        NUM_OF_BYTES_U32 => "LdU32",
-        NUM_OF_BYTES_U64 => "LdU64",
-        NUM_OF_BYTES_U128 => "LdU128",
-        NUM_OF_BYTES_U256 => "LdU256",
-        _ => unreachable!(),
-    };
-
-    const OPCODE: Opcode = match N_BYTES {
-        NUM_OF_BYTES_U8 => Opcode::LdU8,
-        NUM_OF_BYTES_U16 => Opcode::LdU16,
-        NUM_OF_BYTES_U32 => Opcode::LdU32,
-        NUM_OF_BYTES_U64 => Opcode::LdU64,
-        NUM_OF_BYTES_U128 => Opcode::LdU128,
-        NUM_OF_BYTES_U256 => Opcode::LdU256,
-        _ => unreachable!(),
-    };
-    const EXECUTION_STATE: ExecutionState = match N_BYTES {
-        NUM_OF_BYTES_U8 => ExecutionState::LdU8,
-        NUM_OF_BYTES_U16 => ExecutionState::LdU16,
-        NUM_OF_BYTES_U32 => ExecutionState::LdU32,
-        NUM_OF_BYTES_U64 => ExecutionState::LdU64,
-        NUM_OF_BYTES_U128 => ExecutionState::LdU128,
-        NUM_OF_BYTES_U256 => ExecutionState::LdU256,
-        _ => unreachable!(),
-    };
+impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
+    const NAME: &'static str = "LoadSimple";
+    const OPCODE: Opcode = Opcode::LdU8; //TODO: remove this.
+    const EXECUTION_STATE: ExecutionState = ExecutionState::LdSimple;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        cb.require_equal(
-            "opcode",
-            cb.curr.state.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
-        );
+        // TODO: remove the constraint, also for other opcode
+        // Actually we only need lookup (.., pc, opcode,..) in bytecode table.
+        // Because pc is constrained by previous step, opcode must be a fixed one.
+        // cb.require_equal(
+        //     "opcode",
+        //     cb.curr.state.opcode.expr(),
+        //     (Self::OPCODE as u64).expr(),
+        // );
 
         cb.require_equal(
             "step_counter(0) == 1",
@@ -82,23 +65,6 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Ld<F, N_BYTES> {
             cb.curr.state.aux1.expr(),
         );
 
-        // TODO: remove the range check since the operands must have the correct type
-        match N_BYTES {
-            NUM_OF_BYTES_U8 | NUM_OF_BYTES_U16 | NUM_OF_BYTES_U32 | NUM_OF_BYTES_U64
-            | NUM_OF_BYTES_U128 => {
-                RangeCheckGadget::<_, N_BYTES>::construct(cb, cb.curr.state.aux0.expr());
-                cb.require_zero(
-                    format!("{}, stack_push_value(0).hi == 0", Self::NAME),
-                    cb.curr.state.aux1.expr(),
-                );
-            }
-            NUM_OF_BYTES_U256 => {
-                RangeCheckGadget::<_, NUM_OF_BYTES_U128>::construct(cb, cb.curr.state.aux0.expr());
-                RangeCheckGadget::<_, NUM_OF_BYTES_U128>::construct(cb, cb.curr.state.aux1.expr());
-            }
-            _ => unreachable!(),
-        };
-
         cb.require_zero(
             format!("{}, stack_push_value_header(0) == false", Self::NAME),
             cb.curr.state.stack_push_value_header.expr(),
@@ -121,8 +87,19 @@ impl<F: Field, const N_BYTES: usize> InstructionGadgetV2<F> for Ld<F, N_BYTES> {
             (PC, Transition::Delta(1.expr())),
         ]);
 
-        Ld {
+        LdSimple {
             phantom_data: PhantomData,
         }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(stage_state.rows())
     }
 }

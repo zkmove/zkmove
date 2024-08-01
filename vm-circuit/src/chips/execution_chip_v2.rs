@@ -7,18 +7,6 @@ use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
 use crate::chips::execution_chip_v2::executions::pop::Pop;
 use crate::chips::execution_chip_v2::executions::ret::Ret;
-// use crate::chips::execution_chip_v2::executions::vec_push_back::{
-//     VecPushBackStage1, VecPushBackStage2, VecPushBackStage3,
-// };
-// use crate::chips::execution_chip_v2::executions::vec_swap::{
-//     VecSwapStage_1, VecSwapStage_2, VecSwapStage_3_Or_4, VecSwapStage_5_Or_6,
-// };
-// use crate::chips::execution_chip_v2::executions::{
-//     VecPopBackStage1, VecPopBackStage2, VecPopBackStage3,
-// };
-use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState, VecLen};
-use crate::chips::execution_chip_v2::executions::{Ld, LdBool};
-// use crate::chips::execution_chip_v2::executions::Pack;
 use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, StoreLocStage2};
 use crate::chips::execution_chip_v2::executions::vec_pop_back::{
     VecPopBackStage1, VecPopBackStage2,
@@ -30,6 +18,8 @@ use crate::chips::execution_chip_v2::executions::vec_swap::{
     VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5,
 };
 use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
+use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState, VecLen};
+use crate::chips::execution_chip_v2::executions::{LdBool, LdSimple};
 use crate::chips::execution_chip_v2::executions::{Pack, UnpackStage1, UnpackStage2};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
@@ -71,12 +61,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub advices: Vec<Column<Advice>>,
     pub br_true: Box<BrBool<F, true>>,
     pub br_false: Box<BrBool<F, false>>,
-    pub ld_u8: Box<Ld<F, NUM_OF_BYTES_U8>>,
-    pub ld_u16: Box<Ld<F, NUM_OF_BYTES_U16>>,
-    pub ld_u32: Box<Ld<F, NUM_OF_BYTES_U32>>,
-    pub ld_u64: Box<Ld<F, NUM_OF_BYTES_U64>>,
-    pub ld_u128: Box<Ld<F, NUM_OF_BYTES_U128>>,
-    pub ld_u256: Box<Ld<F, NUM_OF_BYTES_U256>>,
+    pub ld_simple: Box<LdSimple<F>>,
     pub ld_true: Box<LdBool<F, true>>,
     pub ld_false: Box<LdBool<F, false>>,
     pub pack: Box<Pack<F, false>>,
@@ -237,12 +222,7 @@ impl<F: Field> ExecChipConfig<F> {
             s_step_last,
             br_true: configure_opcode_gadget!(),
             br_false: configure_opcode_gadget!(),
-            ld_u8: configure_opcode_gadget!(),
-            ld_u16: configure_opcode_gadget!(),
-            ld_u32: configure_opcode_gadget!(),
-            ld_u64: configure_opcode_gadget!(),
-            ld_u128: configure_opcode_gadget!(),
-            ld_u256: configure_opcode_gadget!(),
+            ld_simple: configure_opcode_gadget!(),
             ld_true: configure_opcode_gadget!(),
             ld_false: configure_opcode_gadget!(),
             imm_borrow_loc: configure_opcode_gadget!(),

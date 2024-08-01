@@ -92,4 +92,15 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
             phantom_data: PhantomData,
         }
     }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(stage_state.rows())
+    }
 }
