@@ -1,6 +1,7 @@
 pub(crate) mod add_sub;
 pub(crate) mod and_or;
 pub(crate) mod base;
+pub(crate) mod bitwise;
 pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
@@ -26,6 +27,8 @@ pub(crate) mod vec_pop_back;
 pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
+pub use add_sub::*;
+pub use bitwise::*;
 pub use borrow_loc::*;
 pub use br_bool::*;
 pub use ld::*;

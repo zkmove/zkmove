@@ -103,8 +103,7 @@ pub(crate) mod from_bytes {
     }
 }
 
-//TODO: Not sure if we really need this. as 16-bits limbs require a big talbe with 2^16 rows.
-/// Decodes a field element from its bytes representation or 16bits limbs representation in little endian order
+/// Decodes a field element from its 4, 8 or 16 bits limbs representation in little endian order
 pub(crate) mod from_limbs {
     use gadgets::util::Expr;
     use halo2_proofs::plonk::Expression;
@@ -116,8 +115,8 @@ pub(crate) mod from_limbs {
             "Too many limbs to compose an integer in field"
         );
         debug_assert!(
-            LIMB_BITS == 8 || LIMB_BITS == 16,
-            "Only 8-bit or 16-bit limbs supported"
+            LIMB_BITS == 4 || LIMB_BITS == 8 || LIMB_BITS == 16,
+            "Only 4-bits, 8-bits or 16-bits limbs supported"
         );
         let mut value = 0.expr();
         let mut multiplier = F::ONE;
@@ -134,13 +133,13 @@ pub(crate) mod from_limbs {
             "Too many limbs to compose an integer in field"
         );
         debug_assert!(
-            LIMB_BITS == 8 || LIMB_BITS == 16,
-            "Only 8-bit or 16-bit limbs supported"
+            LIMB_BITS == 4 || LIMB_BITS == 8 || LIMB_BITS == 16,
+            "Only 4-bits, 8-bits or 16-bits limbs supported"
         );
         let mut value = F::ZERO;
         let mut multiplier = F::ONE;
         for limb in limbs.iter() {
-            value += F::from(*limb) * multiplier;
+            value += F::from(*limb as u64) * multiplier;
             multiplier *= F::from(1u64 << LIMB_BITS);
         }
         value

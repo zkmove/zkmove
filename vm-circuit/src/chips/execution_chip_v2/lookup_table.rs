@@ -1,3 +1,4 @@
+use crate::chips::execution_chip_v2::lookup_table::bitwise_table::BitwiseLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
@@ -7,6 +8,7 @@ use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
 
+pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
 pub(crate) mod function_table;
 pub(crate) mod utils;
@@ -15,6 +17,8 @@ pub(crate) mod ux_table;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter)]
 /// Each item represents the lookup table to query
 pub enum Table {
+    /// The range check table for 4-bits
+    Nibble,
     /// The range check table for u8
     U8,
     /// The range check table for u16
@@ -25,6 +29,8 @@ pub enum Table {
     Bytecode,
     /// Lookup for function
     Function,
+    /// Bitwise lookup
+    Bitwise,
 }
 
 #[derive(Clone, Debug)]
@@ -43,6 +49,12 @@ pub(crate) enum Lookup<F> {
         /// Number of arguments
         num_arg: Expression<F>,
     },
+    Bitwise {
+        opcode: Expression<F>,
+        value_1: Expression<F>,
+        value_2: Expression<F>,
+        result: Expression<F>,
+    },
     /// Conditional lookup enabled by the first element.
     Conditional(Expression<F>, Box<Lookup<F>>),
 }
@@ -56,6 +68,7 @@ impl<F: Field> Lookup<F> {
         match self {
             Self::Fixed { .. } => Table::Fixed,
             Self::Function { .. } => Table::Function,
+            Self::Bitwise { .. } => Table::Bitwise,
             Self::Conditional(_, lookup) => lookup.table(),
         }
     }
@@ -72,6 +85,19 @@ impl<F: Field> Lookup<F> {
                     module_index.clone(),
                     function_index.clone(),
                     num_arg.clone(),
+                ]
+            }
+            Self::Bitwise {
+                opcode,
+                value_1,
+                value_2,
+                result,
+            } => {
+                vec![
+                    opcode.clone(),
+                    value_1.clone(),
+                    value_2.clone(),
+                    result.clone(),
                 ]
             }
             Self::Conditional(condition, lookup) => lookup
@@ -118,27 +144,33 @@ pub enum FixedTableTag {
 impl_expr!(FixedTableTag);
 
 pub struct LookupTableConfigV2<F> {
+    pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
     pub(crate) u10_table: UXTable<10>,
     pub(crate) u16_table: UXTable<16>,
     pub(crate) bytecode_table: BytecodeLookupTable,
     pub(crate) function_table: FunctionLookupTable,
+    pub(crate) bitwise_table: BitwiseLookupTable,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
 impl<F: Field> LookupTableConfigV2<F> {
     pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
+        let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
         let u10_table = UXTable::construct(meta);
         let u16_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let function_table = FunctionLookupTable::construct(meta);
+        let bitwise_table = BitwiseLookupTable::construct(meta);
         Self {
+            nibble_table,
             u8_table,
             u10_table,
             u16_table,
             bytecode_table,
             function_table,
+            bitwise_table,
             phantom_data: PhantomData,
         }
     }

@@ -223,9 +223,9 @@ mod tests {
     use crate::witness::bytecode::{parse_module, BytecodeTableRow};
     use error::VmResult;
     use move_binary_format::file_format::{
-        empty_module, Bytecode, CodeUnit, CompiledModule,
-        FunctionDefinition, FunctionHandle, FunctionHandleIndex, IdentifierIndex,
-        ModuleHandleIndex, SignatureIndex, SignatureToken, Visibility,
+        empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
+        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, SignatureToken,
+        Visibility,
     };
     use move_core_types::identifier::Identifier;
 
