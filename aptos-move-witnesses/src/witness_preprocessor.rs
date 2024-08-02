@@ -79,6 +79,56 @@ impl WitnessPreProcessor {
                     }],
                 }]
             }
+            Operation::CastU8 { origin }
+            | Operation::CastU16 { origin }
+            | Operation::CastU32 { origin }
+            | Operation::CastU64 { origin }
+            | Operation::CastU128 { origin }
+            | Operation::CastU256 { origin } => {
+                let step_state = StepState::new(self.clk, ExecutionState::Cast, trace);
+                // convert to U256 and then do casting, to prevent witnessing from being interrupted.
+                let new = match &trace.data {
+                    Operation::CastU8 { origin } => {
+                        SimpleValue::U8(origin.to_u256().unchecked_as_u8())
+                    }
+                    Operation::CastU16 { origin } => {
+                        SimpleValue::U16(origin.to_u256().unchecked_as_u16())
+                    }
+                    Operation::CastU32 { origin } => {
+                        SimpleValue::U32(origin.to_u256().unchecked_as_u32())
+                    }
+                    Operation::CastU64 { origin } => {
+                        SimpleValue::U64(origin.to_u256().unchecked_as_u64())
+                    }
+                    Operation::CastU128 { origin } => {
+                        SimpleValue::U128(origin.to_u256().unchecked_as_u128())
+                    }
+                    Operation::CastU256 { origin } => SimpleValue::U256(origin.to_u256()),
+                    _ => unreachable!(),
+                };
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::from(origin.clone()),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: new,
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                let memory_ops = vec![MemoryOp(Some(stack_pop), Some(stack_push), None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
             Operation::StLoc {
                 local_index,
                 old_local,
