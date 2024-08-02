@@ -129,6 +129,29 @@ impl WitnessPreProcessor {
                     }],
                 }]
             }
+            Operation::Pop { poped_value } => {
+                let step_state = StepState::new(self.clk, ExecutionState::Pop, trace);
+                let value_version = self.version_stack.pop().unwrap();
+                let memory_ops = poped_value
+                    .iter()
+                    .map(|item| {
+                        let stack_pop = StackPop {
+                            index: sp,
+                            sub_index: item.sub_index.clone(),
+                            value: item.value.clone(),
+                            value_header: item.header,
+                            version: value_version,
+                        };
+                        MemoryOp(Some(stack_pop), None, None)
+                    })
+                    .collect();
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
             Operation::StLoc {
                 local_index,
                 old_local,
