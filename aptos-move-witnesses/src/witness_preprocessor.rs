@@ -152,6 +152,37 @@ impl WitnessPreProcessor {
                     }],
                 }]
             }
+            Operation::BrTrue {
+                cond_val,
+                code_offset,
+            }
+            | Operation::BrFalse {
+                cond_val,
+                code_offset,
+            } => {
+                let state = match &trace.data {
+                    Operation::BrTrue { .. } => ExecutionState::BrTrue,
+                    Operation::BrFalse { .. } => ExecutionState::BrFalse,
+                    _ => unreachable!(),
+                };
+                let step_state =
+                    StepState::new(self.clk, state, trace).set_aux0(*code_offset as u128);
+                let value_version = self.version_stack.pop().unwrap();
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: vec![0],
+                    value: SimpleValue::Bool(*cond_val),
+                    value_header: false,
+                    version: value_version,
+                };
+                let memory_ops = vec![MemoryOp(Some(stack_pop), None, None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                }]
+            }
             Operation::StLoc {
                 local_index,
                 old_local,
