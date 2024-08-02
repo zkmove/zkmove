@@ -12,6 +12,7 @@ use crate::witness_preprocessor::to_u256::ToU256;
 use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
+use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Deref, DerefMut};
 
@@ -1292,22 +1293,52 @@ impl WitnessPreProcessor {
                     _ => unreachable!(),
                 };
 
-                // while calculating the result, wrapping around at the boundary of the u256,
-                // to prevent overflow from stopping the computing.
-                let out = match ty {
+                let (out, step_state) = match ty {
+                    // while calculating the result, wrapping around at the boundary of the u256,
+                    // to prevent overflow from stopping the computing.
                     BinaryIntegerOperationType::Add => {
                         let output = U256::wrapping_add(lhs.to_u256(), rhs.to_u256());
-                        SimpleValue::U256(output)
+                        let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
+                            .set_aux0(num_bytes as u128);
+                        (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Sub => {
                         let output = U256::wrapping_sub(lhs.to_u256(), rhs.to_u256());
-                        SimpleValue::U256(output)
+                        let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
+                            .set_aux0(num_bytes as u128);
+                        (SimpleValue::U256(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Lt => {
+                        let output = IntegerValue::from(lhs.clone())
+                            .lt(IntegerValue::from(rhs.clone()))
+                            .expect("should not fail");
+                        let step_state = StepState::new(self.clk, ExecutionState::Lt, trace);
+                        (SimpleValue::Bool(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Gt => {
+                        let output = IntegerValue::from(lhs.clone())
+                            .gt(IntegerValue::from(rhs.clone()))
+                            .expect("should not fail");
+                        let step_state = StepState::new(self.clk, ExecutionState::Gt, trace);
+                        (SimpleValue::Bool(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Le => {
+                        let output = IntegerValue::from(lhs.clone())
+                            .le(IntegerValue::from(rhs.clone()))
+                            .expect("should not fail");
+                        let step_state = StepState::new(self.clk, ExecutionState::Le, trace);
+                        (SimpleValue::Bool(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Ge => {
+                        let output = IntegerValue::from(lhs.clone())
+                            .ge(IntegerValue::from(rhs.clone()))
+                            .expect("should not fail");
+                        let step_state = StepState::new(self.clk, ExecutionState::Ge, trace);
+                        (SimpleValue::Bool(output), step_state)
                     }
                     _ => todo!(),
                 };
 
-                let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
-                    .set_aux0(num_bytes as u128);
                 let stack_pop_rhs = StackPop {
                     index: sp,
                     sub_index: vec![0],
