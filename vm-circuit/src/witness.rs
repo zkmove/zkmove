@@ -19,6 +19,7 @@ pub mod bytecode;
 pub mod bytecode_table;
 pub mod call_trace_table;
 pub mod const_table;
+pub mod constant;
 pub mod exec_step;
 pub mod execution_steps;
 pub mod function;

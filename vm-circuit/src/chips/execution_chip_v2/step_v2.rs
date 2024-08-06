@@ -14,6 +14,8 @@ use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;
 
+pub const NUM_OF_VALUE_LIMBS: usize = 2;
+
 pub const STEP_COUNTER: &str = "step_counter";
 pub const FRAME_INDEX: &str = "frame_index";
 pub const MODULE_INDEX: &str = "module_index";
@@ -39,13 +41,13 @@ pub(crate) struct StepState<F> {
 
     pub stack_pop_index: Cell<F>,
     pub stack_pop_sub_index: Cell<F>,
-    pub stack_pop_value: Value<F, 2>,
+    pub stack_pop_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_pop_value_header: Cell<F>,
     pub stack_pop_version: Cell<F>,
 
     pub stack_push_index: Cell<F>,
     pub stack_push_sub_index: Cell<F>,
-    pub stack_push_value: Value<F, 2>,
+    pub stack_push_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_push_value_header: Cell<F>,
     pub stack_push_version: Cell<F>,
 
@@ -53,12 +55,12 @@ pub(crate) struct StepState<F> {
     pub local_index: Cell<F>,
     pub local_sub_index: Cell<F>,
 
-    pub local_read_value: Value<F, 2>,
+    pub local_read_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub local_read_value_header: Cell<F>,
     pub local_read_value_invalid: Cell<F>,
     pub local_read_version: Cell<F>,
 
-    pub local_write_value: Value<F, 2>,
+    pub local_write_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub local_write_value_header: Cell<F>,
     pub local_write_value_invalid: Cell<F>,
     pub local_write_version: Cell<F>,

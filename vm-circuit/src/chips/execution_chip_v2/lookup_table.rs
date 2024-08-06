@@ -1,7 +1,9 @@
 use crate::chips::execution_chip_v2::lookup_table::bitwise_table::BitwiseLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookupTable;
+use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
+use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
 use gadgets::impl_expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::marker::PhantomData;
@@ -10,6 +12,7 @@ use types::Field;
 
 pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
+pub(crate) mod constant_table;
 pub(crate) mod function_table;
 pub(crate) mod utils;
 pub(crate) mod ux_table;
@@ -27,6 +30,8 @@ pub enum Table {
     Fixed,
     /// Lookup for bytecode table
     Bytecode,
+    /// Lookup for constant table
+    Constant,
     /// Lookup for function
     Function,
     /// Bitwise lookup
@@ -50,6 +55,13 @@ pub(crate) enum Lookup<F> {
         function_index: Expression<F>,
         num_arg: Expression<F>,
     },
+    Constant {
+        module_index: Expression<F>,
+        constant_index: Expression<F>,
+        sub_index: Expression<F>,
+        value: [Expression<F>; NUM_OF_VALUE_LIMBS],
+        header: Expression<F>,
+    },
     Bitwise {
         opcode: Expression<F>,
         value_1: Expression<F>,
@@ -70,6 +82,7 @@ impl<F: Field> Lookup<F> {
             Self::Fixed { .. } => Table::Fixed,
             Self::Function { .. } => Table::Function,
             Self::Bitwise { .. } => Table::Bitwise,
+            Self::Constant { .. } => Table::Constant,
             Self::Conditional(_, lookup) => lookup.table(),
         }
     }
@@ -92,6 +105,18 @@ impl<F: Field> Lookup<F> {
                     num_arg.clone(),
                 ]
             }
+            Self::Constant {
+                module_index,
+                constant_index,
+                sub_index,
+                value,
+                header,
+            } => vec![module_index, constant_index, sub_index]
+                .into_iter()
+                .chain(value)
+                .chain(vec![header])
+                .map(|expr| expr.clone())
+                .collect(),
             Self::Bitwise {
                 opcode,
                 value_1,
@@ -154,6 +179,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) u10_table: UXTable<10>,
     pub(crate) u16_table: UXTable<16>,
     pub(crate) bytecode_table: BytecodeLookupTable,
+    pub(crate) constant_table: ConstantLookupTable,
     pub(crate) function_table: FunctionLookupTable,
     pub(crate) bitwise_table: BitwiseLookupTable,
     pub(crate) phantom_data: PhantomData<F>,
@@ -166,6 +192,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let u10_table = UXTable::construct(meta);
         let u16_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
+        let constant_table = ConstantLookupTable::construct(meta);
         let function_table = FunctionLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
         Self {
@@ -174,6 +201,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             u10_table,
             u16_table,
             bytecode_table,
+            constant_table,
             function_table,
             bitwise_table,
             phantom_data: PhantomData,
