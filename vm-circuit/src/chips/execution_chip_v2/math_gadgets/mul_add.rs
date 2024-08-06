@@ -3,8 +3,14 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilde
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::utils::from_bytes;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use halo2_proofs::plonk::Expression;
+use halo2_proofs::{
+    circuit::Value,
+    plonk::{Error, Expression},
+};
+use move_core_types::u256::U256;
+use std::ops::Shl;
 use types::Field;
 
 const MAX_RADIX_BYTES: usize = 9;
@@ -105,4 +111,90 @@ impl<F: Field> MulAddGadget<F> {
     pub(crate) fn overflow(&self) -> Expression<F> {
         1u64.expr() - self.is_zero_overflow.expr()
     }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        a: U256,
+        b: U256,
+        c: U256,
+        d: U256,
+    ) -> Result<bool, Error> {
+        let a_limbs = split_u256_limb64(&a);
+        let b_limbs = split_u256_limb64(&b);
+        let (c_lo, c_hi) = split_u256(&c);
+        let (d_lo, d_hi) = split_u256(&d);
+
+        let t0 = a_limbs[0] * b_limbs[0];
+        let t1 = a_limbs[0] * b_limbs[1] + a_limbs[1] * b_limbs[0];
+        let t2 = a_limbs[0] * b_limbs[2] + a_limbs[1] * b_limbs[1] + a_limbs[2] * b_limbs[0];
+        let t3 = a_limbs[0] * b_limbs[3]
+            + a_limbs[1] * b_limbs[2]
+            + a_limbs[2] * b_limbs[1]
+            + a_limbs[3] * b_limbs[0];
+
+        let carry_lo = (t0 + t1.shl(64u8) + c_lo)
+            .checked_sub(d_lo)
+            .unwrap_or(U256::zero())
+            >> 128;
+        let carry_hi = (t2 + t3.shl(64u8) + c_hi + carry_lo)
+            .checked_sub(d_hi)
+            .unwrap_or(U256::zero())
+            >> 128;
+        let overflow = carry_hi
+            + a_limbs[1] * b_limbs[3]
+            + a_limbs[2] * b_limbs[2]
+            + a_limbs[2] * b_limbs[3]
+            + a_limbs[3] * b_limbs[1]
+            + a_limbs[3] * b_limbs[2]
+            + a_limbs[3] * b_limbs[3];
+
+        self.carry_lo
+            .iter()
+            .zip(carry_lo.to_le_bytes().iter())
+            .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(*byte as u64))))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        self.carry_hi
+            .iter()
+            .zip(carry_hi.to_le_bytes().iter())
+            .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(*byte as u64))))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(overflow != U256::zero())
+    }
+}
+
+/// Split one U256 into 4 64-bits limbs stored in U256.
+pub fn split_u256_limb64(value: &U256) -> [U256; 4] {
+    let bytes = value.to_le_bytes();
+    let mut limb0 = [0u8; 32];
+    limb0[..8].copy_from_slice(&bytes[..8]);
+    let mut limb1 = [0u8; 32];
+    limb1[8..16].copy_from_slice(&bytes[8..16]);
+    let mut limb2 = [0u8; 32];
+    limb2[16..24].copy_from_slice(&bytes[16..24]);
+    let mut limb3 = [0u8; 32];
+    limb3[24..].copy_from_slice(&bytes[24..]);
+
+    [
+        U256::from_le_bytes(&limb0),
+        U256::from_le_bytes(&limb1),
+        U256::from_le_bytes(&limb2),
+        U256::from_le_bytes(&limb3),
+    ]
+}
+
+/// Split one U256 into low 128-bits and high 128-bits stored in U256.
+pub fn split_u256(value: &U256) -> (U256, U256) {
+    let bytes = value.to_le_bytes();
+    let mut lo_bytes = [0u8; 32];
+    lo_bytes[..16].copy_from_slice(&bytes[..16]);
+    let mut hi_bytes = [0u8; 32];
+    hi_bytes[..16].copy_from_slice(&bytes[..16]);
+    (
+        U256::from_le_bytes(&lo_bytes),
+        U256::from_le_bytes(&hi_bytes),
+    )
 }

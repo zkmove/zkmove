@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::math_gadgets::comparison::ComparisonGadget;
 use crate::chips::execution_chip_v2::utils::{from_limbs, transpose_val_ret};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -8,6 +9,8 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
+use move_vm_runtime::witnessing::traced_value::Integer;
+use movelang::value::NUM_OF_BYTES_U128;
 use types::Field;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
@@ -95,5 +98,51 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
             lhs.zip(rhs)
                 .map(|(lhs, rhs)| self.assign(region, offset, lhs, rhs)),
         )
+    }
+}
+
+/// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
+/// lhs and rhs are both Integer.
+#[derive(Clone, Debug)]
+pub struct LtInteger<F> {
+    comparison_hi: ComparisonGadget<F, NUM_OF_BYTES_U128>,
+    lt_lo: LtGadget<F, NUM_OF_BYTES_U128>,
+}
+
+impl<F: Field> LtInteger<F> {
+    pub(crate) fn construct(
+        cb: &mut ConstraintBuilderV2<F>,
+        lhs_lo: Expression<F>,
+        lhs_hi: Expression<F>,
+        rhs_lo: Expression<F>,
+        rhs_hi: Expression<F>,
+    ) -> Self {
+        let comparison_hi = ComparisonGadget::construct(cb, lhs_hi, rhs_hi);
+        let lt_lo = LtGadget::construct(cb, lhs_lo, rhs_lo);
+        Self {
+            comparison_hi,
+            lt_lo,
+        }
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        let (hi_lt, hi_eq) = self.comparison_hi.expr();
+        hi_lt + hi_eq * self.lt_lo.expr()
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lhs: Integer,
+        rhs: Integer,
+    ) -> Result<(), Error> {
+        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
+        let (rhs_lo, rhs_hi) = Integer::try_from(rhs).unwrap().into();
+        self.comparison_hi
+            .assign(region, offset, F::from_u128(lhs_hi), F::from_u128(rhs_hi))?;
+        self.lt_lo
+            .assign(region, offset, F::from_u128(lhs_lo), F::from_u128(rhs_lo))?;
+        Ok(())
     }
 }

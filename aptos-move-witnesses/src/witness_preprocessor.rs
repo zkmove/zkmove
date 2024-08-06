@@ -14,7 +14,7 @@ use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue,
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
 
 pub struct WitnessPreProcessor {
     clk: Version,
@@ -1443,14 +1443,32 @@ impl WitnessPreProcessor {
                     // while calculating the result, wrapping around at the boundary of the u256,
                     // to prevent overflow from stopping the computing.
                     BinaryIntegerOperationType::Add => {
-                        let output = U256::wrapping_add(lhs.to_u256(), rhs.to_u256());
+                        let output = lhs.to_u256().add(rhs.to_u256());
                         let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
                             .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Sub => {
-                        let output = U256::wrapping_sub(lhs.to_u256(), rhs.to_u256());
+                        let output = lhs.to_u256().sub(rhs.to_u256());
                         let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
+                            .set_aux0(num_bytes as u128);
+                        (SimpleValue::U256(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Mul => {
+                        let output = lhs.to_u256().mul(rhs.to_u256());
+                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
+                            .set_aux0(num_bytes as u128);
+                        (SimpleValue::U256(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Div => {
+                        let output = lhs.to_u256().div(rhs.to_u256());
+                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
+                            .set_aux0(num_bytes as u128);
+                        (SimpleValue::U256(output), step_state)
+                    }
+                    BinaryIntegerOperationType::Mod => {
+                        let output = lhs.to_u256().rem(rhs.to_u256());
+                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
                             .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
