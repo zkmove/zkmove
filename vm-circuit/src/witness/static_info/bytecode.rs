@@ -12,14 +12,12 @@ use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{
     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
 };
-use move_core_types::language_storage::ModuleId;
-use move_package::compilation::compiled_package::CompiledPackage;
 use movelang::type_transition;
 use std::convert::From;
 use types::Field;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct BytecodeTableRow {
+pub struct BytecodeInfo {
     module_index: usize,
     function_index: usize,
     pc: u16,
@@ -28,7 +26,7 @@ pub struct BytecodeTableRow {
     ty_out: Vec<SignatureToken>,
 }
 
-impl BytecodeTableRow {
+impl BytecodeInfo {
     pub fn new(
         module_index: usize,
         function_index: usize,
@@ -36,7 +34,7 @@ impl BytecodeTableRow {
         bytecode: Bytecode,
         ty_out: Vec<SignatureToken>,
     ) -> Self {
-        BytecodeTableRow {
+        BytecodeInfo {
             module_index,
             function_index,
             pc,
@@ -58,7 +56,7 @@ impl BytecodeTableRow {
     }
 
     /// Convert opcode, operand1 and operand2 of given bytecode into field elements
-    fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &Vec<SignatureToken>) -> [F; 3] {
+    fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &[SignatureToken]) -> [F; 3] {
         let fe_opcode = F::from(Opcode::from(bytecode.clone()).index() as u64);
         match *bytecode {
             Bytecode::CastU8
@@ -157,10 +155,10 @@ impl BytecodeTableRow {
 }
 
 /// parse bytecode in the transitive dependencies of `module_id`
-pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<BytecodeTableRow> {
-    let modules = package.all_modules_map();
-    let deps = modules.get_transitive_dependencies(module_id).unwrap();
-    let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+pub(crate) fn parse_dependency(
+    module_id_mapping: &ModuleIdMapping,
+    deps: &[CompiledModule],
+) -> Vec<BytecodeInfo> {
     deps.iter()
         .flat_map(|module| {
             let module_index = module_id_mapping.get_module_index(&module.self_id());
@@ -169,7 +167,7 @@ pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<Byt
         .collect()
 }
 
-pub fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeTableRow> {
+fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeInfo> {
     module
         .function_defs
         .iter()
@@ -189,7 +187,7 @@ pub fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<Bytecod
                 .expect("generate type transition should not fail");
                 let rows = transitions
                     .into_iter()
-                    .map(move |(i, transition)| BytecodeTableRow {
+                    .map(move |(i, transition)| BytecodeInfo {
                         module_index,
                         function_index: func_index,
                         pc: i,
@@ -220,7 +218,7 @@ fn get_num_bytes(s: &SignatureToken) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::witness::bytecode::{parse_module, BytecodeTableRow};
+    use crate::witness::static_info::bytecode::{parse_module, BytecodeInfo};
     use error::VmResult;
     use move_binary_format::file_format::{
         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
@@ -307,16 +305,16 @@ mod tests {
         let bytecodes = parse_module(&module, 0);
 
         let expected_bytecode_table = vec![
-            BytecodeTableRow::new(0, 0, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 0, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 0, 2, Bytecode::Add, vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 0, 3, Bytecode::Pop, vec![]),
-            BytecodeTableRow::new(0, 0, 4, Bytecode::Ret, vec![]),
-            BytecodeTableRow::new(0, 1, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 1, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 1, 2, Bytecode::Sub, vec![SignatureToken::U64]),
-            BytecodeTableRow::new(0, 1, 3, Bytecode::Pop, vec![]),
-            BytecodeTableRow::new(0, 1, 4, Bytecode::Ret, vec![]),
+            BytecodeInfo::new(0, 0, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 0, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 0, 2, Bytecode::Add, vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 0, 3, Bytecode::Pop, vec![]),
+            BytecodeInfo::new(0, 0, 4, Bytecode::Ret, vec![]),
+            BytecodeInfo::new(0, 1, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 1, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 1, 2, Bytecode::Sub, vec![SignatureToken::U64]),
+            BytecodeInfo::new(0, 1, 3, Bytecode::Pop, vec![]),
+            BytecodeInfo::new(0, 1, 4, Bytecode::Ret, vec![]),
         ];
 
         assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");

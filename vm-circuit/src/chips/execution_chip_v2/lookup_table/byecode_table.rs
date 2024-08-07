@@ -1,6 +1,6 @@
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
-use crate::witness::bytecode::BytecodeTableRow;
+use crate::witness::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
@@ -41,9 +41,13 @@ impl BytecodeLookupTable {
     pub fn load<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
-        table_rows: &Vec<BytecodeTableRow>,
+        static_info: &StaticInfo,
     ) -> Result<(), Error> {
-        let field_elements: Vec<Vec<F>> = table_rows.iter().map(|row| row.to_fe()).collect();
+        let field_elements: Vec<Vec<F>> = static_info
+            .bytecode_info
+            .iter()
+            .map(|row| row.to_fe())
+            .collect();
         assign_fixed_table(layouter, self.columns(), &field_elements, "bytecode_table")
     }
 }

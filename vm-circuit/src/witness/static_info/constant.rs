@@ -1,8 +1,7 @@
 use crate::witness::utils::ModuleIdMapping;
 use move_binary_format::access::ModuleAccess;
-use move_core_types::language_storage::ModuleId;
+use move_binary_format::CompiledModule;
 use move_core_types::value::MoveValue;
-use move_package::compilation::compiled_package::CompiledPackage;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ConstantInfo {
@@ -11,12 +10,10 @@ pub struct ConstantInfo {
     pub value: MoveValue,
 }
 
-pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<ConstantInfo> {
-    let modules = package.all_modules_map();
-    let deps = modules.get_transitive_dependencies(module_id).unwrap();
-    // todo: pass in module_id_mapping as parameter
-    let module_id_mapping = ModuleIdMapping::construct(module_id, package);
-
+pub(crate) fn parse_dependency(
+    module_id_mapping: &ModuleIdMapping,
+    deps: &[CompiledModule],
+) -> Vec<ConstantInfo> {
     deps.iter()
         .flat_map(|module| {
             module

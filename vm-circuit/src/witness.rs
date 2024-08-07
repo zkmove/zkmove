@@ -15,17 +15,15 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub mod arith_operations;
-pub mod bytecode;
 pub mod bytecode_table;
 pub mod call_trace_table;
 pub mod const_table;
-pub mod constant;
 pub mod exec_step;
 pub mod execution_steps;
-pub mod function;
 pub mod function_calls;
 pub mod input_type_elements;
 pub mod rw_operations;
+pub mod static_info;
 pub mod type_instantiation_table;
 pub mod utils;
 

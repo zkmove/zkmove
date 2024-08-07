@@ -5,7 +5,7 @@ use types::Field;
 pub(crate) fn assign_fixed_table<F: Field>(
     layouter: &mut impl Layouter<F>,
     table_columns: Vec<Column<Fixed>>,
-    values: &Vec<Vec<F>>,
+    values: &[Vec<F>],
     table_name: &str,
 ) -> Result<(), Error> {
     layouter.assign_region(

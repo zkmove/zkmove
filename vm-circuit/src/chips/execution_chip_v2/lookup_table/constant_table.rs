@@ -5,9 +5,10 @@ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::table::LookupTable;
-use crate::witness::constant::ConstantInfo;
+use crate::witness::static_info::constant::ConstantInfo;
+use crate::witness::static_info::StaticInfo;
 use aptos_move_witnesses::utils::SubIndexUtils;
-use aptos_move_witnesses::{SimpleValue, ValueItem};
+use aptos_move_witnesses::ValueItem;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
@@ -32,15 +33,19 @@ impl ConstantLookupTable {
         }
     }
     pub fn columns(&self) -> Vec<Column<Fixed>> {
-        vec![self.module_index, self.constant_index, self.sub_index].into_iter().
-        chain(self.value).chain(vec![self.header]).collect()
+        vec![self.module_index, self.constant_index, self.sub_index]
+            .into_iter()
+            .chain(self.value)
+            .chain(vec![self.header])
+            .collect()
     }
     pub fn load<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
-        constants: &Vec<ConstantInfo>,
+        static_info: &StaticInfo,
     ) -> Result<(), Error> {
-        let field_elements: Vec<Vec<F>> = constants
+        let field_elements: Vec<Vec<F>> = static_info
+            .constant_info
             .iter()
             .flat_map(|c| {
                 let rows: Vec<ConstantTableRow> = c.clone().into();

@@ -115,7 +115,7 @@ impl<F: Field> Lookup<F> {
                 .into_iter()
                 .chain(value)
                 .chain(vec![header])
-                .map(|expr| expr.clone())
+                .cloned()
                 .collect(),
             Self::Bitwise {
                 opcode,

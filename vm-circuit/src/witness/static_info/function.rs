@@ -3,12 +3,10 @@
 use crate::witness::utils::ModuleIdMapping;
 use move_binary_format::file_format::{CompiledModule, FunctionHandleIndex};
 use move_binary_format::views::FunctionHandleView;
-use move_core_types::language_storage::ModuleId;
-use move_package::compilation::compiled_package::CompiledPackage;
 use types::Field;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct FunctionTableRow {
+pub struct FunctionInfo {
     module_index: usize,
     function_handle_index: usize,
     def_module_index: usize,
@@ -16,7 +14,7 @@ pub struct FunctionTableRow {
     num_arg: usize,
 }
 
-impl FunctionTableRow {
+impl FunctionInfo {
     pub fn new(
         module_index: usize,
         function_handle_index: usize,
@@ -24,7 +22,7 @@ impl FunctionTableRow {
         function_index: usize,
         num_arg: usize,
     ) -> Self {
-        FunctionTableRow {
+        FunctionInfo {
             module_index,
             function_handle_index,
             def_module_index,
@@ -44,15 +42,14 @@ impl FunctionTableRow {
     }
 }
 
-pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<FunctionTableRow> {
-    let modules = package.all_modules_map();
-    let deps = modules.get_transitive_dependencies(module_id).unwrap();
-    // todo: pass in module_id_mapping as parameter
-    let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+pub(crate) fn parse_dependency(
+    module_id_mapping: &ModuleIdMapping,
+    deps: &[CompiledModule],
+) -> Vec<FunctionInfo> {
     deps.iter()
         .flat_map(|module| {
             let module_index = module_id_mapping.get_module_index(&module.self_id());
-            parse_module(module, module_index, &module_id_mapping)
+            parse_module(module, module_index, module_id_mapping)
         })
         .collect()
 }
@@ -61,7 +58,7 @@ fn parse_module(
     module: &CompiledModule,
     module_index: usize,
     module_id_mapping: &ModuleIdMapping,
-) -> Vec<FunctionTableRow> {
+) -> Vec<FunctionInfo> {
     module
         .function_handles
         .iter()
@@ -80,9 +77,9 @@ fn parse_module(
                         None
                     }
                 })
-                .expect(&format!("cannot find function def for {:?}", fh));
+                .unwrap_or_else(|| panic!("cannot find function def for {:?}", fh));
             let num_arg = fh_view.arg_count();
-            FunctionTableRow {
+            FunctionInfo {
                 module_index,
                 function_handle_index: fh_index,
                 def_module_index,
