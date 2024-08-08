@@ -1,5 +1,9 @@
 use crate::step_state::SubIndex;
+use move_binary_format::CompiledModule;
+use move_core_types::language_storage::ModuleId;
+use move_package::compilation::compiled_package::CompiledPackage;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
+use std::collections::HashMap;
 use types::Field;
 
 pub trait SubIndexUtils {
@@ -72,5 +76,33 @@ impl From<SimpleValue> for ValueHeader {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
+
+impl ModuleIdMapping {
+    pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
+        let modules = package.all_modules_map();
+        let deps = modules.get_transitive_dependencies(module_id).unwrap();
+        let mut mapping = HashMap::new();
+        for (idx, dep) in deps.into_iter().enumerate() {
+            mapping.insert(dep.self_id(), (idx, dep.clone()));
+        }
+        ModuleIdMapping(mapping)
+    }
+    pub fn get_module_index(&self, module_id: &ModuleId) -> usize {
+        let (module_index, _) = self
+            .0
+            .get(module_id)
+            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
+        *module_index
+    }
+    pub fn get_module(&self, module_id: &ModuleId) -> (usize, &CompiledModule) {
+        let (module_index, module) = self
+            .0
+            .get(module_id)
+            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
+        (*module_index, module)
     }
 }

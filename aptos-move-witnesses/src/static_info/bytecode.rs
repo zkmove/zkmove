@@ -1,29 +1,21 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::opcode::Opcode;
-use crate::chips::execution_chip_v2::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
-use crate::witness::utils::convert_u256_to_fe_pair;
-use crate::witness::utils::ModuleIdMapping;
+use crate::static_info::ModuleIdMapping;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{
     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
 };
 use movelang::type_transition;
-use std::convert::From;
-use types::Field;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BytecodeInfo {
-    module_index: usize,
-    function_index: usize,
-    pc: u16,
-    bytecode: Bytecode,
+    pub module_index: usize,
+    pub function_index: usize,
+    pub pc: u16,
+    pub bytecode: Bytecode,
     /// types that outputted by the bytecode
-    ty_out: Vec<SignatureToken>,
+    pub ty_out: Vec<SignatureToken>,
 }
 
 impl BytecodeInfo {
@@ -42,120 +34,9 @@ impl BytecodeInfo {
             ty_out,
         }
     }
-
-    pub fn to_fe<F: Field>(&self) -> Vec<F> {
-        let mut field_elements = vec![
-            F::from_u128(self.module_index as u128),
-            F::from_u128(self.function_index as u128),
-            F::from_u128(self.pc as u128),
-        ];
-
-        let fes = Self::bytecode_to_fe(&self.bytecode, &self.ty_out);
-        field_elements.append(&mut fes.to_vec());
-        field_elements
-    }
-
-    /// Convert opcode, operand1 and operand2 of given bytecode into field elements
-    fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &[SignatureToken]) -> [F; 3] {
-        let fe_opcode = F::from(Opcode::from(bytecode.clone()).index() as u64);
-        match *bytecode {
-            Bytecode::CastU8
-            | Bytecode::CastU16
-            | Bytecode::CastU32
-            | Bytecode::CastU64
-            | Bytecode::CastU128
-            | Bytecode::CastU256
-            | Bytecode::Pop
-            | Bytecode::Ret
-            | Bytecode::LdTrue
-            | Bytecode::LdFalse
-            | Bytecode::Eq
-            | Bytecode::Neq
-            | Bytecode::Le
-            | Bytecode::Lt
-            | Bytecode::Ge
-            | Bytecode::Gt
-            | Bytecode::BitAnd
-            | Bytecode::BitOr
-            | Bytecode::Xor
-            | Bytecode::And
-            | Bytecode::Or
-            | Bytecode::Not
-            | Bytecode::ReadRef
-            | Bytecode::WriteRef
-            | Bytecode::FreezeRef
-            | Bytecode::Abort => [fe_opcode, F::ZERO, F::ZERO],
-            Bytecode::Add
-            | Bytecode::Mul
-            | Bytecode::Sub
-            | Bytecode::Div
-            | Bytecode::Mod
-            | Bytecode::Shl
-            | Bytecode::Shr => [
-                fe_opcode,
-                F::from_u128(get_num_bytes(&ty_out[0]) as u128),
-                F::ZERO,
-            ],
-            Bytecode::LdU8(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
-            Bytecode::LdU16(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
-            Bytecode::LdU32(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
-            Bytecode::LdU64(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
-            Bytecode::LdU128(v) => [fe_opcode, F::from_u128(v), F::ZERO],
-            Bytecode::LdU256(v) => {
-                let (lo, hi) = convert_u256_to_fe_pair::<F>(v);
-                [fe_opcode, lo, hi]
-            }
-            Bytecode::LdConst(v) => [fe_opcode, F::from_u128(v.0 as u128), F::ZERO],
-            Bytecode::CopyLoc(local_index)
-            | Bytecode::MoveLoc(local_index)
-            | Bytecode::StLoc(local_index)
-            | Bytecode::MutBorrowLoc(local_index)
-            | Bytecode::ImmBorrowLoc(local_index) => {
-                [fe_opcode, F::from(local_index as u64), F::ZERO]
-            }
-            Bytecode::Branch(code_offset)
-            | Bytecode::BrTrue(code_offset)
-            | Bytecode::BrFalse(code_offset) => [fe_opcode, F::from(code_offset as u64), F::ZERO],
-            Bytecode::Call(func_handle_index) => {
-                [fe_opcode, F::from(func_handle_index.0 as u64), F::ZERO]
-            }
-            Bytecode::CallGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
-            Bytecode::Pack(sd_idx)
-            | Bytecode::Unpack(sd_idx)
-            | Bytecode::MoveTo(sd_idx)
-            | Bytecode::MoveFrom(sd_idx)
-            | Bytecode::Exists(sd_idx)
-            | Bytecode::ImmBorrowGlobal(sd_idx)
-            | Bytecode::MutBorrowGlobal(sd_idx) => [fe_opcode, F::from(sd_idx.0 as u64), F::ZERO],
-            Bytecode::PackGeneric(idx)
-            | Bytecode::UnpackGeneric(idx)
-            | Bytecode::MoveToGeneric(idx)
-            | Bytecode::MoveFromGeneric(idx)
-            | Bytecode::ExistsGeneric(idx)
-            | Bytecode::ImmBorrowGlobalGeneric(idx)
-            | Bytecode::MutBorrowGlobalGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
-            Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
-                [fe_opcode, F::from(fh_idx.0 as u64), F::ZERO]
-            }
-            Bytecode::ImmBorrowFieldGeneric(idx) | Bytecode::MutBorrowFieldGeneric(idx) => {
-                [fe_opcode, F::from(idx.0 as u64), F::ZERO]
-            }
-            Bytecode::VecImmBorrow(idx)
-            | Bytecode::VecMutBorrow(idx)
-            | Bytecode::VecLen(idx)
-            | Bytecode::VecPopBack(idx)
-            | Bytecode::VecPushBack(idx)
-            | Bytecode::VecSwap(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
-            Bytecode::VecPack(idx, num) | Bytecode::VecUnpack(idx, num) => {
-                [fe_opcode, F::from(idx.0 as u64), F::from(num)]
-            }
-            _ => unimplemented!("{:?}", bytecode),
-        }
-    }
 }
 
-/// parse bytecode in the transitive dependencies of `module_id`
-pub(crate) fn parse_dependency(
+pub(crate) fn parse_bytecode(
     module_id_mapping: &ModuleIdMapping,
     deps: &[CompiledModule],
 ) -> Vec<BytecodeInfo> {
@@ -204,22 +85,9 @@ fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeInf
         .collect()
 }
 
-fn get_num_bytes(s: &SignatureToken) -> usize {
-    match s {
-        SignatureToken::U8 => NUM_OF_BYTES_U8,
-        SignatureToken::U16 => NUM_OF_BYTES_U16,
-        SignatureToken::U32 => NUM_OF_BYTES_U32,
-        SignatureToken::U64 => NUM_OF_BYTES_U64,
-        SignatureToken::U128 => NUM_OF_BYTES_U128,
-        SignatureToken::U256 => NUM_OF_BYTES_U256,
-        _ => unreachable!(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::witness::static_info::bytecode::{parse_module, BytecodeInfo};
-    use error::VmResult;
+    use crate::static_info::bytecode::{parse_module, BytecodeInfo};
     use move_binary_format::file_format::{
         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
         FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, SignatureToken,
@@ -298,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bytecode_table() -> VmResult<()> {
+    fn test_bytecode_table() {
         logger::init_for_test();
 
         let module = dummy_module();
@@ -318,6 +186,5 @@ mod tests {
         ];
 
         assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");
-        Ok(())
     }
 }

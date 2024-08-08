@@ -1,3 +1,4 @@
+extern crate move_core_types;
 extern crate move_vm_runtime;
 
 pub use move_vm_runtime::witnessing::{
@@ -11,6 +12,7 @@ pub struct Witnesses {
     pub opcode_witnesses: Vec<Footprint>,
 }
 pub mod exec_state;
+pub mod static_info;
 pub mod step_state;
 pub mod utils;
 

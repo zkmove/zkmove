@@ -1,8 +1,9 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
+use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
 use crate::table::LookupTable;
-use crate::witness::static_info::StaticInfo;
+use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
@@ -45,7 +46,7 @@ impl FunctionLookupTable {
         let field_elements: Vec<Vec<F>> = static_info
             .function_info
             .iter()
-            .map(|row| row.to_fe())
+            .map(|row| row.to_fields())
             .collect();
         assign_fixed_table(layouter, self.columns(), &field_elements, "function_table")
     }

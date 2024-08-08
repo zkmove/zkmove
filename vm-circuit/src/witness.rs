@@ -23,9 +23,7 @@ pub mod execution_steps;
 pub mod function_calls;
 pub mod input_type_elements;
 pub mod rw_operations;
-pub mod static_info;
 pub mod type_instantiation_table;
-pub mod utils;
 
 pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
 pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;

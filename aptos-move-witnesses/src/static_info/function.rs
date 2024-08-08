@@ -1,17 +1,16 @@
 // Copyright (c) zkMove Authors
 
-use crate::witness::utils::ModuleIdMapping;
+use crate::utils::ModuleIdMapping;
 use move_binary_format::file_format::{CompiledModule, FunctionHandleIndex};
 use move_binary_format::views::FunctionHandleView;
-use types::Field;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FunctionInfo {
-    module_index: usize,
-    function_handle_index: usize,
-    def_module_index: usize,
-    function_index: usize,
-    num_arg: usize,
+    pub module_index: usize,
+    pub function_handle_index: usize,
+    pub def_module_index: usize,
+    pub function_index: usize,
+    pub num_arg: usize,
 }
 
 impl FunctionInfo {
@@ -30,19 +29,9 @@ impl FunctionInfo {
             num_arg,
         }
     }
-
-    pub fn to_fe<F: Field>(&self) -> Vec<F> {
-        vec![
-            F::from_u128(self.module_index as u128),
-            F::from_u128(self.function_handle_index as u128),
-            F::from_u128(self.def_module_index as u128),
-            F::from_u128(self.function_index as u128),
-            F::from_u128(self.num_arg as u128),
-        ]
-    }
 }
 
-pub(crate) fn parse_dependency(
+pub(crate) fn parse_function(
     module_id_mapping: &ModuleIdMapping,
     deps: &[CompiledModule],
 ) -> Vec<FunctionInfo> {
