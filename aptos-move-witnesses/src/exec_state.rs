@@ -19,6 +19,7 @@ pub enum ExecutionState {
     Nop,
     MutBorrowLoc,
     ImmBorrowLoc,
+    LdConst,
     LdFalse,
     LdTrue,
     LdSimple,

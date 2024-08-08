@@ -2,6 +2,8 @@ use crate::exec_state::ExecutionState;
 use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
+use crate::static_info::constant::flatten::Flatten;
+use crate::static_info::StaticInfo;
 use crate::step_state::{
     CallerData, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot, StackPop,
     StackPush, StageState, StepState, SubIndex, Version,
@@ -24,17 +26,25 @@ pub struct WitnessPreProcessor {
     locals: Locals,
 }
 impl WitnessPreProcessor {
-    pub fn pre_process(mut self, traces: &Vec<crate::Footprint>) -> Vec<StageState> {
+    pub fn pre_process(
+        mut self,
+        traces: &Vec<crate::Footprint>,
+        static_info: &StaticInfo,
+    ) -> Vec<StageState> {
         let mut exec_states = vec![];
         for footprint in traces {
-            let mut states = self.process_footprint(footprint);
+            let mut states = self.process_footprint(footprint, static_info);
             exec_states.append(&mut states);
             self.clk += 1;
         }
         exec_states
     }
 
-    fn process_footprint(&mut self, trace: &Footprint) -> Vec<StageState> {
+    fn process_footprint(
+        &mut self,
+        trace: &Footprint,
+        static_info: &StaticInfo,
+    ) -> Vec<StageState> {
         let sp = trace.stack_pointer as u64;
         let current_frame_index = trace.frame_index;
         match &trace.data {
@@ -80,6 +90,37 @@ impl WitnessPreProcessor {
                         memory_ops,
                     }],
                     extra_data: None,
+                }]
+            }
+            Operation::LdConst { const_pool_index } => {
+                let module_index = static_info
+                    .module_id_mapping
+                    .get_module_index(trace.module_id.as_ref().unwrap());
+                let constant = static_info
+                    .get_constant(module_index, *const_pool_index as usize)
+                    .unwrap_or_else(|| panic!("cannot find constant {:?}", *const_pool_index))
+                    .flatten(vec![0]);
+                let step_state = StepState::new(self.clk, ExecutionState::LdConst, trace);
+
+                self.version_stack.push(self.clk);
+                let memory_ops = constant
+                    .iter()
+                    .map(|item| {
+                        let stack_push = StackPush {
+                            index: sp + 1,
+                            sub_index: item.sub_index.clone(),
+                            value: item.value.clone(),
+                            value_header: item.header,
+                            version: self.clk,
+                        };
+                        MemoryOp(None, Some(stack_push), None)
+                    })
+                    .collect();
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
                 }]
             }
             Operation::CastU8 { origin }
