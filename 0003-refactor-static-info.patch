@@ -1,0 +1,1082 @@
+From 3e106a2f7e0e91e9d1062c83542b74fcfde15d9d Mon Sep 17 00:00:00 2001
+From: Guangyu Zhu <guangyuz@gmail.com>
+Date: Thu, 8 Aug 2024 15:31:24 +0800
+Subject: [PATCH 3/5] refactor static info
+
+---
+ aptos-move-witnesses/Cargo.toml               |   4 +
+ aptos-move-witnesses/src/lib.rs               |   2 +
+ aptos-move-witnesses/src/static_info.rs       |  44 +++++
+ .../src}/static_info/bytecode.rs              | 151 +--------------
+ .../src/static_info/constant.rs               | 110 +++++++++++
+ .../src}/static_info/function.rs              |  25 +--
+ aptos-move-witnesses/src/utils.rs             |  32 ++++
+ .../lookup_table/byecode_table.rs             |   5 +-
+ .../lookup_table/constant_table.rs            | 125 ++-----------
+ .../lookup_table/function_table.rs            |   5 +-
+ .../execution_chip_v2/lookup_table/utils.rs   | 174 ++++++++++++++++++
+ vm-circuit/src/lib.rs                         |   3 -
+ vm-circuit/src/witness.rs                     |   2 -
+ vm-circuit/src/witness/static_info.rs         |  35 ----
+ .../src/witness/static_info/constant.rs       |  38 ----
+ vm-circuit/src/witness/utils.rs               |  44 -----
+ 16 files changed, 406 insertions(+), 393 deletions(-)
+ create mode 100644 aptos-move-witnesses/src/static_info.rs
+ rename {vm-circuit/src/witness => aptos-move-witnesses/src}/static_info/bytecode.rs (50%)
+ create mode 100644 aptos-move-witnesses/src/static_info/constant.rs
+ rename {vm-circuit/src/witness => aptos-move-witnesses/src}/static_info/function.rs (78%)
+ delete mode 100644 vm-circuit/src/witness/static_info.rs
+ delete mode 100644 vm-circuit/src/witness/static_info/constant.rs
+ delete mode 100644 vm-circuit/src/witness/utils.rs
+
+diff --git a/aptos-move-witnesses/Cargo.toml b/aptos-move-witnesses/Cargo.toml
+index 4ed2387..611ec4f 100644
+--- a/aptos-move-witnesses/Cargo.toml
++++ b/aptos-move-witnesses/Cargo.toml
+@@ -7,6 +7,10 @@ edition = "2021"
+ move-vm-runtime = { workspace = true }
+ move-core-types = { workspace = true }
+ move-vm-types = { workspace = true }
++move-package = { workspace = true }
++move-binary-format = { workspace = true }
++logger = { path = "../common/logger" }
++movelang = { path = "../movelang" }
+ types = { path = "../common/types" }
+ serde = { version = "1.0.203", features = ["derive"] }
+ strum_macros = { workspace = true }
+diff --git a/aptos-move-witnesses/src/lib.rs b/aptos-move-witnesses/src/lib.rs
+index df875ca..9960464 100644
+--- a/aptos-move-witnesses/src/lib.rs
++++ b/aptos-move-witnesses/src/lib.rs
+@@ -1,3 +1,4 @@
++extern crate move_core_types;
+ extern crate move_vm_runtime;
+ 
+ pub use move_vm_runtime::witnessing::{
+@@ -11,6 +12,7 @@ pub struct Witnesses {
+     pub opcode_witnesses: Vec<Footprint>,
+ }
+ pub mod exec_state;
++pub mod static_info;
+ pub mod step_state;
+ pub mod utils;
+ 
+diff --git a/aptos-move-witnesses/src/static_info.rs b/aptos-move-witnesses/src/static_info.rs
+new file mode 100644
+index 0000000..2263771
+--- /dev/null
++++ b/aptos-move-witnesses/src/static_info.rs
+@@ -0,0 +1,44 @@
++use crate::static_info::bytecode::BytecodeInfo;
++use crate::static_info::constant::ConstantInfo;
++use crate::static_info::function::FunctionInfo;
++use crate::utils::ModuleIdMapping;
++use move_core_types::language_storage::ModuleId;
++use move_core_types::value::MoveValue;
++use move_package::compilation::compiled_package::CompiledPackage;
++
++pub mod bytecode;
++pub mod constant;
++pub mod function;
++
++pub struct StaticInfo {
++    pub bytecode_info: Vec<BytecodeInfo>,
++    pub function_info: Vec<FunctionInfo>,
++    pub constant_info: Vec<ConstantInfo>,
++    pub module_id_mapping: ModuleIdMapping,
++}
++
++impl StaticInfo {
++    pub fn generate(module_id: &ModuleId, package: &CompiledPackage) -> Self {
++        let modules = package.all_modules_map();
++        let deps = modules
++            .get_transitive_dependencies(module_id)
++            .unwrap()
++            .into_iter()
++            .cloned()
++            .collect::<Vec<_>>();
++        let module_id_mapping = ModuleIdMapping::construct(module_id, package);
++        StaticInfo {
++            bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
++            function_info: function::parse_function(&module_id_mapping, &deps),
++            constant_info: constant::parse_constant(&module_id_mapping, &deps),
++            module_id_mapping,
++        }
++    }
++
++    pub fn get_constant(&self, module_index: usize, constant_index: usize) -> Option<MoveValue> {
++        self.constant_info
++            .iter()
++            .find(|c| c.module_index == module_index && c.constant_index == constant_index)
++            .map(|c| c.value.clone())
++    }
++}
+diff --git a/vm-circuit/src/witness/static_info/bytecode.rs b/aptos-move-witnesses/src/static_info/bytecode.rs
+similarity index 50%
+rename from vm-circuit/src/witness/static_info/bytecode.rs
+rename to aptos-move-witnesses/src/static_info/bytecode.rs
+index 5b6958f..a7841e4 100644
+--- a/vm-circuit/src/witness/static_info/bytecode.rs
++++ b/aptos-move-witnesses/src/static_info/bytecode.rs
+@@ -1,29 +1,21 @@
+ // Copyright (c) zkMove Authors
+ 
+-use crate::chips::execution_chip::opcode::Opcode;
+-use crate::chips::execution_chip_v2::value::{
+-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+-    NUM_OF_BYTES_U8,
+-};
+-use crate::witness::utils::convert_u256_to_fe_pair;
+-use crate::witness::utils::ModuleIdMapping;
++use crate::static_info::ModuleIdMapping;
+ use move_binary_format::access::ModuleAccess;
+ use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
+ use move_binary_format::file_format::{
+     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
+ };
+ use movelang::type_transition;
+-use std::convert::From;
+-use types::Field;
+ 
+ #[derive(Clone, Eq, PartialEq, Debug)]
+ pub struct BytecodeInfo {
+-    module_index: usize,
+-    function_index: usize,
+-    pc: u16,
+-    bytecode: Bytecode,
++    pub module_index: usize,
++    pub function_index: usize,
++    pub pc: u16,
++    pub bytecode: Bytecode,
+     /// types that outputted by the bytecode
+-    ty_out: Vec<SignatureToken>,
++    pub ty_out: Vec<SignatureToken>,
+ }
+ 
+ impl BytecodeInfo {
+@@ -42,120 +34,9 @@ impl BytecodeInfo {
+             ty_out,
+         }
+     }
+-
+-    pub fn to_fe<F: Field>(&self) -> Vec<F> {
+-        let mut field_elements = vec![
+-            F::from_u128(self.module_index as u128),
+-            F::from_u128(self.function_index as u128),
+-            F::from_u128(self.pc as u128),
+-        ];
+-
+-        let fes = Self::bytecode_to_fe(&self.bytecode, &self.ty_out);
+-        field_elements.append(&mut fes.to_vec());
+-        field_elements
+-    }
+-
+-    /// Convert opcode, operand1 and operand2 of given bytecode into field elements
+-    fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &[SignatureToken]) -> [F; 3] {
+-        let fe_opcode = F::from(Opcode::from(bytecode.clone()).index() as u64);
+-        match *bytecode {
+-            Bytecode::CastU8
+-            | Bytecode::CastU16
+-            | Bytecode::CastU32
+-            | Bytecode::CastU64
+-            | Bytecode::CastU128
+-            | Bytecode::CastU256
+-            | Bytecode::Pop
+-            | Bytecode::Ret
+-            | Bytecode::LdTrue
+-            | Bytecode::LdFalse
+-            | Bytecode::Eq
+-            | Bytecode::Neq
+-            | Bytecode::Le
+-            | Bytecode::Lt
+-            | Bytecode::Ge
+-            | Bytecode::Gt
+-            | Bytecode::BitAnd
+-            | Bytecode::BitOr
+-            | Bytecode::Xor
+-            | Bytecode::And
+-            | Bytecode::Or
+-            | Bytecode::Not
+-            | Bytecode::ReadRef
+-            | Bytecode::WriteRef
+-            | Bytecode::FreezeRef
+-            | Bytecode::Abort => [fe_opcode, F::ZERO, F::ZERO],
+-            Bytecode::Add
+-            | Bytecode::Mul
+-            | Bytecode::Sub
+-            | Bytecode::Div
+-            | Bytecode::Mod
+-            | Bytecode::Shl
+-            | Bytecode::Shr => [
+-                fe_opcode,
+-                F::from_u128(get_num_bytes(&ty_out[0]) as u128),
+-                F::ZERO,
+-            ],
+-            Bytecode::LdU8(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
+-            Bytecode::LdU16(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
+-            Bytecode::LdU32(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
+-            Bytecode::LdU64(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
+-            Bytecode::LdU128(v) => [fe_opcode, F::from_u128(v), F::ZERO],
+-            Bytecode::LdU256(v) => {
+-                let (lo, hi) = convert_u256_to_fe_pair::<F>(v);
+-                [fe_opcode, lo, hi]
+-            }
+-            Bytecode::LdConst(v) => [fe_opcode, F::from_u128(v.0 as u128), F::ZERO],
+-            Bytecode::CopyLoc(local_index)
+-            | Bytecode::MoveLoc(local_index)
+-            | Bytecode::StLoc(local_index)
+-            | Bytecode::MutBorrowLoc(local_index)
+-            | Bytecode::ImmBorrowLoc(local_index) => {
+-                [fe_opcode, F::from(local_index as u64), F::ZERO]
+-            }
+-            Bytecode::Branch(code_offset)
+-            | Bytecode::BrTrue(code_offset)
+-            | Bytecode::BrFalse(code_offset) => [fe_opcode, F::from(code_offset as u64), F::ZERO],
+-            Bytecode::Call(func_handle_index) => {
+-                [fe_opcode, F::from(func_handle_index.0 as u64), F::ZERO]
+-            }
+-            Bytecode::CallGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
+-            Bytecode::Pack(sd_idx)
+-            | Bytecode::Unpack(sd_idx)
+-            | Bytecode::MoveTo(sd_idx)
+-            | Bytecode::MoveFrom(sd_idx)
+-            | Bytecode::Exists(sd_idx)
+-            | Bytecode::ImmBorrowGlobal(sd_idx)
+-            | Bytecode::MutBorrowGlobal(sd_idx) => [fe_opcode, F::from(sd_idx.0 as u64), F::ZERO],
+-            Bytecode::PackGeneric(idx)
+-            | Bytecode::UnpackGeneric(idx)
+-            | Bytecode::MoveToGeneric(idx)
+-            | Bytecode::MoveFromGeneric(idx)
+-            | Bytecode::ExistsGeneric(idx)
+-            | Bytecode::ImmBorrowGlobalGeneric(idx)
+-            | Bytecode::MutBorrowGlobalGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
+-            Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
+-                [fe_opcode, F::from(fh_idx.0 as u64), F::ZERO]
+-            }
+-            Bytecode::ImmBorrowFieldGeneric(idx) | Bytecode::MutBorrowFieldGeneric(idx) => {
+-                [fe_opcode, F::from(idx.0 as u64), F::ZERO]
+-            }
+-            Bytecode::VecImmBorrow(idx)
+-            | Bytecode::VecMutBorrow(idx)
+-            | Bytecode::VecLen(idx)
+-            | Bytecode::VecPopBack(idx)
+-            | Bytecode::VecPushBack(idx)
+-            | Bytecode::VecSwap(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
+-            Bytecode::VecPack(idx, num) | Bytecode::VecUnpack(idx, num) => {
+-                [fe_opcode, F::from(idx.0 as u64), F::from(num)]
+-            }
+-            _ => unimplemented!("{:?}", bytecode),
+-        }
+-    }
+ }
+ 
+-/// parse bytecode in the transitive dependencies of `module_id`
+-pub(crate) fn parse_dependency(
++pub(crate) fn parse_bytecode(
+     module_id_mapping: &ModuleIdMapping,
+     deps: &[CompiledModule],
+ ) -> Vec<BytecodeInfo> {
+@@ -204,22 +85,9 @@ fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeInf
+         .collect()
+ }
+ 
+-fn get_num_bytes(s: &SignatureToken) -> usize {
+-    match s {
+-        SignatureToken::U8 => NUM_OF_BYTES_U8,
+-        SignatureToken::U16 => NUM_OF_BYTES_U16,
+-        SignatureToken::U32 => NUM_OF_BYTES_U32,
+-        SignatureToken::U64 => NUM_OF_BYTES_U64,
+-        SignatureToken::U128 => NUM_OF_BYTES_U128,
+-        SignatureToken::U256 => NUM_OF_BYTES_U256,
+-        _ => unreachable!(),
+-    }
+-}
+-
+ #[cfg(test)]
+ mod tests {
+-    use crate::witness::static_info::bytecode::{parse_module, BytecodeInfo};
+-    use error::VmResult;
++    use crate::static_info::bytecode::{parse_module, BytecodeInfo};
+     use move_binary_format::file_format::{
+         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
+         FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, SignatureToken,
+@@ -298,7 +166,7 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn test_bytecode_table() -> VmResult<()> {
++    fn test_bytecode_table() {
+         logger::init_for_test();
+ 
+         let module = dummy_module();
+@@ -318,6 +186,5 @@ mod tests {
+         ];
+ 
+         assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");
+-        Ok(())
+     }
+ }
+diff --git a/aptos-move-witnesses/src/static_info/constant.rs b/aptos-move-witnesses/src/static_info/constant.rs
+new file mode 100644
+index 0000000..b2f478d
+--- /dev/null
++++ b/aptos-move-witnesses/src/static_info/constant.rs
+@@ -0,0 +1,110 @@
++// Copyright (c) zkMove Authors
++
++use crate::utils::ModuleIdMapping;
++use move_binary_format::access::ModuleAccess;
++use move_binary_format::CompiledModule;
++use move_core_types::value::MoveValue;
++
++#[derive(Clone, Eq, PartialEq, Debug)]
++pub struct ConstantInfo {
++    pub module_index: usize,
++    pub constant_index: usize,
++    pub value: MoveValue,
++}
++
++pub(crate) fn parse_constant(
++    module_id_mapping: &ModuleIdMapping,
++    deps: &[CompiledModule],
++) -> Vec<ConstantInfo> {
++    deps.iter()
++        .flat_map(|module| {
++            module
++                .constant_pool()
++                .iter()
++                .enumerate()
++                .map(|(idx, constant)| {
++                    #[allow(clippy::expect_fun_call)]
++                    let value = constant.deserialize_constant().expect(&format!(
++                        "deserialize_constant {} at module {:?} should not fail",
++                        idx,
++                        module.self_id()
++                    ));
++                    ConstantInfo {
++                        module_index: module_id_mapping.get_module_index(&module.self_id()),
++                        constant_index: idx,
++                        value,
++                    }
++                })
++        })
++        .collect()
++}
++
++pub mod flatten {
++    use crate::step_state::SubIndex;
++    use crate::sub_index;
++    use crate::utils::ValueHeader;
++    use crate::{SimpleValue, ValueItem};
++    use move_core_types::value::MoveValue;
++
++    pub trait Flatten {
++        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem>;
++        fn flen(&self) -> usize;
++    }
++
++    impl Flatten for MoveValue {
++        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem> {
++            let flen = self.flen();
++            match self {
++                MoveValue::U8(u) => vec![value_item(sub_index, SimpleValue::U8(u))],
++                MoveValue::U16(u) => vec![value_item(sub_index, SimpleValue::U16(u))],
++                MoveValue::U32(u) => vec![value_item(sub_index, SimpleValue::U32(u))],
++                MoveValue::U64(u) => vec![value_item(sub_index, SimpleValue::U64(u))],
++                MoveValue::U128(u) => vec![value_item(sub_index, SimpleValue::U128(u))],
++                MoveValue::U256(u) => vec![value_item(sub_index, SimpleValue::U256(u))],
++                MoveValue::Bool(b) => vec![value_item(sub_index, SimpleValue::Bool(b))],
++                MoveValue::Vector(values) => {
++                    let len = values.len();
++                    let mut items = Vec::new();
++                    items.push(header_item(sub_index.clone(), flen, len));
++
++                    for (i, value) in values.into_iter().enumerate() {
++                        let value_sub_index = sub_index::concat(sub_index.clone(), vec![i + 1]);
++                        let mut flattened_value = value.flatten(value_sub_index);
++                        items.append(&mut flattened_value);
++                    }
++                    items
++                }
++                _ => unimplemented!(),
++            }
++        }
++
++        fn flen(&self) -> usize {
++            match self {
++                MoveValue::U8(_)
++                | MoveValue::U16(_)
++                | MoveValue::U32(_)
++                | MoveValue::U64(_)
++                | MoveValue::U128(_)
++                | MoveValue::U256(_)
++                | MoveValue::Bool(_) => 1,
++                MoveValue::Vector(values) => values.iter().fold(0, |sum, v| sum + v.flen()) + 1,
++                _ => unimplemented!(),
++            }
++        }
++    }
++
++    fn value_item(sub_index: SubIndex, simple: SimpleValue) -> ValueItem {
++        ValueItem {
++            sub_index,
++            header: false,
++            value: simple,
++        }
++    }
++    fn header_item(sub_index: SubIndex, flen: usize, len: usize) -> ValueItem {
++        ValueItem {
++            sub_index,
++            header: true,
++            value: ValueHeader::new(flen as u16, len as u16).into(),
++        }
++    }
++}
+diff --git a/vm-circuit/src/witness/static_info/function.rs b/aptos-move-witnesses/src/static_info/function.rs
+similarity index 78%
+rename from vm-circuit/src/witness/static_info/function.rs
+rename to aptos-move-witnesses/src/static_info/function.rs
+index ceecbc5..cf5fd8d 100644
+--- a/vm-circuit/src/witness/static_info/function.rs
++++ b/aptos-move-witnesses/src/static_info/function.rs
+@@ -1,17 +1,16 @@
+ // Copyright (c) zkMove Authors
+ 
+-use crate::witness::utils::ModuleIdMapping;
++use crate::utils::ModuleIdMapping;
+ use move_binary_format::file_format::{CompiledModule, FunctionHandleIndex};
+ use move_binary_format::views::FunctionHandleView;
+-use types::Field;
+ 
+ #[derive(Clone, Eq, PartialEq, Debug)]
+ pub struct FunctionInfo {
+-    module_index: usize,
+-    function_handle_index: usize,
+-    def_module_index: usize,
+-    function_index: usize,
+-    num_arg: usize,
++    pub module_index: usize,
++    pub function_handle_index: usize,
++    pub def_module_index: usize,
++    pub function_index: usize,
++    pub num_arg: usize,
+ }
+ 
+ impl FunctionInfo {
+@@ -30,19 +29,9 @@ impl FunctionInfo {
+             num_arg,
+         }
+     }
+-
+-    pub fn to_fe<F: Field>(&self) -> Vec<F> {
+-        vec![
+-            F::from_u128(self.module_index as u128),
+-            F::from_u128(self.function_handle_index as u128),
+-            F::from_u128(self.def_module_index as u128),
+-            F::from_u128(self.function_index as u128),
+-            F::from_u128(self.num_arg as u128),
+-        ]
+-    }
+ }
+ 
+-pub(crate) fn parse_dependency(
++pub(crate) fn parse_function(
+     module_id_mapping: &ModuleIdMapping,
+     deps: &[CompiledModule],
+ ) -> Vec<FunctionInfo> {
+diff --git a/aptos-move-witnesses/src/utils.rs b/aptos-move-witnesses/src/utils.rs
+index 5356a49..e4219d4 100644
+--- a/aptos-move-witnesses/src/utils.rs
++++ b/aptos-move-witnesses/src/utils.rs
+@@ -1,5 +1,9 @@
+ use crate::step_state::SubIndex;
++use move_binary_format::CompiledModule;
++use move_core_types::language_storage::ModuleId;
++use move_package::compilation::compiled_package::CompiledPackage;
+ use move_vm_runtime::witnessing::traced_value::SimpleValue;
++use std::collections::HashMap;
+ use types::Field;
+ 
+ pub trait SubIndexUtils {
+@@ -74,3 +78,31 @@ impl From<SimpleValue> for ValueHeader {
+         }
+     }
+ }
++
++pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
++
++impl ModuleIdMapping {
++    pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
++        let modules = package.all_modules_map();
++        let deps = modules.get_transitive_dependencies(module_id).unwrap();
++        let mut mapping = HashMap::new();
++        for (idx, dep) in deps.into_iter().enumerate() {
++            mapping.insert(dep.self_id(), (idx, dep.clone()));
++        }
++        ModuleIdMapping(mapping)
++    }
++    pub fn get_module_index(&self, module_id: &ModuleId) -> usize {
++        let (module_index, _) = self
++            .0
++            .get(module_id)
++            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
++        *module_index
++    }
++    pub fn get_module(&self, module_id: &ModuleId) -> (usize, &CompiledModule) {
++        let (module_index, module) = self
++            .0
++            .get(module_id)
++            .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
++        (*module_index, module)
++    }
++}
+diff --git a/vm-circuit/src/chips/execution_chip_v2/lookup_table/byecode_table.rs b/vm-circuit/src/chips/execution_chip_v2/lookup_table/byecode_table.rs
+index d7df8fb..c992056 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/lookup_table/byecode_table.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/lookup_table/byecode_table.rs
+@@ -1,6 +1,7 @@
+ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
++use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
+ use crate::table::LookupTable;
+-use crate::witness::static_info::StaticInfo;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use halo2_proofs::circuit::Layouter;
+ use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+ use types::Field;
+@@ -46,7 +47,7 @@ impl BytecodeLookupTable {
+         let field_elements: Vec<Vec<F>> = static_info
+             .bytecode_info
+             .iter()
+-            .map(|row| row.to_fe())
++            .map(|row| row.to_fields())
+             .collect();
+         assign_fixed_table(layouter, self.columns(), &field_elements, "bytecode_table")
+     }
+diff --git a/vm-circuit/src/chips/execution_chip_v2/lookup_table/constant_table.rs b/vm-circuit/src/chips/execution_chip_v2/lookup_table/constant_table.rs
+index fa818b8..fa2320a 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/lookup_table/constant_table.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/lookup_table/constant_table.rs
+@@ -1,13 +1,11 @@
+ // Copyright (c) zkMove Authors
+ 
+-use crate::chips::execution_chip_v2::lookup_table::constant_table::flatten::Flatten;
+ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
++use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
+ use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
+-use crate::chips::execution_chip_v2::utils::to_field::ToField;
+ use crate::table::LookupTable;
+-use crate::witness::static_info::constant::ConstantInfo;
+-use crate::witness::static_info::StaticInfo;
+-use aptos_move_witnesses::utils::SubIndexUtils;
++use aptos_move_witnesses::static_info::constant::flatten::Flatten;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::ValueItem;
+ use halo2_proofs::circuit::Layouter;
+ use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+@@ -48,8 +46,18 @@ impl ConstantLookupTable {
+             .constant_info
+             .iter()
+             .flat_map(|c| {
+-                let rows: Vec<ConstantTableRow> = c.clone().into();
+-                rows.iter().map(|row| row.to_fe()).collect::<Vec<_>>()
++                let rows: Vec<_> = c
++                    .value
++                    .clone()
++                    .flatten(vec![0])
++                    .iter()
++                    .map(|item| ConstantTableRow {
++                        module_index: c.module_index,
++                        constant_index: c.constant_index,
++                        value_item: item.clone(),
++                    })
++                    .collect::<Vec<_>>();
++                rows.iter().map(|row| row.to_fields()).collect::<Vec<_>>()
+             })
+             .collect();
+         assign_fixed_table(layouter, self.columns(), &field_elements, "constant_table")
+@@ -77,104 +85,7 @@ impl<F: Field> LookupTable<F> for ConstantLookupTable {
+ 
+ #[derive(Clone, Eq, PartialEq, Debug)]
+ pub struct ConstantTableRow {
+-    module_index: usize,
+-    constant_index: usize,
+-    value_item: ValueItem,
+-}
+-
+-impl ConstantTableRow {
+-    fn to_fe<F: Field>(&self) -> Vec<F> {
+-        vec![
+-            F::from_u128(self.module_index as u128),
+-            F::from_u128(self.constant_index as u128),
+-            F::from_u128(self.value_item.sub_index.into_u128()),
+-        ]
+-        .into_iter()
+-        .chain(self.value_item.value.to_field())
+-        .chain(vec![F::from(self.value_item.header as u64)])
+-        .collect()
+-    }
+-}
+-impl From<ConstantInfo> for Vec<ConstantTableRow> {
+-    fn from(constant: ConstantInfo) -> Vec<ConstantTableRow> {
+-        let items = constant.value.flatten(vec![0]);
+-        items
+-            .iter()
+-            .map(|item| ConstantTableRow {
+-                module_index: constant.module_index,
+-                constant_index: constant.constant_index,
+-                value_item: item.clone(),
+-            })
+-            .collect()
+-    }
+-}
+-
+-pub mod flatten {
+-    use aptos_move_witnesses::step_state::SubIndex;
+-    use aptos_move_witnesses::sub_index;
+-    use aptos_move_witnesses::utils::ValueHeader;
+-    use aptos_move_witnesses::{SimpleValue, ValueItem};
+-    use move_core_types::value::MoveValue;
+-
+-    pub trait Flatten {
+-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem>;
+-        fn flen(&self) -> usize;
+-    }
+-
+-    impl Flatten for MoveValue {
+-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem> {
+-            let flen = self.flen();
+-            match self {
+-                MoveValue::U8(u) => vec![value_item(sub_index, SimpleValue::U8(u))],
+-                MoveValue::U16(u) => vec![value_item(sub_index, SimpleValue::U16(u))],
+-                MoveValue::U32(u) => vec![value_item(sub_index, SimpleValue::U32(u))],
+-                MoveValue::U64(u) => vec![value_item(sub_index, SimpleValue::U64(u))],
+-                MoveValue::U128(u) => vec![value_item(sub_index, SimpleValue::U128(u))],
+-                MoveValue::U256(u) => vec![value_item(sub_index, SimpleValue::U256(u))],
+-                MoveValue::Bool(b) => vec![value_item(sub_index, SimpleValue::Bool(b))],
+-                MoveValue::Vector(values) => {
+-                    let len = values.len();
+-                    let mut items = Vec::new();
+-                    items.push(header_item(sub_index.clone(), flen, len));
+-
+-                    for (i, value) in values.into_iter().enumerate() {
+-                        let value_sub_index = sub_index::concat(sub_index.clone(), vec![i + 1]);
+-                        let mut flattened_value = value.flatten(value_sub_index);
+-                        items.append(&mut flattened_value);
+-                    }
+-                    items
+-                }
+-                _ => unimplemented!(),
+-            }
+-        }
+-
+-        fn flen(&self) -> usize {
+-            match self {
+-                MoveValue::U8(_)
+-                | MoveValue::U16(_)
+-                | MoveValue::U32(_)
+-                | MoveValue::U64(_)
+-                | MoveValue::U128(_)
+-                | MoveValue::U256(_)
+-                | MoveValue::Bool(_) => 1,
+-                MoveValue::Vector(values) => values.iter().fold(0, |sum, v| sum + v.flen()) + 1,
+-                _ => unimplemented!(),
+-            }
+-        }
+-    }
+-
+-    fn value_item(sub_index: SubIndex, simple: SimpleValue) -> ValueItem {
+-        ValueItem {
+-            sub_index,
+-            header: false,
+-            value: simple,
+-        }
+-    }
+-    fn header_item(sub_index: SubIndex, flen: usize, len: usize) -> ValueItem {
+-        ValueItem {
+-            sub_index,
+-            header: true,
+-            value: ValueHeader::new(flen as u16, len as u16).into(),
+-        }
+-    }
++    pub module_index: usize,
++    pub constant_index: usize,
++    pub value_item: ValueItem,
+ }
+diff --git a/vm-circuit/src/chips/execution_chip_v2/lookup_table/function_table.rs b/vm-circuit/src/chips/execution_chip_v2/lookup_table/function_table.rs
+index 06b0bc0..13be349 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/lookup_table/function_table.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/lookup_table/function_table.rs
+@@ -1,8 +1,9 @@
+ // Copyright (c) zkMove Authors
+ 
+ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
++use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
+ use crate::table::LookupTable;
+-use crate::witness::static_info::StaticInfo;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use halo2_proofs::circuit::Layouter;
+ use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+ use types::Field;
+@@ -45,7 +46,7 @@ impl FunctionLookupTable {
+         let field_elements: Vec<Vec<F>> = static_info
+             .function_info
+             .iter()
+-            .map(|row| row.to_fe())
++            .map(|row| row.to_fields())
+             .collect();
+         assign_fixed_table(layouter, self.columns(), &field_elements, "function_table")
+     }
+diff --git a/vm-circuit/src/chips/execution_chip_v2/lookup_table/utils.rs b/vm-circuit/src/chips/execution_chip_v2/lookup_table/utils.rs
+index ec4eac7..6240941 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/lookup_table/utils.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/lookup_table/utils.rs
+@@ -1,5 +1,17 @@
++use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
++use crate::chips::execution_chip_v2::utils::to_field::ToField;
++use crate::chips::execution_chip_v2::Opcode;
++use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
++use aptos_move_witnesses::static_info::function::FunctionInfo;
++use aptos_move_witnesses::utils::SubIndexUtils;
+ use halo2_proofs::circuit::{Layouter, Value};
+ use halo2_proofs::plonk::{Column, Error, Fixed};
++use move_binary_format::file_format::{Bytecode, SignatureToken};
++use move_core_types::u256::U256;
++use movelang::value::{
++    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
++    NUM_OF_BYTES_U8,
++};
+ use types::Field;
+ 
+ pub(crate) fn assign_fixed_table<F: Field>(
+@@ -32,3 +44,165 @@ pub(crate) fn assign_fixed_table<F: Field>(
+     )?;
+     Ok(())
+ }
++
++pub(crate) trait ToFields<F: Field> {
++    fn to_fields(&self) -> Vec<F>;
++}
++
++impl<F: Field> ToFields<F> for FunctionInfo {
++    fn to_fields(&self) -> Vec<F> {
++        vec![
++            F::from_u128(self.module_index as u128),
++            F::from_u128(self.function_handle_index as u128),
++            F::from_u128(self.def_module_index as u128),
++            F::from_u128(self.function_index as u128),
++            F::from_u128(self.num_arg as u128),
++        ]
++    }
++}
++
++impl<F: Field> ToFields<F> for ConstantTableRow {
++    fn to_fields(&self) -> Vec<F> {
++        vec![
++            F::from_u128(self.module_index as u128),
++            F::from_u128(self.constant_index as u128),
++            F::from_u128(self.value_item.sub_index.into_u128()),
++        ]
++        .into_iter()
++        .chain(self.value_item.value.to_field())
++        .chain(vec![F::from(self.value_item.header as u64)])
++        .collect()
++    }
++}
++
++impl<F: Field> ToFields<F> for BytecodeInfo {
++    fn to_fields(&self) -> Vec<F> {
++        let mut field_elements = vec![
++            F::from_u128(self.module_index as u128),
++            F::from_u128(self.function_index as u128),
++            F::from_u128(self.pc as u128),
++        ];
++
++        let fes = bytecode_to_fe(&self.bytecode, &self.ty_out);
++        field_elements.append(&mut fes.to_vec());
++        field_elements
++    }
++}
++
++/// Convert opcode, operand1 and operand2 of given bytecode into field elements
++fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &[SignatureToken]) -> [F; 3] {
++    let fe_opcode = F::from(Opcode::from(bytecode.clone()).index() as u64);
++    match *bytecode {
++        Bytecode::CastU8
++        | Bytecode::CastU16
++        | Bytecode::CastU32
++        | Bytecode::CastU64
++        | Bytecode::CastU128
++        | Bytecode::CastU256
++        | Bytecode::Pop
++        | Bytecode::Ret
++        | Bytecode::LdTrue
++        | Bytecode::LdFalse
++        | Bytecode::Eq
++        | Bytecode::Neq
++        | Bytecode::Le
++        | Bytecode::Lt
++        | Bytecode::Ge
++        | Bytecode::Gt
++        | Bytecode::BitAnd
++        | Bytecode::BitOr
++        | Bytecode::Xor
++        | Bytecode::And
++        | Bytecode::Or
++        | Bytecode::Not
++        | Bytecode::ReadRef
++        | Bytecode::WriteRef
++        | Bytecode::FreezeRef
++        | Bytecode::Abort => [fe_opcode, F::ZERO, F::ZERO],
++        Bytecode::Add
++        | Bytecode::Mul
++        | Bytecode::Sub
++        | Bytecode::Div
++        | Bytecode::Mod
++        | Bytecode::Shl
++        | Bytecode::Shr => [
++            fe_opcode,
++            F::from_u128(get_num_bytes(&ty_out[0]) as u128),
++            F::ZERO,
++        ],
++        Bytecode::LdU8(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
++        Bytecode::LdU16(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
++        Bytecode::LdU32(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
++        Bytecode::LdU64(v) => [fe_opcode, F::from_u128(v as u128), F::ZERO],
++        Bytecode::LdU128(v) => [fe_opcode, F::from_u128(v), F::ZERO],
++        Bytecode::LdU256(v) => {
++            let (lo, hi) = convert_u256_to_fe_pair::<F>(v);
++            [fe_opcode, lo, hi]
++        }
++        Bytecode::LdConst(v) => [fe_opcode, F::from_u128(v.0 as u128), F::ZERO],
++        Bytecode::CopyLoc(local_index)
++        | Bytecode::MoveLoc(local_index)
++        | Bytecode::StLoc(local_index)
++        | Bytecode::MutBorrowLoc(local_index)
++        | Bytecode::ImmBorrowLoc(local_index) => [fe_opcode, F::from(local_index as u64), F::ZERO],
++        Bytecode::Branch(code_offset)
++        | Bytecode::BrTrue(code_offset)
++        | Bytecode::BrFalse(code_offset) => [fe_opcode, F::from(code_offset as u64), F::ZERO],
++        Bytecode::Call(func_handle_index) => {
++            [fe_opcode, F::from(func_handle_index.0 as u64), F::ZERO]
++        }
++        Bytecode::CallGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
++        Bytecode::Pack(sd_idx)
++        | Bytecode::Unpack(sd_idx)
++        | Bytecode::MoveTo(sd_idx)
++        | Bytecode::MoveFrom(sd_idx)
++        | Bytecode::Exists(sd_idx)
++        | Bytecode::ImmBorrowGlobal(sd_idx)
++        | Bytecode::MutBorrowGlobal(sd_idx) => [fe_opcode, F::from(sd_idx.0 as u64), F::ZERO],
++        Bytecode::PackGeneric(idx)
++        | Bytecode::UnpackGeneric(idx)
++        | Bytecode::MoveToGeneric(idx)
++        | Bytecode::MoveFromGeneric(idx)
++        | Bytecode::ExistsGeneric(idx)
++        | Bytecode::ImmBorrowGlobalGeneric(idx)
++        | Bytecode::MutBorrowGlobalGeneric(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
++        Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
++            [fe_opcode, F::from(fh_idx.0 as u64), F::ZERO]
++        }
++        Bytecode::ImmBorrowFieldGeneric(idx) | Bytecode::MutBorrowFieldGeneric(idx) => {
++            [fe_opcode, F::from(idx.0 as u64), F::ZERO]
++        }
++        Bytecode::VecImmBorrow(idx)
++        | Bytecode::VecMutBorrow(idx)
++        | Bytecode::VecLen(idx)
++        | Bytecode::VecPopBack(idx)
++        | Bytecode::VecPushBack(idx)
++        | Bytecode::VecSwap(idx) => [fe_opcode, F::from(idx.0 as u64), F::ZERO],
++        Bytecode::VecPack(idx, num) | Bytecode::VecUnpack(idx, num) => {
++            [fe_opcode, F::from(idx.0 as u64), F::from(num)]
++        }
++        _ => unimplemented!("{:?}", bytecode),
++    }
++}
++
++fn get_num_bytes(s: &SignatureToken) -> usize {
++    match s {
++        SignatureToken::U8 => NUM_OF_BYTES_U8,
++        SignatureToken::U16 => NUM_OF_BYTES_U16,
++        SignatureToken::U32 => NUM_OF_BYTES_U32,
++        SignatureToken::U64 => NUM_OF_BYTES_U64,
++        SignatureToken::U128 => NUM_OF_BYTES_U128,
++        SignatureToken::U256 => NUM_OF_BYTES_U256,
++        _ => unreachable!(),
++    }
++}
++
++pub fn convert_u256_to_fe_pair<F: Field>(input: U256) -> (F, F) {
++    let bytes = input.to_le_bytes();
++    let mut repr = F::Repr::default();
++    repr[..16].copy_from_slice(&bytes[..16]);
++    let lo = F::from_repr(repr).unwrap();
++    repr[..16].copy_from_slice(&bytes[16..]);
++    let hi = F::from_repr(repr).unwrap();
++    (lo, hi)
++}
+diff --git a/vm-circuit/src/lib.rs b/vm-circuit/src/lib.rs
+index d437c14..ab51c38 100644
+--- a/vm-circuit/src/lib.rs
++++ b/vm-circuit/src/lib.rs
+@@ -1,9 +1,6 @@
+ // Copyright (c) zkMove Authors
+ #![feature(lint_reasons)]
+ 
+-extern crate aptos_move_witnesses;
+-extern crate movelang;
+-
+ pub mod chips;
+ pub mod circuit;
+ pub mod circuit_v2;
+diff --git a/vm-circuit/src/witness.rs b/vm-circuit/src/witness.rs
+index 06fe126..bf678e2 100644
+--- a/vm-circuit/src/witness.rs
++++ b/vm-circuit/src/witness.rs
+@@ -23,9 +23,7 @@ pub mod execution_steps;
+ pub mod function_calls;
+ pub mod input_type_elements;
+ pub mod rw_operations;
+-pub mod static_info;
+ pub mod type_instantiation_table;
+-pub mod utils;
+ 
+ pub const DEFAULT_MAX_FRAME_INDEX: usize = 16;
+ pub const DEFAULT_MAX_LOCALS_SIZE: usize = 16;
+diff --git a/vm-circuit/src/witness/static_info.rs b/vm-circuit/src/witness/static_info.rs
+deleted file mode 100644
+index 11e56d6..0000000
+--- a/vm-circuit/src/witness/static_info.rs
++++ /dev/null
+@@ -1,35 +0,0 @@
+-use crate::witness::static_info::bytecode::BytecodeInfo;
+-use crate::witness::static_info::constant::ConstantInfo;
+-use crate::witness::static_info::function::FunctionInfo;
+-use crate::witness::utils::ModuleIdMapping;
+-use move_core_types::language_storage::ModuleId;
+-use move_package::compilation::compiled_package::CompiledPackage;
+-
+-pub mod bytecode;
+-pub mod constant;
+-pub mod function;
+-
+-#[derive(Clone, Eq, PartialEq, Debug)]
+-pub struct StaticInfo {
+-    pub bytecode_info: Vec<BytecodeInfo>,
+-    pub function_info: Vec<FunctionInfo>,
+-    pub constant_info: Vec<ConstantInfo>,
+-}
+-
+-impl StaticInfo {
+-    pub fn generate(module_id: &ModuleId, package: &CompiledPackage) -> Self {
+-        let modules = package.all_modules_map();
+-        let deps = modules
+-            .get_transitive_dependencies(module_id)
+-            .unwrap()
+-            .into_iter()
+-            .cloned()
+-            .collect::<Vec<_>>();
+-        let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+-        StaticInfo {
+-            bytecode_info: bytecode::parse_dependency(&module_id_mapping, &deps),
+-            function_info: function::parse_dependency(&module_id_mapping, &deps),
+-            constant_info: constant::parse_dependency(&module_id_mapping, &deps),
+-        }
+-    }
+-}
+diff --git a/vm-circuit/src/witness/static_info/constant.rs b/vm-circuit/src/witness/static_info/constant.rs
+deleted file mode 100644
+index 43dcf33..0000000
+--- a/vm-circuit/src/witness/static_info/constant.rs
++++ /dev/null
+@@ -1,38 +0,0 @@
+-use crate::witness::utils::ModuleIdMapping;
+-use move_binary_format::access::ModuleAccess;
+-use move_binary_format::CompiledModule;
+-use move_core_types::value::MoveValue;
+-
+-#[derive(Clone, Eq, PartialEq, Debug)]
+-pub struct ConstantInfo {
+-    pub module_index: usize,
+-    pub constant_index: usize,
+-    pub value: MoveValue,
+-}
+-
+-pub(crate) fn parse_dependency(
+-    module_id_mapping: &ModuleIdMapping,
+-    deps: &[CompiledModule],
+-) -> Vec<ConstantInfo> {
+-    deps.iter()
+-        .flat_map(|module| {
+-            module
+-                .constant_pool()
+-                .iter()
+-                .enumerate()
+-                .map(|(idx, constant)| {
+-                    #[allow(clippy::expect_fun_call)]
+-                    let value = constant.deserialize_constant().expect(&format!(
+-                        "deserialize_constant {} at module {:?} should not fail",
+-                        idx,
+-                        module.self_id()
+-                    ));
+-                    ConstantInfo {
+-                        module_index: module_id_mapping.get_module_index(&module.self_id()),
+-                        constant_index: idx,
+-                        value,
+-                    }
+-                })
+-        })
+-        .collect()
+-}
+diff --git a/vm-circuit/src/witness/utils.rs b/vm-circuit/src/witness/utils.rs
+deleted file mode 100644
+index 8652718..0000000
+--- a/vm-circuit/src/witness/utils.rs
++++ /dev/null
+@@ -1,44 +0,0 @@
+-use move_binary_format::CompiledModule;
+-use move_core_types::language_storage::ModuleId;
+-use move_core_types::u256::U256;
+-use move_package::compilation::compiled_package::CompiledPackage;
+-use std::collections::HashMap;
+-use types::Field;
+-
+-pub fn convert_u256_to_fe_pair<F: Field>(input: U256) -> (F, F) {
+-    let bytes = input.to_le_bytes();
+-    let mut repr = F::Repr::default();
+-    repr[..16].copy_from_slice(&bytes[..16]);
+-    let lo = F::from_repr(repr).unwrap();
+-    repr[..16].copy_from_slice(&bytes[16..]);
+-    let hi = F::from_repr(repr).unwrap();
+-    (lo, hi)
+-}
+-
+-pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
+-
+-impl ModuleIdMapping {
+-    pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
+-        let modules = package.all_modules_map();
+-        let deps = modules.get_transitive_dependencies(module_id).unwrap();
+-        let mut mapping = HashMap::new();
+-        for (idx, dep) in deps.into_iter().enumerate() {
+-            mapping.insert(dep.self_id(), (idx, dep.clone()));
+-        }
+-        ModuleIdMapping(mapping)
+-    }
+-    pub fn get_module_index(&self, module_id: &ModuleId) -> usize {
+-        let (module_index, _) = self
+-            .0
+-            .get(module_id)
+-            .expect(&format!("cannot find module {:?}", module_id));
+-        *module_index
+-    }
+-    pub fn get_module(&self, module_id: &ModuleId) -> (usize, &CompiledModule) {
+-        let (module_index, module) = self
+-            .0
+-            .get(module_id)
+-            .expect(&format!("cannot find module {:?}", module_id));
+-        (*module_index, module)
+-    }
+-}
+-- 
+2.24.3 (Apple Git-128)
+

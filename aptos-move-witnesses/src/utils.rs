@@ -79,6 +79,7 @@ impl From<SimpleValue> for ValueHeader {
     }
 }
 
+#[derive(Clone, Default)]
 pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
 
 impl ModuleIdMapping {

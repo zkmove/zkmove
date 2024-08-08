@@ -4,6 +4,7 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
+use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::util::Expr;
 use std::io::Read;
 use std::marker::PhantomData;

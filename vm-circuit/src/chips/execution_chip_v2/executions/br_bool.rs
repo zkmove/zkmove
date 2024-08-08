@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
@@ -85,6 +86,7 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
         _region: &mut CachedRegion<'_, '_, F>,
         _offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         // no need to assign anything else
         Ok(stage_state.rows())

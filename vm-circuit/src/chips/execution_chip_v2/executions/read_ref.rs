@@ -12,6 +12,7 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::witness::to_field::ToField;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{circuit::Value, plonk::Error};
@@ -193,6 +194,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

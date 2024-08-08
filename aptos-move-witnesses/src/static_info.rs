@@ -10,6 +10,7 @@ pub mod bytecode;
 pub mod constant;
 pub mod function;
 
+#[derive(Clone, Default)]
 pub struct StaticInfo {
     pub bytecode_info: Vec<BytecodeInfo>,
     pub function_info: Vec<FunctionInfo>,
@@ -40,5 +41,12 @@ impl StaticInfo {
             .iter()
             .find(|c| c.module_index == module_index && c.constant_index == constant_index)
             .map(|c| c.value.clone())
+    }
+
+    pub fn get_function(&self, module_index: usize, fh_idx: usize) -> Option<FunctionInfo> {
+        self.function_info
+            .iter()
+            .find(|f| f.module_index == module_index && f.function_handle_index == fh_idx)
+            .cloned()
     }
 }

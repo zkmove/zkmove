@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::witness::to_field::ToField;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
@@ -109,6 +110,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
         let step_state = stage_state.step_states.first().unwrap();

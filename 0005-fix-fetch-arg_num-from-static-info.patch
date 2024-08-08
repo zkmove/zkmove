@@ -1,0 +1,839 @@
+From 3e2d6d894a964207cb3f9c32a1fa97532c817ab4 Mon Sep 17 00:00:00 2001
+From: Guangyu Zhu <guangyuz@gmail.com>
+Date: Thu, 8 Aug 2024 16:34:19 +0800
+Subject: [PATCH 5/5] fix: fetch arg_num from static info
+
+---
+ aptos-move-witnesses/src/static_info.rs       |  8 ++++++++
+ aptos-move-witnesses/src/utils.rs             |  1 +
+ vm-circuit/src/chips/execution_chip_v2.rs     | 14 ++++++++++---
+ .../execution_chip_v2/executions/add_sub.rs   |  2 ++
+ .../execution_chip_v2/executions/and_or.rs    |  2 ++
+ .../execution_chip_v2/executions/base.rs      |  1 +
+ .../execution_chip_v2/executions/bitwise.rs   |  2 ++
+ .../executions/borrow_field.rs                |  2 ++
+ .../executions/borrow_loc.rs                  |  1 +
+ .../execution_chip_v2/executions/br_bool.rs   |  2 ++
+ .../execution_chip_v2/executions/call.rs      | 20 +++++++++++++++----
+ .../execution_chip_v2/executions/cast.rs      |  2 ++
+ .../execution_chip_v2/executions/equality.rs  |  2 ++
+ .../chips/execution_chip_v2/executions/ld.rs  |  2 ++
+ .../execution_chip_v2/executions/ld_bool.rs   |  2 ++
+ .../execution_chip_v2/executions/ld_const.rs  |  2 ++
+ .../execution_chip_v2/executions/le_gt.rs     |  2 ++
+ .../execution_chip_v2/executions/lt_ge.rs     |  2 ++
+ .../executions/move_or_copy_loc.rs            |  1 +
+ .../executions/mul_div_mod.rs                 |  1 +
+ .../chips/execution_chip_v2/executions/not.rs |  2 ++
+ .../execution_chip_v2/executions/pack.rs      |  3 ++-
+ .../chips/execution_chip_v2/executions/pop.rs |  2 ++
+ .../execution_chip_v2/executions/read_ref.rs  |  2 ++
+ .../chips/execution_chip_v2/executions/ret.rs |  1 +
+ .../execution_chip_v2/executions/store_loc.rs |  1 +
+ .../execution_chip_v2/executions/unpack.rs    |  3 +++
+ .../executions/vec_borrow.rs                  |  2 ++
+ .../execution_chip_v2/executions/vec_len.rs   |  1 +
+ .../executions/vec_pop_back.rs                |  3 +++
+ .../executions/vec_push_back.rs               |  3 +++
+ .../execution_chip_v2/executions/vec_swap.rs  |  4 ++++
+ .../execution_chip_v2/executions/write_ref.rs |  4 ++++
+ vm-circuit/src/lib.rs                         |  2 ++
+ vm-circuit/src/witness.rs                     |  7 ++++---
+ 35 files changed, 100 insertions(+), 11 deletions(-)
+
+diff --git a/aptos-move-witnesses/src/static_info.rs b/aptos-move-witnesses/src/static_info.rs
+index 2263771..d64e2ce 100644
+--- a/aptos-move-witnesses/src/static_info.rs
++++ b/aptos-move-witnesses/src/static_info.rs
+@@ -10,6 +10,7 @@ pub mod bytecode;
+ pub mod constant;
+ pub mod function;
+ 
++#[derive(Clone, Default)]
+ pub struct StaticInfo {
+     pub bytecode_info: Vec<BytecodeInfo>,
+     pub function_info: Vec<FunctionInfo>,
+@@ -41,4 +42,11 @@ impl StaticInfo {
+             .find(|c| c.module_index == module_index && c.constant_index == constant_index)
+             .map(|c| c.value.clone())
+     }
++
++    pub fn get_function(&self, module_index: usize, fh_idx: usize) -> Option<FunctionInfo> {
++        self.function_info
++            .iter()
++            .find(|f| f.module_index == module_index && f.function_handle_index == fh_idx)
++            .cloned()
++    }
+ }
+diff --git a/aptos-move-witnesses/src/utils.rs b/aptos-move-witnesses/src/utils.rs
+index e4219d4..8d8cbbe 100644
+--- a/aptos-move-witnesses/src/utils.rs
++++ b/aptos-move-witnesses/src/utils.rs
+@@ -79,6 +79,7 @@ impl From<SimpleValue> for ValueHeader {
+     }
+ }
+ 
++#[derive(Clone, Default)]
+ pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
+ 
+ impl ModuleIdMapping {
+diff --git a/vm-circuit/src/chips/execution_chip_v2.rs b/vm-circuit/src/chips/execution_chip_v2.rs
+index 90b15bf..7a28600 100644
+--- a/vm-circuit/src/chips/execution_chip_v2.rs
++++ b/vm-circuit/src/chips/execution_chip_v2.rs
+@@ -36,6 +36,7 @@ use crate::utils::challenges::Challenges;
+ use crate::utils::rlc::rlc;
+ use crate::utils::SubCircuitConfig;
+ use crate::witness::WitnessV2;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::{and, not, or};
+ use halo2_proofs::circuit::{Layouter, Region, Value};
+@@ -486,8 +487,13 @@ impl<F: Field> ExecChipConfig<F> {
+             |mut region| {
+                 let mut offset = 0;
+                 for opcode_witness in &witness.opcode_witnesses {
+-                    offset +=
+-                        self.assign_exec_step(&mut region, offset, opcode_witness, challenges)?;
++                    offset += self.assign_exec_step(
++                        &mut region,
++                        offset,
++                        opcode_witness,
++                        challenges,
++                        &witness.static_info,
++                    )?;
+                 }
+                 Ok(())
+             },
+@@ -501,6 +507,7 @@ impl<F: Field> ExecChipConfig<F> {
+         offset_begin: usize,
+         stage_state: &StageState,
+         challenges: &Challenges<Value<F>>,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+ 
+@@ -524,7 +531,7 @@ impl<F: Field> ExecChipConfig<F> {
+         macro_rules! assign_exec_step {
+             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
+                 match $state {
+-                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state),)*
++                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info),)*
+                     _=>unimplemented!()
+                 }
+             };
+@@ -574,6 +581,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         Ok(stage_state.rows())
+     }
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/add_sub.rs b/vm-circuit/src/chips/execution_chip_v2/executions/add_sub.rs
+index 103a030..9237bc0 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/add_sub.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/add_sub.rs
+@@ -17,6 +17,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::{
+     circuit::Value,
+@@ -137,6 +138,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/and_or.rs b/vm-circuit/src/chips/execution_chip_v2/executions/and_or.rs
+index 8ddd54e..345b99d 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/and_or.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/and_or.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::{and, or};
+ use halo2_proofs::plonk::Error;
+@@ -125,6 +126,7 @@ impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/base.rs b/vm-circuit/src/chips/execution_chip_v2/executions/base.rs
+index 498014b..a91f585 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/base.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/base.rs
+@@ -4,6 +4,7 @@ use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget
+ use crate::chips::execution_chip_v2::step_v2::{
+     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, STEP_COUNTER,
+ };
++use aptos_move_witnesses::static_info::StaticInfo;
+ use gadgets::util::Expr;
+ use types::Field;
+ 
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/bitwise.rs b/vm-circuit/src/chips/execution_chip_v2/executions/bitwise.rs
+index e1b1149..6f36fbe 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/bitwise.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/bitwise.rs
+@@ -13,6 +13,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::witness_preprocessor::to_u256::ToU256;
+ use aptos_move_witnesses::Integer;
+@@ -173,6 +174,7 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/borrow_field.rs b/vm-circuit/src/chips/execution_chip_v2/executions/borrow_field.rs
+index 8d87f87..2e27cc8 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/borrow_field.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/borrow_field.rs
+@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::SubIndexUtils;
+ use halo2_proofs::plonk::Error;
+@@ -109,6 +110,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowField<MUTAB
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len(), 1);
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/borrow_loc.rs b/vm-circuit/src/chips/execution_chip_v2/executions/borrow_loc.rs
+index bb2d6a3..b3a05fe 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/borrow_loc.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/borrow_loc.rs
+@@ -6,6 +6,7 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
+ use crate::chips::execution_chip_v2::value::Index;
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use std::marker::PhantomData;
+ use types::Field;
+ 
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/br_bool.rs b/vm-circuit/src/chips/execution_chip_v2/executions/br_bool.rs
+index e5127f0..7a95d70 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/br_bool.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/br_bool.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use std::marker::PhantomData;
+@@ -85,6 +86,7 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/call.rs b/vm-circuit/src/chips/execution_chip_v2/executions/call.rs
+index e687b36..2c6265c 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/call.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/call.rs
+@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::{and, not};
+ use halo2_proofs::poly::Rotation;
+@@ -117,6 +118,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         let state = stage_state.step_states.first().unwrap();
+         let frame_index = F::from(state.step_state.frame_index as u64);
+@@ -124,9 +126,16 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
+         let function_index = F::from(state.step_state.function_index as u64);
+         let pc = F::from(state.step_state.pc);
+         let clk = F::from(state.step_state.clk);
+-        let num_arg = F::zero(); // TODO: fetch num_arg from state of the next stage
+-
+-        self.num_arg.assign(region, offset, Value::known(num_arg))?;
++        let num_arg = static_info
++            .get_function(
++                state.step_state.module_index as usize,
++                state.step_state.aux0 as usize,
++            )
++            .unwrap_or_else(|| panic!("cannot find function"))
++            .num_arg;
++
++        self.num_arg
++            .assign(region, offset, Value::known(F::from(num_arg as u64)))?;
+         self.call_context.assign(
+             region,
+             offset,
+@@ -136,7 +145,8 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
+             pc,
+             clk,
+         )?;
+-        self.is_zero_num_arg.assign(region, offset, num_arg)?;
++        self.is_zero_num_arg
++            .assign(region, offset, F::from(num_arg as u64))?;
+ 
+         Ok(1)
+     }
+@@ -250,6 +260,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         let rows = stage_state.rows();
+         let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
+@@ -420,6 +431,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         let step_state = stage_state.step_states.first().unwrap();
+         let rows = step_state.memory_ops.len();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/cast.rs b/vm-circuit/src/chips/execution_chip_v2/executions/cast.rs
+index b1b499e..0a7ddad 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/cast.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/cast.rs
+@@ -13,6 +13,7 @@ use crate::chips::execution_chip_v2::value::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use types::Field;
+@@ -157,6 +158,7 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/equality.rs b/vm-circuit/src/chips/execution_chip_v2/executions/equality.rs
+index cdf51c2..784ee3b 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/equality.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/equality.rs
+@@ -15,6 +15,7 @@ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::utils::rlc::rlc;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::not;
+ use halo2_proofs::circuit::Value;
+@@ -271,6 +272,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/ld.rs b/vm-circuit/src/chips/execution_chip_v2/executions/ld.rs
+index 93b8980..3de08f0 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/ld.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/ld.rs
+@@ -13,6 +13,7 @@ use crate::chips::execution_chip_v2::value::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use std::marker::PhantomData;
+@@ -98,6 +99,7 @@ impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/ld_bool.rs b/vm-circuit/src/chips/execution_chip_v2/executions/ld_bool.rs
+index cd257b8..ad32161 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/ld_bool.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/ld_bool.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use std::marker::PhantomData;
+@@ -104,6 +105,7 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/ld_const.rs b/vm-circuit/src/chips/execution_chip_v2/executions/ld_const.rs
+index 30f28c3..0bc3e37 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/ld_const.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/ld_const.rs
+@@ -9,6 +9,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use std::marker::PhantomData;
+@@ -94,6 +95,7 @@ impl<F: Field> InstructionGadgetV2<F> for LdConst<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/le_gt.rs b/vm-circuit/src/chips/execution_chip_v2/executions/le_gt.rs
+index 50bf810..6e83b54 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/le_gt.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/le_gt.rs
+@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use move_vm_runtime::witnessing::traced_value::Integer;
+@@ -141,6 +142,7 @@ impl<F: Field, const LE: bool> InstructionGadgetV2<F> for Le<F, LE> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/lt_ge.rs b/vm-circuit/src/chips/execution_chip_v2/executions/lt_ge.rs
+index da4d7ae..138eaba 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/lt_ge.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/lt_ge.rs
+@@ -11,6 +11,7 @@ use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use move_vm_runtime::witnessing::traced_value::Integer;
+@@ -141,6 +142,7 @@ impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/move_or_copy_loc.rs b/vm-circuit/src/chips/execution_chip_v2/executions/move_or_copy_loc.rs
+index 18b02f9..b4a5f0e 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/move_or_copy_loc.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/move_or_copy_loc.rs
+@@ -4,6 +4,7 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
+ use crate::chips::execution_chip_v2::executions::ExecutionState;
+ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use gadgets::util::Expr;
+ use std::io::Read;
+ use std::marker::PhantomData;
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/mul_div_mod.rs b/vm-circuit/src/chips/execution_chip_v2/executions/mul_div_mod.rs
+index 57df59a..049c19a 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/mul_div_mod.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/mul_div_mod.rs
+@@ -17,6 +17,7 @@ use crate::chips::execution_chip_v2::value::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use gadgets::util::{or, select};
+ use halo2_proofs::plonk::Expression;
+ use itertools::izip;
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/not.rs b/vm-circuit/src/chips/execution_chip_v2/executions/not.rs
+index 32df454..62b03f4 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/not.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/not.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::not;
+ use halo2_proofs::plonk::Error;
+@@ -99,6 +100,7 @@ impl<F: Field> InstructionGadgetV2<F> for Not<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/pack.rs b/vm-circuit/src/chips/execution_chip_v2/executions/pack.rs
+index cfae701..484b8fa 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/pack.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/pack.rs
+@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::{and, not};
+ use halo2_proofs::circuit::Value;
+@@ -17,7 +18,6 @@ use halo2_proofs::plonk::Error;
+ use halo2_proofs::poly::Rotation;
+ use itertools::Itertools;
+ use std::collections::HashMap;
+-
+ use types::Field;
+ 
+ #[derive(Clone, Debug)]
+@@ -240,6 +240,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
+         region: &mut CachedRegion<'_, '_, F>,
+         start_offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/pop.rs b/vm-circuit/src/chips/execution_chip_v2/executions/pop.rs
+index 2908fd5..25172a7 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/pop.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/pop.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use halo2_proofs::plonk::Error;
+ use std::marker::PhantomData;
+@@ -80,6 +81,7 @@ impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
+         _region: &mut CachedRegion<'_, '_, F>,
+         _offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         // no need to assign anything else
+         Ok(stage_state.rows())
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/read_ref.rs b/vm-circuit/src/chips/execution_chip_v2/executions/read_ref.rs
+index 27acd98..6e7f7e8 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/read_ref.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/read_ref.rs
+@@ -12,6 +12,7 @@ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::SubIndexUtils;
+ use halo2_proofs::{circuit::Value, plonk::Error};
+@@ -193,6 +194,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/ret.rs b/vm-circuit/src/chips/execution_chip_v2/executions/ret.rs
+index 2e8855e..f07542b 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/ret.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/ret.rs
+@@ -8,6 +8,7 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, SP};
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use gadgets::util::not;
+ use types::Field;
+ 
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/store_loc.rs b/vm-circuit/src/chips/execution_chip_v2/executions/store_loc.rs
+index b216092..4a0a7ee 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/store_loc.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/store_loc.rs
+@@ -6,6 +6,7 @@ use crate::chips::execution_chip_v2::step_v2::{
+     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+ };
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use gadgets::util::Expr;
+ use std::marker::PhantomData;
+ use types::Field;
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/unpack.rs b/vm-circuit/src/chips/execution_chip_v2/executions/unpack.rs
+index d22aaa1..2ad03bf 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/unpack.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/unpack.rs
+@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::SubIndexUtils;
+ use gadgets::util::not;
+@@ -123,6 +124,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+@@ -282,6 +284,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/vec_borrow.rs b/vm-circuit/src/chips/execution_chip_v2/executions/vec_borrow.rs
+index b6cd299..6d5b7eb 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/vec_borrow.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/vec_borrow.rs
+@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::SubIndexUtils;
+ use halo2_proofs::plonk::Error;
+@@ -127,6 +128,7 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/vec_len.rs b/vm-circuit/src/chips/execution_chip_v2/executions/vec_len.rs
+index a323339..f724443 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/vec_len.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/vec_len.rs
+@@ -6,6 +6,7 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
+ use crate::chips::execution_chip_v2::value::Index;
+ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::chips::utilities::Expr;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use std::marker::PhantomData;
+ use types::Field;
+ 
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/vec_pop_back.rs b/vm-circuit/src/chips/execution_chip_v2/executions/vec_pop_back.rs
+index c027630..a2a4759 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/vec_pop_back.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/vec_pop_back.rs
+@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::{SubIndexUtils, ValueHeader};
+ use gadgets::util::Expr;
+@@ -202,6 +203,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len(), 1);
+ 
+@@ -414,6 +416,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         let vector_sub_index = region.get_advice(
+             offset,
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/vec_push_back.rs b/vm-circuit/src/chips/execution_chip_v2/executions/vec_push_back.rs
+index 429222c..c7648e6 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/vec_push_back.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/vec_push_back.rs
+@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::utils::{SubIndexUtils, ValueHeader};
+ use gadgets::util::Expr;
+@@ -202,6 +203,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len(), 1);
+ 
+@@ -410,6 +412,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         let vector_sub_index = region.get_advice(
+             offset,
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/vec_swap.rs b/vm-circuit/src/chips/execution_chip_v2/executions/vec_swap.rs
+index e47ce10..65407da 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/vec_swap.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/vec_swap.rs
+@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use gadgets::util::not;
+ use gadgets::util::Expr;
+@@ -117,6 +118,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len() as u64, Self::STEP_ROWS);
+         debug_assert!(stage_state
+@@ -337,6 +339,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len(), 1);
+ 
+@@ -540,6 +543,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert_eq!(stage_state.step_states.len(), 1);
+ 
+diff --git a/vm-circuit/src/chips/execution_chip_v2/executions/write_ref.rs b/vm-circuit/src/chips/execution_chip_v2/executions/write_ref.rs
+index 1b72fb3..48b032e 100644
+--- a/vm-circuit/src/chips/execution_chip_v2/executions/write_ref.rs
++++ b/vm-circuit/src/chips/execution_chip_v2/executions/write_ref.rs
+@@ -14,6 +14,7 @@ use crate::chips::utilities::Expr;
+ use crate::utils::cached_region::CachedRegion;
+ use crate::utils::cell_manager::Cell;
+ use crate::witness::to_field::ToField;
++use aptos_move_witnesses::static_info::StaticInfo;
+ use aptos_move_witnesses::step_state::StageState;
+ use aptos_move_witnesses::step_state::SubIndex;
+ use aptos_move_witnesses::utils::SubIndexUtils;
+@@ -155,6 +156,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+@@ -317,6 +319,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+@@ -490,6 +493,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
+         region: &mut CachedRegion<'_, '_, F>,
+         offset: usize,
+         stage_state: &StageState,
++        _static_info: &StaticInfo,
+     ) -> Result<usize, Error> {
+         debug_assert!(!stage_state.step_states.is_empty());
+         let step_state = stage_state.step_states.first().unwrap();
+diff --git a/vm-circuit/src/lib.rs b/vm-circuit/src/lib.rs
+index ab51c38..56d22a6 100644
+--- a/vm-circuit/src/lib.rs
++++ b/vm-circuit/src/lib.rs
+@@ -1,6 +1,8 @@
+ // Copyright (c) zkMove Authors
+ #![feature(lint_reasons)]
+ 
++extern crate aptos_move_witnesses;
++
+ pub mod chips;
+ pub mod circuit;
+ pub mod circuit_v2;
+diff --git a/vm-circuit/src/witness.rs b/vm-circuit/src/witness.rs
+index bf678e2..51bdf73 100644
+--- a/vm-circuit/src/witness.rs
++++ b/vm-circuit/src/witness.rs
+@@ -228,6 +228,7 @@ impl fmt::Debug for Witness {
+ }
+ 
+ use crate::witness::exec_step::ExecStep;
++use aptos_move_witnesses::static_info::StaticInfo;
+ 
+ #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+ pub struct CircuitConfigV2 {
+@@ -243,7 +244,7 @@ pub struct ExecTrace {
+ pub struct WitnessV2 {
+     pub opcode_witnesses: Vec<StageState>,
+     pub exec_steps: Vec<ExecStep>,
+-    pub bytecode_table: BytecodeTable,
++    pub static_info: StaticInfo,
+     pub circuit_config: CircuitConfigV2,
+ }
+ 
+@@ -251,13 +252,13 @@ impl WitnessV2 {
+     pub fn new(
+         opcode_witnesses: Vec<StageState>,
+         exec_steps: Vec<ExecStep>,
+-        bytecode_table: BytecodeTable,
++        static_info: StaticInfo,
+         circuit_config: CircuitConfigV2,
+     ) -> Self {
+         WitnessV2 {
+             opcode_witnesses,
+             exec_steps,
+-            bytecode_table,
++            static_info,
+             circuit_config,
+         }
+     }
+-- 
+2.24.3 (Apple Git-128)
+

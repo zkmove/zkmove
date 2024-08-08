@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::witness::to_field::ToField;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use gadgets::util::Expr;
@@ -117,6 +118,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len() as u64, Self::STEP_ROWS);
         debug_assert!(stage_state
@@ -337,6 +339,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 
@@ -540,6 +543,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 

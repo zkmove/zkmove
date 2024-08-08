@@ -36,6 +36,7 @@ use crate::utils::challenges::Challenges;
 use crate::utils::rlc::rlc;
 use crate::utils::SubCircuitConfig;
 use crate::witness::WitnessV2;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Region, Value};
@@ -486,8 +487,13 @@ impl<F: Field> ExecChipConfig<F> {
             |mut region| {
                 let mut offset = 0;
                 for opcode_witness in &witness.opcode_witnesses {
-                    offset +=
-                        self.assign_exec_step(&mut region, offset, opcode_witness, challenges)?;
+                    offset += self.assign_exec_step(
+                        &mut region,
+                        offset,
+                        opcode_witness,
+                        challenges,
+                        &witness.static_info,
+                    )?;
                 }
                 Ok(())
             },
@@ -501,6 +507,7 @@ impl<F: Field> ExecChipConfig<F> {
         offset_begin: usize,
         stage_state: &StageState,
         challenges: &Challenges<Value<F>>,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
 
@@ -524,7 +531,7 @@ impl<F: Field> ExecChipConfig<F> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state),)*
+                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info),)*
                     _=>unimplemented!()
                 }
             };
@@ -574,6 +581,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         Ok(stage_state.rows())
     }

@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not};
 use halo2_proofs::poly::Rotation;
@@ -117,6 +118,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let state = stage_state.step_states.first().unwrap();
         let frame_index = F::from(state.step_state.frame_index as u64);
@@ -124,9 +126,16 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         let function_index = F::from(state.step_state.function_index as u64);
         let pc = F::from(state.step_state.pc);
         let clk = F::from(state.step_state.clk);
-        let num_arg = F::zero(); // TODO: fetch num_arg from state of the next stage
+        let num_arg = static_info
+            .get_function(
+                state.step_state.module_index as usize,
+                state.step_state.aux0 as usize,
+            )
+            .unwrap_or_else(|| panic!("cannot find function"))
+            .num_arg;
 
-        self.num_arg.assign(region, offset, Value::known(num_arg))?;
+        self.num_arg
+            .assign(region, offset, Value::known(F::from(num_arg as u64)))?;
         self.call_context.assign(
             region,
             offset,
@@ -136,7 +145,8 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             pc,
             clk,
         )?;
-        self.is_zero_num_arg.assign(region, offset, num_arg)?;
+        self.is_zero_num_arg
+            .assign(region, offset, F::from(num_arg as u64))?;
 
         Ok(1)
     }
@@ -250,6 +260,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let rows = stage_state.rows();
         let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
@@ -420,6 +431,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let step_state = stage_state.step_states.first().unwrap();
         let rows = step_state.memory_ops.len();
