@@ -45,8 +45,9 @@ pub(crate) enum Lookup<F> {
     },
     Function {
         module_index: Expression<F>,
+        function_handle_index: Expression<F>,
+        def_module_index: Expression<F>,
         function_index: Expression<F>,
-        /// Number of arguments
         num_arg: Expression<F>,
     },
     Bitwise {
@@ -78,11 +79,15 @@ impl<F: Field> Lookup<F> {
             Self::Fixed { tag, values } => [vec![tag.clone()], values.to_vec()].concat(),
             Self::Function {
                 module_index,
+                function_handle_index,
+                def_module_index,
                 function_index,
                 num_arg,
             } => {
                 vec![
                     module_index.clone(),
+                    function_handle_index.clone(),
+                    def_module_index.clone(),
                     function_index.clone(),
                     num_arg.clone(),
                 ]

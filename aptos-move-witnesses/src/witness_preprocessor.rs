@@ -1586,6 +1586,139 @@ impl WitnessPreProcessor {
                     _ => todo!(),
                 }
             }
+            Operation::Call { fh_idx, args } => {
+                // stage1: check the number of argument
+                let mut step_state = StepState::new(self.clk, ExecutionState::CallStage1, trace)
+                    .set_aux0(*fh_idx as u128);
+                let mut stages = vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops: vec![MemoryOp(None, None, None)],
+                    }],
+                }];
+
+                let callee_frame_index = current_frame_index + 1;
+                for (i, arg) in args.iter().enumerate().rev() {
+                    let local_index = args.len() - 1 - i;
+
+                    // stage2: invalidate old local
+                    self.clk += 1;
+                    step_state = step_state
+                        .change_state(ExecutionState::CallStage2)
+                        .change_clk(self.clk);
+                    let header_sub_index = vec![0];
+                    let header_slot = self.locals.peek_local_slot(
+                        callee_frame_index,
+                        local_index,
+                        &header_sub_index,
+                    );
+                    let old_value_invalid = match header_slot {
+                        None => true,
+                        Some(s) => s.value_invalid,
+                    };
+                    let memory_ops = if old_value_invalid {
+                        let (old_slot, new_slot) = self.locals.read_local_slot_with_clk(
+                            callee_frame_index,
+                            local_index,
+                            &header_sub_index,
+                            self.clk,
+                        );
+                        vec![MemoryOp(
+                            None,
+                            None,
+                            Some(LocalReadWrite::new(
+                                callee_frame_index.try_into().unwrap(),
+                                local_index.try_into().unwrap(),
+                                header_sub_index,
+                                old_slot,
+                                new_slot,
+                            )),
+                        )]
+                    } else {
+                        let old_local =
+                            self.locals
+                                .members(callee_frame_index, local_index, &header_sub_index);
+                        if let Some(old_local) = old_local {
+                            old_local
+                                .iter()
+                                .map(|(sub_index, slot)| {
+                                    let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                        callee_frame_index,
+                                        local_index,
+                                        sub_index,
+                                        slot.value.clone(),
+                                        slot.value_header,
+                                        true,
+                                        self.clk,
+                                    );
+                                    LocalReadWrite::new(
+                                        callee_frame_index.try_into().unwrap(),
+                                        local_index.try_into().unwrap(),
+                                        sub_index.clone(),
+                                        old_,
+                                        new_,
+                                    )
+                                })
+                                .map(|local_op| MemoryOp(None, None, Some(local_op)))
+                                .collect()
+                        } else {
+                            unreachable!()
+                        }
+                    };
+                    let stage2_state = StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    };
+                    stages.push(stage2_state);
+
+                    //stage3: pop an argument and store into local of the next frame
+                    self.clk += 1;
+                    step_state = step_state
+                        .change_state(ExecutionState::CallStage3)
+                        .change_clk(self.clk);
+                    let value_version = self.version_stack.pop().unwrap();
+                    let memory_ops: Vec<_> = arg
+                        .iter()
+                        .map(|item| {
+                            let stack_pop = StackPop {
+                                index: step_state.sp,
+                                sub_index: item.sub_index.clone(),
+                                value: item.value.clone(),
+                                value_header: item.header,
+                                version: value_version,
+                            };
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                callee_frame_index,
+                                local_index,
+                                &stack_pop.sub_index,
+                                stack_pop.value.clone(),
+                                stack_pop.value_header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                callee_frame_index.try_into().unwrap(),
+                                local_index.try_into().unwrap(),
+                                stack_pop.sub_index.clone(),
+                                old_,
+                                new_,
+                            );
+                            MemoryOp(Some(stack_pop), None, Some(local_op))
+                        })
+                        .collect();
+                    let stage3_state = StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                    };
+                    stages.push(stage3_state);
+                    step_state = step_state.dec_sp(1);
+                }
+                stages
+            }
             _ => unimplemented!(),
         }
     }

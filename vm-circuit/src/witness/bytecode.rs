@@ -163,7 +163,7 @@ pub fn parse_package(module_id: &ModuleId, package: &CompiledPackage) -> Vec<Byt
     let module_id_mapping = ModuleIdMapping::construct(module_id, package);
     deps.iter()
         .flat_map(|module| {
-            let module_index = module_id_mapping.get_module_index(module.self_id());
+            let module_index = module_id_mapping.get_module_index(&module.self_id());
             parse_module(module, module_index)
         })
         .collect()

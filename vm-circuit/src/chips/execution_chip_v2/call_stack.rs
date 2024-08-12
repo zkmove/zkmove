@@ -1,8 +1,10 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use halo2_proofs::plonk::Expression;
+use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -82,5 +84,26 @@ impl<F: Field> CallContext<F> {
             self.caller_pc.expr(),
             self.version.expr(),
         ]
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        index: F,
+        caller_module_index: F,
+        caller_function_index: F,
+        caller_pc: F,
+        version: F,
+    ) -> Result<(), Error> {
+        self.index.assign(region, offset, Value::known(index))?;
+        self.caller_module_index
+            .assign(region, offset, Value::known(caller_module_index))?;
+        self.caller_function_index
+            .assign(region, offset, Value::known(caller_function_index))?;
+        self.caller_pc
+            .assign(region, offset, Value::known(caller_pc))?;
+        self.version.assign(region, offset, Value::known(version))?;
+        Ok(())
     }
 }
