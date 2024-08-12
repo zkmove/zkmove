@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 #![feature(lint_reasons)]
+#![feature(associated_type_defaults)]
 
 extern crate aptos_move_witnesses;
 extern crate move_core_types;

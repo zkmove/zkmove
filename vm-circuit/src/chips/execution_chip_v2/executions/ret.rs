@@ -4,11 +4,15 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, SP};
+use crate::chips::execution_chip_v2::step_v2::{StepState, FRAME_INDEX, SP};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::not;
+use halo2_proofs::circuit::Value;
+use halo2_proofs::plonk::Error;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -74,5 +78,60 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
             is_zero_frame_index,
             call_context_version,
         }
+    }
+
+    fn assign(
+        &self,
+        step: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        stage_state: &StageState,
+    ) -> Result<usize, Error> {
+        let extra_data = match stage_state.extra_data.as_ref() {
+            Some(StageExtraAssignData::Ret(extra_data)) => extra_data,
+            _ => unreachable!(),
+        };
+        match &extra_data.caller {
+            Some(caller) => {
+                self.call_context.assign(
+                    region,
+                    offset,
+                    F::from(caller.caller_frame_index as u64),
+                    F::from(caller.caller_module_index),
+                    F::from(caller.caller_function_index as u64),
+                    F::from(caller.caller_pc),
+                    F::from(extra_data.frame_version),
+                )?;
+                self.call_context_version.assign(
+                    region,
+                    offset,
+                    Value::known(F::from(extra_data.frame_version)),
+                )?;
+                self.is_zero_frame_index.assign(
+                    region,
+                    offset,
+                    F::from((caller.caller_frame_index + 1) as u64),
+                )?;
+            }
+            None => {
+                self.call_context.assign(
+                    region,
+                    offset,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::from(extra_data.frame_version),
+                )?;
+                self.call_context_version.assign(
+                    region,
+                    offset,
+                    Value::known(F::from(extra_data.frame_version)),
+                )?;
+
+                self.is_zero_frame_index.assign(region, offset, F::zero())?;
+            }
+        }
+        Ok(1)
     }
 }

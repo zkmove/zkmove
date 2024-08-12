@@ -529,6 +529,7 @@ impl<F: Field> ExecChipConfig<F> {
                 }
             };
         }
+        // FIXME
         let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
             ExecutionState::VecLen => self.vec_len,
             ExecutionState::StoreLocStage1 => self.store_loc_stage1,
@@ -554,7 +555,6 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
 
     const OPCODE: Opcode;
     const EXECUTION_STATE: ExecutionState;
-
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
 
     // fn assign(

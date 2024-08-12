@@ -10,12 +10,37 @@ pub type Version = u64;
 #[derive(Clone, Debug)]
 pub struct StageState {
     pub step_states: Vec<ExecStepState>,
+    pub extra_data: Option<StageExtraAssignData>,
 }
 
 impl StageState {
     pub fn rows(&self) -> usize {
         self.step_states.iter().map(|s| s.memory_ops.len()).sum()
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum StageExtraAssignData {
+    Ret(RetExtraAssignData),
+}
+
+#[derive(Clone, Debug)]
+pub struct RetExtraAssignData {
+    pub caller: Option<CallerData>,
+    pub frame_version: Version,
+}
+
+impl From<RetExtraAssignData> for StageExtraAssignData {
+    fn from(value: RetExtraAssignData) -> Self {
+        Self::Ret(value)
+    }
+}
+#[derive(Clone, Debug)]
+pub struct CallerData {
+    pub caller_frame_index: u16,
+    pub caller_module_index: u64, // TODO: module_id to module_index
+    pub caller_function_index: u16,
+    pub caller_pc: u64,
 }
 
 #[derive(Clone, Debug)]
