@@ -3,8 +3,8 @@ use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
 use crate::step_state::{
-    ExecStepState, LocalReadWrite, MemoryOp, Slot, StackPop, StackPush, StageState, StepState,
-    SubIndex, Version,
+    CallerData, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot, StackPop,
+    StackPush, StageState, StepState, SubIndex, Version,
 };
 use crate::sub_index;
 use crate::utils::{SubIndexUtils, ValueHeader};
@@ -20,6 +20,7 @@ pub struct WitnessPreProcessor {
     clk: Version,
     // track versions of each stack value
     version_stack: Vec<Version>,
+    call_stack_versions: Vec<Version>,
     locals: Locals,
 }
 impl WitnessPreProcessor {
@@ -53,6 +54,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::LdTrue | Operation::LdFalse => {
@@ -77,6 +79,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::CastU8 { origin }
@@ -127,6 +130,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::Pop { poped_value } => {
@@ -150,6 +154,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::BrTrue {
@@ -181,6 +186,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::StLoc {
@@ -298,9 +304,11 @@ impl WitnessPreProcessor {
                 vec![
                     StageState {
                         step_states: vec![stage1_state],
+                        extra_data: None,
                     },
                     StageState {
                         step_states: vec![stage2_state],
+                        extra_data: None,
                     },
                 ]
             }
@@ -342,6 +350,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::CopyLoc { local_index, local } => {
@@ -379,6 +388,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::VecLen { si, vec_ref, len } => {
@@ -419,6 +429,7 @@ impl WitnessPreProcessor {
                             Some(local_op),
                         )],
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::BorrowLoc { imm, local_index } => {
@@ -445,6 +456,7 @@ impl WitnessPreProcessor {
                         step_state: StepState::new(self.clk, exec_state, trace),
                         memory_ops: vec![MemoryOp(None, Some(stack_push), None)],
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::BorrowField {
@@ -485,6 +497,7 @@ impl WitnessPreProcessor {
                         step_state: StepState::new(self.clk, exec_state, trace),
                         memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::VecBorrow {
@@ -535,6 +548,7 @@ impl WitnessPreProcessor {
                             MemoryOp(Some(stack_pop_vec_ref), Some(stack_push), None),
                         ],
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::Neq { lhs, rhs } | Operation::Eq { lhs, rhs } => {
@@ -603,9 +617,11 @@ impl WitnessPreProcessor {
                 vec![
                     StageState {
                         step_states: vec![stage1_state],
+                        extra_data: None,
                     },
                     StageState {
                         step_states: vec![stage2_state],
+                        extra_data: None,
                     },
                 ]
             }
@@ -656,6 +672,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::WriteRef {
@@ -814,12 +831,15 @@ impl WitnessPreProcessor {
                 vec![
                     StageState {
                         step_states: vec![stage1_state],
+                        extra_data: None,
                     },
                     StageState {
                         step_states: vec![stage2_state],
+                        extra_data: None,
                     },
                     StageState {
                         step_states: vec![stage3_state],
+                        extra_data: None,
                     },
                 ]
             }
@@ -869,6 +889,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::Unpack { sd_idx, arg } => {
@@ -888,6 +909,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops: vec![MemoryOp(Some(stack_pop), None, None)],
                     }],
+                    extra_data: None,
                 }];
 
                 let mut fields = arg.iter().skip(1).fold(
@@ -948,6 +970,7 @@ impl WitnessPreProcessor {
                                 step_state,
                                 memory_ops,
                             }],
+                            extra_data: None,
                         });
                     }
                 }
@@ -991,6 +1014,7 @@ impl WitnessPreProcessor {
                     .to_vec();
                     StageState {
                         step_states: states,
+                        extra_data: None,
                     }
                 };
 
@@ -1044,6 +1068,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     });
                     step_state = step_state.inc_sp(1);
                 }
@@ -1097,6 +1122,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     });
                     step_state = step_state.dec_sp(1);
                 }
@@ -1177,6 +1203,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     }
                 };
 
@@ -1225,6 +1252,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     }
                 };
                 vec![stage1, stage2]
@@ -1304,6 +1332,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     }
                 };
 
@@ -1357,6 +1386,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     }
                 };
                 vec![stage1, stage2]
@@ -1401,6 +1431,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::Not { value } => {
@@ -1426,6 +1457,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             Operation::BinaryOp { ty, rhs, lhs } => {
@@ -1566,6 +1598,7 @@ impl WitnessPreProcessor {
                                 step_state,
                                 memory_ops,
                             }],
+                            extra_data: None,
                         }]
                     }
                     BinaryIntegerOperationType::BitAnd
@@ -1581,12 +1614,15 @@ impl WitnessPreProcessor {
                                 step_state,
                                 memory_ops,
                             }],
+                            extra_data: None,
                         }]
                     }
                     _ => todo!(),
                 }
             }
             Operation::Call { fh_idx, args } => {
+                // TODO: for entrypoint, is there a call ?
+                self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
                 let mut step_state = StepState::new(self.clk, ExecutionState::CallStage1, trace)
                     .set_aux0(*fh_idx as u128);
@@ -1595,6 +1631,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops: vec![MemoryOp(None, None, None)],
                     }],
+                    extra_data: None,
                 }];
 
                 let callee_frame_index = current_frame_index + 1;
@@ -1670,6 +1707,7 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     };
                     stages.push(stage2_state);
 
@@ -1713,11 +1751,38 @@ impl WitnessPreProcessor {
                             step_state,
                             memory_ops,
                         }],
+                        extra_data: None,
                     };
                     stages.push(stage3_state);
                     step_state = step_state.dec_sp(1);
                 }
                 stages
+            }
+            Operation::Ret { caller } => {
+                // TOOD: check the Ret at the top frame
+                let frame_version = self.call_stack_versions.pop().unwrap_or_default();
+                // stage1: check the number of argument
+                let mut step_state = StepState::new(self.clk, ExecutionState::Ret, trace);
+
+                let caller = caller.as_ref().map(|c| CallerData {
+                    caller_frame_index: c.frame_index as u16,
+                    caller_module_index: 0, // FIXME: module_id to module_index
+                    caller_function_index: c.function_id as u16,
+                    caller_pc: c.pc as u64, // TODO: check the type of pc
+                });
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops: vec![MemoryOp::default()],
+                    }],
+                    extra_data: Some(
+                        RetExtraAssignData {
+                            frame_version,
+                            caller,
+                        }
+                        .into(),
+                    ),
+                }]
             }
             _ => unimplemented!(),
         }
