@@ -4,6 +4,7 @@ use move_core_types::language_storage::ModuleId;
 use move_package::compilation::compiled_package::CompiledPackage;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
 use std::collections::HashMap;
+use std::iter;
 use types::Field;
 
 pub trait SubIndexUtils {
@@ -87,8 +88,11 @@ impl ModuleIdMapping {
         let modules = package.all_modules_map();
         let deps = modules.get_transitive_dependencies(module_id).unwrap();
         let mut mapping = HashMap::new();
-        for (idx, dep) in deps.into_iter().enumerate() {
-            mapping.insert(dep.self_id(), (idx, dep.clone()));
+        let module = modules
+            .get_module(module_id)
+            .unwrap_or_else(|_| panic!("cannot find module {:?}", module_id));
+        for (idx, m) in iter::once(module).chain(deps).enumerate() {
+            mapping.insert(m.self_id(), (idx, m.clone()));
         }
         ModuleIdMapping(mapping)
     }
