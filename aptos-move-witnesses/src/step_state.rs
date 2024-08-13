@@ -62,6 +62,24 @@ pub struct StepState {
     pub aux1: u128,
     pub exec_state: ExecutionState,
 }
+
+impl Default for StepState {
+    fn default() -> Self {
+        Self {
+            clk: 0,
+            frame_index: 0,
+            module_index: 0,
+            function_index: 0,
+            pc: 0,
+            sp: 0,
+            opcode: 0,
+            aux0: 0,
+            aux1: 0,
+            exec_state: ExecutionState::Nop,
+        }
+    }
+}
+
 impl StepState {
     pub fn new(clk: u64, state: ExecutionState, trace: &Footprint) -> Self {
         Self {

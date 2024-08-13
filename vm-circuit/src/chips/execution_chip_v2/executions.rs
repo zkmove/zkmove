@@ -15,6 +15,7 @@ pub(crate) mod le_gt;
 pub(crate) mod lt_ge;
 pub(crate) mod move_or_copy_loc;
 pub(crate) mod mul_div_mod;
+pub(crate) mod nop;
 pub(crate) mod not;
 pub(crate) mod pack;
 pub(crate) mod pop;
@@ -59,6 +60,7 @@ pub(crate) use vec_pop_back::*;
 pub(crate) use vec_push_back::*;
 pub(crate) use vec_swap::*;
 pub(crate) use write_ref::*;
+pub(crate) use nop::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
