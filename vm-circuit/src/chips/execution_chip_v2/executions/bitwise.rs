@@ -31,7 +31,7 @@ pub struct Bitwise<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
     const NAME: &'static str = "Bitwise";
-    const OPCODE: Opcode = Opcode::BitAnd; //TODO: remove this
+    const OPCODES: &'static [Opcode] = &[Opcode::BitAnd, Opcode::BitOr, Opcode::Xor];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Bitwise;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -46,13 +46,9 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
 
         cb.first_row(|cb| {
             cb.require_in_set(
-                "opcode in [BitAnd, BitOr, Xor]",
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                vec![
-                    (Opcode::BitAnd as u64).expr(),
-                    (Opcode::BitOr as u64).expr(),
-                    (Opcode::Xor as u64).expr(),
-                ],
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 3",

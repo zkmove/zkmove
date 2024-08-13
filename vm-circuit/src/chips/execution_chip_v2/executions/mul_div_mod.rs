@@ -60,7 +60,7 @@ pub struct MulDivMod<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
     const NAME: &'static str = "Mul_Div_Mod";
-    const OPCODE: Opcode = Opcode::Mul; //TODO: remove this
+    const OPCODES: &'static [Opcode] = &[Opcode::Mul, Opcode::Div, Opcode::Mod];
     const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivMod;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -81,6 +81,11 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let mut divisor_hi_is_zero = None;
 
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.require_equal(
                 "step_counter(0) == 2",
                 step_curr.step_counter.expr(),

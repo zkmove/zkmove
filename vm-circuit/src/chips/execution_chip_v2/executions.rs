@@ -28,20 +28,37 @@ pub(crate) mod vec_pop_back;
 pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
-pub use add_sub::*;
-pub use bitwise::*;
-pub use borrow_loc::*;
-pub use br_bool::*;
-pub use ld::*;
-pub use ld_bool::*;
-pub use ld_const::*;
-pub use le_gt::*;
-pub use lt_ge::*;
+
+pub(crate) use add_sub::*;
+pub(crate) use and_or::*;
+pub(crate) use base::*;
+pub(crate) use bitwise::*;
+pub(crate) use borrow_field::*;
+pub(crate) use borrow_loc::*;
+pub(crate) use br_bool::*;
+pub(crate) use call::*;
+pub(crate) use cast::*;
+pub(crate) use equality::*;
+pub(crate) use ld::*;
+pub(crate) use ld_bool::*;
+pub(crate) use ld_const::*;
+pub(crate) use le_gt::*;
+pub(crate) use lt_ge::*;
 pub(crate) use move_or_copy_loc::*;
-pub use pack::*;
-pub use unpack::*;
-pub use vec_len::*;
-pub use write_ref::*;
+pub(crate) use mul_div_mod::*;
+pub(crate) use not::*;
+pub(crate) use pack::*;
+pub(crate) use pop::*;
+pub(crate) use read_ref::*;
+pub(crate) use ret::*;
+pub(crate) use store_loc::*;
+pub(crate) use unpack::*;
+pub(crate) use vec_borrow::*;
+pub(crate) use vec_len::*;
+pub(crate) use vec_pop_back::*;
+pub(crate) use vec_push_back::*;
+pub(crate) use vec_swap::*;
+pub(crate) use write_ref::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -342,7 +359,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct SubIndexDepth<F: Field, const N_LIMB: usize> {
+pub(crate) struct SubIndexDepth<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
     bytes: [Cell<F>; NUM_OF_BYTES_U256],
     limbs: [Expression<F>; N_LIMB],
@@ -443,7 +460,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
 /// assert_eq!(b.to_u128(), 0x0003000200000000);
 ///
 #[derive(Clone, Debug)]
-pub(crate) struct SubIndexReverse<F: Field, const N_LIMB: usize> {
+pub(crate) struct SubIndexReverse<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
     limbs: [Cell<F>; N_LIMB],
 }

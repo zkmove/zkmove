@@ -24,7 +24,7 @@ pub struct Lt<F, const LT: bool> {
 }
 impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
     const NAME: &'static str = if LT { "Lt" } else { "Ge" };
-    const OPCODE: Opcode = if LT { Opcode::Lt } else { Opcode::Ge };
+    const OPCODES: &'static [Opcode] = if LT { &[Opcode::Lt] } else { &[Opcode::Ge] };
     const EXECUTION_STATE: ExecutionState = if LT {
         ExecutionState::Lt
     } else {
@@ -38,10 +38,10 @@ impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
         let mut comparison_hi = None;
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",

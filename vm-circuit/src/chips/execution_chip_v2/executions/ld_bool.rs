@@ -23,9 +23,9 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
         true => "LdTrue",
         false => "LdFalse",
     };
-    const OPCODE: Opcode = match TRUE {
-        true => Opcode::LdTrue,
-        false => Opcode::LdFalse,
+    const OPCODES: &'static [Opcode] = match TRUE {
+        true => &[Opcode::LdTrue],
+        false => &[Opcode::LdFalse],
     };
     const EXECUTION_STATE: ExecutionState = match TRUE {
         true => ExecutionState::LdTrue,
@@ -33,10 +33,10 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             cb.curr.state.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
 
         cb.require_equal(

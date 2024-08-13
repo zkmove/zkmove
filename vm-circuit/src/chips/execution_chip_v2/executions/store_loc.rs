@@ -22,7 +22,7 @@ pub struct StoreLocStage1<F> {
 /// if not, set the step counter, and invalidate the whole thing.
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
     const NAME: &'static str = "StoreLoc_Stage1";
-    const OPCODE: Opcode = Opcode::StLoc;
+    const OPCODES: &'static [Opcode] = &[Opcode::StLoc];
     const EXECUTION_STATE: ExecutionState = ExecutionState::StoreLocStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -33,6 +33,11 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
 
         cb.first_row(|cb| {
             cb.condition(step_curr.local_read_value_header.expr(), |cb| {
+                cb.require_in_set(
+                    "opcode in OPCODES",
+                    step_curr.opcode.expr(),
+                    Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+                );
                 cb.require_equal(
                     "step_counter(0) == local_read_value(0).as_header().flen",
                     step_curr.step_counter.expr(),
@@ -113,7 +118,7 @@ pub struct StoreLocStage2<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
     const NAME: &'static str = "StoreLoc_Stage2";
-    const OPCODE: Opcode = Opcode::StLoc;
+    const OPCODES: &'static [Opcode] = &[Opcode::StLoc];
     const EXECUTION_STATE: ExecutionState = ExecutionState::StoreLocStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
