@@ -94,11 +94,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
             step_curr.local_write_value_invalid.expr(),
             step_curr.local_read_value_invalid.expr(),
         );
-        cb.require_equal(
-            format!("{}, local_write_version(0) == clk(0)", Self::NAME),
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
-        );
 
         // push length
         cb.require_equal(
@@ -125,11 +120,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
         cb.require_zero(
             format!("{}, stack_push_value_header(0) == false", Self::NAME),
             step_curr.stack_push_value_header.expr(),
-        );
-        cb.require_equal(
-            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-            step_curr.stack_push_version.expr(),
-            step_curr.clk.expr(),
         );
         cb.require_state_transition(vec![
             (FRAME_INDEX, Transition::Same),

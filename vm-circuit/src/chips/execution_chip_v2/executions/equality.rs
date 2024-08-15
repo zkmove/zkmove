@@ -180,6 +180,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
 
         cb.last_row(|cb| {
             if STAGE1 {
+                cb.require_no_stack_push();
                 cb.require_state_transition(vec![
                     (FRAME_INDEX, Transition::Same),
                     (MODULE_INDEX, Transition::Same),
@@ -209,11 +210,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 cb.require_zero(
                     format!("{}, stack_push_value_header(0) == false", Self::NAME),
                     cb.curr.state.stack_push_value_header.expr(),
-                );
-                cb.require_equal(
-                    format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                    cb.curr.state.stack_push_version.expr(),
-                    cb.curr.state.clk.expr(),
                 );
 
                 if EQ {

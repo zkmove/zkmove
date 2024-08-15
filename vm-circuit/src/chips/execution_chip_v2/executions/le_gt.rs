@@ -115,11 +115,6 @@ impl<F: Field, const LE: bool> InstructionGadgetV2<F> for Le<F, LE> {
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
             );
-            cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                step_curr.stack_push_version.expr(),
-                step_curr.clk.expr(),
-            );
 
             cb.require_state_transition(vec![
                 (FRAME_INDEX, Transition::Same),

@@ -415,6 +415,7 @@ mod eq {
 
         if super::common::on_last_row() {
             if is_stage_1 {
+                super::common::fake_empty_stack_push(0);
                 module_index(1) == module_index(0);
                 function_index(1) == function_index(0);
                 frame_index(1) == frame_index(0);

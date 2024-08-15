@@ -222,11 +222,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             step_curr.local_write_value_header.expr(),
             step_curr.local_read_value_header.expr(),
         );
-        cb.require_equal(
-            format!("{}, local_write_version(0) == clk(0)", Self::NAME),
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
-        );
 
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
@@ -354,11 +349,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         cb.require_zero(
             format!("{}, local_write_value_invalid == 0", Self::NAME),
             step_curr.local_write_value_invalid.expr(),
-        );
-        cb.require_equal(
-            format!("{}, local_write_version(0) == clk(0)", Self::NAME),
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
         cb.require_no_stack_push();
 

@@ -281,11 +281,6 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
             step_curr.local_read_value_header.expr(),
             step_curr.stack_push_value_header.expr(),
         );
-        cb.require_equal(
-            "local_write_version(0)==clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
-        );
         cb.require_true(
             "local_write_value_invalid(0) == true",
             step_curr.local_write_value_invalid.expr(),
@@ -476,11 +471,6 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
             "local_write_value_header(0)==stack_pop_value_header(0)",
             step_curr.stack_pop_value_header.expr(),
             step_curr.local_write_value_header.expr(),
-        );
-        cb.require_equal(
-            "local_write_version(0)==clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
 
         if FOUR {

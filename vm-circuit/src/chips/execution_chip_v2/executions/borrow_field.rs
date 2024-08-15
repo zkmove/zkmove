@@ -77,11 +77,6 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowField<F> {
             format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
             step_curr.stack_push_sub_index.expr(),
         );
-        cb.require_equal(
-            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-            step_curr.stack_push_version.expr(),
-            step_curr.clk.expr(),
-        );
         cb.require_no_local_op();
         cb.require_state_transition(vec![
             (FRAME_INDEX, Transition::Same),

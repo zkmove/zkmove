@@ -130,11 +130,6 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
             );
-            cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                step_curr.stack_push_version.expr(),
-                step_curr.clk.expr(),
-            );
 
             let lhs = step_curr.stack_pop_value.as_integer();
             let rhs = step_prev.stack_pop_value.as_integer();

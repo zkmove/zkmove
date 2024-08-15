@@ -238,11 +238,6 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
             step_curr.stack_push_value_header.expr(),
             step_curr.stack_pop_value_header.expr(),
         );
-        cb.require_equal(
-            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-            step_curr.stack_push_version.expr(),
-            step_curr.clk.expr(),
-        );
         cb.require_no_local_op();
 
         cb.not_last_row(|cb| {

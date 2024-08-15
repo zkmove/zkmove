@@ -63,11 +63,6 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
                 step_curr.stack_push_sub_index.expr(),
             );
         });
-        cb.require_equal(
-            "stack_push_version == clk(0)",
-            step_curr.stack_push_version.expr(),
-            step_curr.clk.expr(),
-        );
 
         cb.require_no_stack_pop();
 
@@ -123,11 +118,6 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
                 step_curr.local_read_value_invalid.expr(),
             );
         }
-        cb.require_equal(
-            "local_write_version == clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
-        );
 
         cb.last_row(|cb| {
             cb.require_state_transition(

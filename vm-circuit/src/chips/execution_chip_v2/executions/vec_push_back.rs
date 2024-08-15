@@ -148,11 +148,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
             "local_write_value_invalid(0)==false",
             step_curr.local_write_value_invalid.expr(),
         );
-        cb.require_equal(
-            "local_write_version(0) == clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
-        );
 
         cb.not_last_row(|cb| {
                 cb.require_equal(
@@ -347,12 +342,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         cb.require_zero(
             "local_write_value_invalid(0) == false",
             step_curr.local_write_value_invalid.expr(),
-        );
-
-        cb.require_equal(
-            "local_write_version(0) == clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
 
         // --- stack pop constraints
