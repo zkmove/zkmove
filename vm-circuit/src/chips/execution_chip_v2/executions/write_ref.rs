@@ -115,7 +115,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
             cb.require_no_stack_pop();
         });
 
-        //TODO: local_read_version(0) < clk(0);
         cb.require_write_invalid_value();
         cb.require_equal(
             format!("{}, local_write_version(0) == clk(0)", Self::NAME),
@@ -265,7 +264,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
         );
 
         cb.require_read_invalid_value();
-        // TODO: local_read_version(0) < clk(0);
 
         cb.require_equal(
             format!("{}, local_write_value(0) == stack_pop_value(0)", Self::NAME),
@@ -435,7 +433,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             header_sub_index.expr(),
             header_sub_index_ext.get_parent_sub_index(),
         );
-        //TODO: local_read_version(0) < clk(0);
         cb.require_equal(
             format!("{}, local_sub_index(0) == header_sub_index(0)", Self::NAME),
             step_curr.local_sub_index.expr(),

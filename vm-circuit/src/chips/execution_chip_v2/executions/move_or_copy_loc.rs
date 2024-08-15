@@ -128,9 +128,7 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
             step_curr.local_write_version.expr(),
             step_curr.clk.expr(),
         );
-        // TODO: local_read_version(0) < clk(0);
 
-        // nexts
         cb.last_row(|cb| {
             cb.require_state_transition(
                 [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]

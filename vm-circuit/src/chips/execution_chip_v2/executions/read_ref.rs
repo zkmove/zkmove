@@ -119,8 +119,6 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
             step_curr.stack_push_version.expr(),
             step_curr.clk.expr(),
         );
-        //TODO: local_read_version(0) < clk(0);
-
         cb.require_equal(
             format!(
                 "{}, local_write_value(0) == local_read_value(0)",

@@ -125,7 +125,12 @@ impl<F: Field> ExecChipConfig<F> {
             let mut cb = BaseConstraintBuilder::default();
 
             cb.condition(s_step_first.clone(), |cb| {
-                cb.require_zero("first step, clk = 0", step_curr.state.clk.expr());
+                // 0 is special and represents empty operations, so clk starts at 1
+                cb.require_equal(
+                    "first step, clk = 1",
+                    step_curr.state.clk.expr(),
+                    1u64.expr(),
+                );
                 cb.require_zero("first step, pc = 0", step_curr.state.pc.expr());
                 cb.require_zero(
                     "first step, frame_index = 0",
@@ -438,50 +443,55 @@ impl<F: Field> ExecChipConfig<F> {
         let step_curr = &config.step;
         meta.shuffle("stack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
+            let pop_version = step_curr.state.stack_pop_version.expr();
+            // NOTICE: version is also used as a selector to exclude empty operations
             let pop_set = [
                 step_curr.state.stack_pop_index.expr(),
                 step_curr.state.stack_pop_sub_index.expr(),
                 step_curr.state.stack_pop_value_header.expr(),
-                step_curr.state.stack_pop_version.expr(),
+                pop_version.clone(),
             ]
             .into_iter()
             .chain(step_curr.state.stack_pop_value.exprs())
-            .map(|e| s_usable.clone() * e);
+            .map(|e| s_usable.clone() * pop_version.clone() * e);
+            let push_version = step_curr.state.stack_push_version.expr();
             let push_set = [
                 step_curr.state.stack_push_index.expr(),
                 step_curr.state.stack_push_sub_index.expr(),
                 step_curr.state.stack_push_value_header.expr(),
-                step_curr.state.stack_push_version.expr(),
+                push_version.clone(),
             ]
             .into_iter()
             .chain(step_curr.state.stack_push_value.exprs())
-            .map(|e| s_usable.clone() * e);
+            .map(|e| s_usable.clone() * push_version.clone() * e);
             pop_set.zip(push_set).collect()
         });
         meta.shuffle("local consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
+            let read_version = step_curr.state.local_read_version.expr();
             let read_set = [
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
                 step_curr.state.local_read_value_header.expr(),
                 step_curr.state.local_read_value_invalid.expr(),
-                step_curr.state.local_read_version.expr(),
+                read_version.clone(),
             ]
             .into_iter()
             .chain(step_curr.state.local_read_value.exprs())
-            .map(|e| s_usable.clone() * e);
+            .map(|e| s_usable.clone() * read_version.clone() * e);
+            let write_version = step_curr.state.local_write_version.expr();
             let write_set = [
                 step_curr.state.local_frame_index.expr(),
                 step_curr.state.local_index.expr(),
                 step_curr.state.local_sub_index.expr(),
                 step_curr.state.local_write_value_header.expr(),
                 step_curr.state.local_write_value_invalid.expr(),
-                step_curr.state.local_write_version.expr(),
+                write_version.clone(),
             ]
             .into_iter()
             .chain(step_curr.state.local_write_value.exprs())
-            .map(|e| s_usable.clone() * e);
+            .map(|e| s_usable.clone() * write_version.clone() * e);
             read_set.zip(write_set).collect()
         });
 

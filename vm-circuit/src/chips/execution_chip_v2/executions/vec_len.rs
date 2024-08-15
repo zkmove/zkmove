@@ -70,7 +70,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
             format!("{}, local_read_value_invalid(0) == false", Self::NAME),
             step_curr.local_read_value_invalid.expr(),
         );
-        //TODO: local_read_version(0) < clk(0);
         cb.require_equal(
             format!(
                 "{}, local_write_value(0) == local_read_value(0)",

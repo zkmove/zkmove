@@ -318,17 +318,15 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         // TODO: add other state variable
     }
 
-    /// FIXME: implement this.
     pub(crate) fn require_no_stack_push(&mut self) {
         self.require_zero("none stack push", self.curr.state.stack_push_version.expr());
     }
-    /// FIXME: implement this.
     pub(crate) fn require_no_stack_pop(&mut self) {
         self.require_zero("none stack pop", self.curr.state.stack_pop_version.expr());
     }
-    /// FIXME: implement this.
     pub(crate) fn require_no_local_op(&mut self) {
         self.require_zero("none local op", self.curr.state.local_read_version.expr());
+        self.require_zero("none local op", self.curr.state.local_write_version.expr());
     }
     /// FIXME: implement this.
     pub(crate) fn require_read_invalid_value(&mut self) {

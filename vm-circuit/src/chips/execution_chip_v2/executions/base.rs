@@ -10,6 +10,7 @@ use types::Field;
 
 pub(crate) struct BaseConstraintGadget<F> {
     stack_pop_version_range_check: RangeCheckGadget<F, 4>,
+    local_read_version_range_check: RangeCheckGadget<F, 4>,
 }
 
 impl<F: Field> BaseConstraintGadget<F> {
@@ -43,10 +44,20 @@ impl<F: Field> BaseConstraintGadget<F> {
             );
         });
 
-        // clk(0) - stack_pop_version(0) > 0
-        let diff = cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr();
+        // stack_pop_version(0) < clk(0)
+        let stack_pop_version_range_check = RangeCheckGadget::construct(
+            cb,
+            cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr(),
+        );
+        // local_read_version(0) < clk(0)
+        let local_read_version_range_check = RangeCheckGadget::construct(
+            cb,
+            cb.curr.state.clk.expr() - cb.curr.state.local_read_version.expr(),
+        );
+
         Self {
-            stack_pop_version_range_check: RangeCheckGadget::construct(cb, diff),
+            stack_pop_version_range_check,
+            local_read_version_range_check,
         }
     }
 }

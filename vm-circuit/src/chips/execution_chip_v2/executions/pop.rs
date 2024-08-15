@@ -60,7 +60,6 @@ impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
                 step_curr.stack_pop_sub_index.expr(),
             );
         });
-        // TODO: stack_pop_version(0) < clk(0);
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
