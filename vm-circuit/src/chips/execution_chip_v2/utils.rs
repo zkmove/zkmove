@@ -72,7 +72,7 @@ pub(crate) mod from_bytes {
     use types::Field;
     /// Maximum number of bytes that an integer can fit in field without wrapping
     /// around.
-    const MAX_N_BYTES_INTEGER: usize = 31;
+    pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
 
     pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
         debug_assert!(

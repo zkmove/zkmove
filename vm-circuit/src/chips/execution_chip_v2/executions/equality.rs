@@ -13,7 +13,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use crate::utils::rlc::rlc;
+use crate::utils::rlc;
 use crate::witness::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
