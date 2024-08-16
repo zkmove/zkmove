@@ -124,6 +124,38 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
+            Operation::LdConst { const_pool_index } => {
+                let module_index = static_info
+                    .module_id_mapping
+                    .get_module_index(trace.module_id.as_ref().unwrap());
+                let constant = static_info
+                    .get_constant(module_index, *const_pool_index as usize)
+                    .unwrap_or_else(|| panic!("cannot find constant {:?}", *const_pool_index))
+                    .flatten(vec![0]);
+                let step_state = StepState::new(self.clk, ExecutionState::LdConst, trace);
+
+                self.version_stack.push(self.clk);
+                let memory_ops = constant
+                    .iter()
+                    .map(|item| {
+                        let stack_push = StackPush {
+                            index: sp + 1,
+                            sub_index: item.sub_index.clone(),
+                            value: item.value.clone(),
+                            value_header: item.header,
+                            version: self.clk,
+                        };
+                        MemoryOp(None, Some(stack_push), None)
+                    })
+                    .collect();
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                    extra_data: None,
+                }]
+            }
             Operation::CastU8 { origin }
             | Operation::CastU16 { origin }
             | Operation::CastU32 { origin }
@@ -475,11 +507,7 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::BorrowLoc { imm, local_index } => {
-                let exec_state = if *imm {
-                    ExecutionState::ImmBorrowLoc
-                } else {
-                    ExecutionState::MutBorrowLoc
-                };
+                let exec_state = ExecutionState::BorrowLoc;
                 let loc_ref = Reference {
                     frame_index: current_frame_index,
                     local_index: *local_index as usize,
@@ -507,11 +535,7 @@ impl WitnessPreProcessor {
                 reference,
                 field_offset,
             } => {
-                let exec_state = if *imm {
-                    ExecutionState::ImmBorrowField
-                } else {
-                    ExecutionState::MutBorrowField
-                };
+                let exec_state = ExecutionState::BorrowField;
                 let stack_pop = StackPop {
                     index: sp,
                     sub_index: vec![0],
@@ -548,11 +572,7 @@ impl WitnessPreProcessor {
                 idx,
                 vec_ref,
             } => {
-                let exec_state = if *imm {
-                    ExecutionState::VecImmBorrow
-                } else {
-                    ExecutionState::VecMutBorrow
-                };
+                let exec_state = ExecutionState::VecBorrow;
                 let stack_pop_idx = StackPop {
                     index: sp,
                     sub_index: vec![0],

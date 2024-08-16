@@ -20,13 +20,18 @@ pub struct LdConst<F>(PhantomData<F>);
 impl<F: Field> InstructionGadgetV2<F> for LdConst<F> {
     const NAME: &'static str = "LdConst";
 
-    const OPCODE: Opcode = Opcode::LdConst;
+    const OPCODES: &'static [Opcode] = &[Opcode::LdConst];
     const EXECUTION_STATE: ExecutionState = ExecutionState::LdConst;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.condition(step_curr.stack_push_value_header.expr(), |cb| {
                 cb.require_equal(
                     "step_counter(0) == flen",

@@ -6,7 +6,6 @@ use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODU
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::util::Expr;
-use std::io::Read;
 use std::marker::PhantomData;
 use types::Field;
 
@@ -15,10 +14,10 @@ pub struct MoveOrCopyLoc<F, const MOVE: bool>(PhantomData<F>);
 impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOVE> {
     const NAME: &'static str = if MOVE { "MoveLoc" } else { "CopyLoc" };
 
-    const OPCODE: Opcode = if MOVE {
-        Opcode::MoveLoc
+    const OPCODES: &'static [Opcode] = if MOVE {
+        &[Opcode::MoveLoc]
     } else {
-        Opcode::CopyLoc
+        &[Opcode::CopyLoc]
     };
     const EXECUTION_STATE: ExecutionState = if MOVE {
         ExecutionState::MoveLoc
@@ -30,6 +29,11 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.condition(step_curr.stack_push_value_header.expr(), |cb| {
                 cb.require_equal(
                     "step_counter(0) == stack_push_value(0).as_header().flen",

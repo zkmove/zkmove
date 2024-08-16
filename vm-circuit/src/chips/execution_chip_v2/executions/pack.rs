@@ -31,10 +31,10 @@ pub struct Pack<F, const VEC_PACK: bool> {
 }
 impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK> {
     const NAME: &'static str = if VEC_PACK { "VecPack" } else { "Pack" };
-    const OPCODE: Opcode = if VEC_PACK {
-        Opcode::VecPack
+    const OPCODES: &'static [Opcode] = if VEC_PACK {
+        &[Opcode::VecPack]
     } else {
-        Opcode::Pack
+        &[Opcode::Pack]
     };
     const EXECUTION_STATE: ExecutionState = if VEC_PACK {
         ExecutionState::VecPack
@@ -56,10 +56,10 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         let num_field = step_curr.aux0.expr();
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!(

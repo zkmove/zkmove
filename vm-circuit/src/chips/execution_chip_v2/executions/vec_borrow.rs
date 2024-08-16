@@ -17,23 +17,14 @@ use halo2_proofs::plonk::Error;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct VecBorrow<const MUTABLE: bool, F: Field> {
+pub struct VecBorrow<F> {
     vec_ref_sub_index: ExtendedSubIndex<F, 8>,
 }
 
-impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE, F> {
+impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
     const NAME: &'static str = "VecBorrow";
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::VecMutBorrow
-    } else {
-        Opcode::VecImmBorrow
-    };
-    const EXECUTION_STATE: ExecutionState = if MUTABLE {
-        ExecutionState::VecMutBorrow
-    } else {
-        ExecutionState::VecImmBorrow
-    };
-
+    const OPCODES: &'static [Opcode] = &[Opcode::VecMutBorrow, Opcode::VecImmBorrow];
+    const EXECUTION_STATE: ExecutionState = ExecutionState::VecBorrow;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
@@ -44,10 +35,10 @@ impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for VecBorrow<MUTABLE
         );
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!("{}, step_counter(0) == 2", Self::NAME),

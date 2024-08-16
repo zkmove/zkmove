@@ -19,13 +19,13 @@ use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct ReadRef<F: Field> {
+pub struct ReadRef<F> {
     header_sub_index: Cell<F>,
     header_sub_index_ext: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
     const NAME: &'static str = "ReadRef";
-    const OPCODE: Opcode = Opcode::ReadRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::ReadRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::ReadRef;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -36,10 +36,10 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
         let step_next = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),

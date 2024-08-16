@@ -25,14 +25,14 @@ use types::Field;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
 #[derive(Clone, Debug)]
-pub struct WriteRefStage1<F: Field> {
+pub struct WriteRefStage1<F> {
     header_sub_index: Cell<F>,
     header_flen_delta: Cell<F>,
     membership_gadget: MembershipGadget<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     const NAME: &'static str = "WriteRef_Stage1";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -42,10 +42,10 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                (Self::OPCODE as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
@@ -197,14 +197,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
 
 ///STAGE_POP_NEW_VALUE_AND_WRITE
 #[derive(Clone, Debug)]
-pub struct WriteRefStage2<F: Field> {
+pub struct WriteRefStage2<F> {
     header_sub_index: Cell<F>,  //NOTICE: must be in the same column as stage 1.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as stage 1.
     header_sub_index_ext: ExtendedSubIndex<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
     const NAME: &'static str = "WriteRef_Stage2";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -360,7 +360,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
 
 ///STAGE_UPDATE_PARENT
 #[derive(Clone, Debug)]
-pub struct WriteRefStage3<F: Field> {
+pub struct WriteRefStage3<F> {
     header_sub_index: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_sub_index_depth: SubIndexDepth<F, 8>,
@@ -368,7 +368,7 @@ pub struct WriteRefStage3<F: Field> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
     const NAME: &'static str = "WriteRef_Stage3";
-    const OPCODE: Opcode = Opcode::WriteRef;
+    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

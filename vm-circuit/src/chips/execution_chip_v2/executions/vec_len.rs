@@ -17,15 +17,15 @@ pub struct VecLen<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
     const NAME: &'static str = "VecLen";
-    const OPCODE: Opcode = Opcode::VecLen;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecLen];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecLen;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),

@@ -32,7 +32,14 @@ pub struct Cast<F> {
 impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
     const NAME: &'static str = "Cast";
 
-    const OPCODE: Opcode = Opcode::CastU8; // TODO: remove?
+    const OPCODES: &'static [Opcode] = &[
+        Opcode::CastU8,
+        Opcode::CastU16,
+        Opcode::CastU32,
+        Opcode::CastU64,
+        Opcode::CastU128,
+        Opcode::CastU256,
+    ];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Cast;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -60,6 +67,11 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
             step_curr.opcode.expr() - (Opcode::CastU256 as u64).expr(),
         );
 
+        cb.require_in_set(
+            "opcode in OPCODES",
+            step_curr.opcode.expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+        );
         cb.require_equal(
             "step_counter(0) == 1",
             step_curr.step_counter.expr(),

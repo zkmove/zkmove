@@ -3,30 +3,17 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::execution_chip_v2::executions::base::BaseConstraintGadget;
-use crate::chips::execution_chip_v2::executions::call::{CallStage1, CallStage2, CallStage3};
-use crate::chips::execution_chip_v2::executions::pop::Pop;
-use crate::chips::execution_chip_v2::executions::ret::Ret;
-use crate::chips::execution_chip_v2::executions::store_loc::{StoreLocStage1, StoreLocStage2};
-use crate::chips::execution_chip_v2::executions::vec_pop_back::{
-    VecPopBackStage1, VecPopBackStage2,
+use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
+use crate::chips::execution_chip_v2::executions::{
+    AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
+    Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt, MoveOrCopyLoc, MulDivMod,
+    Not, Pack, Pop, ReadRef, Ret, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2,
+    VecBorrow, VecLen, VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2,
+    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
+    WriteRefStage3,
 };
-use crate::chips::execution_chip_v2::executions::vec_push_back::{
-    VecPushBackStage1, VecPushBackStage2,
-};
-use crate::chips::execution_chip_v2::executions::vec_swap::{
-    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5,
-};
-use crate::chips::execution_chip_v2::executions::MoveOrCopyLoc;
-use crate::chips::execution_chip_v2::executions::{BorrowLoc, BrBool, ExecutionState, VecLen};
-use crate::chips::execution_chip_v2::executions::{LdBool, LdSimple};
-use crate::chips::execution_chip_v2::executions::{Pack, UnpackStage1, UnpackStage2};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
-use crate::chips::execution_chip_v2::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
@@ -60,39 +47,60 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub s_step_last: Selector,
     pub advices: Vec<Column<Advice>>,
+
+    pub add_sub: Box<AddSub<F>>,
+    pub and_or: Box<AndOr<F>>,
+    pub bitwise: Box<Bitwise<F>>,
+    pub borrow_field: Box<BorrowField<F>>,
+    pub borrow_loc: Box<BorrowLoc<F>>,
     pub br_true: Box<BrBool<F, true>>,
     pub br_false: Box<BrBool<F, false>>,
+    pub call_stage_1: Box<CallStage1<F>>,
+    pub call_stage_2: Box<CallStage2<F>>,
+    pub call_stage_3: Box<CallStage3<F>>,
+    pub cast: Box<Cast<F>>,
+    pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
+    pub eq_stage_1: Box<Equality<F, true, true>>,
+    pub eq_stage_2: Box<Equality<F, false, true>>,
+    pub ge: Box<Lt<F, false>>,
+    pub gt: Box<Le<F, false>>,
     pub ld_simple: Box<LdSimple<F>>,
     pub ld_true: Box<LdBool<F, true>>,
     pub ld_false: Box<LdBool<F, false>>,
+    pub ld_const: Box<LdConst<F>>,
+    pub le: Box<Le<F, true>>,
+    pub lt: Box<Lt<F, true>>,
+    pub move_loc: Box<MoveOrCopyLoc<F, true>>,
+    pub mul_div_mod: Box<MulDivMod<F>>,
+    pub neq_stage_1: Box<Equality<F, true, false>>,
+    pub neq_stage_2: Box<Equality<F, false, false>>,
+    pub not: Box<Not<F>>,
     pub pack: Box<Pack<F, false>>,
+    pub pop: Box<Pop<F>>,
+    pub read_ref: Box<ReadRef<F>>,
+    pub ret: Box<Ret<F>>,
+    pub store_loc_stage1: Box<StoreLocStage1<F>>,
+    pub store_loc_stage2: Box<StoreLocStage2<F>>,
     pub unpack_stage_1: Box<UnpackStage1<F, false>>,
     pub unpack_stage_2: Box<UnpackStage2<F, false>>,
+    pub vec_borrow: Box<VecBorrow<F>>,
+    pub vec_len: Box<VecLen<F>>,
     pub vec_pack: Box<Pack<F, true>>,
-    pub vec_unpack_stage_1: Box<UnpackStage1<F, true>>,
-    pub vec_unpack_stage_2: Box<UnpackStage2<F, true>>,
-
-    pub imm_borrow_loc: Box<BorrowLoc<false, F>>,
+    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
+    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
+    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
+    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
     pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
     pub vec_swap_stage_2: Box<VecSwapStage_2_Or_3<F, true>>,
     pub vec_swap_stage_3: Box<VecSwapStage_2_Or_3<F, false>>,
     pub vec_swap_stage_4: Box<VecSwapStage_4_Or_5<F, true>>,
     pub vec_swap_stage_5: Box<VecSwapStage_4_Or_5<F, false>>,
-    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
-    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
-    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
-    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
+    pub vec_unpack_stage_1: Box<UnpackStage1<F, true>>,
+    pub vec_unpack_stage_2: Box<UnpackStage2<F, true>>,
+    pub write_ref_stage1: Box<WriteRefStage1<F>>,
+    pub write_ref_stage2: Box<WriteRefStage2<F>>,
+    pub write_ref_stage3: Box<WriteRefStage3<F>>,
 
-    pub vec_len: Box<VecLen<F>>,
-    pub pop: Box<Pop<F>>,
-    pub move_loc: Box<MoveOrCopyLoc<F, true>>,
-    pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
-    pub call_stage_1: Box<CallStage1<F>>,
-    pub call_stage_2: Box<CallStage2<F>>,
-    pub call_stage_3: Box<CallStage3<F>>,
-    pub store_loc_stage1: Box<StoreLocStage1<F>>,
-    pub store_loc_stage2: Box<StoreLocStage2<F>>,
-    pub ret: Box<Ret<F>>,
     pub step: Step<F>,
 }
 
@@ -105,7 +113,7 @@ impl<F: Field> ExecChipConfig<F> {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
-        let advices = alloc_columns(meta);
+        let advices = alloc_columns(meta); //TODO
         let advices_distribution: CMFixedWidthStrategyDistribution =
             cm_distribute_advice(meta, &advices);
         let step_curr = Step::new(meta, advices_distribution.clone(), 0, &challenges);
@@ -123,6 +131,8 @@ impl<F: Field> ExecChipConfig<F> {
                     "first step, frame_index = 0",
                     step_curr.state.frame_index.expr(),
                 );
+                //TODO: get module_index and function_index from public input
+
                 // cb.require_zero(
                 //     "first step, module_index = 0",
                 //     step_curr.cells.module_index.expr(),
@@ -143,7 +153,7 @@ impl<F: Field> ExecChipConfig<F> {
                 let begin_opcode_selector =
                     step_curr.execution_state_selector([ExecutionState::Start]);
                 iter::once((
-                    "First step should be Call/CallGeneric",
+                    "First step should be Start",
                     s_step_first * (1u64.expr() - begin_opcode_selector),
                 ))
             };
@@ -221,38 +231,58 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             s_step_last,
+            add_sub: configure_opcode_gadget!(),
+            and_or: configure_opcode_gadget!(),
+            bitwise: configure_opcode_gadget!(),
+            borrow_field: configure_opcode_gadget!(),
+            borrow_loc: configure_opcode_gadget!(),
             br_true: configure_opcode_gadget!(),
             br_false: configure_opcode_gadget!(),
+            call_stage_1: configure_opcode_gadget!(),
+            call_stage_2: configure_opcode_gadget!(),
+            call_stage_3: configure_opcode_gadget!(),
+            cast: configure_opcode_gadget!(),
+            copy_loc: configure_opcode_gadget!(),
+            eq_stage_1: configure_opcode_gadget!(),
+            eq_stage_2: configure_opcode_gadget!(),
+            ge: configure_opcode_gadget!(),
+            gt: configure_opcode_gadget!(),
             ld_simple: configure_opcode_gadget!(),
             ld_true: configure_opcode_gadget!(),
             ld_false: configure_opcode_gadget!(),
-            imm_borrow_loc: configure_opcode_gadget!(),
+            ld_const: configure_opcode_gadget!(),
+            le: configure_opcode_gadget!(),
+            lt: configure_opcode_gadget!(),
+            move_loc: configure_opcode_gadget!(),
+            mul_div_mod: configure_opcode_gadget!(),
+            neq_stage_1: configure_opcode_gadget!(),
+            neq_stage_2: configure_opcode_gadget!(),
+            not: configure_opcode_gadget!(),
             pack: configure_opcode_gadget!(),
+            pop: configure_opcode_gadget!(),
+            read_ref: configure_opcode_gadget!(),
+            ret: configure_opcode_gadget!(),
+            store_loc_stage1: configure_opcode_gadget!(),
+            store_loc_stage2: configure_opcode_gadget!(),
             unpack_stage_1: configure_opcode_gadget!(),
             unpack_stage_2: configure_opcode_gadget!(),
+            vec_borrow: configure_opcode_gadget!(),
+            vec_len: configure_opcode_gadget!(),
             vec_pack: configure_opcode_gadget!(),
-            vec_unpack_stage_1: configure_opcode_gadget!(),
-            vec_unpack_stage_2: configure_opcode_gadget!(),
+            vec_pop_back_stage1: configure_opcode_gadget!(),
+            vec_pop_back_stage2: configure_opcode_gadget!(),
+            vec_push_back_stage1: configure_opcode_gadget!(),
+            vec_push_back_stage2: configure_opcode_gadget!(),
             vec_swap_stage_1: configure_opcode_gadget!(),
             vec_swap_stage_2: configure_opcode_gadget!(),
             vec_swap_stage_3: configure_opcode_gadget!(),
             vec_swap_stage_4: configure_opcode_gadget!(),
             vec_swap_stage_5: configure_opcode_gadget!(),
-            vec_pop_back_stage1: configure_opcode_gadget!(),
-            vec_pop_back_stage2: configure_opcode_gadget!(),
-            vec_push_back_stage1: configure_opcode_gadget!(),
-            vec_push_back_stage2: configure_opcode_gadget!(),
-
-            vec_len: configure_opcode_gadget!(),
-            pop: configure_opcode_gadget!(),
-            move_loc: configure_opcode_gadget!(),
-            copy_loc: configure_opcode_gadget!(),
-            call_stage_1: configure_opcode_gadget!(),
-            call_stage_2: configure_opcode_gadget!(),
-            call_stage_3: configure_opcode_gadget!(),
-            store_loc_stage1: configure_opcode_gadget!(),
-            store_loc_stage2: configure_opcode_gadget!(),
-            ret: configure_opcode_gadget!(),
+            vec_unpack_stage_1: configure_opcode_gadget!(),
+            vec_unpack_stage_2: configure_opcode_gadget!(),
+            write_ref_stage1: configure_opcode_gadget!(),
+            write_ref_stage2: configure_opcode_gadget!(),
+            write_ref_stage3: configure_opcode_gadget!(),
             advices,
             step: step_curr,
         };
@@ -560,7 +590,7 @@ impl<F: Field> ExecChipConfig<F> {
 pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
-    const OPCODE: Opcode;
+    const OPCODES: &'static [Opcode];
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
 

@@ -33,7 +33,7 @@ impl<F: Field> VecPushBackStage1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
     const NAME: &'static str = "VecPushBackStage1";
-    const OPCODE: Opcode = Opcode::VecPushBack;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -60,6 +60,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
 
         // -- local op constraints
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
                 step_curr.stack_pop_index.expr(),
@@ -263,7 +268,7 @@ impl<F: Field> VecPushBackStage2<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
     const NAME: &'static str = "VecPushBackStage2";
-    const OPCODE: Opcode = Opcode::VecPushBack;
+    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

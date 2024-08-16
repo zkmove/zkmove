@@ -6,10 +6,6 @@ use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
-use crate::chips::execution_chip_v2::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -25,18 +21,22 @@ pub struct LdSimple<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
     const NAME: &'static str = "LoadSimple";
-    const OPCODE: Opcode = Opcode::LdU8; //TODO: remove this.
+    const OPCODES: &'static [Opcode] = &[
+        Opcode::LdU8,
+        Opcode::LdU16,
+        Opcode::LdU32,
+        Opcode::LdU64,
+        Opcode::LdU128,
+        Opcode::LdU256,
+    ];
     const EXECUTION_STATE: ExecutionState = ExecutionState::LdSimple;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        // TODO: remove the constraint, also for other opcode
-        // Actually we only need lookup (.., pc, opcode,..) in bytecode table.
-        // Because pc is constrained by previous step, opcode must be a fixed one.
-        // cb.require_equal(
-        //     "opcode",
-        //     cb.curr.state.opcode.expr(),
-        //     (Self::OPCODE as u64).expr(),
-        // );
+        cb.require_in_set(
+            "opcode in OPCODES",
+            cb.curr.state.opcode.expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+        );
 
         cb.require_equal(
             "step_counter(0) == 1",

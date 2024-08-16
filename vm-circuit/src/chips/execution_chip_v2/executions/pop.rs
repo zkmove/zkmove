@@ -19,13 +19,18 @@ pub struct Pop<F>(PhantomData<F>);
 impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
     const NAME: &'static str = "Pop";
 
-    const OPCODE: Opcode = Opcode::Pop;
+    const OPCODES: &'static [Opcode] = &[Opcode::Pop];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Pop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.condition(step_curr.stack_pop_value_header.expr(), |cb| {
                 cb.require_equal(
                     "step_counter(0) == flen",

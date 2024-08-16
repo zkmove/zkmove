@@ -11,29 +11,21 @@ use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct BorrowLoc<const MUTABLE: bool, F> {
+pub struct BorrowLoc<F> {
     phantom_data: PhantomData<F>,
 }
-impl<const MUTABLE: bool, F: Field> InstructionGadgetV2<F> for BorrowLoc<MUTABLE, F> {
+impl<F: Field> InstructionGadgetV2<F> for BorrowLoc<F> {
     const NAME: &'static str = "BorrowLoc";
 
-    const OPCODE: Opcode = if MUTABLE {
-        Opcode::MutBorrowLoc
-    } else {
-        Opcode::ImmBorrowLoc
-    };
-    const EXECUTION_STATE: ExecutionState = if MUTABLE {
-        ExecutionState::MutBorrowLoc
-    } else {
-        ExecutionState::ImmBorrowLoc
-    };
+    const OPCODES: &'static [Opcode] = &[Opcode::MutBorrowLoc, Opcode::ImmBorrowLoc];
+    const EXECUTION_STATE: ExecutionState = ExecutionState::BorrowLoc;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        cb.require_equal(
-            "opcode",
+        cb.require_in_set(
+            "opcode in OPCODES",
             step_curr.opcode.expr(),
-            (Self::OPCODE as u64).expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
         );
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),

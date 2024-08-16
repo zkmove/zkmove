@@ -34,7 +34,7 @@ pub struct AddSub<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
     const NAME: &'static str = "AddSub";
-    const OPCODE: Opcode = Opcode::Add; // TODO: remove this const?
+    const OPCODES: &'static [Opcode] = &[Opcode::Add, Opcode::Sub];
     const EXECUTION_STATE: ExecutionState = ExecutionState::AddSub;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -52,6 +52,11 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
                     .iter()
                     .map(|n| (*n as u64).expr())
                     .collect(),
+            );
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",
@@ -153,11 +158,6 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
 
         debug_assert_eq!(step_state.memory_ops.len(), 2);
         for i in 0..step_state.memory_ops.len() {
-            self.is_add.assign(
-                region,
-                offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Add as u64),
-            )?;
             self.is_add.assign(
                 region,
                 offset + i,
