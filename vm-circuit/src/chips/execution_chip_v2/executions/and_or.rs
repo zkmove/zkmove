@@ -2,6 +2,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
@@ -17,7 +18,7 @@ use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct AndOr<F> {
-    phantom_data: PhantomData<F>,
+    is_and: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
     const NAME: &'static str = "AndOr";
@@ -27,16 +28,14 @@ impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
+        let is_and =
+            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcode::And as u64).expr());
+
         cb.first_row(|cb| {
-            cb.require_boolean(
-                format!("{}, aux(0) == 0 | 1", Self::NAME),
-                step_curr.aux0.expr(),
-            );
-            cb.require_equal(
-                "opcode",
+            cb.require_in_set(
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                step_curr.aux0.expr() * (Opcode::And as u64).expr()
-                    + (1u64.expr() - step_curr.aux0.expr()) * (Opcode::Or as u64).expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",
@@ -89,7 +88,7 @@ impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
                 step_prev.stack_pop_value.expr(),
                 step_curr.stack_pop_value.expr(),
             ]);
-            let expected = step_curr.aux0.expr() * and + (1u64.expr() - step_curr.aux0.expr()) * or;
+            let expected = is_and.expr() * and + (1u64.expr() - is_and.expr()) * or;
             cb.require_equal(
                 format!("{}, stack_push_value(0) == expected", Self::NAME),
                 step_curr.stack_push_value.expr(),
@@ -114,20 +113,26 @@ impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
             ]);
         });
 
-        AndOr {
-            phantom_data: PhantomData,
-        }
+        AndOr { is_and }
     }
 
     fn assign(
         &self,
         _step: StepState<F>,
-        _region: &mut CachedRegion<'_, '_, F>,
-        _offset: usize,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
-        // no need to assign anything else
+        let step_state = stage_state.step_states.first().unwrap();
+        debug_assert_eq!(step_state.memory_ops.len(), 2);
+        for i in 0..step_state.memory_ops.len() {
+            self.is_and.assign(
+                region,
+                offset + i,
+                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::And as u64),
+            )?;
+        }
         Ok(stage_state.rows())
     }
 }

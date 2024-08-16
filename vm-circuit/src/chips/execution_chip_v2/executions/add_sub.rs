@@ -163,11 +163,6 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
                 offset + i,
                 F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Add as u64),
             )?;
-            self.is_add.assign(
-                region,
-                offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Add as u64),
-            )?;
         }
 
         self.add_sub_gadget.assign(
