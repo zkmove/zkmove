@@ -86,7 +86,8 @@ pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledMo
 impl ModuleIdMapping {
     pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
         let modules = package.all_modules_map();
-        let deps = modules.get_transitive_dependencies(module_id).unwrap();
+        let mut deps = modules.get_transitive_dependencies(module_id).unwrap();
+        deps.sort_by_key(|m| m.self_id());
         let mut mapping = HashMap::new();
         let module = modules
             .get_module(module_id)
