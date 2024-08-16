@@ -20,6 +20,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::select;
 use halo2_proofs::{
@@ -67,7 +68,7 @@ pub struct Shift<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
     const NAME: &'static str = "Shift";
-    const OPCODE: Opcode = Opcode::Shl; //TODO: remove this
+    const OPCODES: &'static [Opcode] = &[Opcode::Shl, Opcode::Shr];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Shift;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -101,9 +102,9 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U256 as u64).expr());
         cb.first_row(|cb| {
             cb.require_in_set(
-                "opcode in [Shl, Shr]",
+                "opcode in OPCODES",
                 step_curr.opcode.expr(),
-                vec![(Opcode::Shl as u64).expr(), (Opcode::Shr as u64).expr()],
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
                 "step_counter(0) == 2",
@@ -212,11 +213,6 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
             );
-            cb.require_equal(
-                format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-                step_curr.stack_push_version.expr(),
-                step_curr.clk.expr(),
-            );
 
             cb.require_state_transition(vec![
                 (FRAME_INDEX, Transition::Same),
@@ -255,6 +251,7 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

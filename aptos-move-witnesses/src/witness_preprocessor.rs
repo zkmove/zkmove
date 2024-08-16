@@ -1879,6 +1879,7 @@ impl WitnessPreProcessor {
                         step_state,
                         memory_ops,
                     }],
+                    extra_data: None,
                 }]
             }
             _ => unimplemented!(),
