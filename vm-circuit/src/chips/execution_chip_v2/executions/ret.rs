@@ -9,6 +9,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
@@ -86,6 +87,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let extra_data = match stage_state.extra_data.as_ref() {
             Some(StageExtraAssignData::Ret(extra_data)) => extra_data,

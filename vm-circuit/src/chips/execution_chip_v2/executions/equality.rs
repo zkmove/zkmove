@@ -15,6 +15,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::rlc::rlc;
 use crate::witness::to_field::ToField;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
@@ -271,6 +272,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

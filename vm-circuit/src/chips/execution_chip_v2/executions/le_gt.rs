@@ -10,6 +10,7 @@ use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use halo2_proofs::plonk::Error;
 use move_vm_runtime::witnessing::traced_value::Integer;
@@ -141,6 +142,7 @@ impl<F: Field, const LE: bool> InstructionGadgetV2<F> for Le<F, LE> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

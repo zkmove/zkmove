@@ -126,6 +126,39 @@ mod ld {
     }
 }
 
+mod ld_const {
+    fn constraint() {
+        if super::common::on_first_row() {
+            if stack_push_value_header(0) {
+                step_counter(0) == stack_push_value(0).as_header().f_len;
+            } else {
+                step_counter(0) == 1;
+            }
+            stack_push_sub_index(0) == 0;
+        }
+        table_constant.contain(
+            module_index(0),
+            aux0(0),
+            stack_push_sub_index(0),
+            stack_push_value(0),
+            stack_push_value_header(0),
+        );
+        stack_push_index(0) == sp(0) + 1;
+        stack_push_version(0) == clk(0);
+
+        super::common::fake_empty_stack_pop(0);
+        super::common::fake_local_read_zero();
+
+        if super::common::on_last_row() {
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) + 1;
+        }
+    }
+}
+
 mod pop {
     fn constraint_pop() {
         let is_first = super::common::on_first_row();
@@ -549,7 +582,7 @@ mod call {
                 aux0(0), //fh_idx
                 module_index(1),
                 function_index(1),
-                num_arg(0)
+                num_arg(0),
             );
             pc(1) == 0;
             frame_index(1) == frame_index(0) + 1;
@@ -653,7 +686,7 @@ mod call {
                     aux0(0), //fh_index
                     module_index(1),
                     function_index(1),
-                    num_arg(0)
+                    num_arg(0),
                 );
                 frame_index(1) == frame_index(0) + 1;
                 pc(1) == 0;
