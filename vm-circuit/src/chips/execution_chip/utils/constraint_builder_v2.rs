@@ -5,7 +5,7 @@ use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellType};
 use crate::utils::challenges::Challenges;
-use crate::utils::rlc::rlc;
+use crate::utils::rlc;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;

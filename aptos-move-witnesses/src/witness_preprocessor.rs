@@ -11,7 +11,6 @@ use crate::step_state::{
 use crate::sub_index;
 use crate::utils::{SubIndexUtils, ValueHeader};
 use crate::witness_preprocessor::to_u256::ToU256;
-use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
@@ -37,6 +36,19 @@ impl WitnessPreProcessor {
             exec_states.append(&mut states);
             self.clk += 1;
         }
+        // nop ops to write (final_set, init_set)
+        exec_states.push(StageState {
+            step_states: vec![ExecStepState {
+                step_state: StepState::default().change_clk(self.clk),
+                memory_ops: self
+                    .locals
+                    .to_write_set()
+                    .into_iter()
+                    .map(|l| MemoryOp(None, None, Some(l)))
+                    .collect(),
+            }],
+            extra_data: None,
+        });
         exec_states
     }
 
@@ -1824,7 +1836,7 @@ impl WitnessPreProcessor {
                 // TOOD: check the Ret at the top frame
                 let frame_version = self.call_stack_versions.pop().unwrap_or_default();
                 // stage1: check the number of argument
-                let mut step_state = StepState::new(self.clk, ExecutionState::Ret, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Ret, trace);
 
                 let caller = caller.as_ref().map(|c| CallerData {
                     caller_frame_index: c.frame_index as u16,
@@ -1854,6 +1866,31 @@ impl WitnessPreProcessor {
 struct Locals {
     values: Vec<Vec<Local>>,
 }
+impl Locals {
+    pub fn to_write_set(self) -> Vec<LocalReadWrite> {
+        self.values
+            .into_iter()
+            .enumerate()
+            .flat_map(|(frame_index, frame_local)| {
+                frame_local
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(move |(local_index, l)| {
+                        l.data.into_iter().map(move |(k, v)| {
+                            LocalReadWrite::new(
+                                frame_index as u16,
+                                local_index as u16,
+                                k,
+                                v,
+                                Slot::default(),
+                            )
+                        })
+                    })
+            })
+            .collect()
+    }
+}
+
 impl Locals {
     pub fn peek_local_slot(
         &mut self,

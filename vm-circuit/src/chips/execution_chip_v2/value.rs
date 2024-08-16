@@ -2,7 +2,7 @@ use crate::chips::utilities::Expr;
 use crate::utils::cell_manager::{Cell, CellManager, CellType};
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategy;
 use crate::utils::challenges::Challenges;
-use crate::utils::rlc::rlc;
+use crate::utils::rlc;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use types::Field;
 

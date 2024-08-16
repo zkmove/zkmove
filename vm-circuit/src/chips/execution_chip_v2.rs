@@ -20,7 +20,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::CellType;
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
-use crate::utils::rlc::rlc;
+use crate::utils::rlc;
 use crate::utils::SubCircuitConfig;
 use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
