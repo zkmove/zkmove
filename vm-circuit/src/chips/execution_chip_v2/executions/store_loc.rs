@@ -69,7 +69,6 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
         cb.first_row(|cb| {
             cb.require_zero("local_sub_index(0) == 0", step_curr.local_sub_index.expr());
         });
-        // TODO: local_read_version(0) < clk(0);
         cb.require_true(
             "local_write_value_invalid(0) == true",
             step_curr.local_write_value_invalid.expr(),
@@ -78,11 +77,6 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
             "local_write_value_header(0) == local_read_value_header(0)",
             step_curr.local_write_value_header.expr(),
             step_curr.local_read_value_header.expr(),
-        );
-        cb.require_equal(
-            "local_write_version == clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.last_row(|cb| {
@@ -160,7 +154,6 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
                 },
             );
         });
-        // TODO: stack_pop_version(0) < clk(0);
         cb.require_equal(
             "local_frame_index(0) == frame_index(0)",
             step_curr.local_frame_index.expr(),
@@ -181,7 +174,6 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
             "local_read_value_invalid(0) == true",
             step_curr.local_read_value_invalid.expr(),
         );
-        // TODO:local_read_version(0) < clk(0)
         cb.require_equal(
             "local_write_value(0) == stack_pop_value(0)",
             step_curr.local_write_value.expr(),
@@ -195,11 +187,6 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
         cb.require_zero(
             "local_write_value(0) != INVALID",
             step_curr.local_write_value_invalid.expr(),
-        );
-        cb.require_equal(
-            "local_write_version == clk(0)",
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
 
         cb.not_last_row(|cb| {

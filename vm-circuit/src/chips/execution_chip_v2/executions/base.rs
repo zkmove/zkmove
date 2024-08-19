@@ -10,6 +10,7 @@ use types::Field;
 
 pub(crate) struct BaseConstraintGadget<F> {
     stack_pop_version_range_check: RangeCheckGadget<F, 4>,
+    local_read_version_range_check: RangeCheckGadget<F, 4>,
 }
 
 impl<F: Field> BaseConstraintGadget<F> {
@@ -43,10 +44,32 @@ impl<F: Field> BaseConstraintGadget<F> {
             );
         });
 
-        // clk(0) - stack_pop_version(0) > 0
-        let diff = cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr();
+        // stack_pop_version(0) < clk(0)
+        let stack_pop_version_range_check = RangeCheckGadget::construct(
+            cb,
+            cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr(),
+        );
+        // local_read_version(0) < clk(0)
+        let local_read_version_range_check = RangeCheckGadget::construct(
+            cb,
+            cb.curr.state.clk.expr() - cb.curr.state.local_read_version.expr(),
+        );
+        // stack_push_version(0) == clk(0)
+        let pop_version = cb.curr.state.stack_push_version.expr();
+        cb.require_zero(
+            "stack_push_version(0) == clk(0)",
+            pop_version.clone() * (pop_version - cb.curr.state.clk.expr()),
+        );
+        // local_write_version(0) == clk(0)
+        let write_version = cb.curr.state.local_write_version.expr();
+        cb.require_zero(
+            "local_write_version(0) == clk(0)",
+            write_version.clone() * (write_version - cb.curr.state.clk.expr()),
+        );
+
         Self {
-            stack_pop_version_range_check: RangeCheckGadget::construct(cb, diff),
+            stack_pop_version_range_check,
+            local_read_version_range_check,
         }
     }
 }

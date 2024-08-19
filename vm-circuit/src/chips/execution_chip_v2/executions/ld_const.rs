@@ -71,11 +71,6 @@ impl<F: Field> InstructionGadgetV2<F> for LdConst<F> {
             step_curr.stack_push_index.expr(),
             step_curr.sp.expr() + 1u64.expr(),
         );
-        cb.require_equal(
-            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-            step_curr.stack_push_version.expr(),
-            step_curr.clk.expr(),
-        );
         cb.require_no_stack_pop();
         cb.require_no_local_op();
 

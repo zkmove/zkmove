@@ -202,7 +202,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             step_curr.local_frame_index.expr(),
             step_curr.frame_index.expr() + 1u64.expr(), //write to local of next frame
         );
-        //TODO: local_read_version(0) < clk(0)
         cb.require_zero(
             format!("{}, local_write_value_invalid == 0", Self::NAME),
             step_curr.local_write_value_invalid.expr(),
@@ -222,11 +221,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             ),
             step_curr.local_write_value_header.expr(),
             step_curr.local_read_value_header.expr(),
-        );
-        cb.require_equal(
-            format!("{}, local_write_version(0) == clk(0)", Self::NAME),
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
 
         cb.require_state_transition(vec![(SP, Transition::Same)]);
@@ -339,7 +333,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             step_curr.local_read_value_invalid.expr(),
             1u64.expr(),
         );
-        //TODO: local_read_version(0) < clk(0)
         cb.require_equal(
             format!("{}, local_write_value(0) == stack_pop_value(0)", Self::NAME),
             step_curr.local_write_value.expr(),
@@ -356,11 +349,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         cb.require_zero(
             format!("{}, local_write_value_invalid == 0", Self::NAME),
             step_curr.local_write_value_invalid.expr(),
-        );
-        cb.require_equal(
-            format!("{}, local_write_version(0) == clk(0)", Self::NAME),
-            step_curr.local_write_version.expr(),
-            step_curr.clk.expr(),
         );
         cb.require_no_stack_push();
 

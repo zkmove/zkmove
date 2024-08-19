@@ -70,12 +70,6 @@ impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
             cb.curr.state.stack_push_value_header.expr(),
         );
 
-        cb.require_equal(
-            format!("{}, stack_push_version(0) == clk(0)", Self::NAME),
-            cb.curr.state.stack_push_version.expr(),
-            cb.curr.state.clk.expr(),
-        );
-
         cb.require_no_stack_pop();
         cb.require_no_local_op();
 
