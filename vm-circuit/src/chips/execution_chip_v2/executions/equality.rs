@@ -281,7 +281,12 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             self.sub_index_reverse
                 .assign(region, current_offset, &sub_index)?;
             let sub_index_value = from_limbs::value::<F, 16>(
-                sub_index.iter().map(|v| *v as u64).collect_vec().as_slice(),
+                sub_index
+                    .to_trimmed_vec()
+                    .iter()
+                    .map(|v| *v as u64)
+                    .collect_vec()
+                    .as_slice(),
             );
             let v_reverse = if sub_index_value.is_zero().into() {
                 F::zero()

@@ -47,6 +47,7 @@ pub(crate) use le_gt::*;
 pub(crate) use lt_ge::*;
 pub(crate) use move_or_copy_loc::*;
 pub(crate) use mul_div_mod::*;
+pub(crate) use nop::*;
 pub(crate) use not::*;
 pub(crate) use pack::*;
 pub(crate) use pop::*;
@@ -61,6 +62,5 @@ pub(crate) use vec_push_back::*;
 pub(crate) use vec_swap::*;
 pub(crate) use write_ref::*;
 
-pub(crate) use aptos_move_witnesses::exec_state::ExecutionState;
 pub(crate) use crate::chips::execution_chip_v2::sub_index::*;
-
+pub(crate) use aptos_move_witnesses::exec_state::ExecutionState;

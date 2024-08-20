@@ -3,7 +3,6 @@ use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::chips::execution_chip_v2::Opcode;
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, Error, Fixed};
 use move_binary_format::file_format::{Bytecode, SignatureToken};
@@ -62,7 +61,7 @@ impl<F: Field> ToFields<F> for ConstantTableRow {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.constant_index as u128),
-            F::from_u128(self.value_item.sub_index.into_u128()),
+            F::from_u128(self.value_item.sub_index.clone().into()),
         ]
         .into_iter()
         .chain(self.value_item.value.to_fields())

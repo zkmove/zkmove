@@ -40,11 +40,10 @@ pub(crate) fn parse_constant(
 }
 
 pub mod flatten {
-    use crate::step_state::SubIndex;
-    use crate::sub_index;
     use crate::utils::ValueHeader;
     use crate::{SimpleValue, ValueItem};
     use move_core_types::value::MoveValue;
+    use move_vm_runtime::witnessing::traced_value::SubIndex;
 
     pub trait Flatten {
         fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem>;
@@ -68,7 +67,7 @@ pub mod flatten {
                     items.push(header_item(sub_index.clone(), flen, len));
 
                     for (i, value) in values.into_iter().enumerate() {
-                        let value_sub_index = sub_index::concat(sub_index.clone(), vec![i + 1]);
+                        let value_sub_index = sub_index.concat(&vec![i + 1].into());
                         let mut flattened_value = value.flatten(value_sub_index);
                         items.append(&mut flattened_value);
                     }

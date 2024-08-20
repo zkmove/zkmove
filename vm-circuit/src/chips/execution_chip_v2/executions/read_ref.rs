@@ -14,7 +14,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 

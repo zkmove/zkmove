@@ -1,9 +1,6 @@
 use crate::exec_state::ExecutionState;
 use crate::Footprint;
-use move_vm_runtime::witnessing::traced_value::SimpleValue;
-
-// TODO: abstract
-pub type SubIndex = Vec<usize>;
+use move_vm_runtime::witnessing::traced_value::{SimpleValue, SubIndex};
 
 pub type Version = u64;
 
@@ -131,7 +128,7 @@ pub struct MemoryOp(
 #[derive(Clone, Debug)]
 pub struct StackPop {
     pub index: u64,
-    pub sub_index: SubIndex, // TODO change to u256, or change to [u64]
+    pub sub_index: SubIndex,
     pub value: SimpleValue,
     pub value_header: bool,
     pub version: u64,

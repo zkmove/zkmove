@@ -6,12 +6,11 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
-use aptos_move_witnesses::step_state::SubIndex;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
+use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -143,7 +142,7 @@ impl<F: Field, const N_LIMB: usize> MembershipGadget<F, N_LIMB> {
         }
 
         // assign mask and reverse_header_limbs
-        let header_limbs = SubIndex::from_u128(header_sub_index);
+        let header_limbs = SubIndex::from(header_sub_index).to_vec(); //TODO: double check
         for i in 0..N_LIMB {
             let mask = header_limbs[i] != 0;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
@@ -433,8 +432,8 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         offset: usize,
         sub_index: &SubIndex,
     ) -> Result<(), Error> {
-        debug_assert!(sub_index.len() <= N_LIMB);
-        let mut sub_index_padded = sub_index.clone();
+        //debug_assert!(sub_index.len() <= N_LIMB); //TODO: double check
+        let mut sub_index_padded = sub_index.to_vec();
         sub_index_padded.resize(N_LIMB, 0);
         for (i, v) in sub_index_padded.into_iter().enumerate() {
             self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;

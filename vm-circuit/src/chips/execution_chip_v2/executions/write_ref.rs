@@ -16,11 +16,10 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::step_state::SubIndex;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::Error};
+use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
@@ -180,8 +179,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 self.membership_gadget.assign(
                     region,
                     offset + i,
-                    header_sub_index.into_u128(),
-                    local_sub_index.into_u128(),
+                    header_sub_index.clone().into(),
+                    local_sub_index.clone().into(),
                 )
             })
             .try_fold((), |_, res| res)?;
@@ -338,7 +337,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     region,
                     offset + i,
                     header_sub_index,
-                    SubIndex::from_u128(header_sub_index.get_lower_128()).depth(), // FIXME
+                    SubIndex::from(header_sub_index.get_lower_128()).depth(), // FIXME
                 )
             })
             .try_fold((), |_, res| res)?;

@@ -14,7 +14,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
@@ -284,7 +283,12 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
         let header_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
-        let field_index = header_pop.sub_index.first().cloned().unwrap() as u64;
+        let field_index = header_pop
+            .sub_index
+            .to_trimmed_vec()
+            .first()
+            .cloned()
+            .unwrap() as u64;
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
             let stack_pop = memory_op.0.as_ref().unwrap();
             self.field_index
@@ -296,7 +300,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
                 region,
                 offset + i,
                 field_index as u128,
-                stack_pop.sub_index.into_u128(),
+                stack_pop.sub_index.clone().into(),
             )?;
         }
         Ok(step_state.memory_ops.len())

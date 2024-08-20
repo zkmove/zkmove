@@ -15,7 +15,7 @@ use crate::utils::cell_manager::Cell;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::{SubIndexUtils, ValueHeader};
+use aptos_move_witnesses::utils::ValueHeader;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;

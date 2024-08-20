@@ -12,7 +12,6 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
 use types::Field;
 

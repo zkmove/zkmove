@@ -1,4 +1,3 @@
-use crate::step_state::SubIndex;
 use move_binary_format::CompiledModule;
 use move_core_types::language_storage::ModuleId;
 use move_package::compilation::compiled_package::CompiledPackage;
@@ -6,35 +5,6 @@ use move_vm_runtime::witnessing::traced_value::SimpleValue;
 use std::collections::HashMap;
 use std::iter;
 use types::Field;
-
-pub trait SubIndexUtils {
-    fn into_u128(&self) -> u128;
-    fn from_u128(sub_index: u128) -> Self;
-    fn depth(&self) -> usize;
-    fn parents(&self) -> Option<Vec<Self>>
-    where
-        Self: Sized;
-}
-
-impl SubIndexUtils for SubIndex {
-    fn into_u128(&self) -> u128 {
-        unimplemented!()
-    }
-    fn from_u128(sub_index: u128) -> Self {
-        unimplemented!()
-    }
-    fn depth(&self) -> usize {
-        let vec: Vec<_> = self.iter().rev().skip_while(|&x| *x == 0).collect();
-        vec.len()
-    }
-    fn parents(&self) -> Option<Vec<Self>> {
-        //TODO: a depth-n sub_index must have n parents. Return all parents in a vector,
-        // in a order starting with direct relatives.
-        // for example, [1,2,3]'s parents will be [[1,2],[1],[0]]
-
-        unimplemented!()
-    }
-}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ValueHeader {

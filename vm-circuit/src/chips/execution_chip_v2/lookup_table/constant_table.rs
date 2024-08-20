@@ -49,7 +49,7 @@ impl ConstantLookupTable {
                 let rows: Vec<_> = c
                     .value
                     .clone()
-                    .flatten(vec![0])
+                    .flatten(vec![0].into())
                     .iter()
                     .map(|item| ConstantTableRow {
                         module_index: c.module_index,
