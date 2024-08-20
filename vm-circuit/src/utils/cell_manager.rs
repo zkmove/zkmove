@@ -182,11 +182,6 @@ pub(crate) struct CellPlacement {
     pub rotation: isize,
 }
 
-pub(crate) struct CellPlacementValue {
-    pub column_idx: usize,
-    pub rotation: usize,
-}
-
 /// CellPlacementStrategy is a strategy to place cells by the Cell Manager.
 pub(crate) trait CellPlacementStrategy {
     /// Stats is the type of the returned statistics.
@@ -279,27 +274,24 @@ impl CellManagerColumns {
 /// CellManager places and return cells in an area of the plonkish table given a strategy.
 #[derive(Clone, Debug)]
 pub(crate) struct CellManager<S: CellPlacementStrategy> {
-    columns: CellManagerColumns,
     strategy: S,
 }
 
 impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     /// Creates a Cell Manager with a given strategy.
-    pub fn new(mut strategy: S) -> CellManager<S> {
-        let mut columns = CellManagerColumns::default();
-
-        strategy.on_creation(&mut columns);
-
-        CellManager { columns, strategy }
+    pub fn new(mut strategy: S, cell_manager_columns: &mut CellManagerColumns) -> CellManager<S> {
+        strategy.on_creation(cell_manager_columns);
+        CellManager { strategy }
     }
 
     /// Places, and returns a Cell for a given cell type following the strategy.
     pub fn query_cell<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
     ) -> Cell<F> {
-        let placement = self.strategy.place_cell(&mut self.columns, meta, cell_type);
+        let placement = self.strategy.place_cell(columns, meta, cell_type);
 
         Cell::new_from_cs(
             meta,
@@ -312,12 +304,13 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     pub fn query_cell_with_affinity<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
         affinity: S::Affinity,
     ) -> Cell<F> {
-        let placement =
-            self.strategy
-                .place_cell_with_affinity(&mut self.columns, meta, cell_type, affinity);
+        let placement = self
+            .strategy
+            .place_cell_with_affinity(columns, meta, cell_type, affinity);
 
         Cell::new_from_cs(
             meta,
@@ -331,11 +324,12 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     pub fn query_cells<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
         count: usize,
     ) -> Vec<Cell<F>> {
         (0..count)
-            .map(|_| self.query_cell(meta, cell_type))
+            .map(|_| self.query_cell(meta, columns, cell_type))
             .collect()
     }
 
@@ -344,21 +338,9 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     pub fn get_height(&self) -> usize {
         self.strategy.get_height()
     }
-
-    /// Returns all the columns managed by this Cell Manager.
-    pub fn columns(&self) -> Vec<CellColumn> {
-        self.columns.columns()
-    }
-
-    #[allow(dead_code, reason = "under active development")]
-    /// Returns the number of columns managed by this Cell Manager.
-    pub fn get_width(&self) -> usize {
-        self.columns.get_width()
-    }
-
     /// Returns the statistics about this Cell Manager.
-    pub fn get_stats(&self) -> Stats {
-        self.strategy.get_stats(&self.columns)
+    pub fn get_stats(&self, columns: &CellManagerColumns) -> Stats {
+        self.strategy.get_stats(columns)
     }
 
     pub fn get_strategy(&mut self) -> &mut S {

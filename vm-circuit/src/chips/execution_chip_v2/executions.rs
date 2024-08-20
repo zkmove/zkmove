@@ -60,7 +60,6 @@ pub(crate) use vec_pop_back::*;
 pub(crate) use vec_push_back::*;
 pub(crate) use vec_swap::*;
 pub(crate) use write_ref::*;
-pub(crate) use nop::*;
 
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;

@@ -17,7 +17,7 @@ use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
-use crate::utils::cell_manager::CellType;
+use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
@@ -46,8 +46,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub s_step_last: Selector,
-    pub advices: Vec<Column<Advice>>,
-
+    pub columns: CellManagerColumns,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -113,12 +112,9 @@ impl<F: Field> ExecChipConfig<F> {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
-        let advices = alloc_columns(meta); //TODO
-        let advices_distribution: CMFixedWidthStrategyDistribution =
-            cm_distribute_advice(meta, &advices);
-        let step_curr = Step::new(meta, advices_distribution.clone(), 0, &challenges);
-        let step_next = Step::new(meta, advices_distribution.clone(), 1, &challenges);
-        let _step_prev = Step::new(meta, advices_distribution.clone(), -1, &challenges);
+        let mut cell_columns = CellManagerColumns::default();
+        let step_curr = Step::new(meta, &mut cell_columns, 0, &challenges);
+        let step_next = Step::new(meta, &mut cell_columns, 1, &challenges);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -205,7 +201,8 @@ impl<F: Field> ExecChipConfig<F> {
 
         // base configuration for every opcode gadgets
         let step_curr = {
-            let mut cb = ConstraintBuilderV2::new(meta, &challenges, step_curr, None);
+            let mut cb =
+                ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
             BaseConstraintGadget::configure(&mut cb);
             // we need to reuse the step_curr when configuring opcode gadgets.
             let step_curr = cb.curr.clone();
@@ -222,8 +219,8 @@ impl<F: Field> ExecChipConfig<F> {
             () => {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
+                    &mut cell_columns,
                     &challenges,
-                    advices_distribution.clone(),
                     s_usable,
                     s_step_first,
                     s_step_last,
@@ -288,11 +285,12 @@ impl<F: Field> ExecChipConfig<F> {
             write_ref_stage1: configure_opcode_gadget!(),
             write_ref_stage2: configure_opcode_gadget!(),
             write_ref_stage3: configure_opcode_gadget!(),
-            advices,
+            columns: cell_columns,
             step: step_curr,
         };
         Self::configure_lookup(
             meta,
+            &config.columns,
             &challenges,
             &lookup_table_configs,
             &config.step,
@@ -305,9 +303,9 @@ impl<F: Field> ExecChipConfig<F> {
 
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         challenges: &Challenges<Expression<F>>,
         //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
-        _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
@@ -317,6 +315,7 @@ impl<F: Field> ExecChipConfig<F> {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
             meta,
+            columns,
             challenges,
             step_curr.clone(),
             Some(G::EXECUTION_STATE),
@@ -393,6 +392,7 @@ impl<F: Field> ExecChipConfig<F> {
     #[allow(clippy::too_many_arguments)]
     fn configure_lookup(
         meta: &mut ConstraintSystem<F>,
+        cell_manager_columns: &CellManagerColumns,
         challenges: &Challenges<Expression<F>>,
         lookup_table_config: &LookupTableConfigV2<F>,
         step_curr: &Step<F>,
@@ -414,7 +414,7 @@ impl<F: Field> ExecChipConfig<F> {
             .zip(table_expressions)
             .collect()
         });
-        for column in step_curr.cell_manager.columns().iter() {
+        for column in cell_manager_columns.columns().iter() {
             if let CellType::Lookup(table) = column.cell_type {
                 let name = format!("{:?}", table);
                 let column_expr = column.expr(meta);
@@ -554,7 +554,11 @@ impl<F: Field> ExecChipConfig<F> {
         let region = &mut CachedRegion::<'_, '_, F>::new(
             region,
             challenges,
-            self.advices.to_vec(),
+            self.columns
+                .columns()
+                .iter()
+                .map(|c| c.advice)
+                .collect(),
             1,
             offset_begin,
         );
