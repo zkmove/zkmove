@@ -19,7 +19,7 @@ use halo2_proofs::poly::Rotation;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Nop<F: Field> {
+pub struct Nop<F> {
     lt_gadget: LtGadget<F, MAX_N_BYTES_INTEGER>,
 }
 
