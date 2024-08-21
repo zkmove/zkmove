@@ -52,24 +52,17 @@ impl CellType {
 #[derive(Clone, Debug)]
 /// Cell is a (column, rotation) pair that has been placed and queried by the Cell Manager.
 pub struct Cell<F> {
-    expression: Option<Expression<F>>,
-    column: Option<Column<Advice>>,
-    column_idx: usize,
+    expression: Expression<F>,
+    column: Column<Advice>,
     rotation: isize,
 }
 
 impl<F: Field> Cell<F> {
     /// Creates a Cell from VirtualCells.
-    pub fn new(
-        meta: &mut VirtualCells<F>,
-        column: Column<Advice>,
-        column_idx: usize,
-        rotation: isize,
-    ) -> Cell<F> {
+    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: isize) -> Cell<F> {
         Cell {
-            expression: Some(meta.query_advice(column, Rotation(rotation as i32))),
-            column: Some(column),
-            column_idx,
+            expression: meta.query_advice(column, Rotation(rotation as i32)),
+            column,
             rotation,
         }
     }
@@ -78,10 +71,9 @@ impl<F: Field> Cell<F> {
     pub fn new_from_cs(
         meta: &mut ConstraintSystem<F>,
         column: Column<Advice>,
-        column_idx: usize,
         rotation: isize,
     ) -> Cell<F> {
-        query_expression(meta, |meta| Cell::new(meta, column, column_idx, rotation))
+        query_expression(meta, |meta| Cell::new(meta, column, rotation))
     }
 
     /// Assigns a Cell during witness generation.
@@ -98,34 +90,23 @@ impl<F: Field> Cell<F> {
                     self.column, self.rotation
                 )
             },
-            self.column.expect("wrong operation on value only cell"),
+            self.column,
             (offset as isize + self.rotation) as usize,
             || value,
         )
     }
 
     pub(crate) fn at_offset(&self, meta: &mut ConstraintSystem<F>, offset: i32) -> Self {
-        Self::new_from_cs(
-            meta,
-            self.column.expect("wrong operation on value only cell"),
-            self.column_idx,
-            self.rotation + offset as isize,
-        )
+        Self::new_from_cs(meta, self.column, self.rotation + offset as isize)
     }
 }
 
 impl<F> Cell<F> {
-    pub(crate) fn new_value(column_idx: usize, rotation: isize) -> Self {
-        Self {
-            expression: None,
-            column: None,
-            column_idx,
-            rotation,
-        }
-    }
-
     pub(crate) fn get_column_idx(&self) -> usize {
-        self.column_idx
+        self.column.index()
+    }
+    pub(crate) fn get_column(&self) -> Column<Advice> {
+        self.column.clone()
     }
 
     pub(crate) fn get_rotation(&self) -> isize {
@@ -135,17 +116,13 @@ impl<F> Cell<F> {
 
 impl<F: Field> Expr<F> for Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression
-            .clone()
-            .expect("wrong operation on value only cell")
+        self.expression.clone()
     }
 }
 
 impl<F: Field> Expr<F> for &Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression
-            .clone()
-            .expect("wrong operation on value only cell")
+        self.expression.clone()
     }
 }
 
@@ -293,12 +270,7 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     ) -> Cell<F> {
         let placement = self.strategy.place_cell(columns, meta, cell_type);
 
-        Cell::new_from_cs(
-            meta,
-            placement.column.advice,
-            placement.column.idx,
-            placement.rotation,
-        )
+        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
     }
 
     pub fn query_cell_with_affinity<F: Field>(
@@ -312,12 +284,7 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
             .strategy
             .place_cell_with_affinity(columns, meta, cell_type, affinity);
 
-        Cell::new_from_cs(
-            meta,
-            placement.column.advice,
-            placement.column.idx,
-            placement.rotation,
-        )
+        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
     }
 
     /// Places, and returns `count` Cells for a given cell type following the strategy.
