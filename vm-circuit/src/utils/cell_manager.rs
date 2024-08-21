@@ -52,24 +52,17 @@ impl CellType {
 #[derive(Clone, Debug)]
 /// Cell is a (column, rotation) pair that has been placed and queried by the Cell Manager.
 pub struct Cell<F> {
-    expression: Option<Expression<F>>,
-    column: Option<Column<Advice>>,
-    column_idx: usize,
+    expression: Expression<F>,
+    column: Column<Advice>,
     rotation: isize,
 }
 
 impl<F: Field> Cell<F> {
     /// Creates a Cell from VirtualCells.
-    pub fn new(
-        meta: &mut VirtualCells<F>,
-        column: Column<Advice>,
-        column_idx: usize,
-        rotation: isize,
-    ) -> Cell<F> {
+    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: isize) -> Cell<F> {
         Cell {
-            expression: Some(meta.query_advice(column, Rotation(rotation as i32))),
-            column: Some(column),
-            column_idx,
+            expression: meta.query_advice(column, Rotation(rotation as i32)),
+            column,
             rotation,
         }
     }
@@ -78,10 +71,9 @@ impl<F: Field> Cell<F> {
     pub fn new_from_cs(
         meta: &mut ConstraintSystem<F>,
         column: Column<Advice>,
-        column_idx: usize,
         rotation: isize,
     ) -> Cell<F> {
-        query_expression(meta, |meta| Cell::new(meta, column, column_idx, rotation))
+        query_expression(meta, |meta| Cell::new(meta, column, rotation))
     }
 
     /// Assigns a Cell during witness generation.
@@ -98,34 +90,23 @@ impl<F: Field> Cell<F> {
                     self.column, self.rotation
                 )
             },
-            self.column.expect("wrong operation on value only cell"),
+            self.column,
             (offset as isize + self.rotation) as usize,
             || value,
         )
     }
 
     pub(crate) fn at_offset(&self, meta: &mut ConstraintSystem<F>, offset: i32) -> Self {
-        Self::new_from_cs(
-            meta,
-            self.column.expect("wrong operation on value only cell"),
-            self.column_idx,
-            self.rotation + offset as isize,
-        )
+        Self::new_from_cs(meta, self.column, self.rotation + offset as isize)
     }
 }
 
 impl<F> Cell<F> {
-    pub(crate) fn new_value(column_idx: usize, rotation: isize) -> Self {
-        Self {
-            expression: None,
-            column: None,
-            column_idx,
-            rotation,
-        }
-    }
-
     pub(crate) fn get_column_idx(&self) -> usize {
-        self.column_idx
+        self.column.index()
+    }
+    pub(crate) fn get_column(&self) -> Column<Advice> {
+        self.column.clone()
     }
 
     pub(crate) fn get_rotation(&self) -> isize {
@@ -135,17 +116,13 @@ impl<F> Cell<F> {
 
 impl<F: Field> Expr<F> for Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression
-            .clone()
-            .expect("wrong operation on value only cell")
+        self.expression.clone()
     }
 }
 
 impl<F: Field> Expr<F> for &Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression
-            .clone()
-            .expect("wrong operation on value only cell")
+        self.expression.clone()
     }
 }
 
@@ -180,11 +157,6 @@ impl CellColumn {
 pub(crate) struct CellPlacement {
     pub column: CellColumn,
     pub rotation: isize,
-}
-
-pub(crate) struct CellPlacementValue {
-    pub column_idx: usize,
-    pub rotation: usize,
 }
 
 /// CellPlacementStrategy is a strategy to place cells by the Cell Manager.
@@ -279,63 +251,52 @@ impl CellManagerColumns {
 /// CellManager places and return cells in an area of the plonkish table given a strategy.
 #[derive(Clone, Debug)]
 pub(crate) struct CellManager<S: CellPlacementStrategy> {
-    columns: CellManagerColumns,
     strategy: S,
 }
 
 impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     /// Creates a Cell Manager with a given strategy.
-    pub fn new(mut strategy: S) -> CellManager<S> {
-        let mut columns = CellManagerColumns::default();
-
-        strategy.on_creation(&mut columns);
-
-        CellManager { columns, strategy }
+    pub fn new(mut strategy: S, cell_manager_columns: &mut CellManagerColumns) -> CellManager<S> {
+        strategy.on_creation(cell_manager_columns);
+        CellManager { strategy }
     }
 
     /// Places, and returns a Cell for a given cell type following the strategy.
     pub fn query_cell<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
     ) -> Cell<F> {
-        let placement = self.strategy.place_cell(&mut self.columns, meta, cell_type);
+        let placement = self.strategy.place_cell(columns, meta, cell_type);
 
-        Cell::new_from_cs(
-            meta,
-            placement.column.advice,
-            placement.column.idx,
-            placement.rotation,
-        )
+        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
     }
 
     pub fn query_cell_with_affinity<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
         affinity: S::Affinity,
     ) -> Cell<F> {
-        let placement =
-            self.strategy
-                .place_cell_with_affinity(&mut self.columns, meta, cell_type, affinity);
+        let placement = self
+            .strategy
+            .place_cell_with_affinity(columns, meta, cell_type, affinity);
 
-        Cell::new_from_cs(
-            meta,
-            placement.column.advice,
-            placement.column.idx,
-            placement.rotation,
-        )
+        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
     }
 
     /// Places, and returns `count` Cells for a given cell type following the strategy.
     pub fn query_cells<F: Field>(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         cell_type: CellType,
         count: usize,
     ) -> Vec<Cell<F>> {
         (0..count)
-            .map(|_| self.query_cell(meta, cell_type))
+            .map(|_| self.query_cell(meta, columns, cell_type))
             .collect()
     }
 
@@ -344,21 +305,9 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     pub fn get_height(&self) -> usize {
         self.strategy.get_height()
     }
-
-    /// Returns all the columns managed by this Cell Manager.
-    pub fn columns(&self) -> Vec<CellColumn> {
-        self.columns.columns()
-    }
-
-    #[allow(dead_code, reason = "under active development")]
-    /// Returns the number of columns managed by this Cell Manager.
-    pub fn get_width(&self) -> usize {
-        self.columns.get_width()
-    }
-
     /// Returns the statistics about this Cell Manager.
-    pub fn get_stats(&self) -> Stats {
-        self.strategy.get_stats(&self.columns)
+    pub fn get_stats(&self, columns: &CellManagerColumns) -> Stats {
+        self.strategy.get_stats(columns)
     }
 
     pub fn get_strategy(&mut self) -> &mut S {

@@ -3,7 +3,7 @@ use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
-use crate::utils::cell_manager::{Cell, CellType};
+use crate::utils::cell_manager::{Cell, CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
 use gadgets::util::Expr;
@@ -58,6 +58,7 @@ pub(crate) struct Constraints<F> {
 
 pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     meta: &'a mut ConstraintSystem<F>,
+    columns: &'a mut CellManagerColumns,
     challenges: &'a Challenges<Expression<F>>,
 
     execution_state: Option<ExecutionState>,
@@ -88,12 +89,14 @@ impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
 impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn new(
         meta: &'a mut ConstraintSystem<F>,
+        columns: &'a mut CellManagerColumns,
         challenges: &'a Challenges<Expression<F>>,
         curr: Step<F>,
         exec_state: Option<ExecutionState>,
     ) -> Self {
         Self {
             meta,
+            columns,
             challenges,
             execution_state: exec_state,
             curr,
@@ -139,8 +142,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     pub fn step_state_at_offset(&mut self, offset: isize) -> StepState<F> {
-        let advices = self.curr.cell_manager.get_strategy().advices().clone();
-        Step::new(self.meta, advices, offset, self.challenges).state
+        Step::new(self.meta, self.columns, offset, self.challenges).state
     }
 
     pub(crate) fn query_bool(&mut self) -> Cell<F> {
@@ -184,7 +186,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         assert!(!self.in_next_step, "can only query cells in current step");
         self.curr
             .cell_manager
-            .query_cells(self.meta, cell_type, count)
+            .query_cells(self.meta, self.columns, cell_type, count)
     }
     /// This function needs to be used with extra precaution. You need to make
     /// sure the layout is the same as the gadget for `next_step_state`.

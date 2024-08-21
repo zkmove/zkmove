@@ -173,7 +173,7 @@ pub(crate) mod to_field {
                         SimpleValue::U16(u) => (*u as u128, 0u128),
                         SimpleValue::U32(u) => (*u as u128, 0u128),
                         SimpleValue::U64(u) => (*u as u128, 0u128),
-                        SimpleValue::U128(u) => (*u as u128, 0u128),
+                        SimpleValue::U128(u) => ({ *u }, 0u128),
                         SimpleValue::U256(u) => {
                             let bytes = u.to_le_bytes();
                             let lo = u128::from_le_bytes(bytes[..16].try_into().unwrap());

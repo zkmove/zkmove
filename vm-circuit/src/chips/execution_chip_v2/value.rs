@@ -1,6 +1,6 @@
 use crate::chips::utilities::Expr;
-use crate::utils::cell_manager::{Cell, CellManager, CellType};
-use crate::utils::cell_placement_strategy::CMFixedWidthStrategy;
+use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
+use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
@@ -31,11 +31,12 @@ pub(crate) struct Value<F, const N: usize> {
 impl<F: Field, const N: usize> Value<F, N> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
-        cell_manager: &mut CellManager<CMFixedWidthStrategy>,
+        cell_manager_columns: &mut CellManagerColumns,
+        cell_manager: &mut CellManager<CMFixedHeightStrategy>,
         challenges: &Challenges<Expression<F>>,
     ) -> Self {
         let cells = cell_manager
-            .query_cells(meta, CellType::StoragePhase1, N)
+            .query_cells(meta, cell_manager_columns, CellType::StoragePhase1, N)
             .try_into()
             .unwrap();
         Value {

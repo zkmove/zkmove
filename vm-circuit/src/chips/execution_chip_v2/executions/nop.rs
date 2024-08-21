@@ -19,7 +19,7 @@ use halo2_proofs::poly::Rotation;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Nop<F: Field> {
+pub struct Nop<F> {
     lt_gadget: LtGadget<F, MAX_N_BYTES_INTEGER>,
 }
 
@@ -88,7 +88,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
                 _step.local_sub_index.get_column_idx(),
                 Rotation::cur(),
             );
-            randomness.map(|r| rlc::generic([local_frame_index, local_index, local_frame_index], r))
+            randomness.map(|r| rlc::generic([local_frame_index, local_index, local_sub_index], r))
         }));
         let sort_rlcs = rlcs.map(|mut l| {
             l.sort();

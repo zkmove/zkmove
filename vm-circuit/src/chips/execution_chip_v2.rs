@@ -3,6 +3,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
@@ -17,7 +18,7 @@ use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
-use crate::utils::cell_manager::CellType;
+use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
@@ -46,8 +47,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_usable: Selector,
     pub s_step_first: Selector,
     pub s_step_last: Selector,
-    pub advices: Vec<Column<Advice>>,
-
+    pub columns: CellManagerColumns,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -100,7 +100,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub write_ref_stage1: Box<WriteRefStage1<F>>,
     pub write_ref_stage2: Box<WriteRefStage2<F>>,
     pub write_ref_stage3: Box<WriteRefStage3<F>>,
-
+    pub nop: Box<Nop<F>>,
     pub step: Step<F>,
 }
 
@@ -113,12 +113,9 @@ impl<F: Field> ExecChipConfig<F> {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
-        let advices = alloc_columns(meta); //TODO
-        let advices_distribution: CMFixedWidthStrategyDistribution =
-            cm_distribute_advice(meta, &advices);
-        let step_curr = Step::new(meta, advices_distribution.clone(), 0, &challenges);
-        let step_next = Step::new(meta, advices_distribution.clone(), 1, &challenges);
-        let _step_prev = Step::new(meta, advices_distribution.clone(), -1, &challenges);
+        let mut cell_columns = CellManagerColumns::default();
+        let step_curr = Step::new(meta, &mut cell_columns, 0, &challenges);
+        let step_next = Step::new(meta, &mut cell_columns, 1, &challenges);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -205,7 +202,8 @@ impl<F: Field> ExecChipConfig<F> {
 
         // base configuration for every opcode gadgets
         let step_curr = {
-            let mut cb = ConstraintBuilderV2::new(meta, &challenges, step_curr, None);
+            let mut cb =
+                ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
             BaseConstraintGadget::configure(&mut cb);
             // we need to reuse the step_curr when configuring opcode gadgets.
             let step_curr = cb.curr.clone();
@@ -222,8 +220,8 @@ impl<F: Field> ExecChipConfig<F> {
             () => {
                 Box::new(Self::configure_opcode_gadget(
                     meta,
+                    &mut cell_columns,
                     &challenges,
-                    advices_distribution.clone(),
                     s_usable,
                     s_step_first,
                     s_step_last,
@@ -288,11 +286,13 @@ impl<F: Field> ExecChipConfig<F> {
             write_ref_stage1: configure_opcode_gadget!(),
             write_ref_stage2: configure_opcode_gadget!(),
             write_ref_stage3: configure_opcode_gadget!(),
-            advices,
+            nop: configure_opcode_gadget!(),
+            columns: cell_columns,
             step: step_curr,
         };
         Self::configure_lookup(
             meta,
+            &config.columns,
             &challenges,
             &lookup_table_configs,
             &config.step,
@@ -305,9 +305,9 @@ impl<F: Field> ExecChipConfig<F> {
 
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
         challenges: &Challenges<Expression<F>>,
         //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
-        _advices: CMFixedWidthStrategyDistribution,
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
@@ -317,6 +317,7 @@ impl<F: Field> ExecChipConfig<F> {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
             meta,
+            columns,
             challenges,
             step_curr.clone(),
             Some(G::EXECUTION_STATE),
@@ -393,6 +394,7 @@ impl<F: Field> ExecChipConfig<F> {
     #[allow(clippy::too_many_arguments)]
     fn configure_lookup(
         meta: &mut ConstraintSystem<F>,
+        cell_manager_columns: &CellManagerColumns,
         challenges: &Challenges<Expression<F>>,
         lookup_table_config: &LookupTableConfigV2<F>,
         step_curr: &Step<F>,
@@ -414,7 +416,7 @@ impl<F: Field> ExecChipConfig<F> {
             .zip(table_expressions)
             .collect()
         });
-        for column in step_curr.cell_manager.columns().iter() {
+        for column in cell_manager_columns.columns().iter() {
             if let CellType::Lookup(table) = column.cell_type {
                 let name = format!("{:?}", table);
                 let column_expr = column.expr(meta);
@@ -554,7 +556,7 @@ impl<F: Field> ExecChipConfig<F> {
         let region = &mut CachedRegion::<'_, '_, F>::new(
             region,
             challenges,
-            self.advices.to_vec(),
+            self.columns.columns().iter().map(|c| c.advice).collect(),
             1,
             offset_begin,
         );
@@ -576,21 +578,54 @@ impl<F: Field> ExecChipConfig<F> {
                 }
             };
         }
-        // FIXME
         let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
-            ExecutionState::VecLen => self.vec_len,
-            ExecutionState::StoreLocStage1 => self.store_loc_stage1,
-            ExecutionState::StoreLocStage2 => self.store_loc_stage2,
-            ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
-            ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
-                ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
-                ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
-                ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
+        ExecutionState::VecLen => self.vec_len,
+        ExecutionState::StoreLocStage1 => self.store_loc_stage1,
+        ExecutionState::StoreLocStage2 => self.store_loc_stage2,
+        ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
+        ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
+        ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
+        ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
+        ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
         ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
         ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
-                ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
-                ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
-            })?;
+        ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
+        ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
+        ExecutionState::AddSub => self.add_sub,
+        ExecutionState::AndOr => self.and_or,
+        ExecutionState::Bitwise => self.bitwise,
+        ExecutionState::BorrowField => self.borrow_field,
+        ExecutionState::BorrowLoc => self.borrow_loc,
+        ExecutionState::BrTrue => self.br_true,
+        ExecutionState::BrFalse => self.br_false,
+        ExecutionState::CallStage1 => self.call_stage_1,
+        ExecutionState::CallStage2 => self.call_stage_2,
+        ExecutionState::CallStage3 => self.call_stage_3,
+        ExecutionState::Cast => self.cast,
+        ExecutionState::EqStage1 => self.eq_stage_1,
+        ExecutionState::EqStage2 => self.eq_stage_2,
+        ExecutionState::LdFalse => self.ld_false,
+        ExecutionState::LdTrue => self.ld_true,
+        ExecutionState::LdConst => self.ld_const,
+        ExecutionState::LdSimple => self.ld_simple,
+        ExecutionState::Le => self.le,
+        ExecutionState::Lt => self.lt,
+        ExecutionState::MoveLoc => self.move_loc,
+        ExecutionState::CopyLoc => self.copy_loc,
+        ExecutionState::MulDivMod => self.mul_div_mod,
+        ExecutionState::Not => self.not,
+        ExecutionState::Pack => self.pack,
+        ExecutionState::Pop => self.pop,
+        ExecutionState::ReadRef => self.read_ref,
+        ExecutionState::Ret => self.ret,
+        ExecutionState::UnpackStage1 => self.unpack_stage_1,
+        ExecutionState::UnpackStage2 => self.unpack_stage_2,
+        ExecutionState::VecBorrow => self.vec_borrow,
+        ExecutionState::WriteRefStage1 => self.write_ref_stage1,
+        ExecutionState::WriteRefStage2 => self.write_ref_stage2,
+        ExecutionState::WriteRefStage3 => self.write_ref_stage3,
+        ExecutionState::Nop => self.nop,
+        })?;
         debug_assert_eq!(assigned_rows, stage_state.rows());
 
         Ok(assigned_rows)
@@ -604,17 +639,6 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
 
-    // fn assign(
-    //     &self,
-    //     region: &mut Region<'_, F>,
-    //     offset: usize,
-    //     step: &ExecutionStep,
-    //     rw_operations: &RWOperations,
-    //     cells: &StepChipCells<F>,
-    // ) -> Result<(), Error>;
-
-    // fn construct(cb: &mut ConstraintBuilder<F>) -> Self;
-
     fn assign(
         &self,
         step: StepState<F>,
@@ -625,60 +649,4 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     ) -> Result<usize, Error> {
         Ok(stage_state.rows())
     }
-}
-
-/// FIXME: setup columns
-pub(crate) fn alloc_columns<F: Field>(_meta: &mut ConstraintSystem<F>) -> Vec<Column<Advice>> {
-    todo!()
-}
-#[allow(clippy::mut_range_bound)]
-pub(crate) fn cm_distribute_advice<F: Field>(
-    _meta: &mut ConstraintSystem<F>,
-    _advices: &[Column<Advice>],
-) -> CMFixedWidthStrategyDistribution {
-    // let mut column_idx = 0;
-    // // Mark columns used for lookups in Phase3
-    // for &(table, count) in LOOKUP_CONFIG {
-    //     for _ in 0usize..count {
-    //         dist.add(CellType::Lookup(table), advices[column_idx]);
-    //         column_idx += 1;
-    //     }
-    // }
-    //
-    // // Mark columns used for Phase2 constraints
-    // for _ in 0..N_PHASE2_COLUMNS {
-    //     dist.add(CellType::StoragePhase2, advices[column_idx]);
-    //     column_idx += 1;
-    // }
-    //
-    // // Mark columns used for copy constraints
-    // for _ in 0..N_COPY_COLUMNS {
-    //     meta.enable_equality(advices[column_idx]);
-    //     dist.add(CellType::StoragePermutation, advices[column_idx]);
-    //     column_idx += 1;
-    // }
-    //
-    // // Mark columns used for byte lookup
-    // #[allow(clippy::reversed_empty_ranges)]
-    // for _ in 0..N_U8_LOOKUPS {
-    //     dist.add(CellType::Lookup(Table::U8), advices[column_idx]);
-    //     assert_eq!(advices[column_idx].column_type().phase(), 0);
-    //     column_idx += 1;
-    // }
-    //
-    // // Mark columns used for byte lookup
-    // #[allow(clippy::reversed_empty_ranges)]
-    // for _ in 0..N_U16_LOOKUPS {
-    //     dist.add(CellType::Lookup(Table::U16), advices[column_idx]);
-    //     assert_eq!(advices[column_idx].column_type().phase(), 0);
-    //     column_idx += 1;
-    // }
-    //
-    // // Mark columns used for for Phase1 constraints
-    // for _ in column_idx..advices.len() {
-    //     dist.add(CellType::StoragePhase1, advices[column_idx]);
-    //     column_idx += 1;
-    // }
-
-    CMFixedWidthStrategyDistribution::default()
 }

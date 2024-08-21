@@ -50,7 +50,7 @@ impl CMFixedWidthStrategy {
             height_offset,
             next: BTreeMap::default(),
             perm_substitution: false,
-            max_height: usize::max_value(),
+            max_height: usize::MAX,
         }
     }
 
@@ -203,17 +203,15 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
 #[derive(Debug, Clone)]
 pub(crate) struct CMFixedHeightStrategy {
     row_width: Vec<usize>,
-    cell_type: CellType,
-
+    height_offset: isize,
     num_unused_cells: usize,
 }
 
 impl CMFixedHeightStrategy {
-    pub(crate) fn new(height: usize, cell_type: CellType) -> CMFixedHeightStrategy {
+    pub(crate) fn new(height: usize, height_offset: isize) -> CMFixedHeightStrategy {
         CMFixedHeightStrategy {
             row_width: vec![0; height],
-            cell_type,
-
+            height_offset,
             num_unused_cells: Default::default(),
         }
     }
@@ -232,14 +230,9 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         meta: &mut ConstraintSystem<F>,
         cell_type: CellType,
     ) -> CellPlacement {
-        assert_eq!(
-            cell_type, self.cell_type,
-            "CMFixedHeightStrategy can only work with one cell type"
-        );
-
         let (row_idx, column_idx) = self.get_next();
 
-        let placement = self.place_cell_at_pos(columns, meta, row_idx, column_idx);
+        let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
 
         self.inc_row_width(row_idx);
 
@@ -263,15 +256,10 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         cell_type: CellType,
         affnity: Self::Affinity,
     ) -> CellPlacement {
-        assert_eq!(
-            cell_type, self.cell_type,
-            "CMFixedHeightStrategy can only work with one cell type"
-        );
-
         let row_idx = affnity;
         let column_idx = self.row_width[row_idx];
 
-        let placement = self.place_cell_at_pos(columns, meta, row_idx, column_idx);
+        let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
 
         self.inc_row_width(row_idx);
 
@@ -315,26 +303,27 @@ impl CMFixedHeightStrategy {
         &mut self,
         columns: &mut CellManagerColumns,
         meta: &mut ConstraintSystem<F>,
+        cell_type: CellType,
         row_idx: usize,
         column_idx: usize,
     ) -> CellPlacement {
-        let column = if column_idx < columns.get_cell_type_width(self.cell_type) {
+        let column = if column_idx < columns.get_cell_type_width(cell_type) {
             columns
-                .get_column(self.cell_type, column_idx)
+                .get_column(cell_type, column_idx)
                 .expect("column not found")
         } else {
             let advice = meta.advice_column();
 
-            columns.add_column(self.cell_type, advice);
+            columns.add_column(cell_type, advice);
 
             columns
-                .get_column(self.cell_type, column_idx)
+                .get_column(cell_type, column_idx)
                 .expect("column not found")
         };
 
         CellPlacement {
             column: column.clone(),
-            rotation: row_idx as isize,
+            rotation: self.height_offset + row_idx as isize,
         }
     }
 }

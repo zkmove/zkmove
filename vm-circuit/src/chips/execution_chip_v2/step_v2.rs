@@ -1,10 +1,8 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::value::Value;
 use crate::utils::cached_region::CachedRegion;
-use crate::utils::cell_manager::{Cell, CellManager, CellType};
-use crate::utils::cell_placement_strategy::{
-    CMFixedWidthStrategy, CMFixedWidthStrategyDistribution,
-};
+use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
+use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use aptos_move_witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 use gadgets::util::Expr;
@@ -82,61 +80,148 @@ impl<F: Field> StepState<F> {
 #[derive(Debug, Clone)]
 pub struct Step<F> {
     pub state: StepState<F>,
-    pub cell_manager: CellManager<CMFixedWidthStrategy>,
+    pub cell_manager: CellManager<CMFixedHeightStrategy>,
 }
 
 impl<F: Field> Step<F> {
     pub fn new(
         meta: &mut ConstraintSystem<F>,
-        advices: CMFixedWidthStrategyDistribution,
+        cell_manager_columns: &mut CellManagerColumns,
         offset: isize,
         challenges: &Challenges<Expression<F>>,
     ) -> Self {
         // height should always be 1
-        let strategy = CMFixedWidthStrategy::new(advices, offset).with_max_height(1);
+        let strategy = CMFixedHeightStrategy::new(1, offset);
 
-        let mut cell_manager = CellManager::new(strategy);
+        let mut cell_manager = CellManager::new(strategy, cell_manager_columns);
 
-        let clk = cell_manager.query_cell(meta, CellType::StoragePhase1);
-        let stack_pop_version = cell_manager.query_cell(meta, CellType::StoragePhase1);
+        let clk = cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
+        let stack_pop_version =
+            cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
         let state = StepState {
             clk,
-            frame_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            module_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            function_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            pc: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            sp: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            opcode: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            aux0: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            aux1: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            step_counter: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            frame_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            module_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            function_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            opcode: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            aux0: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            aux1: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            step_counter: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
 
-            stack_pop_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_pop_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_pop_value: Value::new(meta, &mut cell_manager, challenges),
-            stack_pop_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            stack_pop_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            stack_pop_sub_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            stack_pop_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            stack_pop_value_header: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
             stack_pop_version,
 
-            stack_push_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_push_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_push_value: Value::new(meta, &mut cell_manager, challenges),
-            stack_push_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            stack_push_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            stack_push_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            stack_push_sub_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            stack_push_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            stack_push_value_header: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            stack_push_version: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
 
-            local_frame_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_sub_index: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_read_value: Value::new(meta, &mut cell_manager, challenges),
-            local_read_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_read_value_invalid: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_read_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_write_value: Value::new(meta, &mut cell_manager, challenges),
-            local_write_value_header: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_write_value_invalid: cell_manager.query_cell(meta, CellType::StoragePhase1),
-            local_write_version: cell_manager.query_cell(meta, CellType::StoragePhase1),
+            local_frame_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_sub_index: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_read_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            local_read_value_header: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_read_value_invalid: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_read_version: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_write_value: Value::new(
+                meta,
+                cell_manager_columns,
+                &mut cell_manager,
+                challenges,
+            ),
+            local_write_value_header: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_write_value_invalid: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
+            local_write_version: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
 
             execution_state: DynamicSelectorHalf::new(
                 meta,
+                cell_manager_columns,
                 &mut cell_manager,
                 ExecutionState::iter().count(),
             ),
@@ -190,11 +275,18 @@ pub(crate) struct DynamicSelectorHalf<F> {
 impl<F: Field> DynamicSelectorHalf<F> {
     pub(crate) fn new(
         meta: &mut ConstraintSystem<F>,
-        cell_manager: &mut CellManager<CMFixedWidthStrategy>,
+        cell_manager_columns: &mut CellManagerColumns,
+        cell_manager: &mut CellManager<CMFixedHeightStrategy>,
         count: usize,
     ) -> Self {
-        let target_pairs = cell_manager.query_cells(meta, CellType::StoragePhase1, (count + 1) / 2);
-        let target_odd = cell_manager.query_cell(meta, CellType::StoragePhase1);
+        let target_pairs = cell_manager.query_cells(
+            meta,
+            cell_manager_columns,
+            CellType::StoragePhase1,
+            (count + 1) / 2,
+        );
+        let target_odd =
+            cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
         Self {
             count,
             target_pairs,
