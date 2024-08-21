@@ -265,23 +265,7 @@ impl WitnessV2 {
 }
 
 pub mod to_field {
-    use aptos_move_witnesses::step_state::SubIndex;
-    use aptos_move_witnesses::SimpleValue;
-    use types::Field;
-
-    pub trait ToField<F: Field> {
-        fn to_field(&self) -> F;
-    }
-
-    impl<F: Field> ToField<F> for SimpleValue {
-        fn to_field(&self) -> F {
-            todo!()
-        }
-    }
-
-    impl<F: Field> ToField<F> for SubIndex {
-        fn to_field(&self) -> F {
-            todo!()
-        }
-    }
+    
+    
+    
 }

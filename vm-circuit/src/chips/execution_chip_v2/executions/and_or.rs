@@ -13,7 +13,6 @@ use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, or};
 use halo2_proofs::plonk::Error;
-use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]

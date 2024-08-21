@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::value::Value;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
@@ -11,7 +12,6 @@ use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;
-
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
 
 pub const STEP_COUNTER: &str = "step_counter";
@@ -243,9 +243,19 @@ impl<F: Field> Step<F> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
+        step_counter: usize,
         step_state: &StepStateWitness,
         memory_op: &MemoryOp,
     ) -> Result<(), Error> {
+        self.state
+            .execution_state
+            .assign(region, offset, step_state.exec_state as usize)?;
+        self.state.step_counter.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_counter as u128)),
+        )?;
+
         self.state
             .clk
             .assign(region, offset, Halo2Value::known(step_state.clk.into()))?;
@@ -254,7 +264,237 @@ impl<F: Field> Step<F> {
             offset,
             Halo2Value::known(F::from_u128(step_state.frame_index as u128)),
         )?;
-        // TODO: assign others
+        self.state.module_index.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from(step_state.module_index)),
+        )?;
+        self.state.function_index.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.function_index as u128)),
+        )?;
+        self.state.pc.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.pc as u128)),
+        )?;
+        self.state.sp.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.sp as u128)),
+        )?;
+        self.state.opcode.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.opcode as u128)),
+        )?;
+
+        self.state.aux0.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.aux0)),
+        )?;
+        self.state.aux1.assign(
+            region,
+            offset,
+            Halo2Value::known(F::from_u128(step_state.aux1)),
+        )?;
+
+        // assign stack_pop
+        {
+            let stack_pop = memory_op.0.as_ref();
+            self.state.stack_pop_index.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(stack_pop.map(|v| v.index).unwrap_or(0))),
+            )?;
+
+            self.state.stack_pop_sub_index.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    stack_pop
+                        .map(|v| v.sub_index.to_field())
+                        .unwrap_or(F::zero()),
+                ),
+            )?;
+            self.state.stack_pop_value_header.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    stack_pop
+                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.stack_pop_version.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(stack_pop.map(|v| v.version).unwrap_or(0))),
+            )?;
+            self.state.stack_pop_value.assign(
+                region,
+                offset,
+                stack_pop
+                    .map(|v| v.value.to_fields())
+                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+            )?;
+        }
+
+        // assign stack_push
+        {
+            let stack_push = memory_op.1.as_ref();
+            self.state.stack_push_index.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(stack_push.map(|v| v.index).unwrap_or(0))),
+            )?;
+
+            self.state.stack_push_sub_index.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    stack_push
+                        .map(|v| v.sub_index.to_field())
+                        .unwrap_or(F::zero()),
+                ),
+            )?;
+            self.state.stack_push_value_header.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    stack_push
+                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.stack_push_version.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(stack_push.map(|v| v.version).unwrap_or(0))),
+            )?;
+            self.state.stack_push_value.assign(
+                region,
+                offset,
+                stack_push
+                    .map(|v| v.value.to_fields())
+                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+            )?;
+        }
+        // assign local read&write
+        {
+            let local_read_write = memory_op.2.as_ref();
+            self.state.local_frame_index.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(
+                    local_read_write.map(|v| v.frame_index as u64).unwrap_or(0),
+                )),
+            )?;
+
+            self.state.local_index.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(
+                    local_read_write.map(|v| v.index as u64).unwrap_or(0),
+                )),
+            )?;
+            self.state.local_sub_index.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    local_read_write
+                        .map(|v| v.sub_index.to_field())
+                        .unwrap_or(F::zero()),
+                ),
+            )?;
+
+            self.state.local_read_value.assign(
+                region,
+                offset,
+                local_read_write
+                    .map(|v| v.read_value.to_fields())
+                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+            )?;
+
+            self.state.local_read_value_header.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    local_read_write
+                        .map(|v| if v.read_value_header { F::ONE } else { F::ZERO })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.local_read_value_invalid.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    local_read_write
+                        .map(|v| {
+                            if v.read_value_invalid {
+                                F::ONE
+                            } else {
+                                F::ZERO
+                            }
+                        })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.local_read_version.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(
+                    local_read_write.map(|v| v.read_version).unwrap_or(0),
+                )),
+            )?;
+
+            self.state.local_write_value.assign(
+                region,
+                offset,
+                local_read_write
+                    .map(|v| v.write_value.to_fields())
+                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+            )?;
+            self.state.local_write_value_header.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    local_read_write
+                        .map(|v| {
+                            if v.write_value_header {
+                                F::ONE
+                            } else {
+                                F::ZERO
+                            }
+                        })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.local_write_value_invalid.assign(
+                region,
+                offset,
+                Halo2Value::known(
+                    local_read_write
+                        .map(|v| {
+                            if v.write_value_invalid {
+                                F::ONE
+                            } else {
+                                F::ZERO
+                            }
+                        })
+                        .unwrap_or(F::ZERO),
+                ),
+            )?;
+            self.state.local_write_version.assign(
+                region,
+                offset,
+                Halo2Value::known(F::from(
+                    local_read_write.map(|v| v.write_version).unwrap_or(0),
+                )),
+            )?;
+        }
         Ok(())
     }
 }

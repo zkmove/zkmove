@@ -6,7 +6,6 @@ use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::util::Expr;
 use std::marker::PhantomData;
 use types::Field;

@@ -8,12 +8,12 @@ use crate::chips::execution_chip_v2::executions::SubIndexDepth;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
+use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use crate::witness::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::step_state::SubIndex;

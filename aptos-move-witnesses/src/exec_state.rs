@@ -1,7 +1,7 @@
 use strum_macros::EnumIter;
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
 pub enum ExecutionState {
-    Start,
+    Start = 1,
     AddSub,
     BrTrue,
     BrFalse,

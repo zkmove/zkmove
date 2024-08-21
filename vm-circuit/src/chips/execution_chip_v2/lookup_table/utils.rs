@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
-use crate::chips::execution_chip_v2::utils::to_field::ToField;
+use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::chips::execution_chip_v2::Opcode;
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
@@ -45,10 +45,6 @@ pub(crate) fn assign_fixed_table<F: Field>(
     Ok(())
 }
 
-pub(crate) trait ToFields<F: Field> {
-    fn to_fields(&self) -> Vec<F>;
-}
-
 impl<F: Field> ToFields<F> for FunctionInfo {
     fn to_fields(&self) -> Vec<F> {
         vec![
@@ -69,7 +65,7 @@ impl<F: Field> ToFields<F> for ConstantTableRow {
             F::from_u128(self.value_item.sub_index.into_u128()),
         ]
         .into_iter()
-        .chain(self.value_item.value.to_field())
+        .chain(self.value_item.value.to_fields())
         .chain(vec![F::from(self.value_item.header as u64)])
         .collect()
     }

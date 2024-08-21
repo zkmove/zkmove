@@ -7,11 +7,11 @@ use crate::chips::execution_chip_v2::executions::{
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
+use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use crate::witness::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
@@ -130,20 +130,29 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_field();
+            .to_fields()
+            .first()
+            .cloned()
+            .unwrap(); // TODO: figure a better way to handle Value
         let index1 = stage_state.step_states[1].memory_ops[0]
             .0
             .as_ref()
             .unwrap()
             .value
-            .to_field();
-        // TODO: get reference's sub_index
+            .to_fields()
+            .first()
+            .cloned()
+            .unwrap(); // TODO: figure a better way to handle Value
+                       // TODO: get reference's sub_index
         let ref_sub_index = stage_state.step_states[2].memory_ops[0]
             .0
             .as_ref()
             .unwrap()
             .value
-            .to_field();
+            .to_fields()
+            .first()
+            .cloned()
+            .unwrap(); // FIXME: sub_index can be two-elements
         for i in 0..stage_state.rows() {
             self.index1
                 .assign(region, offset + i, Value::known(index1))?;

@@ -3,8 +3,13 @@
 We make some changes to the standard move cli in aptos to support witness generation of move code.
 So you can just use the following commands to get the witnesses in json.
 
-Compile `move` command from https://github.com/zkmove/aptos-core/tree/witnessing
-Examples:
+Install `move` command from https://github.com/zkmove/aptos-core/tree/witnessing
+
+```shell
+cargo install --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+```
+
+Then run the example:
 
 ```
 cd examples/witness-generation

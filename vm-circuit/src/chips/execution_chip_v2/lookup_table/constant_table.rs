@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
-use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
+use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::constant::flatten::Flatten;
 use aptos_move_witnesses::static_info::StaticInfo;

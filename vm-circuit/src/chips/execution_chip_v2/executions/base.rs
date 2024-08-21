@@ -4,7 +4,6 @@ use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget
 use crate::chips::execution_chip_v2::step_v2::{
     AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, STEP_COUNTER,
 };
-use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::util::Expr;
 use types::Field;
 

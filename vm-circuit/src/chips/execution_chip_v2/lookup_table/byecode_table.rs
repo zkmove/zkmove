@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
-use crate::chips::execution_chip_v2::lookup_table::utils::ToFields;
+use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;

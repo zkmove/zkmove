@@ -7,11 +7,11 @@ use crate::chips::execution_chip_v2::executions::{
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
+use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use crate::witness::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::utils::{SubIndexUtils, ValueHeader};
