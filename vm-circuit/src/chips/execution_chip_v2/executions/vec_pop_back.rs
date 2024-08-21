@@ -4,6 +4,7 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuild
 use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -27,6 +28,7 @@ pub struct VecPopBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
     vector_origin_len: Cell<F>,
+    is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> VecPopBackStage1<F> {
     const NEXT_STATE: ExecutionState = ExecutionState::VecPopBackStage2;
@@ -42,10 +44,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
         let next_local_sub_index = step_next.local_sub_index.clone();
-        let extended_local_sub_index_of_next_row = ExtendedSubIndex::construct(
+        let extended_local_sub_index_of_next_row =
+            ExtendedSubIndex::construct(cb, next_local_sub_index.expr());
+        let is_zero_gadget = IsZeroGadget::construct(
             cb,
-            "extended_local_sub_index_of_next_row",
-            next_local_sub_index.expr(),
+            step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
 
         // make sure len and flen are < u16
@@ -124,6 +127,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 step_curr.local_sub_index.expr(),
                 extended_local_sub_index_of_next_row.get_parent_sub_index(),
             );
+            cb.require_zero(
+                "local_sub_index(0) != local_sub_index(1)",
+                is_zero_gadget.expr(),
+            )
         });
         cb.last_row(|cb| {
             cb.require_equal(
@@ -196,6 +203,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             vector_sub_index,
             extended_local_sub_index_of_next_row,
             vector_origin_len,
+            is_zero_gadget,
         }
     }
 
@@ -224,7 +232,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             // last row
             if i == stage_state.rows() - 1 {
                 self.extended_local_sub_index_of_next_row
-                    .assign(region, offset + i, F::ZERO, 0)?;
+                    .assign(region, offset + i, F::ZERO)?;
 
                 self.vector_origin_len.assign(
                     region,
@@ -238,12 +246,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     .unwrap()
                     .sub_index
                     .clone();
-                // FIXME: get depth within assign function
                 self.extended_local_sub_index_of_next_row.assign(
                     region,
                     offset + i,
                     next_local_sub_index.to_field(),
-                    next_local_sub_index.depth(),
                 )?;
                 self.vector_origin_len
                     .assign(region, offset + i, Value::known(F::from(0)))?;
@@ -272,8 +278,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
-        let extended_vector_sub_index =
-            ExtendedSubIndex::construct(cb, "extended_vector_sub_index", vector_sub_index.expr());
+        let extended_vector_sub_index = ExtendedSubIndex::construct(cb, vector_sub_index.expr());
         let vector_origin_len = cb.query_u16();
 
         cb.require_no_stack_pop();
@@ -309,7 +314,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
             "local_sub_index(0)
             == extend_vector_sub_index.concat(vector_origin_len(0) + stack_push_sub_index(0) << 16)",
             step_curr.local_sub_index.expr(),
-            extended_vector_sub_index.concat_sub_index(vector_origin_len.expr() + step_curr.stack_push_sub_index.expr()*DEPTH_POW_OF_ONE_LEVEL.expr())
+            extended_vector_sub_index.concat(vector_origin_len.expr() + step_curr.stack_push_sub_index.expr()*DEPTH_POW_OF_ONE_LEVEL.expr())
         );
         cb.first_row(|cb| {
             cb.condition(step_curr.local_read_value_header.expr(), |cb| {
@@ -426,7 +431,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
             self.vector_sub_index
                 .assign(region, offset + i, Value::known(vector_sub_index))?;
             self.extended_vector_sub_index
-                .assign(region, offset + i, vector_sub_index, 0)?;
+                .assign(region, offset + i, vector_sub_index)?;
         }
         Ok(stage_state.rows())
     }

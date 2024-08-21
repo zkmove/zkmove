@@ -3,8 +3,9 @@ use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuild
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
-use crate::chips::execution_chip_v2::executions::MembershipGadget;
+use crate::chips::execution_chip_v2::executions::Membership;
 use crate::chips::execution_chip_v2::executions::SubIndexDepth;
+use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
@@ -27,7 +28,7 @@ use types::Field;
 pub struct WriteRefStage1<F> {
     header_sub_index: Cell<F>,
     header_flen_delta: Cell<F>,
-    membership_gadget: MembershipGadget<F, 8>,
+    membership_gadget: Membership<F, 8>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     const NAME: &'static str = "WriteRef_Stage1";
@@ -37,7 +38,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header_sub_index = cb.query_cell();
         let header_flen_delta = cb.query_cell();
-        let membership_gadget = MembershipGadget::<_, 8>::construct(cb);
+        let membership_gadget = Membership::construct(cb);
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -109,7 +110,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 cb,
                 header_sub_index.expr(),
                 step_curr.local_sub_index.expr(),
-                Self::NAME,
             );
             cb.require_no_stack_pop();
         });
@@ -203,8 +203,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header_sub_index = cb.query_cell();
         let header_flen_delta = cb.query_cell();
-        let header_sub_index_ext =
-            ExtendedSubIndex::<_, 8>::construct(cb, Self::NAME, header_sub_index.expr());
+        let header_sub_index_ext = ExtendedSubIndex::construct(cb, header_sub_index.expr());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -254,7 +253,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                 Self::NAME
             ),
             step_curr.local_sub_index.expr(),
-            header_sub_index_ext.concat_sub_index(step_curr.stack_pop_sub_index.expr()),
+            header_sub_index_ext.concat(step_curr.stack_pop_sub_index.expr()),
         );
 
         cb.require_read_invalid_value();
@@ -333,12 +332,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
                     offset + i,
                     Value::known(header_flen_delta - header_flen_delta_prev_stage),
                 )?;
-                self.header_sub_index_ext.assign(
-                    region,
-                    offset + i,
-                    header_sub_index,
-                    SubIndex::from(header_sub_index.get_lower_128()).depth(), // FIXME
-                )
+                self.header_sub_index_ext
+                    .assign(region, offset + i, header_sub_index)
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)
@@ -352,6 +347,7 @@ pub struct WriteRefStage3<F> {
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_sub_index_depth: SubIndexDepth<F, 8>,
     header_sub_index_ext: ExtendedSubIndex<F, 8>,
+    is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
     const NAME: &'static str = "WriteRef_Stage3";
@@ -363,23 +359,15 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
         let header_flen_delta = cb.query_cell(); //NOTICE: must be in the same column as stage 2.
         let header_sub_index_prev = cb.cell_at_offset(&header_sub_index, -1).expr();
         let header_sub_index_depth =
-            SubIndexDepth::<_, 8>::construct(cb, header_sub_index_prev.clone(), Self::NAME);
-        let header_sub_index_ext =
-            ExtendedSubIndex::construct(cb, Self::NAME, header_sub_index_prev.clone());
+            SubIndexDepth::construct(cb, header_sub_index_prev.clone(), Self::NAME);
+        let header_sub_index_ext = ExtendedSubIndex::construct(cb, header_sub_index_prev.clone());
+        let is_zero_gadget =
+            IsZeroGadget::construct(cb, header_sub_index_prev - header_sub_index.expr());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage2);
 
-            // bug: redundant constraint, clean me
-            // cb.require_equal(
-            //     format!(
-            //         "{}, header_sub_index(0) == header_sub_index(-1)",
-            //         Self::NAME
-            //     ),
-            //     header_sub_index.expr(),
-            //     header_sub_index_prev,
-            // );
             cb.require_equal(
                 format!(
                     "{}, step_counter(0) == header_sub_index(-1).depth()",
@@ -421,6 +409,10 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             ),
             header_sub_index.expr(),
             header_sub_index_ext.get_parent_sub_index(),
+        );
+        cb.require_zero(
+            "header_sub_index(0) != header_sub_index(-1)",
+            is_zero_gadget.expr(),
         );
         cb.require_equal(
             format!("{}, local_sub_index(0) == header_sub_index(0)", Self::NAME),
@@ -465,6 +457,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             header_flen_delta,
             header_sub_index_depth,
             header_sub_index_ext,
+            is_zero_gadget,
         }
     }
 
@@ -518,12 +511,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 };
                 self.header_sub_index_depth
                     .assign(region, offset + i, header_sub_index_prev)?;
-                self.header_sub_index_ext.assign(
-                    region,
-                    offset + i,
-                    header_sub_index_prev,
-                    0, // FIXME
-                )
+                self.header_sub_index_ext
+                    .assign(region, offset + i, header_sub_index_prev)
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)

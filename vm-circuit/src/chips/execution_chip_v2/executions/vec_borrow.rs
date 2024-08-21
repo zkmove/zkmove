@@ -27,11 +27,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
-        let vec_ref_sub_index = ExtendedSubIndex::<_, 8>::construct(
-            cb,
-            Self::NAME,
-            step_curr.stack_pop_value.as_reference().sub_index(),
-        );
+        let vec_ref_sub_index =
+            ExtendedSubIndex::construct(cb, step_curr.stack_pop_value.as_reference().sub_index());
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -93,7 +90,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
                     Self::NAME
                 ),
                 step_curr.stack_push_value.as_reference().sub_index(),
-                vec_ref_sub_index.concat_sub_index(popped_index),
+                vec_ref_sub_index.concat(popped_index),
             );
             cb.require_equal(
                 format!("{}, stack_push_value_header(0) == stack_pop_value_header(0)", Self::NAME),
@@ -130,7 +127,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
                     region,
                     offset + i,
                     vec_ref_sub_index.to_field(), // FIXME
-                    vec_ref_sub_index.depth(),
                 )
             })
             .try_fold((), |_, res| res)?;

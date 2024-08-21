@@ -150,6 +150,13 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         self.require_boolean("Constrain cell to be a bool", cell.expr());
         cell
     }
+    pub(crate) fn query_bools<const N: usize>(&mut self) -> [Cell<F>; N] {
+        (0..N)
+            .map(|_| self.query_bool())
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("Failed to query cells")
+    }
     pub(crate) fn query_byte(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::Lookup(Table::U8))
     }
@@ -164,7 +171,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     pub(crate) fn query_u8_dyn(&mut self, count: usize) -> Vec<Cell<F>> {
-        self.query_cells(CellType::Lookup(Table::U8), count)
+        self.query_cells_inner(CellType::Lookup(Table::U8), count)
     }
     pub(crate) fn query_cell(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::StoragePhase1)
@@ -179,10 +186,19 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     pub(crate) fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
-        self.query_cells(cell_type, 1).first().unwrap().clone()
+        self.query_cells_inner(cell_type, 1)
+            .first()
+            .unwrap()
+            .clone()
     }
 
-    fn query_cells(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
+    pub(crate) fn query_cells<const N: usize>(&mut self) -> [Cell<F>; N] {
+        self.query_cells_inner(CellType::StoragePhase1, N)
+            .try_into()
+            .unwrap()
+    }
+
+    fn query_cells_inner(&mut self, cell_type: CellType, count: usize) -> Vec<Cell<F>> {
         assert!(!self.in_next_step, "can only query cells in current step");
         self.curr
             .cell_manager

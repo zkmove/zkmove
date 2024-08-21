@@ -2,7 +2,7 @@ use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{
-    ExecutionState, MembershipGadget, DEPTH_POW_OF_ONE_LEVEL,
+    ExecutionState, Membership, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
@@ -142,7 +142,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
 pub struct UnpackStage2<F, const VEC_UNPACK: bool> {
     field_index: Cell<F>,
     is_last_field: IsZeroGadget<F>,
-    membership_gadget: MembershipGadget<F, 8>,
+    membership_gadget: Membership<F, 8>,
 }
 impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F, VEC_UNPACK> {
     const NAME: &'static str = if VEC_UNPACK {
@@ -164,7 +164,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let field_index = cb.query_cell();
         let is_last_field = IsZeroGadget::construct(cb, field_index.expr() - 1u64.expr());
-        let membership_gadget = MembershipGadget::<_, 8>::construct(cb);
+        let membership_gadget = Membership::construct(cb);
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -202,7 +202,6 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
                 cb,
                 field_index.expr(),
                 step_curr.stack_pop_sub_index.expr(),
-                Self::NAME,
             );
         });
 
