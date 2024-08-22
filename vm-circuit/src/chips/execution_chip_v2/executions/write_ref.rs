@@ -505,7 +505,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                         .as_ref()
                         .unwrap()
                         .sub_index
-                        .to_field() // FIXME
+                        .to_field()
                 };
                 let header_sub_index: F = local_sub_index.to_field();
                 self.is_zero_gadget.assign(

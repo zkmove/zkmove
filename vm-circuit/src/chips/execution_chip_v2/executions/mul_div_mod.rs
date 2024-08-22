@@ -550,8 +550,8 @@ impl<F: Field> MulDivModGadget<F> {
             NUM_OF_BYTES_U16 => out_lo > u16::MAX as u128,
             NUM_OF_BYTES_U32 => out_lo > u32::MAX as u128,
             NUM_OF_BYTES_U64 => out_lo > u64::MAX as u128,
-            NUM_OF_BYTES_U128 => out_lo > u128::MAX, //FIXME
-            NUM_OF_BYTES_U256 => out_lo > u128::MAX, //FIXME
+            NUM_OF_BYTES_U128 => false,
+            NUM_OF_BYTES_U256 => false,
             _ => unreachable!(),
         };
         let overflow_out_lo = !divide_by_zero && out_lo_not_in_range;

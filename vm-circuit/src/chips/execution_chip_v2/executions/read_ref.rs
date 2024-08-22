@@ -201,11 +201,8 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
                     offset + i,
                     Value::known(header_sub_index.to_field()),
                 )?;
-                self.header_sub_index_ext.assign(
-                    region,
-                    offset + i,
-                    header_sub_index.to_field(), // FIXME
-                )
+                self.header_sub_index_ext
+                    .assign(region, offset + i, header_sub_index.to_field())
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)

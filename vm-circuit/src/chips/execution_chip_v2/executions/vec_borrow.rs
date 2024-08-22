@@ -123,11 +123,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
         let rows = step_state.memory_ops.len();
         (0..rows)
             .map(|i| {
-                self.vec_ref_sub_index.assign(
-                    region,
-                    offset + i,
-                    vec_ref_sub_index.to_field(), // FIXME
-                )
+                self.vec_ref_sub_index
+                    .assign(region, offset + i, vec_ref_sub_index.to_field())
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)
