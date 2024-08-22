@@ -263,9 +263,3 @@ impl WitnessV2 {
         }
     }
 }
-
-pub mod to_field {
-    
-    
-    
-}
