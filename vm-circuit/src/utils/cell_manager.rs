@@ -106,7 +106,7 @@ impl<F> Cell<F> {
         self.column.index()
     }
     pub(crate) fn get_column(&self) -> Column<Advice> {
-        self.column.clone()
+        self.column
     }
 
     pub(crate) fn get_rotation(&self) -> isize {

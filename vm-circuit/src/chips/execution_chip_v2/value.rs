@@ -1,9 +1,11 @@
 use crate::chips::utilities::Expr;
+use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
-use halo2_proofs::plonk::{ConstraintSystem, Expression};
+use halo2_proofs::circuit::{AssignedCell, Value as Halo2Value};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use types::Field;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
@@ -26,6 +28,22 @@ pub const INTEGER_NUM_OF_BYTES_SET: [usize; 6] = [
 pub(crate) struct Value<F, const N: usize> {
     cells: [Cell<F>; N],
     challenge: Expression<F>,
+}
+
+impl<F: Field, const N: usize> Value<F, N> {
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: Vec<F>,
+    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+        assert_eq!(value.len(), N);
+        let mut assigned = vec![];
+        for (cell, v) in self.cells.iter().zip(value) {
+            assigned.push(cell.assign(region, offset, Halo2Value::known(v))?);
+        }
+        Ok(assigned)
+    }
 }
 
 impl<F: Field, const N: usize> Value<F, N> {

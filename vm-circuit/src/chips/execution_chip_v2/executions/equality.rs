@@ -9,12 +9,12 @@ use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::from_limbs;
+use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::rlc;
-use crate::witness::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
@@ -311,7 +311,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                         } else {
                             F::zero()
                         },
-                        stack_pop.value.to_field(),
+                        rlc::generic(stack_pop.value.to_fields(), randomness), // TODO: remove the nest?
                     ],
                     randomness,
                 )

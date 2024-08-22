@@ -19,7 +19,6 @@ use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
-use crate::utils::cell_placement_strategy::CMFixedWidthStrategyDistribution;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
 use crate::utils::SubCircuitConfig;
@@ -29,7 +28,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Region, Value};
 use halo2_proofs::plonk::{
-    Advice, Column, ConstraintSystem, Error, Expression, Selector, VirtualCells,
+    ConstraintSystem, Error, Expression, Selector, VirtualCells,
 };
 use std::iter;
 use types::Field;
@@ -560,13 +559,19 @@ impl<F: Field> ExecChipConfig<F> {
             1,
             offset_begin,
         );
-
+        let mut step_counter = stage_state.rows();
         let mut i = 0;
         for exec_step_state in &stage_state.step_states {
             for memory_op in exec_step_state.memory_ops.iter() {
-                self.step
-                    .assign_exec_step(region, i, &exec_step_state.step_state, memory_op)?;
+                self.step.assign_exec_step(
+                    region,
+                    offset_begin + i,
+                    step_counter,
+                    &exec_step_state.step_state,
+                    memory_op,
+                )?;
                 i += 1;
+                step_counter -= 1;
             }
         }
 
