@@ -137,10 +137,11 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
 
         // assign mask and reverse_header_limbs
         let header_limbs = SubIndex::from(header_sub_index).to_vec();
-        for i in 0..N_LIMB {
-            let mask = header_limbs[i] != 0;
+        for (i, &limb) in header_limbs.iter().enumerate().take(N_LIMB) {
+            let mask = limb != 0;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
-            let reverse_limb = F::from(header_limbs[i] as u64).invert().unwrap_or(F::ZERO);
+
+            let reverse_limb = F::from(limb as u64).invert().unwrap_or(F::ZERO);
             self.reverse_header_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
         }
 
@@ -266,99 +267,6 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct SubIndexDepth<F, const N_LIMB: usize> {
-    sub_index: Expression<F>,
-    bytes: [Cell<F>; NUM_OF_BYTES_U256],
-    limbs: [Expression<F>; N_LIMB],
-    mask: [Cell<F>; N_LIMB],
-    reverse_limbs: [Cell<F>; N_LIMB],
-}
-impl<F: Field, const N_LIMB: usize> SubIndexDepth<F, N_LIMB> {
-    pub(crate) fn construct(
-        cb: &mut ConstraintBuilderV2<F>,
-        sub_index: Expression<F>,
-        name: &'static str,
-    ) -> Self {
-        let bytes = cb.query_bytes();
-        let limbs: [Expression<F>; N_LIMB] = (0..N_LIMB)
-            .map(|i| bytes[i * 2 + 1].expr() * 2u64.pow(8).expr() + bytes[i * 2].expr())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        let mask: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_bool())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        let reverse_limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_cell())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        cb.require_equal(
-            format!("{}, sub_index == from_limbs(limbs)", name),
-            sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS>(&limbs),
-        );
-        for i in 0..N_LIMB {
-            cb.require_zero(
-                format!("{}, mask[i] * (limbs[i] * reverse_limbs[i] - 1) == 0", name),
-                mask[i].expr() * (limbs[i].expr() * reverse_limbs[i].expr() - 1u64.expr()),
-            );
-            cb.require_zero(
-                format!("{}, (1 - mask[i]) * limbs[i] == 0", name),
-                (1u64.expr() - mask[i].expr()) * limbs[i].expr(),
-            );
-        }
-
-        Self {
-            sub_index,
-            bytes,
-            limbs,
-            mask,
-            reverse_limbs,
-        }
-    }
-
-    pub(crate) fn expr(&self) -> Expression<F> {
-        self.mask.iter().map(|c| c.expr()).sum()
-    }
-
-    pub(crate) fn assign(
-        &self,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
-        sub_index: F,
-    ) -> Result<(), Error> {
-        // assign bytes
-        let sub_index_bytes = sub_index.to_repr();
-        for (idx, byte) in self.bytes.iter().enumerate() {
-            byte.assign(
-                region,
-                offset,
-                Value::known(F::from(sub_index_bytes[idx] as u64)),
-            )?;
-        }
-        let limbs = (0..N_LIMB)
-            .map(|i| {
-                (sub_index_bytes[i * 2 + 1] as u64) * 2u64.pow(8) + sub_index_bytes[i * 2] as u64
-            })
-            .collect::<Vec<_>>();
-
-        // assign mask and reverse_limbs
-        for i in 0..N_LIMB {
-            let mask = limbs[i] != 0;
-            self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
-            let reverse_limb = F::from(limbs[i]).invert().unwrap_or(F::ZERO);
-            self.reverse_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
-        }
-        Ok(())
-    }
-}
-
-//TODO: add LIMB_BITS to configure num bits of each limb (8 or 16)
 /// Used to get the reverse of a sub_index. For example,
 ///
 /// let a = [3,2,0,0];
@@ -403,10 +311,9 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         offset: usize,
         sub_index: &SubIndex,
     ) -> Result<(), Error> {
-        //debug_assert!(sub_index.len() <= N_LIMB); //TODO: double check
-        let mut sub_index_padded = sub_index.to_vec();
-        sub_index_padded.resize(N_LIMB, 0);
-        for (i, v) in sub_index_padded.into_iter().enumerate() {
+        let vec = sub_index.to_vec();
+        debug_assert!(vec.len() == N_LIMB);
+        for (i, v) in vec.into_iter().enumerate() {
             self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
         }
         Ok(())

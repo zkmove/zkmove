@@ -9,7 +9,7 @@ use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::from_limbs;
-use crate::chips::execution_chip_v2::utils::to_field::ToFields;
+use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -53,11 +53,8 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         let rlc2 = cb.query_cell();
         let stack_pop_sub_index_reverse = cb.query_cell();
         let stack_pop_sub_index_reverse_prev = cb.cell_at_offset(&stack_pop_sub_index_reverse, -1);
-        let sub_index_reverse = SubIndexReverse::<_, 8>::construct(
-            cb,
-            step_curr.stack_pop_sub_index.expr(),
-            Self::NAME,
-        );
+        let sub_index_reverse =
+            SubIndexReverse::construct(cb, step_curr.stack_pop_sub_index.expr(), Self::NAME);
         let sub_index_lt = LtGadget::construct(
             cb,
             stack_pop_sub_index_reverse_prev.expr(),
@@ -280,14 +277,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             let sub_index = op.0.as_ref().unwrap().sub_index.clone();
             self.sub_index_reverse
                 .assign(region, current_offset, &sub_index)?;
-            let sub_index_value = from_limbs::value::<F, 16>(
-                sub_index
-                    .to_trimmed_vec()
-                    .iter()
-                    .map(|v| *v as u64)
-                    .collect_vec()
-                    .as_slice(),
-            );
+            let sub_index_value: F = sub_index.to_field();
             let v_reverse = if sub_index_value.is_zero().into() {
                 F::zero()
             } else {

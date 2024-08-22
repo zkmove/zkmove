@@ -157,8 +157,9 @@ pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Valu
 
 pub(crate) mod to_field {
     use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
-    use aptos_move_witnesses::step_state::SubIndex;
+    use crate::chips::execution_chip_v2::utils::from_limbs;
     use aptos_move_witnesses::SimpleValue;
+    use move_vm_runtime::witnessing::traced_value::SubIndex;
     use types::Field;
 
     pub(crate) trait ToFields<F: Field> {
@@ -197,7 +198,7 @@ pub(crate) mod to_field {
 
     impl<F: Field> ToField<F> for SubIndex {
         fn to_field(&self) -> F {
-            todo!()
+            from_limbs::value::<F, 16>(&self.to_vec().iter().map(|v| *v as u64).collect::<Vec<_>>())
         }
     }
 }

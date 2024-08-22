@@ -27,9 +27,7 @@ use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Region, Value};
-use halo2_proofs::plonk::{
-    ConstraintSystem, Error, Expression, Selector, VirtualCells,
-};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
 

@@ -1823,6 +1823,7 @@ impl WitnessPreProcessor {
                     ),
                 }]
             }
+            _ => todo!(),
         }
     }
 }

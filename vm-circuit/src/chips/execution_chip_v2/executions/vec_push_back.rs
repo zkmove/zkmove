@@ -21,6 +21,7 @@ use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
+use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
 /// pop vector_ref from stack and update parent from up to bottom
@@ -240,6 +241,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                     offset + i,
                     Value::known(F::from(vector_origin_len as u64)),
                 )?;
+                self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
             } else {
                 let next_local_sub_index = step_state.memory_ops[i + 1]
                     .2
@@ -255,6 +257,18 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                 )?;
                 self.vector_origin_len
                     .assign(region, offset + i, Value::known(F::from(0)))?;
+                let local_sub_index = step_state.memory_ops[i]
+                    .2
+                    .as_ref()
+                    .unwrap()
+                    .sub_index
+                    .clone();
+                self.is_zero_gadget.assign(
+                    region,
+                    offset + i,
+                    <SubIndex as ToField<F>>::to_field(&local_sub_index)
+                        - <SubIndex as ToField<F>>::to_field(&next_local_sub_index),
+                )?;
             }
         }
         Ok(stage_state.rows())
