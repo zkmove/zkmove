@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::utils::ModuleIdMapping;
+use crate::static_info::ModuleIdMapping;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::CompiledModule;
 use move_core_types::value::MoveValue;
@@ -37,74 +37,4 @@ pub(crate) fn parse_constant(
                 })
         })
         .collect()
-}
-
-pub mod flatten {
-    use crate::step_state::SubIndex;
-    use crate::sub_index;
-    use crate::utils::ValueHeader;
-    use crate::{SimpleValue, ValueItem};
-    use move_core_types::value::MoveValue;
-
-    pub trait Flatten {
-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem>;
-        fn flen(&self) -> usize;
-    }
-
-    impl Flatten for MoveValue {
-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem> {
-            let flen = self.flen();
-            match self {
-                MoveValue::U8(u) => vec![value_item(sub_index, SimpleValue::U8(u))],
-                MoveValue::U16(u) => vec![value_item(sub_index, SimpleValue::U16(u))],
-                MoveValue::U32(u) => vec![value_item(sub_index, SimpleValue::U32(u))],
-                MoveValue::U64(u) => vec![value_item(sub_index, SimpleValue::U64(u))],
-                MoveValue::U128(u) => vec![value_item(sub_index, SimpleValue::U128(u))],
-                MoveValue::U256(u) => vec![value_item(sub_index, SimpleValue::U256(u))],
-                MoveValue::Bool(b) => vec![value_item(sub_index, SimpleValue::Bool(b))],
-                MoveValue::Vector(values) => {
-                    let len = values.len();
-                    let mut items = Vec::new();
-                    items.push(header_item(sub_index.clone(), flen, len));
-
-                    for (i, value) in values.into_iter().enumerate() {
-                        let value_sub_index = sub_index::concat(sub_index.clone(), vec![i + 1]);
-                        let mut flattened_value = value.flatten(value_sub_index);
-                        items.append(&mut flattened_value);
-                    }
-                    items
-                }
-                _ => unimplemented!(),
-            }
-        }
-
-        fn flen(&self) -> usize {
-            match self {
-                MoveValue::U8(_)
-                | MoveValue::U16(_)
-                | MoveValue::U32(_)
-                | MoveValue::U64(_)
-                | MoveValue::U128(_)
-                | MoveValue::U256(_)
-                | MoveValue::Bool(_) => 1,
-                MoveValue::Vector(values) => values.iter().fold(0, |sum, v| sum + v.flen()) + 1,
-                _ => unimplemented!(),
-            }
-        }
-    }
-
-    fn value_item(sub_index: SubIndex, simple: SimpleValue) -> ValueItem {
-        ValueItem {
-            sub_index,
-            header: false,
-            value: simple,
-        }
-    }
-    fn header_item(sub_index: SubIndex, flen: usize, len: usize) -> ValueItem {
-        ValueItem {
-            sub_index,
-            header: true,
-            value: ValueHeader::new(flen as u16, len as u16).into(),
-        }
-    }
 }

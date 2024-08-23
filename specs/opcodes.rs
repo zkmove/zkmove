@@ -996,7 +996,7 @@ mod write_ref {
         }
 
         if !super::common::on_first_row() {
-            MembershipGadget::configure(header_sub_index(0), local_sub_index(0));
+            Membership::configure(header_sub_index(0), local_sub_index(0));
             super::common::fake_empty_stack_pop(0);
         }
 
@@ -1059,23 +1059,30 @@ mod write_ref {
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
-            pc(1) == pc(0);
             sp(1) == sp(0) - 1;
-            execution_state_next == WriteRefStage3;
+
+            if header_sub_index(0) != 0 {
+                pc(1) == pc(0);
+                execution_state_next == WriteRefStage3;
+            } else {// don't need update parent
+                pc(1) == pc(0) + 1;
+            }
         }
     }
 
-    //STAGE_UPDATE_PARENT
+    //STAGE_UPDATE_PARENT from bottom up
     pub fn constrain_write_ref_stage_3() {
         if super::common::on_first_row() {
             execution_state_prev == WriteRefStage2;
-            step_counter(0) == header_sub_index(-1).depth();
+            // remove this, it's not necessary. we will stop when header_sub_index = 0
+            // step_counter(0) == header_sub_index(-1).depth();
             header_flen_delta(0) == header_flen_delta(-1);
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
         }
 
         header_sub_index(0) == header_sub_index(-1).parent;
+        header_sub_index(0) != header_sub_index(-1);
         local_read_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0);
         local_write_value(0).as_header().flen
@@ -1092,6 +1099,7 @@ mod write_ref {
             local_index(1) == local_index(0);
         }
         if super::common::on_last_row() {
+            header_sub_index(0) = 0; // stop at the top parent
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
@@ -1279,7 +1287,7 @@ mod unpack {
 
         if !super::common::on_first_row() {
             // we can only pop the member of [field_index,0,0,0]
-            MembershipGadget::configure(field_index(0), stack_pop_sub_index(0));
+            Membership::configure(field_index(0), stack_pop_sub_index(0));
         }
 
         stack_pop_index(0) == sp(0);

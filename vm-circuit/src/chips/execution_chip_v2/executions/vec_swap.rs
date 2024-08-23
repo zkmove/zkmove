@@ -202,11 +202,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         let index1 = cb.query_cell();
         let index2 = cb.query_cell();
         let ref_local_sub_index = cb.query_cell();
-        let extended_sub_index = ExtendedSubIndex::<_, 8>::construct(
-            cb,
-            "ref_local_sub_index",
-            ref_local_sub_index.expr(),
-        );
+        let extended_sub_index = ExtendedSubIndex::construct(cb, ref_local_sub_index.expr());
 
         let step_curr = cb.curr.state.clone();
         cb.first_row(|cb| {
@@ -271,7 +267,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         cb.require_equal(
             format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_push_sub_index(0)))", if TWO { "index1" } else { "index2"}),
             step_curr.local_sub_index.expr(),
-            extended_sub_index.concat_sub_index(
+            extended_sub_index.concat(
                 if TWO { index1.expr() } else { index2.expr() }
                     + step_curr.stack_push_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
             )
@@ -362,9 +358,8 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
                 offset + i,
                 Value::known(ref_local_sub_index),
             )?;
-            // FIXME: depth can be eliminated
             self.ref_local_sub_index_extended
-                .assign(region, offset + i, ref_local_sub_index, 0)?;
+                .assign(region, offset + i, ref_local_sub_index)?;
         }
 
         Ok(stage_state.rows())
@@ -404,11 +399,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         let index1 = cb.query_cell();
         let index2 = cb.query_cell();
         let ref_local_sub_index = cb.query_cell();
-        let extended_sub_index = ExtendedSubIndex::<_, 8>::construct(
-            cb,
-            "ref_local_sub_index",
-            ref_local_sub_index.expr(),
-        );
+        let extended_sub_index = ExtendedSubIndex::construct(cb, ref_local_sub_index.expr());
 
         let step_curr = cb.curr.state.clone();
         cb.first_row(|cb| {
@@ -457,7 +448,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         cb.require_equal(
             format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_pop_sub_index(0)))", if FOUR { "index1" } else { "index2"}),
             step_curr.local_sub_index.expr(),
-            extended_sub_index.concat_sub_index(
+            extended_sub_index.concat(
                 if FOUR { index1.expr() } else { index2.expr() }
                     + step_curr.stack_pop_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
             )
@@ -559,9 +550,8 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
                 offset + i,
                 Value::known(ref_local_sub_index),
             )?;
-            // FIXME: depth can be eliminated
             self.ref_local_sub_index_extended
-                .assign(region, offset + i, ref_local_sub_index, 0)?;
+                .assign(region, offset + i, ref_local_sub_index)?;
         }
 
         Ok(stage_state.rows())

@@ -4,9 +4,10 @@ use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
 use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
-use aptos_move_witnesses::static_info::constant::flatten::Flatten;
 use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::ValueItem;
+use aptos_move_witnesses::types::sub_index::SubIndex;
+use aptos_move_witnesses::types::word::Word;
+use aptos_move_witnesses::utils::flatten::Flatten;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
@@ -49,12 +50,14 @@ impl ConstantLookupTable {
                 let rows: Vec<_> = c
                     .value
                     .clone()
-                    .flatten(vec![0])
+                    .flatten()
                     .iter()
                     .map(|item| ConstantTableRow {
                         module_index: c.module_index,
                         constant_index: c.constant_index,
-                        value_item: item.clone(),
+                        sub_index: SubIndex::new(item.sub_index.clone()),
+                        value: item.value.clone().into(),
+                        header: item.header,
                     })
                     .collect::<Vec<_>>();
                 rows.iter().map(|row| row.to_fields()).collect::<Vec<_>>()
@@ -87,5 +90,7 @@ impl<F: Field> LookupTable<F> for ConstantLookupTable {
 pub struct ConstantTableRow {
     pub module_index: usize,
     pub constant_index: usize,
-    pub value_item: ValueItem,
+    pub sub_index: SubIndex,
+    pub value: Word,
+    pub header: bool,
 }

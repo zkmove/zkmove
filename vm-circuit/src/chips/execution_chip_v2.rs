@@ -27,9 +27,7 @@ use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Region, Value};
-use halo2_proofs::plonk::{
-    ConstraintSystem, Error, Expression, Selector, VirtualCells,
-};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
 
@@ -38,6 +36,7 @@ pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
+pub(crate) mod sub_index;
 pub(crate) mod utils;
 pub(crate) mod value;
 

@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::utils::ModuleIdMapping;
+use crate::static_info::ModuleIdMapping;
 use move_binary_format::file_format::{CompiledModule, FunctionHandleIndex};
 use move_binary_format::views::FunctionHandleView;
 

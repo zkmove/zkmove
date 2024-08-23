@@ -1,9 +1,7 @@
 use crate::exec_state::ExecutionState;
+use crate::types::sub_index::SubIndex;
+use crate::types::word::Word;
 use crate::Footprint;
-use move_vm_runtime::witnessing::traced_value::SimpleValue;
-
-// TODO: abstract
-pub type SubIndex = Vec<usize>;
 
 pub type Version = u64;
 
@@ -131,16 +129,16 @@ pub struct MemoryOp(
 #[derive(Clone, Debug)]
 pub struct StackPop {
     pub index: u64,
-    pub sub_index: SubIndex, // TODO change to u256, or change to [u64]
-    pub value: SimpleValue,
+    pub sub_index: SubIndex,
+    pub value: Word,
     pub value_header: bool,
     pub version: u64,
 }
 #[derive(Clone, Debug)]
 pub struct StackPush {
     pub index: u64,
-    pub sub_index: SubIndex, // TODO change to u256
-    pub value: SimpleValue,
+    pub sub_index: SubIndex,
+    pub value: Word,
     pub value_header: bool,
     pub version: u64,
 }
@@ -149,11 +147,11 @@ pub struct LocalReadWrite {
     pub frame_index: u16, // TODO: types of frame_index and local_index
     pub index: u16,
     pub sub_index: SubIndex,
-    pub read_value: SimpleValue,
+    pub read_value: Word,
     pub read_value_header: bool,
     pub read_value_invalid: bool,
     pub read_version: u64,
-    pub write_value: SimpleValue,
+    pub write_value: Word,
     pub write_value_header: bool,
     pub write_value_invalid: bool,
     pub write_version: u64,
@@ -185,7 +183,7 @@ impl LocalReadWrite {
 
 #[derive(Clone, Debug)]
 pub struct Slot {
-    pub value: SimpleValue,
+    pub value: Word,
     pub value_header: bool,
     pub value_invalid: bool,
     pub version: u64,
@@ -195,7 +193,7 @@ pub struct Slot {
 impl Default for Slot {
     fn default() -> Self {
         Self {
-            value: SimpleValue::U8(0), // TODO: change this
+            value: Word::default(),
             value_header: false,
             value_invalid: true,
             version: 0,

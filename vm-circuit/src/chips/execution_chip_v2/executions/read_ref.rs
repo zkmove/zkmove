@@ -14,7 +14,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
@@ -30,8 +29,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let header_sub_index = cb.query_cell();
-        let header_sub_index_ext =
-            ExtendedSubIndex::<_, 8>::construct(cb, "header_sub_index", header_sub_index.expr());
+        let header_sub_index_ext = ExtendedSubIndex::construct(cb, header_sub_index.expr());
         let step_curr = cb.curr.state.clone();
         let step_next = cb.step_state_at_offset(1);
 
@@ -99,7 +97,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
         cb.require_equal(
             format!("{}, local_sub_index(0) == concat(header_sub_index(0), nonzero(stack_push_sub_index(0)))" , Self::NAME),
             step_curr.local_sub_index.expr(),
-            header_sub_index_ext.concat_sub_index(step_curr.stack_push_sub_index.expr()),
+            header_sub_index_ext.concat(step_curr.stack_push_sub_index.expr()),
         );
         cb.require_equal(
             format!("{}, stack_push_value(0) == local_read_value(0)", Self::NAME),
@@ -203,12 +201,8 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
                     offset + i,
                     Value::known(header_sub_index.to_field()),
                 )?;
-                self.header_sub_index_ext.assign(
-                    region,
-                    offset + i,
-                    header_sub_index.to_field(), // FIXME
-                    header_sub_index.depth(),    // FIXME
-                )
+                self.header_sub_index_ext
+                    .assign(region, offset + i, header_sub_index.to_field())
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)

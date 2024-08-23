@@ -1,9 +1,8 @@
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
-use crate::chips::execution_chip_v2::utils::to_field::ToFields;
+use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::Opcode;
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, Error, Fixed};
 use move_binary_format::file_format::{Bytecode, SignatureToken};
@@ -62,11 +61,11 @@ impl<F: Field> ToFields<F> for ConstantTableRow {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.constant_index as u128),
-            F::from_u128(self.value_item.sub_index.into_u128()),
+            self.sub_index.to_field(),
         ]
         .into_iter()
-        .chain(self.value_item.value.to_fields())
-        .chain(vec![F::from(self.value_item.header as u64)])
+        .chain(self.value.to_fields())
+        .chain(vec![F::from(self.header as u64)])
         .collect()
     }
 }

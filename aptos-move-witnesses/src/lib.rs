@@ -14,19 +14,6 @@ pub struct Witnesses {
 pub mod exec_state;
 pub mod static_info;
 pub mod step_state;
+pub mod types;
 pub mod utils;
-
 pub mod witness_preprocessor;
-
-pub mod sub_index {
-    use crate::step_state::SubIndex;
-
-    pub fn concat(mut index1: SubIndex, mut index2: SubIndex) -> SubIndex {
-        while let Some(0) = index1.last() {
-            index1.pop();
-        }
-
-        index1.append(&mut index2);
-        index1
-    }
-}

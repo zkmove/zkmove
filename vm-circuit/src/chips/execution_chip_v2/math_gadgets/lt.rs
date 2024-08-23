@@ -9,7 +9,8 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
-use move_vm_runtime::witnessing::traced_value::Integer;
+use move_core_types::u256::U256;
+use movelang::utility::split_u256_to_u128;
 use movelang::value::NUM_OF_BYTES_U128;
 use types::Field;
 
@@ -134,11 +135,11 @@ impl<F: Field> LtInteger<F> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        lhs: Integer,
-        rhs: Integer,
+        lhs: U256,
+        rhs: U256,
     ) -> Result<(), Error> {
-        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
-        let (rhs_lo, rhs_hi) = Integer::try_from(rhs).unwrap().into();
+        let (lhs_lo, lhs_hi) = split_u256_to_u128(lhs);
+        let (rhs_lo, rhs_hi) = split_u256_to_u128(rhs);
         self.comparison_hi
             .assign(region, offset, F::from_u128(lhs_hi), F::from_u128(rhs_hi))?;
         self.lt_lo

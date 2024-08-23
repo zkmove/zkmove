@@ -24,7 +24,6 @@ use halo2_proofs::{
     plonk::{Error, Expression},
 };
 use move_core_types::u256::U256;
-use move_vm_runtime::witnessing::traced_value::Integer;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -147,9 +146,9 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
         let out = step_state.memory_ops[1].1.clone().unwrap().value;
-        let (rhs_lo, rhs_hi) = Integer::try_from(rhs).unwrap().into();
-        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
-        let (out_lo, out_hi) = Integer::try_from(out).unwrap().into();
+        let (rhs_lo, rhs_hi) = (rhs.lo(), rhs.hi());
+        let (lhs_lo, lhs_hi) = (lhs.lo(), lhs.hi());
+        let (out_lo, out_hi) = (out.lo(), out.hi());
 
         debug_assert_eq!(step_state.memory_ops.len(), 2);
         for i in 0..step_state.memory_ops.len() {

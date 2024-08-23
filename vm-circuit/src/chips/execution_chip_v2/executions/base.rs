@@ -35,7 +35,6 @@ impl<F: Field> BaseConstraintGadget<F> {
                     PC,
                     AUX0,
                     AUX1,
-                    // TODO: check on aux0 and aux1
                 ]
                 .into_iter()
                 .map(|state_name| (state_name, Transition::Same))

@@ -12,7 +12,6 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::SubIndexUtils;
 use halo2_proofs::plonk::Error;
 use types::Field;
 
@@ -50,15 +49,12 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowField<F> {
             step_curr.stack_push_value.as_reference().index(),
             step_curr.stack_pop_value.as_reference().index(),
         );
-        let stack_pop_value_sub_index = ExtendedSubIndex::construct(
-            cb,
-            "stack_pop_value",
-            step_curr.stack_pop_value.as_reference().sub_index(),
-        );
+        let stack_pop_value_sub_index =
+            ExtendedSubIndex::construct(cb, step_curr.stack_pop_value.as_reference().sub_index());
         cb.require_equal(
             format!("{}, stack_push_value(0).sub_index == stack_pop_value(0).sub_index.concat(aux0(0) + 1)", Self::NAME),
             step_curr.stack_push_value.as_reference().sub_index(),
-            stack_pop_value_sub_index.concat_sub_index(step_curr.aux0.expr() + 1u64.expr()),
+            stack_pop_value_sub_index.concat(step_curr.aux0.expr() + 1u64.expr()),
         );
         cb.require_equal(
             format!(
@@ -102,12 +98,8 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowField<F> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
         let step_state = stage_state.step_states.first().unwrap();
         let stack_pop_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
-        self.stack_pop_value_sub_index.assign(
-            region,
-            offset,
-            stack_pop_sub_index.to_field(), // FIXME
-            stack_pop_sub_index.depth(),    // FIXME
-        )?;
+        self.stack_pop_value_sub_index
+            .assign(region, offset, stack_pop_sub_index.to_field())?;
         Ok(step_state.memory_ops.len())
     }
 }
