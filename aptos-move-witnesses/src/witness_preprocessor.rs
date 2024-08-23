@@ -2,7 +2,6 @@ use crate::exec_state::ExecutionState;
 use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
-use crate::static_info::constant::flatten::Flatten;
 use crate::static_info::StaticInfo;
 use crate::step_state::{
     CallerData, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot, StackPop,
@@ -11,6 +10,7 @@ use crate::step_state::{
 use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
 use crate::types::word::Word;
+use crate::utils::flatten::Flatten;
 use crate::witness_preprocessor::to_u256::ToU256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
