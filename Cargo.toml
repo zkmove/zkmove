@@ -22,14 +22,14 @@ field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "8969
 subtle = "2.5"
 rayon = "1.10"
 bytes = { version = "1.5" }
-move-compiler = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-compiler-v2 = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-binary-format = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-core-types = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
-move-package = { git = "https://github.com/zkmove/aptos-core", rev = "584ff261" }
+move-compiler = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-compiler-v2 = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-binary-format = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-core-types = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
+move-package = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
 
 strum_macros = "0.26"
 strum = "0.26"

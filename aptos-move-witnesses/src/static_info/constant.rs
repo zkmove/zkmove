@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::utils::ModuleIdMapping;
+use crate::static_info::ModuleIdMapping;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::CompiledModule;
 use move_core_types::value::MoveValue;
@@ -40,18 +40,22 @@ pub(crate) fn parse_constant(
 }
 
 pub mod flatten {
-    use crate::utils::ValueHeader;
+    use crate::types::value_header::ValueHeader;
     use crate::{SimpleValue, ValueItem};
     use move_core_types::value::MoveValue;
-    use move_vm_runtime::witnessing::traced_value::SubIndex;
 
     pub trait Flatten {
-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem>;
+        fn flatten(self) -> Vec<ValueItem>;
+        fn flatten_with(self, sub_index: Vec<usize>) -> Vec<ValueItem>;
+
         fn flen(&self) -> usize;
     }
 
     impl Flatten for MoveValue {
-        fn flatten(self, sub_index: SubIndex) -> Vec<ValueItem> {
+        fn flatten(self) -> Vec<ValueItem> {
+            self.flatten_with(vec![0])
+        }
+        fn flatten_with(self, sub_index: Vec<usize>) -> Vec<ValueItem> {
             let flen = self.flen();
             match self {
                 MoveValue::U8(u) => vec![value_item(sub_index, SimpleValue::U8(u))],
@@ -67,8 +71,8 @@ pub mod flatten {
                     items.push(header_item(sub_index.clone(), flen, len));
 
                     for (i, value) in values.into_iter().enumerate() {
-                        let value_sub_index = sub_index.concat(&vec![i + 1].into());
-                        let mut flattened_value = value.flatten(value_sub_index);
+                        let value_sub_index = concat(sub_index.clone(), vec![i + 1]);
+                        let mut flattened_value = value.flatten_with(value_sub_index);
                         items.append(&mut flattened_value);
                     }
                     items
@@ -92,18 +96,26 @@ pub mod flatten {
         }
     }
 
-    fn value_item(sub_index: SubIndex, simple: SimpleValue) -> ValueItem {
+    fn value_item(sub_index: Vec<usize>, simple: SimpleValue) -> ValueItem {
         ValueItem {
             sub_index,
             header: false,
             value: simple,
         }
     }
-    fn header_item(sub_index: SubIndex, flen: usize, len: usize) -> ValueItem {
+    fn header_item(sub_index: Vec<usize>, flen: usize, len: usize) -> ValueItem {
         ValueItem {
             sub_index,
             header: true,
-            value: ValueHeader::new(flen as u16, len as u16).into(),
+            value: ValueHeader::new(flen, len).into(),
         }
+    }
+    fn concat(mut index1: Vec<usize>, mut index2: Vec<usize>) -> Vec<usize> {
+        while let Some(0) = index1.last() {
+            index1.pop();
+        }
+
+        index1.append(&mut index2);
+        index1
     }
 }

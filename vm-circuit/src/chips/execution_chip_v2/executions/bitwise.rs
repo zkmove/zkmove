@@ -15,8 +15,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::witness_preprocessor::to_u256::ToU256;
-use aptos_move_witnesses::Integer;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -169,15 +167,12 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
-        let rhs = Integer::try_from(step_state.memory_ops[0].0.clone().unwrap().value)
-            .unwrap()
-            .to_u256();
-        let lhs = Integer::try_from(step_state.memory_ops[1].0.clone().unwrap().value)
-            .unwrap()
-            .to_u256();
-        let out = Integer::try_from(step_state.memory_ops[2].1.clone().unwrap().value)
-            .unwrap()
-            .to_u256();
+        let rhs_word = step_state.memory_ops[0].0.clone().unwrap().value;
+        let lhs_word = step_state.memory_ops[1].0.clone().unwrap().value;
+        let out_word = step_state.memory_ops[2].0.clone().unwrap().value;
+        let rhs = rhs_word.to_u256();
+        let lhs = lhs_word.to_u256();
+        let out = out_word.to_u256();
 
         debug_assert_eq!(step_state.memory_ops.len(), 3);
         for (cell, nibble) in izip!(self.nibbles.clone(), rhs.to_nibbles()) {

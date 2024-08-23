@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
-use crate::chips::execution_chip_v2::utils::to_field::ToFields;
+use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::Opcode;
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
@@ -61,11 +61,11 @@ impl<F: Field> ToFields<F> for ConstantTableRow {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.constant_index as u128),
-            F::from_u128(self.value_item.sub_index.clone().into()),
+            self.sub_index.to_field(),
         ]
         .into_iter()
-        .chain(self.value_item.value.to_fields())
-        .chain(vec![F::from(self.value_item.header as u64)])
+        .chain(self.value.to_fields())
+        .chain(vec![F::from(self.header as u64)])
         .collect()
     }
 }

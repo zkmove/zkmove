@@ -6,17 +6,15 @@ use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 pub use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::types::sub_index::SubIndex;
+use aptos_move_witnesses::types::sub_index::N_BITS_ONE_LIMB;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
-use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
-/// NOTICE: The depth capacity of sub_index can be configured with N_LIMB, but the number of bits
-/// of each level is fixed.
-pub(crate) const N_BITS_ONE_LEVEL: usize = 16;
-pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LEVEL as u32);
+pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LIMB as u32);
 
 fn get_limbs_from_bytes<F: Field, const N_LIMB: usize>(
     bytes: &[Cell<F>],
@@ -75,12 +73,12 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
         cb.require_equal(
             "header_sub_index == from_limbs(header_limbs)",
             header_sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&self.header_limbs),
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.header_limbs),
         );
         cb.require_equal(
             "member_sub_index == from_limbs(&member_limbs)",
             member_sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&self.member_limbs),
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.member_limbs),
         );
 
         for i in 0..N_LIMB {
@@ -177,7 +175,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         cb.require_equal(
             "sub_index == from_limbs(limbs)",
             sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&limbs),
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&limbs),
         );
 
         let sum_mask: Expression<F> = mask.iter().map(|c| c.expr()).sum();
@@ -218,13 +216,13 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
             .enumerate()
             .map(|(i, c)| c.expr() * (1u64.expr() - self.mask[i].expr()))
             .collect::<Vec<_>>();
-        from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&parent_sub_index_limbs)
+        from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&parent_sub_index_limbs)
     }
 
     /// Trim tailing zeros of sub_index and concat with another.
     pub(crate) fn concat(&self, other: Expression<F>) -> Expression<F> {
         let depth_pow =
-            from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&self.mask) * DEPTH_POW_OF_ONE_LEVEL.expr();
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.mask) * DEPTH_POW_OF_ONE_LEVEL.expr();
         self.sub_index.expr() + other * depth_pow
     }
 
@@ -295,7 +293,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         cb.require_equal(
             format!("{}, sub_index == from_limbs(limbs)", name),
             sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&limbs),
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&limbs),
         );
 
         Self { sub_index, limbs }
@@ -303,7 +301,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
 
     pub(crate) fn expr(&self) -> Expression<F> {
         let reverse_limbs = self.limbs.iter().rev().collect::<Vec<_>>();
-        from_limbs::expr::<_, _, N_BITS_ONE_LEVEL>(&reverse_limbs)
+        from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&reverse_limbs)
     }
     pub fn assign(
         &self,

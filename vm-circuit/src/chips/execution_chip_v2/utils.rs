@@ -156,11 +156,9 @@ pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Valu
 }
 
 pub(crate) mod to_field {
-    use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
-    use crate::chips::execution_chip_v2::sub_index::N_BITS_ONE_LEVEL;
     use crate::chips::execution_chip_v2::utils::from_limbs;
-    use aptos_move_witnesses::SimpleValue;
-    use move_vm_runtime::witnessing::traced_value::SubIndex;
+    use aptos_move_witnesses::types::sub_index::{SubIndex, N_BITS_ONE_LIMB};
+    use aptos_move_witnesses::types::word::Word;
     use types::Field;
 
     pub(crate) trait ToFields<F: Field> {
@@ -170,38 +168,17 @@ pub(crate) mod to_field {
         fn to_field(&self) -> F;
     }
 
-    impl<F: Field> ToFields<F> for SimpleValue {
-        fn to_fields(&self) -> Vec<F> {
-            match NUM_OF_VALUE_LIMBS {
-                2 => {
-                    let (lo, hi) = match self {
-                        SimpleValue::U8(u) => (*u as u128, 0u128),
-                        SimpleValue::U16(u) => (*u as u128, 0u128),
-                        SimpleValue::U32(u) => (*u as u128, 0u128),
-                        SimpleValue::U64(u) => (*u as u128, 0u128),
-                        SimpleValue::U128(u) => ({ *u }, 0u128),
-                        SimpleValue::U256(u) => {
-                            let bytes = u.to_le_bytes();
-                            let lo = u128::from_le_bytes(bytes[..16].try_into().unwrap());
-                            let hi = u128::from_le_bytes(bytes[16..].try_into().unwrap());
-                            (lo, hi)
-                        }
-                        SimpleValue::Bool(b) => (*b as u128, 0u128),
-                        SimpleValue::Reference(r) => todo!(),
-                        SimpleValue::Address(a) => todo!(),
-                    };
-                    vec![F::from_u128(lo), F::from_u128(hi)]
-                }
-                _ => unimplemented!(),
-            }
+    impl<F: Field> ToField<F> for SubIndex {
+        fn to_field(&self) -> F {
+            from_limbs::value::<F, N_BITS_ONE_LIMB>(
+                &self.to_vec().iter().map(|v| *v as u64).collect::<Vec<_>>(),
+            )
         }
     }
 
-    impl<F: Field> ToField<F> for SubIndex {
-        fn to_field(&self) -> F {
-            from_limbs::value::<F, N_BITS_ONE_LEVEL>(
-                &self.to_vec().iter().map(|v| *v as u64).collect::<Vec<_>>(),
-            )
+    impl<F: Field> ToFields<F> for Word {
+        fn to_fields(&self) -> Vec<F> {
+            self.inner().iter().map(|&x| F::from_u128(x)).collect()
         }
     }
 }

@@ -8,7 +8,6 @@ use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
-use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
@@ -21,7 +20,6 @@ use gadgets::util::not;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
-use itertools::Itertools;
 use types::Field;
 
 #[derive(Clone, Debug)]

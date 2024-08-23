@@ -19,7 +19,6 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::Error};
-use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD

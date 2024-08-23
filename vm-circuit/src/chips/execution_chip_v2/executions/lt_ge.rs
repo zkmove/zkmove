@@ -14,7 +14,6 @@ use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use halo2_proofs::plonk::Error;
-use move_vm_runtime::witnessing::traced_value::Integer;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -143,8 +142,10 @@ impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
         let step_state = stage_state.step_states.first().unwrap();
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
-        let (rhs_lo, rhs_hi) = Integer::try_from(rhs).unwrap().into();
-        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
+        let rhs_lo = rhs.lo();
+        let rhs_hi = rhs.hi();
+        let lhs_lo = lhs.lo();
+        let lhs_hi = lhs.hi();
 
         debug_assert_eq!(step_state.memory_ops.len(), 2);
         self.lt_lo.assign(

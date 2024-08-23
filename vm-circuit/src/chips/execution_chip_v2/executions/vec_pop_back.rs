@@ -15,12 +15,12 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use aptos_move_witnesses::utils::ValueHeader;
+use aptos_move_witnesses::types::sub_index::SubIndex;
+use aptos_move_witnesses::types::value_header::ValueHeader;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
-use move_vm_runtime::witnessing::traced_value::SubIndex;
 use types::Field;
 
 /// pop vector_ref from stack and update parent from up to bottom
