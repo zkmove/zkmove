@@ -1834,39 +1834,35 @@ impl WitnessPreProcessor {
                     Integer::U256(l) => 32usize,
                     _ => unreachable!(),
                 };
-                let output: Integer = if matches!(&trace.data, Operation::Shl { .. }) {
-                    IntegerValue::from(lhs.clone())
-                        .shl_checked(*rhs)
-                        .expect("should not fail")
-                        .into()
+                // while calculating the result, convert to u256 to prevent overflow from stopping
+                // the assignment.
+                let output = if matches!(&trace.data, Operation::Shl { .. }) {
+                    lhs.to_u256().checked_shl(*rhs as u32).unwrap() //never failed
                 } else {
-                    IntegerValue::from(lhs.clone())
-                        .shr_checked(*rhs)
-                        .expect("should not fail")
-                        .into()
+                    lhs.to_u256().checked_shr(*rhs as u32).unwrap() //never failed
                 };
                 let step_state = StepState::new(self.clk, ExecutionState::Shift, trace)
                     .set_aux0(num_bytes as u128);
 
                 let stack_pop_rhs = StackPop {
                     index: sp,
-                    sub_index: vec![0],
-                    value: SimpleValue::U8(*rhs),
+                    sub_index: SubIndex::default(),
+                    value: Integer::U8(*rhs).into(),
                     value_header: false,
                     version: self.version_stack.pop().unwrap(),
                 };
                 let stack_pop_lhs = StackPop {
                     index: sp - 1,
-                    sub_index: vec![0],
-                    value: lhs.clone().into(),
+                    sub_index: SubIndex::default(),
+                    value: lhs.into(),
                     value_header: false,
                     version: self.version_stack.pop().unwrap(),
                 };
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
                     index: sp - 1,
-                    sub_index: vec![0],
-                    value: output.into(),
+                    sub_index: SubIndex::default(),
+                    value: Integer::U256(output).into(),
                     value_header: false,
                     version: *self.version_stack.last().unwrap(),
                 };
@@ -1882,7 +1878,6 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            _ => unimplemented!(),
             _ => todo!(),
         }
     }

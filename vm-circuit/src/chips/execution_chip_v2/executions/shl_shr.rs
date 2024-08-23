@@ -29,7 +29,6 @@ use halo2_proofs::{
 };
 use itertools::izip;
 use move_core_types::u256::U256;
-use move_vm_runtime::witnessing::traced_value::{Integer, SimpleValue};
 use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use types::Field;
 
@@ -260,14 +259,13 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         let is_shl = opcode == Opcode::Shl as u16;
         let num_bytes = step_state.step_state.aux0 as usize;
         let pop0 = step_state.memory_ops[0].0.clone().unwrap().value;
-        let rhs = match pop0 {
-            SimpleValue::U8(n) => n,
-            _ => panic!("type mismatch: {:?} is not Integer::U8", pop0),
-        };
+        let rhs = pop0.to_u8_unchecked();
         let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
         let out = step_state.memory_ops[1].1.clone().unwrap().value;
-        let (lhs_lo, lhs_hi) = Integer::try_from(lhs).unwrap().into();
-        let (out_lo, out_hi) = Integer::try_from(out).unwrap().into();
+        let lhs_lo = lhs.lo();
+        let lhs_hi = lhs.hi();
+        let out_lo = out.lo();
+        let out_hi = out.hi();
 
         debug_assert_eq!(step_state.memory_ops.len(), 2);
         for i in 0..step_state.memory_ops.len() {
@@ -509,8 +507,7 @@ impl<F: Field> ShiftGadget<F> {
         self.mul_add.assign(region, offset, a, b, c, d)?;
 
         // assign remainder_lt_divisor
-        self.remainder_lt_divisor
-            .assign(region, offset, Integer::U256(c), Integer::U256(b))?;
+        self.remainder_lt_divisor.assign(region, offset, c, b)?;
 
         Ok(())
     }
