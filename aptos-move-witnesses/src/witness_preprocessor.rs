@@ -384,6 +384,7 @@ impl WitnessPreProcessor {
                             self.clk,
                         );
                         // TODO: check old_ == local[sub_index]
+                        self.version_stack.push(self.clk);
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
@@ -422,6 +423,7 @@ impl WitnessPreProcessor {
                             self.clk,
                         );
                         // TODO: check old_ == local[sub_index]
+                        self.version_stack.push(self.clk);
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
@@ -1626,6 +1628,9 @@ impl WitnessPreProcessor {
                 match ty {
                     BinaryIntegerOperationType::Add
                     | BinaryIntegerOperationType::Sub
+                    | BinaryIntegerOperationType::Mul
+                    | BinaryIntegerOperationType::Div
+                    | BinaryIntegerOperationType::Mod
                     | BinaryIntegerOperationType::Lt
                     | BinaryIntegerOperationType::Gt
                     | BinaryIntegerOperationType::Le

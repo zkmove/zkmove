@@ -7,6 +7,10 @@ module 0x1::TestCase {
         1u8 + 2u8;
     }
 
+    public entry fun test_add_u64(x: u64, y: u64) {
+        x + y;
+    }
+
     public entry fun test_arith_integer(x1: u16, x2: u32, x3: u256, y: u64) {
         // u16 test case
         // add operation
