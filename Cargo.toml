@@ -7,7 +7,7 @@ members = [
     "common/types",
     "vm-circuit",
     #"vm",
-    #"functional-tests",
+    "functional-tests",
     #"cli",
     "aptos-move-witnesses"
 ]
@@ -22,6 +22,7 @@ field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "8969
 subtle = "2.5"
 rayon = "1.10"
 bytes = { version = "1.5" }
+serde_json = { version = "1" }
 move-compiler = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
 move-compiler-v2 = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }
 move-binary-format = { git = "https://github.com/zkmove/aptos-core", rev = "81fe4ee4ad" }

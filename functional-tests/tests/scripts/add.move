@@ -1,5 +1,1 @@
-script {
-    fun main() {
-        1u8 + 2u8;
-    }
-}
+//! function: 0x1::TestCase::test_add

@@ -227,7 +227,6 @@ impl fmt::Debug for Witness {
     }
 }
 
-use crate::witness::exec_step::ExecStep;
 use aptos_move_witnesses::static_info::StaticInfo;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -236,14 +235,8 @@ pub struct CircuitConfigV2 {
 }
 
 #[derive(Clone, Default)]
-pub struct ExecTrace {
-    pub exec_steps: Vec<ExecStep>,
-}
-
-#[derive(Clone, Default)]
 pub struct WitnessV2 {
     pub opcode_witnesses: Vec<StageState>,
-    pub exec_steps: Vec<ExecStep>,
     pub static_info: StaticInfo,
     pub circuit_config: CircuitConfigV2,
 }
@@ -251,13 +244,11 @@ pub struct WitnessV2 {
 impl WitnessV2 {
     pub fn new(
         opcode_witnesses: Vec<StageState>,
-        exec_steps: Vec<ExecStep>,
         static_info: StaticInfo,
         circuit_config: CircuitConfigV2,
     ) -> Self {
         WitnessV2 {
             opcode_witnesses,
-            exec_steps,
             static_info,
             circuit_config,
         }
