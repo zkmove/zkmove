@@ -14,5 +14,6 @@ Then run the example:
 ```
 cd examples/witness-generation
 move build
+move sandbox publish
 move sandbox run --witness storage/0x0000000000000000000000000000000000000000000000000000000000000001/modules/vectoring.mv test_vec_swap
 ```

@@ -18,6 +18,7 @@ use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
 
+#[derive(Default)]
 pub struct WitnessPreProcessor {
     clk: Version,
     // track versions of each stack value
@@ -1829,9 +1830,11 @@ impl WitnessPreProcessor {
     }
 }
 
+#[derive(Default)]
 struct Locals {
     values: Vec<Vec<Local>>,
 }
+
 impl Locals {
     pub fn to_write_set(self) -> Vec<LocalReadWrite> {
         self.values
