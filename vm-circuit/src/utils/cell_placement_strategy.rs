@@ -1,6 +1,7 @@
 use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrategy, CellType};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+
 use types::Field;
 
 #[derive(Clone, Debug, Default)]
@@ -202,7 +203,7 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
 
 #[derive(Debug, Clone)]
 pub(crate) struct CMFixedHeightStrategy {
-    row_width: Vec<usize>,
+    row_width: Vec<HashMap<CellType, usize>>,
     height_offset: isize,
     num_unused_cells: usize,
 }
@@ -210,7 +211,7 @@ pub(crate) struct CMFixedHeightStrategy {
 impl CMFixedHeightStrategy {
     pub(crate) fn new(height: usize, height_offset: isize) -> CMFixedHeightStrategy {
         CMFixedHeightStrategy {
-            row_width: vec![0; height],
+            row_width: vec![HashMap::default(); height],
             height_offset,
             num_unused_cells: Default::default(),
         }
@@ -230,11 +231,11 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         meta: &mut ConstraintSystem<F>,
         cell_type: CellType,
     ) -> CellPlacement {
-        let (row_idx, column_idx) = self.get_next();
+        let (row_idx, column_idx) = self.get_next(cell_type);
 
         let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
 
-        self.inc_row_width(row_idx);
+        self.inc_row_width(row_idx, cell_type);
 
         placement
     }
@@ -257,46 +258,57 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         affnity: Self::Affinity,
     ) -> CellPlacement {
         let row_idx = affnity;
-        let column_idx = self.row_width[row_idx];
+        let column_idx = self.row_width[row_idx]
+            .get(&cell_type)
+            .copied()
+            .unwrap_or(0);
 
         let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
 
-        self.inc_row_width(row_idx);
+        self.inc_row_width(row_idx, cell_type);
 
         placement
     }
 }
 
 impl CMFixedHeightStrategy {
-    pub fn start_region(&mut self) -> usize {
-        // Make sure all rows start at the same column
-        let width = *self.row_width.iter().max().unwrap_or(&0usize);
-        for row in self.row_width.iter_mut() {
-            self.num_unused_cells += width - *row;
-            *row = width;
-        }
-        width
-    }
+    // pub fn start_region(&mut self) -> usize {
+    //     // Make sure all rows start at the same column
+    //     let width = *self.row_width.iter().max().unwrap_or(&0usize);
+    //     for row in self.row_width.iter_mut() {
+    //         self.num_unused_cells += width - *row;
+    //         *row = width;
+    //     }
+    //     width
+    // }
 
-    pub fn get_num_unused_cells(&self) -> usize {
-        self.num_unused_cells
-    }
+    // pub fn get_num_unused_cells(&self) -> usize {
+    //     self.num_unused_cells
+    // }
 
-    fn get_next(&mut self) -> (usize, usize) {
+    fn get_next(&mut self, cell_type: CellType) -> (usize, usize) {
         let mut best_row_idx = 0usize;
-        let mut best_row_with = usize::MAX;
+        let mut best_row_width = usize::MAX;
+
         for (row_idx, row_width) in self.row_width.iter().enumerate() {
-            if *row_width < best_row_with {
-                best_row_with = *row_width;
+            let width = row_width.get(&cell_type).copied().unwrap_or(0);
+
+            if width < best_row_width {
+                best_row_width = width;
                 best_row_idx = row_idx;
             }
         }
 
-        (best_row_idx, best_row_with)
+        (best_row_idx, best_row_width)
     }
 
-    fn inc_row_width(&mut self, row_idx: usize) {
-        self.row_width[row_idx] += 1;
+    fn inc_row_width(&mut self, row_idx: usize, cell_type: CellType) {
+        if let Some(row_width) = self.row_width.get_mut(row_idx) {
+            let width = row_width.entry(cell_type).or_insert(0);
+            *width += 1;
+        } else {
+            panic!("Row index out of bounds: {}", row_idx);
+        }
     }
 
     fn place_cell_at_pos<F: Field>(
@@ -312,6 +324,7 @@ impl CMFixedHeightStrategy {
                 .get_column(cell_type, column_idx)
                 .expect("column not found")
         } else {
+            assert_eq!(column_idx, columns.get_cell_type_width(cell_type));
             let advice = meta.advice_column();
 
             columns.add_column(cell_type, advice);
