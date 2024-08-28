@@ -10,7 +10,7 @@ use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
-use crate::chips::execution_chip_v2::utils::{from_bytes, from_limbs, pow_of_two_expr};
+use crate::chips::execution_chip_v2::utils::{from_bytes, pow_of_two_expr};
 use crate::chips::execution_chip_v2::value::Integer as IntegerExpr;
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
@@ -309,10 +309,13 @@ impl<F: Field> MulDivModGadget<F> {
             from_bytes::expr(&cells.b_hi[..NUM_OF_BYTES_U64]),
             from_bytes::expr(&cells.b_hi[NUM_OF_BYTES_U64..]),
         ];
-        let a = from_limbs::expr::<_, _, 64>(&a_limbs);
-        let b = from_limbs::expr::<_, _, 64>(&b_limbs);
+
+        let a_lo = from_bytes::expr(&cells.a_lo);
+        let a_hi = from_bytes::expr(&cells.a_hi);
         let b_lo = from_bytes::expr(&cells.b_lo);
         let b_hi = from_bytes::expr(&cells.b_hi);
+        let a = a_hi.clone() * pow_of_two_expr(128) + a_lo.clone();
+        let b = b_hi.clone() * pow_of_two_expr(128) + b_lo.clone();
 
         let c_lo = from_bytes::expr(&cells.c_lo);
         let c_hi = from_bytes::expr(&cells.c_hi);

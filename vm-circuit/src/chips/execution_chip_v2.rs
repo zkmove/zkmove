@@ -421,9 +421,13 @@ impl<F: Field> ExecChipConfig<F> {
                 meta.lookup_any(name.as_str(), |meta| {
                     let s_usable = meta.query_selector(s_usable);
                     let table_expressions = match table {
+                        Table::Nibble => lookup_table_config.nibble_table.table_exprs(meta),
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
                         Table::Function => lookup_table_config.function_table.table_exprs(meta),
+                        Table::Bitwise => lookup_table_config.bitwise_table.table_exprs(meta),
+                        Table::Bytecode => lookup_table_config.bytecode_table.table_exprs(meta),
+                        Table::Constant => lookup_table_config.constant_table.table_exprs(meta),
                         _ => unimplemented!(),
                     };
                     vec![(

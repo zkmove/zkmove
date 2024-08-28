@@ -24,9 +24,9 @@ pub struct Nop<F> {
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
-    const NAME: &'static str = "Mul_Div_Mod";
-    const OPCODES: &'static [Opcode] = &[Opcode::Mul];
-    const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivMod;
+    const NAME: &'static str = "Nop";
+    const OPCODES: &'static [Opcode] = &[Opcode::Nop];
+    const EXECUTION_STATE: ExecutionState = ExecutionState::Nop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.require_in_set(

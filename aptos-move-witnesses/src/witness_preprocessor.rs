@@ -39,18 +39,19 @@ impl WitnessPreProcessor {
             self.clk += 1;
         }
         // nop ops to write (final_set, init_set)
-        exec_states.push(StageState {
-            step_states: vec![ExecStepState {
-                step_state: StepState::default().change_clk(self.clk),
-                memory_ops: self
-                    .locals
-                    .to_write_set()
-                    .into_iter()
-                    .map(|l| MemoryOp(None, None, Some(l)))
-                    .collect(),
-            }],
-            extra_data: None,
-        });
+        let local_write_set = self.locals.to_write_set();
+        if local_write_set.len() != 0 {
+            exec_states.push(StageState {
+                step_states: vec![ExecStepState {
+                    step_state: StepState::default().change_clk(self.clk),
+                    memory_ops: local_write_set
+                        .into_iter()
+                        .map(|l| MemoryOp(None, None, Some(l)))
+                        .collect(),
+                }],
+                extra_data: None,
+            });
+        }
         exec_states
     }
 
