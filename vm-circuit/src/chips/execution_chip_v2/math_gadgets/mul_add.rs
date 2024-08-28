@@ -1,7 +1,7 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
-use crate::chips::execution_chip_v2::utils::from_bytes;
+use crate::chips::execution_chip_v2::utils::{from_bytes, pow_of_two_expr};
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -92,13 +92,13 @@ impl<F: Field> MulAddGadget<F> {
 
         cb.require_equal(
             "(a * b)_lo + c_lo == d_lo + carry_lo * 2^128",
-            t0 + t1 * 2u64.pow(64).expr() + cells.c_lo.expr(),
-            cells.d_lo.expr() + carry_lo_expr.clone() * 2u64.pow(128).expr(),
+            t0 + t1 * pow_of_two_expr(64) + cells.c_lo.expr(),
+            cells.d_lo.expr() + carry_lo_expr.clone() * pow_of_two_expr(128),
         );
         cb.require_equal(
             "(a * b)_hi + c_hi + carry_lo == d_hi + carry_hi * 2^128",
-            t2 + t3 * 2u64.pow(64).expr() + cells.c_hi.expr() + carry_lo_expr,
-            cells.d_hi.expr() + carry_hi_expr.clone() * 2u64.pow(128).expr(),
+            t2 + t3 * pow_of_two_expr(64) + cells.c_hi.expr() + carry_lo_expr,
+            cells.d_hi.expr() + carry_hi_expr.clone() * pow_of_two_expr(128),
         );
 
         Self {

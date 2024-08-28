@@ -10,7 +10,7 @@ use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
-use crate::chips::execution_chip_v2::utils::{from_bytes, from_limbs};
+use crate::chips::execution_chip_v2::utils::{from_bytes, from_limbs, pow_of_two_expr};
 use crate::chips::execution_chip_v2::value::Integer as IntegerExpr;
 use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
@@ -318,8 +318,8 @@ impl<F: Field> MulDivModGadget<F> {
         let c_hi = from_bytes::expr(&cells.c_hi);
         let d_lo = from_bytes::expr(&cells.d_lo);
         let d_hi = from_bytes::expr(&cells.d_hi);
-        let c = c_hi.clone() * 2u64.pow(128).expr() + c_lo.clone();
-        let d = d_hi.clone() * 2u64.pow(128).expr() + d_lo.clone();
+        let c = c_hi.clone() * pow_of_two_expr(128) + c_lo.clone();
+        let d = d_hi.clone() * pow_of_two_expr(128) + d_lo.clone();
 
         let overflow = cb.query_bool();
 

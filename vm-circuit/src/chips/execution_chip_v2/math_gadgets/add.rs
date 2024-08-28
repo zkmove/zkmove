@@ -1,5 +1,6 @@
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::value::Integer;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -47,12 +48,12 @@ impl<F: Field> AddGadget<F> {
         cb.require_equal(
             "lhs_lo + rhs_lo == out_lo + carry_lo * 2^128",
             lhs.lo() + rhs.lo(),
-            out.lo().clone() + self.carry_lo.expr() * 2u64.pow(128).expr(),
+            out.lo().clone() + self.carry_lo.expr() * pow_of_two_expr(128),
         );
         cb.require_equal(
             "lhs_hi + rhs_hi + carry_lo == out_hi + carry_hi * 2^128",
             lhs.hi() + rhs.hi() + self.carry_lo.expr(),
-            out.hi() + self.carry_hi.expr() * 2u64.pow(128).expr(),
+            out.hi() + self.carry_hi.expr() * pow_of_two_expr(128),
         );
     }
 

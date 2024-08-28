@@ -182,3 +182,13 @@ pub(crate) mod to_field {
         }
     }
 }
+
+/// Returns 2**by as Field
+pub(crate) fn pow_of_two<F: Field>(by: usize) -> F {
+    F::from(2).pow([by as u64, 0, 0, 0])
+}
+
+/// Returns 2**by as Expression
+pub(crate) fn pow_of_two_expr<F: Field>(by: usize) -> Expression<F> {
+    Expression::Constant(crate::chips::execution_chip::utils::pow_of_two(by))
+}
