@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 logger = { path = "../common/logger" }
 types = { path = "../common/types" }
-vm-circuit = { path = "../vm-circuit" }
+vm-circuit = { path = "../vm-circuit", features=["test-circuits"] }
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 halo2_proofs.workspace = true
 anyhow = "1"
@@ -25,7 +25,7 @@ log = "0.4.21"
 datatest-stable = "0.2.9"
 regex = "1.10"
 walkdir = "2.3.2"
-criterion = { git = "https://github.com/young-rocks/criterion.rs", rev = "98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
+#criterion = { git = "https://github.com/young-rocks/criterion.rs", rev = "98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
 
 # https://github.com/Amanieu/parking_lot/issues/269
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -35,7 +35,7 @@ parking_lot_core = "=0.8.0"
 name = "testsuite"
 harness = false
 
-[[bench]]
-name = "circuit_benchmark"
-harness = false
+#[[bench]]
+#name = "circuit_benchmark"
+#harness = false
 

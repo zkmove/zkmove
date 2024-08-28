@@ -37,3 +37,6 @@ datatest-stable = "0.1.1"
 # https://github.com/Amanieu/parking_lot/issues/269
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 parking_lot_core = "=0.8.0"
+
+[features]
+test-circuits = []
