@@ -559,7 +559,7 @@ impl<F: Field> ExecChipConfig<F> {
             region,
             challenges,
             self.columns.columns().iter().map(|c| c.advice).collect(),
-            1,
+            stage_state.rows(),
             offset_begin,
         );
         let mut step_counter = stage_state.rows();
