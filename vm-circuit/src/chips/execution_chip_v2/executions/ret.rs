@@ -51,8 +51,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
 
         cb.condition(is_zero_frame_index.expr(), |cb| {
             call_context.require_zero(cb);
-            cb.require_next_state(ExecutionState::Stop);
-            //TODO: state transition, go to NOP when necessary
+            //TODO: state transition, STOP or go to NOP when necessary
         });
         cb.condition(not::expr(is_zero_frame_index.expr()), |cb| {
             cb.require_state_transition(vec![

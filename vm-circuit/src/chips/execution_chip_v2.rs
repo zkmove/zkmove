@@ -131,16 +131,16 @@ impl<F: Field> ExecChipConfig<F> {
                     "first step, frame_index = 0",
                     step_curr.state.frame_index.expr(),
                 );
-                //TODO: get module_index and function_index from public input
+                //TODO: require module_index/function_index equal to entry_module/entry_func
 
                 // cb.require_zero(
                 //     "first step, module_index = 0",
                 //     step_curr.cells.module_index.expr(),
                 // );
-                cb.require_zero(
-                    "first step, function_index = 0",
-                    step_curr.state.function_index.expr(),
-                );
+                // cb.require_zero(
+                //     "first step, function_index = 0",
+                //     step_curr.state.function_index.expr(),
+                // );
             });
             cb.gate(s_usable)
         });
@@ -169,8 +169,9 @@ impl<F: Field> ExecChipConfig<F> {
             execution_state_selector_constraints
                 .into_iter()
                 .map(move |(name, poly)| (name, s_usable.clone() * poly))
-                .chain(first_step_check)
-                .chain(last_step_check)
+            // FIXME
+            // .chain(first_step_check)
+            // .chain(last_step_check)
         });
         // meta.create_gate("q_step_last", |meta| {
         //     let q_usable = meta.query_fixed(q_usable, Rotation::cur());
@@ -530,6 +531,7 @@ impl<F: Field> ExecChipConfig<F> {
             || "execution region",
             |mut region| {
                 let mut offset = 0;
+                self.s_step_first.enable(&mut region, offset)?;
                 for opcode_witness in &witness.opcode_witnesses {
                     offset += self.assign_exec_step(
                         &mut region,
@@ -539,6 +541,7 @@ impl<F: Field> ExecChipConfig<F> {
                         &witness.static_info,
                     )?;
                 }
+                self.s_step_last.enable(&mut region, offset - 1)?;
                 Ok(())
             },
         )?;
@@ -566,6 +569,7 @@ impl<F: Field> ExecChipConfig<F> {
         let mut i = 0;
         for exec_step_state in &stage_state.step_states {
             for memory_op in exec_step_state.memory_ops.iter() {
+                self.s_usable.enable(region.region(), offset_begin + i)?;
                 self.step.assign_exec_step(
                     region,
                     offset_begin + i,

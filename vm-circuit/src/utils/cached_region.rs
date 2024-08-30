@@ -33,6 +33,10 @@ impl<'r, 'b, F: Field> CachedRegion<'r, 'b, F> {
         }
     }
 
+    pub(crate) fn region(&mut self) -> &mut Region<'b, F> {
+        self.region
+    }
+
     /// This method replicates the assignment of 1 row at height_start (which
     /// must be already assigned via the CachedRegion) into a range of rows
     /// indicated by offset_begin, offset_end. It can be used as a "quick"

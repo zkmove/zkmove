@@ -18,7 +18,6 @@ use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
 
-#[derive(Default)]
 pub struct WitnessPreProcessor {
     clk: Version,
     // track versions of each stack value
@@ -26,6 +25,18 @@ pub struct WitnessPreProcessor {
     call_stack_versions: Vec<Version>,
     locals: Locals,
 }
+
+impl Default for WitnessPreProcessor {
+    fn default() -> Self {
+        Self {
+            clk: 1,
+            version_stack: vec![],
+            call_stack_versions: vec![],
+            locals: Locals::default(),
+        }
+    }
+}
+
 impl WitnessPreProcessor {
     pub fn pre_process(
         mut self,
@@ -64,7 +75,8 @@ impl WitnessPreProcessor {
         let current_frame_index = trace.frame_index;
         match &trace.data {
             Operation::LdSimple(v) => {
-                let step_state = StepState::new(self.clk, ExecutionState::LdSimple, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::LdSimple, trace, static_info);
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
                     index: sp + 1,
@@ -89,7 +101,7 @@ impl WitnessPreProcessor {
                     _ => unreachable!(),
                 };
 
-                let step_state = StepState::new(self.clk, state, trace);
+                let step_state = StepState::new(self.clk, state, trace, static_info);
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
                     index: sp + 1,
@@ -115,7 +127,8 @@ impl WitnessPreProcessor {
                     .get_constant(module_index, *const_pool_index as usize)
                     .unwrap_or_else(|| panic!("cannot find constant {:?}", *const_pool_index))
                     .flatten();
-                let step_state = StepState::new(self.clk, ExecutionState::LdConst, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::LdConst, trace, static_info);
 
                 self.version_stack.push(self.clk);
                 let memory_ops = constant
@@ -145,7 +158,7 @@ impl WitnessPreProcessor {
             | Operation::CastU64 { origin }
             | Operation::CastU128 { origin }
             | Operation::CastU256 { origin } => {
-                let step_state = StepState::new(self.clk, ExecutionState::Cast, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Cast, trace, static_info);
                 // convert to U256 and then do casting, to prevent witnessing from being interrupted.
                 let new = match &trace.data {
                     Operation::CastU8 { origin } => {
@@ -191,7 +204,7 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::Pop { poped_value } => {
-                let step_state = StepState::new(self.clk, ExecutionState::Pop, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Pop, trace, static_info);
                 let value_version = self.version_stack.pop().unwrap();
                 let memory_ops = poped_value
                     .iter()
@@ -227,8 +240,8 @@ impl WitnessPreProcessor {
                     Operation::BrFalse { .. } => ExecutionState::BrFalse,
                     _ => unreachable!(),
                 };
-                let step_state =
-                    StepState::new(self.clk, state, trace).set_aux0(*code_offset as u128);
+                let step_state = StepState::new(self.clk, state, trace, static_info)
+                    .set_aux0(*code_offset as u128);
                 let value_version = self.version_stack.pop().unwrap();
                 let stack_pop = StackPop {
                     index: sp,
@@ -252,7 +265,8 @@ impl WitnessPreProcessor {
                 new_value,
             } => {
                 // stage1 of st_loc.
-                let step_state = StepState::new(self.clk, ExecutionState::StoreLocStage1, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::StoreLocStage1, trace, static_info);
                 let stage1_state = {
                     let header_check_sub_index = SubIndex::default();
 
@@ -370,7 +384,8 @@ impl WitnessPreProcessor {
                 ]
             }
             Operation::MoveLoc { local_index, local } => {
-                let step_state = StepState::new(self.clk, ExecutionState::MoveLoc, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::MoveLoc, trace, static_info);
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -412,7 +427,8 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::CopyLoc { local_index, local } => {
-                let step_state = StepState::new(self.clk, ExecutionState::CopyLoc, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::CopyLoc, trace, static_info);
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -481,7 +497,12 @@ impl WitnessPreProcessor {
                 );
                 vec![StageState {
                     step_states: vec![ExecStepState {
-                        step_state: StepState::new(self.clk, ExecutionState::VecLen, trace),
+                        step_state: StepState::new(
+                            self.clk,
+                            ExecutionState::VecLen,
+                            trace,
+                            static_info,
+                        ),
                         memory_ops: vec![MemoryOp(
                             Some(stack_pop),
                             Some(stack_push),
@@ -508,7 +529,7 @@ impl WitnessPreProcessor {
                 };
                 vec![StageState {
                     step_states: vec![ExecStepState {
-                        step_state: StepState::new(self.clk, exec_state, trace),
+                        step_state: StepState::new(self.clk, exec_state, trace, static_info),
                         memory_ops: vec![MemoryOp(None, Some(stack_push), None)],
                     }],
                     extra_data: None,
@@ -545,7 +566,7 @@ impl WitnessPreProcessor {
                 };
                 vec![StageState {
                     step_states: vec![ExecStepState {
-                        step_state: StepState::new(self.clk, exec_state, trace),
+                        step_state: StepState::new(self.clk, exec_state, trace, static_info),
                         memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
                     }],
                     extra_data: None,
@@ -589,7 +610,7 @@ impl WitnessPreProcessor {
                 };
                 vec![StageState {
                     step_states: vec![ExecStepState {
-                        step_state: StepState::new(self.clk, exec_state, trace),
+                        step_state: StepState::new(self.clk, exec_state, trace, static_info),
                         memory_ops: vec![
                             MemoryOp(Some(stack_pop_idx), None, None),
                             MemoryOp(Some(stack_pop_vec_ref), Some(stack_push), None),
@@ -599,7 +620,8 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::Neq { lhs, rhs } | Operation::Eq { lhs, rhs } => {
-                let step_state = StepState::new(self.clk, ExecutionState::EqStage1, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::EqStage1, trace, static_info);
                 let stage1_state = {
                     let value_version = self.version_stack.pop().unwrap();
                     let memory_ops = rhs
@@ -673,7 +695,8 @@ impl WitnessPreProcessor {
                 ]
             }
             Operation::ReadRef { reference, value } => {
-                let step_state = StepState::new(self.clk, ExecutionState::ReadRef, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::ReadRef, trace, static_info);
                 let stack_pop = StackPop {
                     index: sp,
                     sub_index: SubIndex::default(),
@@ -728,7 +751,8 @@ impl WitnessPreProcessor {
                 new_value,
             } => {
                 // stage1: STAGE_POP_REF_AND_INVALIDATE_OLD
-                let step_state = StepState::new(self.clk, ExecutionState::WriteRefStage1, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::WriteRefStage1, trace, static_info);
                 let stage1_state = {
                     let stack_pop = StackPop {
                         index: sp,
@@ -890,7 +914,7 @@ impl WitnessPreProcessor {
                 ]
             }
             Operation::Pack { sd_idx, args } => {
-                let step_state = StepState::new(self.clk, ExecutionState::Pack, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Pack, trace, static_info);
 
                 let flen = args.iter().fold(0usize, |sum, arg| sum + arg.len()) + 1;
                 let len = args.len();
@@ -940,7 +964,8 @@ impl WitnessPreProcessor {
             }
             Operation::Unpack { sd_idx, arg } => {
                 debug_assert!(!arg.is_empty());
-                let step_state = StepState::new(self.clk, ExecutionState::UnpackStage1, trace);
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::UnpackStage1, trace, static_info);
                 let arg_header = arg.first().unwrap();
                 let arg_version = self.version_stack.pop().unwrap();
                 let stack_pop = StackPop {
@@ -1034,7 +1059,8 @@ impl WitnessPreProcessor {
                 idx1_elem,
                 idx2_elem,
             } => {
-                let mut step_state = StepState::new(self.clk, ExecutionState::VecSwapStage1, trace);
+                let mut step_state =
+                    StepState::new(self.clk, ExecutionState::VecSwapStage1, trace, static_info);
 
                 let stage1 = {
                     let states = [
@@ -1179,7 +1205,12 @@ impl WitnessPreProcessor {
                 vec_ref,
                 elem,
             } => {
-                let step_state = StepState::new(self.clk, ExecutionState::VecPopBackStage1, trace);
+                let step_state = StepState::new(
+                    self.clk,
+                    ExecutionState::VecPopBackStage1,
+                    trace,
+                    static_info,
+                );
 
                 let stage1 = {
                     let ref_pop = StackPop {
@@ -1309,7 +1340,12 @@ impl WitnessPreProcessor {
                 vec_ref,
                 elem,
             } => {
-                let step_state = StepState::new(self.clk, ExecutionState::VecPushBackStage1, trace);
+                let step_state = StepState::new(
+                    self.clk,
+                    ExecutionState::VecPushBackStage1,
+                    trace,
+                    static_info,
+                );
 
                 let stage1 = {
                     let ref_pop = StackPop {
@@ -1442,7 +1478,8 @@ impl WitnessPreProcessor {
                     _ => unreachable!(),
                 };
                 let step_state =
-                    StepState::new(self.clk, ExecutionState::AndOr, trace).set_aux0(is_and as u128);
+                    StepState::new(self.clk, ExecutionState::AndOr, trace, static_info)
+                        .set_aux0(is_and as u128);
 
                 let stack_pop_rhs = StackPop {
                     index: sp,
@@ -1479,7 +1516,7 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::Not { value } => {
-                let step_state = StepState::new(self.clk, ExecutionState::Not, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Not, trace, static_info);
                 let stack_pop = StackPop {
                     index: sp,
                     sub_index: SubIndex::default(),
@@ -1520,60 +1557,69 @@ impl WitnessPreProcessor {
                     // to prevent overflow from stopping the computing.
                     BinaryIntegerOperationType::Add => {
                         let output = lhs.to_u256().add(rhs.to_u256());
-                        let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
-                            .set_aux0(num_bytes as u128);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::AddSub, trace, static_info)
+                                .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Sub => {
                         let output = lhs.to_u256().sub(rhs.to_u256());
-                        let step_state = StepState::new(self.clk, ExecutionState::AddSub, trace)
-                            .set_aux0(num_bytes as u128);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::AddSub, trace, static_info)
+                                .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Mul => {
                         let output = lhs.to_u256().mul(rhs.to_u256());
-                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
-                            .set_aux0(num_bytes as u128);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
+                                .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Div => {
                         let output = lhs.to_u256().div(rhs.to_u256());
-                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
-                            .set_aux0(num_bytes as u128);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
+                                .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Mod => {
                         let output = lhs.to_u256().rem(rhs.to_u256());
-                        let step_state = StepState::new(self.clk, ExecutionState::MulDivMod, trace)
-                            .set_aux0(num_bytes as u128);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
+                                .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Lt => {
                         let output = IntegerValue::from(lhs.clone())
                             .lt(IntegerValue::from(rhs.clone()))
                             .expect("should not fail");
-                        let step_state = StepState::new(self.clk, ExecutionState::Lt, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Lt, trace, static_info);
                         (SimpleValue::Bool(output), step_state)
                     }
                     BinaryIntegerOperationType::Gt => {
                         let output = IntegerValue::from(lhs.clone())
                             .gt(IntegerValue::from(rhs.clone()))
                             .expect("should not fail");
-                        let step_state = StepState::new(self.clk, ExecutionState::Gt, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Gt, trace, static_info);
                         (SimpleValue::Bool(output), step_state)
                     }
                     BinaryIntegerOperationType::Le => {
                         let output = IntegerValue::from(lhs.clone())
                             .le(IntegerValue::from(rhs.clone()))
                             .expect("should not fail");
-                        let step_state = StepState::new(self.clk, ExecutionState::Le, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Le, trace, static_info);
                         (SimpleValue::Bool(output), step_state)
                     }
                     BinaryIntegerOperationType::Ge => {
                         let output = IntegerValue::from(lhs.clone())
                             .ge(IntegerValue::from(rhs.clone()))
                             .expect("should not fail");
-                        let step_state = StepState::new(self.clk, ExecutionState::Ge, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Ge, trace, static_info);
                         (SimpleValue::Bool(output), step_state)
                     }
                     BinaryIntegerOperationType::BitAnd => {
@@ -1581,7 +1627,8 @@ impl WitnessPreProcessor {
                             .bit_and(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state = StepState::new(self.clk, ExecutionState::Bitwise, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
                         (SimpleValue::from(output), step_state)
                     }
                     BinaryIntegerOperationType::BitOr => {
@@ -1589,7 +1636,8 @@ impl WitnessPreProcessor {
                             .bit_or(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state = StepState::new(self.clk, ExecutionState::Bitwise, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
                         (SimpleValue::from(output), step_state)
                     }
                     BinaryIntegerOperationType::Xor => {
@@ -1597,7 +1645,8 @@ impl WitnessPreProcessor {
                             .bit_xor(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state = StepState::new(self.clk, ExecutionState::Bitwise, trace);
+                        let step_state =
+                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
                         (SimpleValue::from(output), step_state)
                     }
                     _ => todo!(),
@@ -1671,8 +1720,9 @@ impl WitnessPreProcessor {
                 // TODO: for entrypoint, is there a call ?
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
-                let mut step_state = StepState::new(self.clk, ExecutionState::CallStage1, trace)
-                    .set_aux0(*fh_idx as u128);
+                let mut step_state =
+                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info)
+                        .set_aux0(*fh_idx as u128);
                 let mut stages = vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
@@ -1809,7 +1859,7 @@ impl WitnessPreProcessor {
                 // TOOD: check the Ret at the top frame
                 let frame_version = self.call_stack_versions.pop().unwrap_or_default();
                 // stage1: check the number of argument
-                let step_state = StepState::new(self.clk, ExecutionState::Ret, trace);
+                let step_state = StepState::new(self.clk, ExecutionState::Ret, trace, static_info);
 
                 let caller = caller.as_ref().map(|c| CallerData {
                     caller_frame_index: c.frame_index as u16,

@@ -40,6 +40,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let static_info = StaticInfo::generate(&module_id, &package);
     let preprocessor = WitnessPreProcessor::default();
     let states = preprocessor.pre_process(&traces, &static_info);
+    debug!("Execution states: {:?}", states);
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 
