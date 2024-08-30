@@ -46,6 +46,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
+    pub base_constraint: Box<BaseConstraintGadget<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -200,10 +201,10 @@ impl<F: Field> ExecChipConfig<F> {
         });
 
         // base configuration for every opcode gadgets
-        let step_curr = {
+        let (step_curr, base_constraint) = {
             let mut cb =
                 ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
-            BaseConstraintGadget::configure(&mut cb);
+            let base_constraint = BaseConstraintGadget::configure(&mut cb);
             // we need to reuse the step_curr when configuring opcode gadgets.
             let step_curr = cb.curr.clone();
             Self::configure_opcode_gadget_impl(
@@ -213,7 +214,7 @@ impl<F: Field> ExecChipConfig<F> {
                 "base constraints",
                 cb,
             );
-            step_curr
+            (step_curr, base_constraint)
         };
         macro_rules! configure_opcode_gadget {
             () => {
@@ -233,6 +234,7 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             s_step_last,
+            base_constraint: Box::new(base_constraint),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
             bitwise: configure_opcode_gadget!(),
@@ -576,6 +578,13 @@ impl<F: Field> ExecChipConfig<F> {
                     step_counter,
                     &exec_step_state.step_state,
                     memory_op,
+                )?;
+                self.base_constraint.assign(
+                    self.step.state.clone(),
+                    region,
+                    offset_begin + i,
+                    stage_state,
+                    static_info,
                 )?;
                 i += 1;
                 step_counter -= 1;
