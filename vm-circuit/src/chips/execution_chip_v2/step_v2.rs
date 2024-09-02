@@ -8,10 +8,12 @@ use crate::utils::challenges::Challenges;
 use aptos_move_witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value as Halo2Value;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector};
+use log::debug;
 use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;
+
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
 
 pub const STEP_COUNTER: &str = "step_counter";
@@ -284,6 +286,7 @@ impl<F: Field> Step<F> {
             offset,
             Halo2Value::known(F::from_u128(step_state.sp as u128)),
         )?;
+        debug!("assign opcode {:?}", step_state.opcode);
         self.state.opcode.assign(
             region,
             offset,

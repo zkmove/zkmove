@@ -1,4 +1,5 @@
 use crate::exec_state::ExecutionState;
+use crate::static_info::StaticInfo;
 use crate::types::sub_index::SubIndex;
 use crate::types::word::Word;
 use crate::Footprint;
@@ -51,7 +52,7 @@ pub struct ExecStepState {
 pub struct StepState {
     pub clk: u64,
     pub frame_index: u16,
-    pub module_index: u64, // TODO: module_id to module_index
+    pub module_index: u64,
     pub function_index: u16,
     pub pc: u64,
     pub sp: u64,
@@ -79,17 +80,25 @@ impl Default for StepState {
 }
 
 impl StepState {
-    pub fn new(clk: u64, state: ExecutionState, trace: &Footprint) -> Self {
+    pub fn new(
+        clk: u64,
+        state: ExecutionState,
+        trace: &Footprint,
+        static_info: &StaticInfo,
+    ) -> Self {
+        let module_index = static_info
+            .module_id_mapping
+            .get_module_index(trace.module_id.as_ref().unwrap());
         Self {
             clk,
             frame_index: trace.frame_index as u16,
-            module_index: 0, // FIXME
+            module_index: module_index as u64,
             function_index: trace.function_id as u16,
             pc: trace.pc as u64,
             sp: trace.stack_pointer as u64,
-            opcode: trace.op as u16, //FIXME
-            aux0: 0,                 // FIXME
-            aux1: 0,                 // FIXME
+            opcode: trace.op as u16,
+            aux0: 0,
+            aux1: 0,
             exec_state: state,
         }
     }

@@ -46,6 +46,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_first: Selector,
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
+    pub base_constraint: Box<BaseConstraintGadget<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -131,16 +132,16 @@ impl<F: Field> ExecChipConfig<F> {
                     "first step, frame_index = 0",
                     step_curr.state.frame_index.expr(),
                 );
-                //TODO: get module_index and function_index from public input
+                //TODO: require module_index/function_index equal to entry_module/entry_func
 
                 // cb.require_zero(
                 //     "first step, module_index = 0",
                 //     step_curr.cells.module_index.expr(),
                 // );
-                cb.require_zero(
-                    "first step, function_index = 0",
-                    step_curr.state.function_index.expr(),
-                );
+                // cb.require_zero(
+                //     "first step, function_index = 0",
+                //     step_curr.state.function_index.expr(),
+                // );
             });
             cb.gate(s_usable)
         });
@@ -169,8 +170,9 @@ impl<F: Field> ExecChipConfig<F> {
             execution_state_selector_constraints
                 .into_iter()
                 .map(move |(name, poly)| (name, s_usable.clone() * poly))
-                .chain(first_step_check)
-                .chain(last_step_check)
+            // FIXME
+            // .chain(first_step_check)
+            // .chain(last_step_check)
         });
         // meta.create_gate("q_step_last", |meta| {
         //     let q_usable = meta.query_fixed(q_usable, Rotation::cur());
@@ -199,10 +201,10 @@ impl<F: Field> ExecChipConfig<F> {
         });
 
         // base configuration for every opcode gadgets
-        let step_curr = {
+        let (step_curr, base_constraint) = {
             let mut cb =
                 ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
-            BaseConstraintGadget::configure(&mut cb);
+            let base_constraint = BaseConstraintGadget::configure(&mut cb);
             // we need to reuse the step_curr when configuring opcode gadgets.
             let step_curr = cb.curr.clone();
             Self::configure_opcode_gadget_impl(
@@ -212,7 +214,7 @@ impl<F: Field> ExecChipConfig<F> {
                 "base constraints",
                 cb,
             );
-            step_curr
+            (step_curr, base_constraint)
         };
         macro_rules! configure_opcode_gadget {
             () => {
@@ -232,6 +234,7 @@ impl<F: Field> ExecChipConfig<F> {
             s_usable,
             s_step_first,
             s_step_last,
+            base_constraint: Box::new(base_constraint),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
             bitwise: configure_opcode_gadget!(),
@@ -421,9 +424,13 @@ impl<F: Field> ExecChipConfig<F> {
                 meta.lookup_any(name.as_str(), |meta| {
                     let s_usable = meta.query_selector(s_usable);
                     let table_expressions = match table {
+                        Table::Nibble => lookup_table_config.nibble_table.table_exprs(meta),
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
                         Table::Function => lookup_table_config.function_table.table_exprs(meta),
+                        Table::Bitwise => lookup_table_config.bitwise_table.table_exprs(meta),
+                        Table::Bytecode => lookup_table_config.bytecode_table.table_exprs(meta),
+                        Table::Constant => lookup_table_config.constant_table.table_exprs(meta),
                         _ => unimplemented!(),
                     };
                     vec![(
@@ -526,6 +533,7 @@ impl<F: Field> ExecChipConfig<F> {
             || "execution region",
             |mut region| {
                 let mut offset = 0;
+                self.s_step_first.enable(&mut region, offset)?;
                 for opcode_witness in &witness.opcode_witnesses {
                     offset += self.assign_exec_step(
                         &mut region,
@@ -535,6 +543,7 @@ impl<F: Field> ExecChipConfig<F> {
                         &witness.static_info,
                     )?;
                 }
+                self.s_step_last.enable(&mut region, offset - 1)?;
                 Ok(())
             },
         )?;
@@ -555,19 +564,27 @@ impl<F: Field> ExecChipConfig<F> {
             region,
             challenges,
             self.columns.columns().iter().map(|c| c.advice).collect(),
-            1,
+            stage_state.rows(),
             offset_begin,
         );
         let mut step_counter = stage_state.rows();
         let mut i = 0;
         for exec_step_state in &stage_state.step_states {
             for memory_op in exec_step_state.memory_ops.iter() {
+                self.s_usable.enable(region.region(), offset_begin + i)?;
                 self.step.assign_exec_step(
                     region,
                     offset_begin + i,
                     step_counter,
                     &exec_step_state.step_state,
                     memory_op,
+                )?;
+                self.base_constraint.assign(
+                    self.step.state.clone(),
+                    region,
+                    offset_begin + i,
+                    stage_state,
+                    static_info,
                 )?;
                 i += 1;
                 step_counter -= 1;

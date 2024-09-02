@@ -74,6 +74,7 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
 
 impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
     fn add_constraint(&mut self, name: String, constraint: Expression<F>) {
+        let constraint = constraint * self.condition_expr();
         // let constraint = self.split_expression(
         //     name.as_str(),
         //     constraint * self.condition_expr(),

@@ -31,9 +31,14 @@ rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 strum_macros.workspace = true
 strum.workspace = true
+log = "0.4.21"
+
 [dev-dependencies]
 datatest-stable = "0.1.1"
 
 # https://github.com/Amanieu/parking_lot/issues/269
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 parking_lot_core = "=0.8.0"
+
+[features]
+test-circuits = []

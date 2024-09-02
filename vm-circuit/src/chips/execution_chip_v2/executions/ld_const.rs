@@ -49,12 +49,10 @@ impl<F: Field> InstructionGadgetV2<F> for LdConst<F> {
                     );
                 },
             );
-            cb.first_row(|cb| {
-                cb.require_zero(
-                    format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
-                    step_curr.stack_push_sub_index.expr(),
-                );
-            });
+            cb.require_zero(
+                format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
+                step_curr.stack_push_sub_index.expr(),
+            );
         });
         cb.add_lookup(
             "constant lookup",

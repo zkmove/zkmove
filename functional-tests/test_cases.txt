@@ -1,3 +1,4 @@
 test_add
+test_add_u64 --args 1u64 2u64
 test_abort
 test_arith_integer --args 1111u16 11111u32 340282366920938463463374607431768211458u256 200u64

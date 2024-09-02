@@ -19,7 +19,7 @@ use log::debug;
 use rand::{rngs::StdRng, SeedableRng};
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::SubCircuit;
+use vm_circuit::{mock_prove_circuit, SubCircuit};
 pub const TEST_PACKAGE_NAME: &str = "cases";
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
@@ -40,8 +40,12 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let static_info = StaticInfo::generate(&module_id, &package);
     let preprocessor = WitnessPreProcessor::default();
     let states = preprocessor.pre_process(&traces, &static_info);
+    debug!("Execution states: {:?}", states);
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
+
+    let k = 10; //TODO: auto pick best k
+    mock_prove_circuit(&circuit, vec![], k)?;
 
     // TODO: gen key, prove, verify
     Ok(())
