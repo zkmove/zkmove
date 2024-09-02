@@ -7,6 +7,18 @@ module 0x1::TestCase {
         1u8 + 2u8;
     }
 
+    public entry fun test_add_loop() {
+        let i = 10u64;
+        let t = 0;
+        loop {
+            t = t + i;
+            if (i == 0) {
+                break
+            };
+            i = i - 1;
+        }
+    }
+
     public entry fun test_add_u64(x: u64, y: u64) {
         x + y;
     }

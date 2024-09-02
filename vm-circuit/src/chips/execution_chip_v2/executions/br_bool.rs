@@ -46,6 +46,9 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
             );
         });
 
+        cb.require_no_local_op();
+        cb.require_no_stack_push();
+
         cb.require_equal(
             "stack_pop_index(0) == sp(0)",
             cb.curr.state.stack_pop_index.expr(),

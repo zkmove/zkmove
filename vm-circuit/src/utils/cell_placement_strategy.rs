@@ -1,5 +1,5 @@
 use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrategy, CellType};
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, SecondPhase, ThirdPhase};
 use std::collections::{BTreeMap, HashMap};
 
 use types::Field;
@@ -325,8 +325,12 @@ impl CMFixedHeightStrategy {
                 .expect("column not found")
         } else {
             assert_eq!(column_idx, columns.get_cell_type_width(cell_type));
-            let advice = meta.advice_column();
-
+            let advice = match cell_type.phase() {
+                0 => meta.advice_column_in(FirstPhase),
+                1 => meta.advice_column_in(SecondPhase),
+                2 => meta.advice_column_in(ThirdPhase),
+                _ => unreachable!(),
+            };
             columns.add_column(cell_type, advice);
 
             columns

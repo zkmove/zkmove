@@ -671,12 +671,13 @@ impl WitnessPreProcessor {
                     } else {
                         lhs_sorted != rhs_sorted
                     };
+                    self.version_stack.push(self.clk);
                     let _ = memory_ops.last_mut().unwrap().1.insert(StackPush {
                         index: step_state.sp,
                         sub_index: SubIndex::default(),
                         value: out.into(),
                         value_header: false,
-                        version: self.clk,
+                        version: self.version_stack.last().cloned().unwrap(),
                     });
                     ExecStepState {
                         step_state,
@@ -1881,7 +1882,20 @@ impl WitnessPreProcessor {
                     ),
                 }]
             }
-            _ => todo!(),
+            Operation::Branch(next_pc) => {
+                let mut step_state =
+                    StepState::new(self.clk, ExecutionState::Branch, trace, static_info);
+                // TODO: refactor trace to include aux0
+                step_state.aux0 = *next_pc as u128;
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops: vec![],
+                    }],
+                    extra_data: None,
+                }]
+            }
+            _ => todo!("{:?}", &trace.data),
         }
     }
 }

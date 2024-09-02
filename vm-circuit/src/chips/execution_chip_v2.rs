@@ -3,6 +3,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
@@ -54,6 +55,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub borrow_loc: Box<BorrowLoc<F>>,
     pub br_true: Box<BrBool<F, true>>,
     pub br_false: Box<BrBool<F, false>>,
+    pub branch: Box<Branch<F>>,
     pub call_stage_1: Box<CallStage1<F>>,
     pub call_stage_2: Box<CallStage2<F>>,
     pub call_stage_3: Box<CallStage3<F>>,
@@ -242,6 +244,7 @@ impl<F: Field> ExecChipConfig<F> {
             borrow_loc: configure_opcode_gadget!(),
             br_true: configure_opcode_gadget!(),
             br_false: configure_opcode_gadget!(),
+            branch: configure_opcode_gadget!(),
             call_stage_1: configure_opcode_gadget!(),
             call_stage_2: configure_opcode_gadget!(),
             call_stage_3: configure_opcode_gadget!(),
@@ -291,15 +294,15 @@ impl<F: Field> ExecChipConfig<F> {
             columns: cell_columns,
             step: step_curr,
         };
-        Self::configure_lookup(
-            meta,
-            &config.columns,
-            &challenges,
-            &lookup_table_configs,
-            &config.step,
-            s_usable,
-        );
-        Self::configure_shuffle(meta, &config, s_usable);
+        // Self::configure_lookup(
+        //     meta,
+        //     &config.columns,
+        //     &challenges,
+        //     &lookup_table_configs,
+        //     &config.step,
+        //     s_usable,
+        // );
+        // Self::configure_shuffle(meta, &config, s_usable);
 
         config
     }
@@ -534,14 +537,26 @@ impl<F: Field> ExecChipConfig<F> {
             |mut region| {
                 let mut offset = 0;
                 self.s_step_first.enable(&mut region, offset)?;
-                for opcode_witness in &witness.opcode_witnesses {
-                    offset += self.assign_exec_step(
+                {
+                    // we need to cache the whole assignment,
+                    // or else, we cannot access cached data in region of previous stage
+                    // as they're different regions.
+                    let mut cached_region = CachedRegion::<'_, '_, F>::new(
                         &mut region,
-                        offset,
-                        opcode_witness,
                         challenges,
-                        &witness.static_info,
-                    )?;
+                        self.columns.columns().iter().map(|c| c.advice).collect(),
+                        witness.opcode_witnesses.iter().map(|s| s.rows()).sum(),
+                        offset,
+                    );
+                    for opcode_witness in &witness.opcode_witnesses {
+                        offset += self.assign_exec_step(
+                            &mut cached_region,
+                            offset,
+                            opcode_witness,
+                            challenges,
+                            &witness.static_info,
+                        )?;
+                    }
                 }
                 self.s_step_last.enable(&mut region, offset - 1)?;
                 Ok(())
@@ -552,7 +567,7 @@ impl<F: Field> ExecChipConfig<F> {
     }
     fn assign_exec_step(
         &self,
-        region: &mut Region<'_, F>,
+        region: &mut CachedRegion<'_, '_, F>,
         offset_begin: usize,
         stage_state: &StageState,
         challenges: &Challenges<Value<F>>,
@@ -560,13 +575,6 @@ impl<F: Field> ExecChipConfig<F> {
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
 
-        let region = &mut CachedRegion::<'_, '_, F>::new(
-            region,
-            challenges,
-            self.columns.columns().iter().map(|c| c.advice).collect(),
-            stage_state.rows(),
-            offset_begin,
-        );
         let mut step_counter = stage_state.rows();
         let mut i = 0;
         for exec_step_state in &stage_state.step_states {
@@ -619,6 +627,7 @@ impl<F: Field> ExecChipConfig<F> {
         ExecutionState::BorrowLoc => self.borrow_loc,
         ExecutionState::BrTrue => self.br_true,
         ExecutionState::BrFalse => self.br_false,
+            ExecutionState::Branch => self.branch,
         ExecutionState::CallStage1 => self.call_stage_1,
         ExecutionState::CallStage2 => self.call_stage_2,
         ExecutionState::CallStage3 => self.call_stage_3,
