@@ -1890,7 +1890,7 @@ impl WitnessPreProcessor {
                 vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
-                        memory_ops: vec![],
+                        memory_ops: vec![MemoryOp::default()],
                     }],
                     extra_data: None,
                 }]

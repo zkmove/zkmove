@@ -47,8 +47,8 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        let rlc1 = cb.query_cell();
-        let rlc2 = cb.query_cell();
+        let rlc1 = cb.query_cell_phase2();
+        let rlc2 = cb.query_cell_phase2();
         let stack_pop_sub_index_reverse = cb.query_cell();
         let stack_pop_sub_index_reverse_prev = cb.cell_at_offset(&stack_pop_sub_index_reverse, -1);
         let sub_index_reverse =
@@ -294,8 +294,9 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             )?;
 
             stack_pop_sub_index_reverse_prev = v_reverse;
+            let randomness = region.challenges().keccak_input();
 
-            let stack_pop_rlc = region.challenges().keccak_input().map(|randomness| {
+            let stack_pop_rlc = randomness.map(|randomness| {
                 rlc::generic(
                     [
                         sub_index_value,
@@ -309,12 +310,13 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                     randomness,
                 )
             });
-            let current_rlc_value = stack_pop_rlc.zip(region.challenges().keccak_input()).map(
-                |(stack_pop_rlc, randomness)| {
-                    prev_rlc = rlc::generic([stack_pop_rlc, prev_rlc], randomness);
-                    prev_rlc
-                },
-            );
+            let current_rlc_value =
+                stack_pop_rlc
+                    .zip(randomness)
+                    .map(|(stack_pop_rlc, randomness)| {
+                        prev_rlc = rlc::generic([stack_pop_rlc, prev_rlc], randomness);
+                        prev_rlc
+                    });
 
             let (rlc1_value, rlc2_value) = if STAGE1 {
                 (current_rlc_value, Value::known(F::zero()))
