@@ -1,11 +1,12 @@
 use strum_macros::EnumIter;
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
 pub enum ExecutionState {
-    Start = 1,
+    Start = 0,
     AddSub,
     BrTrue,
     BrFalse,
     Bitwise,
+    Branch,
     VecSwapStage1,
     VecSwapStage2,
     VecSwapStage3,
