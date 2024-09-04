@@ -53,10 +53,9 @@ pub(crate) enum Lookup<F> {
     },
     Function {
         module_index: Expression<F>,
-        function_handle_index: Expression<F>,
-        def_module_index: Expression<F>,
         function_index: Expression<F>,
         num_arg: Expression<F>,
+        entry: Expression<F>,
     },
     Constant {
         module_index: Expression<F>,
@@ -95,17 +94,15 @@ impl<F: Field> Lookup<F> {
             Self::Fixed { tag, values } => [vec![tag.clone()], values.to_vec()].concat(),
             Self::Function {
                 module_index,
-                function_handle_index,
-                def_module_index,
                 function_index,
                 num_arg,
+                entry,
             } => {
                 vec![
                     module_index.clone(),
-                    function_handle_index.clone(),
-                    def_module_index.clone(),
                     function_index.clone(),
                     num_arg.clone(),
+                    entry.clone(),
                 ]
             }
             Self::Constant {

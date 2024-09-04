@@ -31,7 +31,8 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let trace_contents = std::fs::read_to_string(path)?;
     let traces: Vec<Footprint> = serde_json::from_str(&trace_contents)?;
     let module_id = traces.first().unwrap().module_id.clone().unwrap();
-    let static_info = StaticInfo::generate(&module_id, &package);
+    let function_index = traces.first().unwrap().function_id;
+    let static_info = StaticInfo::generate(&module_id, function_index, &package);
     let preprocessor = WitnessPreProcessor::default();
     let states = preprocessor.pre_process(&traces, &static_info);
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());

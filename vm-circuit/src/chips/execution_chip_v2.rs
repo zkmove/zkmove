@@ -5,6 +5,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
+use crate::chips::execution_chip_v2::executions::start::{StartStage1, StartStage2};
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
@@ -48,6 +49,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
     pub base_constraint: Box<BaseConstraintGadget<F>>,
+    pub start_stage1: Box<StartStage1<F>>,
+    pub start_stage2: Box<StartStage2<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -129,21 +132,6 @@ impl<F: Field> ExecChipConfig<F> {
                     step_curr.state.clk.expr(),
                     1u64.expr(),
                 );
-                cb.require_zero("first step, pc = 0", step_curr.state.pc.expr());
-                cb.require_zero(
-                    "first step, frame_index = 0",
-                    step_curr.state.frame_index.expr(),
-                );
-                //TODO: require module_index/function_index equal to entry_module/entry_func
-
-                // cb.require_zero(
-                //     "first step, module_index = 0",
-                //     step_curr.cells.module_index.expr(),
-                // );
-                // cb.require_zero(
-                //     "first step, function_index = 0",
-                //     step_curr.state.function_index.expr(),
-                // );
             });
             cb.gate(s_usable)
         });
@@ -154,7 +142,7 @@ impl<F: Field> ExecChipConfig<F> {
             let execution_state_selector_constraints = step_curr.state.execution_state.configure();
             let first_step_check = {
                 let begin_opcode_selector =
-                    step_curr.execution_state_selector([ExecutionState::Start]);
+                    step_curr.execution_state_selector([ExecutionState::StartStage1]);
                 iter::once((
                     "First step should be Start",
                     s_step_first * (1u64.expr() - begin_opcode_selector),
@@ -172,8 +160,8 @@ impl<F: Field> ExecChipConfig<F> {
             execution_state_selector_constraints
                 .into_iter()
                 .map(move |(name, poly)| (name, s_usable.clone() * poly))
+                .chain(first_step_check)
             // FIXME
-            // .chain(first_step_check)
             // .chain(last_step_check)
         });
         // meta.create_gate("q_step_last", |meta| {
@@ -237,6 +225,8 @@ impl<F: Field> ExecChipConfig<F> {
             s_step_first,
             s_step_last,
             base_constraint: Box::new(base_constraint),
+            start_stage1: configure_opcode_gadget!(),
+            start_stage2: configure_opcode_gadget!(),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
             bitwise: configure_opcode_gadget!(),
@@ -417,7 +407,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.aux1.expr(),
             ]
             .into_iter()
-            .map(|e| s_usable.clone() * e)
+            .map(|e| s_usable.clone() * step_curr.state.opcode.expr() * e)
             .zip(table_expressions)
             .collect()
         });
@@ -590,53 +580,55 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
         let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
-        ExecutionState::VecLen => self.vec_len,
-        ExecutionState::StoreLocStage1 => self.store_loc_stage1,
-        ExecutionState::StoreLocStage2 => self.store_loc_stage2,
-        ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
-        ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
-        ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
-        ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
-        ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
-        ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
-        ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
-        ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
-        ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
-        ExecutionState::AddSub => self.add_sub,
-        ExecutionState::AndOr => self.and_or,
-        ExecutionState::Bitwise => self.bitwise,
-        ExecutionState::BorrowField => self.borrow_field,
-        ExecutionState::BorrowLoc => self.borrow_loc,
-        ExecutionState::BrTrue => self.br_true,
-        ExecutionState::BrFalse => self.br_false,
+            ExecutionState::VecLen => self.vec_len,
+            ExecutionState::StoreLocStage1 => self.store_loc_stage1,
+            ExecutionState::StoreLocStage2 => self.store_loc_stage2,
+            ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
+            ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
+            ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
+            ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
+            ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
+            ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
+            ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
+            ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
+            ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
+            ExecutionState::AddSub => self.add_sub,
+            ExecutionState::AndOr => self.and_or,
+            ExecutionState::Bitwise => self.bitwise,
+            ExecutionState::BorrowField => self.borrow_field,
+            ExecutionState::BorrowLoc => self.borrow_loc,
+            ExecutionState::BrTrue => self.br_true,
+            ExecutionState::BrFalse => self.br_false,
             ExecutionState::Branch => self.branch,
-        ExecutionState::CallStage1 => self.call_stage_1,
-        ExecutionState::CallStage2 => self.call_stage_2,
-        ExecutionState::CallStage3 => self.call_stage_3,
-        ExecutionState::Cast => self.cast,
-        ExecutionState::EqStage1 => self.eq_stage_1,
-        ExecutionState::EqStage2 => self.eq_stage_2,
-        ExecutionState::LdFalse => self.ld_false,
-        ExecutionState::LdTrue => self.ld_true,
-        ExecutionState::LdConst => self.ld_const,
-        ExecutionState::LdSimple => self.ld_simple,
-        ExecutionState::Le => self.le,
-        ExecutionState::Lt => self.lt,
-        ExecutionState::MoveLoc => self.move_loc,
-        ExecutionState::CopyLoc => self.copy_loc,
-        ExecutionState::MulDivMod => self.mul_div_mod,
-        ExecutionState::Not => self.not,
-        ExecutionState::Pack => self.pack,
-        ExecutionState::Pop => self.pop,
-        ExecutionState::ReadRef => self.read_ref,
-        ExecutionState::Ret => self.ret,
-        ExecutionState::UnpackStage1 => self.unpack_stage_1,
-        ExecutionState::UnpackStage2 => self.unpack_stage_2,
-        ExecutionState::VecBorrow => self.vec_borrow,
-        ExecutionState::WriteRefStage1 => self.write_ref_stage1,
-        ExecutionState::WriteRefStage2 => self.write_ref_stage2,
-        ExecutionState::WriteRefStage3 => self.write_ref_stage3,
-        ExecutionState::Nop => self.nop,
+            ExecutionState::CallStage1 => self.call_stage_1,
+            ExecutionState::CallStage2 => self.call_stage_2,
+            ExecutionState::CallStage3 => self.call_stage_3,
+            ExecutionState::Cast => self.cast,
+            ExecutionState::EqStage1 => self.eq_stage_1,
+            ExecutionState::EqStage2 => self.eq_stage_2,
+            ExecutionState::LdFalse => self.ld_false,
+            ExecutionState::LdTrue => self.ld_true,
+            ExecutionState::LdConst => self.ld_const,
+            ExecutionState::LdSimple => self.ld_simple,
+            ExecutionState::Le => self.le,
+            ExecutionState::Lt => self.lt,
+            ExecutionState::MoveLoc => self.move_loc,
+            ExecutionState::CopyLoc => self.copy_loc,
+            ExecutionState::MulDivMod => self.mul_div_mod,
+            ExecutionState::Not => self.not,
+            ExecutionState::Pack => self.pack,
+            ExecutionState::Pop => self.pop,
+            ExecutionState::ReadRef => self.read_ref,
+            ExecutionState::Ret => self.ret,
+            ExecutionState::UnpackStage1 => self.unpack_stage_1,
+            ExecutionState::UnpackStage2 => self.unpack_stage_2,
+            ExecutionState::VecBorrow => self.vec_borrow,
+            ExecutionState::WriteRefStage1 => self.write_ref_stage1,
+            ExecutionState::WriteRefStage2 => self.write_ref_stage2,
+            ExecutionState::WriteRefStage3 => self.write_ref_stage3,
+            ExecutionState::Nop => self.nop,
+            ExecutionState::StartStage1 => self.start_stage1,
+            ExecutionState::StartStage2 => self.start_stage2,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
 

@@ -1716,11 +1716,18 @@ impl WitnessPreProcessor {
                 }
             }
             Operation::Call { fh_idx, args } => {
-                // TODO: for entrypoint, is there a call ?
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
+                let module_index = static_info
+                    .module_id_mapping
+                    .get_module_index(trace.module_id.as_ref().unwrap());
+                let func = static_info
+                    .get_function_by_handle(module_index, *fh_idx as usize)
+                    .unwrap_or_else(|| panic!("cannot find function"));
                 let mut step_state =
-                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info);
+                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info)
+                        .set_aux0(func.def_module_index as u128)
+                        .set_aux1(func.function_index as u128);
                 let mut stages = vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
@@ -1889,6 +1896,60 @@ impl WitnessPreProcessor {
                     }],
                     extra_data: None,
                 }]
+            }
+            Operation::Start { args } => {
+                // stage1: check the number of argument
+                let mut step_state =
+                    StepState::new(self.clk, ExecutionState::StartStage1, trace, static_info);
+                let mut stages = vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops: vec![MemoryOp(None, None, None)],
+                    }],
+                    extra_data: None,
+                }];
+
+                for (i, arg) in args.iter().enumerate().rev() {
+                    let local_index = args.len() - 1 - i;
+                    self.clk += 1;
+
+                    // stage2: store one argument
+                    let step_state = step_state
+                        .change_state(ExecutionState::StartStage2)
+                        .change_clk(self.clk);
+
+                    let memory_ops: Vec<_> = arg
+                        .iter()
+                        .map(|item| {
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                current_frame_index,
+                                local_index,
+                                &item.sub_index.clone().into(),
+                                item.value.clone().into(),
+                                item.header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                current_frame_index.try_into().unwrap(),
+                                local_index.try_into().unwrap(),
+                                item.sub_index.clone().into(),
+                                old_,
+                                new_,
+                            );
+                            MemoryOp(None, None, Some(local_op))
+                        })
+                        .collect();
+                    let stage2_state = StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                        extra_data: None,
+                    };
+                    stages.push(stage2_state);
+                }
+                stages
             }
             _ => todo!("{:?}", &trace.data),
         }

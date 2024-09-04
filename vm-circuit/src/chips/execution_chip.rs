@@ -779,6 +779,7 @@ impl<F: Field> ExecutionChip<F> {
             Opcode::ExistsGeneric => assign_opcode_gadget!(self.config.op_exists_generic),
             Opcode::Stop => assign_opcode_gadget!(self.config.op_stop),
             Opcode::Nop => assign_opcode_gadget!(self.config.op_nop),
+            _ => (),
         }
 
         Ok(())
