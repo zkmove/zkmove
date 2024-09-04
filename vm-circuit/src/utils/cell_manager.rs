@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::query_expression;
 use gadgets::util::Expr;
-use halo2_proofs::plonk::{FirstPhase, Phase, SecondPhase, ThirdPhase};
 use halo2_proofs::{
     circuit::{AssignedCell, Value},
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},

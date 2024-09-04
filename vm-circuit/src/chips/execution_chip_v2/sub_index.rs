@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-pub use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::types::sub_index::SubIndex;
 use aptos_move_witnesses::types::sub_index::N_BITS_ONE_LIMB;
 use halo2_proofs::{
