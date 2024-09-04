@@ -109,7 +109,7 @@ impl<F: Field> ExecChipConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         challenges: Challenges<Expression<F>>,
-        lookup_table_configs: LookupTableConfigV2<F>,
+        lookup_table_configs: &LookupTableConfigV2<F>,
     ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
@@ -232,18 +232,7 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
 
-        
-        // Self::configure_lookup(
-        //     meta,
-        //     &config.columns,
-        //     &challenges,
-        //     &lookup_table_configs,
-        //     &config.step,
-        //     s_usable,
-        // );
-        // Self::configure_shuffle(meta, &config, s_usable);
-
-        ExecChipConfig {
+        let config = ExecChipConfig {
             s_usable,
             s_step_first,
             s_step_last,
@@ -304,7 +293,19 @@ impl<F: Field> ExecChipConfig<F> {
             nop: configure_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
-        }
+        };
+
+        Self::configure_lookup(
+            meta,
+            &config.columns,
+            &challenges,
+            lookup_table_configs,
+            &config.step,
+            s_usable,
+        );
+        Self::configure_shuffle(meta, &config, s_usable);
+
+        config
     }
 
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(

@@ -84,6 +84,7 @@ impl<F: Field> ToFields<F> for BytecodeInfo {
     }
 }
 
+/// TODO: merge this with witnessing
 /// Convert opcode, operand1 and operand2 of given bytecode into field elements
 fn bytecode_to_fe<F: Field>(bytecode: &Bytecode, ty_out: &[SignatureToken]) -> [F; 3] {
     let fe_opcode = F::from(Opcode::from(bytecode.clone()).index() as u64);

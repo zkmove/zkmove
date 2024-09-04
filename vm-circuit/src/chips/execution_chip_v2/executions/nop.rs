@@ -35,11 +35,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::Nop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        cb.require_in_set(
-            "opcode = NOP",
-            cb.curr.state.opcode.expr(),
-            Self::OPCODES.iter().map(|c| (*c as u64).expr()).collect(),
-        );
+        cb.require_zero("opcode = 0", cb.curr.state.opcode.expr());
         cb.require_zero(
             "local_write_version(0) ==0",
             cb.curr.state.local_write_version.expr(),

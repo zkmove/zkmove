@@ -10,7 +10,7 @@ use types::Field;
 
 /// Function handle table of all dependent modules, which include handles to
 /// external and internal functions of each module.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct FunctionLookupTable {
     pub module_index_column: Column<Fixed>,
     pub function_handle_index_column: Column<Fixed>,
