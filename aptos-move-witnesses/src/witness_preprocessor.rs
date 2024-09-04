@@ -77,12 +77,6 @@ impl WitnessPreProcessor {
             Operation::LdSimple(v) => {
                 let mut step_state =
                     StepState::new(self.clk, ExecutionState::LdSimple, trace, static_info);
-                {
-                    let num_bytes = v.to_u256().to_le_bytes();
-                    let a = num_bytes.as_chunks::<16>().0;
-                    step_state.aux0 = u128::from_le_bytes(a[0]);
-                    step_state.aux1 = u128::from_le_bytes(a[1]);
-                }
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
                     index: sp + 1,
@@ -246,8 +240,7 @@ impl WitnessPreProcessor {
                     Operation::BrFalse { .. } => ExecutionState::BrFalse,
                     _ => unreachable!(),
                 };
-                let step_state = StepState::new(self.clk, state, trace, static_info)
-                    .set_aux0(*code_offset as u128);
+                let step_state = StepState::new(self.clk, state, trace, static_info);
                 let value_version = self.version_stack.pop().unwrap();
                 let stack_pop = StackPop {
                     index: sp,
@@ -271,9 +264,8 @@ impl WitnessPreProcessor {
                 new_value,
             } => {
                 // stage1 of st_loc.
-                let mut step_state =
+                let step_state =
                     StepState::new(self.clk, ExecutionState::StoreLocStage1, trace, static_info);
-                step_state.aux0 = *local_index as u128;
 
                 let stage1_state = {
                     let header_check_sub_index = SubIndex::default();
@@ -394,7 +386,7 @@ impl WitnessPreProcessor {
             Operation::MoveLoc { local_index, local } => {
                 let mut step_state =
                     StepState::new(self.clk, ExecutionState::MoveLoc, trace, static_info);
-                step_state.aux0 = *local_index as u128;
+
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -438,7 +430,7 @@ impl WitnessPreProcessor {
             Operation::CopyLoc { local_index, local } => {
                 let mut step_state =
                     StepState::new(self.clk, ExecutionState::CopyLoc, trace, static_info);
-                step_state.aux0 = *local_index as u128;
+
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -1009,10 +1001,7 @@ impl WitnessPreProcessor {
                     .for_each(|v| v.sort_by_key(|item| item.sub_index.clone()));
 
                 assert_eq!(
-                    fields
-                        .keys()
-                        .cloned()
-                        .collect::<Vec<_>>(),
+                    fields.keys().cloned().collect::<Vec<_>>(),
                     (1..=fields.len()).collect::<Vec<_>>()
                 );
 
@@ -1731,8 +1720,7 @@ impl WitnessPreProcessor {
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
                 let mut step_state =
-                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info)
-                        .set_aux0(*fh_idx as u128);
+                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info);
                 let mut stages = vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
@@ -1894,8 +1882,6 @@ impl WitnessPreProcessor {
             Operation::Branch(next_pc) => {
                 let mut step_state =
                     StepState::new(self.clk, ExecutionState::Branch, trace, static_info);
-                // TODO: refactor trace to include aux0
-                step_state.aux0 = *next_pc as u128;
                 vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
