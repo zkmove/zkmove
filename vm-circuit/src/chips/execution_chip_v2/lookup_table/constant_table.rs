@@ -12,7 +12,7 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use types::Field;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ConstantLookupTable {
     pub module_index: Column<Fixed>,
     pub constant_index: Column<Fixed>,

@@ -4,8 +4,11 @@ use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLooku
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
+use crate::utils::challenges::Challenges;
+use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::impl_expr;
-use halo2_proofs::plonk::{ConstraintSystem, Expression};
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
@@ -173,6 +176,7 @@ pub enum FixedTableTag {
 }
 impl_expr!(FixedTableTag);
 
+#[derive(Copy, Clone, Debug)]
 pub struct LookupTableConfigV2<F> {
     pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
@@ -206,5 +210,21 @@ impl<F: Field> LookupTableConfigV2<F> {
             bitwise_table,
             phantom_data: PhantomData,
         }
+    }
+
+    pub fn load(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        static_info: &StaticInfo,
+    ) -> Result<(), Error> {
+        self.nibble_table.load(layouter)?;
+        self.u8_table.load(layouter)?;
+        self.u10_table.load(layouter)?;
+        self.u16_table.load(layouter)?;
+        self.bytecode_table.load(layouter, static_info)?;
+        self.constant_table.load(layouter, static_info)?;
+        self.function_table.load(layouter, static_info)?;
+        self.bitwise_table.load(layouter)?;
+        Ok(())
     }
 }

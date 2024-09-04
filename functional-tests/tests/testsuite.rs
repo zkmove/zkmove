@@ -37,7 +37,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 
-    let k = 10; //TODO: auto pick best k
+    let k = 18; //TODO: auto pick best k
     mock_prove_circuit(&circuit, vec![], k)?;
 
     // TODO: gen key, prove, verify

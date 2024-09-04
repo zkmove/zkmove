@@ -15,6 +15,7 @@ use types::Field;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
+    lookup_table_config: LookupTableConfigV2<F>,
     exec_chip_config: ExecChipConfig<F>,
 }
 
@@ -26,11 +27,14 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
     type ConfigArgs = VmCircuitConfigArgs;
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
-        let lookup_tables = LookupTableConfigV2::new(meta);
+        let lookup_table_config = LookupTableConfigV2::new(meta);
         let challenges_expr = args.challenges.exprs(meta);
         let exec_chip_config =
-            ExecChipConfig::configure(meta, challenges_expr.clone(), lookup_tables);
-        Self { exec_chip_config }
+            ExecChipConfig::configure(meta, challenges_expr.clone(), &lookup_table_config);
+        Self {
+            exec_chip_config,
+            lookup_table_config,
+        }
     }
 }
 
@@ -80,11 +84,14 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
 
     fn synthesize_sub(
         &self,
-        VmCircuitConfig { exec_chip_config }: &Self::Config,
+        VmCircuitConfig {
+            exec_chip_config,
+            lookup_table_config,
+        }: &Self::Config,
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
-        // TODO: load tables
+        lookup_table_config.load(layouter, &self.witness.static_info)?;
         exec_chip_config.assign(layouter, &self.witness, challenges)?;
         Ok(())
     }

@@ -12,7 +12,7 @@ pub mod bytecode;
 pub mod constant;
 pub mod function;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
 
 impl ModuleIdMapping {
@@ -45,7 +45,7 @@ impl ModuleIdMapping {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct StaticInfo {
     pub bytecode_info: Vec<BytecodeInfo>,
     pub function_info: Vec<FunctionInfo>,
@@ -56,12 +56,13 @@ pub struct StaticInfo {
 impl StaticInfo {
     pub fn generate(module_id: &ModuleId, package: &CompiledPackage) -> Self {
         let modules = package.all_modules_map();
-        let deps = modules
+        let mut deps = modules
             .get_transitive_dependencies(module_id)
             .unwrap()
             .into_iter()
             .cloned()
             .collect::<Vec<_>>();
+        deps.push(modules.get_module(module_id).unwrap().clone());
         let module_id_mapping = ModuleIdMapping::construct(module_id, package);
         StaticInfo {
             bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
