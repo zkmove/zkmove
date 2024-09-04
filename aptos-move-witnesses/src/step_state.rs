@@ -98,8 +98,8 @@ impl StepState {
             pc: trace.pc as u64,
             sp: trace.stack_pointer as u64,
             opcode: trace.op as u16,
-            aux0: 0,
-            aux1: 0,
+            aux0: trace.aux0.unwrap_or_default(),
+            aux1: trace.aux1.unwrap_or_default(),
             exec_state: state,
         }
     }
