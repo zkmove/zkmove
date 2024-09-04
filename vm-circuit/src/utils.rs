@@ -4,7 +4,7 @@ pub mod cell_manager;
 pub mod cell_placement_strategy;
 pub mod challenges;
 pub mod rlc;
-
+pub mod word;
 use crate::circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::CurveAffine;
@@ -72,6 +72,34 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
+    dbg!(prover.cs().num_advice_columns());
+    dbg!(prover.cs().num_instance_columns());
+    dbg!(prover.cs().num_fixed_columns());
+    dbg!(prover.cs().num_selectors());
+    // uncomment this to output assignments
+    // let mut f = std::fs::File::options()
+    //     .write(true)
+    //     .truncate(true)
+    //     .create(true)
+    //     .open("assign.csv")
+    //     .unwrap();
+    // use std::io::Write;
+    // for column_data in prover.advice() {
+    //     let cols = column_data
+    //         .iter()
+    //         .map(|c| match c {
+    //             CellValue::Unassigned => String::default(),
+    //             CellValue::Assigned(f) => {
+    //                 format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
+    //             }
+    //             CellValue::Poison(p) => {
+    //                 format!("p({})", p)
+    //             }
+    //         })
+    //         .join(",");
+    //
+    //     writeln!(&mut f, "{}", cols).unwrap();
+    // }
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())

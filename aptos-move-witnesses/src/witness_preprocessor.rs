@@ -51,7 +51,7 @@ impl WitnessPreProcessor {
         }
         // nop ops to write (final_set, init_set)
         let local_write_set = self.locals.to_write_set();
-        if local_write_set.len() != 0 {
+        if !local_write_set.is_empty() {
             exec_states.push(StageState {
                 step_states: vec![ExecStepState {
                     step_state: StepState::default().change_clk(self.clk),
@@ -75,8 +75,14 @@ impl WitnessPreProcessor {
         let current_frame_index = trace.frame_index;
         match &trace.data {
             Operation::LdSimple(v) => {
-                let step_state =
+                let mut step_state =
                     StepState::new(self.clk, ExecutionState::LdSimple, trace, static_info);
+                {
+                    let num_bytes = v.to_u256().to_le_bytes();
+                    let a = num_bytes.as_chunks::<16>().0;
+                    step_state.aux0 = u128::from_le_bytes(a[0]);
+                    step_state.aux1 = u128::from_le_bytes(a[1]);
+                }
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
                     index: sp + 1,
@@ -265,8 +271,10 @@ impl WitnessPreProcessor {
                 new_value,
             } => {
                 // stage1 of st_loc.
-                let step_state =
+                let mut step_state =
                     StepState::new(self.clk, ExecutionState::StoreLocStage1, trace, static_info);
+                step_state.aux0 = *local_index as u128;
+
                 let stage1_state = {
                     let header_check_sub_index = SubIndex::default();
 
@@ -353,7 +361,7 @@ impl WitnessPreProcessor {
                             current_frame_index,
                             *local_index as u16 as usize,
                             &stack_pop.sub_index,
-                            stack_pop.value.clone().into(),
+                            stack_pop.value.clone(),
                             stack_pop.value_header,
                             false,
                             self.clk,
@@ -384,8 +392,9 @@ impl WitnessPreProcessor {
                 ]
             }
             Operation::MoveLoc { local_index, local } => {
-                let step_state =
+                let mut step_state =
                     StepState::new(self.clk, ExecutionState::MoveLoc, trace, static_info);
+                step_state.aux0 = *local_index as u128;
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -427,8 +436,9 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::CopyLoc { local_index, local } => {
-                let step_state =
+                let mut step_state =
                     StepState::new(self.clk, ExecutionState::CopyLoc, trace, static_info);
+                step_state.aux0 = *local_index as u128;
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -817,7 +827,7 @@ impl WitnessPreProcessor {
                                 reference.frame_index,
                                 reference.local_index,
                                 &stack_pop.sub_index,
-                                stack_pop.value.clone().into(),
+                                stack_pop.value.clone(),
                                 stack_pop.value_header,
                                 false,
                                 self.clk,
@@ -1002,7 +1012,6 @@ impl WitnessPreProcessor {
                     fields
                         .keys()
                         .cloned()
-                        .map(|k| k as usize)
                         .collect::<Vec<_>>(),
                     (1..=fields.len()).collect::<Vec<_>>()
                 );
@@ -1829,7 +1838,7 @@ impl WitnessPreProcessor {
                                 callee_frame_index,
                                 local_index,
                                 &stack_pop.sub_index,
-                                stack_pop.value.clone().into(),
+                                stack_pop.value.clone(),
                                 stack_pop.value_header,
                                 false,
                                 self.clk,

@@ -27,7 +27,7 @@ use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
-use halo2_proofs::circuit::{Layouter, Region, Value};
+use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use std::iter;
 use types::Field;
@@ -232,7 +232,18 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
 
-        let config = ExecChipConfig {
+        
+        // Self::configure_lookup(
+        //     meta,
+        //     &config.columns,
+        //     &challenges,
+        //     &lookup_table_configs,
+        //     &config.step,
+        //     s_usable,
+        // );
+        // Self::configure_shuffle(meta, &config, s_usable);
+
+        ExecChipConfig {
             s_usable,
             s_step_first,
             s_step_last,
@@ -293,18 +304,7 @@ impl<F: Field> ExecChipConfig<F> {
             nop: configure_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
-        };
-        // Self::configure_lookup(
-        //     meta,
-        //     &config.columns,
-        //     &challenges,
-        //     &lookup_table_configs,
-        //     &config.step,
-        //     s_usable,
-        // );
-        // Self::configure_shuffle(meta, &config, s_usable);
-
-        config
+        }
     }
 
     fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
@@ -549,13 +549,17 @@ impl<F: Field> ExecChipConfig<F> {
                         offset,
                     );
                     for opcode_witness in &witness.opcode_witnesses {
-                        offset += self.assign_exec_step(
+                        let step_rows = self.assign_exec_step(
                             &mut cached_region,
                             offset,
                             opcode_witness,
                             challenges,
                             &witness.static_info,
                         )?;
+                        for row in offset..offset + step_rows {
+                            self.s_usable.enable(cached_region.region(), row)?;
+                        }
+                        offset += step_rows;
                     }
                 }
                 self.s_step_last.enable(&mut region, offset - 1)?;
@@ -573,36 +577,13 @@ impl<F: Field> ExecChipConfig<F> {
         challenges: &Challenges<Value<F>>,
         static_info: &StaticInfo,
     ) -> Result<usize, Error> {
-        debug_assert!(!stage_state.step_states.is_empty());
-
-        let mut step_counter = stage_state.rows();
-        let mut i = 0;
-        for exec_step_state in &stage_state.step_states {
-            for memory_op in exec_step_state.memory_ops.iter() {
-                self.s_usable.enable(region.region(), offset_begin + i)?;
-                self.step.assign_exec_step(
-                    region,
-                    offset_begin + i,
-                    step_counter,
-                    &exec_step_state.step_state,
-                    memory_op,
-                )?;
-                self.base_constraint.assign(
-                    self.step.state.clone(),
-                    region,
-                    offset_begin + i,
-                    stage_state,
-                    static_info,
-                )?;
-                i += 1;
-                step_counter -= 1;
-            }
-        }
-
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=>$gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info),)*
+                    $(($exec_state)=> {
+                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
+                        $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
+                    },)*
                     _=>unimplemented!()
                 }
             };
@@ -655,7 +636,7 @@ impl<F: Field> ExecChipConfig<F> {
         ExecutionState::WriteRefStage2 => self.write_ref_stage2,
         ExecutionState::WriteRefStage3 => self.write_ref_stage3,
         ExecutionState::Nop => self.nop,
-        })?;
+        });
         debug_assert_eq!(assigned_rows, stage_state.rows());
 
         Ok(assigned_rows)
@@ -668,10 +649,28 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     const OPCODES: &'static [Opcode];
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
+    fn assign_common(
+        &self,
+        base_constraint_gadget: &BaseConstraintGadget<F>,
+        step_state: StepState<F>,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset_begin: usize,
+        stage_state: &StageState,
+        static_info: &StaticInfo,
+    ) -> Result<usize, Error> {
+        assign_step_and_common(
+            base_constraint_gadget,
+            step_state,
+            region,
+            offset_begin,
+            stage_state,
+            static_info,
+        )
+    }
 
     fn assign(
         &self,
-        step: StepState<F>,
+        step_state: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -679,4 +678,39 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
     ) -> Result<usize, Error> {
         Ok(stage_state.rows())
     }
+}
+
+pub(crate) fn assign_step_and_common<F: Field>(
+    base_constraint_gadget: &BaseConstraintGadget<F>,
+    step_state: StepState<F>,
+    region: &mut CachedRegion<'_, '_, F>,
+    offset_begin: usize,
+    stage_state: &StageState,
+    static_info: &StaticInfo,
+) -> Result<usize, Error> {
+    debug_assert!(!stage_state.step_states.is_empty());
+
+    let mut step_counter = stage_state.rows();
+    let mut i = 0;
+    for exec_step_state in &stage_state.step_states {
+        for memory_op in exec_step_state.memory_ops.iter() {
+            step_state.assign_exec_step(
+                region,
+                offset_begin + i,
+                step_counter,
+                &exec_step_state.step_state,
+                memory_op,
+            )?;
+            base_constraint_gadget.assign(
+                step_state.clone(),
+                region,
+                offset_begin + i,
+                stage_state,
+                static_info,
+            )?;
+            i += 1;
+            step_counter -= 1;
+        }
+    }
+    Ok(stage_state.rows())
 }

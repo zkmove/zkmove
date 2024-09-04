@@ -3,6 +3,7 @@ use crate::static_info::StaticInfo;
 use crate::types::sub_index::SubIndex;
 use crate::types::word::Word;
 use crate::Footprint;
+use move_binary_format::file_format_common::Opcodes;
 
 pub type Version = u64;
 
@@ -71,7 +72,7 @@ impl Default for StepState {
             function_index: 0,
             pc: 0,
             sp: 0,
-            opcode: 0,
+            opcode: Opcodes::NOP as u16,
             aux0: 0,
             aux1: 0,
             exec_state: ExecutionState::Nop,
