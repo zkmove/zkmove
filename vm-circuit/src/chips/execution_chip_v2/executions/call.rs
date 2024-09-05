@@ -59,8 +59,10 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             cb.add_lookup(
                 "function lookup",
                 Lookup::Function {
-                    module_index: step_curr.aux0.expr(),
-                    function_index: step_curr.aux1.expr(),
+                    module_index: step_curr.module_index.expr(),
+                    function_handle_index: step_curr.aux0.expr(),
+                    def_module_index: step_next.module_index.expr(),
+                    function_index: step_next.function_index.expr(),
                     num_arg: num_arg.expr(),
                     entry: 0u64.expr(),
                 },
@@ -76,8 +78,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             cb.require_state_transition(vec![
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
-                (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
-                (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
             ]);
             let next_state = step_next.execution_state_selector([ExecutionState::StartStage1]);
             cb.require_equal(
@@ -135,11 +135,11 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         let clk = F::from(state.step_state.clk);
         let num_arg = static_info
             .get_function(
+                state.step_state.module_index as usize,
                 state.step_state.aux0 as usize,
-                state.step_state.aux1 as usize,
             )
             .unwrap_or_else(|| panic!("cannot find function"))
-            .num_arg();
+            .num_arg;
 
         self.num_arg
             .assign(region, offset, Value::known(F::from(num_arg as u64)))?;
@@ -372,8 +372,10 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                 cb.add_lookup(
                     "function lookup",
                     Lookup::Function {
-                        module_index: step_curr.aux0.expr(),
-                        function_index: step_curr.aux1.expr(),
+                        module_index: step_curr.module_index.expr(),
+                        function_handle_index: step_curr.aux0.expr(),
+                        def_module_index: step_next.module_index.expr(),
+                        function_index: step_next.function_index.expr(),
                         num_arg: num_arg.expr(),
                         entry: 0u64.expr(),
                     },
@@ -389,8 +391,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                 cb.require_state_transition(vec![
                     (FRAME_INDEX, Transition::Delta(1.expr())),
                     (PC, Transition::To(0.expr())),
-                    (MODULE_INDEX, Transition::To(step_curr.aux0.expr())),
-                    (FUNCTION_INDEX, Transition::To(step_curr.aux1.expr())),
                 ]);
                 let next_state = step_next.execution_state_selector([ExecutionState::StartStage1]);
                 cb.require_equal(

@@ -40,7 +40,9 @@ impl<F: Field> InstructionGadgetV2<F> for StartStage1<F> {
         cb.add_lookup(
             "entry function lookup",
             Lookup::Function {
-                module_index: step_curr.module_index.expr(),
+                module_index: step_curr.module_index.expr(), // same as def_module_index
+                function_handle_index: step_curr.aux0.expr(),
+                def_module_index: step_curr.module_index.expr(),
                 function_index: step_curr.function_index.expr(),
                 num_arg: num_arg.expr(),
                 entry: 1u64.expr(),
@@ -96,7 +98,7 @@ impl<F: Field> InstructionGadgetV2<F> for StartStage1<F> {
     ) -> Result<usize, Error> {
         let state = stage_state.step_states.first().unwrap();
         let num_arg = static_info
-            .get_function(
+            .get_entry_function(
                 state.step_state.module_index as usize,
                 state.step_state.function_index as usize,
             )

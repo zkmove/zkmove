@@ -1718,16 +1718,8 @@ impl WitnessPreProcessor {
             Operation::Call { fh_idx, args } => {
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
-                let module_index = static_info
-                    .module_id_mapping
-                    .get_module_index(trace.module_id.as_ref().unwrap());
-                let func = static_info
-                    .get_function_by_handle(module_index, *fh_idx as usize)
-                    .unwrap_or_else(|| panic!("cannot find function"));
                 let mut step_state =
-                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info)
-                        .set_aux0(func.def_module_index as u128)
-                        .set_aux1(func.function_index as u128);
+                    StepState::new(self.clk, ExecutionState::CallStage1, trace, static_info);
                 let mut stages = vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
@@ -1899,8 +1891,15 @@ impl WitnessPreProcessor {
             }
             Operation::Start { args } => {
                 // stage1: check the number of argument
+                let module_index = static_info
+                    .module_id_mapping
+                    .get_module_index(trace.module_id.as_ref().unwrap());
+                let func = static_info
+                    .get_entry_function(module_index, trace.function_id)
+                    .unwrap_or_else(|| panic!("cannot find function"));
                 let mut step_state =
-                    StepState::new(self.clk, ExecutionState::StartStage1, trace, static_info);
+                    StepState::new(self.clk, ExecutionState::StartStage1, trace, static_info)
+                        .set_aux0(func.function_handle_index as u128);
                 let mut stages = vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,

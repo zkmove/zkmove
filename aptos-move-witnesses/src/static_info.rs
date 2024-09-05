@@ -51,7 +51,7 @@ pub struct StaticInfo {
     pub function_info: Vec<FunctionInfo>,
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
-    pub entry_info: Entry,
+    pub entry: Entry,
 }
 
 impl StaticInfo {
@@ -71,7 +71,7 @@ impl StaticInfo {
             function_info: function::parse_function(&module_id_mapping, &deps),
             constant_info: constant::parse_constant(&module_id_mapping, &deps),
             module_id_mapping,
-            entry_info: Entry {
+            entry: Entry {
                 module_index,
                 function_index: entry_func,
             },
@@ -86,26 +86,27 @@ impl StaticInfo {
     }
 
     /// get function `fh_idx` in the function handle table of `module_index`
-    pub fn get_function_by_handle(
-        &self,
-        module_index: usize,
-        fh_idx: usize,
-    ) -> Option<FunctionInfo> {
+    pub fn get_function(&self, module_index: usize, fh_idx: usize) -> Option<FunctionInfo> {
         self.function_info
             .iter()
             .find(|f| f.module_index == module_index && f.function_handle_index == fh_idx)
             .cloned()
     }
 
-    /// find function by `def_module_index` and `function_index`
-    pub fn get_function(
+    /// find entry function by `module_index` and `function_index` of entry function.
+    /// `module_index` and `def_module_index` should be same.
+    pub fn get_entry_function(
         &self,
-        def_module_index: usize,
+        module_index: usize,
         function_index: usize,
     ) -> Option<FunctionInfo> {
         self.function_info
             .iter()
-            .find(|f| f.def_module_index == def_module_index && f.function_index == function_index)
+            .find(|f| {
+                f.module_index == module_index
+                    && f.def_module_index == module_index
+                    && f.function_index == function_index
+            })
             .cloned()
     }
 }
