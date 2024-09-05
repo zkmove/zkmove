@@ -17,6 +17,7 @@ use crate::chips::execution_chip_v2::executions::{
 };
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
+use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
@@ -30,6 +31,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
+use std::collections::HashMap;
 use std::iter;
 use types::Field;
 
@@ -106,6 +108,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub write_ref_stage3: Box<WriteRefStage3<F>>,
     pub nop: Box<Nop<F>>,
     pub step: Step<F>,
+    pub stored_expressions_map: HashMap<ExecutionState, Vec<StoredExpression<F>>>,
 }
 
 impl<F: Field> ExecChipConfig<F> {
@@ -190,6 +193,7 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        let mut stored_expressions_map = HashMap::new();
         // base configuration for every opcode gadgets
         let (step_curr, base_constraint) = {
             let mut cb =
@@ -202,7 +206,9 @@ impl<F: Field> ExecChipConfig<F> {
                 s_step_first,
                 s_step_last,
                 "base constraints",
+                None,
                 cb,
+                &mut stored_expressions_map,
             );
             (step_curr, base_constraint)
         };
@@ -216,6 +222,7 @@ impl<F: Field> ExecChipConfig<F> {
                     s_step_first,
                     s_step_last,
                     &step_curr,
+                    &mut stored_expressions_map,
                 ))
             };
         }
@@ -283,6 +290,7 @@ impl<F: Field> ExecChipConfig<F> {
             nop: configure_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
+            stored_expressions_map,
         };
 
         Self::configure_lookup(
@@ -308,6 +316,7 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_last: Selector,
         //s_step: Column<Advice>,
         step_curr: &Step<F>,
+        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
@@ -318,7 +327,15 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
-        Self::configure_opcode_gadget_impl(s_usable, s_step_first, s_step_last, G::NAME, cb);
+        Self::configure_opcode_gadget_impl(
+            s_usable,
+            s_step_first,
+            s_step_last,
+            G::NAME,
+            Some(G::EXECUTION_STATE),
+            cb,
+            stored_expressions_map,
+        );
         gadget
     }
 
@@ -327,11 +344,22 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_first: Selector,
         s_step_last: Selector,
         name: &'static str,
+        execution_state: Option<ExecutionState>,
         mut cb: ConstraintBuilderV2<F>,
+        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) {
         let step_prev = cb.step_state_at_offset(-1);
         let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, _store_expressions, meta) = cb.build();
+        let (step_curr, constraints, stored_expressions, meta) = cb.build();
+
+        if let Some(execution_state) = execution_state {
+            debug_assert!(
+                !stored_expressions_map.contains_key(&execution_state),
+                "execution state already configured"
+            );
+            stored_expressions_map.insert(execution_state, stored_expressions);
+        }
+
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
@@ -397,6 +425,10 @@ impl<F: Field> ExecChipConfig<F> {
     ) {
         meta.lookup_any("bytecode_lookup", |meta| {
             let s_usable = meta.query_selector(s_usable);
+            let is_start = step_curr.state.execution_state_selector([
+                ExecutionState::StartStage1,
+                ExecutionState::StartStage2,
+            ]);
             let table_expressions = lookup_table_config.bytecode_table.table_exprs(meta);
             [
                 step_curr.state.module_index.expr(),
@@ -407,7 +439,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.aux1.expr(),
             ]
             .into_iter()
-            .map(|e| s_usable.clone() * step_curr.state.opcode.expr() * e)
+            .map(|e| s_usable.clone() * (1u64.expr() - is_start.clone()) * e)
             .zip(table_expressions)
             .collect()
         });
@@ -572,7 +604,7 @@ impl<F: Field> ExecChipConfig<F> {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
                     $(($exec_state)=> {
-                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
+                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info, &self.stored_expressions_map)?;
                         $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
                     },)*
                     _=>unimplemented!()
@@ -650,6 +682,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
         offset_begin: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
+        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<usize, Error> {
         assign_step_and_common(
             base_constraint_gadget,
@@ -658,6 +691,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
             offset_begin,
             stage_state,
             static_info,
+            stored_expressions_map,
         )
     }
 
@@ -680,6 +714,7 @@ pub(crate) fn assign_step_and_common<F: Field>(
     offset_begin: usize,
     stage_state: &StageState,
     static_info: &StaticInfo,
+    stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
 ) -> Result<usize, Error> {
     debug_assert!(!stage_state.step_states.is_empty());
 
@@ -701,6 +736,14 @@ pub(crate) fn assign_step_and_common<F: Field>(
                 stage_state,
                 static_info,
             )?;
+            // assign stored expression
+            if let Some(stored_expressions) =
+                stored_expressions_map.get(&exec_step_state.step_state.exec_state)
+            {
+                for expression in stored_expressions {
+                    expression.assign(region, offset_begin + i)?;
+                }
+            }
             i += 1;
             step_counter -= 1;
         }

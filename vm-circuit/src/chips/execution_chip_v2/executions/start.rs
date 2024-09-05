@@ -38,7 +38,7 @@ impl<F: Field> InstructionGadgetV2<F> for StartStage1<F> {
         let step_curr = cb.curr.state.clone();
 
         cb.add_lookup(
-            "function lookup",
+            "entry function lookup",
             Lookup::Function {
                 module_index: step_curr.module_index.expr(),
                 function_index: step_curr.function_index.expr(),
@@ -46,7 +46,7 @@ impl<F: Field> InstructionGadgetV2<F> for StartStage1<F> {
                 entry: 1u64.expr(),
             },
         );
-        cb.require_zero("opcode = 0", step_curr.opcode.expr());
+
         cb.require_zero("frame_index = 0", step_curr.frame_index.expr());
         cb.require_equal(
             format!("{}, step_counter(0) == 1", Self::NAME),

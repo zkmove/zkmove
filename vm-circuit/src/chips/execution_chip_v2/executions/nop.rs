@@ -6,8 +6,8 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilde
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::step_v2::StepState;
-use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
+use crate::chips::execution_chip_v2::utils::{pow_of_two_expr, StoredExpression};
 use crate::chips::execution_chip_v2::{assign_step_and_common, InstructionGadgetV2};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::rlc;
@@ -15,6 +15,7 @@ use crate::utils::word::WordLoHiCell;
 use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+use std::collections::HashMap;
 
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
@@ -75,6 +76,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
         offset: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
+        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<usize, Error> {
         assert_eq!(stage_state.step_states.len(), 1);
 
@@ -109,6 +111,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
                     offset,
                     &s,
                     static_info,
+                    stored_expressions_map,
                 )
             })
             .error_if_known_and(|r| r.is_err())?;
