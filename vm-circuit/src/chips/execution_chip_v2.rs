@@ -604,7 +604,7 @@ impl<F: Field> ExecChipConfig<F> {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
                     $(($exec_state)=> {
-                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info, &self.stored_expressions_map)?;
+                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
                         $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
                     },)*
                     _=>unimplemented!()
@@ -663,8 +663,35 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::StartStage2 => self.start_stage2,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
-
+        Self::assign_stored_expression(
+            region,
+            offset_begin,
+            stage_state,
+            &self.stored_expressions_map,
+        )?;
         Ok(assigned_rows)
+    }
+
+    fn assign_stored_expression(
+        region: &mut CachedRegion<'_, '_, F>,
+        offset_begin: usize,
+        stage_state: &StageState,
+        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+    ) -> Result<(), Error> {
+        let execution_state = &stage_state
+            .step_states
+            .first()
+            .unwrap()
+            .step_state
+            .exec_state;
+        for i in 0..stage_state.rows() {
+            if let Some(stored_expressions) = stored_expressions_map.get(execution_state) {
+                for expression in stored_expressions {
+                    expression.assign(region, offset_begin + i)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -682,7 +709,6 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
         offset_begin: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
-        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<usize, Error> {
         assign_step_and_common(
             base_constraint_gadget,
@@ -691,7 +717,6 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
             offset_begin,
             stage_state,
             static_info,
-            stored_expressions_map,
         )
     }
 
@@ -714,7 +739,6 @@ pub(crate) fn assign_step_and_common<F: Field>(
     offset_begin: usize,
     stage_state: &StageState,
     static_info: &StaticInfo,
-    stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
 ) -> Result<usize, Error> {
     debug_assert!(!stage_state.step_states.is_empty());
 
@@ -736,14 +760,6 @@ pub(crate) fn assign_step_and_common<F: Field>(
                 stage_state,
                 static_info,
             )?;
-            // assign stored expression
-            if let Some(stored_expressions) =
-                stored_expressions_map.get(&exec_step_state.step_state.exec_state)
-            {
-                for expression in stored_expressions {
-                    expression.assign(region, offset_begin + i)?;
-                }
-            }
             i += 1;
             step_counter -= 1;
         }

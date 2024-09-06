@@ -1908,7 +1908,7 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }];
 
-                for (i, arg) in args.iter().enumerate().rev() {
+                for (i, arg) in args.iter().rev().enumerate() {
                     let local_index = args.len() - 1 - i;
                     self.clk += 1;
 

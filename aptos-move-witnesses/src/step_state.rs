@@ -206,7 +206,7 @@ impl Default for Slot {
             value: Word::default(),
             value_header: false,
             value_invalid: true,
-            version: 0,
+            version: 1,
         }
     }
 }

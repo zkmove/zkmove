@@ -38,8 +38,8 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.require_zero("opcode = 0", cb.curr.state.opcode.expr());
         cb.require_zero(
-            "local_write_version(0) ==0",
-            cb.curr.state.local_write_version.expr(),
+            "local_write_version(0) == 1",
+            1u64.expr() - cb.curr.state.local_write_version.expr(),
         );
         let cells = cb.query_cells::<2>();
         let rlc = WordLoHiCell::new(cells);
@@ -76,7 +76,6 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
         offset: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
-        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<usize, Error> {
         assert_eq!(stage_state.step_states.len(), 1);
 
@@ -111,7 +110,6 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
                     offset,
                     &s,
                     static_info,
-                    stored_expressions_map,
                 )
             })
             .error_if_known_and(|r| r.is_err())?;
