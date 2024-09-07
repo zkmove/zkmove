@@ -67,11 +67,11 @@ impl<F: Field> BaseConstraintGadget<F> {
         );
         // local_write_version(0) == clk(0)
         let write_version = cb.curr.state.local_write_version.expr();
-        let is_start = cb
+        let is_nop = cb
             .curr
             .state
             .execution_state_selector([ExecutionState::Nop]);
-        cb.condition(1u64.expr() - is_start, |cb| {
+        cb.condition(1u64.expr() - is_nop, |cb| {
             cb.require_zero(
                 "local_write_version(0) == clk(0)",
                 write_version.clone() * (write_version - cb.curr.state.clk.expr()),
