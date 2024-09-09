@@ -79,12 +79,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
             ]);
-            let next_state = step_next.execution_state_selector([ExecutionState::StartStage1]);
-            cb.require_equal(
-                "next execution state should not be StartStage1",
-                0u64.expr(),
-                next_state.expr(),
-            );
         });
         cb.condition(not::expr(is_zero_num_arg.expr()), |cb| {
             cb.require_next_state(ExecutionState::CallStage2);
@@ -392,12 +386,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                     (FRAME_INDEX, Transition::Delta(1.expr())),
                     (PC, Transition::To(0.expr())),
                 ]);
-                let next_state = step_next.execution_state_selector([ExecutionState::StartStage1]);
-                cb.require_equal(
-                    "next step execution state should not be StartStage1",
-                    0u64.expr(),
-                    next_state.expr(),
-                );
             });
             cb.condition(not::expr(is_zero_local_index.expr()), |cb| {
                 cb.require_next_state(ExecutionState::CallStage2);

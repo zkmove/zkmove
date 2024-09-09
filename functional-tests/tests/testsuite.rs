@@ -9,7 +9,7 @@ use std::path::Path;
 
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
-use aptos_move_witnesses::Footprint;
+use aptos_move_witnesses::{Footprint, Operation};
 use log::debug;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
@@ -30,13 +30,17 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let package = package.into_compiled_package()?;
     let trace_contents = std::fs::read_to_string(path)?;
     let traces: Vec<Footprint> = serde_json::from_str(&trace_contents)?;
-    let module_id = traces.first().unwrap().module_id.clone().unwrap();
-    let function_index = traces.first().unwrap().function_id;
-    let static_info = StaticInfo::generate(&module_id, function_index, &package);
+    let entry = match &traces.first().unwrap().data {
+        Operation::Start { entry_call } => entry_call,
+        _ => unreachable!(),
+    };
+    let static_info = StaticInfo::generate(
+        entry.module_id.as_ref().unwrap(),
+        entry.function_index,
+        &package,
+    );
     let preprocessor = WitnessPreProcessor::default();
     let states = preprocessor.pre_process(&traces, &static_info);
-    println!("states={:#?}", states);
-
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 

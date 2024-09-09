@@ -32,7 +32,7 @@ pub struct Nop<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     const NAME: &'static str = "Nop";
-    const OPCODES: &'static [Opcode] = &[Opcode::Nop];
+    const OPCODES: &'static [Opcode] = &[];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Nop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

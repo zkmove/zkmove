@@ -85,7 +85,6 @@ pub enum Opcode {
     CastU32 = 0x4C,
     CastU256 = 0x4D,
     Stop = 0x4E,
-    Start = 0x4F,
 }
 
 impl Default for Opcode {

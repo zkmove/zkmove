@@ -5,7 +5,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
-use crate::chips::execution_chip_v2::executions::start::{StartStage1, StartStage2};
+use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
@@ -51,8 +51,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
     pub base_constraint: Box<BaseConstraintGadget<F>>,
-    pub start_stage1: Box<StartStage1<F>>,
-    pub start_stage2: Box<StartStage2<F>>,
+    pub start: Box<Start<F>>,
+    pub process_arg: Box<ProcessArg<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -145,7 +145,7 @@ impl<F: Field> ExecChipConfig<F> {
             let execution_state_selector_constraints = step_curr.state.execution_state.configure();
             let first_step_check = {
                 let begin_opcode_selector =
-                    step_curr.execution_state_selector([ExecutionState::StartStage1]);
+                    step_curr.execution_state_selector([ExecutionState::Start]);
                 iter::once((
                     "First step should be Start",
                     s_step_first * (1u64.expr() - begin_opcode_selector),
@@ -232,8 +232,8 @@ impl<F: Field> ExecChipConfig<F> {
             s_step_first,
             s_step_last,
             base_constraint: Box::new(base_constraint),
-            start_stage1: configure_opcode_gadget!(),
-            start_stage2: configure_opcode_gadget!(),
+            start: configure_opcode_gadget!(),
+            process_arg: configure_opcode_gadget!(),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
             bitwise: configure_opcode_gadget!(),
@@ -425,10 +425,6 @@ impl<F: Field> ExecChipConfig<F> {
     ) {
         meta.lookup_any("bytecode_lookup", |meta| {
             let s_usable = meta.query_selector(s_usable);
-            let is_start = step_curr.state.execution_state_selector([
-                ExecutionState::StartStage1,
-                ExecutionState::StartStage2,
-            ]);
             let table_expressions = lookup_table_config.bytecode_table.table_exprs(meta);
             [
                 step_curr.state.module_index.expr(),
@@ -439,7 +435,7 @@ impl<F: Field> ExecChipConfig<F> {
                 step_curr.state.aux1.expr(),
             ]
             .into_iter()
-            .map(|e| s_usable.clone() * (1u64.expr() - is_start.clone()) * e)
+            .map(|e| s_usable.clone() * e)
             .zip(table_expressions)
             .collect()
         });
@@ -659,8 +655,8 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::WriteRefStage2 => self.write_ref_stage2,
             ExecutionState::WriteRefStage3 => self.write_ref_stage3,
             ExecutionState::Nop => self.nop,
-            ExecutionState::StartStage1 => self.start_stage1,
-            ExecutionState::StartStage2 => self.start_stage2,
+            ExecutionState::Start => self.start,
+            ExecutionState::ProcessArg => self.process_arg,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Self::assign_stored_expression(
