@@ -117,8 +117,7 @@ fn get_num_bytes(s: &SignatureToken) -> usize {
     }
 }
 
-/// TODO: merge this with witnessing
-/// Convert opcode, operand1 and operand2 of given bytecode into field elements
+/// Convert to opcode, operand1 and operand2
 fn bytecode_to_instruction(
     module: &CompiledModule,
     bytecode: &Bytecode,
@@ -228,8 +227,7 @@ mod tests {
     use crate::static_info::bytecode::{parse_module, BytecodeInfo};
     use move_binary_format::file_format::{
         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
-        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex,
-        Visibility,
+        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, Visibility,
     };
     use move_binary_format::file_format_common::Opcodes;
     use move_core_types::identifier::Identifier;
