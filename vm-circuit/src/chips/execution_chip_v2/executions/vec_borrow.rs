@@ -97,6 +97,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
                 step_curr.stack_push_value_header.expr(),
                 step_curr.stack_pop_value_header.expr(),
             );
+            cb.require_equal(
+                "stack_push_version(0) == clk(0)",
+                step_curr.stack_push_version.expr(),
+                step_curr.clk.expr(),
+            );
             cb.require_state_transition(vec![
                 (FRAME_INDEX, Transition::Same),
                 (MODULE_INDEX, Transition::Same),

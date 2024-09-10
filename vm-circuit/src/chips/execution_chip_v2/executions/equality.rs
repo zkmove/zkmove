@@ -206,6 +206,11 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                     format!("{}, stack_push_value_header(0) == false", Self::NAME),
                     cb.curr.state.stack_push_value_header.expr(),
                 );
+                cb.require_equal(
+                    "stack_push_version(0) == clk(0)",
+                    cb.curr.state.stack_push_version.expr(),
+                    cb.curr.state.clk.expr(),
+                );
 
                 if EQ {
                     cb.condition(cb.curr.state.stack_push_value.expr(), |cb| {

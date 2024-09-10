@@ -56,6 +56,11 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
             step_curr.stack_push_index.expr(),
             step_curr.sp.expr() + 1u64.expr(),
         );
+        cb.require_equal(
+            "stack_push_version(0) == clk(0)",
+            step_curr.stack_push_version.expr(),
+            step_curr.clk.expr(),
+        );
         cb.first_row(|cb| {
             cb.require_zero(
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
@@ -117,6 +122,11 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
                 step_curr.local_read_value_invalid.expr(),
             );
         }
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
+        );
 
         cb.last_row(|cb| {
             cb.require_state_transition(

@@ -77,6 +77,11 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
             step_curr.local_write_value_header.expr(),
             step_curr.local_read_value_header.expr(),
         );
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
+        );
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.last_row(|cb| {
             cb.require_state_transition(
@@ -186,6 +191,11 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
         cb.require_zero(
             "local_write_value(0) != INVALID",
             step_curr.local_write_value_invalid.expr(),
+        );
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
         );
 
         cb.not_last_row(|cb| {
