@@ -2,7 +2,6 @@ use crate::exec_state::ExecutionState;
 use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
-use crate::static_info::bytecode::Instruction;
 use crate::static_info::StaticInfo;
 use crate::step_state::{
     CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot,
@@ -76,7 +75,7 @@ impl WitnessPreProcessor {
         let current_frame_index = trace.frame_index;
         match &trace.data {
             Operation::LdSimple(v) => {
-                let mut step_state =
+                let step_state =
                     StepState::new(self.clk, ExecutionState::LdSimple, trace, static_info);
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
@@ -385,7 +384,7 @@ impl WitnessPreProcessor {
                 ]
             }
             Operation::MoveLoc { local_index, local } => {
-                let mut step_state =
+                let step_state =
                     StepState::new(self.clk, ExecutionState::MoveLoc, trace, static_info);
 
                 let memory_ops = local
@@ -429,7 +428,7 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::CopyLoc { local_index, local } => {
-                let mut step_state =
+                let step_state =
                     StepState::new(self.clk, ExecutionState::CopyLoc, trace, static_info);
 
                 let memory_ops = local
@@ -1917,7 +1916,7 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::Branch(next_pc) => {
-                let mut step_state =
+                let step_state =
                     StepState::new(self.clk, ExecutionState::Branch, trace, static_info);
                 vec![StageState {
                     step_states: vec![ExecStepState {

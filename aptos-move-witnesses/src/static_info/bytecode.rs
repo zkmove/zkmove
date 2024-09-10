@@ -6,14 +6,14 @@ use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{
     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
 };
-use move_binary_format::file_format_common::{instruction_key, Opcodes};
+use move_binary_format::file_format_common::instruction_key;
 use movelang::type_transition;
 use movelang::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
 };
 use std::collections::BTreeMap;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
     pub module_index: usize,
     pub function_index: usize,
@@ -163,10 +163,10 @@ fn bytecode_to_instruction(
         Bytecode::LdU16(v) => (Some(v as u128), None),
         Bytecode::LdU32(v) => (Some(v as u128), None),
         Bytecode::LdU64(v) => (Some(v as u128), None),
-        Bytecode::LdU128(v) => (Some(v as u128), None),
+        Bytecode::LdU128(v) => (Some(v), None),
         Bytecode::LdU256(v) => {
-            let lo = u128::from_le_bytes(v.to_le_bytes().first_chunk::<16>().unwrap().clone());
-            let hi = u128::from_le_bytes(v.to_le_bytes().last_chunk::<16>().unwrap().clone());
+            let lo = u128::from_le_bytes(*v.to_le_bytes().first_chunk::<16>().unwrap());
+            let hi = u128::from_le_bytes(*v.to_le_bytes().last_chunk::<16>().unwrap());
             (Some(lo), Some(hi))
         }
         Bytecode::LdConst(v) => (Some(v.0 as u128), None),
@@ -228,7 +228,7 @@ mod tests {
     use crate::static_info::bytecode::{parse_module, BytecodeInfo};
     use move_binary_format::file_format::{
         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
-        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, SignatureToken,
+        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex,
         Visibility,
     };
     use move_binary_format::file_format_common::Opcodes;
@@ -309,7 +309,10 @@ mod tests {
         logger::init_for_test();
 
         let module = dummy_module();
-        let bytecodes = parse_module(&module, 0);
+        let bytecodes = parse_module(&module, 0)
+            .into_iter()
+            .flat_map(|v| v.1)
+            .collect::<Vec<_>>();
 
         let expected_bytecode_table = vec![
             BytecodeInfo {
@@ -319,7 +322,6 @@ mod tests {
                 opcode: Opcodes::LD_U64 as u8,
                 aux0: Some(2),
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -328,7 +330,6 @@ mod tests {
                 opcode: Opcodes::LD_U64 as u8,
                 aux0: Some(2),
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -337,7 +338,6 @@ mod tests {
                 opcode: Opcodes::ADD as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -346,7 +346,6 @@ mod tests {
                 opcode: Opcodes::POP as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -355,7 +354,6 @@ mod tests {
                 opcode: Opcodes::RET as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -364,7 +362,6 @@ mod tests {
                 opcode: Opcodes::LD_U64 as u8,
                 aux0: Some(1),
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -373,7 +370,6 @@ mod tests {
                 opcode: Opcodes::LD_U64 as u8,
                 aux0: Some(2),
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -382,7 +378,6 @@ mod tests {
                 opcode: Opcodes::SUB as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![SignatureToken::U64],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -391,7 +386,6 @@ mod tests {
                 opcode: Opcodes::POP as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![],
             },
             BytecodeInfo {
                 module_index: 0,
@@ -400,7 +394,6 @@ mod tests {
                 opcode: Opcodes::RET as u8,
                 aux0: None,
                 aux1: None,
-                ty_out: vec![],
             },
         ];
 

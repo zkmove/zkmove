@@ -51,7 +51,7 @@ impl FunctionLookupTable {
         let rows = static_info
             .function_info
             .iter()
-            .map(|func_info| FunctionTableRow::from(func_info))
+            .map(FunctionTableRow::from)
             .unique()
             .collect::<Vec<_>>();
 

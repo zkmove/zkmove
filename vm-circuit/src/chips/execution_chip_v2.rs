@@ -603,7 +603,7 @@ impl<F: Field> ExecChipConfig<F> {
                         $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
                         $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
                     },)*
-                    s @ _=>unimplemented!("{:?}", &s)
+                    s=>unimplemented!("{:?}", &s)
                 }
             };
         }

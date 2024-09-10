@@ -48,7 +48,7 @@ impl BytecodeLookupTable {
             .bytecode_info
             .values()
             .flat_map(|row| row.values())
-            .flat_map(|v| v)
+            .flatten()
             .map(|v| v.to_fields())
             .collect();
         assign_fixed_table(layouter, self.columns(), &field_elements, "bytecode_table")
