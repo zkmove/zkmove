@@ -5,6 +5,7 @@ use crate::chips::execution_chip::utils::base_constraint_builder::{
 use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
+use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
@@ -16,6 +17,7 @@ use crate::chips::execution_chip_v2::executions::{
 };
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
+use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::chips::utilities::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
@@ -29,6 +31,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
+use std::collections::HashMap;
 use std::iter;
 use types::Field;
 
@@ -48,6 +51,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
     pub base_constraint: Box<BaseConstraintGadget<F>>,
+    pub start: Box<Start<F>>,
+    pub process_arg: Box<ProcessArg<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise: Box<Bitwise<F>>,
@@ -103,6 +108,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub write_ref_stage3: Box<WriteRefStage3<F>>,
     pub nop: Box<Nop<F>>,
     pub step: Step<F>,
+    pub stored_expressions_map: HashMap<ExecutionState, Vec<StoredExpression<F>>>,
 }
 
 impl<F: Field> ExecChipConfig<F> {
@@ -129,21 +135,6 @@ impl<F: Field> ExecChipConfig<F> {
                     step_curr.state.clk.expr(),
                     1u64.expr(),
                 );
-                cb.require_zero("first step, pc = 0", step_curr.state.pc.expr());
-                cb.require_zero(
-                    "first step, frame_index = 0",
-                    step_curr.state.frame_index.expr(),
-                );
-                //TODO: require module_index/function_index equal to entry_module/entry_func
-
-                // cb.require_zero(
-                //     "first step, module_index = 0",
-                //     step_curr.cells.module_index.expr(),
-                // );
-                // cb.require_zero(
-                //     "first step, function_index = 0",
-                //     step_curr.state.function_index.expr(),
-                // );
             });
             cb.gate(s_usable)
         });
@@ -172,8 +163,8 @@ impl<F: Field> ExecChipConfig<F> {
             execution_state_selector_constraints
                 .into_iter()
                 .map(move |(name, poly)| (name, s_usable.clone() * poly))
+                .chain(first_step_check)
             // FIXME
-            // .chain(first_step_check)
             // .chain(last_step_check)
         });
         // meta.create_gate("q_step_last", |meta| {
@@ -202,6 +193,7 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        let mut stored_expressions_map = HashMap::new();
         // base configuration for every opcode gadgets
         let (step_curr, base_constraint) = {
             let mut cb =
@@ -214,7 +206,9 @@ impl<F: Field> ExecChipConfig<F> {
                 s_step_first,
                 s_step_last,
                 "base constraints",
+                None,
                 cb,
+                &mut stored_expressions_map,
             );
             (step_curr, base_constraint)
         };
@@ -228,6 +222,7 @@ impl<F: Field> ExecChipConfig<F> {
                     s_step_first,
                     s_step_last,
                     &step_curr,
+                    &mut stored_expressions_map,
                 ))
             };
         }
@@ -237,6 +232,8 @@ impl<F: Field> ExecChipConfig<F> {
             s_step_first,
             s_step_last,
             base_constraint: Box::new(base_constraint),
+            start: configure_opcode_gadget!(),
+            process_arg: configure_opcode_gadget!(),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
             bitwise: configure_opcode_gadget!(),
@@ -293,6 +290,7 @@ impl<F: Field> ExecChipConfig<F> {
             nop: configure_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
+            stored_expressions_map,
         };
 
         Self::configure_lookup(
@@ -318,6 +316,7 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_last: Selector,
         //s_step: Column<Advice>,
         step_curr: &Step<F>,
+        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
@@ -328,7 +327,15 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
-        Self::configure_opcode_gadget_impl(s_usable, s_step_first, s_step_last, G::NAME, cb);
+        Self::configure_opcode_gadget_impl(
+            s_usable,
+            s_step_first,
+            s_step_last,
+            G::NAME,
+            Some(G::EXECUTION_STATE),
+            cb,
+            stored_expressions_map,
+        );
         gadget
     }
 
@@ -337,11 +344,22 @@ impl<F: Field> ExecChipConfig<F> {
         s_step_first: Selector,
         s_step_last: Selector,
         name: &'static str,
+        execution_state: Option<ExecutionState>,
         mut cb: ConstraintBuilderV2<F>,
+        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) {
         let step_prev = cb.step_state_at_offset(-1);
         let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, _store_expressions, meta) = cb.build();
+        let (step_curr, constraints, stored_expressions, meta) = cb.build();
+
+        if let Some(execution_state) = execution_state {
+            debug_assert!(
+                !stored_expressions_map.contains_key(&execution_state),
+                "execution state already configured"
+            );
+            stored_expressions_map.insert(execution_state, stored_expressions);
+        }
+
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
             let row0 = meta.query_selector(s_step_first);
@@ -590,57 +608,86 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
         let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
-        ExecutionState::VecLen => self.vec_len,
-        ExecutionState::StoreLocStage1 => self.store_loc_stage1,
-        ExecutionState::StoreLocStage2 => self.store_loc_stage2,
-        ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
-        ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
-        ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
-        ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
-        ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
-        ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
-        ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
-        ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
-        ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
-        ExecutionState::AddSub => self.add_sub,
-        ExecutionState::AndOr => self.and_or,
-        ExecutionState::Bitwise => self.bitwise,
-        ExecutionState::BorrowField => self.borrow_field,
-        ExecutionState::BorrowLoc => self.borrow_loc,
-        ExecutionState::BrTrue => self.br_true,
-        ExecutionState::BrFalse => self.br_false,
+            ExecutionState::VecLen => self.vec_len,
+            ExecutionState::StoreLocStage1 => self.store_loc_stage1,
+            ExecutionState::StoreLocStage2 => self.store_loc_stage2,
+            ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,
+            ExecutionState::VecPopBackStage2 => self.vec_pop_back_stage2,
+            ExecutionState::VecPushBackStage1 => self.vec_push_back_stage1,
+            ExecutionState::VecPushBackStage2 => self.vec_push_back_stage2,
+            ExecutionState::VecSwapStage1 => self.vec_swap_stage_1,
+            ExecutionState::VecSwapStage2 => self.vec_swap_stage_2,
+            ExecutionState::VecSwapStage3 => self.vec_swap_stage_3,
+            ExecutionState::VecSwapStage4 => self.vec_swap_stage_4,
+            ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
+            ExecutionState::AddSub => self.add_sub,
+            ExecutionState::AndOr => self.and_or,
+            ExecutionState::Bitwise => self.bitwise,
+            ExecutionState::BorrowField => self.borrow_field,
+            ExecutionState::BorrowLoc => self.borrow_loc,
+            ExecutionState::BrTrue => self.br_true,
+            ExecutionState::BrFalse => self.br_false,
             ExecutionState::Branch => self.branch,
-        ExecutionState::CallStage1 => self.call_stage_1,
-        ExecutionState::CallStage2 => self.call_stage_2,
-        ExecutionState::CallStage3 => self.call_stage_3,
-        ExecutionState::Cast => self.cast,
-        ExecutionState::EqStage1 => self.eq_stage_1,
-        ExecutionState::EqStage2 => self.eq_stage_2,
-        ExecutionState::LdFalse => self.ld_false,
-        ExecutionState::LdTrue => self.ld_true,
-        ExecutionState::LdConst => self.ld_const,
-        ExecutionState::LdSimple => self.ld_simple,
-        ExecutionState::Le => self.le,
-        ExecutionState::Lt => self.lt,
-        ExecutionState::MoveLoc => self.move_loc,
-        ExecutionState::CopyLoc => self.copy_loc,
-        ExecutionState::MulDivMod => self.mul_div_mod,
-        ExecutionState::Not => self.not,
-        ExecutionState::Pack => self.pack,
-        ExecutionState::Pop => self.pop,
-        ExecutionState::ReadRef => self.read_ref,
-        ExecutionState::Ret => self.ret,
-        ExecutionState::UnpackStage1 => self.unpack_stage_1,
-        ExecutionState::UnpackStage2 => self.unpack_stage_2,
-        ExecutionState::VecBorrow => self.vec_borrow,
-        ExecutionState::WriteRefStage1 => self.write_ref_stage1,
-        ExecutionState::WriteRefStage2 => self.write_ref_stage2,
-        ExecutionState::WriteRefStage3 => self.write_ref_stage3,
-        ExecutionState::Nop => self.nop,
+            ExecutionState::CallStage1 => self.call_stage_1,
+            ExecutionState::CallStage2 => self.call_stage_2,
+            ExecutionState::CallStage3 => self.call_stage_3,
+            ExecutionState::Cast => self.cast,
+            ExecutionState::EqStage1 => self.eq_stage_1,
+            ExecutionState::EqStage2 => self.eq_stage_2,
+            ExecutionState::LdFalse => self.ld_false,
+            ExecutionState::LdTrue => self.ld_true,
+            ExecutionState::LdConst => self.ld_const,
+            ExecutionState::LdSimple => self.ld_simple,
+            ExecutionState::Le => self.le,
+            ExecutionState::Lt => self.lt,
+            ExecutionState::MoveLoc => self.move_loc,
+            ExecutionState::CopyLoc => self.copy_loc,
+            ExecutionState::MulDivMod => self.mul_div_mod,
+            ExecutionState::Not => self.not,
+            ExecutionState::Pack => self.pack,
+            ExecutionState::Pop => self.pop,
+            ExecutionState::ReadRef => self.read_ref,
+            ExecutionState::Ret => self.ret,
+            ExecutionState::UnpackStage1 => self.unpack_stage_1,
+            ExecutionState::UnpackStage2 => self.unpack_stage_2,
+            ExecutionState::VecBorrow => self.vec_borrow,
+            ExecutionState::WriteRefStage1 => self.write_ref_stage1,
+            ExecutionState::WriteRefStage2 => self.write_ref_stage2,
+            ExecutionState::WriteRefStage3 => self.write_ref_stage3,
+            ExecutionState::Nop => self.nop,
+            ExecutionState::Start => self.start,
+            ExecutionState::ProcessArg => self.process_arg,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
-
+        Self::assign_stored_expression(
+            region,
+            offset_begin,
+            stage_state,
+            &self.stored_expressions_map,
+        )?;
         Ok(assigned_rows)
+    }
+
+    fn assign_stored_expression(
+        region: &mut CachedRegion<'_, '_, F>,
+        offset_begin: usize,
+        stage_state: &StageState,
+        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+    ) -> Result<(), Error> {
+        let execution_state = &stage_state
+            .step_states
+            .first()
+            .unwrap()
+            .step_state
+            .exec_state;
+        for i in 0..stage_state.rows() {
+            if let Some(stored_expressions) = stored_expressions_map.get(execution_state) {
+                for expression in stored_expressions {
+                    expression.assign(region, offset_begin + i)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 

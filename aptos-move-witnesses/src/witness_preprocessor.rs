@@ -4,8 +4,8 @@ use crate::exec_state::ExecutionState::{
 };
 use crate::static_info::StaticInfo;
 use crate::step_state::{
-    CallerData, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot, StackPop,
-    StackPush, StageState, StepState, Version,
+    CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot,
+    StackPop, StackPush, StageState, StepState, Version,
 };
 use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
@@ -1716,7 +1716,6 @@ impl WitnessPreProcessor {
                 }
             }
             Operation::Call { fh_idx, args } => {
-                // TODO: for entrypoint, is there a call ?
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
                 let mut step_state =
@@ -1889,6 +1888,70 @@ impl WitnessPreProcessor {
                     }],
                     extra_data: None,
                 }]
+            }
+            Operation::Start { entry_call } => {
+                // stage1: check the number of argument
+                let module_index = static_info
+                    .module_id_mapping
+                    .get_module_index(entry_call.module_id.as_ref().unwrap());
+                let mut step_state = StepState::default()
+                    .change_clk(self.clk)
+                    .change_state(ExecutionState::Start);
+                let mut stages = vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops: vec![MemoryOp(None, None, None)],
+                    }],
+                    extra_data: Some(
+                        EntryFunc {
+                            module_index,
+                            function_index: entry_call.function_index,
+                        }
+                        .into(),
+                    ),
+                }];
+
+                for (i, arg) in entry_call.args.iter().rev().enumerate() {
+                    let local_index = entry_call.args.len() - 1 - i;
+                    self.clk += 1;
+
+                    // stage2: store one argument
+                    let step_state = step_state
+                        .change_state(ExecutionState::ProcessArg)
+                        .change_clk(self.clk);
+
+                    let memory_ops: Vec<_> = arg
+                        .iter()
+                        .map(|item| {
+                            let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                0,
+                                local_index,
+                                &item.sub_index.clone().into(),
+                                item.value.clone().into(),
+                                item.header,
+                                false,
+                                self.clk,
+                            );
+                            let local_op = LocalReadWrite::new(
+                                0,
+                                local_index.try_into().unwrap(),
+                                item.sub_index.clone().into(),
+                                old_,
+                                new_,
+                            );
+                            MemoryOp(None, None, Some(local_op))
+                        })
+                        .collect();
+                    let stage2_state = StageState {
+                        step_states: vec![ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }],
+                        extra_data: None,
+                    };
+                    stages.push(stage2_state);
+                }
+                stages
             }
             _ => todo!("{:?}", &trace.data),
         }

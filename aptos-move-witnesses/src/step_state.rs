@@ -3,7 +3,6 @@ use crate::static_info::StaticInfo;
 use crate::types::sub_index::SubIndex;
 use crate::types::word::Word;
 use crate::Footprint;
-use move_binary_format::file_format_common::Opcodes;
 
 pub type Version = u64;
 
@@ -22,6 +21,7 @@ impl StageState {
 #[derive(Clone, Debug)]
 pub enum StageExtraAssignData {
     Ret(RetExtraAssignData),
+    Start(EntryFunc),
 }
 
 #[derive(Clone, Debug)]
@@ -41,6 +41,18 @@ pub struct CallerData {
     pub caller_module_index: u64, // TODO: module_id to module_index
     pub caller_function_index: u16,
     pub caller_pc: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct EntryFunc {
+    pub module_index: usize,
+    pub function_index: usize,
+}
+
+impl From<EntryFunc> for StageExtraAssignData {
+    fn from(entry: EntryFunc) -> Self {
+        Self::Start(entry)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -206,7 +218,7 @@ impl Default for Slot {
             value: Word::default(),
             value_header: false,
             value_invalid: true,
-            version: 0,
+            version: 1,
         }
     }
 }

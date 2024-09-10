@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
+use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionTableRow;
 use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::Opcode;
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
@@ -44,7 +45,7 @@ pub(crate) fn assign_fixed_table<F: Field>(
     Ok(())
 }
 
-impl<F: Field> ToFields<F> for FunctionInfo {
+impl<F: Field> ToFields<F> for FunctionTableRow {
     fn to_fields(&self) -> Vec<F> {
         vec![
             F::from_u128(self.module_index as u128),
@@ -52,6 +53,7 @@ impl<F: Field> ToFields<F> for FunctionInfo {
             F::from_u128(self.def_module_index as u128),
             F::from_u128(self.function_index as u128),
             F::from_u128(self.num_arg as u128),
+            if self.entry { F::ONE } else { F::ZERO },
         ]
     }
 }

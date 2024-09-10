@@ -57,6 +57,7 @@ pub(crate) enum Lookup<F> {
         def_module_index: Expression<F>,
         function_index: Expression<F>,
         num_arg: Expression<F>,
+        entry: Expression<F>,
     },
     Constant {
         module_index: Expression<F>,
@@ -99,6 +100,7 @@ impl<F: Field> Lookup<F> {
                 def_module_index,
                 function_index,
                 num_arg,
+                entry,
             } => {
                 vec![
                     module_index.clone(),
@@ -106,6 +108,7 @@ impl<F: Field> Lookup<F> {
                     def_module_index.clone(),
                     function_index.clone(),
                     num_arg.clone(),
+                    entry.clone(),
                 ]
             }
             Self::Constant {

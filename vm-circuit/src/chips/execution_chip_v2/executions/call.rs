@@ -64,6 +64,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                     def_module_index: step_next.module_index.expr(),
                     function_index: step_next.function_index.expr(),
                     num_arg: num_arg.expr(),
+                    entry: 0u64.expr(),
                 },
             );
             call_context.configure(
@@ -370,6 +371,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                         def_module_index: step_next.module_index.expr(),
                         function_index: step_next.function_index.expr(),
                         num_arg: num_arg.expr(),
+                        entry: 0u64.expr(),
                     },
                 );
                 call_context.configure(

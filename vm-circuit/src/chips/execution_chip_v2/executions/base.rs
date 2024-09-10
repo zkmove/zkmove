@@ -5,6 +5,7 @@ use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, STEP_COUNTER,
 };
 use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
@@ -66,10 +67,16 @@ impl<F: Field> BaseConstraintGadget<F> {
         );
         // local_write_version(0) == clk(0)
         let write_version = cb.curr.state.local_write_version.expr();
-        cb.require_zero(
-            "local_write_version(0) == clk(0)",
-            write_version.clone() * (write_version - cb.curr.state.clk.expr()),
-        );
+        let is_nop = cb
+            .curr
+            .state
+            .execution_state_selector([ExecutionState::Nop]);
+        cb.condition(1u64.expr() - is_nop, |cb| {
+            cb.require_zero(
+                "local_write_version(0) == clk(0)",
+                write_version.clone() * (write_version - cb.curr.state.clk.expr()),
+            );
+        });
 
         Self {
             stack_pop_version_range_check,

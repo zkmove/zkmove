@@ -51,10 +51,11 @@ pub struct StaticInfo {
     pub function_info: Vec<FunctionInfo>,
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
+    pub entry: Entry,
 }
 
 impl StaticInfo {
-    pub fn generate(module_id: &ModuleId, package: &CompiledPackage) -> Self {
+    pub fn generate(module_id: &ModuleId, entry_func: usize, package: &CompiledPackage) -> Self {
         let modules = package.all_modules_map();
         let mut deps = modules
             .get_transitive_dependencies(module_id)
@@ -64,11 +65,16 @@ impl StaticInfo {
             .collect::<Vec<_>>();
         deps.push(modules.get_module(module_id).unwrap().clone());
         let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+        let module_index = module_id_mapping.get_module_index(module_id);
         StaticInfo {
             bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
             function_info: function::parse_function(&module_id_mapping, &deps),
             constant_info: constant::parse_constant(&module_id_mapping, &deps),
             module_id_mapping,
+            entry: Entry {
+                module_index,
+                function_index: entry_func,
+            },
         }
     }
 
@@ -79,10 +85,34 @@ impl StaticInfo {
             .map(|c| c.value.clone())
     }
 
+    /// get function `fh_idx` in the function handle table of `module_index`
     pub fn get_function(&self, module_index: usize, fh_idx: usize) -> Option<FunctionInfo> {
         self.function_info
             .iter()
             .find(|f| f.module_index == module_index && f.function_handle_index == fh_idx)
             .cloned()
     }
+
+    /// find entry function by `module_index` and `function_index` of entry function.
+    /// `module_index` and `def_module_index` should be same.
+    pub fn get_entry_function(
+        &self,
+        module_index: usize,
+        function_index: usize,
+    ) -> Option<FunctionInfo> {
+        self.function_info
+            .iter()
+            .find(|f| {
+                f.module_index == module_index
+                    && f.def_module_index == module_index
+                    && f.function_index == function_index
+            })
+            .cloned()
+    }
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct Entry {
+    pub module_index: usize,
+    pub function_index: usize,
 }

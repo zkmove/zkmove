@@ -29,6 +29,10 @@ impl FunctionInfo {
             num_arg,
         }
     }
+
+    pub fn num_arg(&self) -> usize {
+        self.num_arg
+    }
 }
 
 pub(crate) fn parse_function(

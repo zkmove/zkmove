@@ -6,8 +6,8 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilde
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::step_v2::StepState;
-use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
+use crate::chips::execution_chip_v2::utils::{pow_of_two_expr, StoredExpression};
 use crate::chips::execution_chip_v2::{assign_step_and_common, InstructionGadgetV2};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::rlc;
@@ -15,6 +15,7 @@ use crate::utils::word::WordLoHiCell;
 use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+use std::collections::HashMap;
 
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
@@ -31,14 +32,14 @@ pub struct Nop<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     const NAME: &'static str = "Nop";
-    const OPCODES: &'static [Opcode] = &[Opcode::Nop];
+    const OPCODES: &'static [Opcode] = &[];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Nop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         cb.require_zero("opcode = 0", cb.curr.state.opcode.expr());
         cb.require_zero(
-            "local_write_version(0) ==0",
-            cb.curr.state.local_write_version.expr(),
+            "local_write_version(0) == 1",
+            1u64.expr() - cb.curr.state.local_write_version.expr(),
         );
         let cells = cb.query_cells::<2>();
         let rlc = WordLoHiCell::new(cells);

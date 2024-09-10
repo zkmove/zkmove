@@ -21,6 +21,7 @@ pub(crate) mod pack;
 pub(crate) mod pop;
 pub(crate) mod read_ref;
 pub(crate) mod ret;
+pub(crate) mod start;
 pub(crate) mod store_loc;
 pub(crate) mod unpack;
 pub(crate) mod vec_borrow;
