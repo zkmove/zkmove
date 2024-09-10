@@ -47,11 +47,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         let field_index = cb.query_cell(); //Fixme: query byte or u16 for different LIMB_BITS
         let step_curr = cb.curr.state.clone();
 
-        let num_field = if VEC_UNPACK {
-            step_curr.aux1.expr()
-        } else {
-            step_curr.aux0.expr() // FIXME: unpack's field num doesn't exists for Unpack
-        };
+        let num_field = step_curr.aux1.expr();
         let is_zero_num_field = IsZeroGadget::construct(cb, num_field.clone());
 
         cb.require_in_set(
@@ -138,15 +134,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
 
         self.field_index
             .assign(region, offset, Value::known(F::zero()))?; // TODO: check the assign
-        let aux_value = region.get_advice(
-            offset,
-            if VEC_UNPACK {
-                step.aux1.get_column_idx()
-            } else {
-                step.aux0.get_column_idx()
-            },
-            Rotation::cur(),
-        );
+        let aux_value = region.get_advice(offset, step.aux1.get_column_idx(), Rotation::cur());
         self.is_zero_num_field.assign(region, offset, aux_value)?;
 
         Ok(step_state.memory_ops.len())
@@ -181,11 +169,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
         let is_last_field = IsZeroGadget::construct(cb, field_index.expr() - 1u64.expr());
         let membership_gadget = Membership::construct(cb);
         let step_curr = cb.curr.state.clone();
-        let num_field = if VEC_UNPACK {
-            step_curr.aux1.expr()
-        } else {
-            step_curr.aux0.expr() // FIXME: unpack's field num doesn't exists for Unpack
-        };
+        let num_field = step_curr.aux1.expr();
         cb.first_row(|cb| {
             cb.require_prev_states(vec![
                 ExecutionState::UnpackStage1,

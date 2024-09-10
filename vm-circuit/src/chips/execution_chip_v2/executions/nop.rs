@@ -48,6 +48,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
             cb.curr.state.local_index.expr(),
             cb.curr.state.local_sub_index.expr(),
         ]);
+        cb.require_no_stack_pop();
         cb.require_equal(
             "rlc(local_frame_index, local_index, local_sub_index) == rlc",
             cur_rlc,

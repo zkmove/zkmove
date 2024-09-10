@@ -44,10 +44,12 @@ impl BytecodeLookupTable {
         layouter: &mut impl Layouter<F>,
         static_info: &StaticInfo,
     ) -> Result<(), Error> {
-        let field_elements: Vec<Vec<F>> = static_info
+        let field_elements: Vec<_> = static_info
             .bytecode_info
-            .iter()
-            .map(|row| row.to_fields())
+            .values()
+            .flat_map(|row| row.values())
+            .flat_map(|v| v)
+            .map(|v| v.to_fields())
             .collect();
         assign_fixed_table(layouter, self.columns(), &field_elements, "bytecode_table")
     }

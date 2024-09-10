@@ -53,11 +53,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             "is_zero_stack_pop_sub_index",
             cb.curr.state.stack_pop_sub_index.expr(),
         );
-        let num_field = if VEC_PACK {
-            step_curr.aux1.expr()
-        } else {
-            step_curr.aux0.expr()
-        };
+        let num_field = step_curr.aux1.expr();
         let is_zero_num_field =
             IsZeroGadget::construct_with_name(cb, "is_zero_num_field", num_field.clone());
         let last_row = IsZeroGadget::construct_with_name(

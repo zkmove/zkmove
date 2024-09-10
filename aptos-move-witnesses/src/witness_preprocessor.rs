@@ -2,6 +2,7 @@ use crate::exec_state::ExecutionState;
 use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
+use crate::static_info::bytecode::Instruction;
 use crate::static_info::StaticInfo;
 use crate::step_state::{
     CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot,
@@ -1687,7 +1688,6 @@ impl WitnessPreProcessor {
                             StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
                         (SimpleValue::from(output), step_state)
                     }
-                    _ => todo!(),
                 };
 
                 let stack_pop_rhs = StackPop {
@@ -1751,7 +1751,6 @@ impl WitnessPreProcessor {
                             extra_data: None,
                         }]
                     }
-                    _ => todo!(),
                 }
             }
             Operation::Call { fh_idx, args } => {
@@ -1933,7 +1932,8 @@ impl WitnessPreProcessor {
                 let module_index = static_info
                     .module_id_mapping
                     .get_module_index(entry_call.module_id.as_ref().unwrap());
-                let mut step_state = StepState::default()
+
+                let step_state = StepState::default()
                     .change_clk(self.clk)
                     .change_state(ExecutionState::Start);
                 let mut stages = vec![StageState {
