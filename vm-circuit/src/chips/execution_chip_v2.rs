@@ -603,12 +603,15 @@ impl<F: Field> ExecChipConfig<F> {
                         $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
                         $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
                     },)*
-                    _=>unimplemented!()
+                    s @ _=>unimplemented!("{:?}", &s)
                 }
             };
         }
         let assigned_rows = assign_exec_step!(stage_state.step_states.first().unwrap().step_state.exec_state, {
             ExecutionState::VecLen => self.vec_len,
+            ExecutionState::VecPack => self.vec_pack,
+            ExecutionState::VecUnpackStage1 => self.vec_unpack_stage_1,
+            ExecutionState::VecUnpackStage2 => self.vec_unpack_stage_2,
             ExecutionState::StoreLocStage1 => self.store_loc_stage1,
             ExecutionState::StoreLocStage2 => self.store_loc_stage2,
             ExecutionState::VecPopBackStage1 => self.vec_pop_back_stage1,

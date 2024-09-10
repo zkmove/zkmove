@@ -12,5 +12,5 @@ if [ ! -f "$test_cases_file" ]; then
 fi
 
 while IFS= read -r test_case || [[ -n "$test_case" ]]; do
-    move sandbox run --skip-fetch-latest-git-deps --witness storage/0x0000000000000000000000000000000000000000000000000000000000000001/modules/TestCase.mv $test_case
+    move sandbox run --skip-fetch-latest-git-deps --witness storage/0x0000000000000000000000000000000000000000000000000000000000000002/modules/TestCase.mv $test_case
 done < "$test_cases_file"

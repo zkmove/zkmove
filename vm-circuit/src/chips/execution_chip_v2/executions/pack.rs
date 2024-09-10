@@ -43,17 +43,35 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
     };
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let field_index = cb.query_cell(); //TODO: query byte for each LIMB_BITS
-        let field_counter = cb.query_cell();
-        let is_zero_stack_pop_sub_index =
-            IsZeroGadget::construct(cb, cb.curr.state.stack_pop_sub_index.expr());
-        let is_zero_num_field = IsZeroGadget::construct(cb, cb.curr.state.aux0.expr());
-        let last_row = IsZeroGadget::construct(cb, cb.curr.state.step_counter.expr() - 1u64.expr());
-        let last_row_of_field = IsZeroGadget::construct(cb, field_counter.expr() - 1u64.expr());
         let step_curr = cb.curr.state.clone();
         let step_next = cb.step_state_at_offset(1);
+
+        let field_index = cb.query_cell(); //TODO: query byte for each LIMB_BITS
+        let field_counter = cb.query_cell();
+        let is_zero_stack_pop_sub_index = IsZeroGadget::construct_with_name(
+            cb,
+            "is_zero_stack_pop_sub_index",
+            cb.curr.state.stack_pop_sub_index.expr(),
+        );
+        let num_field = if VEC_PACK {
+            step_curr.aux1.expr()
+        } else {
+            step_curr.aux0.expr()
+        };
+        let is_zero_num_field =
+            IsZeroGadget::construct_with_name(cb, "is_zero_num_field", num_field.clone());
+        let last_row = IsZeroGadget::construct_with_name(
+            cb,
+            "last_row",
+            cb.curr.state.step_counter.expr() - 1u64.expr(),
+        );
+        let last_row_of_field = IsZeroGadget::construct_with_name(
+            cb,
+            "last_row_of_field",
+            field_counter.expr() - 1u64.expr(),
+        );
+
         let field_index_next = cb.cell_at_offset(&field_index, 1);
-        let num_field = step_curr.aux0.expr();
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -99,9 +117,9 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
 
             cb.condition(not::expr(is_zero_num_field.expr()), |cb| {
                 cb.require_equal(
-                    format!("{}, field_index(1) == aux0(0)", Self::NAME),
+                    format!("{}, field_index(1) == num_field", Self::NAME),
                     field_index_next.expr(),
-                    step_curr.aux0.expr(),
+                    num_field.expr(),
                 );
                 cb.require_equal(
                     format!("{}, stack_pop_index(1) == sp(0)", Self::NAME),
@@ -242,7 +260,6 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             Rotation::cur(),
         );
         debug_assert!(cur_step_counter == F::from(step_state.memory_ops.len() as u64));
-        let step_counter = step_state.memory_ops.len(); // TODO: fetch from Step
         let field_counters = step_state
             .memory_ops
             .iter()
@@ -251,11 +268,11 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         let num_field = field_counters.len();
 
         self.field_index
-            .assign(region, start_offset, Value::unknown())?;
+            .assign(region, start_offset, Value::known(F::zero()))?; // TODO: check the assign
         self.field_counter
-            .assign(region, start_offset, Value::unknown())?;
+            .assign(region, start_offset, Value::known(F::zero()))?; // TODO: check the assign
         self.last_row_of_field
-            .assign(region, start_offset, F::zero())?;
+            .assign(region, start_offset, F::zero().sub(F::one()))?; // must be field_counter - 1
 
         self.is_zero_stack_pop_sub_index
             .assign(region, start_offset, F::zero())?;

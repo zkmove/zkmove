@@ -1,4 +1,6 @@
-module 0x1::TestCase {
+module cases::TestCase {
+    use std::vector;
+
     public entry fun test_abort() {
         assert!(3 == 3, 101);
     }
@@ -64,5 +66,24 @@ module 0x1::TestCase {
         let _l = x3 & 127u256;
         let _m = x3 | 340282366920938463463374607431768211456u256;
         let _n = x3 ^ 255u256;
+    }
+
+
+    public entry fun test_vector() {
+        let v = vector::empty<u64>();
+        vector::destroy_empty(v);
+        //vector::push_back(&mut v, 5);
+        // assert!(vector::length(&v) == 1, 101);
+        // assert!(*vector::borrow(&v, 0) == 5, 102);
+        //
+        // vector::push_back(&mut v, 6);
+        // assert!(vector::length(&v) == 2, 101);
+        //
+        // vector::swap(&mut v, 0, 1);
+        //
+        // let value = vector::pop_back(&mut v);
+        // assert!(value == 5, 103);
+        // vector::pop_back(&mut v);
+        // vector::destroy_empty(v);
     }
 }

@@ -46,7 +46,13 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let field_index = cb.query_cell(); //Fixme: query byte or u16 for different LIMB_BITS
         let step_curr = cb.curr.state.clone();
-        let is_zero_num_field = IsZeroGadget::construct(cb, step_curr.aux0.expr());
+
+        let num_field = if VEC_UNPACK {
+            step_curr.aux1.expr()
+        } else {
+            step_curr.aux0.expr() // FIXME: unpack's field num doesn't exists for Unpack
+        };
+        let is_zero_num_field = IsZeroGadget::construct(cb, num_field.clone());
 
         cb.require_in_set(
             "opcode in OPCODES",
@@ -69,11 +75,11 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         );
         cb.require_equal(
             format!(
-                "{},  stack_pop_value(0).as_header().len() == aux0(0)",
+                "{},  stack_pop_value(0).as_header().len() == num_field",
                 Self::NAME
             ),
             step_curr.stack_pop_value.as_header().len(),
-            step_curr.aux0.expr(),
+            num_field.clone(),
         );
         cb.require_no_stack_push();
         cb.require_no_local_op();
@@ -88,9 +94,9 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
             cb.require_next_state(ExecutionState::UnpackStage2);
             cb.require_state_transition(vec![(PC, Transition::Same), (SP, Transition::Same)]);
             cb.require_equal(
-                format!("{},  field_index(1) == aux0(0)", Self::NAME),
+                format!("{},  field_index(1) == num_field", Self::NAME),
                 field_index_next.expr(),
-                step_curr.aux0.expr(),
+                num_field.clone(),
             );
         }
         if VEC_UNPACK {
@@ -98,9 +104,9 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
                 cb.require_next_state(ExecutionState::UnpackStage2);
                 cb.require_state_transition(vec![(PC, Transition::Same), (SP, Transition::Same)]);
                 cb.require_equal(
-                    format!("{},  field_index(1) == aux0(0)", Self::NAME),
+                    format!("{},  field_index(1) == num_field", Self::NAME),
                     field_index_next.expr(),
-                    step_curr.aux0.expr(),
+                    num_field.clone(),
                 );
             });
             cb.condition(is_zero_num_field.expr(), |cb| {
@@ -130,8 +136,17 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
 
         debug_assert_eq!(step_state.memory_ops.len(), 1);
 
-        self.field_index.assign(region, offset, Value::unknown())?;
-        let aux_value = region.get_advice(offset, step.aux0.get_column_idx(), Rotation::cur());
+        self.field_index
+            .assign(region, offset, Value::known(F::zero()))?; // TODO: check the assign
+        let aux_value = region.get_advice(
+            offset,
+            if VEC_UNPACK {
+                step.aux1.get_column_idx()
+            } else {
+                step.aux0.get_column_idx()
+            },
+            Rotation::cur(),
+        );
         self.is_zero_num_field.assign(region, offset, aux_value)?;
 
         Ok(step_state.memory_ops.len())
@@ -166,7 +181,11 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
         let is_last_field = IsZeroGadget::construct(cb, field_index.expr() - 1u64.expr());
         let membership_gadget = Membership::construct(cb);
         let step_curr = cb.curr.state.clone();
-
+        let num_field = if VEC_UNPACK {
+            step_curr.aux1.expr()
+        } else {
+            step_curr.aux0.expr() // FIXME: unpack's field num doesn't exists for Unpack
+        };
         cb.first_row(|cb| {
             cb.require_prev_states(vec![
                 ExecutionState::UnpackStage1,
@@ -253,7 +272,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
                     (PC, Transition::Delta(1.expr())),
                     (
                         SP,
-                        Transition::To(step_curr.sp.expr() + step_curr.aux0.expr() - 1u64.expr()),
+                        Transition::To(step_curr.sp.expr() + num_field.clone() - 1u64.expr()),
                     ),
                 ]);
             });

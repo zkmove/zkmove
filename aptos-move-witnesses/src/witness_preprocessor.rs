@@ -916,8 +916,18 @@ impl WitnessPreProcessor {
                     },
                 ]
             }
-            Operation::Pack { sd_idx, args } => {
-                let step_state = StepState::new(self.clk, ExecutionState::Pack, trace, static_info);
+            Operation::Pack {
+                sd_idx: si,
+                num,
+                args,
+            }
+            | Operation::VecPack { si, num, args } => {
+                let execution_state = if matches!(&trace.data, Operation::Pack { .. }) {
+                    ExecutionState::Pack
+                } else {
+                    ExecutionState::VecPack
+                };
+                let step_state = StepState::new(self.clk, execution_state, trace, static_info);
 
                 let flen = args.iter().fold(0usize, |sum, arg| sum + arg.len()) + 1;
                 let len = args.len();
@@ -957,6 +967,7 @@ impl WitnessPreProcessor {
                         MemoryOp(Some(stack_pop), Some(stack_push), None)
                     }));
                 }
+                self.version_stack.push(step_state.clk);
                 vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state,
@@ -965,16 +976,41 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::Unpack { sd_idx, arg } => {
+            Operation::Unpack {
+                sd_idx: si,
+                num,
+                arg,
+            }
+            | Operation::VecUnpack { si, num, arg } => {
                 debug_assert!(!arg.is_empty());
-                let step_state =
-                    StepState::new(self.clk, ExecutionState::UnpackStage1, trace, static_info);
+                let is_vec_unpack = if matches!(&trace.data, Operation::Unpack { .. }) {
+                    false
+                } else {
+                    true
+                };
+                let step_state = StepState::new(
+                    self.clk,
+                    if is_vec_unpack {
+                        ExecutionState::VecUnpackStage1
+                    } else {
+                        ExecutionState::UnpackStage1
+                    },
+                    trace,
+                    static_info,
+                );
                 let arg_header = arg.first().unwrap();
+                // TODO: refactor the flen and len.
+                // FIXME: fix occurrence in other instructions.
+                let arg_len = match arg_header.value {
+                    SimpleValue::U64(n) => n,
+                    _ => unreachable!(),
+                };
+                let arg_flen = arg.len();
                 let arg_version = self.version_stack.pop().unwrap();
                 let stack_pop = StackPop {
                     index: step_state.sp,
                     sub_index: arg_header.sub_index.clone().into(),
-                    value: arg_header.value.clone().into(),
+                    value: ValueHeader::new(arg_flen, arg_len as usize).into(),
                     value_header: arg_header.header,
                     version: arg_version,
                 };
@@ -1010,7 +1046,11 @@ impl WitnessPreProcessor {
                     for (field_index, field) in fields.into_iter().rev() {
                         self.clk += 1;
                         let step_state = step_state
-                            .change_state(ExecutionState::UnpackStage2)
+                            .change_state(if is_vec_unpack {
+                                ExecutionState::VecUnpackStage2
+                            } else {
+                                ExecutionState::UnpackStage2
+                            })
                             .change_clk(self.clk);
                         let memory_ops = field
                             .into_iter()
@@ -1101,7 +1141,7 @@ impl WitnessPreProcessor {
                     self.clk += 1;
                     step_state = step_state.change_state(new_state).change_clk(self.clk);
                     let idx_items_sub_index_prefix = SubIndex::from(vec_ref.sub_index.clone())
-                        .concat(&vec![*idx as usize].into());
+                        .concat(&vec![*idx as usize + 1].into());
                     let memory_ops = idx_elem
                         .iter()
                         .map(|item| {
@@ -1153,7 +1193,7 @@ impl WitnessPreProcessor {
                     self.clk += 1;
                     step_state = step_state.change_state(new_state).change_clk(self.clk);
                     let idx_items_sub_index_prefix = SubIndex::from(vec_ref.sub_index.clone())
-                        .concat(&vec![*idx as usize].into());
+                        .concat(&vec![*idx as usize + 1].into());
                     let stack_value_version = self.version_stack.pop().unwrap();
                     let memory_ops = idx_elem
                         .iter()
@@ -1220,7 +1260,6 @@ impl WitnessPreProcessor {
                         version: self.version_stack.pop().unwrap(),
                     };
                     let mut memory_ops = vec![];
-
                     let mut parents = SubIndex::from(vec_ref.sub_index.clone()).parents();
                     // insert itself
                     parents.insert(0, vec_ref.sub_index.clone().into());
@@ -1355,7 +1394,6 @@ impl WitnessPreProcessor {
                         version: self.version_stack.pop().unwrap(),
                     };
                     let mut memory_ops = vec![];
-
                     let mut parents = SubIndex::from(vec_ref.sub_index.clone()).parents();
                     // insert itself
                     parents.insert(0, vec_ref.sub_index.clone().into());
@@ -1380,6 +1418,7 @@ impl WitnessPreProcessor {
                             },
                         )
                         .into();
+
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
                             vec_ref.frame_index,
                             vec_ref.local_index,
