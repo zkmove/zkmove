@@ -4,7 +4,6 @@ use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLooku
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
-use crate::utils::challenges::Challenges;
 use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::impl_expr;
 use halo2_proofs::circuit::Layouter;

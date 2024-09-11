@@ -6,32 +6,40 @@ use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
 use move_binary_format::file_format::{
     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
 };
+use move_binary_format::file_format_common::instruction_key;
 use movelang::type_transition;
-
-#[derive(Clone, Eq, PartialEq, Debug)]
+use movelang::value::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
+use std::collections::BTreeMap;
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
     pub module_index: usize,
     pub function_index: usize,
     pub pc: u16,
-    pub bytecode: Bytecode,
-    /// types that outputted by the bytecode
-    pub ty_out: Vec<SignatureToken>,
+    pub opcode: u8,
+    pub aux0: Option<u128>,
+    pub aux1: Option<u128>,
 }
 
 impl BytecodeInfo {
     pub fn new(
+        module: &CompiledModule,
         module_index: usize,
         function_index: usize,
         pc: u16,
         bytecode: Bytecode,
-        ty_out: Vec<SignatureToken>,
+        ty_out: &[SignatureToken],
     ) -> Self {
+        let instr = bytecode_to_instruction(module, &bytecode, ty_out);
         BytecodeInfo {
             module_index,
             function_index,
             pc,
-            bytecode,
-            ty_out,
+            opcode: instr.opcode,
+            aux0: instr.aux0,
+            aux1: instr.aux1,
         }
     }
 }
@@ -39,16 +47,19 @@ impl BytecodeInfo {
 pub(crate) fn parse_bytecode(
     module_id_mapping: &ModuleIdMapping,
     deps: &[CompiledModule],
-) -> Vec<BytecodeInfo> {
+) -> BTreeMap<usize, BTreeMap<usize, Vec<BytecodeInfo>>> {
     deps.iter()
-        .flat_map(|module| {
+        .map(|module| {
             let module_index = module_id_mapping.get_module_index(&module.self_id());
-            parse_module(module, module_index)
+            (module_index, parse_module(module, module_index))
         })
         .collect()
 }
 
-fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeInfo> {
+fn parse_module(
+    module: &CompiledModule,
+    module_index: usize,
+) -> BTreeMap<usize, Vec<BytecodeInfo>> {
     module
         .function_defs
         .iter()
@@ -66,23 +77,149 @@ fn parse_module(module: &CompiledModule, module_index: usize) -> Vec<BytecodeInf
                     ),
                 )
                 .expect("generate type transition should not fail");
+
                 let rows = transitions
                     .into_iter()
-                    .map(move |(i, transition)| BytecodeInfo {
-                        module_index,
-                        function_index: func_index,
-                        pc: i,
-                        bytecode: transition.instr,
-                        ty_out: transition.output,
+                    .map(move |(i, transition)| {
+                        BytecodeInfo::new(
+                            module,
+                            module_index,
+                            func_index,
+                            i,
+                            transition.instr,
+                            &transition.output,
+                        )
                     })
                     .collect::<Vec<_>>();
-                Some(rows)
+                Some((func_index, rows))
             } else {
                 None
             }
         })
-        .flatten()
         .collect()
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Instruction {
+    pub(crate) opcode: u8,
+    pub(crate) aux0: Option<u128>,
+    pub(crate) aux1: Option<u128>,
+}
+fn get_num_bytes(s: &SignatureToken) -> usize {
+    match s {
+        SignatureToken::U8 => NUM_OF_BYTES_U8,
+        SignatureToken::U16 => NUM_OF_BYTES_U16,
+        SignatureToken::U32 => NUM_OF_BYTES_U32,
+        SignatureToken::U64 => NUM_OF_BYTES_U64,
+        SignatureToken::U128 => NUM_OF_BYTES_U128,
+        SignatureToken::U256 => NUM_OF_BYTES_U256,
+        _ => unreachable!(),
+    }
+}
+
+/// Convert to opcode, operand1 and operand2
+fn bytecode_to_instruction(
+    module: &CompiledModule,
+    bytecode: &Bytecode,
+    ty_out: &[SignatureToken],
+) -> Instruction {
+    let opcode = instruction_key(bytecode);
+    let (aux0, aux1) = match *bytecode {
+        Bytecode::CastU8
+        | Bytecode::CastU16
+        | Bytecode::CastU32
+        | Bytecode::CastU64
+        | Bytecode::CastU128
+        | Bytecode::CastU256
+        | Bytecode::Pop
+        | Bytecode::Ret
+        | Bytecode::LdTrue
+        | Bytecode::LdFalse
+        | Bytecode::Eq
+        | Bytecode::Neq
+        | Bytecode::Le
+        | Bytecode::Lt
+        | Bytecode::Ge
+        | Bytecode::Gt
+        | Bytecode::BitAnd
+        | Bytecode::BitOr
+        | Bytecode::Xor
+        | Bytecode::And
+        | Bytecode::Or
+        | Bytecode::Not
+        | Bytecode::ReadRef
+        | Bytecode::WriteRef
+        | Bytecode::FreezeRef
+        | Bytecode::Abort => (None, None),
+        Bytecode::Add
+        | Bytecode::Mul
+        | Bytecode::Sub
+        | Bytecode::Div
+        | Bytecode::Mod
+        | Bytecode::Shl
+        | Bytecode::Shr => (Some(get_num_bytes(&ty_out[0]) as u128), None),
+        Bytecode::LdU8(v) => (Some(v as u128), None),
+        Bytecode::LdU16(v) => (Some(v as u128), None),
+        Bytecode::LdU32(v) => (Some(v as u128), None),
+        Bytecode::LdU64(v) => (Some(v as u128), None),
+        Bytecode::LdU128(v) => (Some(v), None),
+        Bytecode::LdU256(v) => {
+            let lo = u128::from_le_bytes(*v.to_le_bytes().first_chunk::<16>().unwrap());
+            let hi = u128::from_le_bytes(*v.to_le_bytes().last_chunk::<16>().unwrap());
+            (Some(lo), Some(hi))
+        }
+        Bytecode::LdConst(v) => (Some(v.0 as u128), None),
+        Bytecode::CopyLoc(local_index)
+        | Bytecode::MoveLoc(local_index)
+        | Bytecode::StLoc(local_index)
+        | Bytecode::MutBorrowLoc(local_index)
+        | Bytecode::ImmBorrowLoc(local_index) => (Some(local_index as u128), None),
+        Bytecode::Branch(code_offset)
+        | Bytecode::BrTrue(code_offset)
+        | Bytecode::BrFalse(code_offset) => (Some(code_offset as u128), None),
+        Bytecode::Call(func_handle_index) => (Some(func_handle_index.0 as u128), None),
+        Bytecode::CallGeneric(idx) => (Some(idx.0 as u128), None),
+        Bytecode::Pack(sd_idx)
+        | Bytecode::Unpack(sd_idx)
+        | Bytecode::MoveTo(sd_idx)
+        | Bytecode::MoveFrom(sd_idx)
+        | Bytecode::Exists(sd_idx)
+        | Bytecode::ImmBorrowGlobal(sd_idx)
+        | Bytecode::MutBorrowGlobal(sd_idx) => {
+            let field_count = module.struct_def_at(sd_idx).declared_field_count().unwrap();
+            (Some(sd_idx.0 as u128), Some(field_count as u128))
+        }
+        Bytecode::PackGeneric(idx)
+        | Bytecode::UnpackGeneric(idx)
+        | Bytecode::MoveToGeneric(idx)
+        | Bytecode::MoveFromGeneric(idx)
+        | Bytecode::ExistsGeneric(idx)
+        | Bytecode::ImmBorrowGlobalGeneric(idx)
+        | Bytecode::MutBorrowGlobalGeneric(idx) => {
+            let field_count = module
+                .struct_def_at(module.struct_instantiation_at(idx).def)
+                .declared_field_count()
+                .unwrap();
+            (Some(idx.0 as u128), Some(field_count as u128))
+        }
+        Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
+            (Some(fh_idx.0 as u128), None)
+        }
+        Bytecode::ImmBorrowFieldGeneric(idx) | Bytecode::MutBorrowFieldGeneric(idx) => {
+            (Some(idx.0 as u128), None)
+        }
+        Bytecode::VecImmBorrow(idx)
+        | Bytecode::VecMutBorrow(idx)
+        | Bytecode::VecLen(idx)
+        | Bytecode::VecPopBack(idx)
+        | Bytecode::VecPushBack(idx)
+        | Bytecode::VecSwap(idx) => (Some(idx.0 as u128), None),
+        Bytecode::VecPack(idx, num) | Bytecode::VecUnpack(idx, num) => {
+            (Some(idx.0 as u128), Some(num as u128))
+        }
+        Bytecode::Nop => (None, None),
+    };
+    Instruction { opcode, aux0, aux1 }
 }
 
 #[cfg(test)]
@@ -90,9 +227,9 @@ mod tests {
     use crate::static_info::bytecode::{parse_module, BytecodeInfo};
     use move_binary_format::file_format::{
         empty_module, Bytecode, CodeUnit, CompiledModule, FunctionDefinition, FunctionHandle,
-        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, SignatureToken,
-        Visibility,
+        FunctionHandleIndex, IdentifierIndex, ModuleHandleIndex, SignatureIndex, Visibility,
     };
+    use move_binary_format::file_format_common::Opcodes;
     use move_core_types::identifier::Identifier;
 
     /// A dummy compiled module:
@@ -170,19 +307,92 @@ mod tests {
         logger::init_for_test();
 
         let module = dummy_module();
-        let bytecodes = parse_module(&module, 0);
+        let bytecodes = parse_module(&module, 0)
+            .into_iter()
+            .flat_map(|v| v.1)
+            .collect::<Vec<_>>();
 
         let expected_bytecode_table = vec![
-            BytecodeInfo::new(0, 0, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 0, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 0, 2, Bytecode::Add, vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 0, 3, Bytecode::Pop, vec![]),
-            BytecodeInfo::new(0, 0, 4, Bytecode::Ret, vec![]),
-            BytecodeInfo::new(0, 1, 0, Bytecode::LdU64(1u64), vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 1, 1, Bytecode::LdU64(2u64), vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 1, 2, Bytecode::Sub, vec![SignatureToken::U64]),
-            BytecodeInfo::new(0, 1, 3, Bytecode::Pop, vec![]),
-            BytecodeInfo::new(0, 1, 4, Bytecode::Ret, vec![]),
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 0,
+                pc: 0,
+                opcode: Opcodes::LD_U64 as u8,
+                aux0: Some(2),
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 0,
+                pc: 1,
+                opcode: Opcodes::LD_U64 as u8,
+                aux0: Some(2),
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 0,
+                pc: 2,
+                opcode: Opcodes::ADD as u8,
+                aux0: None,
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 0,
+                pc: 3,
+                opcode: Opcodes::POP as u8,
+                aux0: None,
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 0,
+                pc: 4,
+                opcode: Opcodes::RET as u8,
+                aux0: None,
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 1,
+                pc: 0,
+                opcode: Opcodes::LD_U64 as u8,
+                aux0: Some(1),
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 1,
+                pc: 1,
+                opcode: Opcodes::LD_U64 as u8,
+                aux0: Some(2),
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 1,
+                pc: 2,
+                opcode: Opcodes::SUB as u8,
+                aux0: None,
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 1,
+                pc: 3,
+                opcode: Opcodes::POP as u8,
+                aux0: None,
+                aux1: None,
+            },
+            BytecodeInfo {
+                module_index: 0,
+                function_index: 1,
+                pc: 4,
+                opcode: Opcodes::RET as u8,
+                aux0: None,
+                aux1: None,
+            },
         ];
 
         assert_eq!(bytecodes, expected_bytecode_table, "result is not expected");

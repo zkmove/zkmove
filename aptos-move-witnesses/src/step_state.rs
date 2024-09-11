@@ -102,6 +102,9 @@ impl StepState {
         let module_index = static_info
             .module_id_mapping
             .get_module_index(trace.module_id.as_ref().unwrap());
+        let bytecode = static_info
+            .get_bytecode(module_index, trace.function_id, trace.pc as usize)
+            .expect("cannot locate the bytecode");
         Self {
             clk,
             frame_index: trace.frame_index as u16,
@@ -109,9 +112,9 @@ impl StepState {
             function_index: trace.function_id as u16,
             pc: trace.pc as u64,
             sp: trace.stack_pointer as u64,
-            opcode: trace.op as u16,
-            aux0: trace.aux0.unwrap_or_default(),
-            aux1: trace.aux1.unwrap_or_default(),
+            opcode: bytecode.opcode as u16,
+            aux0: bytecode.aux0.unwrap_or_default(),
+            aux1: bytecode.aux1.unwrap_or_default(),
             exec_state: state,
         }
     }

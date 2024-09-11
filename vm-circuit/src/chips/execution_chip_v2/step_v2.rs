@@ -354,8 +354,6 @@ impl<F: Field> Step<F> {
         let mut cell_manager = CellManager::new(strategy, cell_manager_columns);
 
         let clk = cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
-        let stack_pop_version =
-            cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
         let state = StepState {
             clk,
             frame_index: cell_manager.query_cell(
@@ -400,7 +398,11 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            stack_pop_version,
+            stack_pop_version: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::StoragePhase1,
+            ),
 
             stack_push_index: cell_manager.query_cell(
                 meta,

@@ -5,7 +5,7 @@ use move_binary_format::CompiledModule;
 use move_core_types::language_storage::ModuleId;
 use move_core_types::value::MoveValue;
 use move_package::compilation::compiled_package::CompiledPackage;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::iter;
 
 pub mod bytecode;
@@ -47,7 +47,7 @@ impl ModuleIdMapping {
 
 #[derive(Clone, Default, Debug)]
 pub struct StaticInfo {
-    pub bytecode_info: Vec<BytecodeInfo>,
+    pub bytecode_info: BTreeMap<usize, BTreeMap<usize, Vec<BytecodeInfo>>>,
     pub function_info: Vec<FunctionInfo>,
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
@@ -76,6 +76,19 @@ impl StaticInfo {
                 function_index: entry_func,
             },
         }
+    }
+
+    pub fn get_bytecode(
+        &self,
+        module_index: usize,
+        function_index: usize,
+        pc: usize,
+    ) -> Option<BytecodeInfo> {
+        self.bytecode_info
+            .get(&module_index)
+            .and_then(|t| t.get(&function_index))
+            .and_then(|v| v.get(pc))
+            .cloned()
     }
 
     pub fn get_constant(&self, module_index: usize, constant_index: usize) -> Option<MoveValue> {

@@ -7,3 +7,4 @@ MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third
 
 [addresses]
 std = "0x1"
+cases = "0x2"

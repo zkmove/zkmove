@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::lookup_tables::utils::assign_table;
 use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;

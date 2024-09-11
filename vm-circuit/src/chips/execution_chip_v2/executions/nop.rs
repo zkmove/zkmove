@@ -7,7 +7,7 @@ use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::step_v2::StepState;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
-use crate::chips::execution_chip_v2::utils::{pow_of_two_expr, StoredExpression};
+use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::{assign_step_and_common, InstructionGadgetV2};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::rlc;
@@ -15,7 +15,6 @@ use crate::utils::word::WordLoHiCell;
 use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use std::collections::HashMap;
 
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
@@ -48,6 +47,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
             cb.curr.state.local_index.expr(),
             cb.curr.state.local_sub_index.expr(),
         ]);
+        cb.require_no_stack_pop();
         cb.require_equal(
             "rlc(local_frame_index, local_index, local_sub_index) == rlc",
             cur_rlc,

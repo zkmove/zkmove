@@ -37,6 +37,29 @@ impl<F: Field> IsZeroGadget<F> {
         }
     }
 
+    pub(crate) fn construct_with_name(
+        cb: &mut ConstraintBuilderV2<F>,
+        name: impl AsRef<str>,
+        value: Expression<F>,
+    ) -> Self {
+        let inverse = cb.query_cell();
+        let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
+        let name = name.as_ref();
+        cb.require_zero(
+            format!("{}: value * (1 - value * value_inv)", name),
+            value.clone() * is_zero.clone(),
+        );
+        cb.require_zero(
+            format!("{}: value_inv * (1 - value * value_inv)", name),
+            inverse.expr() * is_zero.clone(),
+        );
+        Self {
+            inverse,
+            is_zero,
+            value,
+        }
+    }
+
     pub(crate) fn expr(&self) -> Expression<F> {
         self.is_zero.clone()
     }
