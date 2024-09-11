@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -30,7 +29,6 @@ pub struct WriteRefStage1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     const NAME: &'static str = "WriteRef_Stage1";
-    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -201,7 +199,6 @@ pub struct WriteRefStage2<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
     const NAME: &'static str = "WriteRef_Stage2";
-    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -368,7 +365,6 @@ pub struct WriteRefStage3<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
     const NAME: &'static str = "WriteRef_Stage3";
-    const OPCODES: &'static [Opcode] = &[Opcode::WriteRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::WriteRefStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

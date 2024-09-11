@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -21,8 +20,6 @@ pub struct Not<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Not<F> {
     const NAME: &'static str = "Not";
-
-    const OPCODES: &'static [Opcode] = &[Opcode::Not];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Not;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

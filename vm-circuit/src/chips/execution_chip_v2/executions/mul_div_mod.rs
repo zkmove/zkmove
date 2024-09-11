@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -28,6 +27,7 @@ use halo2_proofs::{
     plonk::{Error, Expression},
 };
 use itertools::izip;
+use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use types::Field;
@@ -59,7 +59,6 @@ pub struct MulDivMod<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
     const NAME: &'static str = "Mul_Div_Mod";
-    const OPCODES: &'static [Opcode] = &[Opcode::Mul, Opcode::Div, Opcode::Mod];
     const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivMod;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -70,11 +69,11 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let bytes_2_lo = cb.query_bytes();
         let bytes_2_hi = cb.query_bytes();
         let is_mul =
-            IsZeroGadget::construct(cb, (Opcode::Mul as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::MUL as u64).expr() - step_curr.opcode.expr());
         let is_div =
-            IsZeroGadget::construct(cb, (Opcode::Div as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::DIV as u64).expr() - step_curr.opcode.expr());
         let is_mod =
-            IsZeroGadget::construct(cb, (Opcode::Mod as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::MOD as u64).expr() - step_curr.opcode.expr());
         let mut mul_div_mod = None;
         let mut divisor_lo_is_zero = None;
         let mut divisor_hi_is_zero = None;
@@ -213,13 +212,13 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
         debug_assert!(
-            opcode == Opcode::Mul as u16
-                || opcode == Opcode::Div as u16
-                || opcode == Opcode::Mod as u16
+            opcode == Opcodes::MUL as u16
+                || opcode == Opcodes::DIV as u16
+                || opcode == Opcodes::MOD as u16
         );
-        let is_mul = opcode == Opcode::Mul as u16;
-        let is_div = opcode == Opcode::Div as u16;
-        let is_mod = opcode == Opcode::Mod as u16;
+        let is_mul = opcode == Opcodes::MUL as u16;
+        let is_div = opcode == Opcodes::DIV as u16;
+        let is_mod = opcode == Opcodes::MOD as u16;
 
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
@@ -237,17 +236,17 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             self.is_mul.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Mul as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::MUL as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_div.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Div as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::DIV as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_mod.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Mod as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::MOD as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
         }
 

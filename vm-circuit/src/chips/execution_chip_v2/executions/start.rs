@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -31,7 +30,6 @@ pub struct Start<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for Start<F> {
     const NAME: &'static str = "Start";
-    const OPCODES: &'static [Opcode] = &[];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Start;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -157,7 +155,6 @@ pub struct ProcessArg<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
     const NAME: &'static str = "ProcessArg";
-    const OPCODES: &'static [Opcode] = &[];
     const EXECUTION_STATE: ExecutionState = ExecutionState::ProcessArg;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

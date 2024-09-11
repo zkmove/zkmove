@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{ExecutionState, DEPTH_POW_OF_ONE_LEVEL};
@@ -31,11 +30,6 @@ pub struct Pack<F, const VEC_PACK: bool> {
 }
 impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK> {
     const NAME: &'static str = if VEC_PACK { "VecPack" } else { "Pack" };
-    const OPCODES: &'static [Opcode] = if VEC_PACK {
-        &[Opcode::VecPack]
-    } else {
-        &[Opcode::Pack]
-    };
     const EXECUTION_STATE: ExecutionState = if VEC_PACK {
         ExecutionState::VecPack
     } else {

@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -23,6 +22,7 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
+use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use types::Field;
 
@@ -33,7 +33,6 @@ pub struct AddSub<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
     const NAME: &'static str = "AddSub";
-    const OPCODES: &'static [Opcode] = &[Opcode::Add, Opcode::Sub];
     const EXECUTION_STATE: ExecutionState = ExecutionState::AddSub;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -41,7 +40,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let mut add_sub_gadget = None;
         let is_add =
-            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcode::Add as u64).expr());
+            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcodes::ADD as u64).expr());
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -146,7 +145,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
-        let is_add = step_state.step_state.opcode == Opcode::Add as u16;
+        let is_add = step_state.step_state.opcode == Opcodes::ADD as u16;
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
@@ -160,7 +159,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             self.is_add.assign(
                 region,
                 offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::Add as u64),
+                F::from(step_state.step_state.opcode as u64) - F::from(Opcodes::ADD as u64),
             )?;
         }
 

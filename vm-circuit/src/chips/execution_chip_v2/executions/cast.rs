@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -16,6 +15,7 @@ use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use halo2_proofs::plonk::Error;
+use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -31,40 +31,33 @@ pub struct Cast<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
     const NAME: &'static str = "Cast";
-
-    const OPCODES: &'static [Opcode] = &[
-        Opcode::CastU8,
-        Opcode::CastU16,
-        Opcode::CastU32,
-        Opcode::CastU64,
-        Opcode::CastU128,
-        Opcode::CastU256,
-    ];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Cast;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        let cast_u8 =
-            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcode::CastU8 as u64).expr());
+        let cast_u8 = IsZeroGadget::construct(
+            cb,
+            step_curr.opcode.expr() - (Opcodes::CAST_U8 as u64).expr(),
+        );
         let cast_u16 = IsZeroGadget::construct(
             cb,
-            step_curr.opcode.expr() - (Opcode::CastU16 as u64).expr(),
+            step_curr.opcode.expr() - (Opcodes::CAST_U16 as u64).expr(),
         );
         let cast_u32 = IsZeroGadget::construct(
             cb,
-            step_curr.opcode.expr() - (Opcode::CastU32 as u64).expr(),
+            step_curr.opcode.expr() - (Opcodes::CAST_U32 as u64).expr(),
         );
         let cast_u64 = IsZeroGadget::construct(
             cb,
-            step_curr.opcode.expr() - (Opcode::CastU64 as u64).expr(),
+            step_curr.opcode.expr() - (Opcodes::CAST_U64 as u64).expr(),
         );
         let cast_u128 = IsZeroGadget::construct(
             cb,
-            step_curr.opcode.expr() - (Opcode::CastU128 as u64).expr(),
+            step_curr.opcode.expr() - (Opcodes::CAST_U128 as u64).expr(),
         );
         let cast_u256 = IsZeroGadget::construct(
             cb,
-            step_curr.opcode.expr() - (Opcode::CastU256 as u64).expr(),
+            step_curr.opcode.expr() - (Opcodes::CAST_U256 as u64).expr(),
         );
 
         cb.require_in_set(

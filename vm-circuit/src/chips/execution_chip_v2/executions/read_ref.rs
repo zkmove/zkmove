@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -24,7 +23,6 @@ pub struct ReadRef<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
     const NAME: &'static str = "ReadRef";
-    const OPCODES: &'static [Opcode] = &[Opcode::ReadRef];
     const EXECUTION_STATE: ExecutionState = ExecutionState::ReadRef;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

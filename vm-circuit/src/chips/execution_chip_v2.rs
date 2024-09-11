@@ -31,6 +31,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
+use move_binary_format::file_format_common::Opcodes;
 use std::collections::HashMap;
 use std::iter;
 use types::Field;
@@ -697,7 +698,7 @@ impl<F: Field> ExecChipConfig<F> {
 pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
-    const OPCODES: &'static [Opcode];
+    const OPCODES: &'static [Opcodes] = &Self::EXECUTION_STATE.responsible_opcodes();
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
     fn assign_common(

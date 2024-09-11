@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{
@@ -37,7 +36,6 @@ impl<F: Field> VecPushBackStage1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
     const NAME: &'static str = "VecPushBackStage1";
-    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -293,7 +291,6 @@ impl<F: Field> VecPushBackStage2<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
     const NAME: &'static str = "VecPushBackStage2";
-    const OPCODES: &'static [Opcode] = &[Opcode::VecPushBack];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecPushBackStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

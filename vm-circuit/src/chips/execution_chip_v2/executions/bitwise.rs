@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::bitwise::to_nibbles::ToNibbles;
@@ -29,7 +28,6 @@ pub struct Bitwise<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
     const NAME: &'static str = "Bitwise";
-    const OPCODES: &'static [Opcode] = &[Opcode::BitAnd, Opcode::BitOr, Opcode::Xor];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Bitwise;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -16,7 +15,6 @@ pub struct VecLen<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
     const NAME: &'static str = "VecLen";
-    const OPCODES: &'static [Opcode] = &[Opcode::VecLen];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecLen;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

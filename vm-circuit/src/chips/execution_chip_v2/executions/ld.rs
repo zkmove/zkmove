@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -20,14 +19,6 @@ pub struct LdSimple<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
     const NAME: &'static str = "LoadSimple";
-    const OPCODES: &'static [Opcode] = &[
-        Opcode::LdU8,
-        Opcode::LdU16,
-        Opcode::LdU32,
-        Opcode::LdU64,
-        Opcode::LdU128,
-        Opcode::LdU256,
-    ];
     const EXECUTION_STATE: ExecutionState = ExecutionState::LdSimple;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
