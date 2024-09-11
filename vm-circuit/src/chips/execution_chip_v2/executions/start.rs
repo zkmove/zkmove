@@ -210,6 +210,11 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             format!("{}, local_write_value_invalid == 0", Self::NAME),
             step_curr.local_write_value_invalid.expr(),
         );
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
+        );
 
         cb.require_no_stack_pop();
         cb.require_no_stack_push();

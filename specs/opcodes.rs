@@ -16,43 +16,25 @@ pub mod common {
             function_index(1) == function_index(0);
             frame_index(1) == frame_index(0);
             pc(1) == pc(0);
-            opcode(1) = opcode(0);
-            //sp(1) == sp(0);
+            opcode(1) == opcode(0);
+            aux1(1) == aux1(0);
+            aux2(1) == aux2(0);
         } else {
             step_counter(0) == 1;
-
-            // if opcode(0) != CALL && opcode(0) != RET {
-            //     module_index(1) == module_index(0);
-            //     function_index(1) == function_index(0);
-            //     frame_index(1) == frame_index(0);
-            //     pc(1) == pc(0) + 1;
-            // }
         }
         stack_pop_version(0) < clk(0);
+        local_read_version(0) < clk(0);
     }
-
-    pub fn fake_local_read_zero() {
-        local_frame_index(0) == 0;
-        local_index(0) == 0;
-        local_sub_index(0) == 0;
-        local_read_value(0) == 0;
-        local_write_value(0) == 0;
-        local_write_version(0) > local_read_version(0); //TODO: can we just set the versions to be 0?
+    pub fn require_no_local_op() {
+        local_read_version(0) == 0;
+        local_write_version(0) == 0;
     }
-
-    /// Opcode context state transition steps except the last
-    fn context_state_transition() {
-        module_index(1) == module_index(0);
-        function_index(1) == function_index(0);
-        frame_index(1) == frame_index(0);
-        pc(1) == pc(0);
-        sp(1) == sp(0);
-        opcode(1) = opcode(0);
-        step_counter(1) == step_counter(0) - 1;
+    pub fn require_no_stack_pop() {
+        stack_pop_version(0) == 0;
     }
-
-    pub fn fake_empty_stack_pop(offset: usize) {}
-    pub fn fake_empty_stack_push(offset: usize) {}
+    pub fn require_no_stack_push() {
+        stack_push_version == 0;
+    }
     pub fn constraint_clk() {
         // clk(0) == clk(-1) | clk(0) + 2 == clk(1)
         (clk(0) - clk(1)) * (clk(0) + 2 - clk(1))
@@ -115,8 +97,8 @@ mod ld {
         stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_local_op();
 
         sp(1) == sp(0) + 1;
         module_index(1) == module_index(0);
@@ -146,8 +128,8 @@ mod ld_const {
         stack_push_index(0) == sp(0) + 1;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_local_op();
 
         if super::common::on_last_row() {
             module_index(1) == module_index(0);
@@ -178,9 +160,9 @@ mod pop {
         if is_first {
             stack_pop_sub_index(0) == 0;
         }
-        stack_pop_version(0) < clk(0);
-        super::common::fake_empty_stack_push();
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         if is_last {
             frame_index(1) == frame_index(0);
@@ -201,15 +183,15 @@ mod add {
                 opcode(0) == OpCode::Sub;
             }
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
             sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
 
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
 
         if super::common::on_last_row() {
             stack_pop_index(0) == sp(0) - 1;
@@ -245,15 +227,15 @@ mod bitwise {
             stack_pop_index(0) == sp(0) + step_counter(0) - 3;
             stack_pop_sub_index(0) == 0;
             stack_pop_value_header(0) == false;
-            stack_pop_version(0) < clk(0);
-            super::common::fake_empty_stack_push(0);
+            // stack_pop_version(0) < clk(0);
+            super::common::require_no_stack_push();
             sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
 
-        super::common::fake_local_read_zero();
+        super::common::require_no_local_op();
 
         if super::common::on_last_row() {
-            super::common::fake_empty_stack_pop(0);
+            super::common::require_no_stack_pop();
             stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
             bitwise_table.lookup(
@@ -286,14 +268,14 @@ mod le {
                 opcode(0) == OpCode::Gt;
             }
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
             sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
 
         if is_last {
             stack_pop_index(0) == sp(0) - 1;
@@ -329,14 +311,14 @@ mod lt {
                 opcode(0) == OpCode::Ge;
             }
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
             sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
 
         if is_last {
             stack_pop_index(0) == sp(0) - 1;
@@ -402,20 +384,20 @@ mod eq {
         }
 
         stack_pop_index(0) == sp(0);
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
         if !is_stage_1 {
             rlc1(0) == rlc1(-1);
         }
 
         if !super::common::on_last_row() {
             sp(1) == sp(0);
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
         }
 
         if super::common::on_last_row() {
             if is_stage_1 {
-                super::common::fake_empty_stack_push(0);
+                super::common::require_no_stack_push();
                 module_index(1) == module_index(0);
                 function_index(1) == function_index(0);
                 frame_index(1) == frame_index(0);
@@ -454,14 +436,14 @@ mod not {
         stack_pop_sub_index(0) == 0;
         stack_pop_value(0) == 0 | 1;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
         stack_push_index(0) == sp(0);
         stack_push_sub_index(0) == 0;
         stack_push_value(0) == !stack_pop_value(0);
         stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_local_read_zero();
+        super::common::require_no_local_op();
 
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
@@ -481,7 +463,7 @@ mod and_or {
                 opcode(0) == OpCode::Not;
             }
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
             sp(1) == sp(0); //keep sp unchanged to make assign easier
         }
@@ -489,8 +471,8 @@ mod and_or {
         stack_pop_sub_index(0) == 0;
         stack_pop_value(0) == 0 | 1;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
 
         if super::common::on_last_row() {
             stack_pop_index(0) == sp(0) - 1;
@@ -521,13 +503,13 @@ mod cast {
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
         stack_push_index(0) == sp(0);
         stack_push_sub_index(0) == 0;
         stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_local_read_zero();
+        super::common::require_no_local_op();
 
         let ok = range_check(stack_pop_value(0));
         if ok {
@@ -549,9 +531,9 @@ mod ret {
         opcode(0) == OpCode::Ret;
         step_counter(0) == 1;
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_empty_stack_push(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         // constrain Opcode Context of the next step
         if frame_index == 0 {
@@ -572,9 +554,9 @@ mod call {
         opcode(0) == OpCode::Call;
         step_counter(0) == 1;
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_empty_stack_push(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         sp(1) == sp(0);
         if num_arg(0) == 0 {
@@ -617,13 +599,13 @@ mod call {
             }
         }
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_empty_stack_push(0);
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
 
         local_frame_index(0) == frame_index(0) + 1; // write to local of the next frame
                                                     // local_index(0) is constrained in the last row
                                                     // actually we don't care about old local is invalid or not.
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_value(0) == local_read_value(0);
         local_write_value_header(0) == local_read_value_header(0);
@@ -661,17 +643,17 @@ mod call {
         }
 
         stack_pop_index(0) == sp(0);
-        stack_pop_version(1) < clk(0);
+        // stack_pop_version(0) < clk(0);
 
         local_frame_index(0) == frame_index(0) + 1; //write to local of next frame
         local_sub_index(0) == stack_pop_sub_index(0);
         local_read_value_invalid == 1;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value(0) == stack_pop_value(0);
         local_write_value_header(0) == stack_pop_value_header(0);
         local_write_value_invalid == 0;
         local_write_version(0) == clk(0);
-        super::common::fake_empty_stack_push(0);
+        super::common::require_no_stack_push();
 
         if !super::common::on_last_row() {
             sp(1) == sp(0);
@@ -725,7 +707,7 @@ mod move_loc {
         }
 
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
-        stack_push_version == clk(0);
+        stack_push_version(0) == clk(0);
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
@@ -735,7 +717,8 @@ mod move_loc {
         local_write_value(0) == INVALID; // move_loc will invalidate origin local slot.
                                          // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
-        local_write_version(0) > local_read_version(0);
+        // local_write_version(0) > local_read_version(0);
+        super::common::require_no_stack_pop();
 
         if is_last {
             frame_index(1) == frame_index(0);
@@ -765,7 +748,7 @@ mod copy_loc {
         }
 
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
-        stack_push_version == clk(0);
+        stack_push_version(0) == clk(0);
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
@@ -777,7 +760,8 @@ mod copy_loc {
         local_write_value_invalid(0) == local_read_value_invalid(0);
         // constraint local-invalidating has the same write_version
         local_write_version(0) == clk(0);
-        local_write_version(0) > local_read_version(0);
+        // local_write_version(0) > local_read_version(0);
+        super::common::require_no_stack_pop();
 
         if is_last {
             frame_index(1) == frame_index(0);
@@ -814,11 +798,12 @@ mod store_loc {
         }
         // we don't care local is invalid or not.
         // local_read_value_invalid,local_read_value_header, local_read_value, local_read_version.
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_value_header(0) == local_read_value_header(0);
         local_write_version(0) == clk(0);
-
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
         sp(1) == sp(0);
         if is_last {
             frame_index(1) == frame_index(0);
@@ -850,14 +835,15 @@ mod store_loc {
                 step_counter(0) == 1;
             }
         }
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_stack_push();
 
         local_frame_index(0) == frame_index(0);
         local_index(0) == aux0(0);
         local_sub_index(0) == stack_pop_sub_index(0);
 
         local_read_value_invalid(0) == true;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value(0) == stack_pop_value(0);
         local_write_value_header(0) == stack_pop_value_header(0);
         local_write_value_invalid(0) == false;
@@ -885,8 +871,8 @@ mod borrow_loc {
         stack_push_sub_index(0) == 0;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_empty_stack_pop(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_local_op();
 
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
@@ -901,7 +887,7 @@ mod borrow_field {
         step_counter(0) == 1;
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
 
         stack_push_value(0).as_reference().index == stack_pop_value(0).as_reference().index;
         stack_push_value(0).as_reference().sub_index
@@ -914,7 +900,7 @@ mod borrow_field {
         stack_push_sub_index(0) == 0;
         stack_push_version(0) == clk(0);
 
-        super::common::fake_local_read_zero();
+        super::common::require_no_local_op();
 
         module_index(1) == module_index(0);
         function_index(1) == function_index(0);
@@ -930,7 +916,7 @@ mod read_ref {
             opcode(0) == OpCode::READ_REF;
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
             (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
             local_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
 
@@ -943,7 +929,7 @@ mod read_ref {
             header_sub_index(0) == local_sub_index(0);
         }
         if !super::common::on_first_row() {
-            super::common::fake_empty_stack_pop(0);
+            super::common::require_no_stack_pop();
         }
 
         stack_push_index(0) == sp(0);
@@ -951,7 +937,7 @@ mod read_ref {
         stack_push_value(0) == local_read_value(0);
         stack_push_value_header(0) == local_read_value_header(0);
         stack_push_version(0) == clk(0);
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value(0) == local_read_value(0);
         local_write_value_header(0) == local_read_value_header(0);
         local_write_value_invalid(0) == local_read_value_invalid(0);
@@ -980,7 +966,7 @@ mod write_ref {
             opcode(0) == OpCode::WriteRef;
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
             (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
             local_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
 
@@ -997,13 +983,14 @@ mod write_ref {
 
         if !super::common::on_first_row() {
             Membership::configure(header_sub_index(0), local_sub_index(0));
-            super::common::fake_empty_stack_pop(0);
+            super::common::require_no_stack_pop();
         }
+        super::common::require_no_stack_push();
 
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_invalid_value();
         local_write_version(0) == clk(0);
-        super::common::fake_empty_stack_push(0);
+        super::common::require_no_stack_push();
         // sp always the same, even for last row
         local_frame_index(1) == local_frame_index(0);
         local_index(1) == local_index(0);
@@ -1038,14 +1025,14 @@ mod write_ref {
         }
 
         stack_pop_index(0) == sp(0);
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0).concat(stack_pop_sub_index(0));
         local_read_invalid_value();
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value(0) == stack_pop_value(0);
         local_write_value_header(0) == stack_pop_value_header(0);
         local_write_version(0) == clk(0);
-        super::common::fake_empty_stack_push(0);
+        super::common::require_no_stack_push();
 
         if !super::common::on_last_row() {
             header_sub_index(1) == header_sub_index(0);
@@ -1080,10 +1067,12 @@ mod write_ref {
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
         }
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
 
         header_sub_index(0) == header_sub_index(-1).parent;
         header_sub_index(0) != header_sub_index(-1);
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_sub_index(0) == header_sub_index(0);
         local_write_value(0).as_header().flen
             == local_read_value(0).as_header().flen + header_flen_delta(0);
@@ -1116,10 +1105,10 @@ mod br_bool {
         let next_pc = aux0(0);
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
         let cond = stack_pop_value(0);
-        super::common::fake_empty_stack_push();
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         if on_last_row() {
             // Memory Context Constraints:
@@ -1138,9 +1127,9 @@ mod branch {
     pub fn constrain() {
         table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
 
-        super::common::fake_empty_stack_pop();
-        super::common::fake_empty_stack_push();
-        super::common::fake_local_read_zero();
+        super::common::require_no_stack_pop();
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         sp(1) == sp(0);
         pc(1) == aux0(0);
@@ -1164,8 +1153,8 @@ mod pack {
             stack_push_value_header(0) == true;
             stack_push_version(0) == clk(0);
 
-            super::common::fake_empty_stack_pop();
-            super::common::fake_local_read_zero();
+            super::common::require_no_stack_pop();
+            super::common::require_no_local_op();
 
             if num_field != 0 {
                 field_index(1) == aux0(0);
@@ -1188,14 +1177,14 @@ mod pack {
                 }
             }
 
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
             stack_push_index(0) == sp(0) - num_field + 1;
             stack_push_sub_index(0)
                 == stack_pop_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0);
             stack_push_value(0) == stack_pop_value(0);
             stack_push_value_header(0) == stack_pop_value_header(0);
             stack_push_version(0) == clk(0);
-            super::common::fake_local_read_zero();
+            super::common::require_no_local_op();
 
             if !super::common::on_last_row() {
                 let end_of_one_field = field_counter(0) == 1;
@@ -1243,10 +1232,10 @@ mod unpack {
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
             stack_pop_value(0).as_header().len() == aux0(0);
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
 
-            super::common::fake_empty_stack_push();
-            super::common::fake_local_read_zero();
+            super::common::require_no_stack_push();
+            super::common::require_no_local_op();
 
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
@@ -1291,13 +1280,13 @@ mod unpack {
         }
 
         stack_pop_index(0) == sp(0);
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
         stack_push_index(0) == sp(0) + field_index(0) - 1;
         stack_push_sub_index(0) * DEPTH_POW_OF_ONE_LEVEL + field_index(0) == stack_pop_sub_index(0);
         stack_push_value(0) == stack_pop_value(0);
         stack_push_value_header(0) == stack_pop_value_header(0);
         stack_push_version(0) == clk(0);
-        super::common::fake_local_read_zero();
+        super::common::require_no_local_op();
 
         if !super::common::on_last_row() {
             sp(1) == sp(0);
@@ -1328,14 +1317,14 @@ mod vec_len {
         step_counter(0) == 1;
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
 
         // read vec header
         (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
         local_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
         local_read_value_header(0) == true;
         local_read_value_invalid(0) == false;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value(0) == local_read_value(0);
         local_write_value_header(0) == local_read_value_header(0);
         local_write_value_invalid(0) == local_read_value_invalid(0);
@@ -1361,15 +1350,15 @@ mod vec_borrow {
         if super::common::on_first_row() {
             opcode(0) == OpCode::VecBorrow;
             step_counter(0) == 2;
-            super::common::fake_empty_stack_push(0);
+            super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
             sp(1) == sp(0);
         }
 
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
-        stack_pop_version(0) < clk(0);
-        super::common::fake_local_read_zero();
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
 
         if super::common::on_last_row() {
             stack_pop_index(0) == sp(0) - 1;
@@ -1403,9 +1392,10 @@ mod vec_swap {
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         stack_pop_value_header(0) == false;
+        // stack_pop_version(0) < clk(0);
 
-        fake_stach_push();
-        fake_local_read_zero();
+        super::common::require_no_stack_push();
+        super::common::require_no_local_op();
 
         frame_index(1) == frame_index(0);
         module_index(1) == module_index(0);
@@ -1424,7 +1414,8 @@ mod vec_swap {
     // move value at index1/index2 to stack
     pub fn constraint_stage_2_or_3(is_stage_2: bool) {
         declare!(index1, index2, value_len, ref_local_sub_index);
-        no_stack_pop();
+        super::common::require_no_stack_pop();
+
         // stack push
         stack_push_index(0) == sp(0) + 1;
         if is_first {
@@ -1457,7 +1448,7 @@ mod vec_swap {
         local_read_value(0) == stack_push_value(0);
         local_read_value_header(0) == stack_push_value_header(0);
         local_read_value_invalid(0) == false;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_version(0) == clk(0);
 
@@ -1480,9 +1471,9 @@ mod vec_swap {
     }
 
     // pop stack, and write to index1/index2
-    pub fn constraint_stage_4<const FOUR: bool>() {
+    pub fn constraint_stage_4_or_5<const FOUR: bool>() {
         declare!(index1, index2, value_len, ref_local_sub_index);
-        no_stack_push();
+        super::common::require_no_stack_push();
 
         // stack pop
         stack_pop_index(0) == sp(0);
@@ -1499,7 +1490,7 @@ mod vec_swap {
                 step_counter(0) == 1;
             }
         }
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
 
         // local constraints
         // NOTICE: local_frame_index(0) and local_index(0) are constrained by prev state.
@@ -1510,6 +1501,7 @@ mod vec_swap {
                 nonzero(stack_pop_sub_index(0)),
             );
         local_read_value_invalid(0) == true;
+        // local_read_version(0) < clk(0);
         local_write_value_invalid(0) == false;
         local_write_value(0) == stack_pop_value(0);
         local_write_value_header(0) == stack_pop_value_header(0);
@@ -1547,20 +1539,20 @@ mod vec_pop_back {
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len);
 
-        fake_stack_push();
+        super::common::require_no_stack_push();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
             (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
             vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
             // start from top to bottom
             local_sub_index(0) == 0;
         } else {
-            fake_stack_pop();
+            super::common::require_no_stack_pop();
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
             vector_sub_index(0) == vector_sub_index(-1);
@@ -1575,7 +1567,7 @@ mod vec_pop_back {
         local_read_value_invalid(0) == false;
         local_write_value_header(0) == true;
         local_write_value_invalid(0) == false;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
 
         if !is_last {
@@ -1607,7 +1599,7 @@ mod vec_pop_back {
         let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
         declare!(vector_origin_len);
 
-        fake_stack_pop();
+        super::common::require_no_stack_pop();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
@@ -1631,7 +1623,7 @@ mod vec_pop_back {
         local_read_value_invalid(0) == false;
         local_write_value_invalid(0) == true;
         local_write_value_header(0) == local_read_value_header(0);
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
 
         stack_push_index(0) == sp(0);
@@ -1670,20 +1662,20 @@ mod vec_push_back {
         let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
         declare!(vector_origin_len);
 
-        fake_stack_push();
+        super::common::require_no_stack_push();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
         if is_first {
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_version(0) < clk(0);
+            // stack_pop_version(0) < clk(0);
             (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
             vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
             // start from top to bottom
             local_sub_index(0) == 0;
         } else {
-            fake_stack_pop();
+            super::common::require_no_stack_pop();
             local_frame_index(0) == local_frame_index(-1);
             local_index(0) == local_index(-1);
             vector_sub_index(0) == vector_sub_index(-1);
@@ -1698,7 +1690,7 @@ mod vec_push_back {
         local_read_value_invalid(0) == false;
         local_write_value_header(0) == true;
         local_write_value_invalid(0) == false;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
 
         if !is_last {
@@ -1730,7 +1722,7 @@ mod vec_push_back {
         let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
         declare!(vector_origin_len);
 
-        fake_stack_push();
+        super::common::require_no_stack_push();
 
         let is_first = super::common::on_first_row();
         let is_last = super::common::on_last_row();
@@ -1752,7 +1744,7 @@ mod vec_push_back {
         }
         local_read_value_invalid(0) == true;
         local_write_value_invalid(0) == false;
-        local_read_version(0) < clk(0);
+        // local_read_version(0) < clk(0);
         local_write_version(0) == clk(0);
 
         stack_pop_index(0) == sp(0) - 1;
@@ -1765,7 +1757,7 @@ mod vec_push_back {
         }
         stack_pop_value(0) == local_write_value(0);
         stack_pop_value_header(0) == local_write_value_header(0);
-        stack_pop_version(0) < clk(0);
+        // stack_pop_version(0) < clk(0);
 
         // next
         frame_index(1) == frame_index(0);

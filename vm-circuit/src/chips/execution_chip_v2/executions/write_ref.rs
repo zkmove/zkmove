@@ -113,6 +113,11 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         });
 
         cb.require_write_invalid_value();
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
+        );
         cb.require_no_stack_push();
         cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
         cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
@@ -271,6 +276,11 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
             step_curr.local_write_value_header.expr(),
             step_curr.stack_pop_value_header.expr(),
         );
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
+        );
         cb.require_no_stack_push();
 
         cb.not_last_row(|cb| {
@@ -399,6 +409,9 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             );
         });
 
+        cb.require_no_stack_pop();
+        cb.require_no_stack_push();
+
         cb.require_equal(
             format!(
                 "{}, header_sub_index(0) == header_sub_index(-1).parent",
@@ -431,6 +444,19 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
             ),
             step_curr.local_write_value_header.expr(),
             step_curr.local_read_value_header.expr(),
+        );
+        cb.require_equal(
+            format!(
+                "{}, local_write_value_invalid(0) == local_read_value_invalid(0)",
+                Self::NAME
+            ),
+            step_curr.local_write_value_invalid.expr(),
+            step_curr.local_read_value_invalid.expr(),
+        );
+        cb.require_equal(
+            "local_write_version(0) == clk(0)",
+            step_curr.local_write_version.expr(),
+            step_curr.clk.expr(),
         );
         cb.require_state_transition(vec![(SP, Transition::Same)]);
 

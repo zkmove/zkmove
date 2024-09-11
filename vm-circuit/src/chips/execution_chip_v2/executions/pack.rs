@@ -107,6 +107,11 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
                 format!("{}, stack_push_value_header(0) == true", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
             );
+            cb.require_equal(
+                "stack_push_version(0) == clk(0)",
+                step_curr.stack_push_version.expr(),
+                step_curr.clk.expr(),
+            );
 
             cb.require_no_stack_pop();
             cb.require_no_local_op();
@@ -184,6 +189,11 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
                 ),
                 step_curr.stack_push_value_header.expr(),
                 step_curr.stack_pop_value_header.expr(),
+            );
+            cb.require_equal(
+                "stack_push_version(0) == clk(0)",
+                step_curr.stack_push_version.expr(),
+                step_curr.clk.expr(),
             );
 
             cb.require_no_local_op();
