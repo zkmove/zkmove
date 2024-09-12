@@ -551,12 +551,13 @@ impl WitnessPreProcessor {
                     value_header: false,
                     version: self.version_stack.pop().unwrap(),
                 };
-                let mut sub_index = reference.sub_index.clone();
-                sub_index.push((*field_offset + 1).try_into().unwrap());
+                let sub_index = SubIndex::new(reference.sub_index.clone())
+                    .concat(&SubIndex::new(vec![(*field_offset + 1) as usize]));
+
                 let field_ref = Reference {
                     frame_index: reference.frame_index,
                     local_index: reference.local_index,
-                    sub_index,
+                    sub_index: sub_index.to_vec().into_iter().map(|i| i as usize).collect(),
                 };
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
@@ -589,22 +590,25 @@ impl WitnessPreProcessor {
                     version: self.version_stack.pop().unwrap(),
                 };
                 let stack_pop_vec_ref = StackPop {
-                    index: sp,
+                    index: sp - 1,
                     sub_index: SubIndex::default(),
                     value: vec_ref.into(),
                     value_header: false,
                     version: self.version_stack.pop().unwrap(),
                 };
-                let mut sub_index = vec_ref.sub_index.clone();
-                sub_index.push((*idx + 1).try_into().unwrap());
                 let element_ref = Reference {
                     frame_index: vec_ref.frame_index,
                     local_index: vec_ref.local_index,
-                    sub_index,
+                    sub_index: SubIndex::new(vec_ref.sub_index.clone())
+                        .concat(&SubIndex::new(vec![(*idx + 1) as usize]))
+                        .to_vec()
+                        .into_iter()
+                        .map(|i| i as usize)
+                        .collect(),
                 };
                 self.version_stack.push(self.clk);
                 let stack_push = StackPush {
-                    index: sp,
+                    index: sp - 1,
                     sub_index: SubIndex::default(),
                     value: element_ref.into(),
                     value_header: false,
@@ -712,10 +716,12 @@ impl WitnessPreProcessor {
                     .iter()
                     .enumerate()
                     .map(|(idx, item)| {
+                        let item_sub_index = SubIndex::new(reference.sub_index.clone())
+                            .concat(&item.sub_index.clone().into());
                         let (old_, new_) = self.locals.read_local_slot_with_clk(
                             reference.frame_index,
                             reference.local_index,
-                            &item.sub_index.clone().into(),
+                            &item_sub_index,
                             self.clk,
                         );
                         let stack_push = StackPush {
@@ -728,7 +734,7 @@ impl WitnessPreProcessor {
                         let local_op = LocalReadWrite::new(
                             reference.frame_index.try_into().unwrap(),
                             reference.local_index.try_into().unwrap(),
-                            item.sub_index.clone().into(),
+                            item_sub_index,
                             old_,
                             new_,
                         );
@@ -768,10 +774,12 @@ impl WitnessPreProcessor {
                         .iter()
                         .enumerate()
                         .map(|(idx, item)| {
+                            let item_sub_index = SubIndex::new(reference.sub_index.clone())
+                                .concat(&item.sub_index.clone().into());
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
                                 reference.frame_index,
                                 reference.local_index,
-                                &item.sub_index.clone().into(),
+                                &item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
                                 true,
@@ -780,7 +788,7 @@ impl WitnessPreProcessor {
                             let local_op = LocalReadWrite::new(
                                 reference.frame_index.try_into().unwrap(),
                                 reference.local_index.try_into().unwrap(),
-                                item.sub_index.clone().into(),
+                                item_sub_index,
                                 old_,
                                 new_,
                             );
@@ -815,10 +823,12 @@ impl WitnessPreProcessor {
                                 value_header: item.header,
                                 version: value_version,
                             };
+                            let item_sub_index = SubIndex::new(reference.sub_index.clone())
+                                .concat(&stack_pop.sub_index);
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
                                 reference.frame_index,
                                 reference.local_index,
-                                &stack_pop.sub_index,
+                                &item_sub_index,
                                 stack_pop.value.clone(),
                                 stack_pop.value_header,
                                 false,
@@ -827,7 +837,7 @@ impl WitnessPreProcessor {
                             let local_op = LocalReadWrite::new(
                                 reference.frame_index.try_into().unwrap(),
                                 reference.local_index.try_into().unwrap(),
-                                stack_pop.sub_index.clone(),
+                                item_sub_index,
                                 old_,
                                 new_,
                             );
@@ -999,18 +1009,11 @@ impl WitnessPreProcessor {
                     static_info,
                 );
                 let arg_header = arg.first().unwrap();
-                // TODO: refactor the flen and len.
-                // FIXME: fix occurrence in other instructions.
-                let arg_len = match arg_header.value {
-                    SimpleValue::U64(n) => n,
-                    _ => unreachable!(),
-                };
-                let arg_flen = arg.len();
                 let arg_version = self.version_stack.pop().unwrap();
                 let stack_pop = StackPop {
                     index: step_state.sp,
                     sub_index: arg_header.sub_index.clone().into(),
-                    value: ValueHeader::new(arg_flen, arg_len as usize).into(),
+                    value: arg_header.value.clone().into(),
                     value_header: arg_header.header,
                     version: arg_version,
                 };
@@ -1325,7 +1328,9 @@ impl WitnessPreProcessor {
 
                 let stage2 = {
                     self.version_stack.push(self.clk);
-                    let step_state = step_state.change_state(ExecutionState::VecPopBackStage2);
+                    let step_state = step_state
+                        .change_state(ExecutionState::VecPopBackStage2)
+                        .change_clk(self.clk);
 
                     let memory_ops = elem
                         .iter()
@@ -1384,14 +1389,15 @@ impl WitnessPreProcessor {
                     trace,
                     static_info,
                 );
-
+                let elem_version = self.version_stack.pop().unwrap();
+                let vec_ref_version = self.version_stack.pop().unwrap();
                 let stage1 = {
                     let ref_pop = StackPop {
-                        index: step_state.sp,
+                        index: step_state.sp - 1,
                         sub_index: SubIndex::default(),
                         value: vec_ref.into(),
                         value_header: false,
-                        version: self.version_stack.pop().unwrap(),
+                        version: vec_ref_version,
                     };
                     let mut memory_ops = vec![];
                     let mut parents = SubIndex::from(vec_ref.sub_index.clone()).parents();
@@ -1444,7 +1450,6 @@ impl WitnessPreProcessor {
                         }
                         memory_ops.push(MemoryOp(None, None, Some(local_op)));
                     }
-
                     memory_ops[0].0 = Some(ref_pop);
 
                     StageState {
@@ -1459,19 +1464,18 @@ impl WitnessPreProcessor {
                 self.clk += 1;
 
                 let stage2 = {
-                    let step_state = step_state.change_state(ExecutionState::VecPushBackStage2);
-
-                    let version = self.version_stack.pop().unwrap();
-
+                    let step_state = step_state
+                        .change_clk(self.clk)
+                        .change_state(ExecutionState::VecPushBackStage2);
                     let memory_ops = elem
                         .iter()
                         .map(|item| {
                             let stack_pop = StackPop {
-                                index: step_state.sp - 1,
+                                index: step_state.sp,
                                 sub_index: item.sub_index.clone().into(),
                                 value: item.value.clone().into(),
                                 value_header: item.header,
-                                version,
+                                version: elem_version,
                             };
                             let local_item_sub_index = SubIndex::from(vec_ref.sub_index.clone())
                                 .concat(

@@ -70,20 +70,31 @@ module cases::TestCase {
 
 
     public entry fun test_vector() {
+        // VecPack
         let v = vector::empty<u64>();
+        // VecPushBack
+        vector::push_back(&mut v, 5);
+        // VecLen
+        assert!(vector::length(&v) == 1, 101);
+        // VecBorrow
+        assert!(*vector::borrow(&v, 0) == 5, 102);
+
+        // VecPushBack
+        vector::push_back(&mut v, 6);
+        // VecLen
+        assert!(vector::length(&v) == 2, 101);
+
+        // VecSwap
+        vector::swap(&mut v, 0, 1);
+
+        // VecPopBack
+        let value = vector::pop_back(&mut v);
+        // EQ
+        assert!(value == 5, 103);
+
+        // VecPopBack
+        let value = vector::pop_back(&mut v);
+        assert!(value == 6, 103);
         vector::destroy_empty(v);
-        //vector::push_back(&mut v, 5);
-        // assert!(vector::length(&v) == 1, 101);
-        // assert!(*vector::borrow(&v, 0) == 5, 102);
-        //
-        // vector::push_back(&mut v, 6);
-        // assert!(vector::length(&v) == 2, 101);
-        //
-        // vector::swap(&mut v, 0, 1);
-        //
-        // let value = vector::pop_back(&mut v);
-        // assert!(value == 5, 103);
-        // vector::pop_back(&mut v);
-        // vector::destroy_empty(v);
     }
 }

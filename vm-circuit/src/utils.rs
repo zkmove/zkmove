@@ -28,9 +28,11 @@ use halo2_proofs::transcript::{
 // use instant;
 use crate::utils::challenges::Challenges;
 use crate::witness::WitnessV2;
+use field_exts::U256;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::halo2curves::CurveExt;
+use itertools::Itertools;
 use logger::{debug, info};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
@@ -76,30 +78,66 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     dbg!(prover.cs().num_instance_columns());
     dbg!(prover.cs().num_fixed_columns());
     dbg!(prover.cs().num_selectors());
+    dbg!(prover
+        .cs()
+        .gates()
+        .iter()
+        .map(|g| g.polynomials().len())
+        .sum::<usize>());
+    dbg!(prover.cs().advice_queries().len());
     // uncomment this to output assignments
-    // let mut f = std::fs::File::options()
-    //     .write(true)
-    //     .truncate(true)
-    //     .create(true)
-    //     .open("assign.csv")
-    //     .unwrap();
-    // use std::io::Write;
-    // for column_data in prover.advice() {
-    //     let cols = column_data
-    //         .iter()
-    //         .map(|c| match c {
-    //             CellValue::Unassigned => String::default(),
-    //             CellValue::Assigned(f) => {
-    //                 format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
-    //             }
-    //             CellValue::Poison(p) => {
-    //                 format!("p({})", p)
-    //             }
-    //         })
-    //         .join(",");
-    //
-    //     writeln!(&mut f, "{}", cols).unwrap();
-    // }
+    {
+        let mut f = std::fs::File::options()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open("assign-advice.csv")
+            .unwrap();
+        use std::io::Write;
+        for column_data in prover.advice() {
+            let cols = column_data
+                .iter()
+                .take(128)
+                .map(|c| match c {
+                    halo2_proofs::dev::CellValue::Unassigned => String::default(),
+                    halo2_proofs::dev::CellValue::Assigned(f) => {
+                        format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
+                    }
+                    halo2_proofs::dev::CellValue::Poison(p) => {
+                        format!("p({})", p)
+                    }
+                })
+                .join(",");
+
+            writeln!(&mut f, "{}", cols).unwrap();
+        }
+    }
+    {
+        let mut f = std::fs::File::options()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open("assign-fixed.csv")
+            .unwrap();
+        use std::io::Write;
+        for column_data in prover.fixed() {
+            let cols = column_data
+                .iter()
+                .take(128)
+                .map(|c| match c {
+                    halo2_proofs::dev::CellValue::Unassigned => String::default(),
+                    halo2_proofs::dev::CellValue::Assigned(f) => {
+                        format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
+                    }
+                    halo2_proofs::dev::CellValue::Poison(p) => {
+                        format!("p({})", p)
+                    }
+                })
+                .join(",");
+
+            writeln!(&mut f, "{}", cols).unwrap();
+        }
+    }
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())

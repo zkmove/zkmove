@@ -150,7 +150,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .unwrap()
             .value
             .to_fields()
-            .first()
+            .last()
             .cloned()
             .unwrap(); // FIXME: sub_index can be two-elements
         for i in 0..stage_state.rows() {
@@ -271,10 +271,10 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         });
 
         cb.require_equal(
-            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_push_sub_index(0)))", if TWO { "index1" } else { "index2"}),
+            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_push_sub_index(0)))", if TWO { "index1 + 1" } else { "index2 + 1"}),
             step_curr.local_sub_index.expr(),
             extended_sub_index.concat(
-                if TWO { index1.expr() } else { index2.expr() }
+                if TWO { index1.expr() } else { index2.expr() } + 1.expr()
                     + step_curr.stack_push_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
             )
         );
@@ -457,10 +457,10 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
 
         // -- local op constraints
         cb.require_equal(
-            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_pop_sub_index(0)))", if FOUR { "index1" } else { "index2"}),
+            format!("local_sub_index(0) == concat(ref_local_sub_index(0),{},nonzero(stack_pop_sub_index(0)))", if FOUR { "index1 + 1" } else { "index2 + 1"}),
             step_curr.local_sub_index.expr(),
             extended_sub_index.concat(
-                if FOUR { index1.expr() } else { index2.expr() }
+                if FOUR { index1.expr() } else { index2.expr() } + 1.expr()
                     + step_curr.stack_pop_sub_index.expr() * DEPTH_POW_OF_ONE_LEVEL.expr(),
             )
         );

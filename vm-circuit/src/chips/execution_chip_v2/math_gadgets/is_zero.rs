@@ -19,40 +19,17 @@ pub struct IsZeroGadget<F> {
 
 impl<F: Field> IsZeroGadget<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, value: Expression<F>) -> Self {
-        let inverse = cb.query_cell();
-        let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
-
-        cb.require_zero(
-            "value * (1 - value * value_inv)",
-            value.clone() * is_zero.clone(),
-        );
-        cb.require_zero(
-            "value_inv * (1 - value * value_inv)",
-            inverse.expr() * is_zero.clone(),
-        );
-        Self {
-            inverse,
-            is_zero,
-            value,
-        }
+        let g = Self::construct_without_configure(cb, value);
+        g.configure(cb, "");
+        g
     }
 
-    pub(crate) fn construct_with_name(
+    pub(crate) fn construct_without_configure(
         cb: &mut ConstraintBuilderV2<F>,
-        name: impl AsRef<str>,
         value: Expression<F>,
     ) -> Self {
         let inverse = cb.query_cell();
         let is_zero = 1u64.expr() - (value.clone() * inverse.expr());
-        let name = name.as_ref();
-        cb.require_zero(
-            format!("{}: value * (1 - value * value_inv)", name),
-            value.clone() * is_zero.clone(),
-        );
-        cb.require_zero(
-            format!("{}: value_inv * (1 - value * value_inv)", name),
-            inverse.expr() * is_zero.clone(),
-        );
         Self {
             inverse,
             is_zero,
@@ -60,6 +37,17 @@ impl<F: Field> IsZeroGadget<F> {
         }
     }
 
+    pub(crate) fn configure(&self, cb: &mut ConstraintBuilderV2<F>, name: impl AsRef<str>) {
+        let name = name.as_ref();
+        cb.require_zero(
+            format!("{}: value * (1 - value * value_inv)", name),
+            self.value.clone() * self.is_zero.clone(),
+        );
+        cb.require_zero(
+            format!("{}: value_inv * (1 - value * value_inv)", name),
+            self.inverse.expr() * self.is_zero.clone(),
+        );
+    }
     pub(crate) fn expr(&self) -> Expression<F> {
         self.is_zero.clone()
     }
