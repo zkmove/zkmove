@@ -112,47 +112,43 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
         let hi = step_curr.stack_pop_value.as_integer().hi();
         let lo = step_curr.stack_pop_value.as_integer().lo();
         let is_zero_hi = IsZeroGadget::construct(cb, hi);
+        let hi_is_zero = is_zero_hi.expr();
         let overflow = cb.query_bool();
 
         cb.condition(cast_u8.expr(), |cb| {
             let lo_in_range = in_range_lo.expr(cb, lo.clone(), NUM_OF_BYTES_U8);
-            let hi_is_zero = is_zero_hi.expr();
             cb.require_equal(
                 "!overflow == in_range(lo) && is_zero(hi)",
                 1u64.expr() - overflow.expr(),
-                lo_in_range * hi_is_zero,
+                lo_in_range * hi_is_zero.clone(),
             );
         });
         cb.condition(cast_u16.expr(), |cb| {
             let lo_in_range = in_range_lo.expr(cb, lo.clone(), NUM_OF_BYTES_U16);
-            let hi_is_zero = is_zero_hi.expr();
             cb.require_equal(
                 "!overflow == in_range(lo) && is_zero(hi)",
                 1u64.expr() - overflow.expr(),
-                lo_in_range * hi_is_zero,
+                lo_in_range * hi_is_zero.clone(),
             );
         });
         cb.condition(cast_u32.expr(), |cb| {
             let lo_in_range = in_range_lo.expr(cb, lo.clone(), NUM_OF_BYTES_U32);
-            let hi_is_zero = is_zero_hi.expr();
             cb.require_equal(
                 "!overflow == in_range(lo) && is_zero(hi)",
                 1u64.expr() - overflow.expr(),
-                lo_in_range * hi_is_zero,
+                lo_in_range * hi_is_zero.clone(),
             );
         });
         cb.condition(cast_u64.expr(), |cb| {
             let lo_in_range = in_range_lo.expr(cb, lo.clone(), NUM_OF_BYTES_U64);
-            let hi_is_zero = is_zero_hi.expr();
             cb.require_equal(
                 "!overflow == in_range(lo) && is_zero(hi)",
                 1u64.expr() - overflow.expr(),
-                lo_in_range * hi_is_zero,
+                lo_in_range * hi_is_zero.clone(),
             );
         });
         cb.condition(cast_u128.expr(), |cb| {
             let lo_in_range = in_range_lo.expr(cb, lo.clone(), NUM_OF_BYTES_U128);
-            let hi_is_zero = is_zero_hi.expr();
             cb.require_equal(
                 "!overflow == in_range(lo) && is_zero(hi)",
                 1u64.expr() - overflow.expr(),
