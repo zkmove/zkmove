@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
@@ -698,7 +697,7 @@ impl<F: Field> ExecChipConfig<F> {
 pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
-    const OPCODES: &'static [Opcodes] = &Self::EXECUTION_STATE.responsible_opcodes();
+    const OPCODES: &'static [Opcodes] = Self::EXECUTION_STATE.responsible_opcodes();
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
     fn assign_common(

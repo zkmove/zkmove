@@ -172,7 +172,7 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         let step_state = stage_state.step_states.first().unwrap();
         let rhs_word = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs_word = step_state.memory_ops[1].0.clone().unwrap().value;
-        let out_word = step_state.memory_ops[2].0.clone().unwrap().value;
+        let out_word = step_state.memory_ops[2].1.clone().unwrap().value;
         let rhs = rhs_word.to_u256();
         let lhs = lhs_word.to_u256();
         let out = out_word.to_u256();

@@ -21,51 +21,62 @@ module cases::TestCase {
         }
     }
 
-    public entry fun test_add_u64(x: u64, y: u64) {
-        x + y;
+    public entry fun test_cast(x0: u8, x1: u64) {
+        let _m = (x1 as u8);
+        let _m = (x0 as u16);
+        let _m = (x0 as u32);
+        let _m = (x0 as u64);
+        let _m = (x0 as u128);
+        let _m = (x0 as u256);
     }
 
-    public entry fun test_arith_integer(x1: u16, x2: u32, x3: u256, y: u64) {
+    public entry fun test_arith_integer(x0: u8, x1: u16, x2: u32, x3: u256, y1: u64) {
+        // u8 test case
+        let x = x0 + 16u8;
+        let y = x - (y1 as u8);
+        let z = y * 2u8;
+        let z = z / 3u8;
+        let _w = z % 2u8;
+
         // u16 test case
-        // add operation
         let x = x1 + 20u16;
-        // cast operation
-        let y = x - (y as u16);
-        // multiple operation
+        let y = x - (y1 as u16);
         let z = y * 2u16;
-        // divide operation
         let z = z / 3u16;
-        // modulo operation
         let _w = z % 2u16;
 
         // u32 test case
-        // add operation
         let x = x2 + 20u32;
-        // cast operation
-        let y = x - (y as u32);
-        // multiple operation
+        let y = x - (y1 as u32);
         let z = y * 2u32;
-        // divide operation
         let z = z / 3u32;
-        // modulo operation
         let _w = z % 2u32;
 
+        // u64 test case
+        let x = (x1 as u64) + 20u64;
+        let y = x - y1;
+        let z = y * 2u64;
+        let z = z / 3u64;
+        let _w = z % 2u64;
+
+        // u128 test case
+        let x = (x2 as u128) + 20u128;
+        let y = x - (y1 as u128);
+        let z = y * 2u128;
+        let z = z / 3u128;
+        let _w = z % 2u128;
+
         // u256 test case
-        // add operation
         let x = x3 + 340282366920938463463374607431768211458u256;
-        // cast operation
-        let y = x - (y as u256);
-        // multiple operation
-        let z = y * 100u256;
-        // divide operation
+        let _y = x - (y1 as u256);
+        let z = (y1 as u256) * 2u256;
         let z = z / 3u256;
-        // modulo operation
         let _w = z % 7u256;
 
-        // u256 bitwise operation
-        let _l = x3 & 127u256;
-        let _m = x3 | 340282366920938463463374607431768211456u256;
-        let _n = x3 ^ 255u256;
+        // // bitwise operation
+        // let _l = x3 & 127u256;
+        // let _m = x3 | 340282366920938463463374607431768211456u256;
+        // let _n = x3 ^ 255u256;
     }
 
 
