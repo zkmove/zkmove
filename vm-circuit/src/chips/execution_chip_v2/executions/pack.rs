@@ -48,24 +48,12 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
 
         let field_index = cb.query_cell(); //TODO: query byte for each LIMB_BITS
         let field_counter = cb.query_cell();
-        let is_zero_stack_pop_sub_index = IsZeroGadget::construct_with_name(
-            cb,
-            "is_zero_stack_pop_sub_index",
-            cb.curr.state.stack_pop_sub_index.expr(),
-        );
+        let is_zero_stack_pop_sub_index =
+            IsZeroGadget::construct(cb, cb.curr.state.stack_pop_sub_index.expr());
         let num_field = step_curr.aux1.expr();
-        let is_zero_num_field =
-            IsZeroGadget::construct_with_name(cb, "is_zero_num_field", num_field.clone());
-        let last_row = IsZeroGadget::construct_with_name(
-            cb,
-            "last_row",
-            cb.curr.state.step_counter.expr() - 1u64.expr(),
-        );
-        let last_row_of_field = IsZeroGadget::construct_with_name(
-            cb,
-            "last_row_of_field",
-            field_counter.expr() - 1u64.expr(),
-        );
+        let is_zero_num_field = IsZeroGadget::construct(cb, num_field.clone());
+        let last_row = IsZeroGadget::construct(cb, cb.curr.state.step_counter.expr() - 1u64.expr());
+        let last_row_of_field = IsZeroGadget::construct(cb, field_counter.expr() - 1u64.expr());
 
         let field_index_next = cb.cell_at_offset(&field_index, 1);
 

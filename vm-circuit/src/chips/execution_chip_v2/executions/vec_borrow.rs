@@ -90,7 +90,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
                     Self::NAME
                 ),
                 step_curr.stack_push_value.as_reference().sub_index(),
-                vec_ref_sub_index.concat(popped_index),
+                vec_ref_sub_index.concat(popped_index+1.expr()),
             );
             cb.require_equal(
                 format!("{}, stack_push_value_header(0) == stack_pop_value_header(0)", Self::NAME),
@@ -124,7 +124,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
-        let vec_ref_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
+        let vec_ref_sub_index = step_state.memory_ops[1].0.clone().unwrap().sub_index;
         let rows = step_state.memory_ops.len();
         (0..rows)
             .map(|i| {

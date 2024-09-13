@@ -47,8 +47,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         let vector_sub_index = cb.query_cell();
         let next_local_sub_index = step_next.local_sub_index.clone();
         let extended_local_sub_index_of_next_row =
-            ExtendedSubIndex::construct(cb, next_local_sub_index.expr());
-        let is_zero_gadget = IsZeroGadget::construct(
+            ExtendedSubIndex::construct_without_configure(cb, next_local_sub_index.expr());
+        let is_zero_gadget = IsZeroGadget::construct_without_configure(
             cb,
             step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
@@ -71,9 +71,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                 Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
-                format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
+                format!("{}, stack_pop_index(0) == sp(0) - 1", Self::NAME),
                 step_curr.stack_pop_index.expr(),
-                step_curr.sp.expr(),
+                step_curr.sp.expr() - 1.expr(),
             );
             cb.require_zero(
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
@@ -124,11 +124,13 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         });
 
         cb.not_last_row(|cb| {
+            extended_local_sub_index_of_next_row.configure(cb);
             cb.require_equal(
                 "local_sub_index(0) == local_sub_index(1).parent()",
                 step_curr.local_sub_index.expr(),
                 extended_local_sub_index_of_next_row.get_parent_sub_index(),
             );
+            is_zero_gadget.configure(cb, "iszero(local_sub_index(0)-local_sub_index(1))");
             cb.require_zero(
                 "local_sub_index(0) != local_sub_index(1)",
                 is_zero_gadget.expr(),
@@ -254,7 +256,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                     .unwrap()
                     .sub_index
                     .clone();
-
                 self.extended_local_sub_index_of_next_row.assign(
                     region,
                     offset + i,
@@ -377,9 +378,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
 
         // --- stack pop constraints
         cb.require_equal(
-            "stack_pop_index(0) == sp(0) - 1",
+            "stack_pop_index(0) == sp(0)",
             step_curr.stack_pop_index.expr(),
-            step_curr.sp.expr() - 1u64.expr(),
+            step_curr.sp.expr(),
         );
         // sub_index at first row must be zero
         cb.first_row(|cb| {

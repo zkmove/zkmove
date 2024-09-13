@@ -166,43 +166,53 @@ pub(crate) struct ExtendedSubIndex<F, const N_LIMB: usize> {
 }
 impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>, sub_index: Expression<F>) -> Self {
+        let s = Self::construct_without_configure(cb, sub_index);
+        s.configure(cb);
+        s
+    }
+
+    pub(crate) fn construct_without_configure(
+        cb: &mut ConstraintBuilderV2<F>,
+        sub_index: Expression<F>,
+    ) -> Self {
         let bytes = cb.query_bytes();
         let limbs = get_limbs_from_bytes(&bytes);
         let mask = cb.query_bools();
         let reverse_limb = cb.query_cell();
-
-        cb.require_equal(
-            "sub_index == from_limbs(limbs)",
-            sub_index.clone(),
-            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&limbs),
-        );
-
-        let sum_mask: Expression<F> = mask.iter().map(|c| c.expr()).sum();
-        cb.require_zero(
-            "sum(mask[i]) == 1 when sub_index != 0",
-            sub_index.clone() * (sum_mask - 1u64.expr()),
-        );
-
-        for i in 0..N_LIMB {
-            cb.require_zero(
-                "if mask[i] == 1, limbs[i] != 0",
-                mask[i].expr() * (limbs[i].clone() * reverse_limb.expr() - 1u64.expr()),
-            );
-        } // this also implies "when sub_index == 0, mask[i] == 0"
-
-        for i in 0..(N_LIMB - 1) {
-            cb.require_zero(
-                "mask[i] * limbs[i+1] == 0",
-                mask[i].expr() * limbs[i + 1].clone(),
-            );
-        }
-
         Self {
             sub_index,
             bytes,
             limbs,
             mask,
             reverse_limb,
+        }
+    }
+    pub(crate) fn configure(&self, cb: &mut ConstraintBuilderV2<F>) {
+        cb.require_equal(
+            "sub_index == from_limbs(limbs)",
+            self.sub_index.clone(),
+            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.limbs),
+        );
+
+        let sum_mask: Expression<F> = self.mask.iter().map(|c| c.expr()).sum();
+        cb.require_zero(
+            "sum(mask[i]) == 1 when sub_index != 0",
+            self.sub_index.clone() * (sum_mask - 1u64.expr()),
+        );
+
+        for i in 0..N_LIMB {
+            cb.require_zero(
+                "if mask[i] == 1, limbs[i] != 0",
+                self.mask[i].expr()
+                    * (self.limbs[i].clone() * self.reverse_limb.expr() - 1u64.expr()),
+            );
+        } // this also implies "when sub_index == 0, mask[i] == 0"
+
+        for i in 0..(N_LIMB - 1) {
+            cb.require_zero(
+                "mask[i] * limbs[i+1] == 0",
+                self.mask[i].expr() * self.limbs[i + 1].clone(),
+            );
         }
     }
 
@@ -220,8 +230,14 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 
     /// Trim tailing zeros of sub_index and concat with another.
     pub(crate) fn concat(&self, other: Expression<F>) -> Expression<F> {
-        let depth_pow =
-            from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.mask) * DEPTH_POW_OF_ONE_LEVEL.expr();
+        let sum_mask: Expression<F> = self.mask.iter().map(|c| c.expr()).sum();
+        let depth_pow = from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&self.mask)
+            * DEPTH_POW_OF_ONE_LEVEL.expr()
+            + (1.expr() - sum_mask);
+        // depth = 0, mask = [0,0,0,0], depth_pow = 0 * 2^16 + 1 - 0
+        // depth = 1, mask =[1,0,0,0], depth_pow = 1 * 2^16 + 1 - 1,
+        // depth = 2, mask =[0,1,0,0], depth_pow = (0+1*2^16) * 2^16 + 1 -1 ,
+        // depth = 3, mask =[0,0,1,0], depth_pow = (0+0*(2^16)+1*(2^16)^2) * 2^16 + 1-1,
         self.sub_index.expr() + other * depth_pow
     }
 

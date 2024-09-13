@@ -63,6 +63,9 @@ impl<F: Field, const N: usize> Value<F, N> {
             challenge: challenges.keccak_input(),
         }
     }
+    pub(crate) fn cells(&self) -> &[Cell<F>; N] {
+        &self.cells
+    }
     pub(crate) fn expr(&self) -> Expression<F> {
         rlc::expr(&self.exprs(), self.challenge.clone())
     }

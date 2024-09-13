@@ -507,6 +507,105 @@ impl<F: Field> Step<F> {
         step_state: &StepStateWitness,
         memory_op: &MemoryOp,
     ) -> Result<(), Error> {
+        let annotations = vec![
+            (self.state.clk.get_column(), "clk"),
+            (self.state.frame_index.get_column(), "frame_index"),
+            (self.state.module_index.get_column(), "module_index"),
+            (self.state.function_index.get_column(), "function_index"),
+            (self.state.pc.get_column(), "pc"),
+            (self.state.sp.get_column(), "sp"),
+            (self.state.opcode.get_column(), "opcode"),
+            (self.state.aux0.get_column(), "aux0"),
+            (self.state.aux1.get_column(), "aux1"),
+            (self.state.step_counter.get_column(), "step_counter"),
+            (self.state.stack_pop_index.get_column(), "stack_pop_index"),
+            (
+                self.state.stack_pop_sub_index.get_column(),
+                "stack_pop_sub_index",
+            ),
+            (
+                self.state.stack_pop_value.cells()[0].get_column(),
+                "stack_pop_value_0",
+            ),
+            (
+                self.state.stack_pop_value.cells()[1].get_column(),
+                "stack_pop_value_1",
+            ),
+            (
+                self.state.stack_pop_value_header.get_column(),
+                "stack_pop_value_header",
+            ),
+            (
+                self.state.stack_pop_version.get_column(),
+                "stack_pop_version",
+            ),
+            (self.state.stack_push_index.get_column(), "stack_push_index"),
+            (
+                self.state.stack_push_sub_index.get_column(),
+                "stack_push_sub_index",
+            ),
+            (
+                self.state.stack_push_value.cells()[0].get_column(),
+                "stack_push_value_0",
+            ),
+            (
+                self.state.stack_push_value.cells()[1].get_column(),
+                "stack_push_value_1",
+            ),
+            (
+                self.state.stack_push_value_header.get_column(),
+                "stack_push_value_header",
+            ),
+            (
+                self.state.stack_push_version.get_column(),
+                "stack_push_version",
+            ),
+            (self.state.local_index.get_column(), "local_index"),
+            (self.state.local_sub_index.get_column(), "local_sub_index"),
+            (
+                self.state.local_read_value_header.get_column(),
+                "local_read_value_header",
+            ),
+            (
+                self.state.local_read_value.cells()[0].get_column(),
+                "local_read_value_0",
+            ),
+            (
+                self.state.local_read_value.cells()[1].get_column(),
+                "local_read_value_1",
+            ),
+            (
+                self.state.local_read_value_invalid.get_column(),
+                "local_read_value_invalid",
+            ),
+            (
+                self.state.local_read_version.get_column(),
+                "local_read_version",
+            ),
+            (
+                self.state.local_write_value_header.get_column(),
+                "local_write_value_header",
+            ),
+            (
+                self.state.local_write_value.cells()[0].get_column(),
+                "local_write_value_0",
+            ),
+            (
+                self.state.local_write_value.cells()[1].get_column(),
+                "local_write_value_1",
+            ),
+            (
+                self.state.local_write_value_invalid.get_column(),
+                "local_write_value_invalid",
+            ),
+            (
+                self.state.local_write_version.get_column(),
+                "local_write_version",
+            ),
+        ];
+        for (column, anno) in annotations {
+            region.region().name_column(|| anno, column);
+        }
         self.state
             .assign_exec_step(region, offset, step_counter, step_state, memory_op)
     }

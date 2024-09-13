@@ -27,7 +27,7 @@ impl ConstantLookupTable {
             module_index: meta.fixed_column(),
             constant_index: meta.fixed_column(),
             sub_index: meta.fixed_column(),
-            value: [meta.fixed_column(); NUM_OF_VALUE_LIMBS],
+            value: [meta.fixed_column(), meta.fixed_column()],
             header: meta.fixed_column(),
         }
     }

@@ -199,7 +199,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
             .memory_ops
             .first()
             .unwrap()
-            .0
+            .2
             .as_ref()
             .unwrap()
             .sub_index;

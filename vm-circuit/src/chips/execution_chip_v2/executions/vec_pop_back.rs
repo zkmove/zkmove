@@ -46,8 +46,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         let vector_sub_index = cb.query_cell();
         let next_local_sub_index = step_next.local_sub_index.clone();
         let extended_local_sub_index_of_next_row =
-            ExtendedSubIndex::construct(cb, next_local_sub_index.expr());
-        let is_zero_gadget = IsZeroGadget::construct(
+            ExtendedSubIndex::construct_without_configure(cb, next_local_sub_index.expr());
+        let is_zero_gadget = IsZeroGadget::construct_without_configure(
             cb,
             step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
@@ -123,11 +123,13 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         });
 
         cb.not_last_row(|cb| {
+            extended_local_sub_index_of_next_row.configure(cb);
             cb.require_equal(
                 "local_sub_index(0) == local_sub_index(1).parent()",
                 step_curr.local_sub_index.expr(),
                 extended_local_sub_index_of_next_row.get_parent_sub_index(),
             );
+            is_zero_gadget.configure(cb, "iszero(local_sub_index(0) - local_sub_index(1))");
             cb.require_zero(
                 "local_sub_index(0) != local_sub_index(1)",
                 is_zero_gadget.expr(),
