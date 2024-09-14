@@ -73,10 +73,10 @@ module cases::TestCase {
         let z = z / 3u256;
         let _w = z % 7u256;
 
-        // // bitwise operation
-        // let _l = x3 & 127u256;
-        // let _m = x3 | 340282366920938463463374607431768211456u256;
-        // let _n = x3 ^ 255u256;
+        // bitwise operation
+        let _l = x3 & 12u256;
+        let _m = x3 | 340282366920938463463374607431768211456u256;
+        let _n = x3 ^ 255u256;
     }
 
 
