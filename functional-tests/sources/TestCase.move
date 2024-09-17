@@ -30,7 +30,7 @@ module cases::TestCase {
         let _m = (x0 as u256);
     }
 
-    public entry fun test_arith_integer(x0: u8, x1: u16, x2: u32, x3: u256, y1: u64) {
+    public entry fun test_arith(x0: u8, x1: u16, x2: u32, x3: u256, y1: u64) {
         // u8 test case
         let x = x0 + 16u8;
         let y = x - (y1 as u8);
@@ -107,5 +107,32 @@ module cases::TestCase {
         let value = vector::pop_back(&mut v);
         assert!(value == 6, 103);
         vector::destroy_empty(v);
+    }
+
+    public entry fun test_comp(a: u64, b: u64, c: u64, d: u64, e: u256) {
+        let m = a >= b;
+        assert!(m == false, 101);
+        let n = b > a;
+        assert!(n == true, 102);
+        let o = d < c;
+        assert!(o == false, 103);
+        let p = d <= c;
+        assert!(p == true, 104);
+
+        assert!(e >= 3u256, 105);
+        assert!(e > 3u256, 106);
+        assert!(3u256 < e, 107);
+        assert!(3u256 <= e, 108);
+    }
+    public entry fun test_logical(a: bool, b: bool) {
+        if (a != b) {
+            a;
+        };
+        let c = a && b;
+        assert!(c == false, 101);
+        let d = a || b;
+        assert!(d == true, 102);
+        let e = !a;
+        assert!(e == false, 103);
     }
 }
