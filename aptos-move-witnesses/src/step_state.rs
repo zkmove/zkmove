@@ -104,7 +104,10 @@ impl StepState {
             .get_module_index(trace.module_id.as_ref().unwrap());
         let bytecode = static_info
             .get_bytecode(module_index, trace.function_id, trace.pc as usize)
-            .expect("cannot locate the bytecode");
+            .expect(&format!(
+                "cannot locate the bytecode, {},{},{}",
+                module_index, trace.function_id, trace.pc
+            ));
         Self {
             clk,
             frame_index: trace.frame_index as u16,

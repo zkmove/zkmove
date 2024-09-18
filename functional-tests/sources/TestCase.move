@@ -103,9 +103,12 @@ module cases::TestCase {
         // EQ
         assert!(value == 5, 103);
 
+        // VecBorrow, WriteRef
+        *vector::borrow_mut(&mut v, 0) = 5;
+
         // VecPopBack
         let value = vector::pop_back(&mut v);
-        assert!(value == 6, 103);
+        assert!(value == 5, 103);
         vector::destroy_empty(v);
     }
 

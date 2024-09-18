@@ -155,21 +155,22 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
         debug_assert!(!step_state.memory_ops.is_empty());
-        let header_sub_index = &step_state
+        let header_sub_index = step_state
             .memory_ops
             .first()
             .unwrap()
             .0
             .as_ref()
             .unwrap()
-            .sub_index;
+            .value
+            .hi();
         let rows = step_state.memory_ops.len();
         (0..rows)
             .map(|i| {
                 self.header_sub_index.assign(
                     region,
                     offset + i,
-                    Value::known(header_sub_index.to_field()),
+                    Value::known(F::from_u128(header_sub_index)),
                 )?;
                 self.header_flen_delta.assign(
                     region,
@@ -180,7 +181,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 self.membership_gadget.assign(
                     region,
                     offset + i,
-                    header_sub_index.clone().into(),
+                    header_sub_index,
                     local_sub_index.clone().into(),
                 )
             })
@@ -468,7 +469,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 (FRAME_INDEX, Transition::Same),
                 (MODULE_INDEX, Transition::Same),
                 (FUNCTION_INDEX, Transition::Same),
-                (PC, Transition::Same),
+                (PC, Transition::Delta(1.expr())),
             ]);
         });
 
