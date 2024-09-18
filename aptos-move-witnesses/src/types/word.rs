@@ -21,6 +21,9 @@ impl Word {
     pub fn to_u256(&self) -> U256 {
         pair_u128_to_u256(self.lo(), self.hi())
     }
+    pub fn to_u8_unchecked(&self) -> u8 {
+        (self.lo() & 0xFF) as u8
+    }
 }
 
 impl From<bool> for Word {

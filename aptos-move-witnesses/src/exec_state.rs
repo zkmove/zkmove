@@ -59,6 +59,7 @@ pub enum ExecutionState {
     Gt,
     Lt,
     Ge,
+    Shift,
 }
 
 impl ExecutionState {
@@ -135,6 +136,7 @@ impl ExecutionState {
             Self::Gt => &[Opcodes::GT],
             Self::Lt => &[Opcodes::LT],
             Self::Ge => &[Opcodes::GE],
+            Self::Shift => &[Opcodes::SHL, Opcodes::SHR],
         }
     }
 }

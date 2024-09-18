@@ -4,6 +4,7 @@
 
 extern crate aptos_move_witnesses;
 extern crate move_core_types;
+extern crate move_vm_runtime;
 extern crate movelang;
 
 pub mod chips;
