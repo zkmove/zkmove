@@ -97,7 +97,7 @@ impl WitnessPreProcessor {
             Operation::LdTrue | Operation::LdFalse => {
                 let (state, out) = match &trace.data {
                     Operation::LdTrue => (ExecutionState::LdTrue, true),
-                    Operation::LdFalse => (ExecutionState::LdTrue, false),
+                    Operation::LdFalse => (ExecutionState::LdFalse, false),
                     _ => unreachable!(),
                 };
 
@@ -626,8 +626,12 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::Neq { lhs, rhs } | Operation::Eq { lhs, rhs } => {
-                let step_state =
-                    StepState::new(self.clk, ExecutionState::EqStage1, trace, static_info);
+                let (stage1_state, stage2_state) = match &trace.data {
+                    Operation::Eq { .. } => (ExecutionState::EqStage1, ExecutionState::EqStage2),
+                    Operation::Neq { .. } => (ExecutionState::NeqStage1, ExecutionState::NeqStage2),
+                    _ => unreachable!(),
+                };
+                let step_state = StepState::new(self.clk, stage1_state, trace, static_info);
                 let stage1_state = {
                     let value_version = self.version_stack.pop().unwrap();
                     let memory_ops = rhs
@@ -651,7 +655,7 @@ impl WitnessPreProcessor {
                 self.clk += 1;
                 let stage2_state = {
                     let step_state = step_state
-                        .change_state(ExecutionState::EqStage2)
+                        .change_state(stage2_state)
                         .change_clk(self.clk)
                         .dec_sp(1);
                     let value_version = self.version_stack.pop().unwrap();
@@ -1520,8 +1524,7 @@ impl WitnessPreProcessor {
                     _ => unreachable!(),
                 };
                 let step_state =
-                    StepState::new(self.clk, ExecutionState::AndOr, trace, static_info)
-                        .set_aux0(is_and as u128);
+                    StepState::new(self.clk, ExecutionState::AndOr, trace, static_info);
 
                 let stack_pop_rhs = StackPop {
                     index: sp,

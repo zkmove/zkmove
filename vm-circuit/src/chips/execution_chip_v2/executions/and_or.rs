@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -13,6 +12,7 @@ use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, or};
 use halo2_proofs::plonk::Error;
+use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -21,14 +21,13 @@ pub struct AndOr<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
     const NAME: &'static str = "AndOr";
-    const OPCODES: &'static [Opcode] = &[Opcode::And, Opcode::Or];
     const EXECUTION_STATE: ExecutionState = ExecutionState::AndOr;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
         let is_and =
-            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcode::And as u64).expr());
+            IsZeroGadget::construct(cb, step_curr.opcode.expr() - (Opcodes::AND as u64).expr());
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -129,7 +128,7 @@ impl<F: Field> InstructionGadgetV2<F> for AndOr<F> {
             self.is_and.assign(
                 region,
                 offset + i,
-                F::from(step_state.step_state.opcode as u64) - F::from(Opcode::And as u64),
+                F::from(step_state.step_state.opcode as u64) - F::from(Opcodes::AND as u64),
             )?;
         }
         Ok(stage_state.rows())

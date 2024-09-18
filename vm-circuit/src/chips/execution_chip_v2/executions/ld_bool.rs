@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -22,10 +21,6 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
     const NAME: &'static str = match TRUE {
         true => "LdTrue",
         false => "LdFalse",
-    };
-    const OPCODES: &'static [Opcode] = match TRUE {
-        true => &[Opcode::LdTrue],
-        false => &[Opcode::LdFalse],
     };
     const EXECUTION_STATE: ExecutionState = match TRUE {
         true => ExecutionState::LdTrue,

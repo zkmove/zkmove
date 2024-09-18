@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -23,7 +22,6 @@ pub struct Lt<F, const LT: bool> {
 }
 impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
     const NAME: &'static str = if LT { "Lt" } else { "Ge" };
-    const OPCODES: &'static [Opcode] = if LT { &[Opcode::Lt] } else { &[Opcode::Ge] };
     const EXECUTION_STATE: ExecutionState = if LT {
         ExecutionState::Lt
     } else {

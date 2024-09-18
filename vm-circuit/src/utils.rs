@@ -123,7 +123,7 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         for column_data in prover.fixed() {
             let cols = column_data
                 .iter()
-                .take(128)
+                .take(256)
                 .map(|c| match c {
                     halo2_proofs::dev::CellValue::Unassigned => String::default(),
                     halo2_proofs::dev::CellValue::Assigned(f) => {

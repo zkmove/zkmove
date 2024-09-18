@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::call_stack::CallContext;
@@ -29,7 +28,6 @@ pub struct CallStage1<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
     const NAME: &'static str = "CallStage1";
-    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -162,7 +160,6 @@ pub struct CallStage2<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
     const NAME: &'static str = "CallStage2";
-    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -285,7 +282,6 @@ pub struct CallStage3<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
     const NAME: &'static str = "CallStage3";
-    const OPCODES: &'static [Opcode] = &[Opcode::Call];
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage3;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

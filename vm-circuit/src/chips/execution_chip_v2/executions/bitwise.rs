@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::bitwise::to_nibbles::ToNibbles;
@@ -29,7 +28,6 @@ pub struct Bitwise<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
     const NAME: &'static str = "Bitwise";
-    const OPCODES: &'static [Opcode] = &[Opcode::BitAnd, Opcode::BitOr, Opcode::Xor];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Bitwise;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -174,7 +172,7 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         let step_state = stage_state.step_states.first().unwrap();
         let rhs_word = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs_word = step_state.memory_ops[1].0.clone().unwrap().value;
-        let out_word = step_state.memory_ops[2].0.clone().unwrap().value;
+        let out_word = step_state.memory_ops[2].1.clone().unwrap().value;
         let rhs = rhs_word.to_u256();
         let lhs = lhs_word.to_u256();
         let out = out_word.to_u256();

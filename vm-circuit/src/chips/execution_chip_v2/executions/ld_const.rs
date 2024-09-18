@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -19,8 +18,6 @@ use types::Field;
 pub struct LdConst<F>(PhantomData<F>);
 impl<F: Field> InstructionGadgetV2<F> for LdConst<F> {
     const NAME: &'static str = "LdConst";
-
-    const OPCODES: &'static [Opcode] = &[Opcode::LdConst];
     const EXECUTION_STATE: ExecutionState = ExecutionState::LdConst;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

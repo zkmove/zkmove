@@ -103,13 +103,9 @@ impl<F: Field> IsZero<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         value: F,
-    ) -> Result<F, Error> {
+    ) -> Result<bool, Error> {
         let inverse = value.invert().unwrap_or(F::ZERO);
         self.inverse.assign(region, offset, Value::known(inverse))?;
-        Ok(if value.is_zero().into() {
-            F::ONE
-        } else {
-            F::ZERO
-        })
+        Ok(value.is_zero().into())
     }
 }

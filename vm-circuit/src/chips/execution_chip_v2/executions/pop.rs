@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -18,8 +17,6 @@ use types::Field;
 pub struct Pop<F>(PhantomData<F>);
 impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
     const NAME: &'static str = "Pop";
-
-    const OPCODES: &'static [Opcode] = &[Opcode::Pop];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Pop;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

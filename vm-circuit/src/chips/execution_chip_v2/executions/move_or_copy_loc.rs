@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -12,12 +11,6 @@ use types::Field;
 pub struct MoveOrCopyLoc<F, const MOVE: bool>(PhantomData<F>);
 impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOVE> {
     const NAME: &'static str = if MOVE { "MoveLoc" } else { "CopyLoc" };
-
-    const OPCODES: &'static [Opcode] = if MOVE {
-        &[Opcode::MoveLoc]
-    } else {
-        &[Opcode::CopyLoc]
-    };
     const EXECUTION_STATE: ExecutionState = if MOVE {
         ExecutionState::MoveLoc
     } else {

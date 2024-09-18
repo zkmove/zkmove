@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -21,7 +20,6 @@ pub struct StoreLocStage1<F> {
 /// if not, set the step counter, and invalidate the whole thing.
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
     const NAME: &'static str = "StoreLoc_Stage1";
-    const OPCODES: &'static [Opcode] = &[Opcode::StLoc];
     const EXECUTION_STATE: ExecutionState = ExecutionState::StoreLocStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -116,7 +114,6 @@ pub struct StoreLocStage2<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
     const NAME: &'static str = "StoreLoc_Stage2";
-    const OPCODES: &'static [Opcode] = &[Opcode::StLoc];
     const EXECUTION_STATE: ExecutionState = ExecutionState::StoreLocStage2;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

@@ -1,3 +1,4 @@
+use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintLocation;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellType};
 use halo2_proofs::circuit::Value;
@@ -12,6 +13,7 @@ pub struct StoredExpression<F> {
     pub(crate) cell_type: CellType,
     pub(crate) expr: Expression<F>,
     pub(crate) expr_id: String,
+    pub(crate) required_location: Option<ConstraintLocation>,
 }
 
 impl<F> Hash for StoredExpression<F> {
@@ -62,6 +64,15 @@ impl<F: Field> StoredExpression<F> {
         let value = evaluate_expression(&self.expr, region, offset);
         self.cell.assign(region, offset, value)?;
         Ok(value)
+    }
+
+    pub fn assign_empty(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+    ) -> Result<(), Error> {
+        self.cell.assign(region, offset, Value::known(F::ZERO))?;
+        Ok(())
     }
 }
 

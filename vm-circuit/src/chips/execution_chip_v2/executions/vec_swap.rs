@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::{
@@ -34,7 +33,6 @@ impl<F: Field> VecSwapStage_1<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
     const NAME: &'static str = "VecSwap_Stage1";
-    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecSwapStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -191,7 +189,6 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
     } else {
         "VecSwap_Stage_3"
     };
-    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = if TWO {
         ExecutionState::VecSwapStage2
     } else {
@@ -399,7 +396,6 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
     } else {
         "VecSwap_Stage_5"
     };
-    const OPCODES: &'static [Opcode] = &[Opcode::VecSwap];
     const EXECUTION_STATE: ExecutionState = if FOUR {
         ExecutionState::VecSwapStage4
     } else {

@@ -35,7 +35,7 @@ pub(crate) type StateTransition<F> = (&'static str, Transition<F>);
 
 /// Internal type to select the location where the constraints are enabled
 #[derive(Debug, PartialEq, Copy, Clone)]
-enum ConstraintLocation {
+pub(crate) enum ConstraintLocation {
     FirstRow,
     LastRow,
     NotFirstRow,
@@ -449,6 +449,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                     cell_type,
                     expr_id: expr.identifier(),
                     expr,
+                    required_location: self.constraints_location,
                 });
                 cell.expr()
             }

@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -7,6 +6,7 @@ use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddExprs;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
+use crate::chips::execution_chip_v2::math_gadgets::range_check::IntegerRangeCheck;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
@@ -28,6 +28,7 @@ use halo2_proofs::{
     plonk::{Error, Expression},
 };
 use itertools::izip;
+use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use types::Field;
@@ -59,7 +60,6 @@ pub struct MulDivMod<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
     const NAME: &'static str = "Mul_Div_Mod";
-    const OPCODES: &'static [Opcode] = &[Opcode::Mul, Opcode::Div, Opcode::Mod];
     const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivMod;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
@@ -70,11 +70,11 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let bytes_2_lo = cb.query_bytes();
         let bytes_2_hi = cb.query_bytes();
         let is_mul =
-            IsZeroGadget::construct(cb, (Opcode::Mul as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::MUL as u64).expr() - step_curr.opcode.expr());
         let is_div =
-            IsZeroGadget::construct(cb, (Opcode::Div as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::DIV as u64).expr() - step_curr.opcode.expr());
         let is_mod =
-            IsZeroGadget::construct(cb, (Opcode::Mod as u64).expr() - step_curr.opcode.expr());
+            IsZeroGadget::construct(cb, (Opcodes::MOD as u64).expr() - step_curr.opcode.expr());
         let mut mul_div_mod = None;
         let mut divisor_lo_is_zero = None;
         let mut divisor_hi_is_zero = None;
@@ -213,13 +213,13 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
         debug_assert!(
-            opcode == Opcode::Mul as u16
-                || opcode == Opcode::Div as u16
-                || opcode == Opcode::Mod as u16
+            opcode == Opcodes::MUL as u16
+                || opcode == Opcodes::DIV as u16
+                || opcode == Opcodes::MOD as u16
         );
-        let is_mul = opcode == Opcode::Mul as u16;
-        let is_div = opcode == Opcode::Div as u16;
-        let is_mod = opcode == Opcode::Mod as u16;
+        let is_mul = opcode == Opcodes::MUL as u16;
+        let is_div = opcode == Opcodes::DIV as u16;
+        let is_mod = opcode == Opcodes::MOD as u16;
 
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
@@ -237,17 +237,17 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             self.is_mul.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Mul as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::MUL as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_div.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Div as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::DIV as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
             self.is_mod.assign(
                 region,
                 offset + i,
-                F::from(Opcode::Mod as u64) - F::from(step_state.step_state.opcode as u64),
+                F::from(Opcodes::MOD as u64) - F::from(step_state.step_state.opcode as u64),
             )?;
         }
 
@@ -285,8 +285,8 @@ struct MulDivModGadget<F> {
     is_u32: IsZeroGadget<F>,
     is_u64: IsZeroGadget<F>,
     is_u128: IsZeroGadget<F>,
-    is_out_lo_in_range: IsZero<F>,
-    is_zero_out_hi: IsZero<F>,
+    range_check: IntegerRangeCheck<F>,
+    is_zero: IsZero<F>,
 }
 
 impl<F: Field> MulDivModGadget<F> {
@@ -396,53 +396,58 @@ impl<F: Field> MulDivModGadget<F> {
             IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr());
         let is_u128 =
             IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr());
-        let is_out_lo_in_range = IsZero::construct(cb);
-        let out_lo_bytes = izip!(&cells.d_lo, &cells.a_lo, &cells.c_lo)
-            .map(|(c1, c2, c3)| {
-                is_mul.expr() * c1.expr() + is_div.expr() * c2.expr() + is_mod.expr() * c3.expr()
-            })
-            .collect::<Vec<_>>();
 
-        let is_out_lo_in_range_u8 = is_out_lo_in_range.expr(
-            cb,
-            out.lo() - from_bytes::expr(&out_lo_bytes[..NUM_OF_BYTES_U8]),
-        );
-        let is_out_lo_in_range_u16 = is_out_lo_in_range.expr(
-            cb,
-            out.lo() - from_bytes::expr(&out_lo_bytes[..NUM_OF_BYTES_U16]),
-        );
-        let is_out_lo_in_range_u32 = is_out_lo_in_range.expr(
-            cb,
-            out.lo() - from_bytes::expr(&out_lo_bytes[..NUM_OF_BYTES_U32]),
-        );
-        let is_out_lo_in_range_u64 = is_out_lo_in_range.expr(
-            cb,
-            out.lo() - from_bytes::expr(&out_lo_bytes[..NUM_OF_BYTES_U64]),
-        );
-        let is_out_lo_in_range_u128 =
-            is_out_lo_in_range.expr(cb, out.lo() - from_bytes::expr(&out_lo_bytes));
-
-        let overflow_out_lo = is_u8.expr() * (1u64.expr() - is_out_lo_in_range_u8)
-            + is_u16.expr() * (1u64.expr() - is_out_lo_in_range_u16)
-            + is_u32.expr() * (1u64.expr() - is_out_lo_in_range_u32)
-            + is_u64.expr() * (1u64.expr() - is_out_lo_in_range_u64)
-            + is_u128.expr() * (1u64.expr() - is_out_lo_in_range_u128);
-
+        let range_check = IntegerRangeCheck::construct(cb);
+        let is_zero = IsZero::construct(cb);
         // when divide by zero, 'out' must be zero, but 'out_lo_bytes' may not be zero
         // we need avoid the conflict
-        let divide_by_zero = (1u64.expr() - is_mul.expr()) * divisor_is_zero;
-        let overflow_out_lo = (1u64.expr() - divide_by_zero) * overflow_out_lo;
+        let not_divide_by_zero = 1u64.expr() - (1u64.expr() - is_mul.expr()) * divisor_is_zero;
 
-        let is_zero_out_hi = IsZero::construct(cb);
-        let out_hi_not_zero =
-            (is_u8.expr() + is_u16.expr() + is_u32.expr() + is_u64.expr() + is_u128.expr())
-                * (1u64.expr() - is_zero_out_hi.expr(cb, out.hi()));
-
-        cb.require_equal(
-            "overflow",
-            overflow.expr(),
-            or::expr([mul_add.overflow(), overflow_out_lo, out_hi_not_zero]),
-        );
+        cb.condition(is_u8.expr() * not_divide_by_zero.clone(), |cb| {
+            let out_lo_in_range = range_check.expr(cb, out.lo(), NUM_OF_BYTES_U8);
+            let out_hi_is_zero = is_zero.expr(cb, out.hi());
+            cb.require_equal(
+                "!overflow == in_range(out_lo) && is_zero(out_hi)",
+                1u64.expr() - overflow.expr(),
+                out_lo_in_range * out_hi_is_zero,
+            );
+        });
+        cb.condition(is_u16.expr() * not_divide_by_zero.clone(), |cb| {
+            let out_lo_in_range = range_check.expr(cb, out.lo(), NUM_OF_BYTES_U16);
+            let out_hi_is_zero = is_zero.expr(cb, out.hi());
+            cb.require_equal(
+                "!overflow == in_range(out_lo) && is_zero(out_hi)",
+                1u64.expr() - overflow.expr(),
+                out_lo_in_range * out_hi_is_zero,
+            );
+        });
+        cb.condition(is_u32.expr() * not_divide_by_zero.clone(), |cb| {
+            let out_lo_in_range = range_check.expr(cb, out.lo(), NUM_OF_BYTES_U32);
+            let out_hi_is_zero = is_zero.expr(cb, out.hi());
+            cb.require_equal(
+                "!overflow == in_range(out_lo) && is_zero(out_hi)",
+                1u64.expr() - overflow.expr(),
+                out_lo_in_range * out_hi_is_zero,
+            );
+        });
+        cb.condition(is_u64.expr() * not_divide_by_zero.clone(), |cb| {
+            let out_lo_in_range = range_check.expr(cb, out.lo(), NUM_OF_BYTES_U64);
+            let out_hi_is_zero = is_zero.expr(cb, out.hi());
+            cb.require_equal(
+                "!overflow == in_range(out_lo) && is_zero(out_hi)",
+                1u64.expr() - overflow.expr(),
+                out_lo_in_range * out_hi_is_zero,
+            );
+        });
+        cb.condition(is_u128.expr() * not_divide_by_zero.clone(), |cb| {
+            let out_lo_in_range = range_check.expr(cb, out.lo(), NUM_OF_BYTES_U128);
+            let out_hi_is_zero = is_zero.expr(cb, out.hi());
+            cb.require_equal(
+                "!overflow == in_range(out_lo) && is_zero(out_hi)",
+                1u64.expr() - overflow.expr(),
+                out_lo_in_range * out_hi_is_zero,
+            );
+        });
 
         MulDivModGadget {
             cells,
@@ -454,13 +459,13 @@ impl<F: Field> MulDivModGadget<F> {
             is_u32,
             is_u64,
             is_u128,
-            is_out_lo_in_range,
-            is_zero_out_hi,
+            range_check,
+            is_zero,
         }
     }
 
     fn overflow(&self) -> Expression<F> {
-        self.overflow.expr()
+        or::expr([self.overflow.expr(), self.mul_add.overflow()])
     }
 
     fn assign(
@@ -530,41 +535,26 @@ impl<F: Field> MulDivModGadget<F> {
             .map(|(cell, byte)| cell.assign(region, offset, Value::known(F::from(byte as u64))))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mul_add_overflow = self.mul_add.assign(region, offset, a, b, c, d)?;
+        self.mul_add.assign(region, offset, a, b, c, d)?;
 
         // assign remainder_lt_divisor
         self.remainder_lt_divisor.assign(region, offset, c, b)?;
 
-        // assign is_out_lo_in_range
-        let out_lo_bytes = out_lo.to_le_bytes();
-        let out_lo_expected = match num_bytes {
-            NUM_OF_BYTES_U8 => u8::from_le_bytes(out_lo_bytes[..1].try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U16 => u16::from_le_bytes(out_lo_bytes[..2].try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U32 => u32::from_le_bytes(out_lo_bytes[..4].try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U64 => u64::from_le_bytes(out_lo_bytes[..8].try_into().unwrap()) as u128,
-            NUM_OF_BYTES_U128 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()),
-            NUM_OF_BYTES_U256 => u128::from_le_bytes(out_lo_bytes.try_into().unwrap()),
-            _ => unreachable!(),
+        // assign range_check
+        let out_lo_in_range = if num_bytes < NUM_OF_BYTES_U256 {
+            self.range_check
+                .assign(region, offset, F::from_u128(out_lo), num_bytes)?
+        } else {
+            self.range_check
+                .assign(region, offset, F::from_u128(out_lo), NUM_OF_BYTES_U128)?
         };
-        self.is_out_lo_in_range.assign(
-            region,
-            offset,
-            F::from_u128(out_lo) - F::from_u128(out_lo_expected),
-        )?;
+
+        // assign is_zero
+        self.is_zero.assign(region, offset, F::from_u128(out_hi))?;
 
         // assign overflow
         let divide_by_zero = (is_div || is_mod) && rhs == U256::zero();
-        let out_lo_not_in_range = match num_bytes {
-            NUM_OF_BYTES_U8 => out_lo > u8::MAX as u128,
-            NUM_OF_BYTES_U16 => out_lo > u16::MAX as u128,
-            NUM_OF_BYTES_U32 => out_lo > u32::MAX as u128,
-            NUM_OF_BYTES_U64 => out_lo > u64::MAX as u128,
-            NUM_OF_BYTES_U128 => false,
-            NUM_OF_BYTES_U256 => false,
-            _ => unreachable!(),
-        };
-        let overflow_out_lo = !divide_by_zero && out_lo_not_in_range;
-        let overflow = mul_add_overflow || overflow_out_lo || out_hi != 0;
+        let overflow = !(divide_by_zero || out_lo_in_range && out_hi == 0);
         self.overflow.assign(
             region,
             offset,
@@ -596,9 +586,6 @@ impl<F: Field> MulDivModGadget<F> {
             offset,
             F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U128 as u64),
         )?;
-
-        self.is_zero_out_hi
-            .assign(region, offset, F::from_u128(out_hi))?;
 
         Ok(())
     }

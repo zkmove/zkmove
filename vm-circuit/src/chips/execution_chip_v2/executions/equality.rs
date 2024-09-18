@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -37,7 +36,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
     for Equality<F, STAGE1, EQ>
 {
     const NAME: &'static str = if EQ { "Eq" } else { "Neq" };
-    const OPCODES: &'static [Opcode] = if EQ { &[Opcode::Eq] } else { &[Opcode::Neq] };
     const EXECUTION_STATE: ExecutionState = match (EQ, STAGE1) {
         (true, true) => ExecutionState::EqStage1,
         (true, false) => ExecutionState::EqStage2,

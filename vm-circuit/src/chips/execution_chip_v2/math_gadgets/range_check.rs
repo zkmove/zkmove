@@ -81,13 +81,12 @@ impl<F: Field> IntegerRangeCheck<F> {
         offset: usize,
         value: F,
         n_bytes: usize,
-    ) -> Result<(), Error> {
+    ) -> Result<bool, Error> {
         let bytes = value.to_repr();
         for (idx, part) in self.bytes.iter().enumerate() {
             part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
         }
         let expected: F = from_bytes::value(&bytes[..n_bytes]);
-        let _ = self.is_zero.assign(region, offset, value - expected);
-        Ok(())
+        self.is_zero.assign(region, offset, value - expected)
     }
 }

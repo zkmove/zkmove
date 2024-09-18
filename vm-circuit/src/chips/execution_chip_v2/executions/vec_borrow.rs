@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -22,7 +21,6 @@ pub struct VecBorrow<F> {
 
 impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
     const NAME: &'static str = "VecBorrow";
-    const OPCODES: &'static [Opcode] = &[Opcode::VecMutBorrow, Opcode::VecImmBorrow];
     const EXECUTION_STATE: ExecutionState = ExecutionState::VecBorrow;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();

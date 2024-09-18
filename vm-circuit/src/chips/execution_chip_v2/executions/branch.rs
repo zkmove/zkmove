@@ -1,4 +1,3 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
@@ -14,8 +13,6 @@ pub struct Branch<F> {
 }
 impl<F: Field> InstructionGadgetV2<F> for Branch<F> {
     const NAME: &'static str = "BRANCH";
-
-    const OPCODES: &'static [Opcode] = &[Opcode::Branch];
     const EXECUTION_STATE: ExecutionState = ExecutionState::Branch;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {

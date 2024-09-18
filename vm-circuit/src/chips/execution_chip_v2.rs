@@ -1,8 +1,9 @@
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::execution_chip::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, ConstraintLocation,
+};
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
@@ -31,6 +32,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
+use move_binary_format::file_format_common::Opcodes;
 use std::collections::HashMap;
 use std::iter;
 use types::Field;
@@ -637,6 +639,10 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::Cast => self.cast,
             ExecutionState::EqStage1 => self.eq_stage_1,
             ExecutionState::EqStage2 => self.eq_stage_2,
+            ExecutionState::NeqStage1 => self.neq_stage_1,
+            ExecutionState::NeqStage2 => self.neq_stage_2,
+            ExecutionState::Ge => self.ge,
+            ExecutionState::Gt => self.gt,
             ExecutionState::LdFalse => self.ld_false,
             ExecutionState::LdTrue => self.ld_true,
             ExecutionState::LdConst => self.ld_const,
@@ -677,16 +683,33 @@ impl<F: Field> ExecChipConfig<F> {
         stage_state: &StageState,
         stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<(), Error> {
+        debug_assert!(!stage_state.step_states.is_empty());
         let execution_state = &stage_state
             .step_states
             .first()
             .unwrap()
             .step_state
             .exec_state;
-        for i in 0..stage_state.rows() {
+        let rows = stage_state.rows();
+        for i in 0..rows {
+            let is_first_row = i == 0;
+            let is_last_row = i == rows - 1;
+
             if let Some(stored_expressions) = stored_expressions_map.get(execution_state) {
                 for expression in stored_expressions {
-                    expression.assign(region, offset_begin + i)?;
+                    let row_match = match expression.required_location {
+                        Some(ConstraintLocation::FirstRow) => is_first_row,
+                        Some(ConstraintLocation::LastRow) => is_last_row,
+                        Some(ConstraintLocation::NotFirstRow) => !is_first_row,
+                        Some(ConstraintLocation::NotLastRow) => !is_last_row,
+                        None => true,
+                    };
+
+                    if row_match {
+                        expression.assign(region, offset_begin + i)?;
+                    } else {
+                        expression.assign_empty(region, offset_begin + i)?;
+                    }
                 }
             }
         }
@@ -697,7 +720,7 @@ impl<F: Field> ExecChipConfig<F> {
 pub(crate) trait InstructionGadgetV2<F: Field> {
     const NAME: &'static str;
 
-    const OPCODES: &'static [Opcode];
+    const OPCODES: &'static [Opcodes] = Self::EXECUTION_STATE.responsible_opcodes();
     const EXECUTION_STATE: ExecutionState;
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self;
     fn assign_common(

@@ -1,11 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::opcode::Opcode;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, TableColumn};
-
+use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Clone, Copy, Debug)]
@@ -38,17 +37,17 @@ impl BitwiseLookupTable {
         // bitwise table
         // only 4 bits bitwised every time. so table size is 16*16
         let mut bitwise_values = Vec::new();
-        for op in [Opcode::BitAnd, Opcode::BitOr, Opcode::Xor] {
+        for op in [Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR] {
             for value_1 in 0..16 {
                 for value_2 in 0..16 {
                     let field_values = vec![
-                        F::from_u128(op.index() as u128),
+                        F::from_u128(op as u128),
                         F::from_u128(value_1 as u128),
                         F::from_u128(value_2 as u128),
                         match op {
-                            Opcode::BitAnd => F::from_u128((value_1 & value_2) as u128),
-                            Opcode::BitOr => F::from_u128((value_1 | value_2) as u128),
-                            Opcode::Xor => F::from_u128((value_1 ^ value_2) as u128),
+                            Opcodes::BIT_AND => F::from_u128((value_1 & value_2) as u128),
+                            Opcodes::BIT_OR => F::from_u128((value_1 | value_2) as u128),
+                            Opcodes::XOR => F::from_u128((value_1 ^ value_2) as u128),
                             _ => unreachable!(),
                         },
                     ];
