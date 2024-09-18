@@ -113,7 +113,7 @@ impl SubIndex {
         let mut vec = self.0.to_vec();
 
         while let Some(v) = vec.pop() {
-            if (v != 0) {
+            if v != 0 {
                 vec.push(v);
                 break;
             }

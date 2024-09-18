@@ -552,7 +552,7 @@ impl WitnessPreProcessor {
                     version: self.version_stack.pop().unwrap(),
                 };
                 let sub_index = SubIndex::new(reference.sub_index.clone())
-                    .concat(&SubIndex::new(vec![(*field_offset + 1) as usize]));
+                    .concat(&SubIndex::new(vec![(*field_offset + 1)]));
 
                 let field_ref = Reference {
                     frame_index: reference.frame_index,

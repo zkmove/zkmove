@@ -531,10 +531,9 @@ impl<F: Field> ExecChipConfig<F> {
 
         meta.shuffle("callstack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
-            let s_callstack_push = step_curr
-                .execution_state_selector([ExecutionState::CallStage1, ExecutionState::CallStage3]);
+            let s_callstack_push = step_curr.execution_state_selector([ExecutionState::CallStage1]);
             let input_exprs = config
-                .call_stage_1 // either call_stage_1 or call_stage_3 is ok
+                .call_stage_1
                 .call_context
                 .exprs()
                 .into_iter()
@@ -583,6 +582,15 @@ impl<F: Field> ExecChipConfig<F> {
                         for row in offset..offset + step_rows {
                             self.s_usable.enable(cached_region.region(), row)?;
                         }
+                        offset += step_rows;
+                    }
+
+                    // had to assign stored_expression later,
+                    // as it may reference next rows.
+                    let mut offset = 0;
+                    for opcode_witness in &witness.opcode_witnesses {
+                        let step_rows = opcode_witness.rows();
+                        self.assign_stored_expression(&mut cached_region, offset, opcode_witness)?;
                         offset += step_rows;
                     }
                 }
@@ -672,21 +680,16 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::Shift => self.shift,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
-        Self::assign_stored_expression(
-            region,
-            offset_begin,
-            stage_state,
-            &self.stored_expressions_map,
-        )?;
         Ok(assigned_rows)
     }
 
     fn assign_stored_expression(
+        &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset_begin: usize,
         stage_state: &StageState,
-        stored_expressions_map: &HashMap<ExecutionState, Vec<StoredExpression<F>>>,
     ) -> Result<(), Error> {
+        let stored_expressions_map = &self.stored_expressions_map;
         debug_assert!(!stage_state.step_states.is_empty());
         let execution_state = &stage_state
             .step_states

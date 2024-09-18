@@ -1,12 +1,32 @@
 module cases::TestCase {
     use std::vector;
 
+    public entry fun test_all() {
+        //test_abort();
+        test_add();
+        test_call();
+        test_add_loop();
+        test_cast(1, 2);
+        test_arith(1, 2, 3, 10u256, 1);
+        test_vector();
+    }
+
     public entry fun test_abort() {
         assert!(3 == 3, 101);
     }
 
     public entry fun test_add() {
         1u8 + 2u8;
+    }
+
+    public entry fun test_call() {
+        test_call_(2);
+    }
+
+    public fun test_call_(i: u8) {
+        if (i > 0) {
+            test_call_(i - 1);
+        };
     }
 
     public entry fun test_add_loop() {
@@ -127,6 +147,7 @@ module cases::TestCase {
         assert!(3u256 < e, 107);
         assert!(3u256 <= e, 108);
     }
+
     public entry fun test_logical(a: bool, b: bool) {
         if (a != b) {
             a;
