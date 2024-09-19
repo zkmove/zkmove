@@ -1998,6 +1998,61 @@ impl WitnessPreProcessor {
                 }
                 stages
             }
+            Operation::Shl { rhs, lhs } | Operation::Shr { rhs, lhs } => {
+                let num_bytes = match lhs {
+                    Integer::U8(l) => 1usize,
+                    Integer::U16(l) => 2usize,
+                    Integer::U32(l) => 4usize,
+                    Integer::U64(l) => 8usize,
+                    Integer::U128(l) => 16usize,
+                    Integer::U256(l) => 32usize,
+                    _ => unreachable!(),
+                };
+                // while calculating the result, convert to u256 to prevent overflow from stopping
+                // the assignment.
+                let output = if matches!(&trace.data, Operation::Shl { .. }) {
+                    lhs.to_u256().checked_shl(*rhs as u32).unwrap() //never failed
+                } else {
+                    lhs.to_u256().checked_shr(*rhs as u32).unwrap() //never failed
+                };
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::Shift, trace, static_info)
+                        .set_aux0(num_bytes as u128);
+
+                let stack_pop_rhs = StackPop {
+                    index: sp,
+                    sub_index: SubIndex::default(),
+                    value: Integer::U8(*rhs).into(),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let stack_pop_lhs = StackPop {
+                    index: sp - 1,
+                    sub_index: SubIndex::default(),
+                    value: lhs.into(),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                self.version_stack.push(self.clk);
+                let stack_push = StackPush {
+                    index: sp - 1,
+                    sub_index: SubIndex::default(),
+                    value: Integer::U256(output).into(),
+                    value_header: false,
+                    version: *self.version_stack.last().unwrap(),
+                };
+                let memory_ops = vec![
+                    MemoryOp(Some(stack_pop_rhs), None, None),
+                    MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                ];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                    extra_data: None,
+                }]
+            }
             _ => todo!("{:?}", &trace.data),
         }
     }

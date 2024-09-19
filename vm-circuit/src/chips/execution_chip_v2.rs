@@ -7,7 +7,6 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
-use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
     Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt, MoveOrCopyLoc, MulDivMod,
@@ -16,6 +15,7 @@ use crate::chips::execution_chip_v2::executions::{
     VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
     WriteRefStage3,
 };
+use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
@@ -87,6 +87,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub pop: Box<Pop<F>>,
     pub read_ref: Box<ReadRef<F>>,
     pub ret: Box<Ret<F>>,
+    pub shift: Box<Shift<F>>,
     pub store_loc_stage1: Box<StoreLocStage1<F>>,
     pub store_loc_stage2: Box<StoreLocStage2<F>>,
     pub unpack_stage_1: Box<UnpackStage1<F, false>>,
@@ -270,6 +271,7 @@ impl<F: Field> ExecChipConfig<F> {
             ret: configure_opcode_gadget!(),
             store_loc_stage1: configure_opcode_gadget!(),
             store_loc_stage2: configure_opcode_gadget!(),
+            shift: configure_opcode_gadget!(),
             unpack_stage_1: configure_opcode_gadget!(),
             unpack_stage_2: configure_opcode_gadget!(),
             vec_borrow: configure_opcode_gadget!(),
@@ -455,6 +457,7 @@ impl<F: Field> ExecChipConfig<F> {
                         Table::Bitwise => lookup_table_config.bitwise_table.table_exprs(meta),
                         Table::Bytecode => lookup_table_config.bytecode_table.table_exprs(meta),
                         Table::Constant => lookup_table_config.constant_table.table_exprs(meta),
+                        Table::Pow2 => lookup_table_config.pow2_table.table_exprs(meta),
                         _ => unimplemented!(),
                     };
                     vec![(
@@ -666,6 +669,7 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::Nop => self.nop,
             ExecutionState::Start => self.start,
             ExecutionState::ProcessArg => self.process_arg,
+            ExecutionState::Shift => self.shift,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Self::assign_stored_expression(

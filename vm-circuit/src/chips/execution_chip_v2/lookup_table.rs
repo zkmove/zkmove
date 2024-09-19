@@ -2,6 +2,7 @@ use crate::chips::execution_chip_v2::lookup_table::bitwise_table::BitwiseLookupT
 use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
+use crate::chips::execution_chip_v2::lookup_table::pow2::Pow2LookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
 use aptos_move_witnesses::static_info::StaticInfo;
@@ -16,6 +17,7 @@ pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
 pub(crate) mod function_table;
+pub(crate) mod pow2;
 pub(crate) mod utils;
 pub(crate) mod ux_table;
 
@@ -36,6 +38,8 @@ pub enum Table {
     Constant,
     /// Lookup for function
     Function,
+    /// Pow of 2
+    Pow2,
     /// Bitwise lookup
     Bitwise,
 }
@@ -57,6 +61,11 @@ pub(crate) enum Lookup<F> {
         function_index: Expression<F>,
         num_arg: Expression<F>,
         entry: Expression<F>,
+    },
+    Pow2 {
+        value: Expression<F>,
+        pow_lo: Expression<F>,
+        pow_hi: Expression<F>,
     },
     Constant {
         module_index: Expression<F>,
@@ -86,6 +95,7 @@ impl<F: Field> Lookup<F> {
             Self::Function { .. } => Table::Function,
             Self::Bitwise { .. } => Table::Bitwise,
             Self::Constant { .. } => Table::Constant,
+            Self::Pow2 { .. } => Table::Pow2,
             Self::Conditional(_, lookup) => lookup.table(),
         }
     }
@@ -134,6 +144,13 @@ impl<F: Field> Lookup<F> {
                     value_2.clone(),
                     result.clone(),
                 ]
+            }
+            Self::Pow2 {
+                value,
+                pow_lo,
+                pow_hi,
+            } => {
+                vec![value.clone(), pow_lo.clone(), pow_hi.clone()]
             }
             Self::Conditional(condition, lookup) => lookup
                 .input_exprs()
@@ -188,6 +205,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) constant_table: ConstantLookupTable,
     pub(crate) function_table: FunctionLookupTable,
     pub(crate) bitwise_table: BitwiseLookupTable,
+    pub(crate) pow2_table: Pow2LookupTable,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
@@ -201,6 +219,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let constant_table = ConstantLookupTable::construct(meta);
         let function_table = FunctionLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
+        let pow2_table = Pow2LookupTable::construct(meta);
         Self {
             nibble_table,
             u8_table,
@@ -210,6 +229,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             constant_table,
             function_table,
             bitwise_table,
+            pow2_table,
             phantom_data: PhantomData,
         }
     }
@@ -227,6 +247,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.constant_table.load(layouter, static_info)?;
         self.function_table.load(layouter, static_info)?;
         self.bitwise_table.load(layouter)?;
+        self.pow2_table.load(layouter)?;
         Ok(())
     }
 }

@@ -174,14 +174,10 @@ mod pop {
     }
 }
 
-mod add {
-    pub fn constrain(is_add: bool) {
+/// Common constraints for Add, Sub, Mul, Div, Mod, Shl, Shr
+mod binary_op {
+    pub fn constrain() {
         if super::common::on_first_row() {
-            if is_add {
-                opcode(0) == OpCode::Add;
-            } else {
-                opcode(0) == OpCode::Sub;
-            }
             step_counter(0) == 2;
             super::common::require_no_stack_push();
             stack_pop_index(0) == sp(0);
@@ -197,13 +193,11 @@ mod add {
             stack_pop_index(0) == sp(0) - 1;
             stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
-            let out = if is_add {
-                stack_pop_value(0) + stack_pop_value(-1)
-            } else {
-                stack_pop_value(0) - stack_pop_value(-1)
-            };
-            common::super::range_check();
-            common::super::overflow_check();
+
+            let rhs = stack_pop_value(-1);
+            let lhs = stack_pop_value(0);
+            let out = binary_op(lhs, rhs);
+
             stack_push_value(0) == out;
             stack_push_value_header(0) == false;
             stack_push_version(0) == clk(0);

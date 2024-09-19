@@ -172,11 +172,11 @@ pub fn split_u256_limb64(value: &U256) -> [U256; 4] {
     let mut limb0 = [0u8; 32];
     limb0[..8].copy_from_slice(&bytes[..8]);
     let mut limb1 = [0u8; 32];
-    limb1[8..16].copy_from_slice(&bytes[8..16]);
+    limb1[..8].copy_from_slice(&bytes[8..16]);
     let mut limb2 = [0u8; 32];
-    limb2[16..24].copy_from_slice(&bytes[16..24]);
+    limb2[..8].copy_from_slice(&bytes[16..24]);
     let mut limb3 = [0u8; 32];
-    limb3[24..].copy_from_slice(&bytes[24..]);
+    limb3[..8].copy_from_slice(&bytes[24..]);
 
     [
         U256::from_le_bytes(&limb0),
@@ -192,7 +192,7 @@ pub fn split_u256(value: &U256) -> (U256, U256) {
     let mut lo_bytes = [0u8; 32];
     lo_bytes[..16].copy_from_slice(&bytes[..16]);
     let mut hi_bytes = [0u8; 32];
-    hi_bytes[..16].copy_from_slice(&bytes[..16]);
+    hi_bytes[..16].copy_from_slice(&bytes[16..]);
     (
         U256::from_le_bytes(&lo_bytes),
         U256::from_le_bytes(&hi_bytes),
