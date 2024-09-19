@@ -475,7 +475,7 @@ impl<F: Field> ShiftGadget<F> {
         let (a, c, d) = if is_shl {
             (lhs, U256::zero(), out)
         } else {
-            (out, lhs - out * rhs.into(), lhs)
+            (out, lhs - out * b, lhs)
         };
 
         let (a_lo, a_hi) = split_u256_to_u128(a);

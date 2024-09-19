@@ -7,7 +7,6 @@ use crate::chips::execution_chip::utils::constraint_builder_v2::{
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
-use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
     Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt, MoveOrCopyLoc, MulDivMod,
@@ -16,6 +15,7 @@ use crate::chips::execution_chip_v2::executions::{
     VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
     WriteRefStage3,
 };
+use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
