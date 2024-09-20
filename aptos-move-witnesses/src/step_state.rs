@@ -38,7 +38,7 @@ impl From<RetExtraAssignData> for StageExtraAssignData {
 #[derive(Clone, Debug)]
 pub struct CallerData {
     pub caller_frame_index: u16,
-    pub caller_module_index: u64, // TODO: module_id to module_index
+    pub caller_module_index: u64,
     pub caller_function_index: u16,
     pub caller_pc: u64,
 }
@@ -104,8 +104,12 @@ impl StepState {
             .get_module_index(trace.module_id.as_ref().unwrap());
         let bytecode = static_info
             .get_bytecode(module_index, trace.function_id, trace.pc as usize)
-            .unwrap_or_else(|| panic!("cannot locate the bytecode, {},{},{}",
-                module_index, trace.function_id, trace.pc));
+            .unwrap_or_else(|| {
+                panic!(
+                    "cannot locate the bytecode, {},{},{}",
+                    module_index, trace.function_id, trace.pc
+                )
+            });
         Self {
             clk,
             frame_index: trace.frame_index as u16,

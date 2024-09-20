@@ -14,10 +14,6 @@ pub struct StoreLocStage1<F> {
     phantom_data: PhantomData<F>,
 }
 
-/// FIXME: what if there is no old value or old value is already invalid
-/// solution?: in this stage, we need to check the first row is invalid.
-/// if invalid, then no need to invalidate anything.
-/// if not, set the step counter, and invalidate the whole thing.
 impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
     const NAME: &'static str = "StoreLoc_Stage1";
     const EXECUTION_STATE: ExecutionState = ExecutionState::StoreLocStage1;
@@ -29,12 +25,12 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
         cb.require_no_stack_push();
 
         cb.first_row(|cb| {
+            cb.require_in_set(
+                "opcode in OPCODES",
+                step_curr.opcode.expr(),
+                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+            );
             cb.condition(step_curr.local_read_value_header.expr(), |cb| {
-                cb.require_in_set(
-                    "opcode in OPCODES",
-                    step_curr.opcode.expr(),
-                    Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
-                );
                 cb.require_equal(
                     "step_counter(0) == local_read_value(0).as_header().flen",
                     step_curr.step_counter.expr(),

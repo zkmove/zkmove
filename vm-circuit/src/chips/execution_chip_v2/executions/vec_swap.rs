@@ -150,7 +150,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .to_fields()
             .last()
             .cloned()
-            .unwrap(); // FIXME: sub_index can be two-elements
+            .unwrap(); // TODO: word to reference
         for i in 0..stage_state.rows() {
             self.index1
                 .assign(region, offset + i, Value::known(index1))?;

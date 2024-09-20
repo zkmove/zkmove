@@ -273,7 +273,7 @@ impl WitnessPreProcessor {
                     let header_slot = self.locals.peek_local_slot(
                         current_frame_index,
                         *local_index as usize,
-                        &header_check_sub_index, // TODO: check root header's sub index.
+                        &header_check_sub_index,
                     );
                     let old_value_invalid = match header_slot {
                         None => true,
@@ -400,7 +400,7 @@ impl WitnessPreProcessor {
                             true,
                             self.clk,
                         );
-                        // TODO: check old_ == local[sub_index]
+                        // TODO: assert_eq!(old_, local[*sub_index as usize]);
                         self.version_stack.push(self.clk);
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
@@ -441,7 +441,7 @@ impl WitnessPreProcessor {
                             &item.sub_index.clone().into(),
                             self.clk,
                         );
-                        // TODO: check old_ == local[sub_index]
+                        // TODO: assert old_ == local[sub_index]
                         self.version_stack.push(self.clk);
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
@@ -879,7 +879,7 @@ impl WitnessPreProcessor {
                                 .clone();
                             let len = ValueHeader::from(parent_value).len;
 
-                            // TODO: save flen in the traced value while footprinting?
+                            // TODO: caculate flen
                             let members = self.locals.members(
                                 reference.frame_index,
                                 reference.local_index,
@@ -1897,14 +1897,17 @@ impl WitnessPreProcessor {
                 stages
             }
             Operation::Ret { caller } => {
-                // TOOD: check the Ret at the top frame
+                // TODO: check the Ret at the top frame
                 let frame_version = self.call_stack_versions.pop().unwrap_or_default();
                 // stage1: check the number of argument
                 let step_state = StepState::new(self.clk, ExecutionState::Ret, trace, static_info);
 
                 let caller = caller.as_ref().map(|c| CallerData {
                     caller_frame_index: c.frame_index as u16,
-                    caller_module_index: 0, // FIXME: module_id to module_index
+                    caller_module_index: static_info
+                        .module_id_mapping
+                        .get_module_index(c.module_id.as_ref().unwrap())
+                        as u64,
                     caller_function_index: c.function_id as u16,
                     caller_pc: c.pc as u64, // TODO: check the type of pc
                 });
@@ -2122,7 +2125,7 @@ impl Locals {
         sub_index: &SubIndex,
         value: Word,
         is_header: bool,
-        value_invalid: bool, // TODO: merge with value?
+        value_invalid: bool,
         clk: Version,
     ) -> (Slot, Slot) {
         let new_ = Slot {

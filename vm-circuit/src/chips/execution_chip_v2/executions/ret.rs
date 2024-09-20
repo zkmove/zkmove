@@ -69,6 +69,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
                 call_context_version.expr(), // TODO: can call_context_version be cheated?
             );
             // TODO: call_context_version < clk(0)
+            // TODO: optimize the cells used in call context
         });
 
         Ret {

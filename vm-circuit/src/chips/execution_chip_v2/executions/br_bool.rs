@@ -54,7 +54,7 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for BrBool<F, TRUE> {
         );
         let next_pc = cb.curr.state.aux0.expr();
         let branch_condition = cb.curr.state.stack_pop_value.expr();
-        // FIXME:  should enfore it in stack_push operation
+        // FIXME:  should enforce it in stack_push operation
         // here for demonstration
         cb.require_boolean("boolean branch value", branch_condition.clone());
         let next_step_pc = if TRUE {

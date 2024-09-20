@@ -43,6 +43,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         (false, false) => ExecutionState::NeqStage2,
     };
 
+    // TODO: need two randomness
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let rlc1 = cb.query_cell_phase2();

@@ -186,8 +186,6 @@ impl<F: Field> ExecChipConfig<F> {
             let s_step_last = vc.query_selector(s_step_last);
             let mut cb = BaseConstraintBuilder::default();
             cb.condition(1u64.expr() - s_step_last.clone(), |cb| {
-                // FIXME: for now,we increase clk by one for each bytecode
-                // we need to figure out how to constraint vec_swap.
                 cb.require_boolean(
                     "clk(1) - clk(0)  == 0 | 1",
                     step_next.state.clk.expr() - step_curr.state.clk.expr(),
