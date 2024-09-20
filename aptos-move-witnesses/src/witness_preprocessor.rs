@@ -11,7 +11,7 @@ use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
 use crate::types::word::Word;
 use crate::utils::flatten::Flatten;
-use crate::witness_preprocessor::to_u256::ToU256;
+use crate::utils::to_u256::ToU256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
@@ -2219,47 +2219,5 @@ impl Deref for Local {
 impl DerefMut for Local {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
-    }
-}
-
-///TODO: move to other place
-
-pub mod to_u256 {
-    use move_core_types::u256::U256;
-    use move_vm_runtime::witnessing::traced_value::Integer;
-
-    pub trait ToU256 {
-        fn to_u256(&self) -> U256;
-    }
-
-    impl ToU256 for Integer {
-        fn to_u256(&self) -> U256 {
-            match self {
-                Integer::U8(v) => U256::from(*v),
-                Integer::U16(v) => U256::from(*v),
-                Integer::U32(v) => U256::from(*v),
-                Integer::U64(v) => U256::from(*v),
-                Integer::U128(v) => U256::from(*v),
-                Integer::U256(v) => *v,
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use move_core_types::u256::U256;
-
-    #[test]
-    fn test_overflowing_sub() {
-        let a = U256::from(0u8);
-        let b = U256::max_value();
-        let c = U256::from(1u8);
-        assert_eq!(U256::wrapping_sub(a, b), c);
-
-        let a = U256::from(0u8);
-        let b = U256::from(1u8);
-        let c = U256::max_value();
-        assert_eq!(U256::wrapping_sub(a, b), c);
     }
 }
