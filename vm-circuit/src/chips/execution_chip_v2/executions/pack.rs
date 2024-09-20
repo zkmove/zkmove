@@ -256,9 +256,9 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         let num_field = field_counters.len();
 
         self.field_index
-            .assign(region, start_offset, Value::known(F::zero()))?; // TODO: check the assign
+            .assign(region, start_offset, Value::known(F::zero()))?;
         self.field_counter
-            .assign(region, start_offset, Value::known(F::zero()))?; // TODO: check the assign
+            .assign(region, start_offset, Value::known(F::zero()))?;
         self.last_row_of_field
             .assign(region, start_offset, F::zero().sub(F::one()))?; // must be field_counter - 1
 

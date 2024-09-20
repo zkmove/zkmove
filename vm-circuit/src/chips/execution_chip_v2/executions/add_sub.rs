@@ -175,7 +175,6 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             out_lo,
             out_hi,
         )?;
-        //TODO: we need assign row 'offset' too, since add_sub_gadget is also allocated in row 'offset'
 
         Ok(step_state.memory_ops.len())
     }

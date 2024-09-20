@@ -389,9 +389,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
                 step_curr.stack_push_sub_index.expr(),
             );
         });
-        // TODO: not first row
-        // stack_push_sub_index(0) > stack_push_sub_index(-1);
-
         cb.require_equal(
             "stack_push_value(0)==local_read_value(0)",
             step_curr.stack_push_value.expr(),

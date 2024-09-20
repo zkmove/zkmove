@@ -127,7 +127,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         debug_assert_eq!(step_state.memory_ops.len(), 1);
 
         self.field_index
-            .assign(region, offset, Value::known(F::zero()))?; // TODO: check the assign
+            .assign(region, offset, Value::known(F::zero()))?;
         let aux_value = region.get_advice(offset, step.aux1.get_column_idx(), Rotation::cur());
         self.is_zero_num_field.assign(region, offset, aux_value)?;
 
@@ -286,7 +286,6 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
                 .assign(region, offset + i, Value::known(F::from(field_index)))?;
             self.is_last_field
                 .assign(region, offset + i, F::from(field_index - 1))?;
-            // TODO: unify the api of sub_index and header_index to membership gadget
             self.membership_gadget.assign(
                 region,
                 offset + i,
