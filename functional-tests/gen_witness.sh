@@ -2,7 +2,7 @@
 set -e
 
 move build
-move sandbox publish --skip-fetch-latest-git-deps
+move sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
 
 # Read test cases from a file
 test_cases_file="test_cases.txt"

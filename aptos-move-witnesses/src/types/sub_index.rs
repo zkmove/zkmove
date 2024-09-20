@@ -107,14 +107,17 @@ impl SubIndex {
         self.0.to_vec()
     }
 
+    /// Remove trailing zeros until no zero left at the tail.
+    /// Return empty vec if all zeros.
     pub fn to_trimmed_vec(&self) -> Vec<u16> {
         let mut vec = self.0.to_vec();
 
-        // Remove trailing zeros but keep a single zero if it's the only element
-        while vec.len() > 1 && vec.last() == Some(&0) {
-            vec.pop();
+        while let Some(v) = vec.pop() {
+            if v != 0 {
+                vec.push(v);
+                break;
+            }
         }
-
         vec
     }
 }

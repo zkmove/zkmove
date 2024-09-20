@@ -31,8 +31,8 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
     const EXECUTION_STATE: ExecutionState = ExecutionState::CallStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
-        let call_context = CallContext::construct(cb);
         let num_arg = cb.query_cell();
+        let call_context = CallContext::construct(cb);
         let is_zero_num_arg = IsZeroGadget::construct(cb, num_arg.expr());
         let step_curr = cb.curr.state.clone();
         let step_next = cb.step_state_at_offset(1);
@@ -52,6 +52,14 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
         cb.require_state_transition(vec![(SP, Transition::Same)]);
+        call_context.configure(
+            cb,
+            step_curr.frame_index.expr(),
+            step_curr.module_index.expr(),
+            step_curr.function_index.expr(),
+            step_curr.pc.expr(),
+            step_curr.clk.expr(),
+        );
 
         cb.condition(is_zero_num_arg.expr(), |cb| {
             cb.add_lookup(
@@ -65,14 +73,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
                     entry: 0u64.expr(),
                 },
             );
-            call_context.configure(
-                cb,
-                step_curr.frame_index.expr(),
-                step_curr.module_index.expr(),
-                step_curr.function_index.expr(),
-                step_curr.pc.expr(),
-                step_curr.clk.expr(),
-            );
             cb.require_state_transition(vec![
                 (PC, Transition::To(0u64.expr())),
                 (FRAME_INDEX, Transition::Delta(1.expr())),
@@ -80,7 +80,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         });
         cb.condition(not::expr(is_zero_num_arg.expr()), |cb| {
             cb.require_next_state(ExecutionState::CallStage2);
-            call_context.require_zero(cb);
             cb.require_cell_transition(num_arg.clone(), Transition::Same);
             let local_index_next = cb.cell_at_offset(&step_curr.local_index, 1).expr();
             cb.require_equal(
@@ -132,9 +131,9 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             )
             .unwrap_or_else(|| panic!("cannot find function"))
             .num_arg;
-
         self.num_arg
             .assign(region, offset, Value::known(F::from(num_arg as u64)))?;
+
         self.call_context.assign(
             region,
             offset,
@@ -144,6 +143,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             pc,
             clk,
         )?;
+
         self.is_zero_num_arg
             .assign(region, offset, F::from(num_arg as u64))?;
 
@@ -200,8 +200,8 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
             step_curr.local_frame_index.expr(),
             step_curr.frame_index.expr() + 1u64.expr(), //write to local of next frame
         );
-        cb.require_zero(
-            format!("{}, local_write_value_invalid == 0", Self::NAME),
+        cb.require_true(
+            format!("{}, local_write_value_invalid == 1", Self::NAME),
             step_curr.local_write_value_invalid.expr(),
         );
         cb.require_equal(
@@ -261,7 +261,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
     ) -> Result<usize, Error> {
         let rows = stage_state.rows();
         let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
-
         for i in 0..rows {
             self.num_arg
                 .assign(region, offset + i, Value::known(num_arg))?;
@@ -277,7 +276,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
 #[derive(Clone, Debug)]
 pub struct CallStage3<F> {
     num_arg: Cell<F>,
-    call_context: CallContext<F>,
     is_zero_local_index: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
@@ -286,7 +284,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let num_arg = cb.query_cell();
-        let call_context = CallContext::construct(cb);
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
         let step_curr = cb.curr.state.clone();
         let step_next = cb.step_state_at_offset(1);
@@ -360,7 +357,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         cb.require_no_stack_push();
 
         cb.not_last_row(|cb| {
-            call_context.require_zero(cb);
             cb.require_state_transition(vec![(SP, Transition::Same)]);
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(num_arg.clone(), Transition::Same);
@@ -380,14 +376,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
                         entry: 0u64.expr(),
                     },
                 );
-                call_context.configure(
-                    cb,
-                    step_curr.frame_index.expr(),
-                    step_curr.module_index.expr(),
-                    step_curr.function_index.expr(),
-                    step_curr.pc.expr(),
-                    step_curr.clk.expr(),
-                );
                 cb.require_state_transition(vec![
                     (FRAME_INDEX, Transition::Delta(1.expr())),
                     (PC, Transition::To(0.expr())),
@@ -395,7 +383,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             });
             cb.condition(not::expr(is_zero_local_index.expr()), |cb| {
                 cb.require_next_state(ExecutionState::CallStage2);
-                call_context.require_zero(cb);
                 cb.require_cell_transition(step_curr.local_index, Transition::Delta((-1).expr()));
                 cb.require_state_transition(
                     [
@@ -416,7 +403,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
 
         CallStage3 {
             num_arg,
-            call_context,
             is_zero_local_index,
         }
     }
@@ -440,34 +426,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
             self.is_zero_local_index
                 .assign(region, offset + i, F::from(local_index as u64))?;
         }
-
-        for i in 0..(rows - 1) {
-            self.call_context.assign(
-                region,
-                offset + i,
-                F::zero(),
-                F::zero(),
-                F::zero(),
-                F::zero(),
-                F::zero(),
-            )?;
-        }
-
-        let frame_index = F::from(step_state.step_state.frame_index as u64);
-        let module_index = F::from(step_state.step_state.module_index);
-        let function_index = F::from(step_state.step_state.function_index as u64);
-        let pc = F::from(step_state.step_state.pc);
-        let clk = F::from(step_state.step_state.clk);
-        self.call_context.assign(
-            region,
-            offset + rows - 1,
-            frame_index,
-            module_index,
-            function_index,
-            pc,
-            clk,
-        )?;
-
         Ok(rows)
     }
 }

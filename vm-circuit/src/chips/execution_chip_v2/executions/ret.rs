@@ -66,7 +66,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
                 module_index_next,
                 function_index_next,
                 pc_next - 1u64.expr(),
-                call_context_version.expr(),
+                call_context_version.expr(), // TODO: can call_context_version be cheated?
             );
             // TODO: call_context_version < clk(0)
         });
