@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
-use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utilities::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -99,9 +98,12 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowField<F> {
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
         let step_state = stage_state.step_states.first().unwrap();
-        let stack_pop_sub_index = step_state.memory_ops[0].0.clone().unwrap().sub_index;
-        self.stack_pop_value_sub_index
-            .assign(region, offset, stack_pop_sub_index.to_field())?;
+        let stack_pop_value_sub_index = step_state.memory_ops[0].0.clone().unwrap().value.hi(); // TODO: use reference
+        self.stack_pop_value_sub_index.assign(
+            region,
+            offset,
+            F::from_u128(stack_pop_value_sub_index),
+        )?;
         Ok(step_state.memory_ops.len())
     }
 }

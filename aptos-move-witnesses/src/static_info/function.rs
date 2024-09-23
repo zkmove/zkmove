@@ -1,8 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::static_info::ModuleIdMapping;
-use move_binary_format::file_format::{CompiledModule, FunctionHandleIndex};
-use move_binary_format::views::FunctionHandleView;
+use move_binary_format::file_format::CompiledModule;
+use move_binary_format::views::{FunctionDefinitionView, FunctionHandleView};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FunctionInfo {
@@ -58,13 +58,19 @@ fn parse_module(
         .enumerate()
         .map(|(fh_index, fh)| {
             let fh_view = FunctionHandleView::new(module, fh);
+            let func_name = fh_view.name();
             let (def_module_index, def_module) = module_id_mapping.get_module(&fh_view.module_id());
+
             let function_index = def_module
                 .function_defs
                 .iter()
                 .enumerate()
                 .find_map(move |(index, func)| {
-                    if func.function == FunctionHandleIndex(fh_index as u16) {
+                    if FunctionDefinitionView::new(def_module, func)
+                        .name()
+                        .as_str()
+                        == func_name.as_str()
+                    {
                         Some(index)
                     } else {
                         None

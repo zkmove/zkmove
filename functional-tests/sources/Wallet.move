@@ -1,5 +1,4 @@
-address 0x1 {
-module Wallet {
+module cases::Wallet {
 
     struct Token has copy, drop {
         value: u64,
@@ -40,6 +39,7 @@ module Wallet {
     public fun walletset_create(wallet_1: Wallet, wallet_2: Wallet): WalletSet {
         WalletSet { wallet_1, wallet_2 }
     }
+
     public fun walletset_create2(w_1: WalletSet, w_2: WalletSet): WalletSet2 {
         WalletSet2 { wallet_1: w_1, wallet_2: w_2 }
     }
@@ -47,9 +47,11 @@ module Wallet {
     public fun value(wallet: &Wallet): u64 {
         wallet.token.value
     }
+
     public fun value_1(wallet: &Wallet): u64 {
         wallet.token_2.value_1
     }
+
     public fun value_1_set(wallet: &mut Wallet, amount: u64) {
         wallet.token_2.value_1 = amount;
     }
@@ -59,5 +61,4 @@ module Wallet {
         let Token { value: _ } = token;
         let Token_2 { value_0: _, value_1: _ } = token_2;
     }
-}
 }

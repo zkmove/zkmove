@@ -24,29 +24,32 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
 
+        cb.require_in_set(
+            "opcode in OPCODES",
+            step_curr.opcode.expr(),
+            Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
+        );
+
         cb.first_row(|cb| {
-            cb.require_in_set(
-                "opcode in OPCODES",
-                step_curr.opcode.expr(),
-                Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
-            );
-            cb.condition(step_curr.local_read_value_header.expr(), |cb| {
-                cb.require_equal(
-                    "step_counter(0) == local_read_value(0).as_header().flen",
-                    step_curr.step_counter.expr(),
-                    step_curr.local_read_value.as_header().flen(),
+            cb.condition(1.expr() - step_curr.local_read_value_invalid.expr(), |cb| {
+                cb.condition(step_curr.local_read_value_header.expr(), |cb| {
+                    cb.require_equal(
+                        "step_counter(0) == local_read_value(0).as_header().flen",
+                        step_curr.step_counter.expr(),
+                        step_curr.local_read_value.as_header().flen(),
+                    );
+                });
+                cb.condition(
+                    1u64.expr() - step_curr.local_read_value_header.expr(),
+                    |cb| {
+                        cb.require_equal(
+                            "step_counter(0) == 1",
+                            step_curr.step_counter.expr(),
+                            1u64.expr(),
+                        );
+                    },
                 );
             });
-            cb.condition(
-                1u64.expr() - step_curr.local_read_value_header.expr(),
-                |cb| {
-                    cb.require_equal(
-                        "step_counter(0) == 1",
-                        step_curr.step_counter.expr(),
-                        1u64.expr(),
-                    );
-                },
-            );
         });
         cb.require_equal(
             "local_frame_index(0) == frame_index(0)",

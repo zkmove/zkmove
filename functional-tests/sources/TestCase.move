@@ -1,5 +1,6 @@
 module cases::TestCase {
     use std::vector;
+    use cases::Wallet;
 
     public entry fun test_all() {
         //test_abort();
@@ -166,11 +167,26 @@ module cases::TestCase {
         assert!(x >> b0 == a0, 101);
 
         let x = a1 << b1;
-        assert!( x == 2722258935367507707706996859454145691648, 102);
-        assert!( x >> b1 == a1, 103);
+        assert!(x == 2722258935367507707706996859454145691648, 102);
+        assert!(x >> b1 == a1, 103);
+    }
+
+    public entry fun test_wallet() {
+        let token = Wallet::new_token(100);
+        let token_2 = Wallet::new_token_2(101, 102);
+        let wallet_1 = Wallet::create(token, token_2);
+        Wallet::value_1_set(&mut wallet_1, 103);
+        let amount = Wallet::value_1(&wallet_1);
+        assert!(amount == 103, 202);
+
+        let walletset = Wallet::walletset_create(wallet_1, wallet_1);
+        let _walletset2 = Wallet::walletset_create2(walletset, walletset);
+
+        Wallet::destroy(wallet_1);
     }
 
     use cases::Struct_;
+
     public entry fun test_token() {
         let s = Struct_::create(100);
         Struct_::sub(&mut s, 10);

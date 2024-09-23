@@ -114,7 +114,7 @@ pub struct FunctionTableRow {
 impl From<&FunctionInfo> for FunctionTableRow {
     fn from(func: &FunctionInfo) -> Self {
         Self {
-            module_index: func.def_module_index,
+            module_index: func.module_index,
             function_handle_index: func.function_handle_index,
             def_module_index: func.def_module_index,
             function_index: func.function_index,

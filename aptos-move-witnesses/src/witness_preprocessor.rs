@@ -386,7 +386,7 @@ impl WitnessPreProcessor {
             Operation::MoveLoc { local_index, local } => {
                 let step_state =
                     StepState::new(self.clk, ExecutionState::MoveLoc, trace, static_info);
-
+                self.version_stack.push(self.clk);
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -400,8 +400,9 @@ impl WitnessPreProcessor {
                             true,
                             self.clk,
                         );
-                        // TODO: assert_eq!(old_, local[*sub_index as usize]);
-                        self.version_stack.push(self.clk);
+                        debug_assert_eq!(old_.value, (&item.value).into());
+                        debug_assert_eq!(old_.value_header, item.header);
+                        debug_assert!(!old_.value_invalid);
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
@@ -430,7 +431,7 @@ impl WitnessPreProcessor {
             Operation::CopyLoc { local_index, local } => {
                 let step_state =
                     StepState::new(self.clk, ExecutionState::CopyLoc, trace, static_info);
-
+                self.version_stack.push(self.clk);
                 let memory_ops = local
                     .iter()
                     .map(|item| {
@@ -441,8 +442,10 @@ impl WitnessPreProcessor {
                             &item.sub_index.clone().into(),
                             self.clk,
                         );
-                        // TODO: assert old_ == local[sub_index]
-                        self.version_stack.push(self.clk);
+                        debug_assert_eq!(old_.value, (&item.value).into());
+                        debug_assert_eq!(old_.value_header, item.header);
+                        debug_assert!(!old_.value_invalid);
+
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
@@ -569,7 +572,8 @@ impl WitnessPreProcessor {
                 };
                 vec![StageState {
                     step_states: vec![ExecStepState {
-                        step_state: StepState::new(self.clk, exec_state, trace, static_info),
+                        step_state: StepState::new(self.clk, exec_state, trace, static_info)
+                            .set_aux0(*field_offset as u128), // TODO: figure out a better way
                         memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
                     }],
                     extra_data: None,
@@ -961,7 +965,7 @@ impl WitnessPreProcessor {
                     let version = self.version_stack.pop().unwrap();
                     memory_ops.extend(arg.iter().map(|item| {
                         let stack_pop = StackPop {
-                            index: step_state.sp - i as u64,
+                            index: step_state.sp - (len - 1 - i) as u64,
                             sub_index: item.sub_index.clone().into(),
                             value: item.value.clone().into(),
                             value_header: item.header,
@@ -1050,6 +1054,7 @@ impl WitnessPreProcessor {
 
                 if !fields.is_empty() {
                     // ----- stage2
+                    let mut pushed_value_versions = vec![];
                     for (field_index, field) in fields.into_iter().rev() {
                         self.clk += 1;
                         let step_state = step_state
@@ -1059,6 +1064,7 @@ impl WitnessPreProcessor {
                                 ExecutionState::UnpackStage2
                             })
                             .change_clk(self.clk);
+
                         let memory_ops = field
                             .into_iter()
                             .map(|item| {
@@ -1080,11 +1086,11 @@ impl WitnessPreProcessor {
                                     value_header: item.header,
                                     version: step_state.clk,
                                 };
-                                self.version_stack.push(step_state.clk);
 
                                 MemoryOp(Some(stack_pop), Some(stack_push), None)
                             })
                             .collect();
+                        pushed_value_versions.push(step_state.clk);
                         stages.push(StageState {
                             step_states: vec![ExecStepState {
                                 step_state,
@@ -1093,6 +1099,9 @@ impl WitnessPreProcessor {
                             extra_data: None,
                         });
                     }
+                    // had to reverse the versions, as the above fields operations didn't follow the stack push semantics.
+                    pushed_value_versions.reverse();
+                    self.version_stack.append(&mut pushed_value_versions);
                 }
                 stages
             }
@@ -1774,7 +1783,7 @@ impl WitnessPreProcessor {
 
                 let callee_frame_index = current_frame_index + 1;
                 for (i, arg) in args.iter().enumerate().rev() {
-                    let local_index = args.len() - 1 - i;
+                    let local_index = i;
 
                     // stage2: invalidate old local
                     self.clk += 1;
