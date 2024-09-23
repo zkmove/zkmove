@@ -347,34 +347,16 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         self.require_zero("none local op", self.curr.state.local_read_version.expr());
         self.require_zero("none local op", self.curr.state.local_write_version.expr());
     }
-    /// FIXME: implement this.
     pub(crate) fn require_read_invalid_value(&mut self) {
-        // self.require_zero(
-        //     "local read invalid",
-        //     self.curr.state.local_read_value.expr(),
-        // );
         self.require_true(
             "read value is invalid",
             self.curr.state.local_read_value_invalid.expr(),
         );
-        self.require_zero(
-            "read value is not header",
-            self.curr.state.local_read_value_header.expr(),
-        );
     }
-    /// FIXME: implement this.
     pub(crate) fn require_write_invalid_value(&mut self) {
-        // self.require_zero(
-        //     "local write invalid",
-        //     self.curr.state.local_write_value.expr(),
-        // );
         self.require_true(
             "write value is invalid",
             self.curr.state.local_write_value_invalid.expr(),
-        );
-        self.require_zero(
-            "write value is not header",
-            self.curr.state.local_write_value_header.expr(),
         );
     }
 
