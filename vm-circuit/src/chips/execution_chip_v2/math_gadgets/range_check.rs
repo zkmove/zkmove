@@ -27,7 +27,7 @@ impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
         cb.require_equal(
             "Constrain bytes recomposited to value",
             value,
-            from_limbs::expr::<_, _, N_BYTES>(&parts),
+            from_limbs::expr::<_, _, 8>(&parts),
         );
 
         Self { parts }

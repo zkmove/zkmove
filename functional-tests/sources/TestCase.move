@@ -10,6 +10,7 @@ module cases::TestCase {
         test_cast(1, 2);
         test_arith(1, 2, 3, 10u256, 1);
         test_vector();
+        test_wallet();
         test_struct();
     }
 
