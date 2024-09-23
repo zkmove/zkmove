@@ -203,7 +203,7 @@ fn bytecode_to_instruction(
             (Some(idx.0 as u128), Some(field_count as u128))
         }
         Bytecode::ImmBorrowField(fh_idx) | Bytecode::MutBorrowField(fh_idx) => {
-            (Some(fh_idx.0 as u128), None)
+            (Some(module.field_handle_at(fh_idx).field as u128), None)
         }
         Bytecode::ImmBorrowFieldGeneric(idx) | Bytecode::MutBorrowFieldGeneric(idx) => {
             (Some(idx.0 as u128), None)

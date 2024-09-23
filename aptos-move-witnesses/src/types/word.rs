@@ -42,7 +42,7 @@ impl From<&Reference> for Word {
 
         // Pack frame_index and local_index into lo, and sub_index into hi
         // TODO: align with Word expression.
-        let lo = frame_index | (local_index << 64);
+        let lo = frame_index | (local_index << 16);
         let hi = sub_index;
 
         Word([lo, hi])

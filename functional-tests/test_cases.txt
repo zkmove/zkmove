@@ -10,3 +10,4 @@ test_vector
 test_shift --args 1u128 1u256 127u8 131u8
 test_call
 test_token
+test_wallet

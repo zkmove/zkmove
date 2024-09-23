@@ -65,6 +65,7 @@ impl StaticInfo {
             .collect::<Vec<_>>();
         deps.push(modules.get_module(module_id).unwrap().clone());
         let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+
         let module_index = module_id_mapping.get_module_index(module_id);
         StaticInfo {
             bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),

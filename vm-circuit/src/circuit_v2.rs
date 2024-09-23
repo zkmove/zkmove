@@ -91,6 +91,7 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
+        //dbg!(&self.witness.static_info.function_info);
         lookup_table_config.load(layouter, &self.witness.static_info)?;
         exec_chip_config.assign(layouter, &self.witness, challenges)?;
         Ok(())

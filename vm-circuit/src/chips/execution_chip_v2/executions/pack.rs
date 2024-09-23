@@ -16,7 +16,7 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -269,7 +269,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         self.last_row
             .assign(region, start_offset, cur_step_counter - F::one())?;
 
-        let mut args = HashMap::new();
+        let mut args = BTreeMap::new();
         for (stack_index, d) in step_state
             .memory_ops
             .clone()
@@ -284,7 +284,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         }
         debug_assert_eq!(args.len(), num_field);
         let mut field_index = num_field as u64;
-        for arg in args.into_values() {
+        for (stack_index, arg) in args.into_iter().rev() {
             let mut field_counter = arg.len() as u64;
             for (i, memory_op) in arg {
                 self.field_index.assign(
