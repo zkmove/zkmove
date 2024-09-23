@@ -10,6 +10,7 @@ module cases::TestCase {
         test_cast(1, 2);
         test_arith(1, 2, 3, 10u256, 1);
         test_vector();
+        test_struct();
     }
 
     public entry fun test_abort() {
@@ -187,7 +188,7 @@ module cases::TestCase {
 
     use cases::Struct_;
 
-    public entry fun test_token() {
+    public entry fun test_struct() {
         let s = Struct_::create(100);
         Struct_::sub(&mut s, 10);
         let amount = Struct_::value(&s);

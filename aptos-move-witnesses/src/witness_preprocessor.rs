@@ -858,68 +858,7 @@ impl WitnessPreProcessor {
                     }
                 };
                 // stage3: STAGE_UPDATE_PARENT
-                self.clk += 1;
-                let step_state = step_state
-                    .change_state(ExecutionState::WriteRefStage3)
-                    .change_clk(self.clk)
-                    .dec_sp(1);
-                let stage3_state = {
-                    let depth = SubIndex::from(reference.sub_index.clone()).depth();
-                    let parents = SubIndex::from(reference.sub_index.clone()).parents();
-                    let memory_ops: Vec<_> = (0..depth)
-                        .map(|i| {
-                            // we come here, then depth >= 1, reference.sub_index != 0
-                            // at least we have one parent
-                            let sub_index = &parents[i];
-                            let parent_value = self
-                                .locals
-                                .peek_local_slot(
-                                    reference.frame_index,
-                                    reference.local_index,
-                                    sub_index,
-                                )
-                                .unwrap()
-                                .value
-                                .clone();
-                            let len = ValueHeader::from(parent_value).len;
-
-                            // TODO: caculate flen
-                            let members = self.locals.members(
-                                reference.frame_index,
-                                reference.local_index,
-                                sub_index,
-                            );
-                            let flen = match members {
-                                Some(members) => members.len(),
-                                None => unreachable!(),
-                            };
-
-                            let new_parent_value = ValueHeader::new(flen, len as usize);
-                            let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                reference.frame_index,
-                                reference.local_index,
-                                sub_index,
-                                new_parent_value.into(),
-                                true,
-                                false,
-                                self.clk,
-                            );
-                            let local_op = LocalReadWrite::new(
-                                reference.frame_index.try_into().unwrap(),
-                                reference.local_index.try_into().unwrap(),
-                                sub_index.clone(),
-                                old_,
-                                new_,
-                            );
-                            MemoryOp(None, None, Some(local_op))
-                        })
-                        .collect();
-                    ExecStepState {
-                        step_state,
-                        memory_ops,
-                    }
-                };
-                vec![
+                let mut stage_states = vec![
                     StageState {
                         step_states: vec![stage1_state],
                         extra_data: None,
@@ -928,11 +867,64 @@ impl WitnessPreProcessor {
                         step_states: vec![stage2_state],
                         extra_data: None,
                     },
-                    StageState {
+                ];
+                let parents = SubIndex::from(reference.sub_index.clone()).parents();
+                // enter stage3 if we have at least one parent, otherwise skip stage3
+                if parents.len() > 0 {
+                    self.clk += 1;
+                    let step_state = step_state
+                        .change_state(ExecutionState::WriteRefStage3)
+                        .change_clk(self.clk)
+                        .dec_sp(1);
+                    let stage3_state = {
+                        let memory_ops: Vec<_> = parents
+                            .iter()
+                            .map(|sub_index| {
+                                let parent_value = self
+                                    .locals
+                                    .peek_local_slot(
+                                        reference.frame_index,
+                                        reference.local_index,
+                                        sub_index,
+                                    )
+                                    .unwrap()
+                                    .value
+                                    .clone();
+                                let header: ValueHeader = parent_value.into();
+                                let new_flen =
+                                    header.flen as usize - old_value.len() + new_value.len();
+                                let new_parent_value =
+                                    ValueHeader::new(new_flen, header.len as usize);
+                                let (old_, new_) = self.locals.write_local_slot_with_clk(
+                                    reference.frame_index,
+                                    reference.local_index,
+                                    sub_index,
+                                    new_parent_value.into(),
+                                    true,
+                                    false,
+                                    self.clk,
+                                );
+                                let local_op = LocalReadWrite::new(
+                                    reference.frame_index.try_into().unwrap(),
+                                    reference.local_index.try_into().unwrap(),
+                                    sub_index.clone(),
+                                    old_,
+                                    new_,
+                                );
+                                MemoryOp(None, None, Some(local_op))
+                            })
+                            .collect();
+                        ExecStepState {
+                            step_state,
+                            memory_ops,
+                        }
+                    };
+                    stage_states.push(StageState {
                         step_states: vec![stage3_state],
                         extra_data: None,
-                    },
-                ]
+                    });
+                }
+                stage_states
             }
             Operation::Pack {
                 sd_idx: si,
