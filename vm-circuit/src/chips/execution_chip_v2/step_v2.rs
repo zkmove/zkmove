@@ -33,19 +33,19 @@ pub(crate) struct StepState<F> {
     pub module_index: Cell<F>,
     pub function_index: Cell<F>, // max should be 2^16 - 1
     pub pc: Cell<F>,             // max PC should be 2^16 - 1
-    pub sp: Cell<F>,             // max stack pointer should be 2^16 -1
+    pub sp: Cell<F>,             // max stack pointer should be 2^10 -1
     pub opcode: Cell<F>,         // should be in range < 2^8
     pub aux0: Cell<F>,
     pub aux1: Cell<F>,
     pub step_counter: Cell<F>,
 
-    pub stack_pop_index: Cell<F>, // max value be 2^16 - 1
+    pub stack_pop_index: Cell<F>, // max value be 2^10 - 1
     pub stack_pop_sub_index: Cell<F>,
     pub stack_pop_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_pop_value_header: Cell<F>,
     pub stack_pop_version: Cell<F>,
 
-    pub stack_push_index: Cell<F>, // max value be 2^16 - 1
+    pub stack_push_index: Cell<F>, // max value be 2^10 - 1
     pub stack_push_sub_index: Cell<F>,
     pub stack_push_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_push_value_header: Cell<F>,
@@ -373,7 +373,7 @@ impl<F: Field> Step<F> {
                 CellType::StoragePhase1,
             ),
             pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U16)),
-            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U16)),
+            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U10)),
             opcode: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -390,7 +390,7 @@ impl<F: Field> Step<F> {
             stack_pop_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::Lookup(Table::U16),
+                CellType::Lookup(Table::U10),
             ),
             stack_pop_sub_index: cell_manager.query_cell(
                 meta,
@@ -412,7 +412,7 @@ impl<F: Field> Step<F> {
             stack_push_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::Lookup(Table::U16),
+                CellType::Lookup(Table::U10),
             ),
             stack_push_sub_index: cell_manager.query_cell(
                 meta,
