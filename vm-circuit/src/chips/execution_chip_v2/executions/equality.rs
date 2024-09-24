@@ -59,12 +59,15 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             stack_pop_sub_index_reverse.expr(),
         );
         let rlc1_rlc2_eq = IsZeroGadget::construct(cb, rlc1.expr() - rlc2.expr());
+
         let stack_pop_rlc = cb.rlc_with_randomness(
             &[
                 step_curr.stack_pop_sub_index.expr(),
                 step_curr.stack_pop_value_header.expr(),
-                step_curr.stack_pop_value.expr(), //stack_pop_value must be the last element of the array
-            ],
+            ]
+            .into_iter()
+            .chain(step_curr.stack_pop_value.exprs())
+            .collect::<Vec<_>>(),
             cb.row_randomness(),
         );
 
@@ -312,8 +315,9 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                         } else {
                             F::zero()
                         },
-                        rlc::generic(stack_pop.value.to_fields(), randomness), // TODO: remove the nest?
-                    ],
+                    ]
+                    .into_iter()
+                    .chain(stack_pop.value.to_fields()), // TODO: remove the nest?
                     randomness,
                 )
             });
