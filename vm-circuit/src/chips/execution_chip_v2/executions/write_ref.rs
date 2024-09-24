@@ -1,5 +1,3 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::Membership;
@@ -7,10 +5,14 @@ use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
 };
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, Transition,
+};
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utilities::Expr;
+use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;

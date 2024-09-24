@@ -1,4 +1,4 @@
-use crate::chips::utilities::Expr;
+use crate::chips::utils::Expr;
 use halo2_proofs::plonk::Expression;
 use types::Field;
 pub(crate) trait ConstrainBuilderCommon<F: Field> {

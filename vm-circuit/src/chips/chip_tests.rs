@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::opcode::Opcode;
+use crate::chips::execution_chip_v2::opcode::Opcode;
 use crate::circuit_v2::VmCircuit;
 use crate::witness::exec_step::ExecStep;
 use crate::witness::exec_step::{LocalContext, OpcodeContext, StackContext};

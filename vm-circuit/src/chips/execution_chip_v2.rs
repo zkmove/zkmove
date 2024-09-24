@@ -1,9 +1,3 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::{
-    BaseConstraintBuilder, ConstrainBuilderCommon,
-};
-use crate::chips::execution_chip::utils::constraint_builder_v2::{
-    ConstraintBuilderV2, ConstraintLocation,
-};
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
@@ -18,8 +12,14 @@ use crate::chips::execution_chip_v2::executions::{
 use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
+    BaseConstraintBuilder, ConstrainBuilderCommon,
+};
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, ConstraintLocation,
+};
 use crate::chips::execution_chip_v2::utils::StoredExpression;
-use crate::chips::utilities::Expr;
+use crate::chips::utils::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
@@ -41,6 +41,7 @@ pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
+pub(crate) mod opcode;
 pub(crate) mod step_v2;
 pub(crate) mod sub_index;
 pub(crate) mod utils;

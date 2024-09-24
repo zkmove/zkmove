@@ -1,160 +1,12 @@
 // Copyright (c) zkMove Authors
 
-use halo2_proofs::circuit::{AssignedCell, Region};
 use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
 use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
-use halo2_proofs::poly::Rotation;
-use movelang::value::NUM_OF_BYTES_U128;
+
 use std::convert::TryInto;
 use types::Field;
 
-#[derive(Clone, Debug)]
-pub struct Cell<F> {
-    pub expression: Expression<F>,
-    pub column: Column<Advice>,
-    pub rotation: Rotation,
-}
-impl<F: Field> Expr<F> for Cell<F> {
-    fn expr(&self) -> Expression<F> {
-        self.expression.clone()
-    }
-}
-
-impl<F: Field> Expr<F> for &Cell<F> {
-    fn expr(&self) -> Expression<F> {
-        self.expression.clone()
-    }
-}
-impl<F: Field> Cell<F> {
-    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: i32) -> Self {
-        Cell {
-            expression: meta.query_advice(column, Rotation(rotation)),
-            column,
-            rotation: Rotation(rotation),
-        }
-    }
-
-    pub fn assign(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        value: Option<F>,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        region.assign_advice(
-            || "assign cell",
-            self.column,
-            (offset as i32 + self.rotation.0) as usize,
-            || match value {
-                Some(v) => CircuitValue::known(v),
-                None => CircuitValue::unknown(),
-            },
-        )
-    }
-
-    pub fn assign_equality(
-        &self,
-        region: &mut Region<'_, F>,
-        offset: usize,
-        cell: AssignedCell<F, F>,
-        annotation: &str,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        cell.copy_advice(
-            || annotation,
-            region,
-            self.column,
-            (offset as i32 + self.rotation.0) as usize,
-        )
-    }
-}
 pub use gadgets::util::Expr;
-
-// The internal representation of Field is four 64-bits unsigned integer in little-endian order,
-// This struct has 16 Cells, to hold the 16 bytes of the lower two u64.
-pub struct FieldBytes<F: Field>(pub(crate) [Cell<F>; 16]);
-
-impl<F: Field> From<Vec<Cell<F>>> for FieldBytes<F> {
-    fn from(bytes: Vec<Cell<F>>) -> FieldBytes<F> {
-        let bytes: [Cell<F>; 16] = bytes.try_into().unwrap_or_else(|v: Vec<Cell<F>>| {
-            panic!(
-                "Expected a Vec of length {} but it was {}",
-                NUM_OF_BYTES_U128,
-                v.len()
-            )
-        });
-        FieldBytes(bytes)
-    }
-}
-
-impl<F: Field> Expr<F> for FieldBytes<F> {
-    fn expr(&self) -> Expression<F> {
-        let mut value = 0u64.expr();
-        let mut multiplier = F::ONE;
-        for byte in self.0.iter() {
-            value = value + byte.expression.clone() * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-}
-
-impl<F: Field> FieldBytes<F> {
-    pub fn expr_with_n(&self, num: usize) -> Expression<F> {
-        let mut value = 0u64.expr();
-        let mut multiplier = F::ONE;
-        for byte in self.0.iter().take(num) {
-            value = value + byte.expression.clone() * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-
-    pub fn expr_16bit(&self, num: usize) -> Expression<F> {
-        let mut value = 0u64.expr();
-        let mut multiplier = F::ONE;
-        for byte in self.0.iter().take(num) {
-            value = value + byte.expression.clone() * multiplier;
-            multiplier *= F::from(1 << 16);
-        }
-        value
-    }
-}
-
-// Decodes a field element from its byte representation
-pub(crate) mod from_bytes {
-    use super::Expr;
-    use crate::chips::execution_chip::param::MAX_N_BYTES_INTEGER;
-    use halo2_proofs::plonk::Expression;
-    use types::Field;
-
-    pub(crate) fn expr<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
-        debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
-        );
-        let mut value = 0u64.expr();
-        let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value = value + byte.expr() * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn value<F: Field>(bytes: &[u8]) -> F {
-        debug_assert!(
-            bytes.len() <= MAX_N_BYTES_INTEGER,
-            "Too many bytes to compose an integer in field"
-        );
-        let mut value = F::ZERO;
-        let mut multiplier = F::ONE;
-        for byte in bytes.iter() {
-            value += F::from(*byte as u64) * multiplier;
-            multiplier *= F::from(256);
-        }
-        value
-    }
-}
 
 pub(crate) trait SubInvert<F: Field> {
     fn sub_invert(&self, other: usize) -> Option<F>;
@@ -213,7 +65,7 @@ pub(crate) fn assign_index_table<F: Field>(
 
 /// Returns the sum of the passed in cells
 pub mod sum {
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
@@ -238,7 +90,7 @@ pub mod sum {
 /// Returns `1` when `expr[0] && expr[1] && ... == 1`, and returns `0`
 /// otherwise. Inputs need to be boolean
 pub mod and {
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
@@ -263,7 +115,7 @@ pub mod and {
 /// otherwise. Inputs need to be boolean
 pub mod or {
     use super::{and, not};
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
@@ -285,7 +137,7 @@ pub mod or {
 /// Returns `1` when `b == 0`, and returns `0` otherwise.
 /// `b` needs to be boolean
 pub mod not {
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
@@ -303,7 +155,7 @@ pub mod not {
 /// Returns `a ^ b`.
 /// `a` and `b` needs to be boolean
 pub mod xor {
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 
@@ -322,7 +174,7 @@ pub mod xor {
 /// Returns `when_true` when `selector == 1`, and returns `when_false` when
 /// `selector == 0`. `selector` needs to be boolean.
 pub mod select {
-    use crate::chips::utilities::Expr;
+    use crate::chips::utils::Expr;
     use halo2_proofs::plonk::Expression;
     use types::Field;
 

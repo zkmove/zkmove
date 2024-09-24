@@ -1,8 +1,10 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, STEP_COUNTER,
+};
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, Transition,
 };
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;

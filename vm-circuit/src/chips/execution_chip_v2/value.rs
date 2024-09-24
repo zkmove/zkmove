@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
-use crate::chips::utilities::Expr;
+use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
