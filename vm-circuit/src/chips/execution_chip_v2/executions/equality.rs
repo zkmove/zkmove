@@ -45,7 +45,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
         (false, false) => ExecutionState::NeqStage2,
     };
 
-    // TODO: need two randomness
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let rlc1 = cb.query_cell_phase2();
@@ -60,11 +59,14 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             stack_pop_sub_index_reverse.expr(),
         );
         let rlc1_rlc2_eq = IsZeroGadget::construct(cb, rlc1.expr() - rlc2.expr());
-        let stack_pop_rlc = cb.rlc(&[
-            step_curr.stack_pop_sub_index.expr(),
-            step_curr.stack_pop_value_header.expr(),
-            step_curr.stack_pop_value.expr(), //stack_pop_value must be the last element of the array
-        ]);
+        let stack_pop_rlc = cb.rlc_with_randomness(
+            &[
+                step_curr.stack_pop_sub_index.expr(),
+                step_curr.stack_pop_value_header.expr(),
+                step_curr.stack_pop_value.expr(), //stack_pop_value must be the last element of the array
+            ],
+            cb.row_randomness(),
+        );
 
         cb.first_row(|cb| {
             if !STAGE1 {
@@ -133,11 +135,10 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 format!("{}, stack_pop_sub_index_reverse(-1) < stack_pop_sub_index_reverse(0)", Self::NAME),
                 sub_index_lt.expr(),
             );
-            //in order not to conflict with inner rlc, we use gamma^4 as randomness
-            let randomness = cb.randomness().square().square();
+            let column_randomness = cb.column_randomness();
             if STAGE1 {
                 let rlc1_prev = cb.cell_at_offset(&rlc1, -1).expr();
-                let rlc1_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc1_prev], randomness.clone());
+                let rlc1_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc1_prev], column_randomness.clone());
                 cb.require_equal(
                     format!("{}, rlc1(0) == gamma^4 * rlc1(-1) + stack_pop_rlc", Self::NAME),
                     rlc1.expr(),
@@ -145,7 +146,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 );
             } else {
                 let rlc2_prev = cb.cell_at_offset(&rlc2, -1).expr();
-                let rlc2_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc2_prev], randomness);
+                let rlc2_curr = cb.rlc_with_randomness(&[stack_pop_rlc.clone(), rlc2_prev], column_randomness);
                 cb.require_equal(
                     format!("{}, rlc2(0) == gamma^4 * rlc2(-1) + stack_pop_rlc", Self::NAME),
                     rlc2.expr(),
@@ -300,9 +301,9 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             )?;
 
             stack_pop_sub_index_reverse_prev = v_reverse;
-            let randomness = region.challenges().keccak_input();
-
-            let stack_pop_rlc = randomness.map(|randomness| {
+            let row_randomness = region.challenges().row_keccak_input();
+            let column_randomness = region.challenges().column_keccak_input();
+            let stack_pop_rlc = row_randomness.map(|randomness| {
                 rlc::generic(
                     [
                         sub_index_value,
@@ -318,7 +319,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             });
             let current_rlc_value =
                 stack_pop_rlc
-                    .zip(randomness)
+                    .zip(column_randomness)
                     .map(|(stack_pop_rlc, randomness)| {
                         prev_rlc = rlc::generic([stack_pop_rlc, prev_rlc], randomness);
                         prev_rlc

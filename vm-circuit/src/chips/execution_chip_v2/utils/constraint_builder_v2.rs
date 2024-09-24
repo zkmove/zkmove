@@ -360,9 +360,6 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         );
     }
 
-    pub(crate) fn rlc(&self, expressions: &[Expression<F>]) -> Expression<F> {
-        rlc::expr(expressions, self.challenges.keccak_input())
-    }
     pub(crate) fn rlc_with_randomness(
         &self,
         expressions: &[Expression<F>],
@@ -370,10 +367,12 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     ) -> Expression<F> {
         rlc::expr(expressions, randomness)
     }
-    pub(crate) fn randomness(&self) -> Expression<F> {
-        self.challenges.keccak_input()
+    pub(crate) fn row_randomness(&self) -> Expression<F> {
+        self.challenges.row_keccak_input()
     }
-
+    pub(crate) fn column_randomness(&self) -> Expression<F> {
+        self.challenges.column_keccak_input()
+    }
     // Lookups
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
