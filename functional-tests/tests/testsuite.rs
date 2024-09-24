@@ -36,7 +36,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     };
     let static_info = StaticInfo::generate(
         entry.module_id.as_ref().unwrap(),
-        entry.function_index,
+        entry.function_index as u16,
         &package,
     );
     let preprocessor = WitnessPreProcessor::default();

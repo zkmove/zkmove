@@ -15,8 +15,8 @@ use movelang::value::{
 use std::collections::BTreeMap;
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
-    pub module_index: usize,
-    pub function_index: usize,
+    pub module_index: u32,
+    pub function_index: u16,
     pub pc: u16,
     pub opcode: u8,
     pub aux0: Option<u128>,
@@ -26,8 +26,8 @@ pub struct BytecodeInfo {
 impl BytecodeInfo {
     pub fn new(
         module: &CompiledModule,
-        module_index: usize,
-        function_index: usize,
+        module_index: u32,
+        function_index: u16,
         pc: u16,
         bytecode: Bytecode,
         ty_out: &[SignatureToken],
@@ -47,7 +47,7 @@ impl BytecodeInfo {
 pub(crate) fn parse_bytecode(
     module_id_mapping: &ModuleIdMapping,
     deps: &[CompiledModule],
-) -> BTreeMap<usize, BTreeMap<usize, Vec<BytecodeInfo>>> {
+) -> BTreeMap<u32, BTreeMap<u16, Vec<BytecodeInfo>>> {
     deps.iter()
         .map(|module| {
             let module_index = module_id_mapping.get_module_index(&module.self_id());
@@ -56,10 +56,7 @@ pub(crate) fn parse_bytecode(
         .collect()
 }
 
-fn parse_module(
-    module: &CompiledModule,
-    module_index: usize,
-) -> BTreeMap<usize, Vec<BytecodeInfo>> {
+fn parse_module(module: &CompiledModule, module_index: u32) -> BTreeMap<u16, Vec<BytecodeInfo>> {
     module
         .function_defs
         .iter()
@@ -84,14 +81,14 @@ fn parse_module(
                         BytecodeInfo::new(
                             module,
                             module_index,
-                            func_index,
+                            func_index as u16,
                             i,
                             transition.instr,
                             &transition.output,
                         )
                     })
                     .collect::<Vec<_>>();
-                Some((func_index, rows))
+                Some((func_index as u16, rows))
             } else {
                 None
             }

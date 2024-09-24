@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::lookup_table::Table;
 use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use crate::chips::execution_chip_v2::value::Value;
 use crate::utils::cached_region::CachedRegion;
@@ -28,30 +29,30 @@ pub const AUX1: &str = "aux1";
 #[derive(Clone, Debug)]
 pub(crate) struct StepState<F> {
     pub clk: Cell<F>,
-    pub frame_index: Cell<F>,
+    pub frame_index: Cell<F>, // MAX FRAME should be 2^10 - 1
     pub module_index: Cell<F>,
-    pub function_index: Cell<F>,
-    pub pc: Cell<F>,
-    pub sp: Cell<F>,
-    pub opcode: Cell<F>,
+    pub function_index: Cell<F>, // max should be 2^16 - 1
+    pub pc: Cell<F>,             // max PC should be 2^16 - 1
+    pub sp: Cell<F>,             // max stack pointer should be 2^10 -1
+    pub opcode: Cell<F>,         // should be in range < 2^8
     pub aux0: Cell<F>,
     pub aux1: Cell<F>,
     pub step_counter: Cell<F>,
 
-    pub stack_pop_index: Cell<F>,
+    pub stack_pop_index: Cell<F>, // max value be 2^10 - 1
     pub stack_pop_sub_index: Cell<F>,
     pub stack_pop_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_pop_value_header: Cell<F>,
     pub stack_pop_version: Cell<F>,
 
-    pub stack_push_index: Cell<F>,
+    pub stack_push_index: Cell<F>, // max value be 2^10 - 1
     pub stack_push_sub_index: Cell<F>,
     pub stack_push_value: Value<F, NUM_OF_VALUE_LIMBS>,
     pub stack_push_value_header: Cell<F>,
     pub stack_push_version: Cell<F>,
 
-    pub local_frame_index: Cell<F>,
-    pub local_index: Cell<F>,
+    pub local_frame_index: Cell<F>, // max value be 2^10 - 1
+    pub local_index: Cell<F>,       // // max value be 2^8 - 1
     pub local_sub_index: Cell<F>,
 
     pub local_read_value: Value<F, NUM_OF_VALUE_LIMBS>,
@@ -103,7 +104,7 @@ impl<F: Field> StepState<F> {
         self.module_index.assign(
             region,
             offset,
-            Halo2Value::known(F::from(step_state.module_index)),
+            Halo2Value::known(F::from(step_state.module_index as u64)),
         )?;
         self.function_index.assign(
             region,
@@ -143,7 +144,7 @@ impl<F: Field> StepState<F> {
             self.stack_pop_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_pop.map(|v| v.index).unwrap_or(0))),
+                Halo2Value::known(F::from(stack_pop.map(|v| v.index).unwrap_or(0) as u64)),
             )?;
 
             self.stack_pop_sub_index.assign(
@@ -184,7 +185,7 @@ impl<F: Field> StepState<F> {
             self.stack_push_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_push.map(|v| v.index).unwrap_or(0))),
+                Halo2Value::known(F::from(stack_push.map(|v| v.index).unwrap_or(0) as u64)),
             )?;
 
             self.stack_push_sub_index.assign(
@@ -359,7 +360,7 @@ impl<F: Field> Step<F> {
             frame_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::Lookup(Table::U10),
             ),
             module_index: cell_manager.query_cell(
                 meta,
@@ -371,9 +372,13 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
-            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
-            opcode: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U16)),
+            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U10)),
+            opcode: cell_manager.query_cell(
+                meta,
+                cell_manager_columns,
+                CellType::Lookup(Table::U8),
+            ),
             aux0: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
             aux1: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
             step_counter: cell_manager.query_cell(
@@ -385,7 +390,7 @@ impl<F: Field> Step<F> {
             stack_pop_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::Lookup(Table::U10),
             ),
             stack_pop_sub_index: cell_manager.query_cell(
                 meta,
@@ -407,7 +412,7 @@ impl<F: Field> Step<F> {
             stack_push_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::Lookup(Table::U10),
             ),
             stack_push_sub_index: cell_manager.query_cell(
                 meta,
@@ -429,12 +434,12 @@ impl<F: Field> Step<F> {
             local_frame_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::Lookup(Table::U10),
             ),
             local_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::Lookup(Table::U8),
             ),
             local_sub_index: cell_manager.query_cell(
                 meta,

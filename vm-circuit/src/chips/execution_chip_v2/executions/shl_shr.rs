@@ -258,8 +258,8 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
-        debug_assert!(opcode == Opcode::Shl as u16 || opcode == Opcode::Shr as u16);
-        let is_shl = opcode == Opcode::Shl as u16;
+        debug_assert!(opcode == Opcode::Shl as u8 || opcode == Opcode::Shr as u8);
+        let is_shl = opcode == Opcode::Shl as u8;
         let num_bytes = step_state.step_state.aux0 as usize;
         let pop0 = step_state.memory_ops[0].0.clone().unwrap().value;
         let rhs = pop0.to_u8_unchecked();

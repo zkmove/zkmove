@@ -13,7 +13,7 @@ pub mod constant;
 pub mod function;
 
 #[derive(Clone, Default, Debug)]
-pub struct ModuleIdMapping(HashMap<ModuleId, (usize /*module_index*/, CompiledModule)>);
+pub struct ModuleIdMapping(HashMap<ModuleId, (u32 /*module_index*/, CompiledModule)>);
 
 impl ModuleIdMapping {
     pub fn construct(module_id: &ModuleId, package: &CompiledPackage) -> Self {
@@ -25,18 +25,18 @@ impl ModuleIdMapping {
             .get_module(module_id)
             .unwrap_or_else(|_| panic!("cannot find module {:?}", module_id));
         for (idx, m) in iter::once(module).chain(deps).enumerate() {
-            mapping.insert(m.self_id(), (idx, m.clone()));
+            mapping.insert(m.self_id(), (idx as u32, m.clone()));
         }
         ModuleIdMapping(mapping)
     }
-    pub fn get_module_index(&self, module_id: &ModuleId) -> usize {
+    pub fn get_module_index(&self, module_id: &ModuleId) -> u32 {
         let (module_index, _) = self
             .0
             .get(module_id)
             .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
         *module_index
     }
-    pub fn get_module(&self, module_id: &ModuleId) -> (usize, &CompiledModule) {
+    pub fn get_module(&self, module_id: &ModuleId) -> (u32, &CompiledModule) {
         let (module_index, module) = self
             .0
             .get(module_id)
@@ -47,7 +47,7 @@ impl ModuleIdMapping {
 
 #[derive(Clone, Default, Debug)]
 pub struct StaticInfo {
-    pub bytecode_info: BTreeMap<usize, BTreeMap<usize, Vec<BytecodeInfo>>>,
+    pub bytecode_info: BTreeMap<u32, BTreeMap<u16, Vec<BytecodeInfo>>>,
     pub function_info: Vec<FunctionInfo>,
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
@@ -55,7 +55,7 @@ pub struct StaticInfo {
 }
 
 impl StaticInfo {
-    pub fn generate(module_id: &ModuleId, entry_func: usize, package: &CompiledPackage) -> Self {
+    pub fn generate(module_id: &ModuleId, entry_func: u16, package: &CompiledPackage) -> Self {
         let modules = package.all_modules_map();
         let mut deps = modules
             .get_transitive_dependencies(module_id)
@@ -81,8 +81,8 @@ impl StaticInfo {
 
     pub fn get_bytecode(
         &self,
-        module_index: usize,
-        function_index: usize,
+        module_index: u32,
+        function_index: u16,
         pc: usize,
     ) -> Option<BytecodeInfo> {
         self.bytecode_info
@@ -92,7 +92,7 @@ impl StaticInfo {
             .cloned()
     }
 
-    pub fn get_constant(&self, module_index: usize, constant_index: usize) -> Option<MoveValue> {
+    pub fn get_constant(&self, module_index: u32, constant_index: u16) -> Option<MoveValue> {
         self.constant_info
             .iter()
             .find(|c| c.module_index == module_index && c.constant_index == constant_index)
@@ -100,7 +100,7 @@ impl StaticInfo {
     }
 
     /// get function `fh_idx` in the function handle table of `module_index`
-    pub fn get_function(&self, module_index: usize, fh_idx: usize) -> Option<FunctionInfo> {
+    pub fn get_function(&self, module_index: u32, fh_idx: u16) -> Option<FunctionInfo> {
         self.function_info
             .iter()
             .find(|f| f.module_index == module_index && f.function_handle_index == fh_idx)
@@ -111,8 +111,8 @@ impl StaticInfo {
     /// `module_index` and `def_module_index` should be same.
     pub fn get_entry_function(
         &self,
-        module_index: usize,
-        function_index: usize,
+        module_index: u32,
+        function_index: u16,
     ) -> Option<FunctionInfo> {
         self.function_info
             .iter()
@@ -127,6 +127,6 @@ impl StaticInfo {
 
 #[derive(Clone, Default, Debug)]
 pub struct Entry {
-    pub module_index: usize,
-    pub function_index: usize,
+    pub module_index: u32,
+    pub function_index: u16,
 }

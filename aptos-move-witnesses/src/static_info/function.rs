@@ -6,20 +6,20 @@ use move_binary_format::views::{FunctionDefinitionView, FunctionHandleView};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FunctionInfo {
-    pub module_index: usize,
-    pub function_handle_index: usize,
-    pub def_module_index: usize,
-    pub function_index: usize,
-    pub num_arg: usize,
+    pub module_index: u32,
+    pub function_handle_index: u16,
+    pub def_module_index: u32,
+    pub function_index: u16,
+    pub num_arg: u8,
 }
 
 impl FunctionInfo {
     pub fn new(
-        module_index: usize,
-        function_handle_index: usize,
-        def_module_index: usize,
-        function_index: usize,
-        num_arg: usize,
+        module_index: u32,
+        function_handle_index: u16,
+        def_module_index: u32,
+        function_index: u16,
+        num_arg: u8,
     ) -> Self {
         FunctionInfo {
             module_index,
@@ -30,7 +30,7 @@ impl FunctionInfo {
         }
     }
 
-    pub fn num_arg(&self) -> usize {
+    pub fn num_arg(&self) -> u8 {
         self.num_arg
     }
 }
@@ -49,7 +49,7 @@ pub(crate) fn parse_function(
 
 fn parse_module(
     module: &CompiledModule,
-    module_index: usize,
+    module_index: u32,
     module_id_mapping: &ModuleIdMapping,
 ) -> Vec<FunctionInfo> {
     module
@@ -80,10 +80,10 @@ fn parse_module(
             let num_arg = fh_view.arg_count();
             FunctionInfo {
                 module_index,
-                function_handle_index: fh_index,
+                function_handle_index: fh_index as u16,
                 def_module_index,
-                function_index,
-                num_arg,
+                function_index: function_index as u16,
+                num_arg: num_arg as u8,
             }
         })
         .collect()
