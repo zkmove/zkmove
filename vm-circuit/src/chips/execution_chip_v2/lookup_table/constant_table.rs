@@ -88,8 +88,8 @@ impl<F: Field> LookupTable<F> for ConstantLookupTable {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ConstantTableRow {
-    pub module_index: usize,
-    pub constant_index: usize,
+    pub module_index: u32,
+    pub constant_index: u16,
     pub sub_index: SubIndex,
     pub value: Word,
     pub header: bool,

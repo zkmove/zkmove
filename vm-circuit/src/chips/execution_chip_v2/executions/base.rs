@@ -20,6 +20,31 @@ pub(crate) struct BaseConstraintGadget<F> {
 
 impl<F: Field> BaseConstraintGadget<F> {
     pub fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        cb.require_boolean(
+            "stack_pop_value_header is boolean",
+            cb.curr.state.stack_pop_value_header.expr(),
+        );
+        cb.require_boolean(
+            "stack_push_value_header is boolean",
+            cb.curr.state.stack_push_value_header.expr(),
+        );
+        cb.require_boolean(
+            "local_read_value_header is boolean",
+            cb.curr.state.local_read_value_header.expr(),
+        );
+        cb.require_boolean(
+            "local_read_value_invalid is boolean",
+            cb.curr.state.local_read_value_invalid.expr(),
+        );
+        cb.require_boolean(
+            "local_write_value_header is boolean",
+            cb.curr.state.local_write_value_header.expr(),
+        );
+        cb.require_boolean(
+            "local_write_value_invalid is boolean",
+            cb.curr.state.local_write_value_invalid.expr(),
+        );
+
         // common constraint for every opcode
         // meta.create_gate("first_row_of_bytecode", |meta| {});
         cb.last_row(|cb| {

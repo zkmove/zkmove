@@ -7,8 +7,8 @@ use move_core_types::value::MoveValue;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ConstantInfo {
-    pub module_index: usize,
-    pub constant_index: usize,
+    pub module_index: u32,
+    pub constant_index: u16,
     pub value: MoveValue,
 }
 
@@ -31,7 +31,7 @@ pub(crate) fn parse_constant(
                     ));
                     ConstantInfo {
                         module_index: module_id_mapping.get_module_index(&module.self_id()),
-                        constant_index: idx,
+                        constant_index: idx as u16,
                         value,
                     }
                 })

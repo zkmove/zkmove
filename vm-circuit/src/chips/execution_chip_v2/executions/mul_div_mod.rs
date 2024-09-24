@@ -213,13 +213,13 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
         debug_assert!(
-            opcode == Opcodes::MUL as u16
-                || opcode == Opcodes::DIV as u16
-                || opcode == Opcodes::MOD as u16
+            opcode == Opcodes::MUL as u8
+                || opcode == Opcodes::DIV as u8
+                || opcode == Opcodes::MOD as u8
         );
-        let is_mul = opcode == Opcodes::MUL as u16;
-        let is_div = opcode == Opcodes::DIV as u16;
-        let is_mod = opcode == Opcodes::MOD as u16;
+        let is_mul = opcode == Opcodes::MUL as u8;
+        let is_div = opcode == Opcodes::DIV as u8;
+        let is_mod = opcode == Opcodes::MOD as u8;
 
         let num_bytes = step_state.step_state.aux0 as usize;
         let rhs = step_state.memory_ops[0].0.clone().unwrap().value;

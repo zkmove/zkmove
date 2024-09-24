@@ -38,15 +38,15 @@ impl From<RetExtraAssignData> for StageExtraAssignData {
 #[derive(Clone, Debug)]
 pub struct CallerData {
     pub caller_frame_index: u16,
-    pub caller_module_index: u64,
+    pub caller_module_index: u32,
     pub caller_function_index: u16,
-    pub caller_pc: u64,
+    pub caller_pc: u16,
 }
 
 #[derive(Clone, Debug)]
 pub struct EntryFunc {
-    pub module_index: usize,
-    pub function_index: usize,
+    pub module_index: u32,
+    pub function_index: u16,
 }
 
 impl From<EntryFunc> for StageExtraAssignData {
@@ -65,11 +65,11 @@ pub struct ExecStepState {
 pub struct StepState {
     pub clk: u64,
     pub frame_index: u16,
-    pub module_index: u64,
+    pub module_index: u32,
     pub function_index: u16,
-    pub pc: u64,
-    pub sp: u64,
-    pub opcode: u16,
+    pub pc: u16,
+    pub sp: u16,
+    pub opcode: u8,
     pub aux0: u128,
     pub aux1: u128,
     pub exec_state: ExecutionState,
@@ -103,7 +103,7 @@ impl StepState {
             .module_id_mapping
             .get_module_index(trace.module_id.as_ref().unwrap());
         let bytecode = static_info
-            .get_bytecode(module_index, trace.function_id, trace.pc as usize)
+            .get_bytecode(module_index, trace.function_id as u16, trace.pc as usize)
             .unwrap_or_else(|| {
                 panic!(
                     "cannot locate the bytecode, {},{},{}",
@@ -113,21 +113,21 @@ impl StepState {
         Self {
             clk,
             frame_index: trace.frame_index as u16,
-            module_index: module_index as u64,
+            module_index,
             function_index: trace.function_id as u16,
-            pc: trace.pc as u64,
-            sp: trace.stack_pointer as u64,
-            opcode: bytecode.opcode as u16,
+            pc: trace.pc,
+            sp: trace.stack_pointer as u16,
+            opcode: bytecode.opcode,
             aux0: bytecode.aux0.unwrap_or_default(),
             aux1: bytecode.aux1.unwrap_or_default(),
             exec_state: state,
         }
     }
-    pub fn inc_sp(mut self, delta: u64) -> Self {
+    pub fn inc_sp(mut self, delta: u16) -> Self {
         self.sp += delta;
         self
     }
-    pub fn dec_sp(mut self, delta: u64) -> Self {
+    pub fn dec_sp(mut self, delta: u16) -> Self {
         self.sp -= delta;
         self
     }
@@ -158,7 +158,7 @@ pub struct MemoryOp(
 
 #[derive(Clone, Debug)]
 pub struct StackPop {
-    pub index: u64,
+    pub index: u16,
     pub sub_index: SubIndex,
     pub value: Word,
     pub value_header: bool,
@@ -166,7 +166,7 @@ pub struct StackPop {
 }
 #[derive(Clone, Debug)]
 pub struct StackPush {
-    pub index: u64,
+    pub index: u16,
     pub sub_index: SubIndex,
     pub value: Word,
     pub value_header: bool,
@@ -175,7 +175,7 @@ pub struct StackPush {
 #[derive(Clone, Debug)]
 pub struct LocalReadWrite {
     pub frame_index: u16, // TODO: types of frame_index and local_index
-    pub index: u16,
+    pub index: u8,
     pub sub_index: SubIndex,
     pub read_value: Word,
     pub read_value_header: bool,
@@ -190,7 +190,7 @@ pub struct LocalReadWrite {
 impl LocalReadWrite {
     pub fn new(
         frame_index: u16,
-        local_index: u16,
+        local_index: u8,
         sub_index: SubIndex,
         old_slot: Slot,
         new_slot: Slot,

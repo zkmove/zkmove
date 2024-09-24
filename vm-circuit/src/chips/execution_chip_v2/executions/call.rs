@@ -120,14 +120,14 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
     ) -> Result<usize, Error> {
         let state = stage_state.step_states.first().unwrap();
         let frame_index = F::from(state.step_state.frame_index as u64);
-        let module_index = F::from(state.step_state.module_index);
+        let module_index = F::from(state.step_state.module_index as u64);
         let function_index = F::from(state.step_state.function_index as u64);
-        let pc = F::from(state.step_state.pc);
-        let clk = F::from(state.step_state.clk);
+        let pc = F::from(state.step_state.pc as u64);
+        let clk = F::from(state.step_state.clk as u64);
         let num_arg = static_info
             .get_function(
-                state.step_state.module_index as usize,
-                state.step_state.aux0 as usize,
+                state.step_state.module_index,
+                state.step_state.aux0 as u16,
             )
             .unwrap_or_else(|| panic!("cannot find function"))
             .num_arg;

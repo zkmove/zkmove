@@ -71,8 +71,8 @@ impl WitnessPreProcessor {
         trace: &Footprint,
         static_info: &StaticInfo,
     ) -> Vec<StageState> {
-        let sp = trace.stack_pointer as u64;
-        let current_frame_index = trace.frame_index;
+        let sp = trace.stack_pointer as u16;
+        let current_frame_index = trace.frame_index as u16;
         match &trace.data {
             Operation::LdSimple(v) => {
                 let step_state =
@@ -124,7 +124,7 @@ impl WitnessPreProcessor {
                     .module_id_mapping
                     .get_module_index(trace.module_id.as_ref().unwrap());
                 let constant = static_info
-                    .get_constant(module_index, *const_pool_index as usize)
+                    .get_constant(module_index, *const_pool_index)
                     .unwrap_or_else(|| panic!("cannot find constant {:?}", *const_pool_index))
                     .flatten();
                 let step_state =
@@ -272,7 +272,7 @@ impl WitnessPreProcessor {
 
                     let header_slot = self.locals.peek_local_slot(
                         current_frame_index,
-                        *local_index as usize,
+                        *local_index,
                         &header_check_sub_index,
                     );
                     let old_value_invalid = match header_slot {
@@ -282,7 +282,7 @@ impl WitnessPreProcessor {
                     let memory_ops = if old_value_invalid {
                         let (old_slot, new_slot) = self.locals.read_local_slot_with_clk(
                             current_frame_index,
-                            *local_index as usize,
+                            *local_index,
                             &header_check_sub_index,
                             self.clk,
                         );
@@ -291,7 +291,7 @@ impl WitnessPreProcessor {
                             None,
                             Some(LocalReadWrite::new(
                                 current_frame_index as u16,
-                                *local_index as u16,
+                                *local_index,
                                 header_check_sub_index,
                                 old_slot,
                                 new_slot,
@@ -305,7 +305,7 @@ impl WitnessPreProcessor {
                                 .map(|item| {
                                     let (old_, new_) = self.locals.write_local_slot_with_clk(
                                         current_frame_index,
-                                        *local_index as usize,
+                                        *local_index,
                                         &item.sub_index.clone().into(),
                                         item.value.clone().into(),
                                         item.header,
@@ -314,7 +314,7 @@ impl WitnessPreProcessor {
                                     );
                                     LocalReadWrite::new(
                                         current_frame_index as u16,
-                                        *local_index as u16,
+                                        *local_index,
                                         item.sub_index.clone().into(),
                                         old_,
                                         new_,
@@ -351,7 +351,7 @@ impl WitnessPreProcessor {
                         };
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
                             current_frame_index,
-                            *local_index as u16 as usize,
+                            *local_index,
                             &stack_pop.sub_index,
                             stack_pop.value.clone(),
                             stack_pop.value_header,
@@ -360,7 +360,7 @@ impl WitnessPreProcessor {
                         );
                         let local_op = LocalReadWrite::new(
                             current_frame_index as u16,
-                            *local_index as u16,
+                            *local_index,
                             stack_pop.sub_index.clone(),
                             old_,
                             new_,
@@ -393,7 +393,7 @@ impl WitnessPreProcessor {
                         // invalidate the local
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
                             current_frame_index,
-                            *local_index as usize,
+                            *local_index,
                             &item.sub_index.clone().into(),
                             item.value.clone().into(),
                             item.header,
@@ -411,8 +411,8 @@ impl WitnessPreProcessor {
                             version: self.clk,
                         };
                         let local_op = LocalReadWrite::new(
-                            current_frame_index as u16,
-                            *local_index as u16,
+                            current_frame_index,
+                            *local_index,
                             item.sub_index.clone().into(),
                             old_,
                             new_,
@@ -438,7 +438,7 @@ impl WitnessPreProcessor {
                         // invalidate the local
                         let (old_, new_) = self.locals.read_local_slot_with_clk(
                             current_frame_index,
-                            *local_index as usize,
+                            *local_index,
                             &item.sub_index.clone().into(),
                             self.clk,
                         );
@@ -455,7 +455,7 @@ impl WitnessPreProcessor {
                         };
                         let local_op = LocalReadWrite::new(
                             current_frame_index as u16,
-                            *local_index as u16,
+                            *local_index,
                             item.sub_index.clone().into(),
                             old_,
                             new_,
@@ -488,14 +488,14 @@ impl WitnessPreProcessor {
                     version: *self.version_stack.last().unwrap(),
                 };
                 let (old_slot, new_slot) = self.locals.read_local_slot_with_clk(
-                    vec_ref.frame_index,
-                    vec_ref.local_index,
+                    vec_ref.frame_index as u16,
+                    vec_ref.local_index as u8,
                     &vec_ref.sub_index.clone().into(),
                     self.clk,
                 );
                 let local_op = LocalReadWrite::new(
                     vec_ref.frame_index as u16,
-                    vec_ref.local_index as u16,
+                    vec_ref.local_index as u8,
                     vec_ref.sub_index.clone().into(),
                     old_slot,
                     new_slot,
@@ -520,7 +520,7 @@ impl WitnessPreProcessor {
             Operation::BorrowLoc { imm, local_index } => {
                 let exec_state = ExecutionState::BorrowLoc;
                 let loc_ref = Reference {
-                    frame_index: current_frame_index,
+                    frame_index: current_frame_index as usize,
                     local_index: *local_index as usize,
                     sub_index: vec![0],
                 };
@@ -727,8 +727,8 @@ impl WitnessPreProcessor {
                         let item_sub_index = SubIndex::new(reference.sub_index.clone())
                             .concat(&item.sub_index.clone().into());
                         let (old_, new_) = self.locals.read_local_slot_with_clk(
-                            reference.frame_index,
-                            reference.local_index,
+                            reference.frame_index as u16,
+                            reference.local_index as u8,
                             &item_sub_index,
                             self.clk,
                         );
@@ -785,8 +785,8 @@ impl WitnessPreProcessor {
                             let item_sub_index = SubIndex::new(reference.sub_index.clone())
                                 .concat(&item.sub_index.clone().into());
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                reference.frame_index,
-                                reference.local_index,
+                                reference.frame_index as u16,
+                                reference.local_index as u8,
                                 &item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
@@ -834,8 +834,8 @@ impl WitnessPreProcessor {
                             let item_sub_index = SubIndex::new(reference.sub_index.clone())
                                 .concat(&stack_pop.sub_index);
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                reference.frame_index,
-                                reference.local_index,
+                                reference.frame_index as u16,
+                                reference.local_index as u8,
                                 &item_sub_index,
                                 stack_pop.value.clone(),
                                 stack_pop.value_header,
@@ -843,8 +843,8 @@ impl WitnessPreProcessor {
                                 self.clk,
                             );
                             let local_op = LocalReadWrite::new(
-                                reference.frame_index.try_into().unwrap(),
-                                reference.local_index.try_into().unwrap(),
+                                reference.frame_index as u16,
+                                reference.local_index as u8,
                                 item_sub_index,
                                 old_,
                                 new_,
@@ -883,8 +883,8 @@ impl WitnessPreProcessor {
                                 let parent_value = self
                                     .locals
                                     .peek_local_slot(
-                                        reference.frame_index,
-                                        reference.local_index,
+                                        reference.frame_index as u16,
+                                        reference.local_index as u8,
                                         sub_index,
                                     )
                                     .unwrap()
@@ -896,8 +896,8 @@ impl WitnessPreProcessor {
                                 let new_parent_value =
                                     ValueHeader::new(new_flen, header.len as usize);
                                 let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                    reference.frame_index,
-                                    reference.local_index,
+                                    reference.frame_index as u16,
+                                    reference.local_index as u8,
                                     sub_index,
                                     new_parent_value.into(),
                                     true,
@@ -905,8 +905,8 @@ impl WitnessPreProcessor {
                                     self.clk,
                                 );
                                 let local_op = LocalReadWrite::new(
-                                    reference.frame_index.try_into().unwrap(),
-                                    reference.local_index.try_into().unwrap(),
+                                    reference.frame_index as u16,
+                                    reference.local_index as u8,
                                     sub_index.clone(),
                                     old_,
                                     new_,
@@ -945,7 +945,7 @@ impl WitnessPreProcessor {
                 let mut memory_ops = vec![MemoryOp(
                     None,
                     Some(StackPush {
-                        index: step_state.sp + 1 - len as u64,
+                        index: step_state.sp + 1 - len as u16,
                         sub_index: SubIndex::default(),
                         value: ValueHeader::new(flen, len).into(),
                         value_header: true,
@@ -957,14 +957,14 @@ impl WitnessPreProcessor {
                     let version = self.version_stack.pop().unwrap();
                     memory_ops.extend(arg.iter().map(|item| {
                         let stack_pop = StackPop {
-                            index: step_state.sp - (len - 1 - i) as u64,
+                            index: step_state.sp - (len - 1 - i) as u16,
                             sub_index: item.sub_index.clone().into(),
                             value: item.value.clone().into(),
                             value_header: item.header,
                             version,
                         };
                         let stack_push = StackPush {
-                            index: step_state.sp + 1 - len as u64,
+                            index: step_state.sp + 1 - len as u16,
                             sub_index: {
                                 let mut sub_index = SubIndex::new(item.sub_index.clone());
                                 sub_index.insert(0, (i + 1).try_into().unwrap());
@@ -1068,7 +1068,7 @@ impl WitnessPreProcessor {
                                     version: arg_version,
                                 };
                                 let stack_push = StackPush {
-                                    index: step_state.sp + field_index as u64 - 1,
+                                    index: step_state.sp + field_index as u16 - 1,
                                     sub_index: {
                                         let mut sub_index = SubIndex::from(item.sub_index);
                                         sub_index.remove(0); // drop the field_index
@@ -1156,8 +1156,8 @@ impl WitnessPreProcessor {
                             let item_sub_index =
                                 idx_items_sub_index_prefix.concat(&item.sub_index.clone().into());
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
@@ -1166,7 +1166,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 vec_ref.frame_index as u16,
-                                vec_ref.local_index as u16,
+                                vec_ref.local_index as u8,
                                 item_sub_index,
                                 old_,
                                 new_,
@@ -1216,8 +1216,8 @@ impl WitnessPreProcessor {
                             let item_sub_index =
                                 idx_items_sub_index_prefix.concat(&item.sub_index.clone().into());
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
@@ -1226,7 +1226,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 vec_ref.frame_index as u16,
-                                vec_ref.local_index as u16,
+                                vec_ref.local_index as u8,
                                 item_sub_index,
                                 old_,
                                 new_,
@@ -1275,8 +1275,8 @@ impl WitnessPreProcessor {
                         let parent_header = self
                             .locals
                             .peek_local_slot(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &parent_sub_index,
                             )
                             .unwrap()
@@ -1293,8 +1293,8 @@ impl WitnessPreProcessor {
                         )
                         .into();
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
-                            vec_ref.frame_index,
-                            vec_ref.local_index,
+                            vec_ref.frame_index as u16,
+                            vec_ref.local_index as u8,
                             &parent_sub_index,
                             new_header,
                             true,
@@ -1303,7 +1303,7 @@ impl WitnessPreProcessor {
                         );
                         let local_op = LocalReadWrite::new(
                             vec_ref.frame_index as u16,
-                            vec_ref.local_index as u16,
+                            vec_ref.local_index as u16 as u8,
                             parent_sub_index.clone(),
                             old_,
                             new_,
@@ -1347,8 +1347,8 @@ impl WitnessPreProcessor {
                                 );
                             // invalidate local slot
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &local_item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
@@ -1357,7 +1357,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 vec_ref.frame_index as u16,
-                                vec_ref.local_index as u16,
+                                vec_ref.local_index as u8,
                                 local_item_sub_index,
                                 old_,
                                 new_,
@@ -1412,8 +1412,8 @@ impl WitnessPreProcessor {
                         let parent_header = self
                             .locals
                             .peek_local_slot(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &parent_sub_index,
                             )
                             .unwrap()
@@ -1431,8 +1431,8 @@ impl WitnessPreProcessor {
                         .into();
 
                         let (old_, new_) = self.locals.write_local_slot_with_clk(
-                            vec_ref.frame_index,
-                            vec_ref.local_index,
+                            vec_ref.frame_index as u16,
+                            vec_ref.local_index as u8,
                             &parent_sub_index,
                             new_header,
                             true,
@@ -1441,7 +1441,7 @@ impl WitnessPreProcessor {
                         );
                         let local_op = LocalReadWrite::new(
                             vec_ref.frame_index as u16,
-                            vec_ref.local_index as u16,
+                            vec_ref.local_index as u8,
                             parent_sub_index.clone(),
                             old_,
                             new_,
@@ -1489,8 +1489,8 @@ impl WitnessPreProcessor {
                                 );
                             // invalidate local slot
                             let (old_, new_) = self.locals.write_local_slot_with_clk(
-                                vec_ref.frame_index,
-                                vec_ref.local_index,
+                                vec_ref.frame_index as u16,
+                                vec_ref.local_index as u8,
                                 &local_item_sub_index,
                                 item.value.clone().into(),
                                 item.header,
@@ -1499,7 +1499,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 vec_ref.frame_index as u16,
-                                vec_ref.local_index as u16,
+                                vec_ref.local_index as u8,
                                 local_item_sub_index,
                                 old_,
                                 new_,
@@ -1775,7 +1775,7 @@ impl WitnessPreProcessor {
 
                 let callee_frame_index = current_frame_index + 1;
                 for (i, arg) in args.iter().enumerate().rev() {
-                    let local_index = i;
+                    let local_index = i as u8;
 
                     // stage2: invalidate old local
                     self.clk += 1;
@@ -1877,7 +1877,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 callee_frame_index.try_into().unwrap(),
-                                local_index.try_into().unwrap(),
+                                local_index,
                                 stack_pop.sub_index.clone(),
                                 old_,
                                 new_,
@@ -1908,9 +1908,9 @@ impl WitnessPreProcessor {
                     caller_module_index: static_info
                         .module_id_mapping
                         .get_module_index(c.module_id.as_ref().unwrap())
-                        as u64,
+                        as u32,
                     caller_function_index: c.function_id as u16,
-                    caller_pc: c.pc as u64, // TODO: check the type of pc
+                    caller_pc: c.pc,
                 });
                 vec![StageState {
                     step_states: vec![ExecStepState {
@@ -1954,14 +1954,14 @@ impl WitnessPreProcessor {
                     extra_data: Some(
                         EntryFunc {
                             module_index,
-                            function_index: entry_call.function_index,
+                            function_index: entry_call.function_index as u16,
                         }
                         .into(),
                     ),
                 }];
 
                 for (i, arg) in entry_call.args.iter().rev().enumerate() {
-                    let local_index = entry_call.args.len() - 1 - i;
+                    let local_index = (entry_call.args.len() - 1 - i) as u8;
                     self.clk += 1;
 
                     // stage2: store one argument
@@ -2080,7 +2080,7 @@ impl Locals {
                         l.data.into_iter().map(move |(k, v)| {
                             LocalReadWrite::new(
                                 frame_index as u16,
-                                local_index as u16,
+                                local_index as u8,
                                 k,
                                 v,
                                 Slot::default(),
@@ -2095,19 +2095,19 @@ impl Locals {
 impl Locals {
     pub fn peek_local_slot(
         &mut self,
-        frame_index: usize,
-        local_index: usize,
+        frame_index: u16,
+        local_index: u8,
         sub_index: &SubIndex,
     ) -> Option<&Slot> {
         self.values
-            .get(frame_index)
-            .and_then(|l| l.get(local_index))
+            .get(frame_index as usize)
+            .and_then(|l| l.get(local_index as usize))
             .and_then(|l| l.get(sub_index))
     }
     pub fn read_local_slot_with_clk(
         &mut self,
-        frame_index: usize,
-        local_index: usize,
+        frame_index: u16,
+        local_index: u8,
         sub_index: &SubIndex,
         clk: u64,
     ) -> (Slot, Slot) {
@@ -2121,8 +2121,8 @@ impl Locals {
     }
     pub fn write_local_slot_with_clk(
         &mut self,
-        frame_index: usize,
-        local_index: usize,
+        frame_index: u16,
+        local_index: u8,
         sub_index: &SubIndex,
         value: Word,
         is_header: bool,
@@ -2140,28 +2140,29 @@ impl Locals {
     }
     fn write_slot(
         &mut self,
-        frame_index: usize,
-        local_index: usize,
+        frame_index: u16,
+        local_index: u8,
         sub_index: &SubIndex,
         new_: Slot,
     ) -> Slot {
         let slot = self
             .values
-            .get_mut(frame_index)
-            .and_then(|l| l.get_mut(local_index))
+            .get_mut(frame_index as usize)
+            .and_then(|l| l.get_mut(local_index as usize))
             .and_then(|l| l.get_mut(sub_index));
         match slot {
             None => {
                 let old = Slot::default();
 
-                if frame_index + 1 > self.values.len() {
-                    self.values.resize_with(frame_index + 1, std::vec::Vec::new);
+                if frame_index + 1 > self.values.len() as u16 {
+                    self.values
+                        .resize_with((frame_index + 1) as usize, Vec::new);
                 }
-                let locals = self.values.get_mut(frame_index).unwrap();
-                if local_index + 1 > locals.len() {
-                    locals.resize_with(local_index + 1, Local::default);
+                let locals = self.values.get_mut(frame_index as usize).unwrap();
+                if local_index + 1 > locals.len() as u8 {
+                    locals.resize_with(local_index as usize + 1, Local::default);
                 }
-                let local = locals.get_mut(local_index).unwrap();
+                let local = locals.get_mut(local_index as usize).unwrap();
                 // insert the new slot to local
                 local.data.insert(sub_index.clone(), new_.clone());
                 old
@@ -2177,14 +2178,14 @@ impl Locals {
     /// Return member slots include itself
     pub fn members(
         &self,
-        frame_index: usize,
-        local_index: usize,
+        frame_index: u16,
+        local_index: u8,
         sub_index: &SubIndex,
     ) -> Option<Vec<(SubIndex, Slot)>> {
         let local = self
             .values
-            .get(frame_index)
-            .and_then(|l| l.get(local_index));
+            .get(frame_index as usize)
+            .and_then(|l| l.get(local_index as usize));
         if let Some(local) = local {
             let members = local
                 .deref()

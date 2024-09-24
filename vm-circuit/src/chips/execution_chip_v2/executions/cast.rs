@@ -191,6 +191,8 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
         }
     }
 
+
+
     fn assign(
         &self,
         _step: StepState<F>,
@@ -202,17 +204,17 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
-        let num_bytes = if opcode == Opcodes::CAST_U8 as u16 {
+        let num_bytes = if opcode == Opcodes::CAST_U8 as u8 {
             NUM_OF_BYTES_U8
-        } else if opcode == Opcodes::CAST_U16 as u16 {
+        } else if opcode == Opcodes::CAST_U16 as u8 {
             NUM_OF_BYTES_U16
-        } else if opcode == Opcodes::CAST_U32 as u16 {
+        } else if opcode == Opcodes::CAST_U32 as u8 {
             NUM_OF_BYTES_U32
-        } else if opcode == Opcodes::CAST_U64 as u16 {
+        } else if opcode == Opcodes::CAST_U64 as u8 {
             NUM_OF_BYTES_U64
-        } else if opcode == Opcodes::CAST_U128 as u16 {
+        } else if opcode == Opcodes::CAST_U128 as u8 {
             NUM_OF_BYTES_U128
-        } else if opcode == Opcodes::CAST_U256 as u16 {
+        } else if opcode == Opcodes::CAST_U256 as u8 {
             NUM_OF_BYTES_U256
         } else {
             unreachable!()
@@ -250,7 +252,7 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
 
         debug_assert!(!step_state.memory_ops.is_empty());
         let input = step_state.memory_ops[0].0.clone().unwrap().value;
-        if opcode == Opcodes::CAST_U256 as u16 {
+        if opcode == Opcodes::CAST_U256 as u8 {
             self.in_range_lo
                 .assign(region, offset, F::from_u128(input.lo()), NUM_OF_BYTES_U128)?;
         } else {

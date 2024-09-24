@@ -103,11 +103,11 @@ impl<F: Field> LookupTable<F> for FunctionLookupTable {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct FunctionTableRow {
-    pub module_index: usize,
-    pub function_handle_index: usize,
-    pub def_module_index: usize,
-    pub function_index: usize,
-    pub num_arg: usize,
+    pub module_index: u32,
+    pub function_handle_index: u16,
+    pub def_module_index: u32,
+    pub function_index: u16,
+    pub num_arg: u8,
     pub entry: bool,
 }
 

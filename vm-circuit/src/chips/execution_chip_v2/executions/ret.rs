@@ -97,9 +97,9 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
                     region,
                     offset,
                     F::from(caller.caller_frame_index as u64),
-                    F::from(caller.caller_module_index),
+                    F::from(caller.caller_module_index as u64),
                     F::from(caller.caller_function_index as u64),
-                    F::from(caller.caller_pc),
+                    F::from(caller.caller_pc as u64),
                     F::from(extra_data.frame_version),
                 )?;
                 self.call_context_version.assign(
