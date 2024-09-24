@@ -5,7 +5,6 @@ pub mod cell_placement_strategy;
 pub mod challenges;
 pub mod rlc;
 pub mod word;
-use crate::circuit::VmCircuit;
 use error::{RuntimeError, StatusCode, VmResult};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::dev::MockProver;
@@ -55,15 +54,6 @@ pub(crate) fn query_expression<F: Field, T>(
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
 pub const MIN_K: u32 = 1;
-
-/// find the minimum k that satisfies the circuit row number less than 2^k
-pub fn find_best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
-    let mut k = MIN_K;
-    while k <= MAX_K && (1 << k) <= circuit.circuit_height() {
-        k += 1;
-    }
-    k
-}
 
 pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,

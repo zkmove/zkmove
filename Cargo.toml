@@ -6,7 +6,6 @@ members = [
     #    "common/crypto",
     "common/types",
     "vm-circuit",
-    #"vm",
     "functional-tests",
     #"cli",
     "aptos-move-witnesses"

@@ -1,10 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::step_v2::StepState;
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::{assign_step_and_common, InstructionGadgetV2};

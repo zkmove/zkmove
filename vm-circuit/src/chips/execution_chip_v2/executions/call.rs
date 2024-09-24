@@ -1,5 +1,3 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
@@ -7,8 +5,12 @@ use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, Transition,
+};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utilities::Expr;
+use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
@@ -125,10 +127,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         let pc = F::from(state.step_state.pc as u64);
         let clk = F::from(state.step_state.clk as u64);
         let num_arg = static_info
-            .get_function(
-                state.step_state.module_index,
-                state.step_state.aux0 as u16,
-            )
+            .get_function(state.step_state.module_index, state.step_state.aux0 as u16)
             .unwrap_or_else(|| panic!("cannot find function"))
             .num_arg;
         self.num_arg

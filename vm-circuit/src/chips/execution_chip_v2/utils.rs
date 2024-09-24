@@ -1,11 +1,14 @@
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintLocation;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintLocation;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellType};
+use field_exts::U256;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{Error, Expression};
 use std::hash::{Hash, Hasher};
 use types::Field;
 
+pub(crate) mod base_constraint_builder;
+pub(crate) mod constraint_builder_v2;
 #[derive(Debug, Clone)]
 pub struct StoredExpression<F> {
     pub(crate) name: String,
@@ -201,5 +204,24 @@ pub(crate) fn pow_of_two<F: Field>(by: usize) -> F {
 
 /// Returns 2**by as Expression
 pub(crate) fn pow_of_two_expr<F: Field>(by: usize) -> Expression<F> {
-    Expression::Constant(crate::chips::execution_chip::utils::pow_of_two(by))
+    Expression::Constant(pow_of_two(by))
+}
+
+/// Returns tuple consists of low and high part of U256
+pub(crate) fn split_u256(value: &U256) -> (U256, U256) {
+    let mask = U256::from(u128::MAX);
+    let lo = *value & mask;
+    let hi = (*value >> 128) & mask;
+    (hi, lo)
+}
+
+/// Split a U256 value into 4 64-bit limbs stored in U256 values.
+pub(crate) fn split_u256_limb64(value: &U256) -> [U256; 4] {
+    let mask = U256::from(u64::MAX);
+    [
+        *value & mask,
+        (*value >> 64) & mask,
+        (*value >> 128) & mask,
+        (*value >> 192) & mask,
+    ]
 }

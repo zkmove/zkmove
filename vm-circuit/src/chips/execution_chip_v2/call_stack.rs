@@ -1,6 +1,6 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::chips::execution_chip::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::utilities::Expr;
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use halo2_proofs::plonk::Expression;

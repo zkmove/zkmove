@@ -1,7 +1,7 @@
-use crate::chips::execution_chip::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
+use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::utils::cell_manager::{Cell, CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
