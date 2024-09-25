@@ -1,7 +1,7 @@
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::from_limbs;
-use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
+use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
 use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -31,9 +31,9 @@ fn get_limbs_from_bytes<F: Field, const N_LIMB: usize>(
 
 #[derive(Clone, Debug)]
 pub(crate) struct Membership<F, const N_LIMB: usize> {
-    header_bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    header_bytes: [Cell<F>; NUM_OF_BYTES_U128],
     header_limbs: [Expression<F>; N_LIMB],
-    member_bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    member_bytes: [Cell<F>; NUM_OF_BYTES_U128],
     member_limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_header_limbs: [Cell<F>; N_LIMB],
@@ -113,7 +113,7 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
         member_sub_index: u128,
     ) -> Result<(), Error> {
         // assign header bytes
-        let header_sub_index_bytes = F::from_u128(header_sub_index).to_repr();
+        let header_sub_index_bytes = header_sub_index.to_le_bytes();
         for (idx, byte) in self.header_bytes.iter().enumerate() {
             byte.assign(
                 region,
@@ -123,7 +123,7 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
         }
 
         // assign member bytes
-        let member_sub_index_bytes = F::from_u128(member_sub_index).to_repr();
+        let member_sub_index_bytes = member_sub_index.to_le_bytes();
         for (idx, byte) in self.member_bytes.iter().enumerate() {
             byte.assign(
                 region,
@@ -159,7 +159,7 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
 #[derive(Clone, Debug)]
 pub(crate) struct ExtendedSubIndex<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    bytes: [Cell<F>; NUM_OF_BYTES_U256],
+    bytes: [Cell<F>; NUM_OF_BYTES_U128],
     limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_limb: Cell<F>, // reverse of limbs[depth-1]
@@ -248,7 +248,8 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         ref_sub_index: F,
     ) -> Result<(), Error> {
         // assign bytes
-        let ref_sub_index_bytes = ref_sub_index.to_repr();
+        let ref_sub_index_value = ref_sub_index.get_lower_128();
+        let ref_sub_index_bytes = ref_sub_index_value.to_le_bytes();
         for (idx, byte) in self.bytes.iter().enumerate() {
             byte.assign(
                 region,
@@ -258,7 +259,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
         }
 
         // assign mask
-        let depth = SubIndex::from(ref_sub_index.get_lower_128()).depth();
+        let depth = SubIndex::from(ref_sub_index_value).depth();
         for i in 0..N_LIMB {
             let mask = depth != 0 && i == depth - 1;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
@@ -291,7 +292,8 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 #[derive(Clone, Debug)]
 pub(crate) struct SubIndexReverse<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    limbs: [Cell<F>; N_LIMB],
+    bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    limbs: [Expression<F>; N_LIMB],
 }
 impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
     pub(crate) fn construct(
@@ -299,11 +301,8 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         sub_index: Expression<F>,
         name: &'static str,
     ) -> Self {
-        let limbs: [Cell<F>; N_LIMB] = (0..N_LIMB)
-            .map(|_| cb.query_u16())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let bytes = cb.query_bytes();
+        let limbs = get_limbs_from_bytes(&bytes);
 
         cb.require_equal(
             format!("{}, sub_index == from_limbs(limbs)", name),
@@ -311,7 +310,11 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
             from_limbs::expr::<_, _, N_BITS_ONE_LIMB>(&limbs),
         );
 
-        Self { sub_index, limbs }
+        Self {
+            sub_index,
+            bytes,
+            limbs,
+        }
     }
 
     pub(crate) fn expr(&self) -> Expression<F> {
@@ -324,10 +327,11 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
         offset: usize,
         sub_index: &SubIndex,
     ) -> Result<(), Error> {
-        let vec = sub_index.to_vec();
-        debug_assert!(vec.len() == N_LIMB);
-        for (i, v) in vec.into_iter().enumerate() {
-            self.limbs[i].assign(region, offset, Value::known(F::from(v as u64)))?;
+        let value: u128 = sub_index.clone().into();
+        let bytes = value.to_le_bytes();
+        debug_assert!(bytes.len() == self.bytes.len());
+        for (i, cell) in self.bytes.iter().enumerate() {
+            cell.assign(region, offset, Value::known(F::from(bytes[i] as u64)))?;
         }
         Ok(())
     }

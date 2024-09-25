@@ -14,6 +14,8 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 
+use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
+use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
@@ -31,6 +33,8 @@ pub struct VecPushBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
     vector_origin_len: Cell<F>,
+    range_check_ori_len: RangeCheckGadget<F, 2>,
+    is_ori_len_max_u16: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> VecPushBackStage1<F> {
@@ -53,9 +57,12 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
             step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
 
-        // make sure len and flen are < u16
-        // TODO: what happens if vector len > u16
-        let vector_origin_len = cb.query_u16();
+        // make sure len is in range u16, and len != u16::MAX
+        let vector_origin_len = cb.query_cell();
+        let range_check_ori_len = RangeCheckGadget::construct(cb, vector_origin_len.expr());
+        let max_u16 = pow_of_two_expr(16) - 1u64.expr();
+        let is_ori_len_max_u16 =
+            IsZeroGadget::construct_without_configure(cb, max_u16 - vector_origin_len.expr());
 
         cb.require_no_stack_push();
 
@@ -190,7 +197,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                     step_curr.local_write_value.as_header().len()
                 );
                 cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
-            });
+            is_ori_len_max_u16.configure(cb, "2^16-1 - vector_origin_len(0)");
+            cb.require_zero("vector_origin_len(0) != 2^16-1",  is_ori_len_max_u16.expr());
+        });
 
         cb.require_state_transition(
             [
@@ -212,6 +221,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
             vector_sub_index,
             extended_local_sub_index_of_next_row,
             vector_origin_len,
+            range_check_ori_len,
+            is_ori_len_max_u16,
             is_zero_gadget,
         }
     }
@@ -248,6 +259,16 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                     offset + i,
                     Value::known(F::from(vector_origin_len as u64)),
                 )?;
+                self.range_check_ori_len.assign(
+                    region,
+                    offset + i,
+                    F::from(vector_origin_len as u64),
+                )?;
+                self.is_ori_len_max_u16.assign(
+                    region,
+                    offset + i,
+                    F::from(u16::MAX as u64) - F::from(vector_origin_len as u64),
+                )?;
                 self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
             } else {
                 let next_local_sub_index = step_state.memory_ops[i + 1]
@@ -263,6 +284,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                 )?;
                 self.vector_origin_len
                     .assign(region, offset + i, Value::known(F::from(0)))?;
+                self.range_check_ori_len
+                    .assign(region, offset + i, F::from(0))?;
+                self.is_ori_len_max_u16
+                    .assign(region, offset + i, F::ZERO)?;
                 let local_sub_index = step_state.memory_ops[i]
                     .2
                     .as_ref()
@@ -300,7 +325,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
         let extended_vector_sub_index = ExtendedSubIndex::construct(cb, vector_sub_index.expr());
-        let vector_origin_len = cb.query_u16();
+        let vector_origin_len = cb.query_cell();
 
         cb.require_no_stack_push();
 

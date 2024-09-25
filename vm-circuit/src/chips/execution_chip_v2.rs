@@ -452,6 +452,7 @@ impl<F: Field> ExecChipConfig<F> {
                         Table::Nibble => lookup_table_config.nibble_table.table_exprs(meta),
                         Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
                         Table::U10 => lookup_table_config.u10_table.table_exprs(meta),
+                        #[cfg(feature = "table-u16")]
                         Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
                         Table::Function => lookup_table_config.function_table.table_exprs(meta),
                         Table::Bitwise => lookup_table_config.bitwise_table.table_exprs(meta),

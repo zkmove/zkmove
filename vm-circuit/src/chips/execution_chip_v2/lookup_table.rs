@@ -31,6 +31,7 @@ pub enum Table {
     /// The range check table for u10
     U10,
     /// The range check table for u16
+    #[cfg(feature = "table-u16")]
     U16,
     /// The rest of the fixed table. See [`FixedTableTag`]
     Fixed,
@@ -55,6 +56,9 @@ pub(crate) enum Lookup<F> {
         tag: Expression<F>,
         /// Values that must satisfy the pre-built relationship.
         values: [Expression<F>; 3],
+    },
+    U8 {
+        value: Expression<F>,
     },
     Function {
         module_index: Expression<F>,
@@ -94,6 +98,7 @@ impl<F: Field> Lookup<F> {
     pub(crate) fn table(&self) -> Table {
         match self {
             Self::Fixed { .. } => Table::Fixed,
+            Self::U8 { .. } => Table::U8,
             Self::Function { .. } => Table::Function,
             Self::Bitwise { .. } => Table::Bitwise,
             Self::Constant { .. } => Table::Constant,
@@ -105,6 +110,7 @@ impl<F: Field> Lookup<F> {
     pub(crate) fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
             Self::Fixed { tag, values } => [vec![tag.clone()], values.to_vec()].concat(),
+            Self::U8 { value } => vec![value.clone()],
             Self::Function {
                 module_index,
                 function_handle_index,
@@ -202,6 +208,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
     pub(crate) u10_table: UXTable<10>,
+    #[cfg(feature = "table-u16")]
     pub(crate) u16_table: UXTable<16>,
     pub(crate) bytecode_table: BytecodeLookupTable,
     pub(crate) constant_table: ConstantLookupTable,
@@ -216,6 +223,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
         let u10_table = UXTable::construct(meta);
+        #[cfg(feature = "table-u16")]
         let u16_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let constant_table = ConstantLookupTable::construct(meta);
@@ -226,6 +234,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             nibble_table,
             u8_table,
             u10_table,
+            #[cfg(feature = "table-u16")]
             u16_table,
             bytecode_table,
             constant_table,
@@ -244,6 +253,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.nibble_table.load(layouter)?;
         self.u8_table.load(layouter)?;
         self.u10_table.load(layouter)?;
+        #[cfg(feature = "table-u16")]
         self.u16_table.load(layouter)?;
         self.bytecode_table.load(layouter, static_info)?;
         self.constant_table.load(layouter, static_info)?;

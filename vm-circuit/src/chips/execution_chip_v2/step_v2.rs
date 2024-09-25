@@ -372,7 +372,8 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U16)),
+            // We don't need to constrain pc to be U16, it will be ensured by looking up bytecode table
+            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
             sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U10)),
             opcode: cell_manager.query_cell(
                 meta,

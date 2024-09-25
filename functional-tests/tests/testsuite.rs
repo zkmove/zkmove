@@ -1,19 +1,21 @@
 // Copyright (c) zkMove Authors
 
 // use functional_tests::run_config::RunConfig;
-use halo2_proofs::halo2curves::bn256::Fr;
-use move_package::compilation::compiled_package::OnDiskCompiledPackage;
-use move_package::compilation::package_layout::CompiledPackageLayout;
-use move_package::source_package::layout::SourcePackageLayout;
-use std::path::Path;
-
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use aptos_move_witnesses::{Footprint, Operation};
+use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use log::debug;
+use move_package::compilation::compiled_package::OnDiskCompiledPackage;
+use move_package::compilation::package_layout::CompiledPackageLayout;
+use move_package::source_package::layout::SourcePackageLayout;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use std::path::Path;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{mock_prove_circuit, SubCircuit};
+use vm_circuit::{mock_prove_circuit, prove_vm_circuit_kzg, setup_vm_circuit, SubCircuit};
 pub const TEST_PACKAGE_NAME: &str = "cases";
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
@@ -44,10 +46,19 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 
-    let k = 18; //TODO: auto pick best k
+    let k = 12; //TODO: auto pick best k
+
+    debug!("Mock prove");
     mock_prove_circuit(&circuit, vec![], k)?;
 
-    // TODO: gen key, prove, verify
+    // debug!("Generate parameters");
+    // let rng = StdRng::from_entropy();
+    // let params = ParamsKZG::<Bn256>::setup(k, rng);
+    // let (_, pk) = setup_vm_circuit(&circuit, &params)?;
+    //
+    // debug!("Generate zk proof");
+    // prove_vm_circuit_kzg(circuit, &[], &params, pk.clone())?;
+
     Ok(())
 }
 

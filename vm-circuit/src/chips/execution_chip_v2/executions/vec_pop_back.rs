@@ -2,6 +2,7 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
+use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -30,6 +31,8 @@ pub struct VecPopBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
     vector_origin_len: Cell<F>,
+    range_check_ori_len: RangeCheckGadget<F, 2>,
+    is_zero_ori_len: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> VecPopBackStage1<F> {
@@ -52,9 +55,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
 
-        // make sure len and flen are < u16
-        // TODO: what happens if vector len > u16
-        let vector_origin_len = cb.query_u16();
+        // make sure len is in range u16, and len != 0
+        let vector_origin_len = cb.query_cell();
+        let is_zero_ori_len =
+            IsZeroGadget::construct_without_configure(cb, vector_origin_len.expr());
+        let range_check_ori_len = RangeCheckGadget::construct(cb, vector_origin_len.expr());
 
         cb.require_no_stack_push();
 
@@ -189,6 +194,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     step_curr.local_write_value.as_header().len() + 1u64.expr()
                 );
                 cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
+                is_zero_ori_len.configure(cb, "vector_origin_len");
+            cb.require_zero("vector_origin_len not zero", is_zero_ori_len.expr());
+
         });
 
         cb.require_state_transition(
@@ -211,7 +219,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             vector_sub_index,
             extended_local_sub_index_of_next_row,
             vector_origin_len,
+            range_check_ori_len,
             is_zero_gadget,
+            is_zero_ori_len,
         }
     }
 
@@ -248,6 +258,16 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     offset + i,
                     Value::known(F::from(vector_origin_len as u64)),
                 )?;
+                self.range_check_ori_len.assign(
+                    region,
+                    offset + i,
+                    F::from(vector_origin_len as u64),
+                )?;
+                self.is_zero_ori_len.assign(
+                    region,
+                    offset + i,
+                    F::from(vector_origin_len as u64),
+                )?;
                 self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
             } else {
                 let next_local_sub_index = step_state.memory_ops[i + 1]
@@ -263,6 +283,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 )?;
                 self.vector_origin_len
                     .assign(region, offset + i, Value::known(F::from(0)))?;
+                self.range_check_ori_len
+                    .assign(region, offset + i, F::from(0))?;
+                self.is_zero_ori_len
+                    .assign(region, offset + i, F::from(0))?;
                 let local_sub_index = step_state.memory_ops[i]
                     .2
                     .as_ref()
@@ -300,7 +324,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
         let extended_vector_sub_index = ExtendedSubIndex::construct(cb, vector_sub_index.expr());
-        let vector_origin_len = cb.query_u16();
+        let vector_origin_len = cb.query_cell();
 
         cb.require_no_stack_pop();
 
