@@ -40,11 +40,14 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
         );
         let cells = cb.query_cells::<2>();
         let rlc = WordLoHiCell::new(cells);
-        let cur_rlc = cb.rlc(&[
-            cb.curr.state.local_frame_index.expr(),
-            cb.curr.state.local_index.expr(),
-            cb.curr.state.local_sub_index.expr(),
-        ]);
+        let cur_rlc = cb.rlc_with_randomness(
+            &[
+                cb.curr.state.local_frame_index.expr(),
+                cb.curr.state.local_index.expr(),
+                cb.curr.state.local_sub_index.expr(),
+            ],
+            cb.row_randomness(),
+        );
         cb.require_no_stack_pop();
         cb.require_equal(
             "rlc(local_frame_index, local_index, local_sub_index) == rlc",
@@ -77,7 +80,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     ) -> Result<usize, Error> {
         assert_eq!(stage_state.step_states.len(), 1);
 
-        let randomness = region.challenges().keccak_input();
+        let randomness = region.challenges().row_keccak_input();
         // sort by rlc
         let exec_step_state = randomness.map(|randomness| {
             let mut exec_step_state = stage_state.step_states.first().unwrap().clone();
@@ -123,7 +126,7 @@ impl<F: Field> InstructionGadgetV2<F> for Nop<F> {
     ) -> Result<usize, Error> {
         debug_assert!(stage_state.rows() > 0);
 
-        let randomness = region.challenges().keccak_input();
+        let randomness = region.challenges().row_keccak_input();
 
         let unsorted_rlcs: Value<Vec<_>> = Value::from_iter((0..stage_state.rows()).map(|i| {
             let local_frame_index = region.get_advice(

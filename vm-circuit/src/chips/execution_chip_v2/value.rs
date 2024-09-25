@@ -60,7 +60,7 @@ impl<F: Field, const N: usize> Value<F, N> {
             .unwrap();
         Value {
             cells,
-            challenge: challenges.keccak_input(),
+            challenge: challenges.row_keccak_input(),
         }
     }
     pub(crate) fn cells(&self) -> &[Cell<F>; N] {
