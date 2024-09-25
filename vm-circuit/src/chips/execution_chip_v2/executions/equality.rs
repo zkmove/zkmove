@@ -317,7 +317,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                         },
                     ]
                     .into_iter()
-                    .chain(stack_pop.value.to_fields()), // TODO: remove the nest?
+                    .chain(stack_pop.value.to_fields()),
                     randomness,
                 )
             });
