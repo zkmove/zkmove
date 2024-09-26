@@ -199,19 +199,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         });
 
         cb.require_state_transition(
-            [
-                FRAME_INDEX,
-                MODULE_INDEX,
-                FUNCTION_INDEX,
-                PC,
-                OPCODE,
-                AUX0,
-                AUX1,
-                SP,
-            ]
-            .into_iter()
-            .map(|s| (s, Transition::Same))
-            .collect(),
+            [PC, OPCODE, AUX0, AUX1, SP]
+                .into_iter()
+                .map(|s| (s, Transition::Same))
+                .collect(),
         );
 
         Self {
@@ -419,12 +410,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         );
 
         // next
-        cb.require_state_transition(
-            [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX, SP]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
-        );
+        cb.require_state_transition([SP].into_iter().map(|s| (s, Transition::Same)).collect());
         cb.not_last_row(|cb| {
             cb.require_state_transition(
                 [PC, OPCODE, AUX0, AUX1]

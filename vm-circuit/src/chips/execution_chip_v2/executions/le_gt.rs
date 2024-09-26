@@ -121,9 +121,6 @@ impl<F: Field, const LE: bool> InstructionGadgetV2<F> for Le<F, LE> {
             );
 
             cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
                 (SP, Transition::Delta((-1).expr())),
                 (PC, Transition::Delta(1.expr())),
             ]);

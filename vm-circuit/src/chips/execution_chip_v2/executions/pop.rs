@@ -64,16 +64,10 @@ impl<F: Field> InstructionGadgetV2<F> for Pop<F> {
 
         // nexts
         cb.last_row(|cb| {
-            cb.require_state_transition(
-                [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
-                    .into_iter()
-                    .map(|s| (s, Transition::Same))
-                    .chain(vec![
-                        (PC, Transition::Delta(1.expr())),
-                        (SP, Transition::Delta((-1).expr())),
-                    ])
-                    .collect(),
-            );
+            cb.require_state_transition(vec![
+                (PC, Transition::Delta(1.expr())),
+                (SP, Transition::Delta((-1).expr())),
+            ]);
         });
         Self::default()
     }

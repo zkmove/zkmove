@@ -214,9 +214,6 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             });
 
             cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
                 (PC, Transition::Delta(1.expr())),
                 (SP, Transition::To(step_curr.stack_push_index.expr())),
             ]);

@@ -76,11 +76,6 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
-        cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
-        ]);
         let field_index_next = cb.cell_at_offset(&field_index, 1);
         if !VEC_UNPACK {
             cb.require_next_state(ExecutionState::UnpackStage2);
@@ -256,11 +251,6 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
                     ),
                 ]);
             });
-            cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
-            ]);
         });
 
         UnpackStage2 {

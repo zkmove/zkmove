@@ -36,13 +36,7 @@ impl<F: Field> InstructionGadgetV2<F> for Branch<F> {
 
         let next_pc = cb.curr.state.aux0.expr();
 
-        cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
-            (SP, Transition::Same),
-            (PC, Transition::To(next_pc)),
-        ]);
+        cb.require_state_transition(vec![(SP, Transition::Same), (PC, Transition::To(next_pc))]);
 
         Branch {
             phantom_data: PhantomData,

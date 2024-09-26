@@ -182,9 +182,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             if STAGE1 {
                 cb.require_no_stack_push();
                 cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
                     (SP, Transition::Delta((-1).expr())),
                     (PC, Transition::Same),
                 ]);
@@ -248,9 +245,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 }
 
                 cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
                     (SP, Transition::Same),
                     (PC, Transition::Delta(1.expr())),
                 ]);

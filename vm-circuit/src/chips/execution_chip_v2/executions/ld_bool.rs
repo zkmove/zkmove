@@ -83,9 +83,6 @@ impl<F: Field, const TRUE: bool> InstructionGadgetV2<F> for LdBool<F, TRUE> {
         cb.require_no_local_op();
 
         cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
             (SP, Transition::Delta(1.expr())),
             (PC, Transition::Delta(1.expr())),
         ]);

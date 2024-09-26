@@ -170,12 +170,7 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
             );
         });
         cb.last_row(|cb| {
-            cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
-                (PC, Transition::Delta(1.expr())),
-            ]);
+            cb.require_state_transition(vec![(PC, Transition::Delta(1.expr()))]);
         });
 
         ReadRef {

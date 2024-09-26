@@ -200,19 +200,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         });
 
         cb.require_state_transition(
-            [
-                FRAME_INDEX,
-                MODULE_INDEX,
-                FUNCTION_INDEX,
-                PC,
-                OPCODE,
-                AUX0,
-                AUX1,
-                SP,
-            ]
-            .into_iter()
-            .map(|s| (s, Transition::Same))
-            .collect(),
+            [PC, OPCODE, AUX0, AUX1, SP]
+                .into_iter()
+                .map(|s| (s, Transition::Same))
+                .collect(),
         );
 
         Self {
@@ -411,12 +402,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         );
 
         // next
-        cb.require_state_transition(
-            [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
-        );
+
         cb.not_last_row(|cb| {
             cb.require_state_transition(
                 [PC, OPCODE, AUX0, AUX1, SP]

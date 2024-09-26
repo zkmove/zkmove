@@ -177,9 +177,6 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             });
             cb.condition(1u64.expr() - error, |cb| {
                 cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
                     (SP, Transition::Delta((-1).expr())),
                     (PC, Transition::Delta(1.expr())),
                 ]);

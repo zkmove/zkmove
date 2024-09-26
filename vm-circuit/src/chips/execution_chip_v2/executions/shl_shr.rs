@@ -219,9 +219,6 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             shift_gadget = Some(shift);
 
             cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
                 (SP, Transition::Delta((-1).expr())),
                 (PC, Transition::Delta(1.expr())),
             ]);

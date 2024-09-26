@@ -131,9 +131,6 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
             step_curr.clk.expr(),
         );
         cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
             (PC, Transition::Delta(1.expr())),
             (SP, Transition::Same),
         ]);

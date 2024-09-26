@@ -81,9 +81,6 @@ impl<F: Field> InstructionGadgetV2<F> for Not<F> {
         cb.require_no_local_op();
 
         cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
             (SP, Transition::Same),
             (PC, Transition::Delta(1.expr())),
         ]);

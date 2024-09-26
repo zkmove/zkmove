@@ -86,19 +86,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             );
         });
         cb.require_state_transition(
-            [
-                FRAME_INDEX,
-                MODULE_INDEX,
-                FUNCTION_INDEX,
-                PC,
-                OPCODE,
-                AUX0,
-                AUX1,
-            ]
-            .into_iter()
-            .map(|s| (s, Transition::Same))
-            .chain(once((SP, Transition::Delta((-1).expr()))))
-            .collect(),
+            [PC, OPCODE, AUX0, AUX1]
+                .into_iter()
+                .map(|s| (s, Transition::Same))
+                .chain(once((SP, Transition::Delta((-1).expr()))))
+                .collect(),
         );
         cb.last_row(|cb| {
             cb.require_next_state(ExecutionState::VecSwapStage2);
@@ -303,18 +295,10 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
 
         cb.last_row(|cb| {
             cb.require_state_transition(
-                [
-                    FRAME_INDEX,
-                    MODULE_INDEX,
-                    FUNCTION_INDEX,
-                    PC,
-                    OPCODE,
-                    AUX0,
-                    AUX1,
-                ]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
+                [PC, OPCODE, AUX0, AUX1]
+                    .into_iter()
+                    .map(|s| (s, Transition::Same))
+                    .collect(),
             );
         });
 
@@ -490,18 +474,10 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         if FOUR {
             cb.last_row(|cb| {
                 cb.require_state_transition(
-                    [
-                        FRAME_INDEX,
-                        MODULE_INDEX,
-                        FUNCTION_INDEX,
-                        PC,
-                        OPCODE,
-                        AUX0,
-                        AUX1,
-                    ]
-                    .into_iter()
-                    .map(|s| (s, Transition::Same))
-                    .collect(),
+                    [PC, OPCODE, AUX0, AUX1]
+                        .into_iter()
+                        .map(|s| (s, Transition::Same))
+                        .collect(),
                 );
             });
         }
