@@ -51,13 +51,13 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     debug!("Mock prove");
     mock_prove_circuit(&circuit, vec![], k)?;
 
-    // debug!("Generate parameters");
-    // let rng = StdRng::from_entropy();
-    // let params = ParamsKZG::<Bn256>::setup(k, rng);
-    // let (_, pk) = setup_vm_circuit(&circuit, &params)?;
-    //
-    // debug!("Generate zk proof");
-    // prove_vm_circuit_kzg(circuit, &[], &params, pk.clone())?;
+    debug!("Generate parameters");
+    let rng = StdRng::from_entropy();
+    let params = ParamsKZG::<Bn256>::setup(k, rng);
+    let (_, pk) = setup_vm_circuit(&circuit, &params)?;
+
+    debug!("Generate zk proof");
+    prove_vm_circuit_kzg(circuit, &[], &params, pk.clone())?;
 
     Ok(())
 }

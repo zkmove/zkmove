@@ -1,4 +1,4 @@
-use crate::chips::execution_chip_v2::call_stack::CallContext;
+use crate::chips::execution_chip_v2::call_stack::{CallContext, CallContextShuffle};
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
@@ -16,6 +16,7 @@ use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not};
+use halo2_proofs::plonk::Expression;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
@@ -24,7 +25,7 @@ use types::Field;
 #[derive(Clone, Debug)]
 pub struct CallStage1<F> {
     num_arg: Cell<F>,
-    pub call_context: CallContext<F>,
+    pub call_context: CallContextShuffle<Expression<F>>,
     is_zero_num_arg: IsZeroGadget<F>,
 }
 
@@ -34,7 +35,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let num_arg = cb.query_cell();
-        let call_context = CallContext::construct(cb);
         let is_zero_num_arg = IsZeroGadget::construct(cb, num_arg.expr());
         let step_curr = cb.curr.state.clone();
         let step_next = cb.step_state_at_offset(1);
@@ -54,14 +54,13 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
         cb.require_state_transition(vec![(SP, Transition::Same)]);
-        call_context.configure(
-            cb,
-            step_curr.frame_index.expr(),
-            step_curr.module_index.expr(),
-            step_curr.function_index.expr(),
-            step_curr.pc.expr(),
-            step_curr.clk.expr(),
-        );
+        let call_context = CallContextShuffle {
+            index: step_curr.frame_index.expr(),
+            caller_module_index: step_curr.module_index.expr(),
+            caller_function_index: step_curr.function_index.expr(),
+            caller_pc: step_curr.pc.expr(),
+            version: step_curr.clk.expr(),
+        };
 
         cb.condition(is_zero_num_arg.expr(), |cb| {
             cb.add_lookup(
@@ -132,16 +131,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             .num_arg;
         self.num_arg
             .assign(region, offset, Value::known(F::from(num_arg as u64)))?;
-
-        self.call_context.assign(
-            region,
-            offset,
-            frame_index,
-            module_index,
-            function_index,
-            pc,
-            clk,
-        )?;
 
         self.is_zero_num_arg
             .assign(region, offset, F::from(num_arg as u64))?;

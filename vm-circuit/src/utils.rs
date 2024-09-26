@@ -260,11 +260,11 @@ where
         strategy,
         &[instance],
         &mut transcript,
-    );
+    )?;
 
     let verify_time = instant::Instant::now().duration_since(verify_start);
     info!("verify time: {} ms", verify_time.as_millis());
-    assert!(result.is_ok());
+    //assert!(result.is_ok());
     Ok(proof)
 }
 // TODO: rework on these functions.

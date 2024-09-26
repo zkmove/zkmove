@@ -8,13 +8,27 @@ use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub(crate) struct CallContext<F> {
-    pub(crate) index: Cell<F>,
-    pub(crate) caller_module_index: Cell<F>,
-    pub(crate) caller_function_index: Cell<F>,
-    pub(crate) caller_pc: Cell<F>,
-    pub(crate) version: Cell<F>,
+pub(crate) struct CallContextShuffle<T> {
+    pub(crate) index: T,
+    pub(crate) caller_module_index: T,
+    pub(crate) caller_function_index: T,
+    pub(crate) caller_pc: T,
+    pub(crate) version: T,
 }
+
+impl<F: Field> CallContextShuffle<Expression<F>> {
+    pub(crate) fn exprs(&self) -> Vec<Expression<F>> {
+        vec![
+            self.index.clone(),
+            self.caller_module_index.clone(),
+            self.caller_function_index.clone(),
+            self.caller_pc.clone(),
+            self.version.clone(),
+        ]
+    }
+}
+
+pub(crate) type CallContext<F> = CallContextShuffle<Cell<F>>;
 
 impl<F: Field> CallContext<F> {
     pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
