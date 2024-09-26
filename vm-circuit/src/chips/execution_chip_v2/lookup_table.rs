@@ -57,9 +57,6 @@ pub(crate) enum Lookup<F> {
         /// Values that must satisfy the pre-built relationship.
         values: [Expression<F>; 3],
     },
-    U8 {
-        value: Expression<F>,
-    },
     Function {
         module_index: Expression<F>,
         function_handle_index: Expression<F>,
@@ -98,7 +95,6 @@ impl<F: Field> Lookup<F> {
     pub(crate) fn table(&self) -> Table {
         match self {
             Self::Fixed { .. } => Table::Fixed,
-            Self::U8 { .. } => Table::U8,
             Self::Function { .. } => Table::Function,
             Self::Bitwise { .. } => Table::Bitwise,
             Self::Constant { .. } => Table::Constant,
@@ -110,7 +106,6 @@ impl<F: Field> Lookup<F> {
     pub(crate) fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
             Self::Fixed { tag, values } => [vec![tag.clone()], values.to_vec()].concat(),
-            Self::U8 { value } => vec![value.clone()],
             Self::Function {
                 module_index,
                 function_handle_index,
