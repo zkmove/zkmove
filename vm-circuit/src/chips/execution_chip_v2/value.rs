@@ -1,3 +1,4 @@
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -140,6 +141,56 @@ impl<F: Field> Integer<F> {
             selector.clone() * true_lo + (1u64.expr() - selector.clone()) * false_lo,
             selector.clone() * true_hi + (1u64.expr() - selector.clone()) * false_hi,
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct U16<F>(Cell<F> /*lo 8-bits*/, Cell<F> /*hi 8-bits*/);
+
+impl<F: Field> U16<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        U16(cb.query_byte(), cb.query_byte())
+    }
+    pub(crate) fn new(cells: [Cell<F>; 2]) -> Self {
+        U16(cells[0].clone(), cells[1].clone())
+    }
+    pub(crate) fn cells(&self) -> [Cell<F>; 2] {
+        [self.0.clone(), self.1.clone()]
+    }
+    pub(crate) fn lo(&self) -> Cell<F> {
+        self.0.clone()
+    }
+    pub(crate) fn hi(&self) -> Cell<F> {
+        self.1.clone()
+    }
+    pub(crate) fn expr(&self) -> Expression<F> {
+        let lo = self.0.clone();
+        let hi = self.1.clone();
+        lo.expr() + hi.expr() * pow_of_two_expr(8)
+    }
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: u16,
+    ) -> Result<(), Error> {
+        let bytes = value.to_le_bytes();
+        self.0
+            .assign(region, offset, Halo2Value::known(F::from(bytes[0] as u64)))?;
+        self.1
+            .assign(region, offset, Halo2Value::known(F::from(bytes[1] as u64)))?;
+        Ok(())
+    }
+    pub(crate) fn assign_with_fe(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lo: F,
+        hi: F,
+    ) -> Result<(), Error> {
+        self.0.assign(region, offset, Halo2Value::known(lo))?;
+        self.1.assign(region, offset, Halo2Value::known(hi))?;
+        Ok(())
     }
 }
 
