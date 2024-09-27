@@ -532,17 +532,15 @@ impl<F: Field> ExecChipConfig<F> {
 
         meta.shuffle("callstack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
-
             let s_callstack_push = step_curr.execution_state_selector([ExecutionState::CallStage1]);
-            let shuffled_exprs = config
+            let input_exprs = config
                 .call_stage_1
                 .call_context
                 .exprs()
                 .into_iter()
                 .map(|e| s_usable.clone() * s_callstack_push.clone() * e);
-
             let s_callstack_pop = step_curr.execution_state_selector([ExecutionState::Ret]);
-            let input_exprs = config
+            let shuffled_exprs = config
                 .ret
                 .call_context
                 .exprs()
