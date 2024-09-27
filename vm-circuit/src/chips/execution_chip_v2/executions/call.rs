@@ -215,18 +215,10 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
         cb.last_row(|cb| {
             cb.require_next_state(ExecutionState::CallStage3);
             cb.require_state_transition(
-                [
-                    FRAME_INDEX,
-                    MODULE_INDEX,
-                    FUNCTION_INDEX,
-                    PC,
-                    OPCODE,
-                    AUX0,
-                    AUX1,
-                ]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
+                [PC, OPCODE, AUX0, AUX1]
+                    .into_iter()
+                    .map(|s| (s, Transition::Same))
+                    .collect(),
             );
         });
 
