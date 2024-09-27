@@ -1,3 +1,4 @@
+use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -5,6 +6,7 @@ use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
+use crate::utils::word::WordLoHiCell;
 use halo2_proofs::circuit::{AssignedCell, Value as Halo2Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use types::Field;
@@ -140,6 +142,56 @@ impl<F: Field> Integer<F> {
             selector.clone() * true_lo + (1u64.expr() - selector.clone()) * false_lo,
             selector.clone() * true_hi + (1u64.expr() - selector.clone()) * false_hi,
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct WordU16<F>(WordLoHiCell<F>);
+
+impl<F: Field> WordU16<F> {
+    pub(crate) fn construct(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        Self(WordLoHiCell::new([cb.query_byte(), cb.query_byte()]))
+    }
+    pub(crate) fn new(cells: [Cell<F>; 2]) -> Self {
+        Self(WordLoHiCell::new(cells))
+    }
+    pub(crate) fn cells(&self) -> [Cell<F>; 2] {
+        [self.0.lo(), self.0.hi()]
+    }
+    pub(crate) fn lo(&self) -> Cell<F> {
+        self.0.lo()
+    }
+    pub(crate) fn hi(&self) -> Cell<F> {
+        self.0.hi()
+    }
+    pub(crate) fn expr(&self) -> Expression<F> {
+        self.lo().expr() + self.hi().expr() * pow_of_two_expr(8)
+    }
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: u16,
+    ) -> Result<(), Error> {
+        let bytes = value.to_le_bytes();
+        self.0
+            .lo()
+            .assign(region, offset, Halo2Value::known(F::from(bytes[0] as u64)))?;
+        self.0
+            .hi()
+            .assign(region, offset, Halo2Value::known(F::from(bytes[1] as u64)))?;
+        Ok(())
+    }
+    pub(crate) fn assign_with_fe(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lo: F,
+        hi: F,
+    ) -> Result<(), Error> {
+        self.0.lo().assign(region, offset, Halo2Value::known(lo))?;
+        self.0.hi().assign(region, offset, Halo2Value::known(hi))?;
+        Ok(())
     }
 }
 

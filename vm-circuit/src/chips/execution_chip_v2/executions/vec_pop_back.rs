@@ -2,6 +2,7 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
+use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
 use crate::chips::execution_chip_v2::step_v2::{
     StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
 };
@@ -10,7 +11,7 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
-use crate::chips::execution_chip_v2::value::Index;
+use crate::chips::execution_chip_v2::value::{Index, WordU16};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
@@ -29,7 +30,8 @@ use types::Field;
 pub struct VecPopBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
-    vector_origin_len: Cell<F>,
+    vector_origin_len: WordU16<F>,
+    is_zero_ori_len: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> VecPopBackStage1<F> {
@@ -52,9 +54,10 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             step_curr.local_sub_index.expr() - next_local_sub_index.expr(),
         );
 
-        // make sure len and flen are < u16
-        // TODO: what happens if vector len > u16
-        let vector_origin_len = cb.query_u16();
+        // make sure len is in range u16, and len != 0
+        let vector_origin_len = WordU16::construct(cb);
+        let is_zero_ori_len =
+            IsZeroGadget::construct_without_configure(cb, vector_origin_len.expr());
 
         cb.require_no_stack_push();
 
@@ -165,30 +168,34 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         );
 
         cb.not_last_row(|cb| {
-                cb.require_equal(
-                    "local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
-                    == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen",
-                    step_curr.local_write_value.as_header().flen() - step_curr.local_read_value.as_header().flen(),
-                    step_next.local_write_value.as_header().flen() - step_next.local_read_value.as_header().flen(),
-                );
-                cb.require_equal(
-                    "local_read_value(0).as_header().len == local_write_value(0).as_header().len",
-                    step_curr.local_read_value.as_header().len(),
-                    step_curr.local_write_value.as_header().len(),
-                );
-            });
+            cb.require_equal(
+                "local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
+                == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen",
+                step_curr.local_write_value.as_header().flen()
+                    - step_curr.local_read_value.as_header().flen(),
+                step_next.local_write_value.as_header().flen()
+                    - step_next.local_read_value.as_header().flen(),
+            );
+            cb.require_equal(
+                "local_read_value(0).as_header().len == local_write_value(0).as_header().len",
+                step_curr.local_read_value.as_header().len(),
+                step_curr.local_write_value.as_header().len(),
+            );
+        });
         cb.last_row(|cb| {
-                cb.require_equal(
-                    "local_read_value(0).as_header().flen == step_counter(1) + local_write_value(0).as_header().flen",
-                    step_curr.local_read_value.as_header().flen(),
-                    step_curr.local_write_value.as_header().flen() + step_next.step_counter.expr(),
-                );
-                cb.require_equal(
-                    "local_read_value(0).as_header().len == 1 + local_write_value(0).as_header().len",
-                    step_curr.local_read_value.as_header().len(),
-                    step_curr.local_write_value.as_header().len() + 1u64.expr()
-                );
-                cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
+            cb.require_equal(
+                "local_read_value(0).as_header().flen == step_counter(1) + local_write_value(0).as_header().flen",
+                step_curr.local_read_value.as_header().flen(),
+                step_curr.local_write_value.as_header().flen() + step_next.step_counter.expr(),
+            );
+            cb.require_equal(
+                "local_read_value(0).as_header().len == 1 + local_write_value(0).as_header().len",
+                step_curr.local_read_value.as_header().len(),
+                step_curr.local_write_value.as_header().len() + 1u64.expr()
+            );
+            cb.require_equal("vector_origin_len(0) == local_read_value(0).as_header().len", step_curr.local_read_value.as_header().len(), vector_origin_len.expr());
+            is_zero_ori_len.configure(cb, "vector_origin_len");
+            cb.require_zero("vector_origin_len not zero", is_zero_ori_len.expr());
         });
 
         cb.require_state_transition(
@@ -212,6 +219,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             extended_local_sub_index_of_next_row,
             vector_origin_len,
             is_zero_gadget,
+            is_zero_ori_len,
         }
     }
 
@@ -243,10 +251,12 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 self.extended_local_sub_index_of_next_row
                     .assign(region, offset + i, F::ZERO)?;
 
-                self.vector_origin_len.assign(
+                self.vector_origin_len
+                    .assign(region, offset + i, vector_origin_len)?;
+                self.is_zero_ori_len.assign(
                     region,
                     offset + i,
-                    Value::known(F::from(vector_origin_len as u64)),
+                    F::from(vector_origin_len as u64),
                 )?;
                 self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
             } else {
@@ -261,8 +271,9 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     offset + i,
                     next_local_sub_index.to_field(),
                 )?;
-                self.vector_origin_len
-                    .assign(region, offset + i, Value::known(F::from(0)))?;
+                self.vector_origin_len.assign(region, offset + i, 0)?;
+                self.is_zero_ori_len
+                    .assign(region, offset + i, F::from(0))?;
                 let local_sub_index = step_state.memory_ops[i]
                     .2
                     .as_ref()
@@ -286,7 +297,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
 pub struct VecPopBackStage2<F> {
     vector_sub_index: Cell<F>,
     extended_vector_sub_index: ExtendedSubIndex<F, 8>,
-    vector_origin_len: Cell<F>,
+    vector_origin_len: WordU16<F>,
 }
 impl<F: Field> VecPopBackStage2<F> {
     const PREV_STATE: ExecutionState = ExecutionState::VecPopBackStage1;
@@ -300,7 +311,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
         let extended_vector_sub_index = ExtendedSubIndex::construct(cb, vector_sub_index.expr());
-        let vector_origin_len = cb.query_u16();
+        let vector_origin_len = WordU16::construct(cb);
 
         cb.require_no_stack_pop();
 
@@ -314,11 +325,11 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
             prev_vector_sub_index.expr(),
         );
 
-        let prev_vector_origin_len = cb.cell_at_offset(&vector_origin_len, -1);
+        let prev_vector_origin_len = cb.cells_at_offset(vector_origin_len.cells(), -1);
         cb.require_equal(
             "vector_origin_len(0) == vector_origin_len(-1)",
             vector_origin_len.expr(),
-            prev_vector_origin_len.expr(),
+            WordU16::new(prev_vector_origin_len).expr(),
         );
 
         cb.require_equal(
@@ -448,14 +459,23 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
             self.vector_sub_index.get_column_idx(),
             Rotation::prev(),
         );
-        let vector_origin_len = region.get_advice(
+        let vector_origin_len_lo = region.get_advice(
             offset,
-            self.vector_origin_len.get_column_idx(),
+            self.vector_origin_len.lo().get_column_idx(),
+            Rotation::prev(),
+        );
+        let vector_origin_len_hi = region.get_advice(
+            offset,
+            self.vector_origin_len.hi().get_column_idx(),
             Rotation::prev(),
         );
         for i in 0..stage_state.rows() {
-            self.vector_origin_len
-                .assign(region, offset + i, Value::known(vector_origin_len))?;
+            self.vector_origin_len.assign_with_fe(
+                region,
+                offset + i,
+                vector_origin_len_lo,
+                vector_origin_len_hi,
+            )?;
             self.vector_sub_index
                 .assign(region, offset + i, Value::known(vector_sub_index))?;
             self.extended_vector_sub_index

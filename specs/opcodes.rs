@@ -1130,7 +1130,6 @@ mod branch {
     }
 }
 
-//todo: constrain field_index: let field_index = query_u16() or query_byte()
 mod pack {
     pub fn constrain(is_vec_pack: bool) {
         let num_field = aux0(0);
