@@ -6,7 +6,9 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBu
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
+use crate::chips::utils::not;
 use crate::utils::cached_region::CachedRegion;
+use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
@@ -72,6 +74,25 @@ impl<F: Field> BaseConstraintGadget<F> {
                 .into_iter()
                 .map(|state_name| (state_name, Transition::Same))
                 .collect(),
+            );
+        });
+        cb.last_row(|cb| {
+            cb.condition(
+                not::expr(cb.curr.execution_state_selector([
+                    ExecutionState::Start,
+                    ExecutionState::CallStage1,
+                    ExecutionState::CallStage3,
+                    ExecutionState::Ret,
+                ])),
+                |cb| {
+                    // FIXME: need to consider about abort situation.
+                    cb.require_state_transition(
+                        [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
+                            .into_iter()
+                            .map(|state_name| (state_name, Transition::Same))
+                            .collect(),
+                    );
+                },
             );
         });
 

@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
@@ -62,9 +62,6 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowLoc<F> {
         cb.require_no_stack_pop();
         cb.require_no_local_op();
         cb.require_state_transition(vec![
-            (FRAME_INDEX, Transition::Same),
-            (MODULE_INDEX, Transition::Same),
-            (FUNCTION_INDEX, Transition::Same),
             (SP, Transition::Delta(1.expr())),
             (PC, Transition::Delta(1.expr())),
         ]);

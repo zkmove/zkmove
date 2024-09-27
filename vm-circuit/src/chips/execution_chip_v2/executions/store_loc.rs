@@ -1,6 +1,6 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+    AUX0, AUX1, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -84,18 +84,10 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage1<F> {
         cb.require_state_transition(vec![(SP, Transition::Same)]);
         cb.last_row(|cb| {
             cb.require_state_transition(
-                [
-                    FRAME_INDEX,
-                    MODULE_INDEX,
-                    FUNCTION_INDEX,
-                    PC,
-                    OPCODE,
-                    AUX0,
-                    AUX1,
-                ]
-                .into_iter()
-                .map(|s| (s, Transition::Same))
-                .collect(),
+                [PC, OPCODE, AUX0, AUX1]
+                    .into_iter()
+                    .map(|s| (s, Transition::Same))
+                    .collect(),
             );
         });
 
@@ -200,16 +192,10 @@ impl<F: Field> InstructionGadgetV2<F> for StoreLocStage2<F> {
             cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
         cb.last_row(|cb| {
-            cb.require_state_transition(
-                [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
-                    .into_iter()
-                    .map(|s| (s, Transition::Same))
-                    .chain(vec![
-                        (PC, Transition::Delta(1.expr())),
-                        (SP, Transition::Delta((-1).expr())),
-                    ])
-                    .collect(),
-            );
+            cb.require_state_transition(vec![
+                (PC, Transition::Delta(1.expr())),
+                (SP, Transition::Delta((-1).expr())),
+            ]);
         });
 
         Self {

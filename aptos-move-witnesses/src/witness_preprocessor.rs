@@ -290,7 +290,7 @@ impl WitnessPreProcessor {
                             None,
                             None,
                             Some(LocalReadWrite::new(
-                                current_frame_index as u16,
+                                current_frame_index,
                                 *local_index,
                                 header_check_sub_index,
                                 old_slot,
@@ -313,7 +313,7 @@ impl WitnessPreProcessor {
                                         self.clk,
                                     );
                                     LocalReadWrite::new(
-                                        current_frame_index as u16,
+                                        current_frame_index,
                                         *local_index,
                                         item.sub_index.clone().into(),
                                         old_,
@@ -359,7 +359,7 @@ impl WitnessPreProcessor {
                             self.clk,
                         );
                         let local_op = LocalReadWrite::new(
-                            current_frame_index as u16,
+                            current_frame_index,
                             *local_index,
                             stack_pop.sub_index.clone(),
                             old_,
@@ -454,7 +454,7 @@ impl WitnessPreProcessor {
                             version: self.clk,
                         };
                         let local_op = LocalReadWrite::new(
-                            current_frame_index as u16,
+                            current_frame_index,
                             *local_index,
                             item.sub_index.clone().into(),
                             old_,
@@ -870,7 +870,7 @@ impl WitnessPreProcessor {
                 ];
                 let parents = SubIndex::from(reference.sub_index.clone()).parents();
                 // enter stage3 if we have at least one parent, otherwise skip stage3
-                if parents.len() > 0 {
+                if !parents.is_empty() {
                     self.clk += 1;
                     let step_state = step_state
                         .change_state(ExecutionState::WriteRefStage3)
@@ -1907,8 +1907,7 @@ impl WitnessPreProcessor {
                     caller_frame_index: c.frame_index as u16,
                     caller_module_index: static_info
                         .module_id_mapping
-                        .get_module_index(c.module_id.as_ref().unwrap())
-                        as u32,
+                        .get_module_index(c.module_id.as_ref().unwrap()),
                     caller_function_index: c.function_id as u16,
                     caller_pc: c.pc,
                 });

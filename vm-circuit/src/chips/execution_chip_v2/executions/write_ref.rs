@@ -3,7 +3,7 @@ use crate::chips::execution_chip_v2::executions::ExtendedSubIndex;
 use crate::chips::execution_chip_v2::executions::Membership;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
-    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+    StepState, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -131,9 +131,6 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         cb.last_row(|cb| {
             cb.require_next_state(ExecutionState::WriteRefStage2);
             cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
                 (PC, Transition::Same),
                 (SP, Transition::Delta((-1).expr())),
             ]);
@@ -292,12 +289,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
         });
 
         cb.last_row(|cb| {
-            cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
-                (SP, Transition::Delta((-1).expr())),
-            ]);
+            cb.require_state_transition(vec![(SP, Transition::Delta((-1).expr()))]);
             cb.condition(1u64.expr() - is_zero_header_sub_index.expr(), |cb| {
                 cb.require_state_transition(vec![(PC, Transition::Same)]);
                 cb.require_next_state(ExecutionState::WriteRefStage3);
@@ -467,12 +459,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
 
         cb.last_row(|cb| {
             cb.require_zero("header_sub_index(0) == 0", header_sub_index.expr());
-            cb.require_state_transition(vec![
-                (FRAME_INDEX, Transition::Same),
-                (MODULE_INDEX, Transition::Same),
-                (FUNCTION_INDEX, Transition::Same),
-                (PC, Transition::Delta(1.expr())),
-            ]);
+            cb.require_state_transition(vec![(PC, Transition::Delta(1.expr()))]);
         });
 
         WriteRefStage3 {

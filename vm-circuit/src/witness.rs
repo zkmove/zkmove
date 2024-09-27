@@ -3,7 +3,6 @@
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CircuitConfigV2 {

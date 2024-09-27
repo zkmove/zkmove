@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP};
+use crate::chips::execution_chip_v2::step_v2::{PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
@@ -124,16 +124,10 @@ impl<F: Field, const MOVE: bool> InstructionGadgetV2<F> for MoveOrCopyLoc<F, MOV
         );
 
         cb.last_row(|cb| {
-            cb.require_state_transition(
-                [FRAME_INDEX, MODULE_INDEX, FUNCTION_INDEX]
-                    .into_iter()
-                    .map(|s| (s, Transition::Same))
-                    .chain(vec![
-                        (PC, Transition::Delta(1.expr())),
-                        (SP, Transition::Delta(1.expr())),
-                    ])
-                    .collect(),
-            );
+            cb.require_state_transition(vec![
+                (PC, Transition::Delta(1.expr())),
+                (SP, Transition::Delta(1.expr())),
+            ]);
         });
 
         Self::default()

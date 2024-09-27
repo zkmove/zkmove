@@ -3,7 +3,7 @@ use crate::chips::execution_chip_v2::executions::SubIndexReverse;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::step_v2::{
-    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+    StepState, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -182,9 +182,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             if STAGE1 {
                 cb.require_no_stack_push();
                 cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
                     (SP, Transition::Delta((-1).expr())),
                     (PC, Transition::Same),
                 ]);
@@ -248,9 +245,6 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                 }
 
                 cb.require_state_transition(vec![
-                    (FRAME_INDEX, Transition::Same),
-                    (MODULE_INDEX, Transition::Same),
-                    (FUNCTION_INDEX, Transition::Same),
                     (SP, Transition::Same),
                     (PC, Transition::Delta(1.expr())),
                 ]);
