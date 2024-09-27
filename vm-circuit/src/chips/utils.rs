@@ -1,9 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use halo2_proofs::circuit::{Layouter, Value as CircuitValue};
-use halo2_proofs::plonk::{Advice, Column, Error, Expression, TableColumn, VirtualCells};
+use halo2_proofs::plonk::{Error, TableColumn};
 
-use std::convert::TryInto;
 use types::Field;
 
 pub use gadgets::util::Expr;

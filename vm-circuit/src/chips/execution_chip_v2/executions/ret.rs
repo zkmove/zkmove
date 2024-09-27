@@ -1,4 +1,4 @@
-use crate::chips::execution_chip_v2::call_stack::{CallContext, CallContextShuffle};
+use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{StepState, FRAME_INDEX, SP};
@@ -19,7 +19,7 @@ use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Ret<F> {
-    pub call_context: CallContextShuffle<Expression<F>>,
+    pub call_context: CallContext<Expression<F>>,
     is_zero_frame_index: IsZeroGadget<F>,
     call_context_version: Cell<F>,
 }
@@ -66,7 +66,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         ]
         .map(|e| not::expr(is_zero_frame_index.expr()) * e);
 
-        let call_context = CallContextShuffle {
+        let call_context = CallContext {
             index,
             caller_module_index,
             caller_function_index,

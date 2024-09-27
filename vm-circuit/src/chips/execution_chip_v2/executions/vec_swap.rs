@@ -2,7 +2,7 @@ use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::chips::execution_chip_v2::step_v2::{
-    StepState, AUX0, AUX1, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, PC, SP,
+    StepState, AUX0, AUX1, OPCODE, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{

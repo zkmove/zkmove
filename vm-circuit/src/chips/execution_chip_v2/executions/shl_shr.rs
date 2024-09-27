@@ -6,7 +6,7 @@ use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddExprs;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
 use crate::chips::execution_chip_v2::opcode::Opcode;
 use crate::chips::execution_chip_v2::step_v2::{
-    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+    StepState, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{

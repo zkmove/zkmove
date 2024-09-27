@@ -1,4 +1,4 @@
-use crate::chips::execution_chip_v2::call_stack::{CallContext, CallContextShuffle};
+use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
@@ -25,7 +25,7 @@ use types::Field;
 #[derive(Clone, Debug)]
 pub struct CallStage1<F> {
     num_arg: Cell<F>,
-    pub call_context: CallContextShuffle<Expression<F>>,
+    pub call_context: CallContext<Expression<F>>,
     is_zero_num_arg: IsZeroGadget<F>,
 }
 
@@ -54,7 +54,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
         cb.require_state_transition(vec![(SP, Transition::Same)]);
-        let call_context = CallContextShuffle {
+        let call_context = CallContext {
             index: step_curr.frame_index.expr(),
             caller_module_index: step_curr.module_index.expr(),
             caller_function_index: step_curr.function_index.expr(),
@@ -119,11 +119,6 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let state = stage_state.step_states.first().unwrap();
-        let frame_index = F::from(state.step_state.frame_index as u64);
-        let module_index = F::from(state.step_state.module_index as u64);
-        let function_index = F::from(state.step_state.function_index as u64);
-        let pc = F::from(state.step_state.pc as u64);
-        let clk = F::from(state.step_state.clk as u64);
         let num_arg = static_info
             .get_function(state.step_state.module_index, state.step_state.aux0 as u16)
             .unwrap_or_else(|| panic!("cannot find function"))
@@ -244,7 +239,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let rows = stage_state.rows();
         let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
@@ -400,7 +395,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let step_state = stage_state.step_states.first().unwrap();
         let rows = step_state.memory_ops.len();
