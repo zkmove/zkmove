@@ -1723,15 +1723,33 @@ impl WitnessPreProcessor {
                 match ty {
                     BinaryIntegerOperationType::Add
                     | BinaryIntegerOperationType::Sub
-                    | BinaryIntegerOperationType::Mul
-                    | BinaryIntegerOperationType::Div
-                    | BinaryIntegerOperationType::Mod
                     | BinaryIntegerOperationType::Lt
                     | BinaryIntegerOperationType::Gt
                     | BinaryIntegerOperationType::Le
                     | BinaryIntegerOperationType::Ge => {
                         let memory_ops = vec![
                             MemoryOp(Some(stack_pop_rhs), None, None),
+                            MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                        ];
+                        vec![StageState {
+                            step_states: vec![ExecStepState {
+                                step_state,
+                                memory_ops,
+                            }],
+                            extra_data: None,
+                        }]
+                    }
+                    BinaryIntegerOperationType::Mul
+                    | BinaryIntegerOperationType::Div
+                    | BinaryIntegerOperationType::Mod => {
+                        let memory_ops = vec![
+                            MemoryOp(Some(stack_pop_rhs), None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
                             MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
                         ];
                         vec![StageState {
@@ -2046,6 +2064,12 @@ impl WitnessPreProcessor {
                 };
                 let memory_ops = vec![
                     MemoryOp(Some(stack_pop_rhs), None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
                     MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
                 ];
                 vec![StageState {

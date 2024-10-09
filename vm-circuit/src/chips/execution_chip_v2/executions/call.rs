@@ -62,22 +62,23 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
             version: step_curr.clk.expr(),
         };
 
-        cb.add_lookup(
-            "function lookup",
-            Lookup::Function {
-                module_index: step_curr.module_index.expr(),
-                function_handle_index: step_curr.aux0.expr(),
-                def_module_index: step_next.module_index.expr(),
-                function_index: step_next.function_index.expr(),
-                num_arg: num_arg.expr(),
-                entry: 0u64.expr(),
-            },
-        );
-        cb.require_state_transition(vec![
-            (PC, Transition::To(0u64.expr())),
-            (FRAME_INDEX, Transition::Delta(1.expr())),
-        ]);
-
+        cb.condition(is_zero_num_arg.expr(), |cb| {
+            cb.add_lookup(
+                "function lookup",
+                Lookup::Function {
+                    module_index: step_curr.module_index.expr(),
+                    function_handle_index: step_curr.aux0.expr(),
+                    def_module_index: step_next.module_index.expr(),
+                    function_index: step_next.function_index.expr(),
+                    num_arg: num_arg.expr(),
+                    entry: 0u64.expr(),
+                },
+            );
+            cb.require_state_transition(vec![
+                (PC, Transition::To(0u64.expr())),
+                (FRAME_INDEX, Transition::Delta(1.expr())),
+            ]);
+        });
         cb.condition(not::expr(is_zero_num_arg.expr()), |cb| {
             cb.require_next_state(ExecutionState::CallStage2);
             cb.require_cell_transition(num_arg.clone(), Transition::Same);

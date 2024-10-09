@@ -80,6 +80,7 @@ impl<F: Field> BaseConstraintGadget<F> {
             cb.condition(
                 not::expr(cb.curr.execution_state_selector([
                     ExecutionState::Start,
+                    ExecutionState::ProcessArg,
                     ExecutionState::CallStage1,
                     ExecutionState::CallStage3,
                     ExecutionState::Ret,
