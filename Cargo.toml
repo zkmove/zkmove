@@ -52,8 +52,9 @@ panic = 'unwind'
 incremental = true
 lto = "thin"
 codegen-units = 16
-[profile.test]
-inherits = "release"
+
+#[profile.test]
+#inherits = "release"
 
 
 [profile.release]

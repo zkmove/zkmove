@@ -10,7 +10,7 @@ use crate::chips::execution_chip_v2::executions::{
     WriteRefStage3,
 };
 use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
-use crate::chips::execution_chip_v2::lookup_table::{LookupTableConfigV2, Table};
+use crate::chips::execution_chip_v2::lookup_table::{Lookup, LookupTableConfigV2};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
@@ -33,7 +33,7 @@ use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use move_binary_format::file_format_common::Opcodes;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::iter;
 use types::Field;
 
@@ -113,6 +113,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub nop: Box<Nop<F>>,
     pub step: Step<F>,
     pub stored_expressions_map: HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+    pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
 }
 
 impl<F: Field> ExecChipConfig<F> {
@@ -195,7 +196,9 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        let mut lookup_map = BTreeMap::new();
         let mut stored_expressions_map = HashMap::new();
+        let mut additional_cell_stat_map = BTreeMap::new();
         // base configuration for every opcode gadgets
         let (step_curr, base_constraint) = {
             let mut cb =
@@ -211,6 +214,8 @@ impl<F: Field> ExecChipConfig<F> {
                 None,
                 cb,
                 &mut stored_expressions_map,
+                &mut lookup_map,
+                lookup_table_configs,
             );
             (step_curr, base_constraint)
         };
@@ -225,6 +230,9 @@ impl<F: Field> ExecChipConfig<F> {
                     s_step_last,
                     &step_curr,
                     &mut stored_expressions_map,
+                    &mut lookup_map,
+                    &mut additional_cell_stat_map,
+                    lookup_table_configs,
                 ))
             };
         }
@@ -294,6 +302,7 @@ impl<F: Field> ExecChipConfig<F> {
             columns: cell_columns,
             step: step_curr,
             stored_expressions_map,
+            dynamic_cell_stat_map: additional_cell_stat_map,
         };
 
         Self::configure_lookup(
@@ -320,6 +329,12 @@ impl<F: Field> ExecChipConfig<F> {
         //s_step: Column<Advice>,
         step_curr: &Step<F>,
         stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+        lookup_map: &mut BTreeMap<
+            Option<ExecutionState>,
+            Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
+        >,
+        cell_stat_map: &mut BTreeMap<ExecutionState, BTreeMap<CellType, usize>>, // TODO: replace with Instrument
+        lookup_table_config: &LookupTableConfigV2<F>,
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
@@ -330,6 +345,11 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
+        let mut stat = cb.curr.cell_manager.get_stats(cb.columns);
+        debug_assert_eq!(stat.len(), 1);
+
+        cell_stat_map.insert(G::EXECUTION_STATE, stat.pop().unwrap());
+
         Self::configure_opcode_gadget_impl(
             s_usable,
             s_step_first,
@@ -338,6 +358,8 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
             cb,
             stored_expressions_map,
+            lookup_map,
+            lookup_table_config,
         );
         gadget
     }
@@ -350,10 +372,15 @@ impl<F: Field> ExecChipConfig<F> {
         execution_state: Option<ExecutionState>,
         mut cb: ConstraintBuilderV2<F>,
         stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+        lookup_map: &mut BTreeMap<
+            Option<ExecutionState>,
+            Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
+        >,
+        lookup_table_config: &LookupTableConfigV2<F>,
     ) {
         let step_prev = cb.step_state_at_offset(-1);
         let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, stored_expressions, meta) = cb.build();
+        let (step_curr, constraints, lookups, stored_expressions, meta, columns) = cb.build();
 
         if let Some(execution_state) = execution_state {
             debug_assert!(
@@ -362,6 +389,7 @@ impl<F: Field> ExecChipConfig<F> {
             );
             stored_expressions_map.insert(execution_state, stored_expressions);
         }
+        //lookup_map.insert(execution_state, lookups);
 
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
@@ -397,13 +425,13 @@ impl<F: Field> ExecChipConfig<F> {
                 ),
             ])
         };
-
+        let any_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|_| 1.expr();
         for (selector, constraints) in [
             (first_row, constraints.first_row),
             (last_row, constraints.last_row),
             (not_first_row, constraints.not_first_row),
             (not_last_row, constraints.not_last_row),
-            (&|_| 1.expr(), constraints.any_row),
+            (any_row, constraints.any_row),
         ] {
             if !constraints.is_empty() {
                 meta.create_gate(name, |meta| {
@@ -414,6 +442,35 @@ impl<F: Field> ExecChipConfig<F> {
                     })
                 });
             }
+        }
+
+        for (constraint_location, name, lookup) in lookups {
+            let location_selector = match constraint_location {
+                None => any_row,
+                Some(ConstraintLocation::FirstRow) => first_row,
+                Some(ConstraintLocation::LastRow) => last_row,
+                Some(ConstraintLocation::NotFirstRow) => not_first_row,
+                Some(ConstraintLocation::NotLastRow) => not_last_row,
+            };
+
+            meta.lookup_any(name.as_str(), |meta| {
+                let s_usable = meta.query_selector(s_usable);
+                let location_selector = location_selector(meta);
+                let state_selector = match execution_state {
+                    Some(s) => step_curr.execution_state_selector([s]),
+                    None => 1.expr(),
+                };
+
+                let table_expressions = lookup_table_config.table_exprs(lookup.table(), meta);
+                lookup
+                    .input_exprs()
+                    .into_iter()
+                    .map(|e| {
+                        s_usable.clone() * location_selector.clone() * state_selector.clone() * e
+                    })
+                    .zip(table_expressions)
+                    .collect()
+            });
         }
     }
 
@@ -448,19 +505,7 @@ impl<F: Field> ExecChipConfig<F> {
                 let column_expr = column.expr(meta);
                 meta.lookup_any(name.as_str(), |meta| {
                     let s_usable = meta.query_selector(s_usable);
-                    let table_expressions = match table {
-                        Table::Nibble => lookup_table_config.nibble_table.table_exprs(meta),
-                        Table::U8 => lookup_table_config.u8_table.table_exprs(meta),
-                        Table::U10 => lookup_table_config.u10_table.table_exprs(meta),
-                        #[cfg(feature = "table-u16")]
-                        Table::U16 => lookup_table_config.u16_table.table_exprs(meta),
-                        Table::Function => lookup_table_config.function_table.table_exprs(meta),
-                        Table::Bitwise => lookup_table_config.bitwise_table.table_exprs(meta),
-                        Table::Bytecode => lookup_table_config.bytecode_table.table_exprs(meta),
-                        Table::Constant => lookup_table_config.constant_table.table_exprs(meta),
-                        Table::Pow2 => lookup_table_config.pow2_table.table_exprs(meta),
-                        _ => unimplemented!(),
-                    };
+                    let table_expressions = lookup_table_config.table_exprs(table, meta);
                     vec![(
                         s_usable * column_expr,
                         rlc::expr(&table_expressions, challenges.lookup_input()),
@@ -713,11 +758,12 @@ impl<F: Field> ExecChipConfig<F> {
                         None => true,
                     };
 
-                    if row_match {
-                        expression.assign(region, offset_begin + i)?;
-                    } else {
-                        expression.assign_empty(region, offset_begin + i)?;
-                    }
+                    // if row_match {
+                    //     expression.assign(region, offset_begin + i)?;
+                    // } else {
+                    //     expression.assign_empty(region, offset_begin + i)?;
+                    // }
+                    expression.assign(region, offset_begin + i)?;
                 }
             }
         }

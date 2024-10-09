@@ -10,6 +10,7 @@ use halo2_proofs::{
 };
 
 use crate::chips::execution_chip_v2::lookup_table::Table;
+use strum::IntoEnumIterator;
 use types::Field;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,13 +23,31 @@ pub(crate) enum CellType {
 }
 
 impl CellType {
+    pub(crate) fn all() -> Vec<CellType> {
+        [
+            Self::StoragePhase1,
+            Self::StoragePhase2,
+            Self::StoragePermutation,
+        ]
+        .into_iter()
+        .chain(Table::iter().map(CellType::Lookup))
+        .collect()
+    }
+}
+
+impl CellType {
     // TODO: find a better way to do this.
     pub fn phase(&self) -> u8 {
         match self {
             CellType::StoragePhase1 => 0, // TODO: check the phase
             CellType::StoragePhase2 => 1,
             CellType::StoragePermutation => 1, // FIXME: check the type
-            CellType::Lookup(_) => 2,
+            CellType::Lookup(t) => match t {
+                Table::Nibble | Table::U8 | Table::U10 => 0,
+                #[cfg(feature = "table-u16")]
+                Table::U16 => 0,
+                _ => 2,
+            },
         }
     }
 }
@@ -57,6 +76,9 @@ impl CellType {
 
     /// Return the storage cell of the expression.
     pub(crate) fn storage_for_expr<F: Field>(expr: &Expression<F>) -> CellType {
+        if Self::expr_phase::<F>(expr) > 1 {
+            dbg!(expr);
+        }
         Self::storage_for_phase(Self::expr_phase::<F>(expr))
     }
 }

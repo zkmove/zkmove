@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
+use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, LookupTableConfigV2};
 use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
@@ -11,16 +11,19 @@ use halo2_proofs::{
 };
 use movelang::value::Value;
 use std::marker::PhantomData;
+use strum::IntoEnumIterator;
 use types::Field;
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
     lookup_table_config: LookupTableConfigV2<F>,
     exec_chip_config: ExecChipConfig<F>,
+    fixed_table_tags: Vec<FixedTableTag>,
 }
 
 pub struct VmCircuitConfigArgs {
     challenges: Challenges,
+    fixed_table_tags: Vec<FixedTableTag>,
 }
 
 impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
@@ -31,7 +34,29 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
         let challenges_expr = args.challenges.exprs(meta);
         let exec_chip_config =
             ExecChipConfig::configure(meta, challenges_expr.clone(), &lookup_table_config);
+        // TODO: delete me
+        #[cfg(test)]
+        {
+            use crate::utils::cell_manager::CellType;
+            let mut headers = CellType::all()
+                .iter()
+                .map(|t| format!("{:?}", t))
+                .collect::<Vec<_>>();
+            headers.insert(0, "state".to_string());
+            println!("{}", headers.join(","));
+
+            for (state, stat) in &exec_chip_config.dynamic_cell_stat_map {
+                let mut stat = CellType::all()
+                    .iter()
+                    .map(|t| stat.get(t).cloned().unwrap_or_default().to_string())
+                    .collect::<Vec<_>>();
+                stat.insert(0, format!("{:?}", state));
+                println!("{}", stat.join(","));
+            }
+        }
+
         Self {
+            fixed_table_tags: args.fixed_table_tags,
             exec_chip_config,
             lookup_table_config,
         }
@@ -55,8 +80,15 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let challenges = Challenges::construct(meta);
+        let fixed_table_tags = FixedTableTag::iter().collect();
         (
-            VmCircuitConfig::new(meta, VmCircuitConfigArgs { challenges }),
+            VmCircuitConfig::new(
+                meta,
+                VmCircuitConfigArgs {
+                    challenges,
+                    fixed_table_tags,
+                },
+            ),
             challenges,
         )
     }
@@ -87,12 +119,17 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         VmCircuitConfig {
             exec_chip_config,
             lookup_table_config,
+            fixed_table_tags,
         }: &Self::Config,
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
         //dbg!(&self.witness.static_info.function_info);
-        lookup_table_config.load(layouter, &self.witness.static_info)?;
+        lookup_table_config.load(
+            layouter,
+            fixed_table_tags.clone(),
+            &self.witness.static_info,
+        )?;
         exec_chip_config.assign(layouter, &self.witness, challenges)?;
         Ok(())
     }

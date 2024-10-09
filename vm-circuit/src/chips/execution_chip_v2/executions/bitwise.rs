@@ -1,9 +1,7 @@
 use crate::chips::execution_chip_v2::executions::bitwise::to_nibbles::ToNibbles;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
-use crate::chips::execution_chip_v2::step_v2::{
-    StepState, PC, SP,
-};
+use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
@@ -37,10 +35,14 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let step_prev_2 = cb.step_state_at_offset(-2);
         let nibbles: [Cell<F>; NUM_OF_BYTES_U256 * 2] = (0..NUM_OF_BYTES_U256 * 2)
-            .map(|_| cb.query_nibble())
+            .map(|_| cb.query_cell())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+
+        for (i, nibble) in nibbles.iter().enumerate() {
+            cb.range_lookup(format!("nibble[{}]", i), nibble.expr(), 16);
+        }
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -139,7 +141,6 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
                 nibbles_out: nibbles.clone(),
             };
             LookupBitwise::lookup(cb, op);
-
             cb.require_zero(
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
@@ -204,8 +205,8 @@ impl<F: Field> LookupBitwise<F> {
     fn lookup(cb: &mut ConstraintBuilderV2<F>, op: BitwiseOperation<F>) {
         for (operand_1, operand_2, result) in izip!(op.nibbles_lhs, op.nibbles_rhs, op.nibbles_out)
         {
-            cb.add_lookup(
-                "bitwise lookup",
+            cb.add_lookup_directly(
+                "bitwise lookup".to_string(),
                 Lookup::Bitwise {
                     opcode: op.opcode.clone(),
                     value_1: operand_1.expr(),

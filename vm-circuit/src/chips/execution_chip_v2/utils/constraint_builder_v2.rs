@@ -1,5 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::lookup_table::{Lookup, Table};
+use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, Lookup, Table};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::StoredExpression;
@@ -58,7 +58,7 @@ pub(crate) struct Constraints<F> {
 
 pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     meta: &'a mut ConstraintSystem<F>,
-    columns: &'a mut CellManagerColumns,
+    pub(crate) columns: &'a mut CellManagerColumns,
     challenges: &'a Challenges<Expression<F>>,
 
     execution_state: Option<ExecutionState>,
@@ -67,6 +67,8 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     constraints: Constraints<F>,
     constraints_location: Option<ConstraintLocation>,
     conditions: Vec<Expression<F>>,
+
+    lookups: Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
 
     stored_expressions: Vec<StoredExpression<F>>,
     in_next_step: bool,
@@ -77,11 +79,11 @@ impl<'a, F: Field> ConstrainBuilderCommon<F> for ConstraintBuilderV2<'a, F> {
         let constraint = constraint * self.condition_expr();
         // let constraint = self.split_expression(
         //     name.as_str(),
-        //     constraint * self.condition_expr(),
+        //     constraint,
         //     MAX_DEGREE - IMPLICIT_DEGREE, // FIXME: check on the degree
         // );
 
-        //self.validate_degree(constraint.degree(), name.as_str());
+        // self.validate_degree(constraint.degree(), name.as_str());
 
         self.push_constraint(name, constraint);
     }
@@ -106,6 +108,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             stored_expressions: Vec::new(),
             in_next_step: false,
             conditions: Vec::new(),
+            lookups: Vec::new(),
         }
     }
 
@@ -115,8 +118,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     ) -> (
         Step<F>,
         Constraints<F>,
+        Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
         Vec<StoredExpression<F>>,
         &'a mut ConstraintSystem<F>,
+        &'a mut CellManagerColumns,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
         let op_sel = match self.execution_state {
@@ -137,8 +142,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 not_last_row: mul_exec_state_sel(self.constraints.not_last_row),
                 any_row: mul_exec_state_sel(self.constraints.any_row),
             },
+            self.lookups,
             self.stored_expressions,
             self.meta,
+            self.columns,
         )
     }
 
@@ -165,9 +172,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn query_u16(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::Lookup(Table::U16))
     }
-    pub(crate) fn query_nibble(&mut self) -> Cell<F> {
-        self.query_cell_with_type(CellType::Lookup(Table::Nibble))
-    }
+    // pub(crate) fn query_nibble(&mut self) -> Cell<F> {
+    //     self.query_cell_with_type(CellType::Lookup(Table::Nibble))
+    // }
     pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_u8_dyn(N).try_into().unwrap()
     }
@@ -375,6 +382,33 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         self.challenges.column_keccak_input()
     }
     // Lookups
+    pub(crate) fn range_lookup(&mut self, lookup_name: String, value: Expression<F>, range: u64) {
+        let (name, tag) = match range {
+            5 => ("Range5", FixedTableTag::Range5),
+            16 => ("Range16", FixedTableTag::Range16),
+            32 => ("Range32", FixedTableTag::Range32),
+            64 => ("Range64", FixedTableTag::Range64),
+            128 => ("Range128", FixedTableTag::Range128),
+            256 => ("Range256", FixedTableTag::Range256),
+            512 => ("Range512", FixedTableTag::Range512),
+            1024 => ("Range1024", FixedTableTag::Range1024),
+            _ => unimplemented!(),
+        };
+        self.add_lookup_directly(
+            format!("{}-{}", name, lookup_name),
+            Lookup::Fixed {
+                tag: tag.expr(),
+                values: [value, 0.expr(), 0.expr()],
+            },
+        );
+    }
+    pub(crate) fn add_lookup_directly(&mut self, name: String, lookup: Lookup<F>) {
+        let lookup = match self.condition_expr_opt() {
+            Some(condition) => lookup.conditional(condition),
+            None => lookup,
+        };
+        self.lookups.push((self.constraints_location, name, lookup))
+    }
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
         // debug_assert!(
@@ -403,7 +437,8 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         cell_type: CellType,
     ) -> Expression<F> {
         // Check if we already stored the expression somewhere
-        let stored_expression = self.find_stored_expression(&expr, cell_type);
+        let stored_expression =
+            self.find_stored_expression(&expr, cell_type, self.constraints_location);
 
         match stored_expression {
             Some(stored_expression) => {
@@ -442,11 +477,14 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         &self,
         expr: &Expression<F>,
         cell_type: CellType,
+        constraint_location: Option<ConstraintLocation>,
     ) -> Option<&StoredExpression<F>> {
         let expr_id = expr.identifier();
-        self.stored_expressions
-            .iter()
-            .find(|&e| e.cell_type == cell_type && e.expr_id == expr_id)
+        self.stored_expressions.iter().find(|&e| {
+            e.cell_type == cell_type
+                && e.expr_id == expr_id
+                && e.required_location == constraint_location
+        })
     }
 
     fn split_expression(
