@@ -1,7 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
-use crate::chips::execution_chip_v2::step_v2::{
-    AUX0, AUX1, OPCODE, PC, SP,
-};
+use crate::chips::execution_chip_v2::step_v2::{AUX0, AUX1, OPCODE, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
