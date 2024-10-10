@@ -1,6 +1,6 @@
 use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrategy, CellType};
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, SecondPhase, ThirdPhase};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use types::Field;
 
@@ -203,7 +203,7 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
 
 #[derive(Debug, Clone)]
 pub(crate) struct CMFixedHeightStrategy {
-    row_width: Vec<HashMap<CellType, usize>>,
+    row_width: Vec<BTreeMap<CellType, usize>>,
     height_offset: isize,
     num_unused_cells: usize,
 }
@@ -211,7 +211,7 @@ pub(crate) struct CMFixedHeightStrategy {
 impl CMFixedHeightStrategy {
     pub(crate) fn new(height: usize, height_offset: isize) -> CMFixedHeightStrategy {
         CMFixedHeightStrategy {
-            row_width: vec![HashMap::default(); height],
+            row_width: vec![BTreeMap::default(); height],
             height_offset,
             num_unused_cells: Default::default(),
         }
@@ -244,10 +244,10 @@ impl CellPlacementStrategy for CMFixedHeightStrategy {
         self.row_width.len()
     }
 
-    type Stats = ();
+    type Stats = Vec<BTreeMap<CellType, usize>>;
 
     fn get_stats(&self, _columns: &CellManagerColumns) -> Self::Stats {
-        // This CM strategy has not statistics.
+        self.row_width.clone()
     }
 
     fn place_cell_with_affinity<F: Field>(

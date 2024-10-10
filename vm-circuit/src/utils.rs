@@ -75,6 +75,8 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         .map(|g| g.polynomials().len())
         .sum::<usize>());
     dbg!(prover.cs().advice_queries().len());
+    dbg!(prover.cs().lookups().len());
+
     // uncomment this to output assignments
     {
         let mut f = std::fs::File::options()

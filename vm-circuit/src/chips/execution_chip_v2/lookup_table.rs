@@ -1,14 +1,16 @@
 use crate::chips::execution_chip_v2::lookup_table::bitwise_table::BitwiseLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLookupTable;
+use crate::chips::execution_chip_v2::lookup_table::fix_table::FixedTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::pow2::Pow2LookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
+use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::impl_expr;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
+use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, VirtualCells};
 use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
@@ -16,6 +18,7 @@ use types::Field;
 pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
+pub(crate) mod fix_table;
 pub(crate) mod function_table;
 pub(crate) mod pow2;
 pub(crate) mod utils;
@@ -197,9 +200,68 @@ pub enum FixedTableTag {
     Pow2,
 }
 impl_expr!(FixedTableTag);
+impl FixedTableTag {
+    /// build up the fixed table row values
+    pub(crate) fn build<F: Field>(&self) -> Box<dyn Iterator<Item = [F; 4]>> {
+        let tag = F::from(*self as u64);
+        match self {
+            Self::Zero => Box::new((0..1).map(move |_| [tag, F::ZERO, F::ZERO, F::ZERO])),
+            Self::Range5 => {
+                Box::new((0..5).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range16 => {
+                Box::new((0..16).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range32 => {
+                Box::new((0..32).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range64 => {
+                Box::new((0..64).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range128 => {
+                Box::new((0..128).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range256 => {
+                Box::new((0..256).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range512 => {
+                Box::new((0..512).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::Range1024 => {
+                Box::new((0..1024).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+            }
+            Self::SignByte => Box::new((0..256).map(move |value| {
+                [
+                    tag,
+                    F::from(value),
+                    F::from((value >> 7) * 0xFFu64),
+                    F::ZERO,
+                ]
+            })),
+            Self::BitwiseAnd => Box::new((0..16).flat_map(move |lhs| {
+                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs & rhs)])
+            })),
+            Self::BitwiseOr => Box::new((0..16).flat_map(move |lhs| {
+                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs | rhs)])
+            })),
+            Self::BitwiseXor => Box::new((0..16).flat_map(move |lhs| {
+                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs ^ rhs)])
+            })),
+            Self::Pow2 => Box::new((0..256).map(move |value| {
+                let (pow_lo, pow_hi) = if value < 128 {
+                    (F::from_u128(1_u128 << value), F::from(0))
+                } else {
+                    (F::from(0), F::from_u128(1 << (value - 128)))
+                };
+                [tag, F::from(value), pow_lo, pow_hi]
+            })),
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub struct LookupTableConfigV2<F> {
+    pub(crate) fixed_table: FixedTable,
     pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
     pub(crate) u10_table: UXTable<10>,
@@ -215,6 +277,7 @@ pub struct LookupTableConfigV2<F> {
 
 impl<F: Field> LookupTableConfigV2<F> {
     pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
+        let fixed_table = FixedTable::construct(meta);
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
         let u10_table = UXTable::construct(meta);
@@ -226,6 +289,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2LookupTable::construct(meta);
         Self {
+            fixed_table,
             nibble_table,
             u8_table,
             u10_table,
@@ -243,8 +307,10 @@ impl<F: Field> LookupTableConfigV2<F> {
     pub fn load(
         &self,
         layouter: &mut impl Layouter<F>,
+        fixed_table_tags: Vec<FixedTableTag>,
         static_info: &StaticInfo,
     ) -> Result<(), Error> {
+        self.fixed_table.load(layouter, fixed_table_tags)?;
         self.nibble_table.load(layouter)?;
         self.u8_table.load(layouter)?;
         self.u10_table.load(layouter)?;
@@ -256,5 +322,21 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.bitwise_table.load(layouter)?;
         self.pow2_table.load(layouter)?;
         Ok(())
+    }
+
+    pub fn table_exprs(&self, table: Table, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
+        match table {
+            Table::Fixed => self.fixed_table.table_exprs(meta),
+            Table::Nibble => self.nibble_table.table_exprs(meta),
+            Table::U8 => self.u8_table.table_exprs(meta),
+            Table::U10 => self.u10_table.table_exprs(meta),
+            #[cfg(feature = "table-u16")]
+            Table::U16 => self.u16_table.table_exprs(meta),
+            Table::Function => self.function_table.table_exprs(meta),
+            Table::Bitwise => self.bitwise_table.table_exprs(meta),
+            Table::Bytecode => self.bytecode_table.table_exprs(meta),
+            Table::Constant => self.constant_table.table_exprs(meta),
+            Table::Pow2 => self.pow2_table.table_exprs(meta),
+        }
     }
 }

@@ -1,6 +1,6 @@
 use move_binary_format::file_format_common::Opcodes;
 use strum_macros::EnumIter;
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, EnumIter)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, Ord, PartialOrd, EnumIter)]
 pub enum ExecutionState {
     Start = 0,
     ProcessArg,
