@@ -17,6 +17,7 @@ pub const NUM_OF_BYTES_U32: usize = 4;
 pub const NUM_OF_BYTES_U64: usize = 8;
 pub const NUM_OF_BYTES_U128: usize = 16;
 pub const NUM_OF_BYTES_U256: usize = 32;
+pub const NUM_OF_NIBBLE_U256: usize = NUM_OF_BYTES_U256 * 2;
 
 pub const INTEGER_NUM_OF_BYTES_SET: [usize; 6] = [
     NUM_OF_BYTES_U8,

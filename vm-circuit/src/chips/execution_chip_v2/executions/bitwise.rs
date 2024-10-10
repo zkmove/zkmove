@@ -7,7 +7,7 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::chips::execution_chip_v2::utils::from_limbs;
-use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U256;
+use crate::chips::execution_chip_v2::value::{NUM_OF_BYTES_U256, NUM_OF_NIBBLE_U256};
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
@@ -34,11 +34,8 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         let step_curr = cb.curr.state.clone();
         let step_prev = cb.step_state_at_offset(-1);
         let step_prev_2 = cb.step_state_at_offset(-2);
-        let nibbles: [Cell<F>; NUM_OF_BYTES_U256 * 2] = (0..NUM_OF_BYTES_U256 * 2)
-            .map(|_| cb.query_cell())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        // although we use byte to represent nibble, no need to do range check as these cells will be bitwise-lookuped.
+        let nibbles: [Cell<F>; NUM_OF_NIBBLE_U256] = cb.query_bytes::<NUM_OF_NIBBLE_U256>();
 
         cb.first_row(|cb| {
             cb.require_in_set(
