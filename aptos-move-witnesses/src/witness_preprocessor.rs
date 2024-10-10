@@ -1750,6 +1750,8 @@ impl WitnessPreProcessor {
                             MemoryOp(None, None, None),
                             MemoryOp(None, None, None),
                             MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
+                            MemoryOp(None, None, None),
                             MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
                         ];
                         vec![StageState {
@@ -2064,6 +2066,8 @@ impl WitnessPreProcessor {
                 };
                 let memory_ops = vec![
                     MemoryOp(Some(stack_pop_rhs), None, None),
+                    MemoryOp(None, None, None),
+                    MemoryOp(None, None, None),
                     MemoryOp(None, None, None),
                     MemoryOp(None, None, None),
                     MemoryOp(None, None, None),

@@ -214,7 +214,7 @@ mod binary_op {
 mod binary_op_v2 {
     pub fn constrain() {
         if super::common::on_first_row() {
-            step_counter(0) == 8;
+            step_counter(0) == 10;
             stack_pop_index(0) == sp(0);
         }
 
@@ -237,7 +237,7 @@ mod binary_op_v2 {
 
             stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
-            let rhs = stack_pop_value(-7);
+            let rhs = stack_pop_value(-9);
             let lhs = stack_pop_value(0);
             let out = binary_op(lhs, rhs);
             stack_push_value(0) == out;
