@@ -40,10 +40,6 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
             .try_into()
             .unwrap();
 
-        for (i, nibble) in nibbles.iter().enumerate() {
-            cb.range_lookup(format!("nibble[{}]", i), nibble.expr(), 16);
-        }
-
         cb.first_row(|cb| {
             cb.require_in_set(
                 "opcode in OPCODES",
