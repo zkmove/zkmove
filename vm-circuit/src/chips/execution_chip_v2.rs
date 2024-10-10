@@ -758,12 +758,11 @@ impl<F: Field> ExecChipConfig<F> {
                         None => true,
                     };
 
-                    // if row_match {
-                    //     expression.assign(region, offset_begin + i)?;
-                    // } else {
-                    //     expression.assign_empty(region, offset_begin + i)?;
-                    // }
-                    expression.assign(region, offset_begin + i)?;
+                    if row_match {
+                        expression.assign(region, offset_begin + i)?;
+                    } else {
+                        expression.assign_empty(region, offset_begin + i)?;
+                    }
                 }
             }
         }
