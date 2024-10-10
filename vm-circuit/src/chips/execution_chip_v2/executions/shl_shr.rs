@@ -42,6 +42,8 @@ struct ShiftCells<F> {
     c_hi: [Cell<F>; NUM_OF_BYTES_U128],
     d_lo: [Cell<F>; NUM_OF_BYTES_U128],
     d_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    comp_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    lt_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
 }
 
 #[derive(Clone, Debug)]
@@ -71,7 +73,8 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
         let bytes = cb.query_bytes();
-        let is_first_row = IsZeroGadget::construct(cb, 8u64.expr() - step_curr.step_counter.expr());
+        let is_first_row =
+            IsZeroGadget::construct(cb, 10u64.expr() - step_curr.step_counter.expr());
         let is_last_row = IsZeroGadget::construct(cb, 1u64.expr() - step_curr.step_counter.expr());
         let is_shl =
             IsZeroGadget::construct(cb, (Opcode::Shl as u64).expr() - step_curr.opcode.expr());
@@ -102,9 +105,9 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
-                "step_counter(0) == 8",
+                "step_counter(0) == 10",
                 step_curr.step_counter.expr(),
-                8u64.expr(),
+                10u64.expr(),
             );
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
@@ -163,7 +166,7 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             );
 
             let lhs = step_curr.stack_pop_value.as_integer();
-            let step_first = cb.step_state_at_offset(-7);
+            let step_first = cb.step_state_at_offset(-9);
             let rhs = step_first.stack_pop_value.as_integer();
             let out = step_curr.stack_push_value.as_integer();
 
@@ -192,14 +195,16 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             });
 
             let cells = ShiftCells {
-                a_lo: cb.cells_at_offset(bytes.clone(), -7),
-                a_hi: cb.cells_at_offset(bytes.clone(), -6),
-                b_lo: cb.cells_at_offset(bytes.clone(), -5),
-                b_hi: cb.cells_at_offset(bytes.clone(), -4),
-                c_lo: cb.cells_at_offset(bytes.clone(), -3),
-                c_hi: cb.cells_at_offset(bytes.clone(), -2),
-                d_lo: cb.cells_at_offset(bytes.clone(), -1),
-                d_hi: bytes.clone(),
+                a_lo: cb.cells_at_offset(bytes.clone(), -9),
+                a_hi: cb.cells_at_offset(bytes.clone(), -8),
+                b_lo: cb.cells_at_offset(bytes.clone(), -7),
+                b_hi: cb.cells_at_offset(bytes.clone(), -6),
+                c_lo: cb.cells_at_offset(bytes.clone(), -5),
+                c_hi: cb.cells_at_offset(bytes.clone(), -4),
+                d_lo: cb.cells_at_offset(bytes.clone(), -3),
+                d_hi: cb.cells_at_offset(bytes.clone(), -2),
+                comp_gadget_bytes: cb.cells_at_offset(bytes.clone(), -1),
+                lt_gadget_bytes: bytes.clone(),
             };
 
             let shift = ShiftGadget::construct(
@@ -268,19 +273,22 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         let num_bytes = step_state.step_state.aux0 as usize;
         let pop0 = step_state.memory_ops[0].0.clone().unwrap().value;
         let rhs = pop0.to_u8_unchecked();
-        let lhs = step_state.memory_ops[7].0.clone().unwrap().value;
-        let out = step_state.memory_ops[7].1.clone().unwrap().value;
+        let lhs = step_state.memory_ops[9].0.clone().unwrap().value;
+        let out = step_state.memory_ops[9].1.clone().unwrap().value;
         let lhs_lo = lhs.lo();
         let lhs_hi = lhs.hi();
         let out_lo = out.lo();
         let out_hi = out.hi();
 
-        debug_assert_eq!(step_state.memory_ops.len(), 8);
+        debug_assert_eq!(step_state.memory_ops.len(), 10);
         for i in 0..step_state.memory_ops.len() {
-            self.is_first_row
-                .assign(region, offset + i, F::from(8u64) - F::from(8 - i as u64))?;
+            self.is_first_row.assign(
+                region,
+                offset + i,
+                F::from(10u64) - F::from(10 - i as u64),
+            )?;
             self.is_last_row
-                .assign(region, offset + i, F::from(1u64) - F::from(8 - i as u64))?;
+                .assign(region, offset + i, F::from(1u64) - F::from(10 - i as u64))?;
             self.is_shl.assign(
                 region,
                 offset + i,
@@ -321,7 +329,7 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         //for below gadget, we only assign the last row
         self.shift_gadget.assign(
             region,
-            offset + 7,
+            offset + 9,
             is_shl,
             rhs,
             lhs_lo,
@@ -330,17 +338,17 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             out_hi,
         )?;
         self.rhs_lt256
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(256u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(256u64))?;
         self.rhs_lt128
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(128u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(128u64))?;
         self.rhs_lt64
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(64u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(64u64))?;
         self.rhs_lt32
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(32u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(32u64))?;
         self.rhs_lt16
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(16u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(16u64))?;
         self.rhs_lt8
-            .assign(region, offset + 7, F::from(rhs as u64), F::from(8u64))?;
+            .assign(region, offset + 9, F::from(rhs as u64), F::from(8u64))?;
 
         Ok(step_state.memory_ops.len())
     }
@@ -435,7 +443,15 @@ impl<F: Field> ShiftGadget<F> {
         // for shr, c < b (remainder < divisor, shl also applicable), mul_add never overflow
         //
         cb.require_zero("c == 0 for shl", c.clone() * is_shl.clone());
-        let remainder_lt_divisor = LtInteger::construct(cb, c_lo.clone(), c_hi.clone(), b_lo, b_hi);
+        let remainder_lt_divisor = LtInteger::construct_from_bytes(
+            cb,
+            c_lo.clone(),
+            c_hi.clone(),
+            b_lo,
+            b_hi,
+            cells.comp_gadget_bytes.clone(),
+            cells.lt_gadget_bytes.clone(),
+        );
         cb.require_true("remainder < divisor", remainder_lt_divisor.expr());
         let mul_add_exprs = MulAddExprs {
             a_limbs,

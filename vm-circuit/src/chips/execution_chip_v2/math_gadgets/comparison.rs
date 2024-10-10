@@ -3,6 +3,7 @@ use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::utils::sum;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::cell_manager::Cell;
 use halo2_proofs::plonk::{Error, Expression};
 use types::Field;
 
@@ -24,6 +25,18 @@ impl<F: Field, const N_BYTES: usize> ComparisonGadget<F, N_BYTES> {
         rhs: Expression<F>,
     ) -> Self {
         let lt = LtGadget::<F, N_BYTES>::construct(cb, lhs, rhs);
+        let eq = IsZeroGadget::<F>::construct(cb, sum::expr(lt.diff_bytes()));
+
+        Self { lt, eq }
+    }
+
+    pub(crate) fn construct_from_bytes(
+        cb: &mut ConstraintBuilderV2<F>,
+        lhs: Expression<F>,
+        rhs: Expression<F>,
+        bytes: [Cell<F>; N_BYTES],
+    ) -> Self {
+        let lt = LtGadget::<F, N_BYTES>::construct_from_bytes(cb, lhs, rhs, bytes);
         let eq = IsZeroGadget::<F>::construct(cb, sum::expr(lt.diff_bytes()));
 
         Self { lt, eq }
