@@ -372,7 +372,7 @@ impl<'a, S> Visitor<'a, S> {
     }
 }
 
-impl<'a, S: ModuleResolver> Visitor<'a, S> {
+impl<S: ModuleResolver> Visitor<'_, S> {
     fn visit(&self, call_graph: &mut GenericCallGraph) {
         let (
             caller_node_idx,

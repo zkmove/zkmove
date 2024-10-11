@@ -16,6 +16,7 @@ pub const LOWER_FIELD_OFFSET: usize = 1;
 pub const UPPER_FIELD_OFFSET: usize = 2;
 
 /// To efficiently represent a complex value in the circuit, we defined 'FlattenedValue'.
+///
 /// It starts with a value header carrying type information, followed by simple values
 /// flattened from the complex value.
 #[derive(Clone, Debug)]
