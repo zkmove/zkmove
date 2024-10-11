@@ -8,6 +8,8 @@ pub enum ExecutionState {
     BrTrue,
     BrFalse,
     Bitwise,
+    BitwiseStage1,
+    BitwiseStage2,
     Branch,
     VecSwapStage1,
     VecSwapStage2,
@@ -70,7 +72,10 @@ impl ExecutionState {
             Self::AddSub => &[Opcodes::ADD, Opcodes::SUB],
             Self::BrTrue => &[Opcodes::BR_TRUE],
             Self::BrFalse => &[Opcodes::BR_FALSE],
-            Self::Bitwise => &[Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR],
+            Self::Bitwise | Self::BitwiseStage1 | Self::BitwiseStage2 => {
+                &[Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR]
+            }
+
             Self::Branch => &[Opcodes::BRANCH],
             Self::VecSwapStage1 => &[Opcodes::VEC_SWAP],
             Self::VecSwapStage2 => &[Opcodes::VEC_SWAP],

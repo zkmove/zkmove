@@ -2,12 +2,12 @@ use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
 use crate::chips::execution_chip_v2::executions::{
-    AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
-    Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt, MoveOrCopyLoc, MulDivMod,
-    Not, Pack, Pop, ReadRef, Ret, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2,
-    VecBorrow, VecLen, VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2,
-    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
-    WriteRefStage3,
+    AddSub, AndOr, BitwiseStage1, BitwiseStage2, BorrowField, BorrowLoc, BrBool,
+    CallStage1, CallStage2, CallStage3, Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple,
+    Le, Lt, MoveOrCopyLoc, MulDivMod, Not, Pack, Pop, ReadRef, Ret, StoreLocStage1, StoreLocStage2,
+    UnpackStage1, UnpackStage2, VecBorrow, VecLen, VecPopBackStage1, VecPopBackStage2,
+    VecPushBackStage1, VecPushBackStage2, VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5,
+    WriteRefStage1, WriteRefStage2, WriteRefStage3,
 };
 use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, LookupTableConfigV2};
@@ -58,7 +58,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub process_arg: Box<ProcessArg<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
-    pub bitwise: Box<Bitwise<F>>,
+    pub bitwise_stage1: Box<BitwiseStage1<F, 8, 8>>,
+    pub bitwise_stage2: Box<BitwiseStage2<F, 8, 8>>,
     pub borrow_field: Box<BorrowField<F>>,
     pub borrow_loc: Box<BorrowLoc<F>>,
     pub br_true: Box<BrBool<F, true>>,
@@ -246,7 +247,8 @@ impl<F: Field> ExecChipConfig<F> {
             process_arg: configure_opcode_gadget!(),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
-            bitwise: configure_opcode_gadget!(),
+            bitwise_stage1: configure_opcode_gadget!(),
+            bitwise_stage2: configure_opcode_gadget!(),
             borrow_field: configure_opcode_gadget!(),
             borrow_loc: configure_opcode_gadget!(),
             br_true: configure_opcode_gadget!(),
@@ -684,7 +686,8 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
             ExecutionState::AddSub => self.add_sub,
             ExecutionState::AndOr => self.and_or,
-            ExecutionState::Bitwise => self.bitwise,
+            ExecutionState::BitwiseStage1 => self.bitwise_stage1,
+            ExecutionState::BitwiseStage2 => self.bitwise_stage2,
             ExecutionState::BorrowField => self.borrow_field,
             ExecutionState::BorrowLoc => self.borrow_loc,
             ExecutionState::BrTrue => self.br_true,
