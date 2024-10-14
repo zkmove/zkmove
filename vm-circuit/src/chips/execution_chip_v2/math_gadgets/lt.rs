@@ -51,7 +51,7 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         Self { lt, diff, range }
     }
 
-    pub(crate) fn construct_from_bytes(
+    pub(crate) fn construct_from_given_bytes(
         cb: &mut ConstraintBuilderV2<F>,
         lhs: Expression<F>,
         rhs: Expression<F>,
@@ -149,7 +149,7 @@ impl<F: Field> LtInteger<F> {
         }
     }
 
-    pub(crate) fn construct_from_bytes(
+    pub(crate) fn construct_from_given_bytes(
         cb: &mut ConstraintBuilderV2<F>,
         lhs_lo: Expression<F>,
         lhs_hi: Expression<F>,
@@ -159,8 +159,8 @@ impl<F: Field> LtInteger<F> {
         lt_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
     ) -> Self {
         let comparison_hi =
-            ComparisonGadget::construct_from_bytes(cb, lhs_hi, rhs_hi, comp_gadget_bytes);
-        let lt_lo = LtGadget::construct_from_bytes(cb, lhs_lo, rhs_lo, lt_gadget_bytes);
+            ComparisonGadget::construct_from_given_bytes(cb, lhs_hi, rhs_hi, comp_gadget_bytes);
+        let lt_lo = LtGadget::construct_from_given_bytes(cb, lhs_lo, rhs_lo, lt_gadget_bytes);
         Self {
             comparison_hi,
             lt_lo,

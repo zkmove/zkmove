@@ -211,48 +211,6 @@ mod binary_op {
     }
 }
 
-mod binary_op_v2 {
-    pub fn constrain() {
-        if super::common::on_first_row() {
-            step_counter(0) == 10;
-            stack_pop_index(0) == sp(0);
-        }
-
-        if !super::common::on_last_row() {
-            super::common::require_no_stack_push();
-            sp(1) == sp(0); //keep sp unchanged to make assign easier
-        }
-        if super::common::on_first_row() || super::common::on_last_row() {
-            stack_pop_sub_index(0) == 0;
-            stack_pop_value_header(0) == false;
-            // stack_pop_version(0) < clk(0);
-        }
-        if !super::common::on_first_row() && !super::common::on_last_row() {
-            super::common::require_no_stack_pop();
-        }
-        super::common::require_no_local_op();
-
-        if super::common::on_last_row() {
-            stack_pop_index(0) == sp(0) - 1;
-
-            stack_push_index(0) == sp(0) - 1;
-            stack_push_sub_index(0) == 0;
-            let rhs = stack_pop_value(-9);
-            let lhs = stack_pop_value(0);
-            let out = binary_op(lhs, rhs);
-            stack_push_value(0) == out;
-            stack_push_value_header(0) == false;
-            stack_push_version(0) == clk(0);
-
-            module_index(1) == module_index(0);
-            function_index(1) == function_index(0);
-            frame_index(1) == frame_index(0);
-            pc(1) == pc(0) + 1;
-            sp(1) == sp(0) - 1;
-        }
-    }
-}
-
 mod bitwise {
     pub fn constrain() {
         if super::common::on_first_row() {

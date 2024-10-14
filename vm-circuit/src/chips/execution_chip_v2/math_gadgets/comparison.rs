@@ -30,13 +30,13 @@ impl<F: Field, const N_BYTES: usize> ComparisonGadget<F, N_BYTES> {
         Self { lt, eq }
     }
 
-    pub(crate) fn construct_from_bytes(
+    pub(crate) fn construct_from_given_bytes(
         cb: &mut ConstraintBuilderV2<F>,
         lhs: Expression<F>,
         rhs: Expression<F>,
         bytes: [Cell<F>; N_BYTES],
     ) -> Self {
-        let lt = LtGadget::<F, N_BYTES>::construct_from_bytes(cb, lhs, rhs, bytes);
+        let lt = LtGadget::<F, N_BYTES>::construct_from_given_bytes(cb, lhs, rhs, bytes);
         let eq = IsZeroGadget::<F>::construct(cb, sum::expr(lt.diff_bytes()));
 
         Self { lt, eq }

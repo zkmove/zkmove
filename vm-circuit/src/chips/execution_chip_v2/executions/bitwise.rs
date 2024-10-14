@@ -253,7 +253,7 @@ impl<F: Field, const R: usize, const C: usize> InstructionGadgetV2<F> for Bitwis
 
         debug_assert_eq!(step_state.memory_ops.len(), R);
         let (lhs, rhs, out) = match &stage_state.extra_data {
-            Some(StageExtraAssignData::BitWise(d)) => (d.lhs, d.rhs, d.out),
+            Some(StageExtraAssignData::BinaryOp(d)) => (d.lhs, d.rhs, d.out),
             _ => unreachable!(),
         };
         for (cells, value) in [

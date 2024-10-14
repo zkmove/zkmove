@@ -23,11 +23,11 @@ impl StageState {
 pub enum StageExtraAssignData {
     Ret(RetExtraAssignData),
     Start(EntryFunc),
-    BitWise(BitwiseData),
+    BinaryOp(BinaryOpData),
 }
 
 #[derive(Clone, Debug)]
-pub struct BitwiseData {
+pub struct BinaryOpData {
     pub lhs: U256,
     pub rhs: U256,
     pub out: U256,

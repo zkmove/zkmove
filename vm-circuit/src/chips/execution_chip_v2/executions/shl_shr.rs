@@ -1,4 +1,4 @@
-use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::executions::{ExecutionState, MulDivModStage2};
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::{LtGadget, LtInteger};
@@ -21,8 +21,8 @@ use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::step_state::StageState;
-use gadgets::util::{or, select};
+use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
+use gadgets::util::select;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -30,74 +30,19 @@ use halo2_proofs::{
 use itertools::izip;
 use move_core_types::u256::U256;
 use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
+use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-struct ShiftCells<F> {
-    a_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    a_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    b_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    b_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    c_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    c_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    d_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    d_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    comp_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
-    lt_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+pub struct ShiftStage1<F> {
+    phantom_data: PhantomData<F>,
 }
-
-#[derive(Clone, Debug)]
-pub struct Shift<F> {
-    bytes: [Cell<F>; NUM_OF_BYTES_U128],
-    is_first_row: IsZeroGadget<F>,
-    is_last_row: IsZeroGadget<F>,
-    is_shl: IsZeroGadget<F>,
-    shift_gadget: ShiftGadget<F>,
-    rhs_lt256: LtGadget<F, NUM_OF_BYTES_U8>,
-    rhs_lt128: LtGadget<F, NUM_OF_BYTES_U8>,
-    rhs_lt64: LtGadget<F, NUM_OF_BYTES_U8>,
-    rhs_lt32: LtGadget<F, NUM_OF_BYTES_U8>,
-    rhs_lt16: LtGadget<F, NUM_OF_BYTES_U8>,
-    rhs_lt8: LtGadget<F, NUM_OF_BYTES_U8>,
-    is_u8: IsZeroGadget<F>,
-    is_u16: IsZeroGadget<F>,
-    is_u32: IsZeroGadget<F>,
-    is_u64: IsZeroGadget<F>,
-    is_u128: IsZeroGadget<F>,
-    is_u256: IsZeroGadget<F>,
-}
-impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
-    const NAME: &'static str = "Shift";
-    const EXECUTION_STATE: ExecutionState = ExecutionState::Shift;
+impl<F: Field> InstructionGadgetV2<F> for ShiftStage1<F> {
+    const NAME: &'static str = "ShiftStage1";
+    const EXECUTION_STATE: ExecutionState = ExecutionState::ShiftStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        let bytes = cb.query_bytes();
-        let is_first_row =
-            IsZeroGadget::construct(cb, 10u64.expr() - step_curr.step_counter.expr());
-        let is_last_row = IsZeroGadget::construct(cb, 1u64.expr() - step_curr.step_counter.expr());
-        let is_shl =
-            IsZeroGadget::construct(cb, (Opcode::Shl as u64).expr() - step_curr.opcode.expr());
-        let mut shift_gadget = None;
-        let mut rhs_lt256 = None;
-        let mut rhs_lt128 = None;
-        let mut rhs_lt64 = None;
-        let mut rhs_lt32 = None;
-        let mut rhs_lt16 = None;
-        let mut rhs_lt8 = None;
-
-        let n_bytes = step_curr.aux0.expr();
-        let is_u8 = IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr());
-        let is_u16 =
-            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U16 as u64).expr());
-        let is_u32 =
-            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr());
-        let is_u64 =
-            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr());
-        let is_u128 =
-            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr());
-        let is_u256 =
-            IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U256 as u64).expr());
         cb.first_row(|cb| {
             cb.require_in_set(
                 "opcode in OPCODES",
@@ -105,10 +50,11 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 Self::OPCODES.iter().map(|v| (*v as u64).expr()).collect(),
             );
             cb.require_equal(
-                "step_counter(0) == 10",
+                "step_counter(0) == 2",
                 step_curr.step_counter.expr(),
-                10u64.expr(),
+                2u64.expr(),
             );
+            cb.require_no_stack_push();
             cb.require_equal(
                 format!("{}, stack_pop_index(0) == sp(0)", Self::NAME),
                 step_curr.stack_pop_index.expr(),
@@ -116,29 +62,17 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             );
         });
 
-        cb.not_last_row(|cb| {
-            cb.require_no_stack_push();
-            //keep sp unchanged to make assign easier
-            cb.require_state_transition(vec![(SP, Transition::Same)]);
-        });
-
-        cb.condition(or::expr([is_first_row.expr(), is_last_row.expr()]), |cb| {
-            cb.require_zero(
-                format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
-                step_curr.stack_pop_sub_index.expr(),
-            );
-            cb.require_zero(
-                format!("{}, stack_pop_value_header(0) == false", Self::NAME),
-                step_curr.stack_pop_value_header.expr(),
-            );
-        });
-
-        let middle_row = (1u64.expr() - is_first_row.expr()) * (1u64.expr() - is_last_row.expr());
-        cb.condition(middle_row, |cb| {
-            cb.require_no_stack_pop();
-        });
-
+        cb.require_zero(
+            format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
+            step_curr.stack_pop_sub_index.expr(),
+        );
+        cb.require_zero(
+            format!("{}, stack_pop_value_header(0) == false", Self::NAME),
+            step_curr.stack_pop_value_header.expr(),
+        );
         cb.require_no_local_op();
+        //keep sp unchanged to make assign easier
+        cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.last_row(|cb| {
             cb.require_equal(
@@ -164,36 +98,106 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 step_curr.stack_push_version.expr(),
                 step_curr.clk.expr(),
             );
+        });
 
-            let lhs = step_curr.stack_pop_value.as_integer();
-            let step_first = cb.step_state_at_offset(-9);
-            let rhs = step_first.stack_pop_value.as_integer();
-            let out = step_curr.stack_push_value.as_integer();
+        cb.last_row(|cb| {
+            cb.require_next_state(ExecutionState::ShiftStage2);
+            cb.require_state_transition(vec![(PC, Transition::Same)]);
+        });
 
-            let rhs_lt_256 = LtGadget::construct(cb, rhs.expr(), 256u64.expr());
-            let rhs_lt_128 = LtGadget::construct(cb, rhs.expr(), 128u64.expr());
-            let rhs_lt_64 = LtGadget::construct(cb, rhs.expr(), 64u64.expr());
-            let rhs_lt_32 = LtGadget::construct(cb, rhs.expr(), 32u64.expr());
-            let rhs_lt_16 = LtGadget::construct(cb, rhs.expr(), 16u64.expr());
-            let rhs_lt_8 = LtGadget::construct(cb, rhs.expr(), 8u64.expr());
+        ShiftStage1 {
+            phantom_data: PhantomData,
+        }
+    }
 
-            // Opcode Shl and Shr shifts the "lhs" integer "rhs" bits and pushes the "out" on the stack.
-            // lhs and out can be U8, U16, U32, U64, U128 or U256
-            // rhs can only be U8
-            cb.require_true(format!("{}, rhs < 256", Self::NAME), rhs_lt_256.expr());
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
+        stage_state: &StageState,
+        _static_info: &StaticInfo,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(stage_state.rows())
+    }
+}
 
-            // According to VM implementation, if lhs has integer type UX, rhs must be less then N_BITS_UX,
-            // otherwise goto Error
-            let error = is_u8.expr() * (1u64.expr() - rhs_lt_8.expr())
-                + is_u16.expr() * (1u64.expr() - rhs_lt_16.expr())
-                + is_u32.expr() * (1u64.expr() - rhs_lt_32.expr())
-                + is_u64.expr() * (1u64.expr() - rhs_lt_64.expr())
-                + is_u128.expr() * (1u64.expr() - rhs_lt_128.expr());
-            cb.condition(error, |_cb| {
-                // cb.require_next_state(ExecutionState::ErrorState);
-                // ErrorCode == StatusCode::ArithmeticError
-            });
+#[derive(Clone, Debug)]
+struct ShiftCells<F> {
+    a_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    a_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    b_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    b_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    c_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    c_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    d_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    d_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    bytes_1: [Cell<F>; NUM_OF_BYTES_U128], // used for remainder_lt_divisor
+    bytes_2: [Cell<F>; NUM_OF_BYTES_U128], // used for remainder_lt_divisor
+}
 
+#[derive(Clone, Debug)]
+pub struct ShiftStage2<F> {
+    bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    is_shl: IsZeroGadget<F>,
+    shift_gadget: ShiftGadget<F>,
+    rhs_lt256: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt128: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt64: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt32: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt16: LtGadget<F, NUM_OF_BYTES_U8>,
+    rhs_lt8: LtGadget<F, NUM_OF_BYTES_U8>,
+    is_u8: IsZeroGadget<F>,
+    is_u16: IsZeroGadget<F>,
+    is_u32: IsZeroGadget<F>,
+    is_u64: IsZeroGadget<F>,
+    is_u128: IsZeroGadget<F>,
+    is_u256: IsZeroGadget<F>,
+}
+impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
+    const NAME: &'static str = "ShiftStage2";
+    const EXECUTION_STATE: ExecutionState = ExecutionState::ShiftStage2;
+
+    fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let bytes = cb.query_bytes();
+
+        let mut is_shl = None;
+        let mut shift_gadget = None;
+        let mut rhs_lt256 = None;
+        let mut rhs_lt128 = None;
+        let mut rhs_lt64 = None;
+        let mut rhs_lt32 = None;
+        let mut rhs_lt16 = None;
+        let mut rhs_lt8 = None;
+        let mut is_u8 = None;
+        let mut is_u16 = None;
+        let mut is_u32 = None;
+        let mut is_u64 = None;
+        let mut is_u128 = None;
+        let mut is_u256 = None;
+        let step_curr = cb.curr.state.clone();
+
+        cb.first_row(|cb| {
+            cb.require_prev_state(ExecutionState::ShiftStage1);
+            cb.require_equal(
+                "step_counter(0) == 10",
+                step_curr.step_counter.expr(),
+                10u64.expr(),
+            );
+        });
+
+        cb.require_no_stack_pop();
+        cb.require_no_stack_push();
+        cb.require_no_local_op();
+
+        cb.last_row(|cb| {
+            let step_first_of_stage1 = cb.step_state_at_offset(-11);
+            let step_last_of_stage1 = cb.step_state_at_offset(-10);
+
+            let lhs = step_last_of_stage1.stack_pop_value.as_integer();
+            let rhs = step_first_of_stage1.stack_pop_value.as_integer();
+            let out = step_last_of_stage1.stack_push_value.as_integer();
             let cells = ShiftCells {
                 a_lo: cb.cells_at_offset(bytes.clone(), -9),
                 a_hi: cb.cells_at_offset(bytes.clone(), -8),
@@ -203,9 +207,50 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 c_hi: cb.cells_at_offset(bytes.clone(), -4),
                 d_lo: cb.cells_at_offset(bytes.clone(), -3),
                 d_hi: cb.cells_at_offset(bytes.clone(), -2),
-                comp_gadget_bytes: cb.cells_at_offset(bytes.clone(), -1),
-                lt_gadget_bytes: bytes.clone(),
+                bytes_1: cb.cells_at_offset(bytes.clone(), -1),
+                bytes_2: bytes.clone(),
             };
+
+            let n_bytes = step_curr.aux0.expr();
+            let is_shl_ =
+                IsZeroGadget::construct(cb, (Opcode::Shl as u64).expr() - step_curr.opcode.expr());
+
+            let is_u8_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr());
+            let is_u16_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U16 as u64).expr());
+            let is_u32_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U32 as u64).expr());
+            let is_u64_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U64 as u64).expr());
+            let is_u128_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U128 as u64).expr());
+            let is_u256_ =
+                IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U256 as u64).expr());
+
+            let rhs_lt_256_ = LtGadget::construct(cb, rhs.expr(), 256u64.expr());
+            let rhs_lt_128_ = LtGadget::construct(cb, rhs.expr(), 128u64.expr());
+            let rhs_lt_64_ = LtGadget::construct(cb, rhs.expr(), 64u64.expr());
+            let rhs_lt_32_ = LtGadget::construct(cb, rhs.expr(), 32u64.expr());
+            let rhs_lt_16_ = LtGadget::construct(cb, rhs.expr(), 16u64.expr());
+            let rhs_lt_8_ = LtGadget::construct(cb, rhs.expr(), 8u64.expr());
+
+            // Opcode Shl and Shr shifts the "lhs" integer "rhs" bits and pushes the "out" on the stack.
+            // lhs and out can be U8, U16, U32, U64, U128 or U256
+            // rhs can only be U8
+            cb.require_true(format!("{}, rhs < 256", Self::NAME), rhs_lt_256_.expr());
+
+            // According to VM implementation, if lhs has integer type UX, rhs must be less then N_BITS_UX,
+            // otherwise goto Error
+            let error = is_u8_.expr() * (1u64.expr() - rhs_lt_8_.expr())
+                + is_u16_.expr() * (1u64.expr() - rhs_lt_16_.expr())
+                + is_u32_.expr() * (1u64.expr() - rhs_lt_32_.expr())
+                + is_u64_.expr() * (1u64.expr() - rhs_lt_64_.expr())
+                + is_u128_.expr() * (1u64.expr() - rhs_lt_128_.expr());
+            cb.condition(error, |_cb| {
+                // cb.require_next_state(ExecutionState::ErrorState);
+                // ErrorCode == StatusCode::ArithmeticError
+            });
 
             let shift = ShiftGadget::construct(
                 cb,
@@ -213,22 +258,29 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
                 lhs,
                 rhs,
                 out,
-                is_shl.expr(),
-                is_u8.expr(),
-                is_u16.expr(),
-                is_u32.expr(),
-                is_u64.expr(),
-                is_u128.expr(),
-                is_u256.expr(),
+                is_shl_.expr(),
+                is_u8_.expr(),
+                is_u16_.expr(),
+                is_u32_.expr(),
+                is_u64_.expr(),
+                is_u128_.expr(),
+                is_u256_.expr(),
             );
 
-            rhs_lt256 = Some(rhs_lt_256);
-            rhs_lt128 = Some(rhs_lt_128);
-            rhs_lt64 = Some(rhs_lt_64);
-            rhs_lt32 = Some(rhs_lt_32);
-            rhs_lt16 = Some(rhs_lt_16);
-            rhs_lt8 = Some(rhs_lt_8);
+            is_shl = Some(is_shl_);
             shift_gadget = Some(shift);
+            rhs_lt256 = Some(rhs_lt_256_);
+            rhs_lt128 = Some(rhs_lt_128_);
+            rhs_lt64 = Some(rhs_lt_64_);
+            rhs_lt32 = Some(rhs_lt_32_);
+            rhs_lt16 = Some(rhs_lt_16_);
+            rhs_lt8 = Some(rhs_lt_8_);
+            is_u8 = Some(is_u8_);
+            is_u16 = Some(is_u16_);
+            is_u32 = Some(is_u32_);
+            is_u64 = Some(is_u64_);
+            is_u128 = Some(is_u128_);
+            is_u256 = Some(is_u256_);
 
             cb.require_state_transition(vec![
                 (SP, Transition::Delta((-1).expr())),
@@ -236,11 +288,9 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             ]);
         });
 
-        Shift {
+        ShiftStage2 {
             bytes,
-            is_first_row,
-            is_last_row,
-            is_shl,
+            is_shl: is_shl.unwrap(),
             shift_gadget: shift_gadget.unwrap(),
             rhs_lt256: rhs_lt256.unwrap(),
             rhs_lt128: rhs_lt128.unwrap(),
@@ -248,12 +298,12 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
             rhs_lt32: rhs_lt32.unwrap(),
             rhs_lt16: rhs_lt16.unwrap(),
             rhs_lt8: rhs_lt8.unwrap(),
-            is_u8,
-            is_u16,
-            is_u32,
-            is_u64,
-            is_u128,
-            is_u256,
+            is_u8: is_u8.unwrap(),
+            is_u16: is_u16.unwrap(),
+            is_u32: is_u32.unwrap(),
+            is_u64: is_u64.unwrap(),
+            is_u128: is_u128.unwrap(),
+            is_u256: is_u256.unwrap(),
         }
     }
 
@@ -271,60 +321,50 @@ impl<F: Field> InstructionGadgetV2<F> for Shift<F> {
         debug_assert!(opcode == Opcode::Shl as u8 || opcode == Opcode::Shr as u8);
         let is_shl = opcode == Opcode::Shl as u8;
         let num_bytes = step_state.step_state.aux0 as usize;
-        let pop0 = step_state.memory_ops[0].0.clone().unwrap().value;
-        let rhs = pop0.to_u8_unchecked();
-        let lhs = step_state.memory_ops[9].0.clone().unwrap().value;
-        let out = step_state.memory_ops[9].1.clone().unwrap().value;
-        let lhs_lo = lhs.lo();
-        let lhs_hi = lhs.hi();
-        let out_lo = out.lo();
-        let out_hi = out.hi();
+        let (lhs, rhs, out) = match &stage_state.extra_data {
+            Some(StageExtraAssignData::BinaryOp(d)) => (d.lhs, d.rhs, d.out),
+            _ => unreachable!(),
+        };
+        let rhs = rhs.unchecked_as_u8();
+        let (lhs_lo, lhs_hi) = split_u256_to_u128(lhs);
+        let (out_lo, out_hi) = split_u256_to_u128(out);
 
         debug_assert_eq!(step_state.memory_ops.len(), 10);
-        for i in 0..step_state.memory_ops.len() {
-            self.is_first_row.assign(
-                region,
-                offset + i,
-                F::from(10u64) - F::from(10 - i as u64),
-            )?;
-            self.is_last_row
-                .assign(region, offset + i, F::from(1u64) - F::from(10 - i as u64))?;
-            self.is_shl.assign(
-                region,
-                offset + i,
-                F::from(Opcode::Shl as u64) - F::from(step_state.step_state.opcode as u64),
-            )?;
-            self.is_u8.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U8 as u64),
-            )?;
-            self.is_u16.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U16 as u64),
-            )?;
-            self.is_u32.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U32 as u64),
-            )?;
-            self.is_u64.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U64 as u64),
-            )?;
-            self.is_u128.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U128 as u64),
-            )?;
-            self.is_u256.assign(
-                region,
-                offset + i,
-                F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U256 as u64),
-            )?;
-        }
+        self.is_shl.assign(
+            region,
+            offset + 9,
+            F::from(Opcode::Shl as u64) - F::from(step_state.step_state.opcode as u64),
+        )?;
+        self.is_u8.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U8 as u64),
+        )?;
+        self.is_u16.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U16 as u64),
+        )?;
+        self.is_u32.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U32 as u64),
+        )?;
+        self.is_u64.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U64 as u64),
+        )?;
+        self.is_u128.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U128 as u64),
+        )?;
+        self.is_u256.assign(
+            region,
+            offset + 9,
+            F::from(num_bytes as u64) - F::from(NUM_OF_BYTES_U256 as u64),
+        )?;
 
         //for below gadget, we only assign the last row
         self.shift_gadget.assign(
@@ -443,14 +483,14 @@ impl<F: Field> ShiftGadget<F> {
         // for shr, c < b (remainder < divisor, shl also applicable), mul_add never overflow
         //
         cb.require_zero("c == 0 for shl", c.clone() * is_shl.clone());
-        let remainder_lt_divisor = LtInteger::construct_from_bytes(
+        let remainder_lt_divisor = LtInteger::construct_from_given_bytes(
             cb,
             c_lo.clone(),
             c_hi.clone(),
             b_lo,
             b_hi,
-            cells.comp_gadget_bytes.clone(),
-            cells.lt_gadget_bytes.clone(),
+            cells.bytes_1.clone(),
+            cells.bytes_2.clone(),
         );
         cb.require_true("remainder < divisor", remainder_lt_divisor.expr());
         let mul_add_exprs = MulAddExprs {
