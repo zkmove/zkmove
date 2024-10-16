@@ -14,7 +14,6 @@ mod utils;
 pub mod witness;
 
 pub use utils::{
-    mock_prove_circuit, print_circuit_layout, proof_vm_circuit_kzg, prove_vm_circuit_ipa,
-    prove_vm_circuit_kzg, setup_vm_circuit, verify_vm_circuit_kzg, SubCircuit, SubCircuitConfig,
-    MAX_K, MIN_K,
+    mock_prove_circuit, print_circuit_layout, prove_and_verify_circuit_ipa, prove_circuit_kzg,
+    setup_circuit, verify_circuit_kzg, SubCircuit, SubCircuitConfig, MAX_K, MIN_K,
 };
