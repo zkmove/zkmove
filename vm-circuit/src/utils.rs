@@ -19,7 +19,7 @@ use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Pro
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
 use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+use halo2_proofs::poly::kzg::multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK};
 use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
 use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
@@ -64,6 +64,9 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
+    dbg!(prover.cs().degree());
+    dbg!(prover.cs().blinding_factors());
+    dbg!(prover.cs().minimum_rows());
     dbg!(prover.cs().num_advice_columns());
     dbg!(prover.cs().num_instance_columns());
     dbg!(prover.cs().num_fixed_columns());
@@ -76,60 +79,82 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         .sum::<usize>());
     dbg!(prover.cs().advice_queries().len());
     dbg!(prover.cs().lookups().len());
-
+    dbg!(prover.cs().shuffles().len());
+    dbg!(prover.cs().advice_column_phase().iter().counts_by(|p| *p));
     // uncomment this to output assignments
-    {
-        let mut f = std::fs::File::options()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open("assign-advice.csv")
-            .unwrap();
-        use std::io::Write;
-        for column_data in prover.advice() {
-            let cols = column_data
-                .iter()
-                .take(512)
-                .map(|c| match c {
-                    halo2_proofs::dev::CellValue::Unassigned => String::default(),
-                    halo2_proofs::dev::CellValue::Assigned(f) => {
-                        format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
-                    }
-                    halo2_proofs::dev::CellValue::Poison(p) => {
-                        format!("p({})", p)
-                    }
-                })
-                .join(",");
-
-            writeln!(&mut f, "{}", cols).unwrap();
-        }
-    }
-    {
-        let mut f = std::fs::File::options()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open("assign-fixed.csv")
-            .unwrap();
-        use std::io::Write;
-        for column_data in prover.fixed() {
-            let cols = column_data
-                .iter()
-                .take(256)
-                .map(|c| match c {
-                    halo2_proofs::dev::CellValue::Unassigned => String::default(),
-                    halo2_proofs::dev::CellValue::Assigned(f) => {
-                        format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
-                    }
-                    halo2_proofs::dev::CellValue::Poison(p) => {
-                        format!("p({})", p)
-                    }
-                })
-                .join(",");
-
-            writeln!(&mut f, "{}", cols).unwrap();
-        }
-    }
+    // {
+    //     use std::io::Write;
+    //     let mut f = std::fs::File::options()
+    //         .write(true)
+    //         .truncate(true)
+    //         .create(true)
+    //         .open("assign-selector.csv")
+    //         .unwrap();
+    //     writeln!(
+    //         &mut f,
+    //         "{}",
+    //         (1..=prover.selectors().first().map(|v| v.len()).unwrap())
+    //             .map(|i| i.to_string())
+    //             .join(",")
+    //     )
+    //     .unwrap();
+    //
+    //     for x in prover.selectors() {
+    //         let row = x.iter().map(|b| if *b { "1" } else { "0" }).join(",");
+    //         writeln!(&mut f, "{}", row).unwrap();
+    //     }
+    //
+    //     let mut f = std::fs::File::options()
+    //         .write(true)
+    //         .truncate(true)
+    //         .create(true)
+    //         .open("assign-advice.csv")
+    //         .unwrap();
+    //
+    //     for column_data in prover.advice() {
+    //         let cols = column_data
+    //             .iter()
+    //             .take(512)
+    //             .map(|c| match c {
+    //                 halo2_proofs::dev::CellValue::Unassigned => String::default(),
+    //                 halo2_proofs::dev::CellValue::Assigned(f) => {
+    //                     format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
+    //                 }
+    //                 halo2_proofs::dev::CellValue::Poison(p) => {
+    //                     format!("p({})", p)
+    //                 }
+    //             })
+    //             .join(",");
+    //
+    //         writeln!(&mut f, "{}", cols).unwrap();
+    //     }
+    // }
+    // {
+    //     let mut f = std::fs::File::options()
+    //         .write(true)
+    //         .truncate(true)
+    //         .create(true)
+    //         .open("assign-fixed.csv")
+    //         .unwrap();
+    //     use std::io::Write;
+    //     for column_data in prover.fixed() {
+    //         let cols = column_data
+    //             .iter()
+    //             .take(256)
+    //             .map(|c| match c {
+    //                 halo2_proofs::dev::CellValue::Unassigned => String::default(),
+    //                 halo2_proofs::dev::CellValue::Assigned(f) => {
+    //                     format!("{}", U256::from_little_endian(f.to_repr().as_ref()))
+    //                 }
+    //                 halo2_proofs::dev::CellValue::Poison(p) => {
+    //                     format!("p({})", p)
+    //                 }
+    //             })
+    //             .join(",");
+    //
+    //         writeln!(&mut f, "{}", cols).unwrap();
+    //     }
+    // }
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())
@@ -152,7 +177,7 @@ pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
         .unwrap();
 }
 
-pub fn setup_vm_circuit<'params, C, P, ConcreteCircuit>(
+pub fn setup_circuit<'params, C, P, ConcreteCircuit>(
     circuit: &ConcreteCircuit,
     params: &P,
 ) -> VmResult<(VerifyingKey<C>, ProvingKey<C>)>
@@ -175,16 +200,16 @@ where
     Ok((vk, pk))
 }
 
-pub fn prove_vm_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::ScalarExt>>(
+pub fn prove_and_verify_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::ScalarExt>>(
     circuit: ConcreteCircuit,
     instance: &[&[C::ScalarExt]],
     params: &ParamsIPA<C>,
     pk: ProvingKey<C>,
-) -> VmResult<Vec<u8>>
+) -> Vec<u8>
 where
     C::ScalarExt: FromUniformBytes<64>,
 {
-    prove_vm_circuit::<
+    prove_and_verify_circuit::<
         IPACommitmentScheme<C>,
         ProverIPA<C>,
         VerifierIPA<C>,
@@ -192,12 +217,12 @@ where
         _,
     >(circuit, instance, params, pk)
 }
-pub fn prove_vm_circuit_kzg<E, ConcreteCircuit>(
+pub fn prove_and_verify_kzg<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
     instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
-) -> VmResult<Vec<u8>>
+) -> Vec<u8>
 where
     E: Engine + Debug + MultiMillerLoop,
     E::G1Affine:
@@ -207,7 +232,7 @@ where
     ConcreteCircuit: Circuit<E::Fr>,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    prove_vm_circuit::<
+    prove_and_verify_circuit::<
         KZGCommitmentScheme<E>,
         ProverSHPLONK<E>,
         VerifierSHPLONK<E>,
@@ -217,7 +242,7 @@ where
 }
 
 // prove circuit,return it proof.
-fn prove_vm_circuit<
+fn prove_and_verify_circuit<
     'params,
     Scheme: CommitmentScheme,
     P: Prover<'params, Scheme>,
@@ -229,7 +254,47 @@ fn prove_vm_circuit<
     instance: &[&[Scheme::Scalar]],
     params: &'params Scheme::ParamsProver,
     pk: ProvingKey<Scheme::Curve>,
-) -> VmResult<Vec<u8>>
+) -> Vec<u8>
+where
+    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
+    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+{
+    let proof = prove_circuit(circuit, instance, params, pk.clone())
+        .expect("proof generation should not fail");
+    verify_circuit(instance, params, pk, proof.clone()).expect("verify proof should be ok");
+    proof
+}
+// TODO: rework on these functions.
+pub fn prove_circuit_kzg<E, ConcreteCircuit>(
+    circuit: ConcreteCircuit,
+    instance: &[&[E::Fr]],
+    params: &ParamsKZG<E>,
+    pk: ProvingKey<E::G1Affine>,
+) -> Result<Vec<u8>, Error>
+where
+    E: Engine + Debug + MultiMillerLoop,
+    E::G1Affine:
+        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
+    E::G1: CurveExt<AffineExt = E::G1Affine>,
+    E::G2Affine: SerdeObject + CurveAffine,
+    ConcreteCircuit: Circuit<E::Fr>,
+    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+{
+    prove_circuit::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(circuit, instance, params, pk)
+}
+
+// prove circuit,return it proof.
+fn prove_circuit<
+    'params,
+    Scheme: CommitmentScheme,
+    P: Prover<'params, Scheme>,
+    ConcreteCircuit: Circuit<Scheme::Scalar>,
+>(
+    circuit: ConcreteCircuit,
+    instance: &[&[Scheme::Scalar]],
+    params: &'params Scheme::ParamsProver,
+    pk: ProvingKey<Scheme::Curve>,
+) -> Result<Vec<u8>, Error>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
@@ -245,13 +310,50 @@ where
         &[instance],
         rng,
         &mut transcript,
-    )
-    .expect("proof generation should not fail");
+    )?;
     let proof: Vec<u8> = transcript.finalize();
     info!("proof size {} bytes", proof.len());
     let prove_time = instant::Instant::now().duration_since(prove_start);
     info!("prove time: {} ms", prove_time.as_millis());
 
+    Ok(proof)
+}
+
+pub fn verify_circuit_kzg<E>(
+    instance: &[&[E::Fr]],
+    params: &ParamsKZG<E>,
+    pk: ProvingKey<E::G1Affine>,
+    proof: Vec<u8>,
+) -> Result<(), Error>
+where
+    E: Engine + Debug + MultiMillerLoop,
+    E::G1Affine:
+        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
+    E::G1: CurveExt<AffineExt = E::G1Affine>,
+    E::G2Affine: SerdeObject + CurveAffine,
+    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+{
+    verify_circuit::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, kzg::strategy::SingleStrategy<E>>(
+        instance, params, pk, proof,
+    )
+}
+
+// prove circuit,return it proof.
+fn verify_circuit<
+    'params,
+    Scheme: CommitmentScheme,
+    V: Verifier<'params, Scheme>,
+    Strategy: VerificationStrategy<'params, Scheme, V>,
+>(
+    instance: &[&[Scheme::Scalar]],
+    params: &'params Scheme::ParamsProver,
+    pk: ProvingKey<Scheme::Curve>,
+    proof: Vec<u8>,
+) -> Result<(), Error>
+where
+    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
+    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+{
     let verifier_params = params.verifier_params();
     let strategy = Strategy::new(verifier_params);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
@@ -266,122 +368,6 @@ where
 
     let verify_time = instant::Instant::now().duration_since(verify_start);
     info!("verify time: {} ms", verify_time.as_millis());
-    //assert!(result.is_ok());
-    Ok(proof)
-}
-// TODO: rework on these functions.
-pub fn proof_vm_circuit_kzg<E, ConcreteCircuit>(
-    circuit: ConcreteCircuit,
-    instance: &[&[E::Fr]],
-    params: &ParamsKZG<E>,
-    pk: ProvingKey<E::G1Affine>,
-) -> VmResult<Vec<u8>>
-where
-    E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine:
-        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
-    E::G1: CurveExt<AffineExt = E::G1Affine>,
-    E::G2Affine: SerdeObject + CurveAffine,
-    ConcreteCircuit: Circuit<E::Fr>,
-    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    proof_vm_circuit::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(circuit, instance, params, pk)
-}
-
-// prove circuit,return it proof.
-fn proof_vm_circuit<
-    'params,
-    Scheme: CommitmentScheme,
-    P: Prover<'params, Scheme>,
-    ConcreteCircuit: Circuit<Scheme::Scalar>,
->(
-    circuit: ConcreteCircuit,
-    instance: &[&[Scheme::Scalar]],
-    params: &'params Scheme::ParamsProver,
-    pk: ProvingKey<Scheme::Curve>,
-) -> VmResult<Vec<u8>>
-where
-    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
-    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-    // Create a proof
-    let prove_start = instant::Instant::now();
-    let rng = StdRng::from_entropy();
-    create_proof::<Scheme, P, _, _, _, _>(
-        params,
-        &pk,
-        &[circuit],
-        &[instance],
-        rng,
-        &mut transcript,
-    )
-    .expect("proof generation should not fail");
-    let proof: Vec<u8> = transcript.finalize();
-    info!("proof size {} bytes", proof.len());
-    let prove_time = instant::Instant::now().duration_since(prove_start);
-    info!("prove time: {} ms", prove_time.as_millis());
-
-    Ok(proof)
-}
-
-pub fn verify_vm_circuit_kzg<E, ConcreteCircuit>(
-    circuit: ConcreteCircuit,
-    instance: &[&[E::Fr]],
-    params: &ParamsKZG<E>,
-    pk: ProvingKey<E::G1Affine>,
-    proof: Vec<u8>,
-) -> VmResult<()>
-where
-    E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine:
-        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
-    E::G1: CurveExt<AffineExt = E::G1Affine>,
-    E::G2Affine: SerdeObject + CurveAffine,
-    ConcreteCircuit: Circuit<E::Fr>,
-    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    verify_vm_circuit::<
-        KZGCommitmentScheme<E>,
-        VerifierSHPLONK<E>,
-        kzg::strategy::SingleStrategy<E>,
-        _,
-    >(circuit, instance, params, pk, proof)
-}
-
-// prove circuit,return it proof.
-fn verify_vm_circuit<
-    'params,
-    Scheme: CommitmentScheme,
-    V: Verifier<'params, Scheme>,
-    Strategy: VerificationStrategy<'params, Scheme, V>,
-    ConcreteCircuit: Circuit<Scheme::Scalar>,
->(
-    _circuit: ConcreteCircuit,
-    instance: &[&[Scheme::Scalar]],
-    params: &'params Scheme::ParamsProver,
-    pk: ProvingKey<Scheme::Curve>,
-    proof: Vec<u8>,
-) -> VmResult<()>
-where
-    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
-    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    let verifier_params = params.verifier_params();
-    let strategy = Strategy::new(verifier_params);
-    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-    let verify_start = instant::Instant::now();
-    let result = verify_proof(
-        verifier_params,
-        pk.get_vk(),
-        strategy,
-        &[instance],
-        &mut transcript,
-    );
-
-    let verify_time = instant::Instant::now().duration_since(verify_start);
-    info!("verify time: {} ms", verify_time.as_millis());
-    assert!(result.is_ok());
     Ok(())
 }
 

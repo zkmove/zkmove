@@ -39,11 +39,11 @@ impl CellType {
     // TODO: find a better way to do this.
     pub fn phase(&self) -> u8 {
         match self {
-            CellType::StoragePhase1 => 0, // TODO: check the phase
-            CellType::StoragePhase2 => 1,
+            CellType::StoragePhase1 => 1, // TODO: check the phase
+            CellType::StoragePhase2 => 2,
             CellType::StoragePermutation => 1, // FIXME: check the type
             CellType::Lookup(t) => match t {
-                Table::Nibble | Table::U8 | Table::U10 => 0,
+                Table::Nibble | Table::U8 | Table::U10 => 2,
                 #[cfg(feature = "table-u16")]
                 Table::U16 => 0,
                 _ => 2,

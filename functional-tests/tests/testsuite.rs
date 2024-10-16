@@ -15,7 +15,7 @@ use rand::SeedableRng;
 use std::path::Path;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{mock_prove_circuit, prove_vm_circuit_kzg, setup_vm_circuit, SubCircuit};
+use vm_circuit::{mock_prove_circuit, prove_vm_circuit_kzg, setup_circuit, SubCircuit};
 pub const TEST_PACKAGE_NAME: &str = "cases";
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
@@ -52,12 +52,12 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     mock_prove_circuit(&circuit, vec![], k)?;
 
     debug!("Generate parameters");
-    let rng = StdRng::from_entropy();
+    let rng = rand::rngs::mock::StepRng::new(0, 1);
     let params = ParamsKZG::<Bn256>::setup(k, rng);
-    let (_, pk) = setup_vm_circuit(&circuit, &params)?;
+    let (_, pk) = setup_circuit(&circuit, &params)?;
 
     debug!("Generate zk proof");
-    prove_vm_circuit_kzg(circuit, &[], &params, pk.clone())?;
+    prove_vm_circuit_kzg(circuit, &[], &params, pk.clone());
 
     Ok(())
 }

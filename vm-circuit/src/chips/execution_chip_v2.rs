@@ -161,7 +161,7 @@ impl<F: Field> ExecChipConfig<F> {
                 let end_opcode_selector = step_curr.execution_state_selector([ExecutionState::Nop]);
                 iter::once((
                     "Last step should be Nop",
-                    s_step_last * (1u64.expr() - end_opcode_selector),
+                    s_usable.clone() * s_step_last * (1u64.expr() - end_opcode_selector),
                 ))
             };
 
