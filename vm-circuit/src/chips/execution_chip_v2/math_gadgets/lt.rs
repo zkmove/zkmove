@@ -51,6 +51,29 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         Self { lt, diff, range }
     }
 
+    pub(crate) fn construct_from_given_bytes(
+        cb: &mut ConstraintBuilderV2<F>,
+        lhs: Expression<F>,
+        rhs: Expression<F>,
+        diff_bytes: [Cell<F>; N_BYTES],
+    ) -> Self {
+        let lt = cb.query_bool();
+        let range = pow_of_two(N_BYTES * 8);
+
+        // The equation we require to hold: `lhs - rhs == diff - (lt * range)`.
+        cb.require_equal(
+            "lhs - rhs == diff - (lt ⋅ range)",
+            lhs - rhs,
+            from_limbs::expr::<_, _, 8>(&diff_bytes) - (lt.expr() * range),
+        );
+
+        Self {
+            lt,
+            diff: diff_bytes,
+            range,
+        }
+    }
+
     pub(crate) fn expr(&self) -> Expression<F> {
         self.lt.expr()
     }
@@ -120,6 +143,24 @@ impl<F: Field> LtInteger<F> {
     ) -> Self {
         let comparison_hi = ComparisonGadget::construct(cb, lhs_hi, rhs_hi);
         let lt_lo = LtGadget::construct(cb, lhs_lo, rhs_lo);
+        Self {
+            comparison_hi,
+            lt_lo,
+        }
+    }
+
+    pub(crate) fn construct_from_given_bytes(
+        cb: &mut ConstraintBuilderV2<F>,
+        lhs_lo: Expression<F>,
+        lhs_hi: Expression<F>,
+        rhs_lo: Expression<F>,
+        rhs_hi: Expression<F>,
+        comp_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+        lt_gadget_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    ) -> Self {
+        let comparison_hi =
+            ComparisonGadget::construct_from_given_bytes(cb, lhs_hi, rhs_hi, comp_gadget_bytes);
+        let lt_lo = LtGadget::construct_from_given_bytes(cb, lhs_lo, rhs_lo, lt_gadget_bytes);
         Self {
             comparison_hi,
             lt_lo,

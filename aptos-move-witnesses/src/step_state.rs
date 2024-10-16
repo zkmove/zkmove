@@ -3,6 +3,7 @@ use crate::static_info::StaticInfo;
 use crate::types::sub_index::SubIndex;
 use crate::types::word::Word;
 use crate::Footprint;
+use move_core_types::u256::U256;
 
 pub type Version = u64;
 
@@ -22,6 +23,14 @@ impl StageState {
 pub enum StageExtraAssignData {
     Ret(RetExtraAssignData),
     Start(EntryFunc),
+    BinaryOp(BinaryOpData),
+}
+
+#[derive(Clone, Debug)]
+pub struct BinaryOpData {
+    pub lhs: U256,
+    pub rhs: U256,
+    pub out: U256,
 }
 
 #[derive(Clone, Debug)]

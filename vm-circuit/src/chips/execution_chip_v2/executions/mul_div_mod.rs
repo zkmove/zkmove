@@ -5,9 +5,7 @@ use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddExprs;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
 use crate::chips::execution_chip_v2::math_gadgets::range_check::IntegerRangeCheck;
-use crate::chips::execution_chip_v2::step_v2::{
-    StepState, PC, SP,
-};
+use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
@@ -23,7 +21,7 @@ use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::step_state::StageState;
+use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::{or, select};
 use halo2_proofs::{
     circuit::Value,
@@ -33,54 +31,19 @@ use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
+use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-struct MulDivModCells<F> {
-    a_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    a_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    b_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    b_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    c_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    c_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    d_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    d_hi: [Cell<F>; NUM_OF_BYTES_U128],
+pub struct MulDivModStage1<F> {
+    phantom_data: PhantomData<F>,
 }
-
-#[derive(Clone, Debug)]
-pub struct MulDivMod<F> {
-    bytes_1_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    bytes_1_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    bytes_2_lo: [Cell<F>; NUM_OF_BYTES_U128],
-    bytes_2_hi: [Cell<F>; NUM_OF_BYTES_U128],
-    is_mul: IsZeroGadget<F>,
-    is_div: IsZeroGadget<F>,
-    is_mod: IsZeroGadget<F>,
-    mul_div_mod: MulDivModGadget<F>,
-    divisor_lo_is_zero: IsZeroGadget<F>,
-    divisor_hi_is_zero: IsZeroGadget<F>,
-}
-impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
-    const NAME: &'static str = "Mul_Div_Mod";
-    const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivMod;
+impl<F: Field> InstructionGadgetV2<F> for MulDivModStage1<F> {
+    const NAME: &'static str = "Mul_Div_Mod_Stage1";
+    const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivModStage1;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        let step_prev = cb.step_state_at_offset(-1);
-        let bytes_1_lo = cb.query_bytes();
-        let bytes_1_hi = cb.query_bytes();
-        let bytes_2_lo = cb.query_bytes();
-        let bytes_2_hi = cb.query_bytes();
-        let is_mul =
-            IsZeroGadget::construct(cb, (Opcodes::MUL as u64).expr() - step_curr.opcode.expr());
-        let is_div =
-            IsZeroGadget::construct(cb, (Opcodes::DIV as u64).expr() - step_curr.opcode.expr());
-        let is_mod =
-            IsZeroGadget::construct(cb, (Opcodes::MOD as u64).expr() - step_curr.opcode.expr());
-        let mut mul_div_mod = None;
-        let mut divisor_lo_is_zero = None;
-        let mut divisor_hi_is_zero = None;
-
         cb.first_row(|cb| {
             cb.require_in_set(
                 "opcode in OPCODES",
@@ -98,8 +61,6 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                 step_curr.stack_pop_index.expr(),
                 step_curr.sp.expr(),
             );
-            //keep sp unchanged to make assign easier
-            cb.require_state_transition(vec![(SP, Transition::Same)]);
         });
 
         cb.require_zero(
@@ -111,6 +72,8 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
             step_curr.stack_pop_value_header.expr(),
         );
         cb.require_no_local_op();
+        //keep sp unchanged to make assign easier
+        cb.require_state_transition(vec![(SP, Transition::Same)]);
 
         cb.last_row(|cb| {
             cb.require_equal(
@@ -136,21 +99,109 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                 step_curr.stack_push_version.expr(),
                 step_curr.clk.expr(),
             );
+        });
 
-            let lhs = step_curr.stack_pop_value.as_integer();
-            let rhs = step_prev.stack_pop_value.as_integer();
-            let out = step_curr.stack_push_value.as_integer();
+        cb.last_row(|cb| {
+            cb.require_next_state(ExecutionState::MulDivModStage2);
+            cb.require_state_transition(vec![(PC, Transition::Same)]);
+        });
+
+        MulDivModStage1 {
+            phantom_data: PhantomData,
+        }
+    }
+
+    fn assign(
+        &self,
+        _step: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
+        stage_state: &StageState,
+        _static_info: &StaticInfo,
+    ) -> Result<usize, Error> {
+        // no need to assign anything else
+        Ok(stage_state.rows())
+    }
+}
+
+#[derive(Clone, Debug)]
+struct MulDivModCells<F> {
+    a_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    a_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    b_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    b_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    c_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    c_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    d_lo: [Cell<F>; NUM_OF_BYTES_U128],
+    d_hi: [Cell<F>; NUM_OF_BYTES_U128],
+    bytes_1: [Cell<F>; NUM_OF_BYTES_U128], // used for remainder_lt_divisor
+    bytes_2: [Cell<F>; NUM_OF_BYTES_U128], // used for remainder_lt_divisor
+}
+
+#[derive(Clone, Debug)]
+pub struct MulDivModStage2<F> {
+    bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    is_mul: IsZeroGadget<F>,
+    is_div: IsZeroGadget<F>,
+    is_mod: IsZeroGadget<F>,
+    mul_div_mod: MulDivModGadget<F>,
+    divisor_lo_is_zero: IsZeroGadget<F>,
+    divisor_hi_is_zero: IsZeroGadget<F>,
+}
+impl<F: Field> InstructionGadgetV2<F> for MulDivModStage2<F> {
+    const NAME: &'static str = "Mul_Div_Mod_Stage2";
+    const EXECUTION_STATE: ExecutionState = ExecutionState::MulDivModStage2;
+
+    fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
+        let bytes = cb.query_bytes();
+
+        let mut is_mul = None;
+        let mut is_div = None;
+        let mut is_mod = None;
+        let mut mul_div_mod = None;
+        let mut divisor_lo_is_zero = None;
+        let mut divisor_hi_is_zero = None;
+        let step_curr = cb.curr.state.clone();
+
+        cb.first_row(|cb| {
+            cb.require_prev_state(ExecutionState::MulDivModStage1);
+            cb.require_equal(
+                "step_counter(0) == 10",
+                step_curr.step_counter.expr(),
+                10u64.expr(),
+            );
+        });
+
+        cb.require_no_stack_pop();
+        cb.require_no_stack_push();
+        cb.require_no_local_op();
+
+        cb.last_row(|cb| {
+            let step_first_of_stage1 = cb.step_state_at_offset(-11);
+            let step_last_of_stage1 = cb.step_state_at_offset(-10);
+
+            let lhs = step_last_of_stage1.stack_pop_value.as_integer();
+            let rhs = step_first_of_stage1.stack_pop_value.as_integer();
+            let out = step_last_of_stage1.stack_push_value.as_integer();
             let cells = MulDivModCells {
-                a_lo: cb.cells_at_offset(bytes_1_lo.clone(), -1),
-                a_hi: cb.cells_at_offset(bytes_1_hi.clone(), -1),
-                b_lo: cb.cells_at_offset(bytes_2_lo.clone(), -1),
-                b_hi: cb.cells_at_offset(bytes_2_hi.clone(), -1),
-                c_lo: bytes_1_lo.clone(),
-                c_hi: bytes_1_hi.clone(),
-                d_lo: bytes_2_lo.clone(),
-                d_hi: bytes_2_hi.clone(),
+                a_lo: cb.cells_at_offset(bytes.clone(), -9),
+                a_hi: cb.cells_at_offset(bytes.clone(), -8),
+                b_lo: cb.cells_at_offset(bytes.clone(), -7),
+                b_hi: cb.cells_at_offset(bytes.clone(), -6),
+                c_lo: cb.cells_at_offset(bytes.clone(), -5),
+                c_hi: cb.cells_at_offset(bytes.clone(), -4),
+                d_lo: cb.cells_at_offset(bytes.clone(), -3),
+                d_hi: cb.cells_at_offset(bytes.clone(), -2),
+                bytes_1: cb.cells_at_offset(bytes.clone(), -1),
+                bytes_2: bytes.clone(),
             };
 
+            let is_mul_ =
+                IsZeroGadget::construct(cb, (Opcodes::MUL as u64).expr() - step_curr.opcode.expr());
+            let is_div_ =
+                IsZeroGadget::construct(cb, (Opcodes::DIV as u64).expr() - step_curr.opcode.expr());
+            let is_mod_ =
+                IsZeroGadget::construct(cb, (Opcodes::MOD as u64).expr() - step_curr.opcode.expr());
             let divisor_lo_is_zero_ = IsZeroGadget::construct(cb, rhs.lo());
             let divisor_hi_is_zero_ = IsZeroGadget::construct(cb, rhs.hi());
             let divisor_is_zero = divisor_lo_is_zero_.expr() * divisor_hi_is_zero_.expr();
@@ -160,15 +211,15 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                 lhs,
                 rhs,
                 out,
-                is_mul.expr(),
-                is_div.expr(),
-                is_mod.expr(),
+                is_mul_.expr(),
+                is_div_.expr(),
+                is_mod_.expr(),
                 step_curr.aux0.expr(), //n_bytes
                 divisor_is_zero.clone(),
             );
 
             // for Div&Mod, go to Error state if divisor == 0
-            let divide_by_zero = (1u64.expr() - is_mul.expr()) * divisor_is_zero;
+            let divide_by_zero = (1u64.expr() - is_mul_.expr()) * divisor_is_zero;
             let overflow = mul_div_mod_.overflow();
             let error = or::expr([divide_by_zero, overflow]);
             cb.condition(error.clone(), |cb| {
@@ -181,19 +232,19 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
                     (PC, Transition::Delta(1.expr())),
                 ]);
             });
+            is_mul = Some(is_mul_);
+            is_div = Some(is_div_);
+            is_mod = Some(is_mod_);
             divisor_lo_is_zero = Some(divisor_lo_is_zero_);
             divisor_hi_is_zero = Some(divisor_hi_is_zero_);
             mul_div_mod = Some(mul_div_mod_);
         });
 
-        MulDivMod {
-            bytes_1_lo,
-            bytes_1_hi,
-            bytes_2_lo,
-            bytes_2_hi,
-            is_mul,
-            is_div,
-            is_mod,
+        MulDivModStage2 {
+            bytes,
+            is_mul: is_mul.unwrap(),
+            is_div: is_div.unwrap(),
+            is_mod: is_mod.unwrap(),
             mul_div_mod: mul_div_mod.unwrap(),
             divisor_lo_is_zero: divisor_lo_is_zero.unwrap(),
             divisor_hi_is_zero: divisor_hi_is_zero.unwrap(),
@@ -206,7 +257,7 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
@@ -219,40 +270,34 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         let is_mul = opcode == Opcodes::MUL as u8;
         let is_div = opcode == Opcodes::DIV as u8;
         let is_mod = opcode == Opcodes::MOD as u8;
-
         let num_bytes = step_state.step_state.aux0 as usize;
-        let rhs = step_state.memory_ops[0].0.clone().unwrap().value;
-        let lhs = step_state.memory_ops[1].0.clone().unwrap().value;
-        let out = step_state.memory_ops[1].1.clone().unwrap().value;
-        let rhs_lo = rhs.lo();
-        let rhs_hi = rhs.hi();
-        let lhs_lo = lhs.lo();
-        let lhs_hi = lhs.hi();
-        let out_lo = out.lo();
-        let out_hi = out.hi();
+        let (lhs, rhs, out) = match &stage_state.extra_data {
+            Some(StageExtraAssignData::BinaryOp(d)) => (d.lhs, d.rhs, d.out),
+            _ => unreachable!(),
+        };
+        let (rhs_lo, rhs_hi) = split_u256_to_u128(rhs);
+        let (lhs_lo, lhs_hi) = split_u256_to_u128(lhs);
+        let (out_lo, out_hi) = split_u256_to_u128(out);
 
-        debug_assert_eq!(step_state.memory_ops.len(), 2);
-        for i in 0..step_state.memory_ops.len() {
-            self.is_mul.assign(
-                region,
-                offset + i,
-                F::from(Opcodes::MUL as u64) - F::from(step_state.step_state.opcode as u64),
-            )?;
-            self.is_div.assign(
-                region,
-                offset + i,
-                F::from(Opcodes::DIV as u64) - F::from(step_state.step_state.opcode as u64),
-            )?;
-            self.is_mod.assign(
-                region,
-                offset + i,
-                F::from(Opcodes::MOD as u64) - F::from(step_state.step_state.opcode as u64),
-            )?;
-        }
-
+        debug_assert_eq!(step_state.memory_ops.len(), 10);
+        self.is_mul.assign(
+            region,
+            offset + 9,
+            F::from(Opcodes::MUL as u64) - F::from(step_state.step_state.opcode as u64),
+        )?;
+        self.is_div.assign(
+            region,
+            offset + 9,
+            F::from(Opcodes::DIV as u64) - F::from(step_state.step_state.opcode as u64),
+        )?;
+        self.is_mod.assign(
+            region,
+            offset + 9,
+            F::from(Opcodes::MOD as u64) - F::from(step_state.step_state.opcode as u64),
+        )?;
         self.mul_div_mod.assign(
             region,
-            offset + 1,
+            offset + 9,
             is_mul,
             is_div,
             is_mod,
@@ -266,9 +311,9 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivMod<F> {
         )?;
 
         self.divisor_lo_is_zero
-            .assign(region, offset + 1, F::from_u128(rhs_lo))?;
+            .assign(region, offset + 9, F::from_u128(rhs_lo))?;
         self.divisor_hi_is_zero
-            .assign(region, offset + 1, F::from_u128(rhs_hi))?;
+            .assign(region, offset + 9, F::from_u128(rhs_hi))?;
         Ok(step_state.memory_ops.len())
     }
 }
@@ -370,7 +415,15 @@ impl<F: Field> MulDivModGadget<F> {
         // for Div&Mod, remainder(c) < divisor(b) when divisor != 0
         // for Div&Mod, overflow == 0
         cb.require_zero("c == 0 for Mul", c.clone() * is_mul.clone());
-        let remainder_lt_divisor = LtInteger::construct(cb, c_lo, c_hi, b_lo, b_hi);
+        let remainder_lt_divisor = LtInteger::construct_from_given_bytes(
+            cb,
+            c_lo,
+            c_hi,
+            b_lo,
+            b_hi,
+            cells.bytes_1.clone(),
+            cells.bytes_2.clone(),
+        );
         cb.require_zero(
             "remainder < divisor when divisor != 0",
             (1u64.expr() - remainder_lt_divisor.expr())

@@ -8,6 +8,8 @@ pub enum ExecutionState {
     BrTrue,
     BrFalse,
     Bitwise,
+    BitwiseStage1,
+    BitwiseStage2,
     Branch,
     VecSwapStage1,
     VecSwapStage2,
@@ -54,12 +56,14 @@ pub enum ExecutionState {
     EqStage2,
     NeqStage1,
     NeqStage2,
-    MulDivMod,
+    MulDivModStage1,
+    MulDivModStage2,
     Le,
     Gt,
     Lt,
     Ge,
-    Shift,
+    ShiftStage1,
+    ShiftStage2,
 }
 
 impl ExecutionState {
@@ -70,7 +74,10 @@ impl ExecutionState {
             Self::AddSub => &[Opcodes::ADD, Opcodes::SUB],
             Self::BrTrue => &[Opcodes::BR_TRUE],
             Self::BrFalse => &[Opcodes::BR_FALSE],
-            Self::Bitwise => &[Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR],
+            Self::Bitwise | Self::BitwiseStage1 | Self::BitwiseStage2 => {
+                &[Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR]
+            }
+
             Self::Branch => &[Opcodes::BRANCH],
             Self::VecSwapStage1 => &[Opcodes::VEC_SWAP],
             Self::VecSwapStage2 => &[Opcodes::VEC_SWAP],
@@ -131,12 +138,14 @@ impl ExecutionState {
             Self::EqStage2 => &[Opcodes::EQ],
             Self::NeqStage1 => &[Opcodes::NEQ],
             Self::NeqStage2 => &[Opcodes::NEQ],
-            Self::MulDivMod => &[Opcodes::MUL, Opcodes::DIV, Opcodes::MOD],
+            Self::MulDivModStage1 => &[Opcodes::MUL, Opcodes::DIV, Opcodes::MOD],
+            Self::MulDivModStage2 => &[Opcodes::MUL, Opcodes::DIV, Opcodes::MOD],
             Self::Le => &[Opcodes::LE],
             Self::Gt => &[Opcodes::GT],
             Self::Lt => &[Opcodes::LT],
             Self::Ge => &[Opcodes::GE],
-            Self::Shift => &[Opcodes::SHL, Opcodes::SHR],
+            Self::ShiftStage1 => &[Opcodes::SHL, Opcodes::SHR],
+            Self::ShiftStage2 => &[Opcodes::SHL, Opcodes::SHR],
         }
     }
 }

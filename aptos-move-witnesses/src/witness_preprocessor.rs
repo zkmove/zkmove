@@ -4,8 +4,9 @@ use crate::exec_state::ExecutionState::{
 };
 use crate::static_info::StaticInfo;
 use crate::step_state::{
-    CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp, RetExtraAssignData, Slot,
-    StackPop, StackPush, StageState, StepState, Version,
+    BinaryOpData, CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp,
+    RetExtraAssignData, Slot, StackPop, StackPush, StageExtraAssignData, StageState, StepState,
+    Version,
 };
 use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
@@ -1617,23 +1618,35 @@ impl WitnessPreProcessor {
                     }
                     BinaryIntegerOperationType::Mul => {
                         let output = lhs.to_u256().mul(rhs.to_u256());
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
-                                .set_aux0(num_bytes as u128);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::MulDivModStage1,
+                            trace,
+                            static_info,
+                        )
+                        .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Div => {
                         let output = lhs.to_u256().div(rhs.to_u256());
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
-                                .set_aux0(num_bytes as u128);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::MulDivModStage1,
+                            trace,
+                            static_info,
+                        )
+                        .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Mod => {
                         let output = lhs.to_u256().rem(rhs.to_u256());
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::MulDivMod, trace, static_info)
-                                .set_aux0(num_bytes as u128);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::MulDivModStage1,
+                            trace,
+                            static_info,
+                        )
+                        .set_aux0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Lt => {
@@ -1673,8 +1686,12 @@ impl WitnessPreProcessor {
                             .bit_and(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::BitwiseStage1,
+                            trace,
+                            static_info,
+                        );
                         (SimpleValue::from(output), step_state)
                     }
                     BinaryIntegerOperationType::BitOr => {
@@ -1682,8 +1699,12 @@ impl WitnessPreProcessor {
                             .bit_or(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::BitwiseStage1,
+                            trace,
+                            static_info,
+                        );
                         (SimpleValue::from(output), step_state)
                     }
                     BinaryIntegerOperationType::Xor => {
@@ -1691,8 +1712,12 @@ impl WitnessPreProcessor {
                             .bit_xor(IntegerValue::from(rhs.clone()))
                             .expect("should not fail")
                             .into();
-                        let step_state =
-                            StepState::new(self.clk, ExecutionState::Bitwise, trace, static_info);
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::BitwiseStage1,
+                            trace,
+                            static_info,
+                        );
                         (SimpleValue::from(output), step_state)
                     }
                 };
@@ -1715,7 +1740,7 @@ impl WitnessPreProcessor {
                 let stack_push = StackPush {
                     index: sp - 1,
                     sub_index: SubIndex::default(),
-                    value: out.into(),
+                    value: out.clone().into(),
                     value_header: false,
                     version: *self.version_stack.last().unwrap(),
                 };
@@ -1723,9 +1748,6 @@ impl WitnessPreProcessor {
                 match ty {
                     BinaryIntegerOperationType::Add
                     | BinaryIntegerOperationType::Sub
-                    | BinaryIntegerOperationType::Mul
-                    | BinaryIntegerOperationType::Div
-                    | BinaryIntegerOperationType::Mod
                     | BinaryIntegerOperationType::Lt
                     | BinaryIntegerOperationType::Gt
                     | BinaryIntegerOperationType::Le
@@ -1742,21 +1764,50 @@ impl WitnessPreProcessor {
                             extra_data: None,
                         }]
                     }
-                    BinaryIntegerOperationType::BitAnd
+                    BinaryIntegerOperationType::Mul
+                    | BinaryIntegerOperationType::Div
+                    | BinaryIntegerOperationType::Mod
+                    | BinaryIntegerOperationType::BitAnd
                     | BinaryIntegerOperationType::BitOr
                     | BinaryIntegerOperationType::Xor => {
-                        let memory_ops = vec![
-                            MemoryOp(Some(stack_pop_rhs), None, None),
-                            MemoryOp(Some(stack_pop_lhs), None, None),
-                            MemoryOp(None, Some(stack_push), None),
-                        ];
-                        vec![StageState {
-                            step_states: vec![ExecStepState {
-                                step_state,
-                                memory_ops,
-                            }],
-                            extra_data: None,
-                        }]
+                        let stage1 = ExecStepState {
+                            step_state,
+                            memory_ops: vec![
+                                MemoryOp(Some(stack_pop_rhs), None, None),
+                                MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                            ],
+                        };
+                        self.clk += 1;
+                        let (stage2_state, stage2_rows) = match ty {
+                            BinaryIntegerOperationType::Mul
+                            | BinaryIntegerOperationType::Div
+                            | BinaryIntegerOperationType::Mod => {
+                                (ExecutionState::MulDivModStage2, 10)
+                            }
+                            BinaryIntegerOperationType::BitAnd
+                            | BinaryIntegerOperationType::BitOr
+                            | BinaryIntegerOperationType::Xor => (ExecutionState::BitwiseStage2, 8),
+                            _ => unreachable!(),
+                        };
+
+                        let stage2 = ExecStepState {
+                            step_state: step_state.change_state(stage2_state).change_clk(self.clk),
+                            memory_ops: vec![MemoryOp::default(); stage2_rows],
+                        };
+                        vec![
+                            StageState {
+                                step_states: vec![stage1],
+                                extra_data: None,
+                            },
+                            StageState {
+                                step_states: vec![stage2],
+                                extra_data: Some(StageExtraAssignData::BinaryOp(BinaryOpData {
+                                    lhs: lhs.to_u256(),
+                                    rhs: rhs.to_u256(),
+                                    out: Integer::try_from(out.clone()).unwrap().to_u256(),
+                                })),
+                            },
+                        ]
                     }
                 }
             }
@@ -2019,7 +2070,7 @@ impl WitnessPreProcessor {
                     lhs.to_u256().checked_shr(*rhs as u32).unwrap() //never failed
                 };
                 let step_state =
-                    StepState::new(self.clk, ExecutionState::Shift, trace, static_info)
+                    StepState::new(self.clk, ExecutionState::ShiftStage1, trace, static_info)
                         .set_aux0(num_bytes as u128);
 
                 let stack_pop_rhs = StackPop {
@@ -2044,17 +2095,34 @@ impl WitnessPreProcessor {
                     value_header: false,
                     version: *self.version_stack.last().unwrap(),
                 };
-                let memory_ops = vec![
-                    MemoryOp(Some(stack_pop_rhs), None, None),
-                    MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
-                ];
-                vec![StageState {
-                    step_states: vec![ExecStepState {
-                        step_state,
-                        memory_ops,
-                    }],
-                    extra_data: None,
-                }]
+                let stage1 = ExecStepState {
+                    step_state,
+                    memory_ops: vec![
+                        MemoryOp(Some(stack_pop_rhs), None, None),
+                        MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                    ],
+                };
+                self.clk += 1;
+                let stage2 = ExecStepState {
+                    step_state: step_state
+                        .change_state(ExecutionState::ShiftStage2)
+                        .change_clk(self.clk),
+                    memory_ops: vec![MemoryOp::default(); 10],
+                };
+                vec![
+                    StageState {
+                        step_states: vec![stage1],
+                        extra_data: None,
+                    },
+                    StageState {
+                        step_states: vec![stage2],
+                        extra_data: Some(StageExtraAssignData::BinaryOp(BinaryOpData {
+                            lhs: lhs.to_u256(),
+                            rhs: (*rhs).into(),
+                            out: output,
+                        })),
+                    },
+                ]
             }
             _ => todo!("{:?}", &trace.data),
         }

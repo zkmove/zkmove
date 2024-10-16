@@ -259,9 +259,10 @@ where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    let proof = prove_circuit(circuit, instance, params, pk.clone())
+    let proof = prove_circuit::<Scheme, P, ConcreteCircuit>(circuit, instance, params, pk.clone())
         .expect("proof generation should not fail");
-    verify_circuit(instance, params, pk, proof.clone()).expect("verify proof should be ok");
+    verify_circuit::<Scheme, V, Strategy>(instance, params, pk, proof.clone())
+        .expect("verify proof should be ok");
     proof
 }
 // TODO: rework on these functions.

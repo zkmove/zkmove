@@ -1,15 +1,15 @@
 use crate::chips::execution_chip_v2::executions::branch::Branch;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
+use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
-    AddSub, AndOr, Bitwise, BorrowField, BorrowLoc, BrBool, CallStage1, CallStage2, CallStage3,
-    Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt, MoveOrCopyLoc, MulDivMod,
-    Not, Pack, Pop, ReadRef, Ret, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2,
-    VecBorrow, VecLen, VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2,
-    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
-    WriteRefStage3,
+    AddSub, AndOr, BitwiseStage1, BitwiseStage2, BorrowField, BorrowLoc, BrBool, CallStage1,
+    CallStage2, CallStage3, Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt,
+    MoveOrCopyLoc, MulDivModStage1, MulDivModStage2, Not, Pack, Pop, ReadRef, Ret, ShiftStage1,
+    ShiftStage2, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2, VecBorrow, VecLen,
+    VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2, VecSwapStage_1,
+    VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2, WriteRefStage3,
 };
-use crate::chips::execution_chip_v2::executions::{BaseConstraintGadget, Shift};
 use crate::chips::execution_chip_v2::lookup_table::{Lookup, LookupTableConfigV2};
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
@@ -58,7 +58,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub process_arg: Box<ProcessArg<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
-    pub bitwise: Box<Bitwise<F>>,
+    pub bitwise_stage1: Box<BitwiseStage1<F, 8, 8>>,
+    pub bitwise_stage2: Box<BitwiseStage2<F, 8, 8>>,
     pub borrow_field: Box<BorrowField<F>>,
     pub borrow_loc: Box<BorrowLoc<F>>,
     pub br_true: Box<BrBool<F, true>>,
@@ -80,7 +81,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub le: Box<Le<F, true>>,
     pub lt: Box<Lt<F, true>>,
     pub move_loc: Box<MoveOrCopyLoc<F, true>>,
-    pub mul_div_mod: Box<MulDivMod<F>>,
+    pub mul_div_mod_stage1: Box<MulDivModStage1<F>>,
+    pub mul_div_mod_stage2: Box<MulDivModStage2<F>>,
     pub neq_stage_1: Box<Equality<F, true, false>>,
     pub neq_stage_2: Box<Equality<F, false, false>>,
     pub not: Box<Not<F>>,
@@ -88,7 +90,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub pop: Box<Pop<F>>,
     pub read_ref: Box<ReadRef<F>>,
     pub ret: Box<Ret<F>>,
-    pub shift: Box<Shift<F>>,
+    pub shift_stage1: Box<ShiftStage1<F>>,
+    pub shift_stage2: Box<ShiftStage2<F>>,
     pub store_loc_stage1: Box<StoreLocStage1<F>>,
     pub store_loc_stage2: Box<StoreLocStage2<F>>,
     pub unpack_stage_1: Box<UnpackStage1<F, false>>,
@@ -246,7 +249,8 @@ impl<F: Field> ExecChipConfig<F> {
             process_arg: configure_opcode_gadget!(),
             add_sub: configure_opcode_gadget!(),
             and_or: configure_opcode_gadget!(),
-            bitwise: configure_opcode_gadget!(),
+            bitwise_stage1: configure_opcode_gadget!(),
+            bitwise_stage2: configure_opcode_gadget!(),
             borrow_field: configure_opcode_gadget!(),
             borrow_loc: configure_opcode_gadget!(),
             br_true: configure_opcode_gadget!(),
@@ -268,7 +272,8 @@ impl<F: Field> ExecChipConfig<F> {
             le: configure_opcode_gadget!(),
             lt: configure_opcode_gadget!(),
             move_loc: configure_opcode_gadget!(),
-            mul_div_mod: configure_opcode_gadget!(),
+            mul_div_mod_stage1: configure_opcode_gadget!(),
+            mul_div_mod_stage2: configure_opcode_gadget!(),
             neq_stage_1: configure_opcode_gadget!(),
             neq_stage_2: configure_opcode_gadget!(),
             not: configure_opcode_gadget!(),
@@ -278,7 +283,8 @@ impl<F: Field> ExecChipConfig<F> {
             ret: configure_opcode_gadget!(),
             store_loc_stage1: configure_opcode_gadget!(),
             store_loc_stage2: configure_opcode_gadget!(),
-            shift: configure_opcode_gadget!(),
+            shift_stage1: configure_opcode_gadget!(),
+            shift_stage2: configure_opcode_gadget!(),
             unpack_stage_1: configure_opcode_gadget!(),
             unpack_stage_2: configure_opcode_gadget!(),
             vec_borrow: configure_opcode_gadget!(),
@@ -684,7 +690,8 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::VecSwapStage5 => self.vec_swap_stage_5,
             ExecutionState::AddSub => self.add_sub,
             ExecutionState::AndOr => self.and_or,
-            ExecutionState::Bitwise => self.bitwise,
+            ExecutionState::BitwiseStage1 => self.bitwise_stage1,
+            ExecutionState::BitwiseStage2 => self.bitwise_stage2,
             ExecutionState::BorrowField => self.borrow_field,
             ExecutionState::BorrowLoc => self.borrow_loc,
             ExecutionState::BrTrue => self.br_true,
@@ -708,7 +715,8 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::Lt => self.lt,
             ExecutionState::MoveLoc => self.move_loc,
             ExecutionState::CopyLoc => self.copy_loc,
-            ExecutionState::MulDivMod => self.mul_div_mod,
+            ExecutionState::MulDivModStage1 => self.mul_div_mod_stage1,
+            ExecutionState::MulDivModStage2=> self.mul_div_mod_stage2,
             ExecutionState::Not => self.not,
             ExecutionState::Pack => self.pack,
             ExecutionState::Pop => self.pop,
@@ -723,7 +731,8 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::Nop => self.nop,
             ExecutionState::Start => self.start,
             ExecutionState::ProcessArg => self.process_arg,
-            ExecutionState::Shift => self.shift,
+            ExecutionState::ShiftStage1 => self.shift_stage1,
+            ExecutionState::ShiftStage2 => self.shift_stage2,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Ok(assigned_rows)
