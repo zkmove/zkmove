@@ -69,3 +69,7 @@ incremental = false
 
 [profile.bench]
 lto = true
+
+#
+#[patch."https://github.com/privacy-scaling-explorations/halo2"]
+#halo2_proofs = { path = "../../privacy-scaling-explorations/halo2/halo2_proofs" }

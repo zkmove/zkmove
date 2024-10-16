@@ -37,6 +37,7 @@ use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
+use std::process::exit;
 use types::Field;
 
 pub(crate) fn query_expression<F: Field, T>(
@@ -89,6 +90,7 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     dbg!(prover.cs().lookups().len());
     dbg!(prover.cs().shuffles().len());
     dbg!(prover.cs().advice_column_phase().iter().counts_by(|p| *p));
+
     // uncomment this to output assignments
     // {
     //     use std::io::Write;

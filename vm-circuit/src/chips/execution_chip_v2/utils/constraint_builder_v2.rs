@@ -234,7 +234,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     }
 
     pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
-        cell.at_offset(self.meta, offset)
+        cell.at_offset(offset)
     }
     pub(crate) fn cells_at_offset<const N: usize>(
         &mut self,

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::query_expression;
@@ -77,30 +78,21 @@ impl CellType {
 #[derive(Clone, Debug)]
 /// Cell is a (column, rotation) pair that has been placed and queried by the Cell Manager.
 pub struct Cell<F> {
-    expression: Expression<F>,
+    //expression: Expression<F>,
     column: Column<Advice>,
     rotation: isize,
+    phantom_data: PhantomData<F>,
 }
 
 impl<F: Field> Cell<F> {
     /// Creates a Cell from VirtualCells.
-    pub fn new(meta: &mut VirtualCells<F>, column: Column<Advice>, rotation: isize) -> Cell<F> {
+    pub fn new(column: Column<Advice>, rotation: isize) -> Cell<F> {
         Cell {
-            expression: meta.query_advice(column, Rotation(rotation as i32)),
             column,
             rotation,
+            phantom_data: PhantomData,
         }
     }
-
-    /// Creates a Cell from ConstraintSystem.
-    pub fn new_from_cs(
-        meta: &mut ConstraintSystem<F>,
-        column: Column<Advice>,
-        rotation: isize,
-    ) -> Cell<F> {
-        query_expression(meta, |meta| Cell::new(meta, column, rotation))
-    }
-
     /// Assigns a Cell during witness generation.
     pub(crate) fn assign(
         &self,
@@ -121,8 +113,8 @@ impl<F: Field> Cell<F> {
         )
     }
 
-    pub(crate) fn at_offset(&self, meta: &mut ConstraintSystem<F>, offset: i32) -> Self {
-        Self::new_from_cs(meta, self.column, self.rotation + offset as isize)
+    pub(crate) fn at_offset(&self, offset: i32) -> Self {
+        Self::new(self.column, self.rotation + offset as isize)
     }
 }
 
@@ -141,13 +133,13 @@ impl<F> Cell<F> {
 
 impl<F: Field> Expr<F> for Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression.clone()
+        self.column.query_cell(Rotation(self.rotation as i32))
     }
 }
 
 impl<F: Field> Expr<F> for &Cell<F> {
     fn expr(&self) -> Expression<F> {
-        self.expression.clone()
+        self.column.query_cell(Rotation(self.rotation as i32))
     }
 }
 
@@ -295,7 +287,7 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
     ) -> Cell<F> {
         let placement = self.strategy.place_cell(columns, meta, cell_type);
 
-        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
+        Cell::new(placement.column.advice, placement.rotation)
     }
 
     pub fn query_cell_with_affinity<F: Field>(
@@ -309,7 +301,7 @@ impl<Stats, S: CellPlacementStrategy<Stats = Stats>> CellManager<S> {
             .strategy
             .place_cell_with_affinity(columns, meta, cell_type, affinity);
 
-        Cell::new_from_cs(meta, placement.column.advice, placement.rotation)
+        Cell::new(placement.column.advice, placement.rotation)
     }
 
     /// Places, and returns `count` Cells for a given cell type following the strategy.
