@@ -223,7 +223,7 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivModStage2<F> {
             let overflow = mul_div_mod_.overflow();
             let error = or::expr([divide_by_zero, overflow]);
             cb.condition(error.clone(), |cb| {
-                // cb.require_next_state(ExecutionState::ErrorState);
+                cb.require_next_state(ExecutionState::AbortOrError);
                 // ErrorCode == StatusCode::ArithmeticError
             });
             cb.condition(1u64.expr() - error, |cb| {

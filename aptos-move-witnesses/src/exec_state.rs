@@ -4,6 +4,8 @@ use strum_macros::EnumIter;
 pub enum ExecutionState {
     Start = 0,
     ProcessArg,
+    Teardown,
+    AbortOrError,
     AddSub,
     BrTrue,
     BrFalse,
@@ -71,6 +73,8 @@ impl ExecutionState {
         match self {
             Self::Start => &[],
             Self::ProcessArg => &[],
+            Self::Teardown => &[],
+            Self::AbortOrError => &[Opcodes::ABORT],
             Self::AddSub => &[Opcodes::ADD, Opcodes::SUB],
             Self::BrTrue => &[Opcodes::BR_TRUE],
             Self::BrFalse => &[Opcodes::BR_FALSE],
@@ -89,7 +93,7 @@ impl ExecutionState {
             Self::VecPushBackStage1 => &[Opcodes::VEC_PUSH_BACK],
             Self::VecPushBackStage2 => &[Opcodes::VEC_PUSH_BACK],
             Self::Stop => &[],
-            Self::Nop => &[],
+            Self::Nop => &[Opcodes::NOP],
             Self::BorrowLoc => &[Opcodes::IMM_BORROW_LOC, Opcodes::MUT_BORROW_LOC],
             Self::LdConst => &[Opcodes::LD_CONST],
             Self::LdFalse => &[Opcodes::LD_FALSE],

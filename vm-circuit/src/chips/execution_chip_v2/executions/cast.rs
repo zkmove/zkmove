@@ -170,8 +170,7 @@ impl<F: Field> InstructionGadgetV2<F> for Cast<F> {
             ]);
         });
         cb.condition(overflow.expr(), |cb| {
-            // TODO: error state
-            // cb.require_next_state(ExecutionState::ErrorState);
+            cb.require_next_state(ExecutionState::AbortOrError);
             // ErrorCode == StatusCode::ArithmeticError
         });
 

@@ -1,3 +1,4 @@
+pub(crate) mod abort_error;
 pub(crate) mod add_sub;
 pub(crate) mod and_or;
 pub(crate) mod base;
@@ -5,6 +6,7 @@ pub(crate) mod bitwise;
 pub(crate) mod borrow_field;
 pub(crate) mod borrow_loc;
 pub(crate) mod br_bool;
+pub(crate) mod branch;
 pub(crate) mod call;
 pub(crate) mod cast;
 pub(crate) mod equality;
@@ -23,7 +25,9 @@ pub(crate) mod read_ref;
 pub(crate) mod ret;
 pub(crate) mod shl_shr;
 pub(crate) mod start;
+pub(crate) mod stop;
 pub(crate) mod store_loc;
+pub(crate) mod teardown;
 pub(crate) mod unpack;
 pub(crate) mod vec_borrow;
 pub(crate) mod vec_len;
@@ -31,8 +35,6 @@ pub(crate) mod vec_pop_back;
 pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
-
-pub(crate) mod branch;
 
 pub(crate) use add_sub::*;
 pub(crate) use and_or::*;

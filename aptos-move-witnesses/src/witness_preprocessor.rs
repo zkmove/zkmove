@@ -50,7 +50,7 @@ impl WitnessPreProcessor {
             exec_states.append(&mut states);
             self.clk += 1;
         }
-        // nop ops to write (final_set, init_set)
+        // teardown ops to write (final_set, init_set)
         let local_write_set = self.locals.to_write_set();
         if !local_write_set.is_empty() {
             exec_states.push(StageState {

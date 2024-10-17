@@ -52,10 +52,9 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
-        // cb.condition(is_zero_frame_index.expr(), |cb| {
-        //     call_context.require_zero(cb);
-        //     //TODO: state transition, STOP or go to NOP when necessary
-        // });
+        cb.condition(is_zero_frame_index.expr(), |cb| {
+            cb.require_next_states(vec![ExecutionState::Teardown, ExecutionState::Stop]);
+        });
         let frame_index_next = cb.cell_at_offset(&step_curr.frame_index, 1).expr();
         let module_index_next = cb.cell_at_offset(&step_curr.module_index, 1).expr();
         let function_index_next = cb.cell_at_offset(&step_curr.function_index, 1).expr();
