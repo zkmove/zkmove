@@ -34,7 +34,7 @@ impl<F> Default for Transition<F> {
 pub(crate) type StateTransition<F> = (&'static str, Transition<F>);
 
 /// Internal type to select the location where the constraints are enabled
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub(crate) enum ConstraintLocation {
     FirstRow,
     LastRow,
@@ -42,19 +42,16 @@ pub(crate) enum ConstraintLocation {
     NotLastRow,
 }
 
+pub(crate) type Located<T> = HashMap<Option<ConstraintLocation>, Vec<T>>;
+
 /// Collection of constraints grouped by which selectors will enable them
-#[derive(Default)]
-pub(crate) struct Constraints<F> {
-    /// Enabled when cur row is the first row of the opcode
-    pub(crate) first_row: Vec<(String, Expression<F>)>,
-    /// Enabled when cur row is the last row of the opcode
-    pub(crate) last_row: Vec<(String, Expression<F>)>,
-    /// Enabled when cur row is not the first row of the opcode
-    pub(crate) not_first_row: Vec<(String, Expression<F>)>,
-    /// Enabled when cur row is not the last row of the opcode
-    pub(crate) not_last_row: Vec<(String, Expression<F>)>,
-    pub(crate) any_row: Vec<(String, Expression<F>)>,
-}
+pub(crate) type Constraints<F> = Located<(String, Expression<F>)>;
+
+/// Collection of lookups grouped by which selectors will enable them
+pub(crate) type Lookups<F> = Located<(String, Lookup<F>)>;
+
+/// Collection of stored expressions grouped by which selectors will enable them
+pub(crate) type StoredExpressions<F> = Located<StoredExpression<F>>;
 
 pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
     meta: &'a mut ConstraintSystem<F>,
@@ -63,14 +60,14 @@ pub(crate) struct ConstraintBuilderV2<'a, F: Field> {
 
     execution_state: Option<ExecutionState>,
     pub(crate) curr: Step<F>,
-    // constraints: Vec<(String, ConditionalExpression<F>)>,
-    constraints: Constraints<F>,
-    constraints_location: Option<ConstraintLocation>,
+
     conditions: Vec<Expression<F>>,
+    constraints_location: Option<ConstraintLocation>,
 
-    lookups: Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
+    constraints: Constraints<F>,
+    lookups: Lookups<F>,
+    stored_expressions: StoredExpressions<F>,
 
-    stored_expressions: Vec<StoredExpression<F>>,
     in_next_step: bool,
 }
 
@@ -103,12 +100,14 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             challenges,
             execution_state: exec_state,
             curr,
-            constraints: Default::default(),
+
             constraints_location: None,
-            stored_expressions: Vec::new(),
+
             in_next_step: false,
             conditions: Vec::new(),
-            lookups: Vec::new(),
+            constraints: Default::default(),
+            lookups: Default::default(),
+            stored_expressions: Default::default(),
         }
     }
 
@@ -118,8 +117,8 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     ) -> (
         Step<F>,
         Constraints<F>,
-        Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
-        Vec<StoredExpression<F>>,
+        Lookups<F>,
+        StoredExpressions<F>,
         &'a mut ConstraintSystem<F>,
         &'a mut CellManagerColumns,
     ) {
@@ -128,20 +127,15 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             Some(s) => self.curr.execution_state_selector([s]),
             None => 1u64.expr(),
         };
-        let mul_exec_state_sel = |c: Vec<(String, Expression<F>)>| {
-            c.into_iter()
-                .map(|(name, constraint)| (name, op_sel.clone() * constraint))
-                .collect()
-        };
+        // let mul_exec_state_sel = |c: Vec<(String, Expression<F>)>| {
+        //     c.into_iter()
+        //         .map(|(name, constraint)| (name, op_sel.clone() * constraint))
+        //         .collect()
+        // };
+
         (
             self.curr,
-            Constraints {
-                first_row: mul_exec_state_sel(self.constraints.first_row),
-                not_first_row: mul_exec_state_sel(self.constraints.not_first_row),
-                last_row: mul_exec_state_sel(self.constraints.last_row),
-                not_last_row: mul_exec_state_sel(self.constraints.not_last_row),
-                any_row: mul_exec_state_sel(self.constraints.any_row),
-            },
+            self.constraints,
             self.lookups,
             self.stored_expressions,
             self.meta,
@@ -407,7 +401,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
             Some(condition) => lookup.conditional(condition),
             None => lookup,
         };
-        self.lookups.push((self.constraints_location, name, lookup))
+        self.lookups
+            .entry(self.constraints_location)
+            .or_default()
+            .push((name, lookup))
     }
 
     pub(crate) fn add_lookup(&mut self, name: &str, lookup: Lookup<F>) {
@@ -460,14 +457,17 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
                 let name = format!("{} (stored expression)", name);
                 self.push_constraint(name.clone(), cell.expr() - expr.clone());
 
-                self.stored_expressions.push(StoredExpression {
+                let stored_expression = StoredExpression {
                     name,
                     cell: cell.clone(),
                     cell_type,
                     expr_id: expr.identifier(),
                     expr,
-                    required_location: self.constraints_location,
-                });
+                };
+                self.stored_expressions
+                    .entry(self.constraints_location)
+                    .or_default()
+                    .push(stored_expression);
                 cell.expr()
             }
         }
@@ -480,11 +480,12 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         constraint_location: Option<ConstraintLocation>,
     ) -> Option<&StoredExpression<F>> {
         let expr_id = expr.identifier();
-        self.stored_expressions.iter().find(|&e| {
-            e.cell_type == cell_type
-                && e.expr_id == expr_id
-                && e.required_location == constraint_location
-        })
+        self.stored_expressions
+            .get(&constraint_location)
+            .and_then(|es| {
+                es.iter()
+                    .find(|&e| e.cell_type == cell_type && e.expr_id == expr_id)
+            })
     }
 
     fn split_expression(
@@ -583,19 +584,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         //     self.constraints_location.is_some(),
         //     "ConstraintLocation can't be combined"
         // );
-        match self.constraints_location {
-            Some(ConstraintLocation::FirstRow) => {
-                self.constraints.first_row.push((name, constraint))
-            }
-            Some(ConstraintLocation::NotFirstRow) => {
-                self.constraints.not_first_row.push((name, constraint))
-            }
-            Some(ConstraintLocation::LastRow) => self.constraints.last_row.push((name, constraint)),
-            Some(ConstraintLocation::NotLastRow) => {
-                self.constraints.not_last_row.push((name, constraint))
-            }
-            None => self.constraints.any_row.push((name, constraint)),
-        }
+        self.constraints
+            .entry(self.constraints_location)
+            .or_default()
+            .push((name, constraint));
     }
 
     fn condition_expr(&self) -> Expression<F> {
