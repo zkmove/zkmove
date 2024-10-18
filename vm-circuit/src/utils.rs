@@ -19,7 +19,7 @@ use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Pro
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
 use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use halo2_proofs::poly::kzg::multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK};
+use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
 use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
 use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
@@ -27,7 +27,6 @@ use halo2_proofs::transcript::{
 // use instant;
 use crate::utils::challenges::Challenges;
 use crate::witness::WitnessV2;
-use field_exts::U256;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::halo2curves::CurveExt;

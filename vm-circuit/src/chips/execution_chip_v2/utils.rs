@@ -1,4 +1,3 @@
-use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintLocation;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellType};
 use field_exts::U256;
@@ -16,7 +15,6 @@ pub struct StoredExpression<F> {
     pub(crate) cell_type: CellType,
     pub(crate) expr: Expression<F>,
     pub(crate) expr_id: String,
-    pub(crate) required_location: Option<ConstraintLocation>,
 }
 
 impl<F> Hash for StoredExpression<F> {

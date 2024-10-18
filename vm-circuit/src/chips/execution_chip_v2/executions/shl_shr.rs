@@ -1,4 +1,4 @@
-use crate::chips::execution_chip_v2::executions::{ExecutionState, MulDivModStage2};
+use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::{LtGadget, LtInteger};

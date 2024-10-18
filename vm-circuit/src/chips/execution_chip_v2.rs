@@ -10,15 +10,14 @@ use crate::chips::execution_chip_v2::executions::{
     VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2, VecSwapStage_1,
     VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2, WriteRefStage3,
 };
-use crate::chips::execution_chip_v2::lookup_table::{Lookup, LookupTableConfigV2};
+use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
     BaseConstraintBuilder, ConstrainBuilderCommon,
 };
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
-    ConstraintBuilderV2, ConstraintLocation,
+    ConstraintBuilderV2, ConstraintLocation, Constraints, Lookups, StoredExpressions,
 };
-use crate::chips::execution_chip_v2::utils::StoredExpression;
 use crate::chips::utils::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
@@ -33,7 +32,7 @@ use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
 use move_binary_format::file_format_common::Opcodes;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::iter;
 use types::Field;
 
@@ -115,7 +114,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub write_ref_stage3: Box<WriteRefStage3<F>>,
     pub nop: Box<Nop<F>>,
     pub step: Step<F>,
-    pub stored_expressions_map: HashMap<ExecutionState, Vec<StoredExpression<F>>>,
+    pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
     pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
 }
 
@@ -199,117 +198,124 @@ impl<F: Field> ExecChipConfig<F> {
             cb.gate(s_usable)
         });
 
+        let mut constraints_map = BTreeMap::new();
         let mut lookup_map = BTreeMap::new();
-        let mut stored_expressions_map = HashMap::new();
+        let mut stored_expressions_map = BTreeMap::new();
         let mut additional_cell_stat_map = BTreeMap::new();
+
         // base configuration for every opcode gadgets
         let (step_curr, base_constraint) = {
             let mut cb =
                 ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
             let base_constraint = BaseConstraintGadget::configure(&mut cb);
+
             // we need to reuse the step_curr when configuring opcode gadgets.
-            let step_curr = cb.curr.clone();
-            Self::configure_opcode_gadget_impl(
-                s_usable,
-                s_step_first,
-                s_step_last,
-                "base constraints",
-                None,
-                cb,
-                &mut stored_expressions_map,
-                &mut lookup_map,
-                lookup_table_configs,
-            );
+            let (step_curr, constraints, lookups, stored_expressions, _, _) = cb.build();
+
+            constraints_map.insert(None, constraints);
+            lookup_map.insert(None, lookups);
+            stored_expressions_map.insert(None, stored_expressions);
+
             (step_curr, base_constraint)
         };
-        macro_rules! configure_opcode_gadget {
+        macro_rules! build_opcode_gadget {
             () => {
-                Box::new(Self::configure_opcode_gadget(
+                Box::new(Self::build_opcode_gadget(
                     meta,
                     &mut cell_columns,
                     &challenges,
-                    s_usable,
-                    s_step_first,
-                    s_step_last,
                     &step_curr,
+                    &mut constraints_map,
                     &mut stored_expressions_map,
                     &mut lookup_map,
                     &mut additional_cell_stat_map,
-                    lookup_table_configs,
                 ))
             };
         }
 
-        let config = ExecChipConfig {
+        let mut config = ExecChipConfig {
             s_usable,
             s_step_first,
             s_step_last,
             base_constraint: Box::new(base_constraint),
-            start: configure_opcode_gadget!(),
-            process_arg: configure_opcode_gadget!(),
-            add_sub: configure_opcode_gadget!(),
-            and_or: configure_opcode_gadget!(),
-            bitwise_stage1: configure_opcode_gadget!(),
-            bitwise_stage2: configure_opcode_gadget!(),
-            borrow_field: configure_opcode_gadget!(),
-            borrow_loc: configure_opcode_gadget!(),
-            br_true: configure_opcode_gadget!(),
-            br_false: configure_opcode_gadget!(),
-            branch: configure_opcode_gadget!(),
-            call_stage_1: configure_opcode_gadget!(),
-            call_stage_2: configure_opcode_gadget!(),
-            call_stage_3: configure_opcode_gadget!(),
-            cast: configure_opcode_gadget!(),
-            copy_loc: configure_opcode_gadget!(),
-            eq_stage_1: configure_opcode_gadget!(),
-            eq_stage_2: configure_opcode_gadget!(),
-            ge: configure_opcode_gadget!(),
-            gt: configure_opcode_gadget!(),
-            ld_simple: configure_opcode_gadget!(),
-            ld_true: configure_opcode_gadget!(),
-            ld_false: configure_opcode_gadget!(),
-            ld_const: configure_opcode_gadget!(),
-            le: configure_opcode_gadget!(),
-            lt: configure_opcode_gadget!(),
-            move_loc: configure_opcode_gadget!(),
-            mul_div_mod_stage1: configure_opcode_gadget!(),
-            mul_div_mod_stage2: configure_opcode_gadget!(),
-            neq_stage_1: configure_opcode_gadget!(),
-            neq_stage_2: configure_opcode_gadget!(),
-            not: configure_opcode_gadget!(),
-            pack: configure_opcode_gadget!(),
-            pop: configure_opcode_gadget!(),
-            read_ref: configure_opcode_gadget!(),
-            ret: configure_opcode_gadget!(),
-            store_loc_stage1: configure_opcode_gadget!(),
-            store_loc_stage2: configure_opcode_gadget!(),
-            shift_stage1: configure_opcode_gadget!(),
-            shift_stage2: configure_opcode_gadget!(),
-            unpack_stage_1: configure_opcode_gadget!(),
-            unpack_stage_2: configure_opcode_gadget!(),
-            vec_borrow: configure_opcode_gadget!(),
-            vec_len: configure_opcode_gadget!(),
-            vec_pack: configure_opcode_gadget!(),
-            vec_pop_back_stage1: configure_opcode_gadget!(),
-            vec_pop_back_stage2: configure_opcode_gadget!(),
-            vec_push_back_stage1: configure_opcode_gadget!(),
-            vec_push_back_stage2: configure_opcode_gadget!(),
-            vec_swap_stage_1: configure_opcode_gadget!(),
-            vec_swap_stage_2: configure_opcode_gadget!(),
-            vec_swap_stage_3: configure_opcode_gadget!(),
-            vec_swap_stage_4: configure_opcode_gadget!(),
-            vec_swap_stage_5: configure_opcode_gadget!(),
-            vec_unpack_stage_1: configure_opcode_gadget!(),
-            vec_unpack_stage_2: configure_opcode_gadget!(),
-            write_ref_stage1: configure_opcode_gadget!(),
-            write_ref_stage2: configure_opcode_gadget!(),
-            write_ref_stage3: configure_opcode_gadget!(),
-            nop: configure_opcode_gadget!(),
+            start: build_opcode_gadget!(),
+            process_arg: build_opcode_gadget!(),
+            add_sub: build_opcode_gadget!(),
+            and_or: build_opcode_gadget!(),
+            bitwise_stage1: build_opcode_gadget!(),
+            bitwise_stage2: build_opcode_gadget!(),
+            borrow_field: build_opcode_gadget!(),
+            borrow_loc: build_opcode_gadget!(),
+            br_true: build_opcode_gadget!(),
+            br_false: build_opcode_gadget!(),
+            branch: build_opcode_gadget!(),
+            call_stage_1: build_opcode_gadget!(),
+            call_stage_2: build_opcode_gadget!(),
+            call_stage_3: build_opcode_gadget!(),
+            cast: build_opcode_gadget!(),
+            copy_loc: build_opcode_gadget!(),
+            eq_stage_1: build_opcode_gadget!(),
+            eq_stage_2: build_opcode_gadget!(),
+            ge: build_opcode_gadget!(),
+            gt: build_opcode_gadget!(),
+            ld_simple: build_opcode_gadget!(),
+            ld_true: build_opcode_gadget!(),
+            ld_false: build_opcode_gadget!(),
+            ld_const: build_opcode_gadget!(),
+            le: build_opcode_gadget!(),
+            lt: build_opcode_gadget!(),
+            move_loc: build_opcode_gadget!(),
+            mul_div_mod_stage1: build_opcode_gadget!(),
+            mul_div_mod_stage2: build_opcode_gadget!(),
+            neq_stage_1: build_opcode_gadget!(),
+            neq_stage_2: build_opcode_gadget!(),
+            not: build_opcode_gadget!(),
+            pack: build_opcode_gadget!(),
+            pop: build_opcode_gadget!(),
+            read_ref: build_opcode_gadget!(),
+            ret: build_opcode_gadget!(),
+            store_loc_stage1: build_opcode_gadget!(),
+            store_loc_stage2: build_opcode_gadget!(),
+            shift_stage1: build_opcode_gadget!(),
+            shift_stage2: build_opcode_gadget!(),
+            unpack_stage_1: build_opcode_gadget!(),
+            unpack_stage_2: build_opcode_gadget!(),
+            vec_borrow: build_opcode_gadget!(),
+            vec_len: build_opcode_gadget!(),
+            vec_pack: build_opcode_gadget!(),
+            vec_pop_back_stage1: build_opcode_gadget!(),
+            vec_pop_back_stage2: build_opcode_gadget!(),
+            vec_push_back_stage1: build_opcode_gadget!(),
+            vec_push_back_stage2: build_opcode_gadget!(),
+            vec_swap_stage_1: build_opcode_gadget!(),
+            vec_swap_stage_2: build_opcode_gadget!(),
+            vec_swap_stage_3: build_opcode_gadget!(),
+            vec_swap_stage_4: build_opcode_gadget!(),
+            vec_swap_stage_5: build_opcode_gadget!(),
+            vec_unpack_stage_1: build_opcode_gadget!(),
+            vec_unpack_stage_2: build_opcode_gadget!(),
+            write_ref_stage1: build_opcode_gadget!(),
+            write_ref_stage2: build_opcode_gadget!(),
+            write_ref_stage3: build_opcode_gadget!(),
+            nop: build_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
             stored_expressions_map,
             dynamic_cell_stat_map: additional_cell_stat_map,
         };
+
+        Self::configure_opcode_gadget(
+            meta,
+            &mut config.columns,
+            &challenges,
+            &mut config.step,
+            config.s_usable,
+            config.s_step_first,
+            config.s_step_last,
+            lookup_table_configs,
+            constraints_map,
+            lookup_map,
+        );
 
         Self::configure_lookup(
             meta,
@@ -324,23 +330,15 @@ impl<F: Field> ExecChipConfig<F> {
         config
     }
 
-    fn configure_opcode_gadget<G: InstructionGadgetV2<F>>(
+    fn build_opcode_gadget<G: InstructionGadgetV2<F>>(
         meta: &mut ConstraintSystem<F>,
         columns: &mut CellManagerColumns,
         challenges: &Challenges<Expression<F>>,
-        //lookups: &mut Vec<(&'static str, ConditionalLookup<F>)>,
-        s_usable: Selector,
-        s_step_first: Selector,
-        s_step_last: Selector,
-        //s_step: Column<Advice>,
         step_curr: &Step<F>,
-        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
-        lookup_map: &mut BTreeMap<
-            Option<ExecutionState>,
-            Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
-        >,
+        constraints_map: &mut BTreeMap<Option<ExecutionState>, Constraints<F>>,
+        stored_expressions_map: &mut BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
+        lookup_map: &mut BTreeMap<Option<ExecutionState>, Lookups<F>>,
         cell_stat_map: &mut BTreeMap<ExecutionState, BTreeMap<CellType, usize>>, // TODO: replace with Instrument
-        lookup_table_config: &LookupTableConfigV2<F>,
     ) -> G {
         // Now actually configure the gadget with the correct minimal height
         let mut cb = ConstraintBuilderV2::new(
@@ -351,51 +349,33 @@ impl<F: Field> ExecChipConfig<F> {
             Some(G::EXECUTION_STATE),
         );
         let gadget = G::configure(&mut cb);
+
         let mut stat = cb.curr.cell_manager.get_stats(cb.columns);
         debug_assert_eq!(stat.len(), 1);
-
         cell_stat_map.insert(G::EXECUTION_STATE, stat.pop().unwrap());
 
-        Self::configure_opcode_gadget_impl(
-            s_usable,
-            s_step_first,
-            s_step_last,
-            G::NAME,
-            Some(G::EXECUTION_STATE),
-            cb,
-            stored_expressions_map,
-            lookup_map,
-            lookup_table_config,
-        );
+        let (_, constraints, lookups, stored_expressions, meta, columns) = cb.build();
+
+        constraints_map.insert(Some(G::EXECUTION_STATE), constraints);
+        lookup_map.insert(Some(G::EXECUTION_STATE), lookups);
+        stored_expressions_map.insert(Some(G::EXECUTION_STATE), stored_expressions);
+
         gadget
     }
-
-    fn configure_opcode_gadget_impl(
+    fn configure_opcode_gadget(
+        meta: &mut ConstraintSystem<F>,
+        columns: &mut CellManagerColumns,
+        challenges: &Challenges<Expression<F>>,
+        step_curr: &Step<F>,
         s_usable: Selector,
         s_step_first: Selector,
         s_step_last: Selector,
-        name: &'static str,
-        execution_state: Option<ExecutionState>,
-        mut cb: ConstraintBuilderV2<F>,
-        stored_expressions_map: &mut HashMap<ExecutionState, Vec<StoredExpression<F>>>,
-        lookup_map: &mut BTreeMap<
-            Option<ExecutionState>,
-            Vec<(Option<ConstraintLocation>, String, Lookup<F>)>,
-        >,
         lookup_table_config: &LookupTableConfigV2<F>,
+        constraints_map: BTreeMap<Option<ExecutionState>, Constraints<F>>,
+        lookup_map: BTreeMap<Option<ExecutionState>, Lookups<F>>,
     ) {
-        let step_prev = cb.step_state_at_offset(-1);
-        let step_next = cb.step_state_at_offset(1);
-        let (step_curr, constraints, lookups, stored_expressions, meta, columns) = cb.build();
-
-        if let Some(execution_state) = execution_state {
-            debug_assert!(
-                !stored_expressions_map.contains_key(&execution_state),
-                "execution state already configured"
-            );
-            stored_expressions_map.insert(execution_state, stored_expressions);
-        }
-        //lookup_map.insert(execution_state, lookups);
+        let step_prev = Step::new(meta, columns, -1, challenges).state;
+        let step_next = Step::new(meta, columns, 1, challenges).state;
 
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
@@ -432,51 +412,96 @@ impl<F: Field> ExecChipConfig<F> {
             ])
         };
         let any_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|_| 1.expr();
-        for (selector, constraints) in [
-            (first_row, constraints.first_row),
-            (last_row, constraints.last_row),
-            (not_first_row, constraints.not_first_row),
-            (not_last_row, constraints.not_last_row),
-            (any_row, constraints.any_row),
-        ] {
-            if !constraints.is_empty() {
-                meta.create_gate(name, |meta| {
-                    let q_usable = meta.query_selector(s_usable);
-                    let selector = selector(meta);
-                    constraints.into_iter().map(move |(name, constraint)| {
-                        (name, q_usable.clone() * selector.clone() * constraint)
-                    })
-                });
+
+        for (state, mut constraints) in constraints_map {
+            let constraint_len: usize = constraints.values().map(|c| c.len()).sum();
+            if constraint_len > 0 {
+                meta.create_gate(
+                    state
+                        .map(|s| format!("{:?}", s))
+                        .unwrap_or("base constraints".to_string()),
+                    move |meta| {
+                        let q_usable = meta.query_selector(s_usable);
+
+                        let row_selectors: Vec<_> = [
+                            (any_row, None),
+                            (first_row, Some(ConstraintLocation::FirstRow)),
+                            (last_row, Some(ConstraintLocation::LastRow)),
+                            (not_first_row, Some(ConstraintLocation::NotFirstRow)),
+                            (not_last_row, Some(ConstraintLocation::NotLastRow)),
+                        ]
+                        .into_iter()
+                        .map(|(selector, l)| (selector(meta), l))
+                        .collect();
+                        let state_selector = match state {
+                            Some(s) => step_curr.execution_state_selector([s]),
+                            None => 1.expr(),
+                        };
+
+                        row_selectors.into_iter().flat_map(
+                            move |(row_selector, constraint_location)| {
+                                let q_usable = q_usable.clone();
+                                let state_selector = state_selector.clone();
+
+                                constraints
+                                    .remove(&constraint_location)
+                                    .unwrap_or_default()
+                                    .into_iter()
+                                    .map({
+                                        move |(name, constraint)| {
+                                            (
+                                                name,
+                                                q_usable.clone()
+                                                    * state_selector.clone()
+                                                    * row_selector.clone()
+                                                    * constraint,
+                                            )
+                                        }
+                                    })
+                            },
+                        )
+                    },
+                );
             }
         }
 
-        for (constraint_location, name, lookup) in lookups {
-            let location_selector = match constraint_location {
-                None => any_row,
-                Some(ConstraintLocation::FirstRow) => first_row,
-                Some(ConstraintLocation::LastRow) => last_row,
-                Some(ConstraintLocation::NotFirstRow) => not_first_row,
-                Some(ConstraintLocation::NotLastRow) => not_last_row,
+        for (state, lookups) in lookup_map {
+            let state_selector = match state {
+                Some(s) => step_curr.execution_state_selector([s]),
+                None => 1.expr(),
             };
 
-            meta.lookup_any(name.as_str(), |meta| {
-                let s_usable = meta.query_selector(s_usable);
-                let location_selector = location_selector(meta);
-                let state_selector = match execution_state {
-                    Some(s) => step_curr.execution_state_selector([s]),
-                    None => 1.expr(),
-                };
+            for (selector, constraint_location) in [
+                (first_row, Some(ConstraintLocation::FirstRow)),
+                (last_row, Some(ConstraintLocation::LastRow)),
+                (not_first_row, Some(ConstraintLocation::NotFirstRow)),
+                (not_last_row, Some(ConstraintLocation::NotLastRow)),
+                (any_row, None),
+            ] {
+                let lookups = lookups.get(&constraint_location);
+                if let Some(lookups) = lookups {
+                    for (name, lookup) in lookups {
+                        meta.lookup_any(name.as_str(), |meta| {
+                            let s_usable = meta.query_selector(s_usable);
+                            let row_selector = selector(meta);
 
-                let table_expressions = lookup_table_config.table_exprs(lookup.table(), meta);
-                lookup
-                    .input_exprs()
-                    .into_iter()
-                    .map(|e| {
-                        s_usable.clone() * location_selector.clone() * state_selector.clone() * e
-                    })
-                    .zip(table_expressions)
-                    .collect()
-            });
+                            let table_expressions =
+                                lookup_table_config.table_exprs(lookup.table(), meta);
+                            lookup
+                                .input_exprs()
+                                .into_iter()
+                                .map(|e| {
+                                    s_usable.clone()
+                                        * row_selector.clone()
+                                        * state_selector.clone()
+                                        * e
+                                })
+                                .zip(table_expressions)
+                                .collect()
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -757,9 +782,9 @@ impl<F: Field> ExecChipConfig<F> {
             let is_first_row = i == 0;
             let is_last_row = i == rows - 1;
 
-            if let Some(stored_expressions) = stored_expressions_map.get(execution_state) {
-                for expression in stored_expressions {
-                    let row_match = match expression.required_location {
+            if let Some(stored_expressions) = stored_expressions_map.get(&Some(*execution_state)) {
+                for (location, expressions) in stored_expressions {
+                    let row_match = match location {
                         Some(ConstraintLocation::FirstRow) => is_first_row,
                         Some(ConstraintLocation::LastRow) => is_last_row,
                         Some(ConstraintLocation::NotFirstRow) => !is_first_row,
@@ -767,10 +792,12 @@ impl<F: Field> ExecChipConfig<F> {
                         None => true,
                     };
 
-                    if row_match {
-                        expression.assign(region, offset_begin + i)?;
-                    } else {
-                        expression.assign_empty(region, offset_begin + i)?;
+                    for expression in expressions {
+                        if row_match {
+                            expression.assign(region, offset_begin + i)?;
+                        } else {
+                            expression.assign_empty(region, offset_begin + i)?;
+                        }
                     }
                 }
             }
