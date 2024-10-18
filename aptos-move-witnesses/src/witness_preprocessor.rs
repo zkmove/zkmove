@@ -50,7 +50,7 @@ impl WitnessPreProcessor {
             exec_states.append(&mut states);
             self.clk += 1;
         }
-        // nop ops to write (final_set, init_set)
+        // teardown ops to write (final_set, init_set)
         let local_write_set = self.locals.to_write_set();
         if !local_write_set.is_empty() {
             exec_states.push(StageState {
@@ -63,7 +63,18 @@ impl WitnessPreProcessor {
                 }],
                 extra_data: None,
             });
+            self.clk += 1;
         }
+        // stop
+        exec_states.push(StageState {
+            step_states: vec![ExecStepState {
+                step_state: StepState::default()
+                    .change_clk(self.clk)
+                    .change_state(ExecutionState::Stop),
+                memory_ops: vec![MemoryOp(None, None, None)],
+            }],
+            extra_data: None,
+        });
         exec_states
     }
 
@@ -2123,6 +2134,25 @@ impl WitnessPreProcessor {
                         })),
                     },
                 ]
+            }
+            Operation::Abort { error_code } => {
+                let step_state =
+                    StepState::new(self.clk, ExecutionState::Abort, trace, static_info);
+                let stack_pop = StackPop {
+                    index: sp,
+                    sub_index: SubIndex::default(),
+                    value: Integer::U64(*error_code).into(),
+                    value_header: false,
+                    version: self.version_stack.pop().unwrap(),
+                };
+                let memory_ops = vec![MemoryOp(Some(stack_pop), None, None)];
+                vec![StageState {
+                    step_states: vec![ExecStepState {
+                        step_state,
+                        memory_ops,
+                    }],
+                    extra_data: None,
+                }]
             }
             _ => todo!("{:?}", &trace.data),
         }

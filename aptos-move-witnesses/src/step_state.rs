@@ -93,10 +93,10 @@ impl Default for StepState {
             function_index: 0,
             pc: 0,
             sp: 0,
-            opcode: 0, // have to set opcode == 0 for Nop, or else bytecode lookup cannot pass.
+            opcode: 0, // have to set opcode == 0 for teardown, or else bytecode lookup cannot pass.
             aux0: 0,
             aux1: 0,
-            exec_state: ExecutionState::Nop,
+            exec_state: ExecutionState::Teardown,
         }
     }
 }

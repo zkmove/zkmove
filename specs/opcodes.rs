@@ -531,8 +531,7 @@ mod ret {
 
         // constrain Opcode Context of the next step
         if frame_index == 0 {
-            execution_state_next == STOP;
-            //TODO: state transition, go to NOP when necessary
+            execution_state_next == STOP | Teardown;
         } else {
             // not the first frame
             super::call_stack::pop();

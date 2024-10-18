@@ -1,6 +1,10 @@
+use crate::chips::execution_chip_v2::executions::abort::Abort;
 use crate::chips::execution_chip_v2::executions::branch::Branch;
+use crate::chips::execution_chip_v2::executions::error::ErrorState;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
+use crate::chips::execution_chip_v2::executions::stop::Stop;
+use crate::chips::execution_chip_v2::executions::teardown::Teardown;
 use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, BitwiseStage1, BitwiseStage2, BorrowField, BorrowLoc, BrBool, CallStage1,
@@ -55,6 +59,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub base_constraint: Box<BaseConstraintGadget<F>>,
     pub start: Box<Start<F>>,
     pub process_arg: Box<ProcessArg<F>>,
+    pub abort: Box<Abort<F>>,
+    pub error: Box<ErrorState<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise_stage1: Box<BitwiseStage1<F, 8, 8>>,
@@ -113,6 +119,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub write_ref_stage2: Box<WriteRefStage2<F>>,
     pub write_ref_stage3: Box<WriteRefStage3<F>>,
     pub nop: Box<Nop<F>>,
+    pub teardown: Box<Teardown<F>>,
+    pub stop: Box<Stop<F>>,
     pub step: Step<F>,
     pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
     pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
@@ -160,9 +168,10 @@ impl<F: Field> ExecChipConfig<F> {
             };
 
             let last_step_check = {
-                let end_opcode_selector = step_curr.execution_state_selector([ExecutionState::Nop]);
+                let end_opcode_selector =
+                    step_curr.execution_state_selector([ExecutionState::Stop]);
                 iter::once((
-                    "Last step should be Nop",
+                    "Last step should be Stop",
                     s_usable.clone() * s_step_last * (1u64.expr() - end_opcode_selector),
                 ))
             };
@@ -171,8 +180,7 @@ impl<F: Field> ExecChipConfig<F> {
                 .into_iter()
                 .map(move |(name, poly)| (name, s_usable.clone() * poly))
                 .chain(first_step_check)
-            // FIXME
-            // .chain(last_step_check)
+                .chain(last_step_check)
         });
         // meta.create_gate("q_step_last", |meta| {
         //     let q_usable = meta.query_fixed(q_usable, Rotation::cur());
@@ -240,6 +248,8 @@ impl<F: Field> ExecChipConfig<F> {
             base_constraint: Box::new(base_constraint),
             start: build_opcode_gadget!(),
             process_arg: build_opcode_gadget!(),
+            abort: build_opcode_gadget!(),
+            error: build_opcode_gadget!(),
             add_sub: build_opcode_gadget!(),
             and_or: build_opcode_gadget!(),
             bitwise_stage1: build_opcode_gadget!(),
@@ -278,6 +288,7 @@ impl<F: Field> ExecChipConfig<F> {
             store_loc_stage2: build_opcode_gadget!(),
             shift_stage1: build_opcode_gadget!(),
             shift_stage2: build_opcode_gadget!(),
+            teardown: build_opcode_gadget!(),
             unpack_stage_1: build_opcode_gadget!(),
             unpack_stage_2: build_opcode_gadget!(),
             vec_borrow: build_opcode_gadget!(),
@@ -298,6 +309,7 @@ impl<F: Field> ExecChipConfig<F> {
             write_ref_stage2: build_opcode_gadget!(),
             write_ref_stage3: build_opcode_gadget!(),
             nop: build_opcode_gadget!(),
+            stop: build_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
             stored_expressions_map,
@@ -753,11 +765,14 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::WriteRefStage1 => self.write_ref_stage1,
             ExecutionState::WriteRefStage2 => self.write_ref_stage2,
             ExecutionState::WriteRefStage3 => self.write_ref_stage3,
-            ExecutionState::Nop => self.nop,
+            ExecutionState::Teardown => self.teardown,
+            ExecutionState::Abort => self.abort,
+            ExecutionState::ErrorState => self.error,
             ExecutionState::Start => self.start,
             ExecutionState::ProcessArg => self.process_arg,
             ExecutionState::ShiftStage1 => self.shift_stage1,
             ExecutionState::ShiftStage2 => self.shift_stage2,
+            ExecutionState::Stop => self.stop,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Ok(assigned_rows)

@@ -1,6 +1,7 @@
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
+use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
 use crate::chips::execution_chip_v2::step_v2::{StepState, FRAME_INDEX, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -15,6 +16,7 @@ use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::not;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{Error, Expression};
+use halo2_proofs::poly::Rotation;
 use types::Field;
 
 #[derive(Clone, Debug)]
@@ -22,6 +24,7 @@ pub struct Ret<F> {
     pub call_context: CallContext<Expression<F>>,
     is_zero_frame_index: IsZeroGadget<F>,
     call_context_version: Cell<F>,
+    call_context_version_range_check: RangeCheckGadget<F, 4>,
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
@@ -32,6 +35,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         let step_curr = cb.curr.state.clone();
         let is_zero_frame_index = IsZeroGadget::construct(cb, step_curr.frame_index.expr());
         let call_context_version = cb.query_cell();
+        let mut call_context_version_range_check = None;
 
         cb.require_in_set(
             "opcode in OPCODES",
@@ -48,10 +52,9 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
-        // cb.condition(is_zero_frame_index.expr(), |cb| {
-        //     call_context.require_zero(cb);
-        //     //TODO: state transition, STOP or go to NOP when necessary
-        // });
+        cb.condition(is_zero_frame_index.expr(), |cb| {
+            cb.require_next_states(vec![ExecutionState::Teardown, ExecutionState::Stop]);
+        });
         let frame_index_next = cb.cell_at_offset(&step_curr.frame_index, 1).expr();
         let module_index_next = cb.cell_at_offset(&step_curr.module_index, 1).expr();
         let function_index_next = cb.cell_at_offset(&step_curr.function_index, 1).expr();
@@ -62,7 +65,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
             module_index_next,
             function_index_next,
             pc_next - 1.expr(),
-            call_context_version.expr(), // TODO: can call_context_version be cheated?
+            call_context_version.expr(),
         ]
         .map(|e| not::expr(is_zero_frame_index.expr()) * e);
 
@@ -79,14 +82,19 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
                 (FRAME_INDEX, Transition::Delta((-1).expr())),
                 (SP, Transition::Same),
             ]);
-            // TODO: call_context_version < clk(0)
-            // TODO: optimize the cells used in call context
+            // call_context_version < clk(0)
+            let call_context_version_range_check_ = RangeCheckGadget::construct(
+                cb,
+                cb.curr.state.clk.expr() - call_context_version.expr(),
+            );
+            call_context_version_range_check = Some(call_context_version_range_check_);
         });
 
         Ret {
             call_context,
             is_zero_frame_index,
             call_context_version,
+            call_context_version_range_check: call_context_version_range_check.unwrap(),
         }
     }
 
@@ -113,6 +121,12 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
                     region,
                     offset,
                     F::from((caller.caller_frame_index + 1) as u64),
+                )?;
+                let clk = region.get_advice(offset, step.clk.get_column_idx(), Rotation::cur());
+                self.call_context_version_range_check.assign(
+                    region,
+                    offset,
+                    clk - F::from(extra_data.frame_version),
                 )?;
             }
             None => {

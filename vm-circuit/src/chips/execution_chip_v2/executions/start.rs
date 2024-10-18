@@ -168,7 +168,6 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
 
         cb.first_row(|cb| {
             cb.require_prev_states(vec![ExecutionState::Start, ExecutionState::ProcessArg]);
-
             // local index is constrained in the Start, only need constrain local_sub_index
             cb.require_zero(
                 format!("{}, local_sub_index(0) == 0", Self::NAME),
@@ -223,6 +222,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             cb.require_cell_transition(entry_module_index.clone(), Transition::Same);
             cb.require_cell_transition(entry_function_index.clone(), Transition::Same);
             cb.require_cell_transition(num_arg.clone(), Transition::Same);
+            cb.require_next_state(ExecutionState::ProcessArg);
         });
         cb.last_row(|cb| {
             cb.condition(is_zero_local_index.expr(), |cb| {

@@ -3,7 +3,7 @@ module cases::TestCase {
     use cases::Wallet;
 
     public entry fun test_all() {
-        //test_abort();
+        test_abort();
         test_add();
         test_call();
         test_add_loop();
@@ -16,6 +16,7 @@ module cases::TestCase {
 
     public entry fun test_abort() {
         assert!(3 == 3, 101);
+        assert!(3 == 4, 102);
     }
 
     public entry fun test_add() {
