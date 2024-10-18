@@ -1,4 +1,4 @@
-pub(crate) mod abort_error;
+pub(crate) mod abort;
 pub(crate) mod add_sub;
 pub(crate) mod and_or;
 pub(crate) mod base;
@@ -10,6 +10,7 @@ pub(crate) mod branch;
 pub(crate) mod call;
 pub(crate) mod cast;
 pub(crate) mod equality;
+pub(crate) mod error;
 pub(crate) mod ld;
 pub(crate) mod ld_bool;
 pub(crate) mod ld_const;

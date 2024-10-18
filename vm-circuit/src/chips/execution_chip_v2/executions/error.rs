@@ -15,13 +15,15 @@ use std::marker::PhantomData;
 use types::Field;
 
 #[derive(Clone, Debug)]
-pub struct Stop<F> {
+pub struct ErrorState<F> {
     phantom_data: PhantomData<F>,
 }
 
-impl<F: Field> InstructionGadgetV2<F> for Stop<F> {
-    const NAME: &'static str = "Stop";
-    const EXECUTION_STATE: ExecutionState = ExecutionState::Stop;
+// TODO: we only have a skeleton, still need to fill in the details, such as handling ErrorCode
+
+impl<F: Field> InstructionGadgetV2<F> for ErrorState<F> {
+    const NAME: &'static str = "ErrorState";
+    const EXECUTION_STATE: ExecutionState = ExecutionState::ErrorState;
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
@@ -37,13 +39,7 @@ impl<F: Field> InstructionGadgetV2<F> for Stop<F> {
         cb.require_no_stack_push();
         cb.require_no_local_op();
 
-        cb.require_prev_states(vec![
-            ExecutionState::Teardown,
-            ExecutionState::Ret,
-            ExecutionState::Abort,
-            // NOTICE: Do not uncomment until correctly implemented.
-            //ExecutionState::Error,
-        ]);
+        cb.require_next_states(vec![ExecutionState::Teardown, ExecutionState::Stop]);
 
         Self {
             phantom_data: PhantomData,

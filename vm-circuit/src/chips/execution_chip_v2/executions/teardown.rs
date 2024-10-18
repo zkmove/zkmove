@@ -49,6 +49,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
             cb.row_randomness(),
         );
         cb.require_no_stack_pop();
+        cb.require_no_stack_push();
         cb.require_equal(
             "rlc(local_frame_index, local_index, local_sub_index) == rlc",
             cur_rlc,

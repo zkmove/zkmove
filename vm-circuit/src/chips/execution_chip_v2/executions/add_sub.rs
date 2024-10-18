@@ -114,7 +114,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
             add_sub_gadget = Some(add_sub);
 
             cb.condition(overflow.clone(), |cb| {
-                cb.require_next_state(ExecutionState::AbortOrError);
+                cb.require_next_state(ExecutionState::ErrorState);
                 // ErrorCode == StatusCode::ArithmeticError
             });
 

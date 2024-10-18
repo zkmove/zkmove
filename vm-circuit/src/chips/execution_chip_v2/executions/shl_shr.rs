@@ -248,7 +248,7 @@ impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
                 + is_u64_.expr() * (1u64.expr() - rhs_lt_64_.expr())
                 + is_u128_.expr() * (1u64.expr() - rhs_lt_128_.expr());
             cb.condition(error, |cb| {
-                cb.require_next_state(ExecutionState::AbortOrError);
+                cb.require_next_state(ExecutionState::ErrorState);
                 // ErrorCode == StatusCode::ArithmeticError
             });
 

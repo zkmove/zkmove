@@ -1,5 +1,6 @@
-use crate::chips::execution_chip_v2::executions::abort_error::AbortOrError;
+use crate::chips::execution_chip_v2::executions::abort::Abort;
 use crate::chips::execution_chip_v2::executions::branch::Branch;
+use crate::chips::execution_chip_v2::executions::error::ErrorState;
 use crate::chips::execution_chip_v2::executions::nop::Nop;
 use crate::chips::execution_chip_v2::executions::start::{ProcessArg, Start};
 use crate::chips::execution_chip_v2::executions::stop::Stop;
@@ -58,7 +59,8 @@ pub(crate) struct ExecChipConfig<F> {
     pub base_constraint: Box<BaseConstraintGadget<F>>,
     pub start: Box<Start<F>>,
     pub process_arg: Box<ProcessArg<F>>,
-    pub abort_error: Box<AbortOrError<F>>,
+    pub abort: Box<Abort<F>>,
+    pub error: Box<ErrorState<F>>,
     pub add_sub: Box<AddSub<F>>,
     pub and_or: Box<AndOr<F>>,
     pub bitwise_stage1: Box<BitwiseStage1<F, 8, 8>>,
@@ -246,7 +248,8 @@ impl<F: Field> ExecChipConfig<F> {
             base_constraint: Box::new(base_constraint),
             start: build_opcode_gadget!(),
             process_arg: build_opcode_gadget!(),
-            abort_error: build_opcode_gadget!(),
+            abort: build_opcode_gadget!(),
+            error: build_opcode_gadget!(),
             add_sub: build_opcode_gadget!(),
             and_or: build_opcode_gadget!(),
             bitwise_stage1: build_opcode_gadget!(),
@@ -763,11 +766,13 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::WriteRefStage2 => self.write_ref_stage2,
             ExecutionState::WriteRefStage3 => self.write_ref_stage3,
             ExecutionState::Teardown => self.teardown,
-            ExecutionState::AbortOrError => self.abort_error,
+            ExecutionState::Abort => self.abort,
+            ExecutionState::ErrorState => self.error,
             ExecutionState::Start => self.start,
             ExecutionState::ProcessArg => self.process_arg,
             ExecutionState::ShiftStage1 => self.shift_stage1,
             ExecutionState::ShiftStage2 => self.shift_stage2,
+            ExecutionState::Stop => self.stop,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Ok(assigned_rows)
