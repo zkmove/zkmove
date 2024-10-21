@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
 use crate::witness::WitnessV2;
-use halo2_proofs::plonk::{FirstPhase, SecondPhase};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
