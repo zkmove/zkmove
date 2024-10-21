@@ -45,8 +45,8 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
 
     fn configure(cb: &mut ConstraintBuilderV2<F>) -> Self {
         let step_curr = cb.curr.state.clone();
-        let rlc1 = cb.query_cell_phase2();
-        let rlc2 = cb.query_cell_phase2();
+        let rlc1 = cb.query_cell();
+        let rlc2 = cb.query_cell();
         let stack_pop_sub_index_reverse = cb.query_cell();
         let stack_pop_sub_index_reverse_prev = cb.cell_at_offset(&stack_pop_sub_index_reverse, -1);
         let sub_index_reverse =

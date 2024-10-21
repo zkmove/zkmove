@@ -5,7 +5,6 @@ use crate::chips::execution_chip_v2::step_v2::{PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::Transition;
-use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::exec_state::ExecutionState;

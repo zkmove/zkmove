@@ -33,7 +33,7 @@ pub(crate) struct CMFixedWidthStrategy {
 
     next: BTreeMap<CellType, (usize, usize)>,
 
-    perm_substitution: bool,
+    // perm_substitution: bool,
     max_height: usize,
 }
 
@@ -50,19 +50,19 @@ impl CMFixedWidthStrategy {
             advices,
             height_offset,
             next: BTreeMap::default(),
-            perm_substitution: false,
+            // perm_substitution: false,
             max_height: usize::MAX,
         }
     }
 
-    /// Enables the StoragePhase1 to StoragePermutation.
-    /// When enabled if a  StoragePhase1 Cell is requested but the height would be lower if placed
-    /// on a StoragePermutation column, then the StoragePermutation is used.
-    pub fn with_perm_substitution(mut self) -> Self {
-        self.perm_substitution = true;
-
-        self
-    }
+    // /// Enables the StoragePhase1 to StoragePermutation.
+    // /// When enabled if a  StoragePhase1 Cell is requested but the height would be lower if placed
+    // /// on a StoragePermutation column, then the StoragePermutation is used.
+    // pub fn with_perm_substitution(mut self) -> Self {
+    //     self.perm_substitution = true;
+    //
+    //     self
+    // }
 
     /// Sets a max height, if the strategy chooses a height that is over this, it will panic.
     pub fn with_max_height(mut self, max_height: usize) -> Self {
@@ -124,12 +124,12 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
         cell_type: CellType,
     ) -> CellPlacement {
         let (mut column_idx, mut row) = self.get_next(&cell_type);
-        if self.perm_substitution && cell_type == CellType::StoragePhase1 {
-            let (_, row_perm) = self.get_next(&CellType::StoragePermutation);
-            if row_perm < row {
-                return self.place_cell(columns, meta, CellType::StoragePermutation);
-            }
-        }
+        // if self.perm_substitution && cell_type == CellType::StoragePhase1 {
+        //     let (_, row_perm) = self.get_next(&CellType::StoragePermutation);
+        //     if row_perm < row {
+        //         return self.place_cell(columns, meta, CellType::StoragePermutation);
+        //     }
+        // }
 
         if row > self.max_height {
             panic!(

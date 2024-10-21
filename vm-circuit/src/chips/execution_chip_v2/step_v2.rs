@@ -86,6 +86,16 @@ impl<F: Field> StepState<F> {
         step_state: &StepStateWitness,
         memory_op: &MemoryOp,
     ) -> Result<(), Error> {
+        self.assign_step_state(region, offset, step_counter, step_state)?;
+        self.assign_memory_op(region, offset, memory_op)
+    }
+    pub(crate) fn assign_step_state(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        step_counter: usize,
+        step_state: &StepStateWitness,
+    ) -> Result<(), Error> {
         self.execution_state
             .assign(region, offset, step_state.exec_state as usize)?;
         self.step_counter.assign(
@@ -137,7 +147,14 @@ impl<F: Field> StepState<F> {
             offset,
             Halo2Value::known(F::from_u128(step_state.aux1)),
         )?;
-
+        Ok(())
+    }
+    pub(crate) fn assign_memory_op(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        memory_op: &MemoryOp,
+    ) -> Result<(), Error> {
         // assign stack_pop
         {
             let stack_pop = memory_op.0.as_ref();
@@ -354,8 +371,16 @@ impl<F: Field> Step<F> {
 
         let mut cell_manager = CellManager::new(strategy, cell_manager_columns);
 
-        let clk = cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
+        let clk = cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase0);
         let state = StepState {
+            execution_state: DynamicSelectorHalf::new(
+                meta,
+                cell_manager_columns,
+                &mut cell_manager,
+                CellType::StoragePhase0,
+                ExecutionState::iter().count(),
+            ),
+
             clk,
             frame_index: cell_manager.query_cell(
                 meta,
@@ -365,27 +390,27 @@ impl<F: Field> Step<F> {
             module_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::StoragePhase0,
             ),
             function_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::StoragePhase0,
             ),
             // We don't need to constrain pc to be U16, it will be ensured by looking up bytecode table
-            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase0),
             sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U10)),
             opcode: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
                 CellType::Lookup(Table::U8),
             ),
-            aux0: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
-            aux1: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1),
+            aux0: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase0),
+            aux1: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase0),
             step_counter: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
-                CellType::StoragePhase1,
+                CellType::StoragePhase0,
             ),
 
             stack_pop_index: cell_manager.query_cell(
@@ -483,13 +508,6 @@ impl<F: Field> Step<F> {
                 meta,
                 cell_manager_columns,
                 CellType::StoragePhase1,
-            ),
-
-            execution_state: DynamicSelectorHalf::new(
-                meta,
-                cell_manager_columns,
-                &mut cell_manager,
-                ExecutionState::iter().count(),
             ),
         };
         Self {
@@ -635,16 +653,12 @@ impl<F: Field> DynamicSelectorHalf<F> {
         meta: &mut ConstraintSystem<F>,
         cell_manager_columns: &mut CellManagerColumns,
         cell_manager: &mut CellManager<CMFixedHeightStrategy>,
+        cell_type: CellType,
         count: usize,
     ) -> Self {
-        let target_pairs = cell_manager.query_cells(
-            meta,
-            cell_manager_columns,
-            CellType::StoragePhase1,
-            (count + 1) / 2,
-        );
-        let target_odd =
-            cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase1);
+        let target_pairs =
+            cell_manager.query_cells(meta, cell_manager_columns, cell_type, (count + 1) / 2);
+        let target_odd = cell_manager.query_cell(meta, cell_manager_columns, cell_type);
         Self {
             count,
             target_pairs,

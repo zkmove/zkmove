@@ -879,13 +879,7 @@ pub(crate) fn assign_step_and_common<F: Field>(
                 &exec_step_state.step_state,
                 memory_op,
             )?;
-            base_constraint_gadget.assign(
-                step_state.clone(),
-                region,
-                offset_begin + i,
-                stage_state,
-                static_info,
-            )?;
+            base_constraint_gadget.assign(step_state.clone(), region, offset_begin + i)?;
             i += 1;
             step_counter -= 1;
         }
