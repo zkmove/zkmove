@@ -1,6 +1,5 @@
 #![feature(slice_as_chunks)]
 extern crate move_core_types;
-extern crate move_vm_runtime;
 
 pub use move_vm_runtime::witnessing::{
     traced_value::{Integer, Reference, SimpleValue, ValueItem},

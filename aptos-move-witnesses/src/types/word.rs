@@ -3,7 +3,7 @@ use crate::types::value_header::ValueHeader;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue};
-use movelang::utility::pair_u128_to_u256;
+use utility::u256::pair_u128_to_u256;
 
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct Word([u128; 2]);

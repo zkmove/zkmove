@@ -22,7 +22,6 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, ConstraintLocation, Constraints, Lookups, StoredExpressions,
 };
-use crate::chips::utils::Expr;
 use crate::table::LookupTable;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
@@ -32,7 +31,7 @@ use crate::utils::SubCircuitConfig;
 use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
-use gadgets::util::{and, not, or};
+use gadgets::util::{and, not, or, Expr};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{
     ConstraintSystem, Error, Expression, FirstPhase, SecondPhase, Selector, VirtualCells,
@@ -46,7 +45,6 @@ pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
-pub(crate) mod opcode;
 pub(crate) mod step_v2;
 pub(crate) mod sub_index;
 pub(crate) mod utils;

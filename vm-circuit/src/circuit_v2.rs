@@ -9,7 +9,6 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use movelang::value::Value;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 use types::Field;
@@ -63,7 +62,6 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
 #[derive(Clone, Default)]
 pub struct VmCircuit<F: Field> {
     pub witness: WitnessV2,
-    pub public_input: Option<Value>,
     pub _maker: PhantomData<F>,
 }
 
@@ -96,7 +94,6 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
     fn new_from_witness(witness: &WitnessV2) -> Self {
         Self {
             witness: witness.clone(),
-            public_input: None,
             _maker: Default::default(),
         }
     }

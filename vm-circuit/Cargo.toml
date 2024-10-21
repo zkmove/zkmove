@@ -9,10 +9,10 @@ edition = "2021"
 
 [dependencies]
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
-crypto = { path = "../common/crypto" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
+utility = { path = "../common/utility" }
 types = { path = "../common/types" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
@@ -22,7 +22,6 @@ halo2_proofs = { workspace = true, features = ["dev-graph"] }
 halo2_poseidon.workspace = true
 field-exts.workspace = true
 gadgets.workspace = true
-#generic-array.workspace = true
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 itertools = "0.10.5"
 petgraph = "0.6"
@@ -31,7 +30,6 @@ rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 strum_macros.workspace = true
 strum.workspace = true
-log = "0.4.21"
 
 [dev-dependencies]
 datatest-stable = "0.1.1"

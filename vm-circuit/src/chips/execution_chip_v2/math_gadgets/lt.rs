@@ -2,6 +2,7 @@ use crate::chips::execution_chip_v2::math_gadgets::comparison::ComparisonGadget;
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::{from_limbs, transpose_val_ret};
+use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use gadgets::util::{pow_of_two, Expr};
@@ -10,9 +11,8 @@ use halo2_proofs::{
     plonk::{Error, Expression},
 };
 use move_core_types::u256::U256;
-use movelang::utility::split_u256_to_u128;
-use movelang::value::NUM_OF_BYTES_U128;
 use types::Field;
+use utility::u256::split_u256_to_u128;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`

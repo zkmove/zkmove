@@ -1,24 +1,12 @@
 [package]
 name = "movelang"
 version = "0.3.0"
-authors = [
-    "Guangyu Zhu <guangyuz@gmail.com>",
-    "Luxebeng <luxebeng@gmail.com>",
-]
 edition = "2021"
 
 [dependencies]
-logger = { path = "../common/logger" }
-error = { path = "../common/error" }
-types = { path = "../common/types" }
-move-compiler = { workspace = true }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
-move-vm-runtime = { workspace = true }
-move-vm-types = { workspace = true }
 move-bytecode-verifier = { workspace = true }
-halo2_proofs.workspace = true
-bytes.workspace = true
 
 anyhow = "1.0.38"
 petgraph = "0.6"

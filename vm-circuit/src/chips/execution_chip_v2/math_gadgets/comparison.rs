@@ -1,9 +1,9 @@
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtGadget;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::chips::utils::sum;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use gadgets::util::sum;
 use halo2_proofs::plonk::{Error, Expression};
 use types::Field;
 

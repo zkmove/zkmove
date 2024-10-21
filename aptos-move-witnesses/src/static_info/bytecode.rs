@@ -8,10 +8,6 @@ use move_binary_format::file_format::{
 };
 use move_binary_format::file_format_common::instruction_key;
 use movelang::type_transition;
-use movelang::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use std::collections::BTreeMap;
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
@@ -102,6 +98,14 @@ pub(crate) struct Instruction {
     pub(crate) aux0: Option<u128>,
     pub(crate) aux1: Option<u128>,
 }
+
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
+pub const NUM_OF_BYTES_U64: usize = 8;
+pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
+
 fn get_num_bytes(s: &SignatureToken) -> usize {
     match s {
         SignatureToken::U8 => NUM_OF_BYTES_U8,

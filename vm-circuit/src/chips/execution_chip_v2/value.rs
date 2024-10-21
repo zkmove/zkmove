@@ -1,12 +1,12 @@
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
 use crate::utils::word::WordLoHiCell;
+use gadgets::util::Expr;
 use halo2_proofs::circuit::{AssignedCell, Value as Halo2Value};
 use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use types::Field;

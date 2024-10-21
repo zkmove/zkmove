@@ -1,5 +1,4 @@
 // Copyright (c) zkMove Authors
-#![feature(lint_reasons)]
 #![feature(associated_type_defaults)]
 #![feature(slice_as_chunks)]
 

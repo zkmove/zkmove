@@ -11,3 +11,4 @@ test_shift --args 1u128 1u256 127u8 131u8
 test_call
 test_struct
 test_wallet
+test_fibonacci --args 100u64

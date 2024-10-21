@@ -12,12 +12,12 @@ use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
 use crate::types::word::Word;
 use crate::utils::flatten::Flatten;
-use crate::utils::to_u256::ToU256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
+use utility::u256::ToU256;
 
 pub struct WitnessPreProcessor {
     clk: Version,

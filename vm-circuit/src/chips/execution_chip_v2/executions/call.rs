@@ -10,11 +10,11 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+use gadgets::util::Expr;
 use gadgets::util::{and, not};
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::poly::Rotation;

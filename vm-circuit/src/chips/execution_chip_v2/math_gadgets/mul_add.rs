@@ -2,9 +2,9 @@ use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::{from_bytes, pow_of_two_expr};
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
@@ -12,6 +12,7 @@ use halo2_proofs::{
 use move_core_types::u256::U256;
 use std::ops::Shl;
 use types::Field;
+use utility::u256::{split_u256, split_u256_limb64};
 
 const MAX_RADIX_BYTES: usize = 9;
 
@@ -164,37 +165,4 @@ impl<F: Field> MulAddGadget<F> {
 
         Ok(overflow != U256::zero())
     }
-}
-
-/// Split one U256 into 4 64-bits limbs stored in U256.
-pub fn split_u256_limb64(value: &U256) -> [U256; 4] {
-    let bytes = value.to_le_bytes();
-    let mut limb0 = [0u8; 32];
-    limb0[..8].copy_from_slice(&bytes[..8]);
-    let mut limb1 = [0u8; 32];
-    limb1[..8].copy_from_slice(&bytes[8..16]);
-    let mut limb2 = [0u8; 32];
-    limb2[..8].copy_from_slice(&bytes[16..24]);
-    let mut limb3 = [0u8; 32];
-    limb3[..8].copy_from_slice(&bytes[24..]);
-
-    [
-        U256::from_le_bytes(&limb0),
-        U256::from_le_bytes(&limb1),
-        U256::from_le_bytes(&limb2),
-        U256::from_le_bytes(&limb3),
-    ]
-}
-
-/// Split one U256 into low 128-bits and high 128-bits stored in U256.
-pub fn split_u256(value: &U256) -> (U256, U256) {
-    let bytes = value.to_le_bytes();
-    let mut lo_bytes = [0u8; 32];
-    lo_bytes[..16].copy_from_slice(&bytes[..16]);
-    let mut hi_bytes = [0u8; 32];
-    hi_bytes[..16].copy_from_slice(&bytes[16..]);
-    (
-        U256::from_le_bytes(&lo_bytes),
-        U256::from_le_bytes(&hi_bytes),
-    )
 }

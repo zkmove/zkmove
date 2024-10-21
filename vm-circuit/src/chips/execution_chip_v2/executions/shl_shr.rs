@@ -4,7 +4,6 @@ use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::{LtGadget, LtInteger};
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddExprs;
 use crate::chips::execution_chip_v2::math_gadgets::mul_add::MulAddGadget;
-use crate::chips::execution_chip_v2::opcode::Opcode;
 use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -17,21 +16,22 @@ use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::select;
+use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{Error, Expression},
 };
 use itertools::izip;
+use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
-use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use std::marker::PhantomData;
 use types::Field;
+use utility::u256::{pair_u128_to_u256, split_u256_to_u128};
 
 #[derive(Clone, Debug)]
 pub struct ShiftStage1<F> {
@@ -213,7 +213,7 @@ impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
 
             let n_bytes = step_curr.aux0.expr();
             let is_shl_ =
-                IsZeroGadget::construct(cb, (Opcode::Shl as u64).expr() - step_curr.opcode.expr());
+                IsZeroGadget::construct(cb, (Opcodes::SHL as u64).expr() - step_curr.opcode.expr());
 
             let is_u8_ =
                 IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U8 as u64).expr());
@@ -318,8 +318,8 @@ impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();
         let opcode = step_state.step_state.opcode;
-        debug_assert!(opcode == Opcode::Shl as u8 || opcode == Opcode::Shr as u8);
-        let is_shl = opcode == Opcode::Shl as u8;
+        debug_assert!(opcode == Opcodes::SHL as u8 || opcode == Opcodes::SHR as u8);
+        let is_shl = opcode == Opcodes::SHL as u8;
         let num_bytes = step_state.step_state.aux0 as usize;
         let (lhs, rhs, out) = match &stage_state.extra_data {
             Some(StageExtraAssignData::BinaryOp(d)) => (d.lhs, d.rhs, d.out),
@@ -333,7 +333,7 @@ impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
         self.is_shl.assign(
             region,
             offset + 9,
-            F::from(Opcode::Shl as u64) - F::from(step_state.step_state.opcode as u64),
+            F::from(Opcodes::SHL as u64) - F::from(step_state.step_state.opcode as u64),
         )?;
         self.is_u8.assign(
             region,

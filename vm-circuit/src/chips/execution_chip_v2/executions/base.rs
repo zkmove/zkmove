@@ -6,10 +6,9 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBu
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
-use crate::chips::utils::not;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::exec_state::ExecutionState;
-use gadgets::util::Expr;
+use gadgets::util::{not, Expr};
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
 use types::Field;

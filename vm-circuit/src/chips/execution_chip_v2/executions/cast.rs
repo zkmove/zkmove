@@ -11,11 +11,11 @@ use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+use gadgets::util::Expr;
 use halo2_proofs::plonk::Error;
 use move_binary_format::file_format_common::Opcodes;
 use types::Field;
