@@ -6,7 +6,7 @@ use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use aptos_move_witnesses::{Footprint, Operation};
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
-use log::debug;
+use logger::debug;
 use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;

@@ -17,11 +17,11 @@ use crate::chips::execution_chip_v2::value::{
     NUM_OF_BYTES_U8,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
+use gadgets::util::Expr;
 use gadgets::util::{or, select};
 use halo2_proofs::{
     circuit::Value,

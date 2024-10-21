@@ -5,11 +5,11 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
+use gadgets::util::Expr;
 use halo2_proofs::plonk::Error;
 use std::marker::PhantomData;
 use types::Field;

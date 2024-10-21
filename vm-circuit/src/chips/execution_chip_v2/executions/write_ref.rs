@@ -10,12 +10,12 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
+use gadgets::util::Expr;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::Error};
 use types::Field;

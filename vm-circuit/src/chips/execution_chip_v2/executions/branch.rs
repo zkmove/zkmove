@@ -5,7 +5,7 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
-use crate::chips::utils::Expr;
+use gadgets::util::Expr;
 use std::marker::PhantomData;
 use types::Field;
 

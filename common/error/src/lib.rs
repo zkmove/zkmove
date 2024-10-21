@@ -9,40 +9,10 @@ pub type VmResult<T> = Result<T, RuntimeError>;
 #[derive(Debug)]
 pub enum StatusCode {
     // Vm error
-    StackUnderflow,
-    StackOverflow,
-    ValueConversionError,
-    ScriptLoadingError,
-    EntryFunctionLoadingError,
-    CopyLocalError,
-    StoreLocalError,
-    MoveLocalError,
-    MutBorrowLocalError,
-    ImmBorrowLocalError,
-    OutOfBounds,
-    UnsupportedBytecode,
-    MoveAbort,
-    UnsupportedMoveType,
-    TypeMismatch,
     ArithmeticError,
-    ModuleNotFound,
-    ProgramBlockError,
-    ShouldNotReachHere,
-    InternalError,
-    UnknownInvariantViolationError,
-    MissingData,
-    ResourceAlreadyExists,
-    InvalidValue,
-    WrongArgumentsNumber,
-    WrongReturnValueNumber,
-    ArgumentsTypeMismatch,
-    VecUnpackParityMismatch,
-    InstantiateTypeFailed,
-
     // Proof system error
     ProofSystemError(Error),
-
-    // error from OS
+    // OS error
     OperatingSystemError(anyhow::Error),
 }
 

@@ -12,7 +12,7 @@ aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
-utility = { path = "../utility" }
+utility = { path = "../common/utility" }
 types = { path = "../common/types" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
@@ -30,7 +30,6 @@ rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 strum_macros.workspace = true
 strum.workspace = true
-log = "0.4.21"
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
