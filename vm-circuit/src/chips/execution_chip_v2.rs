@@ -46,7 +46,6 @@ pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
-pub(crate) mod opcode;
 pub(crate) mod step_v2;
 pub(crate) mod sub_index;
 pub(crate) mod utils;
