@@ -1,5 +1,3 @@
 // Copyright (c) zkMove Authors
 
-pub use gadgets::util::{Expr, sum, and, or, not };
-
-
+pub use gadgets::util::{and, not, or, sum, Expr};

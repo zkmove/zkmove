@@ -30,9 +30,9 @@ use halo2_proofs::{
 use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
-use movelang::utility::{pair_u128_to_u256, split_u256_to_u128};
 use std::marker::PhantomData;
 use types::Field;
+use utility::u256::{pair_u128_to_u256, split_u256_to_u128};
 
 #[derive(Clone, Debug)]
 pub struct MulDivModStage1<F> {

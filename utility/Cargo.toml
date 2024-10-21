@@ -1,0 +1,8 @@
+[package]
+name = "utility"
+version = "0.3.0"
+edition = "2021"
+
+[dependencies]
+move-core-types = { workspace = true }
+move-vm-types = { workspace = true }

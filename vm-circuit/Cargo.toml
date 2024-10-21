@@ -12,6 +12,7 @@ aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
+utility = { path = "../utility" }
 types = { path = "../common/types" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
@@ -21,7 +22,6 @@ halo2_proofs = { workspace = true, features = ["dev-graph"] }
 halo2_poseidon.workspace = true
 field-exts.workspace = true
 gadgets.workspace = true
-#generic-array.workspace = true
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 itertools = "0.10.5"
 petgraph = "0.6"
