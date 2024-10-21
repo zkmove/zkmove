@@ -34,7 +34,9 @@ use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or};
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, Selector, VirtualCells};
+use halo2_proofs::plonk::{
+    ConstraintSystem, Error, Expression, FirstPhase, SecondPhase, Selector, VirtualCells,
+};
 use move_binary_format::file_format_common::Opcodes;
 use std::collections::BTreeMap;
 use std::iter;
@@ -122,6 +124,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub teardown: Box<Teardown<F>>,
     pub stop: Box<Stop<F>>,
     pub step: Step<F>,
+    pub challenges: Challenges,
     pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
     pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
 }
@@ -129,15 +132,21 @@ pub(crate) struct ExecChipConfig<F> {
 impl<F: Field> ExecChipConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        challenges: Challenges<Expression<F>>,
         lookup_table_configs: &LookupTableConfigV2<F>,
     ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
         let s_step_last = meta.complex_selector();
+
         let mut cell_columns = CellManagerColumns::default();
-        let step_curr = Step::new(meta, &mut cell_columns, 0, &challenges);
-        let step_next = Step::new(meta, &mut cell_columns, 1, &challenges);
+        // these're needed to make Challenges construction work.
+        cell_columns.add_column(CellType::StoragePhase0, meta.advice_column_in(FirstPhase));
+        cell_columns.add_column(CellType::StoragePhase1, meta.advice_column_in(SecondPhase));
+
+        let challenges = Challenges::construct(meta);
+        let challenge_exprs = challenges.exprs(meta);
+        let step_curr = Step::new(meta, &mut cell_columns, 0, &challenge_exprs);
+        let step_next = Step::new(meta, &mut cell_columns, 1, &challenge_exprs);
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -213,8 +222,13 @@ impl<F: Field> ExecChipConfig<F> {
 
         // base configuration for every opcode gadgets
         let (step_curr, base_constraint) = {
-            let mut cb =
-                ConstraintBuilderV2::new(meta, &mut cell_columns, &challenges, step_curr, None);
+            let mut cb = ConstraintBuilderV2::new(
+                meta,
+                &mut cell_columns,
+                &challenge_exprs,
+                step_curr,
+                None,
+            );
             let base_constraint = BaseConstraintGadget::configure(&mut cb);
 
             // we need to reuse the step_curr when configuring opcode gadgets.
@@ -231,7 +245,7 @@ impl<F: Field> ExecChipConfig<F> {
                 Box::new(Self::build_opcode_gadget(
                     meta,
                     &mut cell_columns,
-                    &challenges,
+                    &challenge_exprs,
                     &step_curr,
                     &mut constraints_map,
                     &mut stored_expressions_map,
@@ -312,6 +326,7 @@ impl<F: Field> ExecChipConfig<F> {
             stop: build_opcode_gadget!(),
             columns: cell_columns,
             step: step_curr,
+            challenges,
             stored_expressions_map,
             dynamic_cell_stat_map: additional_cell_stat_map,
         };
@@ -319,7 +334,7 @@ impl<F: Field> ExecChipConfig<F> {
         Self::configure_opcode_gadget(
             meta,
             &mut config.columns,
-            &challenges,
+            &challenge_exprs,
             &mut config.step,
             config.s_usable,
             config.s_step_first,
@@ -332,7 +347,7 @@ impl<F: Field> ExecChipConfig<F> {
         Self::configure_lookup(
             meta,
             &config.columns,
-            &challenges,
+            &challenge_exprs,
             lookup_table_configs,
             &config.step,
             s_usable,

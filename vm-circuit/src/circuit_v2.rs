@@ -5,6 +5,7 @@ use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
 use crate::witness::WitnessV2;
+use halo2_proofs::plonk::{FirstPhase, SecondPhase};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
@@ -22,7 +23,6 @@ pub struct VmCircuitConfig<F: Field> {
 }
 
 pub struct VmCircuitConfigArgs {
-    challenges: Challenges,
     fixed_table_tags: Vec<FixedTableTag>,
 }
 
@@ -31,9 +31,7 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
         let lookup_table_config = LookupTableConfigV2::new(meta);
-        let challenges_expr = args.challenges.exprs(meta);
-        let exec_chip_config =
-            ExecChipConfig::configure(meta, challenges_expr.clone(), &lookup_table_config);
+        let exec_chip_config = ExecChipConfig::configure(meta, &lookup_table_config);
         // TODO: delete me
         #[cfg(test)]
         {
@@ -71,7 +69,7 @@ pub struct VmCircuit<F: Field> {
 }
 
 impl<F: Field> Circuit<F> for VmCircuit<F> {
-    type Config = (VmCircuitConfig<F>, Challenges);
+    type Config = VmCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -79,26 +77,16 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let challenges = Challenges::construct(meta);
         let fixed_table_tags = FixedTableTag::iter().collect();
-        (
-            VmCircuitConfig::new(
-                meta,
-                VmCircuitConfigArgs {
-                    challenges,
-                    fixed_table_tags,
-                },
-            ),
-            challenges,
-        )
+        VmCircuitConfig::new(meta, VmCircuitConfigArgs { fixed_table_tags })
     }
 
     fn synthesize(
         &self,
-        (config, challenges): Self::Config,
+        config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let challenges = challenges.values(&layouter);
+        let challenges = config.exec_chip_config.challenges.values(&layouter);
         self.synthesize_sub(&config, &challenges, &mut layouter)
     }
 }
