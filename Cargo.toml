@@ -3,7 +3,6 @@ members = [
     "movelang",
     "common/logger",
     "common/error",
-    #    "common/crypto",
     "common/types",
     "vm-circuit",
     "functional-tests",

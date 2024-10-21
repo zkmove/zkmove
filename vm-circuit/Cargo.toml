@@ -9,7 +9,6 @@ edition = "2021"
 
 [dependencies]
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
-crypto = { path = "../common/crypto" }
 error = { path = "../common/error" }
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }

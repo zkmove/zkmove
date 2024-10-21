@@ -10,6 +10,8 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use types::Field;
 
+// legacy code, expect to be replaced with the latest poseidon chip.
+
 /// A wrapper for halo2 poseidon Pow5Chip.
 
 #[derive(Clone)]
