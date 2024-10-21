@@ -9,8 +9,6 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
 use crate::chips::utils::not;
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::exec_state::ExecutionState;
-use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
@@ -119,8 +117,6 @@ impl<F: Field> BaseConstraintGadget<F> {
         step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        _stage_state: &StageState,
-        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let clk = region.get_advice(offset, step.clk.get_column_idx(), Rotation::cur());
         let stack_pop_version = region.get_advice(

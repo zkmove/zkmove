@@ -16,22 +16,17 @@ use types::Field;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// CellType represent a category of cell (and column).
 pub(crate) enum CellType {
+    StoragePhase0,
     StoragePhase1,
-    StoragePhase2, // TODO: check this phase
-    StoragePermutation,
     Lookup(Table),
 }
 
 impl CellType {
     pub(crate) fn all() -> Vec<CellType> {
-        [
-            Self::StoragePhase1,
-            Self::StoragePhase2,
-            Self::StoragePermutation,
-        ]
-        .into_iter()
-        .chain(Table::iter().map(CellType::Lookup))
-        .collect()
+        [Self::StoragePhase0, Self::StoragePhase1]
+            .into_iter()
+            .chain(Table::iter().map(CellType::Lookup))
+            .collect()
     }
 }
 
@@ -39,13 +34,12 @@ impl CellType {
     // TODO: find a better way to do this.
     pub fn phase(&self) -> u8 {
         match self {
-            CellType::StoragePhase1 => 1, // TODO: check the phase
-            CellType::StoragePhase2 => 2,
-            CellType::StoragePermutation => 1, // FIXME: check the type
+            CellType::StoragePhase0 => 0,
+            CellType::StoragePhase1 => 1,
             CellType::Lookup(t) => match t {
                 Table::Nibble | Table::U8 | Table::U10 => 2,
                 #[cfg(feature = "table-u16")]
-                Table::U16 => 0,
+                Table::U16 => 2,
                 _ => 2,
             },
         }
@@ -68,17 +62,14 @@ impl CellType {
     /// Return the storage phase of phase.
     pub(crate) fn storage_for_phase(phase: u8) -> CellType {
         match phase {
-            0 => CellType::StoragePhase1,
-            1 => CellType::StoragePhase2,
+            0 => CellType::StoragePhase0,
+            1 => CellType::StoragePhase1,
             _ => unreachable!(),
         }
     }
 
     /// Return the storage cell of the expression.
     pub(crate) fn storage_for_expr<F: Field>(expr: &Expression<F>) -> CellType {
-        if Self::expr_phase::<F>(expr) > 1 {
-            dbg!(expr);
-        }
         Self::storage_for_phase(Self::expr_phase::<F>(expr))
     }
 }

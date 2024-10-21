@@ -7,7 +7,7 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBu
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
-use crate::chips::execution_chip_v2::{assign_step_and_common, InstructionGadgetV2};
+use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::rlc;
 use crate::utils::word::WordLoHiCell;
@@ -87,12 +87,20 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         assert_eq!(stage_state.step_states.len(), 1);
+        let state = stage_state.step_states.first().unwrap();
+
+        // assign step state because they are same, and need to be assigned at stage0.
+        let mut step_counter = state.memory_ops.len();
+        for i in 0..state.memory_ops.len() {
+            step_state.assign_step_state(region, offset + i, step_counter, &state.step_state)?;
+            step_counter -= 1;
+        }
 
         let randomness = region.challenges().row_keccak_input();
         // sort by rlc
         let exec_step_state = randomness.map(|randomness| {
-            let mut exec_step_state = stage_state.step_states.first().unwrap().clone();
-            exec_step_state.memory_ops.sort_by_key(|op| {
+            let mut memory_ops = state.memory_ops.clone();
+            memory_ops.sort_by_key(|op| {
                 let local_rw = op.2.as_ref().unwrap();
                 let local_frame_index = F::from(local_rw.frame_index as u64);
                 let local_index = F::from(local_rw.index as u64);
@@ -102,24 +110,17 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                     randomness,
                 )
             });
-            exec_step_state
+            memory_ops
         });
 
-        // then assign the step
+        // then assign the memory and base
         exec_step_state
-            .map(|s| StageState {
-                step_states: vec![s],
-                extra_data: stage_state.extra_data.clone(),
-            })
             .map(|s| {
-                assign_step_and_common(
-                    base_constraint_gadget,
-                    step_state,
-                    region,
-                    offset,
-                    &s,
-                    static_info,
-                )
+                for (i, op) in s.into_iter().enumerate() {
+                    step_state.assign_memory_op(region, offset + i, &op)?;
+                    base_constraint_gadget.assign(step_state.clone(), region, offset + i)?;
+                }
+                Ok::<_, Error>(())
             })
             .error_if_known_and(|r| r.is_err())?;
         Ok(stage_state.rows())
