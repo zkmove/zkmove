@@ -6,18 +6,19 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBu
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
-use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::chips::execution_chip_v2::value::Index;
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+use aptos_move_witnesses::types::sub_index::SubIndex;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::poly::Rotation;
+use move_vm_runtime::witnessing::traced_value::Reference;
 use std::iter::once;
 use types::Field;
 
@@ -75,12 +76,12 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             cb.require_equal(
                 "index1(0) == stack_pop_value(-1)",
                 index1.expr(),
-                step_prev.stack_pop_value.as_integer().lo(), //TODO: could be more safe if we use as_u16().value()
+                step_prev.stack_pop_value.as_u128(),
             );
             cb.require_equal(
                 "index2(0) == stack_pop_value(-2)",
                 index2.expr(),
-                step_penult.stack_pop_value.as_integer().lo(),
+                step_penult.stack_pop_value.as_u128(),
             );
         });
         cb.require_state_transition(
@@ -120,36 +121,36 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
-            .first()
-            .cloned()
-            .unwrap(); // TODO: figure a better way to handle Value
+            .cast_u128();
         let index1 = stage_state.step_states[1].memory_ops[0]
             .0
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
-            .first()
-            .cloned()
-            .unwrap(); // TODO: figure a better way to handle Value
-                       // TODO: get reference's sub_index
-        let ref_sub_index = stage_state.step_states[2].memory_ops[0]
-            .0
-            .as_ref()
-            .unwrap()
-            .value
-            .to_fields()
-            .last()
-            .cloned()
-            .unwrap(); // TODO: word to reference
+            .cast_u128();
+        let ref_sub_index: u128 = SubIndex::new(
+            Reference::from(
+                stage_state.step_states[2].memory_ops[0]
+                    .0
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .clone(),
+            )
+            .sub_index,
+        )
+        .into();
+
         for i in 0..stage_state.rows() {
             self.index1
-                .assign(region, offset + i, Value::known(index1))?;
+                .assign(region, offset + i, Value::known(F::from_u128(index1)))?;
             self.index2
-                .assign(region, offset + i, Value::known(index2))?;
-            self.ref_local_sub_index
-                .assign(region, offset + i, Value::known(ref_sub_index))?;
+                .assign(region, offset + i, Value::known(F::from_u128(index2)))?;
+            self.ref_local_sub_index.assign(
+                region,
+                offset + i,
+                Value::known(F::from_u128(ref_sub_index)),
+            )?;
         }
         Ok(stage_state.rows())
     }

@@ -84,6 +84,12 @@ impl<F: Field, const N: usize> Value<F, N> {
             _ => unimplemented!(),
         }
     }
+    pub(crate) fn as_u128(&self) -> Expression<F> {
+        match N {
+            2 => self.cells[0].expr(),
+            _ => unimplemented!(),
+        }
+    }
     pub(crate) fn as_bool(&self) -> Bool<F> {
         match N {
             2 => Bool(self.cells[0].expr()),
