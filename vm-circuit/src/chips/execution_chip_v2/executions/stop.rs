@@ -42,6 +42,7 @@ impl<F: Field> InstructionGadgetV2<F> for Stop<F> {
             ExecutionState::Abort,
             // NOTICE: Do not uncomment until correctly implemented.
             //ExecutionState::Error,
+            ExecutionState::Stop, //when 'Stop' is used as padding, it can be followed by 'Stop'
         ]);
 
         Self {

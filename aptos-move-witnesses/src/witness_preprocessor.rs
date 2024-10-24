@@ -55,7 +55,9 @@ impl WitnessPreProcessor {
         if !local_write_set.is_empty() {
             exec_states.push(StageState {
                 step_states: vec![ExecStepState {
-                    step_state: StepState::default().change_clk(self.clk),
+                    step_state: StepState::default()
+                        .change_clk(self.clk)
+                        .change_state(ExecutionState::Teardown),
                     memory_ops: local_write_set
                         .into_iter()
                         .map(|l| MemoryOp(None, None, Some(l)))
@@ -68,9 +70,7 @@ impl WitnessPreProcessor {
         // stop
         exec_states.push(StageState {
             step_states: vec![ExecStepState {
-                step_state: StepState::default()
-                    .change_clk(self.clk)
-                    .change_state(ExecutionState::Stop),
+                step_state: StepState::default().change_clk(self.clk),
                 memory_ops: vec![MemoryOp(None, None, None)],
             }],
             extra_data: None,
