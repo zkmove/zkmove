@@ -44,19 +44,21 @@ impl WitnessV2 {
                 None
             } else {
                 let mut padded_witnesses = self.opcode_witnesses.clone();
-                let last_clk = padded_witnesses
-                    .last()
-                    .and_then(|s| s.step_states.last())
-                    .map(|state| state.step_state.clk)
-                    .unwrap_or_default();
+                if num_rows < max_num_rows {
+                    let last_clk = padded_witnesses
+                        .last()
+                        .and_then(|s| s.step_states.last())
+                        .map(|state| state.step_state.clk)
+                        .unwrap_or_default();
 
-                padded_witnesses.extend((1..=(max_num_rows - num_rows)).map(|i| StageState {
-                    step_states: vec![ExecStepState {
-                        step_state: StepState::default().change_clk(last_clk + i as u64),
-                        memory_ops: vec![MemoryOp(None, None, None)],
-                    }],
-                    extra_data: None,
-                }));
+                    padded_witnesses.extend((1..=(max_num_rows - num_rows)).map(|i| StageState {
+                        step_states: vec![ExecStepState {
+                            step_state: StepState::default().change_clk(last_clk + i as u64),
+                            memory_ops: vec![MemoryOp(None, None, None)],
+                        }],
+                        extra_data: None,
+                    }));
+                }
                 Some(WitnessV2::new(
                     padded_witnesses,
                     self.static_info.clone(),
