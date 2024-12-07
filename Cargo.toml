@@ -7,7 +7,7 @@ members = [
     "common/utility",
     "vm-circuit",
     "functional-tests",
-    #"cli",
+    "cli",
     "aptos-move-witnesses"
 ]
 resolver = "2"
