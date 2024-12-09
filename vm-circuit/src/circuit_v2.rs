@@ -114,7 +114,15 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
             fixed_table_tags.clone(),
             &self.witness.static_info,
         )?;
-        exec_chip_config.assign(layouter, &self.witness, challenges)?;
+
+        // Pads the witness to match `max_num_rows` in the circuit config.
+        let padded_witness = self.witness.padding().unwrap_or_else(|| {
+            panic!(
+                "num of witness rows {} exceeds the max num of rows",
+                self.witness.num_rows()
+            )
+        });
+        exec_chip_config.assign(layouter, &padded_witness, challenges)?;
         Ok(())
     }
 

@@ -81,6 +81,7 @@ impl<F: Field> BaseConstraintGadget<F> {
                     ExecutionState::CallStage1,
                     ExecutionState::CallStage3,
                     ExecutionState::Ret,
+                    ExecutionState::Abort,
                 ])),
                 |cb| {
                     // FIXME: need to consider about abort situation.

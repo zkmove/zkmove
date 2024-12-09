@@ -768,6 +768,7 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::MulDivModStage1 => self.mul_div_mod_stage1,
             ExecutionState::MulDivModStage2=> self.mul_div_mod_stage2,
             ExecutionState::Not => self.not,
+            ExecutionState::Nop => self.nop,
             ExecutionState::Pack => self.pack,
             ExecutionState::Pop => self.pop,
             ExecutionState::ReadRef => self.read_ref,

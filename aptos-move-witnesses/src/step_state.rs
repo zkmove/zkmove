@@ -12,7 +12,14 @@ pub struct StageState {
     pub step_states: Vec<ExecStepState>,
     pub extra_data: Option<StageExtraAssignData>,
 }
-
+impl Default for StageState {
+    fn default() -> Self {
+        Self {
+            step_states: vec![ExecStepState::default()],
+            extra_data: None,
+        }
+    }
+}
 impl StageState {
     pub fn rows(&self) -> usize {
         self.step_states.iter().map(|s| s.memory_ops.len()).sum()
@@ -69,7 +76,14 @@ pub struct ExecStepState {
     pub step_state: StepState,
     pub memory_ops: Vec<MemoryOp>,
 }
-
+impl Default for ExecStepState {
+    fn default() -> Self {
+        Self {
+            step_state: StepState::default(),
+            memory_ops: vec![MemoryOp::default()],
+        }
+    }
+}
 #[derive(Clone, Copy, Debug)]
 pub struct StepState {
     pub clk: u64,
@@ -96,7 +110,7 @@ impl Default for StepState {
             opcode: 0, // have to set opcode == 0 for teardown, or else bytecode lookup cannot pass.
             aux0: 0,
             aux1: 0,
-            exec_state: ExecutionState::Teardown,
+            exec_state: ExecutionState::Stop,
         }
     }
 }
