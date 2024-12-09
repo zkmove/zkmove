@@ -1,21 +1,25 @@
 [package]
 name = "zkmove-cli"
 version = "0.3.0"
-authors = ["Guangyu Zhu <guangyuz@gmail.com>"]
 edition = "2021"
 
 [dependencies]
+aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 error = { path = "../common/error" }
 functional-tests = { path = "../functional-tests" }
+halo2_proofs.workspace = true
 logger = { path = "../common/logger" }
 movelang = { path = "../movelang" }
-types = { path = "../common/types" }
-halo2_proofs.workspace = true
 move-binary-format = { workspace = true }
-rand = "0.8"
-structopt = "0.3.25"
-vm = { path = "../vm" }
+move-core-types = { workspace = true }
+move-package = { workspace = true }
+types = { path = "../common/types" }
 vm-circuit = { path = "../vm-circuit" }
+
+anyhow = "1.0.38"
+rand = "0.8"
+serde_json = { workspace = true }
+structopt = "0.3.25"
 
 [dev-dependencies]
 
