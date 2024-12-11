@@ -19,8 +19,10 @@ vm-circuit = { path = "../vm-circuit" }
 anyhow = "1.0.38"
 rand = "0.8"
 serde_json = { workspace = true }
-structopt = "0.3.25"
-
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+hex = "0.4"
+shape-generator = {git="https://github.com/zkmove/halo2-verifier.move", package="shape-generator" }
 [dev-dependencies]
 
 [[bin]]
