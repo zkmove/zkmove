@@ -13,9 +13,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    #[command(about = "Run the full sequence of setup, proving, and verification")]
     Run(RunCommand),
-    #[command(about = "Aptos-related commands")]
     Aptos(AptosCommands),
 }
 

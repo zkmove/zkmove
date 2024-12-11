@@ -43,6 +43,7 @@ impl FromStr for ModuleIdWrapper {
 }
 
 #[derive(Parser)]
+#[command(about = "Aptos-related commands")]
 pub struct AptosCommands {
     #[arg(long = "verifier-address")]
     verifier_address: String,

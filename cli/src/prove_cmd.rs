@@ -15,6 +15,7 @@ use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
 use vm_circuit::{mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit, KZG};
 
 #[derive(Parser)]
+#[command(about = "Run the full sequence of setup, proving, and verification")]
 pub struct RunCommand {
     #[arg(
         short = 'w',
