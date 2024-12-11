@@ -1,7 +1,9 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionTableRow;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
+use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, TableColumn};
 use types::Field;
@@ -26,8 +28,8 @@ impl Pow2LookupTable {
         vec![self.value_column, self.pow_lo_column, self.pow_hi_column]
     }
 
-    pub fn load<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
-        let pow2_values = (0..256)
+    pub fn build<F: Field>(&self) -> Vec<Vec<F>> {
+        (0..256)
             .map(|value| {
                 let (pow_lo, pow_hi) = if value < 128 {
                     (F::from_u128(1_u128 << value), F::from(0))
@@ -36,13 +38,15 @@ impl Pow2LookupTable {
                 };
                 vec![F::from(value), pow_lo, pow_hi]
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
 
+    pub fn load<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         assign_fixed_table(
             layouter,
             self.table_columns().iter().map(|t| t.inner()).collect(),
-            &pow2_values,
-            "bitwise_table",
+            &self.build(),
+            "pow2_table",
         )
     }
 }

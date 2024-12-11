@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 // All right reserved to zkevm-circuits.
 use super::*;
+use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed, VirtualCells};
@@ -20,23 +21,26 @@ impl<const N_BITS: usize> UXTable<N_BITS> {
         }
     }
 
+    pub fn columns(&self) -> Vec<Column<Fixed>> {
+        vec![self.col]
+    }
+
+    pub(crate) fn build<F: Field>(&self) -> impl Iterator<Item = [F; 1]> {
+        (0..(1 << N_BITS)).map(move |value| [F::from(value as u64)])
+    }
+
     /// Load the `UXTable` for range check
     pub fn load<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
-        layouter.assign_region(
-            || format!("assign u{} fixed column", 8),
-            |mut region| {
-                for i in 0..(1 << N_BITS) {
-                    region.assign_fixed(
-                        || format!("assign {} in u{} fixed column", i, N_BITS),
-                        self.col,
-                        i,
-                        || Value::known(F::from(i as u64)),
-                    )?;
-                }
-                Ok(())
-            },
-        )?;
-        Ok(())
+        // Collect the iterator into Vec<Vec<F>>
+        let values: Vec<Vec<F>> = self.build().map(|row| row.to_vec()).collect();
+
+        // Assign the values to the fixed table
+        assign_fixed_table(
+            layouter,
+            self.columns(),
+            &values,
+            &format!("UX_Table u{}", N_BITS),
+        )
     }
 }
 

@@ -172,8 +172,6 @@ impl<F: Field> Lookup<F> {
 pub enum FixedTableTag {
     /// x == 0
     Zero = 0,
-    /// 0 <= x < 5
-    Range5,
     /// 0 <= x < 16
     Range16,
     /// 0 <= x < 32
@@ -184,20 +182,8 @@ pub enum FixedTableTag {
     Range128,
     /// 0 <= x < 256
     Range256,
-    /// 0 <= x < 512
-    Range512,
     /// 0 <= x < 1024
     Range1024,
-    /// -128 <= x < 128
-    SignByte,
-    /// bitwise AND
-    BitwiseAnd,
-    /// bitwise OR
-    BitwiseOr,
-    /// bitwise XOR
-    BitwiseXor,
-    /// power of 2
-    Pow2,
 }
 impl_expr!(FixedTableTag);
 impl FixedTableTag {
@@ -206,9 +192,6 @@ impl FixedTableTag {
         let tag = F::from(*self as u64);
         match self {
             Self::Zero => Box::new((0..1).map(move |_| [tag, F::ZERO, F::ZERO, F::ZERO])),
-            Self::Range5 => {
-                Box::new((0..5).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
-            }
             Self::Range16 => {
                 Box::new((0..16).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
             }
@@ -224,37 +207,9 @@ impl FixedTableTag {
             Self::Range256 => {
                 Box::new((0..256).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
             }
-            Self::Range512 => {
-                Box::new((0..512).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
-            }
             Self::Range1024 => {
                 Box::new((0..1024).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
             }
-            Self::SignByte => Box::new((0..256).map(move |value| {
-                [
-                    tag,
-                    F::from(value),
-                    F::from((value >> 7) * 0xFFu64),
-                    F::ZERO,
-                ]
-            })),
-            Self::BitwiseAnd => Box::new((0..16).flat_map(move |lhs| {
-                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs & rhs)])
-            })),
-            Self::BitwiseOr => Box::new((0..16).flat_map(move |lhs| {
-                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs | rhs)])
-            })),
-            Self::BitwiseXor => Box::new((0..16).flat_map(move |lhs| {
-                (0..16).map(move |rhs| [tag, F::from(lhs), F::from(rhs), F::from(lhs ^ rhs)])
-            })),
-            Self::Pow2 => Box::new((0..256).map(move |value| {
-                let (pow_lo, pow_hi) = if value < 128 {
-                    (F::from_u128(1_u128 << value), F::from(0))
-                } else {
-                    (F::from(0), F::from_u128(1 << (value - 128)))
-                };
-                [tag, F::from(value), pow_lo, pow_hi]
-            })),
         }
     }
 }
@@ -322,6 +277,33 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.bitwise_table.load(layouter)?;
         self.pow2_table.load(layouter)?;
         Ok(())
+    }
+
+    pub fn tables_height(
+        &self,
+        static_info: &StaticInfo,
+        fixed_table_tags: Vec<FixedTableTag>,
+    ) -> usize {
+        // Collect the heights of all tables
+        let mut heights = vec![
+            fixed_table_tags
+                .iter()
+                .flat_map(|tag| tag.build::<F>())
+                .count(),
+            self.nibble_table.build::<F>().count(),
+            self.u8_table.build::<F>().count(),
+            self.u10_table.build::<F>().count(),
+            #[cfg(feature = "table-u16")]
+            self.u16_table.build::<F>().count(),
+            self.bytecode_table.build::<F>(static_info).len(),
+            self.constant_table.build::<F>(static_info).len(),
+            self.function_table.build::<F>(static_info).len(),
+            self.bitwise_table.build::<F>().count(),
+            self.pow2_table.build::<F>().len(),
+        ];
+
+        // Return the maximum height
+        heights.into_iter().max().unwrap_or(0)
     }
 
     pub fn table_exprs(&self, table: Table, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {

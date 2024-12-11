@@ -1,10 +1,12 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
 use aptos_move_witnesses::static_info::StaticInfo;
+use aptos_move_witnesses::types::sub_index::SubIndex;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use itertools::Itertools;
@@ -43,11 +45,7 @@ impl FunctionLookupTable {
             self.entry,
         ]
     }
-    pub fn load<F: Field>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        static_info: &StaticInfo,
-    ) -> Result<(), Error> {
+    pub fn build<F: Field>(&self, static_info: &StaticInfo) -> Vec<Vec<F>> {
         let rows = static_info
             .function_info
             .iter()
@@ -72,12 +70,22 @@ impl FunctionLookupTable {
             entry: true,
         };
 
-        let field_elements: Vec<Vec<F>> = rows
-            .into_iter()
+        rows.into_iter()
             .chain(vec![row_entry])
             .map(|row| row.to_fields())
-            .collect();
-        assign_fixed_table(layouter, self.columns(), &field_elements, "function_table")
+            .collect()
+    }
+    pub fn load<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        static_info: &StaticInfo,
+    ) -> Result<(), Error> {
+        assign_fixed_table(
+            layouter,
+            self.columns(),
+            &self.build(static_info),
+            "function_table",
+        )
     }
 }
 

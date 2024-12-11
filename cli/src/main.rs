@@ -13,7 +13,7 @@ use std::process::exit;
 use structopt::StructOpt;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use vm_circuit::{best_k, mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove")]
@@ -75,7 +75,8 @@ impl Arguments {
         let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
         let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 
-        let k = 12; //TODO: auto pick best k
+        let k = best_k(&circuit);
+        debug!("k = {}", k);
 
         if debug {
             debug!("Mock prove");

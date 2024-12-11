@@ -387,13 +387,11 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     // Lookups
     pub(crate) fn range_lookup(&mut self, lookup_name: String, value: Expression<F>, range: u64) {
         let (name, tag) = match range {
-            5 => ("Range5", FixedTableTag::Range5),
             16 => ("Range16", FixedTableTag::Range16),
             32 => ("Range32", FixedTableTag::Range32),
             64 => ("Range64", FixedTableTag::Range64),
             128 => ("Range128", FixedTableTag::Range128),
             256 => ("Range256", FixedTableTag::Range256),
-            512 => ("Range512", FixedTableTag::Range512),
             1024 => ("Range1024", FixedTableTag::Range1024),
             _ => unimplemented!(),
         };

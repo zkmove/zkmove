@@ -3,29 +3,29 @@
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, TableColumn};
+use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed, TableColumn};
 use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Clone, Copy, Debug)]
 pub struct BitwiseLookupTable {
-    pub opcode_column: TableColumn,
-    pub value_1_column: TableColumn,
-    pub value_2_column: TableColumn,
-    pub result_column: TableColumn,
+    pub opcode_column: Column<Fixed>,
+    pub value_1_column: Column<Fixed>,
+    pub value_2_column: Column<Fixed>,
+    pub result_column: Column<Fixed>,
 }
 
 impl BitwiseLookupTable {
     pub fn construct<F: Field>(meta: &mut ConstraintSystem<F>) -> Self {
         BitwiseLookupTable {
-            opcode_column: meta.lookup_table_column(),
-            value_1_column: meta.lookup_table_column(),
-            value_2_column: meta.lookup_table_column(),
-            result_column: meta.lookup_table_column(),
+            opcode_column: meta.fixed_column(),
+            value_1_column: meta.fixed_column(),
+            value_2_column: meta.fixed_column(),
+            result_column: meta.fixed_column(),
         }
     }
 
-    pub fn table_columns(&self) -> Vec<TableColumn> {
+    pub fn columns(&self) -> Vec<Column<Fixed>> {
         vec![
             self.opcode_column,
             self.value_1_column,
@@ -33,43 +33,42 @@ impl BitwiseLookupTable {
             self.result_column,
         ]
     }
-    pub fn load<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
-        // bitwise table
-        // only 4 bits bitwised every time. so table size is 16*16
-        let mut bitwise_values = Vec::new();
-        for op in [Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR] {
-            for value_1 in 0..16 {
-                for value_2 in 0..16 {
-                    let field_values = vec![
-                        F::from_u128(op as u128),
-                        F::from_u128(value_1 as u128),
-                        F::from_u128(value_2 as u128),
-                        match op {
-                            Opcodes::BIT_AND => F::from_u128((value_1 & value_2) as u128),
-                            Opcodes::BIT_OR => F::from_u128((value_1 | value_2) as u128),
-                            Opcodes::XOR => F::from_u128((value_1 ^ value_2) as u128),
-                            _ => unreachable!(),
-                        },
-                    ];
-                    bitwise_values.push(field_values);
-                }
-            }
+
+    pub fn build<F: Field>(&self) -> impl Iterator<Item = [F; 4]> {
+        // Helper function to generate bitwise operation values
+        fn generate_bitwise_values<F: Field>(
+            opcode: Opcodes,
+            operation: fn(u64, u64) -> u64,
+        ) -> impl Iterator<Item = [F; 4]> {
+            (0..16).flat_map(move |lhs| {
+                (0..16).map(move |rhs| {
+                    [
+                        F::from(opcode as u64),
+                        F::from(lhs),
+                        F::from(rhs),
+                        F::from(operation(lhs, rhs)),
+                    ]
+                })
+            })
         }
-        assign_fixed_table(
-            layouter,
-            self.table_columns().iter().map(|t| t.inner()).collect(),
-            &bitwise_values,
-            "bitwise_table",
-        )
+
+        // Combine all iterators into one
+        generate_bitwise_values(Opcodes::BIT_AND, |lhs, rhs| lhs & rhs)
+            .chain(generate_bitwise_values(Opcodes::BIT_OR, |lhs, rhs| {
+                lhs | rhs
+            }))
+            .chain(generate_bitwise_values(Opcodes::XOR, |lhs, rhs| lhs ^ rhs))
+    }
+
+    pub fn load<F: Field>(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        let bitwise_values: Vec<Vec<F>> = self.build().map(|row| row.to_vec()).collect();
+        assign_fixed_table(layouter, self.columns(), &bitwise_values, "bitwise_table")
     }
 }
 
 impl<F: Field> LookupTable<F> for BitwiseLookupTable {
     fn columns(&self) -> Vec<Column<Any>> {
-        self.table_columns()
-            .into_iter()
-            .map(|c| c.inner().into())
-            .collect()
+        self.columns().into_iter().map(|c| c.into()).collect()
     }
 
     fn annotations(&self) -> Vec<String> {

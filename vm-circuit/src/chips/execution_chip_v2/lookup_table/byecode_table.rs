@@ -4,6 +4,7 @@ use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Copy, Clone, Debug)]
@@ -39,19 +40,27 @@ impl BytecodeLookupTable {
         ]
     }
 
-    pub fn load<F: Field>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        static_info: &StaticInfo,
-    ) -> Result<(), Error> {
-        let field_elements: Vec<_> = static_info
+    pub fn build<F: Field>(&self, static_info: &StaticInfo) -> Vec<Vec<F>> {
+        static_info
             .bytecode_info
             .values()
             .flat_map(|row| row.values())
             .flatten()
             .map(|v| v.to_fields())
-            .collect();
-        assign_fixed_table(layouter, self.columns(), &field_elements, "bytecode_table")
+            .collect()
+    }
+
+    pub fn load<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        static_info: &StaticInfo,
+    ) -> Result<(), Error> {
+        assign_fixed_table(
+            layouter,
+            self.columns(),
+            &self.build(static_info),
+            "bytecode_table",
+        )
     }
 }
 
