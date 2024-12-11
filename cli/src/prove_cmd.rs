@@ -23,7 +23,8 @@ pub struct RunCommand {
         help = "path to .json file containing witness"
     )]
     witness: PathBuf,
-
+    #[arg(long = "proof-output-dir", help = "directory to save the proof")]
+    proof_output_dir: Option<PathBuf>,
     #[arg(short = 'd', long = "debug", help = "debug with mock prover")]
     debug: bool,
 }
@@ -90,8 +91,13 @@ impl RunCommand {
         let (_, pk) = setup_circuit(&circuit, &params)?;
 
         debug!("Generate zk proof");
-        prove_and_verify_kzg(circuit, &[], &params, pk.clone(), KZG::GWC);
-
+        let proof = prove_and_verify_kzg(circuit, &[], &params, pk.clone(), KZG::GWC);
+    
+        let proof_output_dir = self.proof_output_dir.clone().unwrap_or_else(|| rooted_path.join("proofs"));
+        std::fs::create_dir_all(proof_output_dir.as_path())?;
+        let proof_output_path = proof_output_dir.join(format!("{}.proof.hex", self.witness.file_stem().unwrap().to_str().unwrap()));
+        std::fs::write(proof_output_path.clone(), hex::encode(proof.clone()))?;
+        debug!("Save proof to {:?}", proof_output_path.display());
         Ok(())
     }
 }
