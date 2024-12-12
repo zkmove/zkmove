@@ -142,9 +142,12 @@ impl<F: Field> VmCircuit<F> {
             self.witness.num_rows()
         };
 
-        vec![table_rows, witness_rows]
+        let rows_needed = vec![table_rows, witness_rows]
             .into_iter()
             .max()
-            .unwrap_or(0)
+            .unwrap_or(0);
+
+        // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
+        rows_needed + (cs.blinding_factors() + 1)
     }
 }
