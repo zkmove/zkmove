@@ -19,7 +19,7 @@ use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Pro
 use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
 use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
+use halo2_proofs::poly::kzg::multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK};
 use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
 use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
@@ -35,7 +35,7 @@ use logger::{debug, info};
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use types::Field;
 
 pub(crate) fn query_expression<F: Field, T>(
@@ -53,6 +53,28 @@ pub(crate) fn query_expression<F: Field, T>(
 // number of circuit rows cannot exceed 2^MAX_K
 pub const MAX_K: u32 = 18;
 pub const MIN_K: u32 = 1;
+#[derive(Copy, Clone, Debug)]
+pub enum KZG {
+    GWC,
+    SHPLONK,
+}
+
+impl KZG {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            Self::SHPLONK => 0,
+            Self::GWC => 1,
+        }
+    }
+}
+impl std::fmt::Display for KZG {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GWC => write!(f, "gwc"),
+            Self::SHPLONK => write!(f, "shplonk"),
+        }
+    }
+}
 
 pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
@@ -221,6 +243,7 @@ pub fn prove_and_verify_kzg<E, ConcreteCircuit>(
     instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: ProvingKey<E::G1Affine>,
+    kzg: KZG,
 ) -> Vec<u8>
 where
     E: Engine + Debug + MultiMillerLoop,
@@ -231,13 +254,22 @@ where
     ConcreteCircuit: Circuit<E::Fr>,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    prove_and_verify_circuit::<
-        KZGCommitmentScheme<E>,
-        ProverSHPLONK<E>,
-        VerifierSHPLONK<E>,
-        kzg::strategy::SingleStrategy<E>,
-        _,
-    >(circuit, instance, params, pk)
+    match kzg {
+        KZG::SHPLONK => prove_and_verify_circuit::<
+            KZGCommitmentScheme<E>,
+            ProverSHPLONK<E>,
+            VerifierSHPLONK<E>,
+            kzg::strategy::SingleStrategy<E>,
+            _,
+        >(circuit, instance, params, pk),
+        KZG::GWC => prove_and_verify_circuit::<
+            KZGCommitmentScheme<E>,
+            ProverGWC<E>,
+            VerifierGWC<E>,
+            kzg::strategy::SingleStrategy<E>,
+            _,
+        >(circuit, instance, params, pk),
+    }
 }
 
 // prove circuit,return it proof.
