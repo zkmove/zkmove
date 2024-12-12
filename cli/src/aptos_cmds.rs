@@ -24,26 +24,9 @@ use vm_circuit::{
     witness::{CircuitConfigV2, WitnessV2},
     SubCircuit, KZG,
 };
-#[derive(Debug, Clone)]
-pub struct ModuleIdWrapper(ModuleId);
-
-impl FromStr for ModuleIdWrapper {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split("::").collect();
-        if parts.len() != 2 {
-            anyhow::bail!("Invalid module id format. Expected 'address::name'");
-        }
-        Ok(ModuleIdWrapper(ModuleId::new(
-            parts[0].parse()?,
-            Identifier::new(parts[1])?,
-        )))
-    }
-}
 
 #[derive(Parser)]
-#[command(about = "Aptos-related commands")]
+#[command(about = " generate aptos txns for verify proof on aptos")]
 pub struct AptosCommands {
     #[arg(long = "verifier-address")]
     verifier_address: String,
@@ -53,10 +36,6 @@ pub struct AptosCommands {
     publish_vk_func: String,
     #[arg(long, default_value = VERIFY)]
     verify_func: String,
-    #[arg(long)]
-    param_path: PathBuf,
-    #[arg(short)]
-    k: u8,
     #[arg(long = "package_dir", short = 'p', value_parser = value_parser ! (PathBuf))]
     package_dir: PathBuf,
     #[arg(short = 'd', long = "debug", help = "debug mode")]
@@ -64,10 +43,46 @@ pub struct AptosCommands {
     #[command(subcommand)]
     command: AptosSubcommands,
 }
+impl AptosCommands {
+    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
+        // Always root ourselves to the package root, and then compile relative to that.
+        let rooted_path = SourcePackageLayout::try_find_root(&self.package_dir.canonicalize()?)?;
+        let manifest = {
+            let manifest_string =
+                fs::read_to_string(rooted_path.join(SourcePackageLayout::Manifest.path()))?;
+            let toml_manifest =
+                move_package::source_package::manifest_parser::parse_move_manifest_string(
+                    manifest_string,
+                )?;
+            move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?
+        };
+
+        let package_name = manifest.package.name.to_string();
+        let build_path = rooted_path
+            .join(CompiledPackageLayout::Root.path())
+            .join(&package_name);
+        let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
+        let package = package.into_compiled_package()?;
+
+        match &self.command {
+            AptosSubcommands::BuildPublishVkAptosTxn(cmd) => cmd.run(
+                &package,
+                &self.verifier_address,
+                &self.verifier_module,
+                &self.publish_vk_func,
+                params,
+            ),
+            AptosSubcommands::BuildVerifyProofAptosTxn(cmd) => cmd.run(
+                &self.verifier_address,
+                &self.verifier_module,
+                &self.verify_func,
+            ),
+        }
+    }
+}
 
 #[derive(Subcommand)]
 enum AptosSubcommands {
-    ViewParam,
     BuildPublishVkAptosTxn(BuildPublishVkAptosTxn),
     BuildVerifyProofAptosTxn(BuildVerifyProofTxn),
 }
@@ -90,7 +105,7 @@ impl BuildPublishVkAptosTxn {
         verifier_address: &str,
         verifier_module: &str,
         publish_vk_func: &str,
-        params_kzg: ParamsKZG<Bn256>,
+        params: &ParamsKZG<Bn256>,
     ) -> Result<()> {
         let entry_module = package
             .root_modules_map()
@@ -120,7 +135,7 @@ impl BuildPublishVkAptosTxn {
             StaticInfo::generate(&self.entry_module.0, function_index.0 as u16, package);
         let witness = WitnessV2::new(vec![], static_info, CircuitConfigV2::new(self.max_num_rows));
         let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
-        let circuit_info = generate_circuit_info(&params_kzg, &circuit)?;
+        let circuit_info = generate_circuit_info(params, &circuit)?;
         let data = serialize::serialize(circuit_info.into())?;
         let args: Vec<_> = data
             .into_iter()
@@ -148,9 +163,10 @@ impl BuildPublishVkAptosTxn {
         std::fs::create_dir_all(output_path.as_path())?;
 
         std::fs::write(
-            output_path
-                .join(format!("{:?}-publish-circuit", self.function_name.as_str()))
-                .with_extension("json"),
+            output_path.join(format!(
+                "{}-publish-circuit.txn",
+                self.function_name.as_str()
+            )),
             output,
         )?;
         Ok(())
@@ -192,7 +208,7 @@ impl BuildVerifyProofTxn {
         verifier_module: &str,
         verify_func: &str,
     ) -> Result<()> {
-        let proof = fs::read(self.proof_path.as_path())?;
+        let proof = hex::decode(fs::read_to_string(self.proof_path.as_path())?)?;
         // TODO: zkmove have no instance for now
         let instances: Vec<Vec<Fr>> = vec![];
         let json = EntryFunctionArgumentsJSON {
@@ -237,64 +253,30 @@ impl BuildVerifyProofTxn {
         fs::create_dir_all(output_path.as_path())?;
 
         fs::write(
-            output_path
-                .join(format!(
-                    "{:?}-verify-txn",
-                    self.proof_path.file_stem().unwrap(),
-                ))
-                .with_extension("json"),
+            output_path.join(format!(
+                "{}-verify-proof.txn",
+                self.proof_path.file_prefix().unwrap().to_string_lossy(),
+            )),
             output,
         )?;
         Ok(())
     }
 }
 
-impl AptosCommands {
-    pub fn run(&self) -> Result<()> {
-        // Always root ourselves to the package root, and then compile relative to that.
-        let rooted_path = SourcePackageLayout::try_find_root(&self.package_dir.canonicalize()?)?;
-        let manifest = {
-            let manifest_string =
-                std::fs::read_to_string(rooted_path.join(SourcePackageLayout::Manifest.path()))?;
-            let toml_manifest =
-                move_package::source_package::manifest_parser::parse_move_manifest_string(
-                    manifest_string,
-                )?;
-            move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?
-        };
+#[derive(Debug, Clone)]
+pub struct ModuleIdWrapper(ModuleId);
 
-        let package_name = manifest.package.name.to_string();
-        let build_path = rooted_path
-            .join(CompiledPackageLayout::Root.path())
-            .join(&package_name);
-        let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
-        let package = package.into_compiled_package()?;
+impl FromStr for ModuleIdWrapper {
+    type Err = anyhow::Error;
 
-        let params = if self.debug {
-            let rng = rand::rngs::mock::StepRng::new(0, 1);
-            ParamsKZG::<Bn256>::setup(self.k as u32, rng)
-        } else {
-            let rng = rand::thread_rng();
-            ParamsKZG::<Bn256>::setup(self.k as u32, rng)
-        };
-
-        match &self.command {
-            AptosSubcommands::ViewParam => {
-                // TODO: Implement view param logic
-                Ok(())
-            }
-            AptosSubcommands::BuildPublishVkAptosTxn(cmd) => cmd.run(
-                &package,
-                &self.verifier_address,
-                &self.verifier_module,
-                &self.publish_vk_func,
-                params,
-            ),
-            AptosSubcommands::BuildVerifyProofAptosTxn(cmd) => cmd.run(
-                &self.verifier_address,
-                &self.verifier_module,
-                &self.verify_func,
-            ),
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split("::").collect();
+        if parts.len() != 2 {
+            anyhow::bail!("Invalid module id format. Expected 'address::name'");
         }
+        Ok(ModuleIdWrapper(ModuleId::new(
+            parts[0].parse()?,
+            Identifier::new(parts[1])?,
+        )))
     }
 }

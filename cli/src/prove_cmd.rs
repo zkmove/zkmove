@@ -4,6 +4,7 @@ use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use aptos_move_witnesses::{Footprint, Operation};
 use clap::Parser;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
+use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use move_package::compilation::compiled_package::OnDiskCompiledPackage;
@@ -30,7 +31,7 @@ pub struct RunCommand {
 }
 
 impl RunCommand {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
         logger::init_for_main(self.debug);
 
         debug!("witness {:?}", self.witness.display());
@@ -72,8 +73,7 @@ impl RunCommand {
         let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
         let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
 
-        let k = 12; //TODO: auto pick best k
-
+        let k = params.k();
         if self.debug {
             debug!("Mock prove");
             mock_prove_circuit(&circuit, vec![], k)?;
@@ -81,21 +81,20 @@ impl RunCommand {
 
         debug!("Generate parameters");
 
-        let params = if self.debug {
-            let rng = rand::rngs::mock::StepRng::new(0, 1);
-            ParamsKZG::<Bn256>::setup(k, rng)
-        } else {
-            let rng = rand::thread_rng();
-            ParamsKZG::<Bn256>::setup(k, rng)
-        };
-        let (_, pk) = setup_circuit(&circuit, &params)?;
+        let (_, pk) = setup_circuit(&circuit, params)?;
 
         debug!("Generate zk proof");
-        let proof = prove_and_verify_kzg(circuit, &[], &params, pk.clone(), KZG::GWC);
-    
-        let proof_output_dir = self.proof_output_dir.clone().unwrap_or_else(|| rooted_path.join("proofs"));
+        let proof = prove_and_verify_kzg(circuit, &[], params, pk.clone(), KZG::GWC);
+
+        let proof_output_dir = self
+            .proof_output_dir
+            .clone()
+            .unwrap_or_else(|| rooted_path.join("proofs"));
         std::fs::create_dir_all(proof_output_dir.as_path())?;
-        let proof_output_path = proof_output_dir.join(format!("{}.proof.hex", self.witness.file_stem().unwrap().to_str().unwrap()));
+        let proof_output_path = proof_output_dir.join(format!(
+            "{}.proof.hex",
+            self.witness.file_stem().unwrap().to_str().unwrap()
+        ));
         std::fs::write(proof_output_path.clone(), hex::encode(proof.clone()))?;
         debug!("Save proof to {:?}", proof_output_path.display());
         Ok(())
