@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CircuitConfigV2 {
-    pub max_num_rows: Option<usize>,
+    pub max_rows: Option<usize>,
 }
 
 impl CircuitConfigV2 {
-    pub fn new(max_num_rows: usize) -> Self {
+    pub fn new(max_rows: usize) -> Self {
         Self {
-            max_num_rows: Some(max_num_rows),
+            max_rows: Some(max_rows),
         }
     }
 }
@@ -36,22 +36,22 @@ impl WitnessV2 {
             circuit_config,
         }
     }
-    /// Pads the witness with default `StageState` to match `max_num_rows` in the circuit config.
+    /// Pads the witness with default `StageState` to match `max_rows` in the circuit config.
     pub fn padding(&self) -> Option<WitnessV2> {
-        if let Some(max_num_rows) = self.circuit_config.max_num_rows {
+        if let Some(max_rows) = self.circuit_config.max_rows {
             let num_rows = self.num_rows();
-            if num_rows > max_num_rows {
+            if num_rows > max_rows {
                 None
             } else {
                 let mut padded_witnesses = self.opcode_witnesses.clone();
-                if num_rows < max_num_rows {
+                if num_rows < max_rows {
                     let last_clk = padded_witnesses
                         .last()
                         .and_then(|s| s.step_states.last())
                         .map(|state| state.step_state.clk)
                         .unwrap_or_default();
 
-                    padded_witnesses.extend((1..=(max_num_rows - num_rows)).map(|i| StageState {
+                    padded_witnesses.extend((1..=(max_rows - num_rows)).map(|i| StageState {
                         step_states: vec![ExecStepState {
                             step_state: StepState::default().change_clk(last_clk + i as u64),
                             memory_ops: vec![MemoryOp(None, None, None)],

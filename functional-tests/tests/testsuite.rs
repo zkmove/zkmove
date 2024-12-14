@@ -14,8 +14,10 @@ use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use vm_circuit::{best_k, mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
+
 pub const TEST_PACKAGE_NAME: &str = "cases";
+pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     logger::init_for_test();
@@ -43,7 +45,6 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let preprocessor = WitnessPreProcessor::default();
     let states = preprocessor.pre_process(&traces, &static_info);
 
-    let k = 12; //TODO: auto pick best k
     debug!("Mock prove");
     let witness = WitnessV2::new(
         states.clone(),
@@ -51,18 +52,20 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         CircuitConfigV2::default(),
     );
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
+    let k = best_k(&circuit);
     mock_prove_circuit(&circuit, vec![], k)?;
 
-    debug!("Generate parameters");
+    debug!("Generate keys with custom number of state rows");
+    let circuit_config = CircuitConfigV2::new(TEST_CIRCUIT_ROWS);
+    let empty_states = (0..TEST_CIRCUIT_ROWS)
+        .map(|_| StageState::default())
+        .collect();
+    let empty_witness = WitnessV2::new(empty_states, static_info.clone(), circuit_config.clone());
+    let empty_circuit = VmCircuit::<Fr>::new_from_witness(&empty_witness);
+    let k = best_k(&empty_circuit);
+    debug!("k = {}", k);
     let rng = rand::rngs::mock::StepRng::new(0, 1);
     let params = ParamsKZG::<Bn256>::setup(k, rng);
-
-    debug!("Generate keys with custom number of state rows");
-    let max_num_rows = 3000usize;
-    let circuit_config = CircuitConfigV2::new(max_num_rows);
-    let empty_states = (0..max_num_rows).map(|_| StageState::default()).collect();
-    let witness = WitnessV2::new(empty_states, static_info.clone(), circuit_config.clone());
-    let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
     let (_, pk) = setup_circuit(&circuit, &params)?;
 
     debug!("Generate zk proof");

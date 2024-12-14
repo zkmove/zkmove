@@ -115,7 +115,7 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
             &self.witness.static_info,
         )?;
 
-        // Pads the witness to match `max_num_rows` in the circuit config.
+        // Pads the witness to match `max_rows` in the circuit config.
         let padded_witness = self.witness.padding().unwrap_or_else(|| {
             panic!(
                 "num of witness rows {} exceeds the max num of rows",
@@ -125,8 +125,29 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         exec_chip_config.assign(layouter, &padded_witness, challenges)?;
         Ok(())
     }
+}
 
-    fn min_num_rows(witness: &WitnessV2) -> (usize, usize) {
-        todo!()
+impl<F: Field> VmCircuit<F> {
+    /// Return the minimum number of rows required to prove the circuit.
+    pub fn circuit_height(&self) -> usize {
+        let mut cs = ConstraintSystem::default();
+        let config = VmCircuit::<F>::configure(&mut cs);
+        let table_rows = config
+            .lookup_table_config
+            .tables_height(&self.witness.static_info, config.fixed_table_tags);
+
+        let witness_rows = if let Some(max_rows) = self.witness.circuit_config.max_rows {
+            max_rows
+        } else {
+            self.witness.num_rows()
+        };
+
+        let rows_needed = vec![table_rows, witness_rows]
+            .into_iter()
+            .max()
+            .unwrap_or(0);
+
+        // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
+        rows_needed + (cs.blinding_factors() + 1)
     }
 }

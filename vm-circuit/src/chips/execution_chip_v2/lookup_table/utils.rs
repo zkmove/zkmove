@@ -33,8 +33,7 @@ pub(crate) fn assign_fixed_table<F: Field>(
             }
             Ok(())
         },
-    )?;
-    Ok(())
+    )
 }
 
 impl<F: Field> ToFields<F> for FunctionTableRow {

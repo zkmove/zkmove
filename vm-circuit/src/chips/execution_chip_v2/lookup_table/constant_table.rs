@@ -38,12 +38,8 @@ impl ConstantLookupTable {
             .chain(vec![self.header])
             .collect()
     }
-    pub fn load<F: Field>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        static_info: &StaticInfo,
-    ) -> Result<(), Error> {
-        let field_elements: Vec<Vec<F>> = static_info
+    pub fn build<F: Field>(&self, static_info: &StaticInfo) -> Vec<Vec<F>> {
+        static_info
             .constant_info
             .iter()
             .flat_map(|c| {
@@ -62,8 +58,19 @@ impl ConstantLookupTable {
                     .collect::<Vec<_>>();
                 rows.iter().map(|row| row.to_fields()).collect::<Vec<_>>()
             })
-            .collect();
-        assign_fixed_table(layouter, self.columns(), &field_elements, "constant_table")
+            .collect()
+    }
+    pub fn load<F: Field>(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        static_info: &StaticInfo,
+    ) -> Result<(), Error> {
+        assign_fixed_table(
+            layouter,
+            self.columns(),
+            &self.build(static_info),
+            "constant_table",
+        )
     }
 }
 

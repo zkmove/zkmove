@@ -25,6 +25,7 @@ use halo2_proofs::transcript::{
     Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
 };
 // use instant;
+use crate::circuit_v2::VmCircuit;
 use crate::utils::challenges::Challenges;
 use crate::witness::WitnessV2;
 use gadgets::util::Expr;
@@ -50,9 +51,17 @@ pub(crate) fn query_expression<F: Field, T>(
     expr.unwrap()
 }
 
-// number of circuit rows cannot exceed 2^MAX_K
-pub const MAX_K: u32 = 18;
-pub const MIN_K: u32 = 1;
+// number of circuit rows cannot exceed 2^MAX_DEGREE
+pub const MAX_DEGREE: u32 = 18;
+pub const MIN_DEGREE: u32 = 11;
+
+pub fn best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
+    /// Ceiling of log_2(n)
+    fn log2_ceil(n: usize) -> u32 {
+        u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32
+    }
+    std::cmp::max(log2_ceil(circuit.circuit_height()), MIN_DEGREE)
+}
 
 pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
@@ -403,10 +412,6 @@ pub trait SubCircuit<F: Field> {
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error>;
-
-    /// Return the minimum number of rows required to prove the witness.
-    /// Row numbers without/with padding are both returned.
-    fn min_num_rows(witness: &WitnessV2) -> (usize, usize);
 }
 
 /// SubCircuit configuration
