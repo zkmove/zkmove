@@ -53,7 +53,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     );
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
     let k = best_k(&circuit);
-    //mock_prove_circuit(&circuit, vec![], k)?;
+    mock_prove_circuit(&circuit, vec![], k)?;
 
     debug!("Generate keys with custom number of state rows");
     let circuit_config = CircuitConfigV2::new(TEST_CIRCUIT_ROWS);
@@ -67,25 +67,25 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let rng = rand::rngs::mock::StepRng::new(0, 1);
     let params = ParamsKZG::<Bn256>::setup(k, rng);
     let (_, pk) = setup_circuit(&circuit, &params)?;
-    let cs = pk.get_vk().cs();
 
-    {
-        dbg!(cs.degree());
-        dbg!(cs.blinding_factors());
-        dbg!(cs.minimum_rows());
-        dbg!(cs.num_advice_columns());
-        dbg!(cs.num_instance_columns());
-        dbg!(cs.num_fixed_columns());
-        dbg!(cs.num_selectors());
-        dbg!(cs
-            .gates()
-            .iter()
-            .map(|g| g.polynomials().len())
-            .sum::<usize>());
-        dbg!(cs.advice_queries().len());
-        dbg!(cs.lookups().len());
-        dbg!(cs.shuffles().len());
-    }
+    // {
+    //     let cs = pk.get_vk().cs();
+    //     dbg!(cs.degree());
+    //     dbg!(cs.blinding_factors());
+    //     dbg!(cs.minimum_rows());
+    //     dbg!(cs.num_advice_columns());
+    //     dbg!(cs.num_instance_columns());
+    //     dbg!(cs.num_fixed_columns());
+    //     dbg!(cs.num_selectors());
+    //     dbg!(cs
+    //         .gates()
+    //         .iter()
+    //         .map(|g| g.polynomials().len())
+    //         .sum::<usize>());
+    //     dbg!(cs.advice_queries().len());
+    //     dbg!(cs.lookups().len());
+    //     dbg!(cs.shuffles().len());
+    // }
     debug!("Generate zk proof");
     let witness = WitnessV2::new(states, static_info, circuit_config);
     let circuit = VmCircuit::<Fr>::new_from_witness(&witness);

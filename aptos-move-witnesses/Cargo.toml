@@ -10,10 +10,8 @@ move-vm-types = { workspace = true }
 move-package = { workspace = true }
 move-binary-format = { workspace = true }
 logger = { path = "../common/logger" }
-utility = {path = "../common/utility" }
+utility = { path = "../common/utility" }
 movelang = { path = "../movelang" }
-types = { path = "../common/types" }
 serde = { version = "1.0.203", features = ["derive"] }
 strum_macros = { workspace = true }
 strum = { workspace = true }
-anyhow = { workspace = true }

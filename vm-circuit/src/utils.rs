@@ -37,7 +37,6 @@ use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
-use std::process::exit;
 use types::Field;
 
 pub(crate) fn query_expression<F: Field, T>(
