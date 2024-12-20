@@ -5,17 +5,10 @@ edition = "2021"
 
 [dependencies]
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
-error = { path = "../common/error" }
-functional-tests = { path = "../functional-tests" }
 halo2_proofs.workspace = true
 logger = { path = "../common/logger" }
-movelang = { path = "../movelang" }
-move-binary-format = { workspace = true }
-move-core-types = { workspace = true }
 move-package = { workspace = true }
-types = { path = "../common/types" }
 vm-circuit = { path = "../vm-circuit" }
-
 anyhow = "1.0.38"
 rand = "0.8"
 serde_json = { workspace = true }

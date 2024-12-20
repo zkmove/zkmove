@@ -16,15 +16,12 @@ utility = { path = "../common/utility" }
 types = { path = "../common/types" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
-move-package = { workspace = true }
 move-vm-runtime = { workspace = true }
 halo2_proofs = { workspace = true, features = ["dev-graph"] }
-halo2_poseidon.workspace = true
 field-exts.workspace = true
 gadgets.workspace = true
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 itertools = "0.10.5"
-petgraph = "0.6"
 plotters = { version = "0.3.0", default-features = false, features = ["svg_backend"] }
 rand = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }

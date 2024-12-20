@@ -232,10 +232,15 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         self.in_next_step = false;
         ret
     }
-
+    #[cfg(not(feature = "test-circuits"))]
+    pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
+        cell.at_offset(offset)
+    }
+    #[cfg(feature = "test-circuits")]
     pub(crate) fn cell_at_offset(&mut self, cell: &Cell<F>, offset: i32) -> Cell<F> {
         cell.at_offset(self.meta, offset)
     }
+
     pub(crate) fn cells_at_offset<const N: usize>(
         &mut self,
         cells: [Cell<F>; N],

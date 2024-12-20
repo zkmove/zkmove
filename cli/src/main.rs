@@ -13,7 +13,9 @@ use std::process::exit;
 use structopt::StructOpt;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{best_k, mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use vm_circuit::{
+    best_k, mock_prove_circuit, print_cs_info, prove_and_verify_kzg, setup_circuit, SubCircuit,
+};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove")]
@@ -36,9 +38,6 @@ pub enum Command {
         )]
         witness: PathBuf,
 
-        #[structopt(short = "p", long = "package", help = "move package name")]
-        package: String,
-
         #[structopt(short = "d", long = "debug", help = "debug with mock prover")]
         debug: bool,
     },
@@ -47,18 +46,32 @@ pub enum Command {
 }
 
 impl Arguments {
-    pub fn run(&self, witness: &Path, package: &String, debug: bool) -> Result<()> {
+    pub fn run(&self, witness: &Path, debug: bool) -> Result<()> {
         logger::init_for_main(debug);
 
         debug!("witness {:?}", witness.display());
 
         // Always root ourselves to the package root, and then compile relative to that.
         let rooted_path = SourcePackageLayout::try_find_root(&witness.canonicalize()?)?;
-        let build_path = rooted_path
-            .join(CompiledPackageLayout::Root.path())
-            .join(package.as_str());
-        let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
-        let package = package.into_compiled_package()?;
+        let manifest = {
+            let manifest_string =
+                std::fs::read_to_string(rooted_path.join(SourcePackageLayout::Manifest.path()))?;
+            let toml_manifest =
+                move_package::source_package::manifest_parser::parse_move_manifest_string(
+                    manifest_string,
+                )?;
+            move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?
+        };
+
+        let package = {
+            let package_name = manifest.package.name.to_string();
+            let build_path = rooted_path
+                .join(CompiledPackageLayout::Root.path())
+                .join(&package_name);
+            let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
+            package.into_compiled_package()?
+        };
+
         let trace_contents = std::fs::read_to_string(witness)?;
         let traces: Vec<Footprint> = serde_json::from_str(&trace_contents)?;
         let entry = match &traces.first().unwrap().data {
@@ -78,16 +91,19 @@ impl Arguments {
         let k = best_k(&circuit);
         debug!("k = {}", k);
 
-        if debug {
-            debug!("Mock prove");
-            mock_prove_circuit(&circuit, vec![], k)?;
-        }
+        // we can use mock, because we compile the cli without test-circuit feature
+        // if debug {
+        //     debug!("Mock prove");
+        //     mock_prove_circuit(&circuit, vec![], k)?;
+        // }
 
         debug!("Generate parameters");
         let rng = rand::rngs::mock::StepRng::new(0, 1);
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (_, pk) = setup_circuit(&circuit, &params)?;
-
+        let (vk, pk) = setup_circuit(&circuit, &params)?;
+        if debug {
+            print_cs_info(vk.cs());
+        }
         debug!("Generate zk proof");
         prove_and_verify_kzg(circuit, &[], &params, pk.clone());
 
@@ -95,15 +111,11 @@ impl Arguments {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Arguments::from_args();
 
-    let result = match args.cmd {
-        Command::Run {
-            ref witness,
-            ref package,
-            debug,
-        } => args.run(witness.as_path(), package, debug),
+    match args.cmd {
+        Command::Run { ref witness, debug } => args.run(witness.as_path(), debug),
         // Command::CallGraph { module, output } => {
         //     std::fs::create_dir_all(output.as_path()).unwrap();
         //     let module =
@@ -120,10 +132,5 @@ fn main() {
         //     }
         //     Ok(())
         // }
-    };
-
-    if let Err(error) = result {
-        error!("{}", error);
-        exit(1);
     }
 }

@@ -63,6 +63,25 @@ pub fn best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
     std::cmp::max(log2_ceil(circuit.circuit_height()), MIN_DEGREE)
 }
 
+pub fn print_cs_info<F: Field>(cs: &ConstraintSystem<F>) {
+    dbg!(cs.degree());
+    dbg!(cs.blinding_factors());
+    dbg!(cs.minimum_rows());
+    dbg!(cs.num_advice_columns());
+    dbg!(cs.num_instance_columns());
+    dbg!(cs.num_fixed_columns());
+    dbg!(cs.num_selectors());
+    dbg!(cs
+        .gates()
+        .iter()
+        .map(|g| g.polynomials().len())
+        .sum::<usize>());
+    dbg!(cs.advice_queries().len());
+    dbg!(cs.lookups().len());
+    dbg!(cs.shuffles().len());
+    dbg!(cs.advice_column_phase().iter().counts_by(|p| *p));
+}
+
 pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
     instance: Vec<Vec<F>>,
@@ -72,23 +91,8 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
         debug!("Prover Error: {:?}", e);
         RuntimeError::new(StatusCode::ProofSystemError(e))
     })?;
-    dbg!(prover.cs().degree());
-    dbg!(prover.cs().blinding_factors());
-    dbg!(prover.cs().minimum_rows());
-    dbg!(prover.cs().num_advice_columns());
-    dbg!(prover.cs().num_instance_columns());
-    dbg!(prover.cs().num_fixed_columns());
-    dbg!(prover.cs().num_selectors());
-    dbg!(prover
-        .cs()
-        .gates()
-        .iter()
-        .map(|g| g.polynomials().len())
-        .sum::<usize>());
-    dbg!(prover.cs().advice_queries().len());
-    dbg!(prover.cs().lookups().len());
-    dbg!(prover.cs().shuffles().len());
-    dbg!(prover.cs().advice_column_phase().iter().counts_by(|p| *p));
+    print_cs_info(prover.cs());
+
     // uncomment this to output assignments
     // {
     //     use std::io::Write;
