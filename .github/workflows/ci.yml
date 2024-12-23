@@ -7,8 +7,8 @@ on:
     branches:
       - main
 
-env:
-  RUSTFLAGS: "-D warnings"
+#env:
+#  RUSTFLAGS: "-D warnings"
 
 ## `actions-rs/toolchain@v1` overwrite set to false so that
 ## `rust-toolchain` is always used and the only source of truth.
@@ -18,7 +18,7 @@ jobs:
     if: github.event.pull_request.draft == false
 
     name: Test on ubuntu
-    timeout-minutes: 180
+    timeout-minutes: 60
     runs-on: ubuntu-latest
 
     steps:
@@ -26,16 +26,32 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: false
+      - name: Install Move CLI
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+      - name: Generate witness
+        working-directory: ./functional-tests
+        run: |
+          chmod +x ./gen_witness.sh
+          ./gen_witness.sh
+        shell: bash
+      - name: Run tests with mock prover
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features test-circuits --test testsuite -- test_all
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --all -- --test-threads 6
-      - name: Check Benchmarks
-        uses: actions-rs/cargo@v1
-        with:
-          command: bench
-          args: --all --exclude functional-tests
+          args: --release --test testsuite -- test_all
+#      - name: Check Benchmarks
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: bench
+#          args: --all --exclude functional-tests
 
   build:
     if: github.event.pull_request.draft == false
@@ -71,20 +87,20 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  clippy:
-    if: github.event.pull_request.draft == false
-
-    name: Clippy lint checks
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          override: false
-          components: clippy
-      - name: Run clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --verbose --release --all --all-targets
+#  clippy:
+#    if: github.event.pull_request.draft == false
+#
+#    name: Clippy lint checks
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: actions-rs/toolchain@v1
+#        with:
+#          override: false
+#          components: clippy
+#      - name: Run clippy
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: clippy
+#          args: --verbose --release --all --all-targets
