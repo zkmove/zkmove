@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-// use functional_tests::run_config::RunConfig;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
@@ -17,7 +16,7 @@ use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
 use vm_circuit::{best_k, prove_and_verify_kzg, setup_circuit, SubCircuit};
 
 #[cfg(feature = "test-circuits")]
-use mock_prove_circuit;
+use vm_circuit::mock_prove_circuit;
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
