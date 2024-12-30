@@ -79,15 +79,6 @@ impl<T: Clone> Challenges<T> {
             &self.lookup_input,
         ]
     }
-
-    /// Returns a mock Challenges for testing purposes
-    #[cfg(feature = "mock-challenge")]
-    pub fn mock(keccak_input: T, lookup_input: T) -> Self {
-        Self {
-            row_keccak_input: keccak_input,
-            lookup_input,
-        }
-    }
 }
 
 impl<F: Field> Challenges<Expression<F>> {

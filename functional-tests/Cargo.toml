@@ -9,6 +9,7 @@ edition = "2021"
 
 [dependencies]
 logger = { path = "../common/logger" }
+
 vm-circuit = { path = "../vm-circuit", features = ["test-circuits"] }
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 halo2_proofs.workspace = true

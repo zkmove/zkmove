@@ -51,7 +51,7 @@ impl WitnessPreProcessor {
             self.clk += 1;
         }
         // teardown ops to write (final_set, init_set)
-        let local_write_set = self.locals.to_write_set();
+        let local_write_set = self.locals.into_write_set();
         if !local_write_set.is_empty() {
             exec_states.push(StageState {
                 step_states: vec![ExecStepState {
@@ -239,14 +239,7 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::BrTrue {
-                cond_val,
-                code_offset,
-            }
-            | Operation::BrFalse {
-                cond_val,
-                code_offset,
-            } => {
+            Operation::BrTrue { cond_val, .. } | Operation::BrFalse { cond_val, .. } => {
                 let state = match &trace.data {
                     Operation::BrTrue { .. } => ExecutionState::BrTrue,
                     Operation::BrFalse { .. } => ExecutionState::BrFalse,
@@ -483,7 +476,7 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::VecLen { si, vec_ref, len } => {
+            Operation::VecLen { vec_ref, len, .. } => {
                 let stack_pop = StackPop {
                     index: sp,
                     sub_index: SubIndex::default(),
@@ -529,7 +522,7 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::BorrowLoc { imm, local_index } => {
+            Operation::BorrowLoc { local_index, .. } => {
                 let exec_state = ExecutionState::BorrowLoc;
                 let loc_ref = Reference {
                     frame_index: current_frame_index as usize,
@@ -553,10 +546,9 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::BorrowField {
-                imm,
-                fh_idx,
                 reference,
                 field_offset,
+                ..
             } => {
                 let exec_state = ExecutionState::BorrowField;
                 let stack_pop = StackPop {
@@ -591,12 +583,7 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::VecBorrow {
-                si,
-                imm,
-                idx,
-                vec_ref,
-            } => {
+            Operation::VecBorrow { idx, vec_ref, .. } => {
                 let exec_state = ExecutionState::VecBorrow;
                 let stack_pop_idx = StackPop {
                     index: sp,
@@ -938,12 +925,7 @@ impl WitnessPreProcessor {
                 }
                 stage_states
             }
-            Operation::Pack {
-                sd_idx: si,
-                num,
-                args,
-            }
-            | Operation::VecPack { si, num, args } => {
+            Operation::Pack { args, .. } | Operation::VecPack { args, .. } => {
                 let execution_state = if matches!(&trace.data, Operation::Pack { .. }) {
                     ExecutionState::Pack
                 } else {
@@ -998,18 +980,9 @@ impl WitnessPreProcessor {
                     extra_data: None,
                 }]
             }
-            Operation::Unpack {
-                sd_idx: si,
-                num,
-                arg,
-            }
-            | Operation::VecUnpack { si, num, arg } => {
+            Operation::Unpack { num: _, arg, .. } | Operation::VecUnpack { num: _, arg, .. } => {
                 debug_assert!(!arg.is_empty());
-                let is_vec_unpack = if matches!(&trace.data, Operation::Unpack { .. }) {
-                    false
-                } else {
-                    true
-                };
+                let is_vec_unpack = !matches!(&trace.data, Operation::Unpack { .. });
                 let step_state = StepState::new(
                     self.clk,
                     if is_vec_unpack {
@@ -1110,9 +1083,9 @@ impl WitnessPreProcessor {
                 stages
             }
             Operation::VecSwap {
-                si,
+                si: _,
                 vec_ref,
-                vec_len,
+                vec_len: _,
                 idx1,
                 idx2,
                 idx1_elem,
@@ -1259,7 +1232,7 @@ impl WitnessPreProcessor {
                 stages
             }
             Operation::VecPopBack {
-                si,
+                si: _,
                 vec_len,
                 vec_ref,
                 elem,
@@ -1395,7 +1368,7 @@ impl WitnessPreProcessor {
                 vec![stage1, stage2]
             }
             Operation::VecPushBack {
-                si,
+                si: _si,
                 vec_len,
                 vec_ref,
                 elem,
@@ -1531,7 +1504,7 @@ impl WitnessPreProcessor {
                 vec![stage1, stage2]
             }
             Operation::And { lhs, rhs } | Operation::Or { lhs, rhs } => {
-                let (is_and, out) = match &trace.data {
+                let (_is_and, out) = match &trace.data {
                     Operation::And { lhs, rhs } => (true, *lhs && *rhs),
                     Operation::Or { lhs, rhs } => (false, *lhs || *rhs),
                     _ => unreachable!(),
@@ -1822,7 +1795,7 @@ impl WitnessPreProcessor {
                     }
                 }
             }
-            Operation::Call { fh_idx, args } => {
+            Operation::Call { fh_idx: _, args } => {
                 self.call_stack_versions.push(self.clk);
                 // stage1: check the number of argument
                 let mut step_state =
@@ -1865,8 +1838,8 @@ impl WitnessPreProcessor {
                             None,
                             None,
                             Some(LocalReadWrite::new(
-                                callee_frame_index.try_into().unwrap(),
-                                local_index.try_into().unwrap(),
+                                callee_frame_index,
+                                local_index,
                                 header_sub_index,
                                 old_slot,
                                 new_slot,
@@ -1890,8 +1863,8 @@ impl WitnessPreProcessor {
                                         self.clk,
                                     );
                                     LocalReadWrite::new(
-                                        callee_frame_index.try_into().unwrap(),
-                                        local_index.try_into().unwrap(),
+                                        callee_frame_index,
+                                        local_index,
                                         sub_index.clone(),
                                         old_,
                                         new_,
@@ -1938,7 +1911,7 @@ impl WitnessPreProcessor {
                                 self.clk,
                             );
                             let local_op = LocalReadWrite::new(
-                                callee_frame_index.try_into().unwrap(),
+                                callee_frame_index,
                                 local_index,
                                 stack_pop.sub_index.clone(),
                                 old_,
@@ -1987,7 +1960,7 @@ impl WitnessPreProcessor {
                     ),
                 }]
             }
-            Operation::Branch(next_pc) => {
+            Operation::Branch(_next_pc) => {
                 let step_state =
                     StepState::new(self.clk, ExecutionState::Branch, trace, static_info);
                 vec![StageState {
@@ -2044,7 +2017,7 @@ impl WitnessPreProcessor {
                             );
                             let local_op = LocalReadWrite::new(
                                 0,
-                                local_index.try_into().unwrap(),
+                                local_index,
                                 item.sub_index.clone().into(),
                                 old_,
                                 new_,
@@ -2065,13 +2038,12 @@ impl WitnessPreProcessor {
             }
             Operation::Shl { rhs, lhs } | Operation::Shr { rhs, lhs } => {
                 let num_bytes = match lhs {
-                    Integer::U8(l) => 1usize,
-                    Integer::U16(l) => 2usize,
-                    Integer::U32(l) => 4usize,
-                    Integer::U64(l) => 8usize,
-                    Integer::U128(l) => 16usize,
-                    Integer::U256(l) => 32usize,
-                    _ => unreachable!(),
+                    Integer::U8(_) => 1usize,
+                    Integer::U16(_) => 2usize,
+                    Integer::U32(_) => 4usize,
+                    Integer::U64(_) => 8usize,
+                    Integer::U128(_) => 16usize,
+                    Integer::U256(_) => 32usize,
                 };
                 // while calculating the result, convert to u256 to prevent overflow from stopping
                 // the assignment.
@@ -2165,7 +2137,7 @@ struct Locals {
 }
 
 impl Locals {
-    pub fn to_write_set(self) -> Vec<LocalReadWrite> {
+    pub fn into_write_set(self) -> Vec<LocalReadWrite> {
         self.values
             .into_iter()
             .enumerate()
@@ -2216,6 +2188,7 @@ impl Locals {
         let old_slot = self.write_slot(frame_index, local_index, sub_index, new_slot.clone());
         (old_slot, new_slot)
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn write_local_slot_with_clk(
         &mut self,
         frame_index: u16,

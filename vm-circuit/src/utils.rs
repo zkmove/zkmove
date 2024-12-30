@@ -58,7 +58,7 @@ pub const MIN_DEGREE: u32 = 11;
 pub fn best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
     /// Ceiling of log_2(n)
     fn log2_ceil(n: usize) -> u32 {
-        u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32
+        u32::BITS - (n as u32).leading_zeros() - n.is_power_of_two() as u32
     }
     std::cmp::max(log2_ceil(circuit.circuit_height()), MIN_DEGREE)
 }
@@ -389,6 +389,7 @@ where
 /// other via lookup tables and/or shared public inputs.  This type must contain
 /// all the inputs required to synthesize this circuit (and the contained
 /// table(s) if any).
+#[allow(clippy::too_long_first_doc_paragraph)]
 pub trait SubCircuit<F: Field> {
     /// Configuration of the SubCircuit.
     type Config: SubCircuitConfig<F>;

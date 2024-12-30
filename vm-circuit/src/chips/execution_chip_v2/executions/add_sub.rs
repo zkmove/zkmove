@@ -138,7 +138,7 @@ impl<F: Field> InstructionGadgetV2<F> for AddSub<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

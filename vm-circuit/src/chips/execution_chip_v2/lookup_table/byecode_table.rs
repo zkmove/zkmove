@@ -4,7 +4,6 @@ use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
-use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 
 #[derive(Copy, Clone, Debug)]

@@ -3,7 +3,7 @@
 use super::*;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
-use halo2_proofs::circuit::{Layouter, Value};
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed, VirtualCells};
 use halo2_proofs::poly::Rotation;
 

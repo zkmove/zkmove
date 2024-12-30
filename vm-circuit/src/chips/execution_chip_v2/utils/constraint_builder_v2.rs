@@ -34,6 +34,7 @@ impl<F> Default for Transition<F> {
 pub(crate) type StateTransition<F> = (&'static str, Transition<F>);
 
 /// Internal type to select the location where the constraints are enabled
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub(crate) enum ConstraintLocation {
     FirstRow,

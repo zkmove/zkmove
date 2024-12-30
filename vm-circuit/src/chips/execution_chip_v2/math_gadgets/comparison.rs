@@ -10,6 +10,7 @@ use types::Field;
 /// Returns (lt, eq):
 /// - `lt` is `1` when `lhs < rhs`, `0` otherwise.
 /// - `eq` is `1` when `lhs == rhs`, `0` otherwise.
+///
 /// lhs and rhs `< 256**N_BYTES`
 /// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.
 #[derive(Clone, Debug)]

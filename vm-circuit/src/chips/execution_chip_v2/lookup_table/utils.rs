@@ -22,12 +22,12 @@ pub(crate) fn assign_fixed_table<F: Field>(
                     0,
                     || Value::known(F::ZERO),
                 )?;
-                for i in 0..values.len() {
+                for (i, item) in values.iter().enumerate() {
                     region.assign_fixed(
                         || format!("{:?}[{}][{}]", table_name, column_idx, i + 1),
                         *column,
                         i + 1,
-                        || Value::known(values[i][column_idx]),
+                        || Value::known(item[column_idx]),
                     )?;
                 }
             }
