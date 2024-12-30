@@ -612,10 +612,7 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     #[allow(dead_code)]
     fn condition_expr_opt(&self) -> Option<Expression<F>> {
         let mut iter = self.conditions.iter();
-        let first = match iter.next() {
-            Some(e) => e,
-            None => return None,
-        };
+        let first = iter.next()?;
         Some(iter.fold(first.clone(), |acc, e| acc * e.clone()))
     }
 

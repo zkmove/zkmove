@@ -19,3 +19,6 @@ structopt = "0.3.25"
 [[bin]]
 name = "zkmove"
 path = "src/main.rs"
+
+[features]
+test-circuits = []

@@ -14,7 +14,10 @@ use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{best_k, mock_prove_circuit, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use vm_circuit::{best_k, prove_and_verify_kzg, setup_circuit, SubCircuit};
+
+#[cfg(feature = "test-circuits")]
+use mock_prove_circuit;
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
