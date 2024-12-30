@@ -1,10 +1,6 @@
 [package]
 name = "vm-circuit"
-version = "0.3.0"
-authors = [
-    "Guangyu Zhu <guangyuz@gmail.com>",
-    "Luxebeng <luxebeng@gmail.com>",
-]
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]

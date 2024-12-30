@@ -1,6 +1,6 @@
 [package]
 name = "zkmove-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -19,6 +19,3 @@ structopt = "0.3.25"
 [[bin]]
 name = "zkmove"
 path = "src/main.rs"
-
-[features]
-test-circuits = []
