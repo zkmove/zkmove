@@ -147,8 +147,8 @@ impl From<u128> for SubIndex {
     fn from(value: u128) -> Self {
         let mut result = [0u16; N_LIMBS];
 
-        for i in 0..N_LIMBS {
-            result[i] = ((value >> (i * 16)) & 0xFFFF) as u16;
+        for (i, r) in result.iter_mut().enumerate() {
+            *r = ((value >> (i * 16)) & 0xFFFF) as u16;
         }
 
         SubIndex(result)

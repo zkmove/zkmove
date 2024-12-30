@@ -104,7 +104,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -324,7 +324,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -340,7 +340,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
             Rotation::prev(),
         );
 
-        for (i, memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
+        for (i, _memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
             self.index1
                 .assign(region, offset + i, Value::known(index1))?;
             self.index2
@@ -512,7 +512,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -528,7 +528,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
             Rotation::prev(),
         );
 
-        for (i, memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
+        for (i, _memory_op) in stage_state.step_states[0].memory_ops.iter().enumerate() {
             self.index1
                 .assign(region, offset + i, Value::known(index1))?;
             self.index2

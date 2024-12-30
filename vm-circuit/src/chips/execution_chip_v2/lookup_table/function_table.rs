@@ -1,12 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantTableRow;
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::function::FunctionInfo;
 use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::types::sub_index::SubIndex;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
 use itertools::Itertools;

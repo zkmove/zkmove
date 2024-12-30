@@ -273,7 +273,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             .into_iter()
             .enumerate()
             .skip(1)
-            .group_by(|(i, memory_ops)| memory_ops.0.as_ref().unwrap().index)
+            .chunk_by(|(i, memory_ops)| memory_ops.0.as_ref().unwrap().index)
             .into_iter()
         {
             let old = args.insert(stack_index, d.collect::<Vec<_>>());

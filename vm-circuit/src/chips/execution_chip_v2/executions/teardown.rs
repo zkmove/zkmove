@@ -168,15 +168,12 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                 .collect::<Vec<_>>();
             let mut assign_result = vec![];
             let mut prev_rlc = U256::zero();
-            for i in 0..stage_state.rows() {
-                assign_result.push(
-                    self.rlc
-                        .assign_u256(region, offset + i, rlcs[i])
-                        .map(|_| ()),
-                );
-                assign_result.push(self.lt_gadget.assign(region, offset + i, prev_rlc, rlcs[i]));
-                prev_rlc = rlcs[i];
+            for (i, rlc) in rlcs.iter().enumerate().take(stage_state.rows()) {
+                assign_result.push(self.rlc.assign_u256(region, offset + i, *rlc).map(|_| ()));
+                assign_result.push(self.lt_gadget.assign(region, offset + i, prev_rlc, *rlc));
+                prev_rlc = *rlc;
             }
+            for i in 0..stage_state.rows() {}
             let assign_result = assign_result.into_iter().collect::<Result<Vec<_>, Error>>();
             assign_result.is_err()
         })?;

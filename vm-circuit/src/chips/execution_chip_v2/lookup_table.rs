@@ -285,7 +285,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         fixed_table_tags: Vec<FixedTableTag>,
     ) -> usize {
         // Collect the heights of all tables
-        let mut heights = vec![
+        let heights = vec![
             fixed_table_tags
                 .iter()
                 .flat_map(|tag| tag.build::<F>())

@@ -1,10 +1,12 @@
+#![allow(clippy::wrong_self_convention)]
+#![allow(dead_code)]
 //! Define generic Word type with utility functions
 // Naming Conversion
 // - Limbs: An EVEN word is 256 bits. Limbs N means split 256 into N limb. For example, N = 4, each
 //   limb is 256/4 = 64 bits
 
 use crate::chips::execution_chip_v2::utils::from_bytes;
-use field_exts::{OpsIdentity, ToLittleEndian};
+use field_exts::OpsIdentity;
 use gadgets::util::{not, or, Expr};
 use halo2_proofs::{
     circuit::{AssignedCell, Region, Value},

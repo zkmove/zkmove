@@ -27,7 +27,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
-use crate::utils::SubCircuitConfig;
 use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
@@ -333,7 +332,7 @@ impl<F: Field> ExecChipConfig<F> {
             meta,
             &mut config.columns,
             &challenge_exprs,
-            &mut config.step,
+            &config.step,
             config.s_usable,
             config.s_step_first,
             config.s_step_last,
@@ -379,7 +378,7 @@ impl<F: Field> ExecChipConfig<F> {
         debug_assert_eq!(stat.len(), 1);
         cell_stat_map.insert(G::EXECUTION_STATE, stat.pop().unwrap());
 
-        let (_, constraints, lookups, stored_expressions, meta, columns) = cb.build();
+        let (_, constraints, lookups, stored_expressions, _meta, _columns) = cb.build();
 
         constraints_map.insert(Some(G::EXECUTION_STATE), constraints);
         lookup_map.insert(Some(G::EXECUTION_STATE), lookups);
@@ -714,7 +713,7 @@ impl<F: Field> ExecChipConfig<F> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
-                    $(($exec_state)=> {
+                    $($exec_state=> {
                         $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
                         $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
                     },)*
@@ -862,11 +861,11 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
 
     fn assign(
         &self,
-        step_state: StepState<F>,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
+        _step_state: StepState<F>,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         Ok(stage_state.rows())
     }
