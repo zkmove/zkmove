@@ -1,32 +1,32 @@
-name: Circuit Benchmark
-
-on:
-  pull_request:
-    types: [synchronize, opened, reopened, ready_for_review]
-    branches:
-      - main
-    # Only run benchmarks on changes to following paths:
-    paths:
-      - "vm-circuit/**"
-      - "functional-tests/benches/**"
-  workflow_dispatch:
-
-env:
-  RUSTFLAGS: "-D warnings"
-
-## `actions-rs/toolchain@v1` overwrite set to false so that
-## `rust-toolchain` is always used and the only source of truth.
-
-jobs:
-  runBenchmark:
-    if: github.event.pull_request.draft == false
-    name: Run benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: boa-dev/criterion-compare-action@v3
-        with:
-          branchName: ${{ github.base_ref }}
-          package: "functional-tests"
-          benchName: "circuit_benchmark"
-          defaultFeatures: true
+#name: Circuit Benchmark
+#
+#on:
+#  pull_request:
+#    types: [synchronize, opened, reopened, ready_for_review]
+#    branches:
+#      - main
+#    # Only run benchmarks on changes to following paths:
+#    paths:
+#      - "vm-circuit/**"
+#      - "functional-tests/benches/**"
+#  workflow_dispatch:
+#
+#env:
+#  RUSTFLAGS: "-D warnings"
+#
+### `actions-rs/toolchain@v1` overwrite set to false so that
+### `rust-toolchain` is always used and the only source of truth.
+#
+#jobs:
+#  runBenchmark:
+#    if: github.event.pull_request.draft == false
+#    name: Run benchmark
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - uses: boa-dev/criterion-compare-action@v3
+#        with:
+#          branchName: ${{ github.base_ref }}
+#          package: "functional-tests"
+#          benchName: "circuit_benchmark"
+#          defaultFeatures: true

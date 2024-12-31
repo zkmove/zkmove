@@ -1,16 +1,11 @@
 [package]
 name = "functional-tests"
-version = "0.3.0"
-authors = [
-    "Guangyu Zhu <guangyuz@gmail.com>",
-    "Luxebeng <luxebeng@gmail.com>",
-]
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
 logger = { path = "../common/logger" }
-
-vm-circuit = { path = "../vm-circuit", features = ["test-circuits"] }
+vm-circuit = { path = "../vm-circuit" }
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 halo2_proofs.workspace = true
 rand = "0.8"
@@ -32,3 +27,5 @@ harness = false
 #name = "circuit_benchmark"
 #harness = false
 
+[features]
+test-circuits = []

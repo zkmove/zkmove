@@ -9,13 +9,10 @@ use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::{Path, PathBuf};
-use std::process::exit;
 use structopt::StructOpt;
 use vm_circuit::circuit_v2::VmCircuit;
 use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{
-    best_k, mock_prove_circuit, print_cs_info, prove_and_verify_kzg, setup_circuit, SubCircuit,
-};
+use vm_circuit::{best_k, print_cs_info, prove_and_verify_kzg, setup_circuit, SubCircuit};
 
 #[derive(StructOpt)]
 #[structopt(name = "zkmove", about = "CLI for zkMove")]
@@ -41,8 +38,6 @@ pub enum Command {
         #[structopt(short = "d", long = "debug", help = "debug with mock prover")]
         debug: bool,
     },
-    // #[structopt(name = "graph", about = "generate generic call graph")]
-    // CallGraph { module: PathBuf, output: PathBuf },
 }
 
 impl Arguments {
@@ -91,7 +86,7 @@ impl Arguments {
         let k = best_k(&circuit);
         debug!("k = {}", k);
 
-        // we can use mock, because we compile the cli without test-circuit feature
+        // we can't use mock, because we compile the cli without test-circuit feature
         // if debug {
         //     debug!("Mock prove");
         //     mock_prove_circuit(&circuit, vec![], k)?;
@@ -116,21 +111,5 @@ fn main() -> Result<()> {
 
     match args.cmd {
         Command::Run { ref witness, debug } => args.run(witness.as_path(), debug),
-        // Command::CallGraph { module, output } => {
-        //     std::fs::create_dir_all(output.as_path()).unwrap();
-        //     let module =
-        //         CompiledModule::deserialize(std::fs::read(module.as_path()).unwrap().as_ref())
-        //             .unwrap();
-        //     let store = {
-        //         let mut s = RemoteStore::default();
-        //         s.add_module(&module);
-        //         s
-        //     };
-        //     let graphs = generate(&module.self_id(), &store);
-        //     for (fname, graph) in graphs {
-        //         std::fs::write(output.join(fname).with_extension("dot"), graph.to_dot()).unwrap();
-        //     }
-        //     Ok(())
-        // }
     }
 }

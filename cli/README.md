@@ -22,5 +22,5 @@ Finally, execute the “zkmove run” command, which will run the full sequence 
 
 ```shell
 # Don't forget to replace the witness filename with your own.
-zkmove run -p example -w witnesses/test_fibonacci-1733485309514.json
+./zkmove run -w witnesses/test_fibonacci-1733485309514.json
 ```

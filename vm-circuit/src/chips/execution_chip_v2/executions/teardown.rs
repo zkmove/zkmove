@@ -173,7 +173,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                 assign_result.push(self.lt_gadget.assign(region, offset + i, prev_rlc, *rlc));
                 prev_rlc = *rlc;
             }
-            for i in 0..stage_state.rows() {}
             let assign_result = assign_result.into_iter().collect::<Result<Vec<_>, Error>>();
             assign_result.is_err()
         })?;
