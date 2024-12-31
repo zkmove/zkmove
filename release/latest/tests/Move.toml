@@ -1,0 +1,10 @@
+[package]
+name = "cases"
+version = "0.0.0"
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "main" }
+
+[addresses]
+std = "0x1"
+cases = "0x2"
