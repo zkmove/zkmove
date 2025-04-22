@@ -52,10 +52,16 @@ pub struct StaticInfo {
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
     pub entry: Entry,
+    pub public_inputs: Vec<usize>,
 }
 
 impl StaticInfo {
-    pub fn generate(module_id: &ModuleId, entry_func: u16, package: &CompiledPackage) -> Self {
+    pub fn generate(
+        module_id: &ModuleId,
+        entry_func: u16,
+        package: &CompiledPackage,
+        public_inputs: &[usize],
+    ) -> Self {
         let modules = package.all_modules_map();
         let mut deps = modules
             .get_transitive_dependencies(module_id)
@@ -76,6 +82,7 @@ impl StaticInfo {
                 module_index,
                 function_index: entry_func,
             },
+            public_inputs: public_inputs.to_vec(),
         }
     }
 

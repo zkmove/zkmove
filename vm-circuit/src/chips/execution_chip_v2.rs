@@ -14,6 +14,7 @@ use crate::chips::execution_chip_v2::executions::{
     VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2, VecSwapStage_1,
     VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2, WriteRefStage3,
 };
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
@@ -42,6 +43,7 @@ use types::Field;
 
 pub(crate) mod call_stack;
 pub(crate) mod executions;
+pub mod instance;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
@@ -124,6 +126,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub challenges: Challenges,
     pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
     pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
+    pub instances: InstanceTable,
 }
 
 impl<F: Field> ExecChipConfig<F> {
@@ -252,6 +255,8 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
 
+        let instances = InstanceTable::construct(meta);
+
         let mut config = ExecChipConfig {
             s_usable,
             s_step_first,
@@ -326,6 +331,7 @@ impl<F: Field> ExecChipConfig<F> {
             challenges,
             stored_expressions_map,
             dynamic_cell_stat_map: additional_cell_stat_map,
+            instances,
         };
 
         Self::configure_opcode_gadget(
@@ -351,6 +357,7 @@ impl<F: Field> ExecChipConfig<F> {
         );
         Self::configure_shuffle(meta, &config, s_usable);
 
+        Self::configure_instances(meta, &config, s_usable);
         config
     }
 
@@ -649,7 +656,33 @@ impl<F: Field> ExecChipConfig<F> {
             input_exprs.into_iter().zip(shuffled_exprs).collect()
         });
     }
+    fn configure_instances(
+        meta: &mut ConstraintSystem<F>,
+        config: &ExecChipConfig<F>,
+        s_usable: Selector,
+    ) {
+        let step_curr = &config.step;
+        meta.shuffle("constrain instances", |meta| {
+            let s_usable = meta.query_selector(s_usable);
+            let s_process_arg = step_curr.execution_state_selector([ExecutionState::ProcessArg]);
+            let s_pi = config.process_arg.is_pi.expr();
 
+            let pi_set = [
+                step_curr.state.local_sub_index.expr(),
+                step_curr.state.local_write_value_header.expr(),
+            ]
+            .into_iter()
+            .chain(step_curr.state.local_write_value.exprs())
+            .map(|e| s_usable.clone() * s_process_arg.clone() * s_pi.clone() * e);
+
+            let instances_set = config
+                .instances
+                .exprs(meta)
+                .into_iter()
+                .map(|e| s_usable.clone() * s_process_arg.clone() * s_pi.clone() * e);
+            pi_set.zip(instances_set).collect()
+        });
+    }
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,

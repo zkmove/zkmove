@@ -154,6 +154,8 @@ pub struct ProcessArg<F> {
     entry_function_index: Cell<F>,
     num_arg: Cell<F>,
     is_zero_local_index: IsZeroGadget<F>,
+    // weather the local variable is a public input.
+    pub is_pi: Cell<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
     const NAME: &'static str = "ProcessArg";
@@ -164,6 +166,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         let entry_function_index = cb.query_cell();
         let num_arg = cb.query_cell();
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
+        let is_pi = cb.query_bool();
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -217,6 +220,16 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
 
+        // constrain is_pi via the pi table
+        let arg_index = num_arg.expr() - 1.expr() - cb.curr.state.local_index.expr();
+        cb.add_lookup(
+            "pi lookup",
+            Lookup::PublicInput {
+                arg_index,
+                is_pi: is_pi.expr(),
+            },
+        );
+
         cb.not_last_row(|cb| {
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(entry_module_index.clone(), Transition::Same);
@@ -253,6 +266,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             entry_function_index,
             num_arg,
             is_zero_local_index,
+            is_pi,
         }
     }
 
@@ -262,7 +276,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        _static_info: &StaticInfo,
+        static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         let entry_module_index = region.get_advice(
             offset,
@@ -274,7 +288,13 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             self.entry_function_index.get_column_idx(),
             Rotation::prev(),
         );
-        let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
+        let num_arg = static_info
+            .get_entry_function(
+                static_info.entry.module_index,
+                static_info.entry.function_index,
+            )
+            .expect("cannot find function")
+            .num_arg;
 
         let step_state = stage_state.step_states.first().unwrap();
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
@@ -283,10 +303,18 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             self.entry_function_index
                 .assign(region, offset, Value::known(entry_function_index))?;
             self.num_arg
-                .assign(region, offset + i, Value::known(num_arg))?;
+                .assign(region, offset + i, Value::known(F::from(num_arg as u64)))?;
             let local_index = memory_op.2.as_ref().unwrap().index;
             self.is_zero_local_index
                 .assign(region, offset + i, F::from(local_index as u64))?;
+
+            let arg_index = num_arg - 1 - local_index;
+            let is_public_input = static_info.public_inputs.contains(&(arg_index as usize));
+            self.is_pi.assign(
+                region,
+                offset + i,
+                Value::known(if is_public_input { F::one() } else { F::zero() }),
+            )?;
         }
 
         let rows = step_state.memory_ops.len();

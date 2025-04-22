@@ -3,6 +3,7 @@ use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookup
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::fix_table::FixedTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
+use crate::chips::execution_chip_v2::lookup_table::pi_table::PublicInputsLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::pow2::Pow2LookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
@@ -20,6 +21,7 @@ pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
 pub(crate) mod fix_table;
 pub(crate) mod function_table;
+pub(crate) mod pi_table;
 pub(crate) mod pow2;
 pub(crate) mod utils;
 pub(crate) mod ux_table;
@@ -48,6 +50,8 @@ pub enum Table {
     Pow2,
     /// Bitwise lookup
     Bitwise,
+    /// Lookup public inputs table
+    PublicInput,
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +90,10 @@ pub(crate) enum Lookup<F> {
         value_2: Expression<F>,
         result: Expression<F>,
     },
+    PublicInput {
+        arg_index: Expression<F>,
+        is_pi: Expression<F>,
+    },
     /// Conditional lookup enabled by the first element.
     Conditional(Expression<F>, Box<Lookup<F>>),
 }
@@ -102,6 +110,7 @@ impl<F: Field> Lookup<F> {
             Self::Bitwise { .. } => Table::Bitwise,
             Self::Constant { .. } => Table::Constant,
             Self::Pow2 { .. } => Table::Pow2,
+            Self::PublicInput { .. } => Table::PublicInput,
             Self::Conditional(_, lookup) => lookup.table(),
         }
     }
@@ -157,6 +166,9 @@ impl<F: Field> Lookup<F> {
                 pow_hi,
             } => {
                 vec![value.clone(), pow_lo.clone(), pow_hi.clone()]
+            }
+            Self::PublicInput { arg_index, is_pi } => {
+                vec![arg_index.clone(), is_pi.clone()]
             }
             Self::Conditional(condition, lookup) => lookup
                 .input_exprs()
@@ -227,6 +239,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) function_table: FunctionLookupTable,
     pub(crate) bitwise_table: BitwiseLookupTable,
     pub(crate) pow2_table: Pow2LookupTable,
+    pub(crate) pi_table: PublicInputsLookupTable,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
@@ -243,6 +256,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let function_table = FunctionLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2LookupTable::construct(meta);
+        let pi_table = PublicInputsLookupTable::construct(meta);
         Self {
             fixed_table,
             nibble_table,
@@ -255,6 +269,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             function_table,
             bitwise_table,
             pow2_table,
+            pi_table,
             phantom_data: PhantomData,
         }
     }
@@ -276,6 +291,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.function_table.load(layouter, static_info)?;
         self.bitwise_table.load(layouter)?;
         self.pow2_table.load(layouter)?;
+        self.pi_table.load(layouter, static_info)?;
         Ok(())
     }
 
@@ -300,6 +316,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             self.function_table.build::<F>(static_info).len(),
             self.bitwise_table.build::<F>().count(),
             self.pow2_table.build::<F>().len(),
+            self.pi_table.build::<F>(static_info).len(),
         ];
 
         // Return the maximum height
@@ -319,6 +336,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
             Table::Pow2 => self.pow2_table.table_exprs(meta),
+            Table::PublicInput => self.pi_table.table_exprs(meta),
         }
     }
 }

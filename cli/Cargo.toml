@@ -12,7 +12,7 @@ vm-circuit = { path = "../vm-circuit" }
 anyhow = "1.0.38"
 rand = "0.8"
 serde_json = { workspace = true }
-structopt = "0.3.25"
+clap = { version = "4.3.9", features = ["derive"] }
 
 [dev-dependencies]
 
