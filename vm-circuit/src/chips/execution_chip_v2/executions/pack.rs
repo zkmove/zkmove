@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::executions::{ExecutionState, DEPTH_POW_OF_ONE_LEVEL};
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
@@ -234,6 +235,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         start_offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

@@ -1,8 +1,9 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
-    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, PC, SP,
+    StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, NUM_OF_VALUE_LIMBS, PC, SP,
 };
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -110,6 +111,7 @@ impl<F: Field> InstructionGadgetV2<F> for Start<F> {
         offset: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let entry_func = match stage_state.extra_data.as_ref() {
             Some(StageExtraAssignData::Start(entry_func)) => entry_func,
@@ -154,6 +156,9 @@ pub struct ProcessArg<F> {
     entry_function_index: Cell<F>,
     num_arg: Cell<F>,
     is_zero_local_index: IsZeroGadget<F>,
+    arg_sub_index: Cell<F>,
+    arg_header: Cell<F>,
+    arg_value: [Cell<F>; NUM_OF_VALUE_LIMBS],
 }
 impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
     const NAME: &'static str = "ProcessArg";
@@ -164,6 +169,9 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         let entry_function_index = cb.query_cell();
         let num_arg = cb.query_cell();
         let is_zero_local_index = IsZeroGadget::construct(cb, cb.curr.state.local_index.expr());
+        let arg_sub_index = cb.query_cell_enable_equality();
+        let arg_header = cb.query_cell_enable_equality();
+        let arg_value = [(); NUM_OF_VALUE_LIMBS].map(|_| cb.query_cell_enable_equality());
         let step_curr = cb.curr.state.clone();
 
         cb.first_row(|cb| {
@@ -217,6 +225,29 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
 
+        cb.require_equal(
+            format!("{}, local_sub_index == arg_sub_index", Self::NAME),
+            step_curr.local_sub_index.expr(),
+            arg_sub_index.expr(),
+        );
+        cb.require_equal(
+            format!("{}, local_header == arg_header", Self::NAME),
+            step_curr.local_write_value_header.expr(),
+            arg_header.expr(),
+        );
+        for (local_expr, arg_cell) in step_curr
+            .local_write_value
+            .exprs()
+            .iter()
+            .zip(arg_value.iter())
+        {
+            cb.require_equal(
+                format!("{}, local_write_value == arg_value", Self::NAME),
+                local_expr.clone(),
+                arg_cell.expr(),
+            );
+        }
+
         cb.not_last_row(|cb| {
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(entry_module_index.clone(), Transition::Same);
@@ -253,16 +284,20 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             entry_function_index,
             num_arg,
             is_zero_local_index,
+            arg_sub_index,
+            arg_header,
+            arg_value,
         }
     }
 
     fn assign(
         &self,
-        _step: StepState<F>,
+        step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        _static_info: &StaticInfo,
+        static_info: &StaticInfo,
+        instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let entry_module_index = region.get_advice(
             offset,
@@ -274,7 +309,13 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             self.entry_function_index.get_column_idx(),
             Rotation::prev(),
         );
-        let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
+        let num_arg = static_info
+            .get_entry_function(
+                static_info.entry.module_index,
+                static_info.entry.function_index,
+            )
+            .expect("cannot find function")
+            .num_arg;
 
         let step_state = stage_state.step_states.first().unwrap();
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
@@ -283,10 +324,64 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             self.entry_function_index
                 .assign(region, offset, Value::known(entry_function_index))?;
             self.num_arg
-                .assign(region, offset + i, Value::known(num_arg))?;
+                .assign(region, offset + i, Value::known(F::from(num_arg as u64)))?;
             let local_index = memory_op.2.as_ref().unwrap().index;
             self.is_zero_local_index
                 .assign(region, offset + i, F::from(local_index as u64))?;
+
+            // Notice: memory_op[i] hold local[num_arg - 1 - i]
+            let arg_index = local_index;
+            let is_public_input = static_info.public_inputs.contains(&(arg_index as usize));
+            let local_sub_index = region.get_advice(
+                offset + i,
+                step.local_sub_index.get_column_idx(),
+                Rotation::cur(),
+            );
+            let local_write_value_header = region.get_advice(
+                offset + i,
+                step.local_write_value_header.get_column_idx(),
+                Rotation::cur(),
+            );
+            let local_write_value: Vec<_> = step
+                .local_write_value
+                .cells()
+                .iter()
+                .map(|cell| region.get_advice(offset + i, cell.get_column_idx(), Rotation::cur()))
+                .collect();
+
+            if !is_public_input {
+                self.arg_sub_index
+                    .assign(region, offset + i, Value::known(local_sub_index))?;
+                self.arg_header.assign(
+                    region,
+                    offset + i,
+                    Value::known(local_write_value_header),
+                )?;
+                for (arg_val, local_val) in self.arg_value.iter().zip(local_write_value.iter()) {
+                    arg_val.assign(region, offset + i, Value::known(*local_val))?;
+                }
+            } else {
+                self.arg_sub_index.assign_from_instance(
+                    region,
+                    instances.sub_index,
+                    arg_index.into(),
+                    offset + i,
+                )?;
+                self.arg_header.assign_from_instance(
+                    region,
+                    instances.header,
+                    arg_index.into(),
+                    offset + i,
+                )?;
+                for (arg_val, instance) in self.arg_value.iter().zip(instances.value.iter()) {
+                    arg_val.assign_from_instance(
+                        region,
+                        *instance,
+                        arg_index.into(),
+                        offset + i,
+                    )?;
+                }
+            }
         }
 
         let rows = step_state.memory_ops.len();

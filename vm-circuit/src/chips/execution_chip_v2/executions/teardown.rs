@@ -15,6 +15,7 @@ use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Error;
@@ -132,6 +133,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(stage_state.rows() > 0);
 

@@ -1,6 +1,6 @@
 use crate::utils::challenges::Challenges;
 use halo2_proofs::circuit::{AssignedCell, Region, Value};
-use halo2_proofs::plonk::{Advice, Assigned, Column, Error};
+use halo2_proofs::plonk::{Advice, Assigned, Column, Error, Instance};
 use halo2_proofs::poly::Rotation;
 use itertools::Itertools;
 use types::Field;
@@ -136,5 +136,22 @@ impl<'r, 'b, F: Field> CachedRegion<'r, 'b, F> {
         VR: Into<Assigned<F>>,
     {
         self.region.constrain_constant(cell.cell(), constant.into())
+    }
+
+    /// Assign an advice column value from instance.
+    pub fn assign_advice_from_instance<A, AR>(
+        &mut self,
+        annotation: A,
+        instance: Column<Instance>,
+        row: usize,
+        column: Column<Advice>,
+        offset: usize,
+    ) -> Result<AssignedCell<F, F>, Error>
+    where
+        A: Fn() -> AR,
+        AR: Into<String>,
+    {
+        self.region
+            .assign_advice_from_instance(annotation, instance, row, column, offset)
     }
 }

@@ -184,7 +184,9 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
     pub(crate) fn query_cell_phase0(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::StoragePhase0)
     }
-
+    pub(crate) fn query_cell_enable_equality(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::StoragePhase1EnableEquality)
+    }
     // pub(crate) fn query_copy_cell(&mut self) -> Cell<F> {
     //     self.query_cell_with_type(CellType::StoragePermutation)
     // }

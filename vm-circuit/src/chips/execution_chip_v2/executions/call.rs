@@ -1,5 +1,6 @@
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{
@@ -118,6 +119,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage1<F> {
         offset: usize,
         stage_state: &StageState,
         static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let state = stage_state.step_states.first().unwrap();
         let num_arg = static_info
@@ -233,6 +235,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage2<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let rows = stage_state.rows();
         let num_arg = region.get_advice(offset, self.num_arg.get_column_idx(), Rotation::prev());
@@ -389,6 +392,7 @@ impl<F: Field> InstructionGadgetV2<F> for CallStage3<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let step_state = stage_state.step_states.first().unwrap();
         let rows = step_state.memory_ops.len();

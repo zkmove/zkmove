@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
+use crate::chips::execution_chip_v2::lookup_table::Table;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::query_expression;
 use gadgets::util::Expr;
+use halo2_proofs::plonk::Instance;
 use halo2_proofs::{
     circuit::{AssignedCell, Value},
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
     poly::Rotation,
 };
-
-use crate::chips::execution_chip_v2::lookup_table::Table;
 use strum::IntoEnumIterator;
 use types::Field;
 
@@ -18,15 +18,20 @@ use types::Field;
 pub(crate) enum CellType {
     StoragePhase0,
     StoragePhase1,
+    StoragePhase1EnableEquality,
     Lookup(Table),
 }
 
 impl CellType {
     pub(crate) fn all() -> Vec<CellType> {
-        [Self::StoragePhase0, Self::StoragePhase1]
-            .into_iter()
-            .chain(Table::iter().map(CellType::Lookup))
-            .collect()
+        [
+            Self::StoragePhase0,
+            Self::StoragePhase1,
+            Self::StoragePhase1EnableEquality,
+        ]
+        .into_iter()
+        .chain(Table::iter().map(CellType::Lookup))
+        .collect()
     }
 }
 
@@ -35,7 +40,7 @@ impl CellType {
     pub fn phase(&self) -> u8 {
         match self {
             CellType::StoragePhase0 => 0,
-            CellType::StoragePhase1 => 1,
+            CellType::StoragePhase1 | CellType::StoragePhase1EnableEquality => 1,
             CellType::Lookup(t) => match t {
                 Table::Nibble | Table::U8 | Table::U10 => 2,
                 #[cfg(feature = "table-u16")]
@@ -124,6 +129,27 @@ impl<F: Field> Cell<F> {
             self.column,
             (offset as isize + self.rotation) as usize,
             || value,
+        )
+    }
+    /// Assigns a Cell from instance.
+    pub(crate) fn assign_from_instance(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        instance: Column<Instance>,
+        row: usize,
+        offset: usize,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        region.assign_advice_from_instance(
+            || {
+                format!(
+                    "Cell column: {:?} and rotation: {}",
+                    self.column, self.rotation
+                )
+            },
+            instance,
+            row,
+            self.column,
+            (offset as isize + self.rotation) as usize,
         )
     }
     #[cfg(feature = "test-circuits")]

@@ -1,5 +1,6 @@
 use crate::chips::execution_chip_v2::call_stack::CallContext;
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::range_check::RangeCheckGadget;
 use crate::chips::execution_chip_v2::step_v2::{StepState, FRAME_INDEX, SP};
@@ -105,6 +106,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let extra_data = match stage_state.extra_data.as_ref() {
             Some(StageExtraAssignData::Ret(extra_data)) => extra_data,

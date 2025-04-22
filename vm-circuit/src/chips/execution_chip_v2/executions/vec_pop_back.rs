@@ -1,6 +1,7 @@
 use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::step_v2::{StepState, AUX0, AUX1, OPCODE, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
@@ -218,6 +219,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 
@@ -436,6 +438,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let vector_sub_index = region.get_advice(
             offset,

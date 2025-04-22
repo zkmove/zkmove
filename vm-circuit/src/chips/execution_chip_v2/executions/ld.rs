@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -86,6 +87,7 @@ impl<F: Field> InstructionGadgetV2<F> for LdSimple<F> {
         _offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         // no need to assign anything else
         Ok(stage_state.rows())
