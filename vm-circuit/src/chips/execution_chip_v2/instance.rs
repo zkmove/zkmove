@@ -5,6 +5,8 @@ use halo2_proofs::poly::Rotation;
 use move_vm_runtime::witnessing::traced_value::ValueItems;
 use types::Field;
 
+pub const NUM_INSTANCE_COLUMNS: usize = NUM_OF_VALUE_LIMBS + 2;
+
 #[derive(Clone)]
 pub struct InstanceTable {
     pub sub_index: Column<Instance>,
@@ -40,40 +42,103 @@ impl InstanceTable {
     }
 }
 
-pub fn public_inputs_to_fields<F: Field>(
-    args: &[ValueItems],
-    public_inputs: &[usize],
-) -> Vec<Vec<F>> {
-    // Collect fields of all ValueItems as rows
-    let mut rows: Vec<Vec<F>> = Vec::new();
-    for &index in public_inputs {
-        if index < args.len() {
-            let value_items = &args[index];
-            for value_item in value_items {
-                let fields = value_item.to_fields();
-                assert_eq!(
-                    fields.len(),
-                    NUM_OF_VALUE_LIMBS + 2,
-                    "Each ValueItem must produce {} fields (sub_index, header, {} value limbs)",
-                    NUM_OF_VALUE_LIMBS + 2,
-                    NUM_OF_VALUE_LIMBS
-                );
-                rows.push(fields);
+#[derive(Clone)]
+pub struct InstanceFields<F: Field, const INSTANCE_COL: usize>(pub Vec<Vec<F>>);
+
+impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
+    pub fn new(args: &[ValueItems], pubs_indices: &[usize]) -> Self {
+        let mut rows: Vec<Vec<F>> = Vec::new();
+        for &index in pubs_indices {
+            if index < args.len() {
+                let value_items = &args[index];
+                for value_item in value_items {
+                    let fields = value_item.to_fields();
+                    assert_eq!(
+                        fields.len(),
+                        INSTANCE_COL,
+                        "Each ValueItem must produce {} fields",
+                        INSTANCE_COL
+                    );
+                    rows.push(fields);
+                }
             }
         }
-    }
 
-    // Transpose rows to columns, or return single zero columns if empty
-    let mut columns: Vec<Vec<F>> = vec![Vec::new(); NUM_OF_VALUE_LIMBS + 2];
-    if rows.is_empty() {
-        columns.iter_mut().for_each(|col| col.push(F::zero()));
-    } else {
-        for row in rows {
-            for (i, field) in row.into_iter().enumerate() {
-                columns[i].push(field);
+        let mut columns: Vec<Vec<F>> = vec![Vec::new(); INSTANCE_COL];
+        if rows.is_empty() {
+            columns.iter_mut().for_each(|col| col.push(F::zero()));
+        } else {
+            for row in rows {
+                for (i, field) in row.into_iter().enumerate() {
+                    columns[i].push(field);
+                }
             }
         }
-    }
 
-    columns
+        InstanceFields(columns)
+    }
+    pub fn as_ref(&self) -> Vec<&[F]> {
+        self.0.iter().map(|v| v.as_slice()).collect()
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for column in &self.0 {
+            for field in column {
+                let field_bytes: [u8; 32] = field.to_repr();
+                bytes.extend_from_slice(field_bytes.as_ref());
+            }
+        }
+        bytes
+    }
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let field_byte_len = F::Repr::default().as_ref().len();
+        let num_columns = INSTANCE_COL;
+        assert_eq!(bytes.len() % field_byte_len, 0, "Byte length not aligned");
+        let num_fields = bytes.len() / field_byte_len;
+        assert_eq!(num_fields % num_columns, 0, "Field count not aligned");
+        let num_rows = num_fields / num_columns;
+
+        let mut columns = vec![Vec::with_capacity(num_rows); num_columns];
+        for col in 0..num_columns {
+            for row in 0..num_rows {
+                let i = col * num_rows + row;
+                let start = i * field_byte_len;
+                let end = start + field_byte_len;
+                let mut repr = F::Repr::default();
+                repr.as_mut().copy_from_slice(&bytes[start..end]);
+                let field = F::from_repr(repr).unwrap();
+                columns[col].push(field);
+            }
+        }
+        InstanceFields(columns)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::arithmetic::Field;
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use rand::rngs::OsRng;
+
+    #[test]
+    fn test_to_bytes_and_from_bytes() {
+        const TEST_COLS: usize = NUM_INSTANCE_COLUMNS;
+        let num_columns = TEST_COLS;
+        let num_rows = 3;
+        let mut columns = vec![Vec::with_capacity(num_rows); num_columns];
+        for col in &mut columns {
+            for _ in 0..num_rows {
+                col.push(Fr::random(OsRng));
+            }
+        }
+        let public_inputs = InstanceFields::<Fr, TEST_COLS>(columns);
+
+        // Serialize
+        let bytes = public_inputs.to_bytes();
+        // Deserialize
+        let restored = InstanceFields::<Fr, TEST_COLS>::from_bytes(&bytes);
+
+        // Check that the content is consistent
+        assert_eq!(public_inputs.0, restored.0);
+    }
 }

@@ -28,7 +28,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
-use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or, Expr};
@@ -659,7 +658,8 @@ impl<F: Field> ExecChipConfig<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        witness: &WitnessV2,
+        states: Vec<StageState>,
+        static_info: &StaticInfo,
         challenges: &Challenges<Value<F>>,
     ) -> Result<(), Error> {
         layouter.assign_region(
@@ -675,16 +675,16 @@ impl<F: Field> ExecChipConfig<F> {
                         &mut region,
                         challenges,
                         self.columns.columns().iter().map(|c| c.advice).collect(),
-                        witness.opcode_witnesses.iter().map(|s| s.rows()).sum(),
+                        states.iter().map(|s| s.rows()).sum(),
                         offset,
                     );
-                    for opcode_witness in &witness.opcode_witnesses {
+                    for opcode_witness in &states {
                         let step_rows = self.assign_exec_step(
                             &mut cached_region,
                             offset,
                             opcode_witness,
                             challenges,
-                            &witness.static_info,
+                            static_info,
                             &self.instances,
                         )?;
                         for row in offset..offset + step_rows {
@@ -696,7 +696,7 @@ impl<F: Field> ExecChipConfig<F> {
                     // had to assign stored_expression later,
                     // as it may reference next rows.
                     let mut offset = 0;
-                    for opcode_witness in &witness.opcode_witnesses {
+                    for opcode_witness in &states {
                         let step_rows = opcode_witness.rows();
                         self.assign_stored_expression(&mut cached_region, offset, opcode_witness)?;
                         offset += step_rows;

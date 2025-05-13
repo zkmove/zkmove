@@ -4,11 +4,16 @@ use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, LookupTableCo
 use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
-use crate::witness::WitnessV2;
+use aptos_move_witnesses::static_info::{Footprints, StaticInfo};
+use aptos_move_witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
+use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use move_package::compilation::compiled_package::CompiledPackage;
+use move_vm_runtime::witnessing::EntryCall;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 use types::Field;
@@ -59,9 +64,24 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct CircuitConfigV2 {
+    pub max_rows: Option<usize>,
+}
+
+impl CircuitConfigV2 {
+    pub fn new(max_rows: usize) -> Self {
+        Self {
+            max_rows: Some(max_rows),
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct VmCircuit<F: Field> {
-    pub witness: WitnessV2,
+    pub states: Vec<StageState>,
+    pub static_info: StaticInfo,
+    pub circuit_config: CircuitConfigV2,
     pub _maker: PhantomData<F>,
 }
 
@@ -91,9 +111,40 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
 impl<F: Field> SubCircuit<F> for VmCircuit<F> {
     type Config = VmCircuitConfig<F>;
 
-    fn new_from_witness(witness: &WitnessV2) -> Self {
+    fn new(
+        package: &CompiledPackage,
+        traces: &Footprints,
+        pubs_indices: &[usize],
+        circuit_config: CircuitConfigV2,
+    ) -> Self {
+        let entry = traces.entry().expect("entry should be set in traces");
+        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+            .expect("static info should be generated");
+        let preprocessor = WitnessPreProcessor::default();
+        let states = preprocessor.pre_process(&traces.0, &static_info);
         Self {
-            witness: witness.clone(),
+            states,
+            static_info,
+            circuit_config,
+            _maker: Default::default(),
+        }
+    }
+    fn new_with_empty_state(
+        package: &CompiledPackage,
+        entry: EntryCall,
+        pubs_indices: &[usize],
+        circuit_config: CircuitConfigV2,
+    ) -> Self {
+        let num_rows = circuit_config
+            .max_rows
+            .expect("max_rows should be set in config");
+        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+            .expect("static info should be generated");
+        let empty_states = (0..num_rows).map(|_| StageState::default()).collect();
+        Self {
+            states: empty_states,
+            static_info,
+            circuit_config,
             _maker: Default::default(),
         }
     }
@@ -108,44 +159,66 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
-        //dbg!(&self.witness.static_info.function_info);
-        lookup_table_config.load(
-            layouter,
-            fixed_table_tags.clone(),
-            &self.witness.static_info,
-        )?;
+        //dbg!(&self.static_info.function_info);
+        lookup_table_config.load(layouter, fixed_table_tags.clone(), &self.static_info)?;
 
-        // Pads the witness to match `max_rows` in the circuit config.
-        let padded_witness = self.witness.padding().unwrap_or_else(|| {
+        // Pads the states to match `max_rows` in the circuit config.
+        let states = self.padding_states().unwrap_or_else(|| {
             panic!(
-                "num of witness rows {} exceeds the max num of rows",
-                self.witness.num_rows()
+                "num of states rows {} exceeds the max num of rows",
+                self.states.iter().map(|s| s.rows()).sum::<usize>()
             )
         });
-        exec_chip_config.assign(layouter, &padded_witness, challenges)?;
+        exec_chip_config.assign(layouter, states, &self.static_info, challenges)?;
         Ok(())
     }
 }
 
 impl<F: Field> VmCircuit<F> {
+    /// Pads the states with default `StageState` to match `max_rows` in the circuit config.
+    pub fn padding_states(&self) -> Option<Vec<StageState>> {
+        if let Some(max_rows) = self.circuit_config.max_rows {
+            let num_rows = self.states.iter().map(|s| s.rows()).sum::<usize>();
+            if num_rows > max_rows {
+                None
+            } else {
+                let mut padded_states = self.states.clone();
+                if num_rows < max_rows {
+                    let last_clk = padded_states
+                        .last()
+                        .and_then(|s| s.step_states.last())
+                        .map(|state| state.step_state.clk)
+                        .unwrap_or_default();
+
+                    padded_states.extend((1..=(max_rows - num_rows)).map(|i| StageState {
+                        step_states: vec![ExecStepState {
+                            step_state: StepState::default().change_clk(last_clk + i as u64),
+                            memory_ops: vec![MemoryOp(None, None, None)],
+                        }],
+                        extra_data: None,
+                    }));
+                }
+                Some(padded_states)
+            }
+        } else {
+            Some(self.states.clone())
+        }
+    }
     /// Return the minimum number of rows required to prove the circuit.
     pub fn circuit_height(&self) -> usize {
         let mut cs = ConstraintSystem::default();
         let config = VmCircuit::<F>::configure(&mut cs);
         let table_rows = config
             .lookup_table_config
-            .tables_height(&self.witness.static_info, config.fixed_table_tags);
+            .tables_height(&self.static_info, config.fixed_table_tags);
 
-        let witness_rows = if let Some(max_rows) = self.witness.circuit_config.max_rows {
+        let states_rows = if let Some(max_rows) = self.circuit_config.max_rows {
             max_rows
         } else {
-            self.witness.num_rows()
+            self.states.iter().map(|s| s.rows()).sum::<usize>()
         };
 
-        let rows_needed = vec![table_rows, witness_rows]
-            .into_iter()
-            .max()
-            .unwrap_or(0);
+        let rows_needed = vec![table_rows, states_rows].into_iter().max().unwrap_or(0);
 
         // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
         rows_needed + (cs.blinding_factors() + 1)

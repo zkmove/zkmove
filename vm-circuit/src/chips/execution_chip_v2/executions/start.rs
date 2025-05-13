@@ -331,7 +331,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
 
             // Notice: memory_op[i] hold local[num_arg - 1 - i]
             let arg_index = local_index;
-            let is_public_input = static_info.public_inputs.contains(&(arg_index as usize));
+            let is_public_input = static_info.pubs_indices.contains(&(arg_index as usize));
             let local_sub_index = region.get_advice(
                 offset + i,
                 step.local_sub_index.get_column_idx(),

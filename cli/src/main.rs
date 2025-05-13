@@ -1,7 +1,4 @@
-use anyhow::{anyhow, Result};
-use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
-use aptos_move_witnesses::{Footprint, Operation};
+use anyhow::Result;
 use clap::Parser;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
@@ -9,14 +6,13 @@ use logger::prelude::*;
 use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
-use std::collections::HashSet;
 use std::path::PathBuf;
-use vm_circuit::chips::execution_chip_v2::instance::public_inputs_to_fields;
-use vm_circuit::circuit_v2::VmCircuit;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
-use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{best_k, print_cs_info, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use vm_circuit::{
+    best_k, print_cs_info, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
+    Footprints, InstanceFields, SubCircuit, VmCircuit, NUM_INSTANCE_COLUMNS,
+};
 
 #[derive(Parser)]
 #[clap(name = "zkmove", about = "CLI for zkMove")]
@@ -44,60 +40,31 @@ pub enum Command {
 
         #[clap(
             short = 'p',
-            long = "public-inputs",
-            help = "Indices of arguments to be treated as public inputs (e.g., --public-inputs 0 1)",
+            long = "pubs_indices",
+            help = "Indices of arguments to be treated as public inputs (e.g., --pubs_indices 0 1)",
             value_parser = clap::value_parser!(usize),
             num_args = 0..,
         )]
-        public_inputs: Vec<usize>,
+        pubs_indices: Vec<usize>,
     },
 }
 
 impl Arguments {
     pub fn run(&self) -> Result<()> {
-        let (witness, debug, public_inputs) = match &self.cmd {
+        let (witness, debug, pubs_indices) = match &self.cmd {
             Command::Run {
                 witness,
                 debug,
-                public_inputs,
-            } => (witness, *debug, public_inputs),
+                pubs_indices,
+            } => (witness, *debug, pubs_indices),
         };
 
         logger::init_for_main(debug);
         debug!("witness {:?}", witness.display());
 
-        let trace_contents = std::fs::read_to_string(witness)?;
-        let traces: Vec<Footprint> = serde_json::from_str(&trace_contents)?;
+        let traces = Footprints::load(witness)?;
+        let entry = traces.entry().expect("Entry not found");
 
-        let first_trace = traces
-            .first()
-            .ok_or_else(|| anyhow!("In witness '{}': No traces found", witness.display()))?;
-        let (num_arg, entry) = match &first_trace.data {
-            Operation::Start { entry_call } => (entry_call.args.len(), entry_call),
-            _ => {
-                return Err(anyhow!(
-                    "In witness '{}': First trace is not a Start operation",
-                    witness.display()
-                ))
-            }
-        };
-
-        // check public inputs
-        for &index in public_inputs {
-            if index >= num_arg {
-                return Err(anyhow!(
-                    "Public input index {} out of bounds for input count {}",
-                    index,
-                    num_arg
-                ));
-            }
-        }
-        let unique_indices: HashSet<_> = public_inputs.iter().collect();
-        if unique_indices.len() != public_inputs.len() {
-            return Err(anyhow!("Duplicate indices in public-inputs"));
-        }
-
-        // Always root ourselves to the package root, and then compile relative to that.
         let rooted_path = SourcePackageLayout::try_find_root(&witness.canonicalize()?)?;
         let manifest = {
             let manifest_string =
@@ -108,7 +75,6 @@ impl Arguments {
                 )?;
             move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?
         };
-
         let package = {
             let package_name = manifest.package.name.to_string();
             let build_path = rooted_path
@@ -117,21 +83,8 @@ impl Arguments {
             let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
             package.into_compiled_package()?
         };
-
-        let module_id = entry
-            .module_id
-            .as_ref()
-            .ok_or_else(|| anyhow!("Module ID is missing for entry call"))?;
-        let static_info = StaticInfo::generate(
-            module_id,
-            entry.function_index as u16,
-            &package,
-            public_inputs.as_slice(),
-        );
-        let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.pre_process(&traces, &static_info);
-        let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
-        let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
+        let circuit =
+            VmCircuit::<Fr>::new(&package, &traces, pubs_indices, CircuitConfigV2::default());
 
         let k = best_k(&circuit);
         debug!("k = {}", k);
@@ -144,20 +97,20 @@ impl Arguments {
             print_cs_info(vk.cs());
         }
         debug!("Generate zk proof");
-        let instances: Vec<Vec<Fr>> = public_inputs_to_fields(&entry.args, public_inputs);
+        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&entry.args, pubs_indices);
 
         #[cfg(feature = "test-circuits")]
         if debug {
             debug!("Mock prove");
-            mock_prove_circuit(&circuit, instances, k)?;
+            mock_prove_circuit(&circuit, instances.0, k)?;
         }
 
         #[cfg(not(feature = "test-circuits"))]
         {
-            // Convert to &[&[F]]
-            let slices: Vec<&[Fr]> = instances.iter().map(|v| v.as_slice()).collect();
-            let instances_ref: &[&[Fr]] = &slices;
-            prove_and_verify_kzg(circuit, instances_ref, &params, pk.clone());
+            let proof = prove_circuit(circuit, &instances.as_ref(), &params, &pk)
+                .expect("proof generation should not fail");
+            verify_circuit(&instances.as_ref(), &params, &vk, &proof)
+                .expect("verify proof should be ok");
         }
 
         Ok(())
@@ -170,7 +123,7 @@ fn main() -> Result<()> {
         Command::Run {
             witness: _,
             debug: _,
-            public_inputs: _,
+            pubs_indices: _,
         } => args.run(),
     }
 }
