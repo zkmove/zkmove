@@ -36,12 +36,11 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     // load traces
     let traces = Footprints::load(path)?;
-    let entry = traces.entry().expect("Entry not found");
 
     // For testing purposes, force all arguments to be public inputs.
-    let pubs_indices: Vec<usize> = Vec::from_iter(0..entry.args.len());
-    let instances =
-        InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&entry.args, pubs_indices.as_slice());
+    let args = traces.args().expect("Args not found");
+    let pubs_indices: Vec<usize> = Vec::from_iter(0..args.len());
+    let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices.as_slice());
 
     #[cfg(feature = "test-circuits")]
     {
@@ -55,7 +54,8 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     #[cfg(not(feature = "test-circuits"))]
     {
         debug!("Generate keys with custom number of rows");
-        let config = CircuitConfigV2::new(TEST_CIRCUIT_ROWS);
+        let entry = traces.entry().expect("Entry not found");
+        let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS));
         let test_circuit =
             VmCircuit::<Fr>::new_with_empty_state(&package, entry, &pubs_indices, config.clone());
         let k = best_k(&test_circuit);

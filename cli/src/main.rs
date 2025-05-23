@@ -63,7 +63,7 @@ impl Arguments {
         debug!("witness {:?}", witness.display());
 
         let traces = Footprints::load(witness)?;
-        let entry = traces.entry().expect("Entry not found");
+        let args = traces.args().expect("Args not found");
 
         let rooted_path = SourcePackageLayout::try_find_root(&witness.canonicalize()?)?;
         let manifest = {
@@ -97,7 +97,7 @@ impl Arguments {
             print_cs_info(vk.cs());
         }
         debug!("Generate zk proof");
-        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&entry.args, pubs_indices);
+        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices);
 
         #[cfg(feature = "test-circuits")]
         if debug {

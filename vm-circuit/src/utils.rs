@@ -6,6 +6,7 @@ pub mod rlc;
 pub mod word;
 use crate::utils::challenges::Challenges;
 use crate::{CircuitConfigV2, Footprints, VmCircuit};
+use aptos_move_witnesses::static_info::EntryInfo;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::dev::MockProver;
@@ -37,7 +38,6 @@ use halo2_proofs::{
 use itertools::Itertools;
 use logger::{debug, info};
 use move_package::compilation::compiled_package::CompiledPackage;
-use move_vm_runtime::witnessing::EntryCall;
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
@@ -359,7 +359,7 @@ pub trait SubCircuit<F: Field> {
     /// Create a new SubCircuit with empty state
     fn new_with_empty_state(
         package: &CompiledPackage,
-        entry: EntryCall,
+        entry: EntryInfo,
         pubs_indices: &[usize],
         config: CircuitConfigV2,
     ) -> Self;

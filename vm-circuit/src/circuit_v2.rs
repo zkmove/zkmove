@@ -4,7 +4,7 @@ use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, LookupTableCo
 use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
-use aptos_move_witnesses::static_info::{Footprints, StaticInfo};
+use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use aptos_move_witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use halo2_proofs::{
@@ -12,7 +12,6 @@ use halo2_proofs::{
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use move_package::compilation::compiled_package::CompiledPackage;
-use move_vm_runtime::witnessing::EntryCall;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
@@ -70,9 +69,9 @@ pub struct CircuitConfigV2 {
 }
 
 impl CircuitConfigV2 {
-    pub fn new(max_rows: usize) -> Self {
+    pub fn new(max_rows: Option<usize>) -> Self {
         Self {
-            max_rows: Some(max_rows),
+            max_rows,
         }
     }
 }
@@ -131,7 +130,7 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
     }
     fn new_with_empty_state(
         package: &CompiledPackage,
-        entry: EntryCall,
+        entry: EntryInfo,
         pubs_indices: &[usize],
         circuit_config: CircuitConfigV2,
     ) -> Self {

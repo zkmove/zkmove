@@ -13,7 +13,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
+use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::poly::Rotation;
@@ -113,13 +113,8 @@ impl<F: Field> InstructionGadgetV2<F> for Start<F> {
         static_info: &StaticInfo,
         _instances: &InstanceTable,
     ) -> Result<usize, Error> {
-        let entry_func = match stage_state.extra_data.as_ref() {
-            Some(StageExtraAssignData::Start(entry_func)) => entry_func,
-            _ => unreachable!(),
-        };
-
         let entry_info = static_info
-            .get_entry_function(entry_func.module_index, entry_func.function_index)
+            .entry_function()
             .unwrap_or_else(|| panic!("cannot find function"));
 
         self.entry_module_index.assign(
@@ -310,10 +305,7 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             Rotation::prev(),
         );
         let num_arg = static_info
-            .get_entry_function(
-                static_info.entry.module_index,
-                static_info.entry.function_index,
-            )
+            .entry_function()
             .expect("cannot find function")
             .num_arg;
 
