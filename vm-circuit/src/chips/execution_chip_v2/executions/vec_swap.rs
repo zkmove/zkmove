@@ -1,6 +1,7 @@
 use crate::chips::execution_chip_v2::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::step_v2::{StepState, AUX0, AUX1, OPCODE, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
@@ -109,6 +110,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len() as u64, Self::STEP_ROWS);
         debug_assert!(stage_state
@@ -329,6 +331,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 
@@ -517,6 +520,7 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 

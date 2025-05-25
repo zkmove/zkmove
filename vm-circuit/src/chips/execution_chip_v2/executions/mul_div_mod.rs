@@ -1,4 +1,5 @@
 use crate::chips::execution_chip_v2::executions::ExecutionState;
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZero;
 use crate::chips::execution_chip_v2::math_gadgets::is_zero::IsZeroGadget;
 use crate::chips::execution_chip_v2::math_gadgets::lt::LtInteger;
@@ -118,6 +119,7 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivModStage1<F> {
         _offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         // no need to assign anything else
         Ok(stage_state.rows())
@@ -258,6 +260,7 @@ impl<F: Field> InstructionGadgetV2<F> for MulDivModStage2<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());
         let step_state = stage_state.step_states.first().unwrap();

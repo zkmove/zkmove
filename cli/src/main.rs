@@ -1,52 +1,70 @@
 use anyhow::Result;
-use aptos_move_witnesses::static_info::StaticInfo;
-use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
-use aptos_move_witnesses::{Footprint, Operation};
+use clap::Parser;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use logger::prelude::*;
 use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
-use std::path::{Path, PathBuf};
-use structopt::StructOpt;
-use vm_circuit::circuit_v2::VmCircuit;
-use vm_circuit::witness::{CircuitConfigV2, WitnessV2};
-use vm_circuit::{best_k, print_cs_info, prove_and_verify_kzg, setup_circuit, SubCircuit};
+use std::path::PathBuf;
+#[cfg(feature = "test-circuits")]
+use vm_circuit::mock_prove_circuit;
+use vm_circuit::{
+    best_k, print_cs_info, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
+    Footprints, InstanceFields, SubCircuit, VmCircuit, NUM_INSTANCE_COLUMNS,
+};
 
-#[derive(StructOpt)]
-#[structopt(name = "zkmove", about = "CLI for zkMove")]
+#[derive(Parser)]
+#[clap(name = "zkmove", about = "CLI for zkMove")]
 pub struct Arguments {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 }
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub enum Command {
-    #[structopt(
+    #[clap(
         name = "run",
         about = "Run the full sequence of setup, proving, and verification."
     )]
     Run {
-        #[structopt(
-            short = "w",
+        #[clap(
+            short = 'w',
             long = "witness",
             help = "path to .json file containing witness"
         )]
         witness: PathBuf,
 
-        #[structopt(short = "d", long = "debug", help = "debug with mock prover")]
+        #[clap(short = 'd', long = "debug", help = "debug with mock prover")]
         debug: bool,
+
+        #[clap(
+            short = 'p',
+            long = "pubs_indices",
+            help = "Indices of arguments to be treated as public inputs (e.g., --pubs_indices 0 1)",
+            value_parser = clap::value_parser!(usize),
+            num_args = 0..,
+        )]
+        pubs_indices: Vec<usize>,
     },
 }
 
 impl Arguments {
-    pub fn run(&self, witness: &Path, debug: bool) -> Result<()> {
-        logger::init_for_main(debug);
+    pub fn run(&self) -> Result<()> {
+        let (witness, debug, pubs_indices) = match &self.cmd {
+            Command::Run {
+                witness,
+                debug,
+                pubs_indices,
+            } => (witness, *debug, pubs_indices),
+        };
 
+        logger::init_for_main(debug);
         debug!("witness {:?}", witness.display());
 
-        // Always root ourselves to the package root, and then compile relative to that.
+        let traces = Footprints::load(witness)?;
+        let entry = traces.entry().expect("Entry not found");
+
         let rooted_path = SourcePackageLayout::try_find_root(&witness.canonicalize()?)?;
         let manifest = {
             let manifest_string =
@@ -57,7 +75,6 @@ impl Arguments {
                 )?;
             move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?
         };
-
         let package = {
             let package_name = manifest.package.name.to_string();
             let build_path = rooted_path
@@ -66,31 +83,11 @@ impl Arguments {
             let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
             package.into_compiled_package()?
         };
-
-        let trace_contents = std::fs::read_to_string(witness)?;
-        let traces: Vec<Footprint> = serde_json::from_str(&trace_contents)?;
-        let entry = match &traces.first().unwrap().data {
-            Operation::Start { entry_call } => entry_call,
-            _ => unreachable!(),
-        };
-        let static_info = StaticInfo::generate(
-            entry.module_id.as_ref().unwrap(),
-            entry.function_index as u16,
-            &package,
-        );
-        let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.pre_process(&traces, &static_info);
-        let witness = WitnessV2::new(states, static_info, CircuitConfigV2::default());
-        let circuit = VmCircuit::<Fr>::new_from_witness(&witness);
+        let circuit =
+            VmCircuit::<Fr>::new(&package, &traces, pubs_indices, CircuitConfigV2::default());
 
         let k = best_k(&circuit);
         debug!("k = {}", k);
-
-        // we can't use mock, because we compile the cli without test-circuit feature
-        // if debug {
-        //     debug!("Mock prove");
-        //     mock_prove_circuit(&circuit, vec![], k)?;
-        // }
 
         debug!("Generate parameters");
         let rng = rand::rngs::mock::StepRng::new(0, 1);
@@ -100,16 +97,33 @@ impl Arguments {
             print_cs_info(vk.cs());
         }
         debug!("Generate zk proof");
-        prove_and_verify_kzg(circuit, &[], &params, pk.clone());
+        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&entry.args, pubs_indices);
+
+        #[cfg(feature = "test-circuits")]
+        if debug {
+            debug!("Mock prove");
+            mock_prove_circuit(&circuit, instances.0, k)?;
+        }
+
+        #[cfg(not(feature = "test-circuits"))]
+        {
+            let proof = prove_circuit(circuit, &instances.as_ref(), &params, &pk)
+                .expect("proof generation should not fail");
+            verify_circuit(&instances.as_ref(), &params, &vk, &proof)
+                .expect("verify proof should be ok");
+        }
 
         Ok(())
     }
 }
 
 fn main() -> Result<()> {
-    let args = Arguments::from_args();
-
-    match args.cmd {
-        Command::Run { ref witness, debug } => args.run(witness.as_path(), debug),
+    let args = Arguments::parse();
+    match &args.cmd {
+        Command::Run {
+            witness: _,
+            debug: _,
+            pubs_indices: _,
+        } => args.run(),
     }
 }

@@ -331,6 +331,9 @@ impl CMFixedHeightStrategy {
                 2 => meta.advice_column_in(ThirdPhase),
                 _ => unreachable!(),
             };
+            if cell_type == CellType::StoragePhase1EnableEquality {
+                meta.enable_equality(advice);
+            }
             columns.add_column(cell_type, advice);
 
             columns

@@ -1,17 +1,43 @@
 use crate::static_info::bytecode::BytecodeInfo;
 use crate::static_info::constant::ConstantInfo;
 use crate::static_info::function::FunctionInfo;
+use anyhow::Result;
 use move_binary_format::CompiledModule;
 use move_core_types::language_storage::ModuleId;
 use move_core_types::value::MoveValue;
 use move_package::compilation::compiled_package::CompiledPackage;
+use move_vm_runtime::witnessing::{EntryCall, Footprint, Operation};
 use std::collections::{BTreeMap, HashMap};
 use std::iter;
+use std::path::Path;
 
 pub mod bytecode;
 pub mod constant;
 pub mod function;
 
+pub struct Footprints(pub Vec<Footprint>);
+impl Footprints {
+    pub fn load(path: &Path) -> Result<Self> {
+        let trace_contents = std::fs::read_to_string(path)?;
+        let trace = serde_json::from_str::<Vec<Footprint>>(&trace_contents)?.into();
+        Ok(trace)
+    }
+    pub fn entry(&self) -> Option<EntryCall> {
+        if self.0.is_empty() {
+            return None;
+        }
+        let first_trace = self.0.first().expect("traces is empty");
+        match &first_trace.data {
+            Operation::Start { entry_call } => Some(entry_call.clone()),
+            _ => None,
+        }
+    }
+}
+impl From<Vec<Footprint>> for Footprints {
+    fn from(footprints: Vec<Footprint>) -> Self {
+        Footprints(footprints)
+    }
+}
 #[derive(Clone, Default, Debug)]
 pub struct ModuleIdMapping(HashMap<ModuleId, (u32 /*module_index*/, CompiledModule)>);
 
@@ -52,10 +78,20 @@ pub struct StaticInfo {
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
     pub entry: Entry,
+    pub pubs_indices: Vec<usize>,
 }
 
 impl StaticInfo {
-    pub fn generate(module_id: &ModuleId, entry_func: u16, package: &CompiledPackage) -> Self {
+    pub fn generate(
+        entry_call: EntryCall,
+        package: &CompiledPackage,
+        pubs_indices: &[usize],
+    ) -> Option<Self> {
+        if !Self::valid_pubs_indices(pubs_indices, &entry_call) {
+            return None;
+        }
+        let module_id = &entry_call.module_id.expect("module_id is None");
+        let entry_func = entry_call.function_index as u16;
         let modules = package.all_modules_map();
         let mut deps = modules
             .get_transitive_dependencies(module_id)
@@ -67,7 +103,7 @@ impl StaticInfo {
         let module_id_mapping = ModuleIdMapping::construct(module_id, package);
 
         let module_index = module_id_mapping.get_module_index(module_id);
-        StaticInfo {
+        Some(StaticInfo {
             bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
             function_info: function::parse_function(&module_id_mapping, &deps),
             constant_info: constant::parse_constant(&module_id_mapping, &deps),
@@ -76,7 +112,18 @@ impl StaticInfo {
                 module_index,
                 function_index: entry_func,
             },
+            pubs_indices: pubs_indices.to_vec(),
+        })
+    }
+    fn valid_pubs_indices(pubs_indices: &[usize], entry_call: &EntryCall) -> bool {
+        let num_args = entry_call.args.len();
+        // Check for out-of-bounds indices
+        if pubs_indices.iter().any(|&i| i >= num_args) {
+            return false;
         }
+        // Check for duplicate indices
+        let mut set = std::collections::HashSet::with_capacity(pubs_indices.len());
+        pubs_indices.iter().all(|&i| set.insert(i))
     }
 
     pub fn get_bytecode(

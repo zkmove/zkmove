@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::step_v2::StepState;
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::ConstraintBuilderV2;
@@ -52,6 +53,7 @@ impl<F: Field> InstructionGadgetV2<F> for ErrorState<F> {
         _offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(stage_state.rows() == 1);
         Ok(stage_state.rows())

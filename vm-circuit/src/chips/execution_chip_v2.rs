@@ -14,6 +14,7 @@ use crate::chips::execution_chip_v2::executions::{
     VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2, VecSwapStage_1,
     VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2, WriteRefStage3,
 };
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
 use crate::chips::execution_chip_v2::step_v2::{Step, StepState};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::{
@@ -27,7 +28,6 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
-use crate::witness::WitnessV2;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or, Expr};
@@ -42,6 +42,7 @@ use types::Field;
 
 pub(crate) mod call_stack;
 pub(crate) mod executions;
+pub mod instance;
 pub(crate) mod lookup_table;
 pub(crate) mod math_gadgets;
 pub(crate) mod step_v2;
@@ -124,6 +125,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub challenges: Challenges,
     pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
     pub dynamic_cell_stat_map: BTreeMap<ExecutionState, BTreeMap<CellType, usize>>,
+    pub instances: InstanceTable,
 }
 
 impl<F: Field> ExecChipConfig<F> {
@@ -252,6 +254,8 @@ impl<F: Field> ExecChipConfig<F> {
             };
         }
 
+        let instances = InstanceTable::construct(meta);
+
         let mut config = ExecChipConfig {
             s_usable,
             s_step_first,
@@ -326,6 +330,7 @@ impl<F: Field> ExecChipConfig<F> {
             challenges,
             stored_expressions_map,
             dynamic_cell_stat_map: additional_cell_stat_map,
+            instances,
         };
 
         Self::configure_opcode_gadget(
@@ -653,7 +658,8 @@ impl<F: Field> ExecChipConfig<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        witness: &WitnessV2,
+        states: Vec<StageState>,
+        static_info: &StaticInfo,
         challenges: &Challenges<Value<F>>,
     ) -> Result<(), Error> {
         layouter.assign_region(
@@ -669,16 +675,17 @@ impl<F: Field> ExecChipConfig<F> {
                         &mut region,
                         challenges,
                         self.columns.columns().iter().map(|c| c.advice).collect(),
-                        witness.opcode_witnesses.iter().map(|s| s.rows()).sum(),
+                        states.iter().map(|s| s.rows()).sum(),
                         offset,
                     );
-                    for opcode_witness in &witness.opcode_witnesses {
+                    for opcode_witness in &states {
                         let step_rows = self.assign_exec_step(
                             &mut cached_region,
                             offset,
                             opcode_witness,
                             challenges,
-                            &witness.static_info,
+                            static_info,
+                            &self.instances,
                         )?;
                         for row in offset..offset + step_rows {
                             self.s_usable.enable(cached_region.region(), row)?;
@@ -689,7 +696,7 @@ impl<F: Field> ExecChipConfig<F> {
                     // had to assign stored_expression later,
                     // as it may reference next rows.
                     let mut offset = 0;
-                    for opcode_witness in &witness.opcode_witnesses {
+                    for opcode_witness in &states {
                         let step_rows = opcode_witness.rows();
                         self.assign_stored_expression(&mut cached_region, offset, opcode_witness)?;
                         offset += step_rows;
@@ -709,13 +716,14 @@ impl<F: Field> ExecChipConfig<F> {
         stage_state: &StageState,
         challenges: &Challenges<Value<F>>,
         static_info: &StaticInfo,
+        instances: &InstanceTable,
     ) -> Result<usize, Error> {
         macro_rules! assign_exec_step {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
                     $($exec_state=> {
                         $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
-                        $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info)?
+                        $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info, instances)?
                     },)*
                     s=>unimplemented!("{:?}", &s)
                 }
@@ -866,6 +874,7 @@ pub(crate) trait InstructionGadgetV2<F: Field> {
         _offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         Ok(stage_state.rows())
     }

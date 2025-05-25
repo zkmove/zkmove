@@ -12,6 +12,7 @@ use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::utils::pow_of_two_expr;
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use aptos_move_witnesses::static_info::StaticInfo;
@@ -219,6 +220,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert_eq!(stage_state.step_states.len(), 1);
 
@@ -427,6 +429,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
         offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         let vector_sub_index = region.get_advice(
             offset,

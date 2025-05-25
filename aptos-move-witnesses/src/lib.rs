@@ -3,7 +3,7 @@ extern crate move_core_types;
 
 pub use move_vm_runtime::witnessing::{
     traced_value::{Integer, Reference, SimpleValue, ValueItem},
-    BinaryIntegerOperationType, Footprint, Operation,
+    BinaryIntegerOperationType, EntryCall, Footprint, Operation,
 };
 use serde::{Deserialize, Serialize};
 

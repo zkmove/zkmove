@@ -1,38 +1,43 @@
-#![allow(unused_variables)]
 pub mod cached_region;
 pub mod cell_manager;
 pub mod cell_placement_strategy;
 pub mod challenges;
 pub mod rlc;
 pub mod word;
-use error::{RuntimeError, StatusCode, VmResult};
-use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::ff::{FromUniformBytes, WithSmallOrderMulGroup};
-use halo2_proofs::halo2curves::pairing::{Engine, MultiMillerLoop};
-use halo2_proofs::halo2curves::serde::SerdeObject;
-use halo2_proofs::plonk::{
-    create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error, ProvingKey,
-    VerifyingKey, VirtualCells,
-};
-use halo2_proofs::poly::commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier};
-use halo2_proofs::poly::ipa::commitment::{IPACommitmentScheme, ParamsIPA};
-use halo2_proofs::poly::ipa::multiopen::{ProverIPA, VerifierIPA};
-use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
-use halo2_proofs::poly::{ipa, kzg, VerificationStrategy};
-use halo2_proofs::transcript::{
-    Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
-};
-// use instant;
-use crate::circuit_v2::VmCircuit;
 use crate::utils::challenges::Challenges;
-use crate::witness::WitnessV2;
+use crate::{CircuitConfigV2, Footprints, VmCircuit};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::halo2curves::CurveExt;
+use halo2_proofs::dev::MockProver;
+use halo2_proofs::{
+    arithmetic::CurveAffine,
+    halo2curves::{
+        ff::{FromUniformBytes, WithSmallOrderMulGroup},
+        pairing::{Engine, MultiMillerLoop},
+        serde::SerdeObject,
+        CurveExt,
+    },
+    plonk::{
+        create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
+        ProvingKey, VerifyingKey, VirtualCells,
+    },
+    poly::{
+        commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier},
+        kzg::strategy::SingleStrategy,
+        kzg::{
+            commitment::{KZGCommitmentScheme, ParamsKZG},
+            multiopen::{ProverSHPLONK, VerifierSHPLONK},
+        },
+        VerificationStrategy,
+    },
+    transcript::{
+        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+    },
+};
 use itertools::Itertools;
 use logger::{debug, info};
+use move_package::compilation::compiled_package::CompiledPackage;
+use move_vm_runtime::witnessing::EntryCall;
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use rand::prelude::StdRng;
 use rand::SeedableRng;
@@ -86,11 +91,8 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
     instance: Vec<Vec<F>>,
     k: u32,
-) -> VmResult<()> {
-    let prover = MockProver::run(k, circuit, instance).map_err(|e| {
-        debug!("Prover Error: {:?}", e);
-        RuntimeError::new(StatusCode::ProofSystemError(e))
-    })?;
+) -> Result<(), Error> {
+    let prover = MockProver::run(k, circuit, instance)?;
     print_cs_info(prover.cs());
 
     // uncomment this to output assignments
@@ -189,10 +191,18 @@ pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
         .unwrap();
 }
 
+/// Sets up a circuit by generating verification and proving keys.
+///
+/// # Arguments
+/// - `circuit`: The circuit to generate keys for.
+/// - `params`: The KZG parameters for the curve.
+///
+/// # Returns
+/// A tuple containing the `VerifyingKey` and `ProvingKey` if successful.
 pub fn setup_circuit<'params, C, P, ConcreteCircuit>(
     circuit: &ConcreteCircuit,
     params: &P,
-) -> VmResult<(VerifyingKey<C>, ProvingKey<C>)>
+) -> Result<(VerifyingKey<C>, ProvingKey<C>), Error>
 where
     C: CurveAffine,
     P: Params<'params, C>,
@@ -200,89 +210,26 @@ where
     C::ScalarExt: FromUniformBytes<64>,
 {
     debug!("Generate vk");
-    let vk = keygen_vk(params, circuit).map_err(|e| {
-        RuntimeError::new(StatusCode::ProofSystemError(e))
-            .with_message("keygen_vk should not fail".to_string())
-    })?;
+    let vk = keygen_vk(params, circuit)?;
     debug!("Generate pk");
-    let pk = keygen_pk(params, vk.clone(), circuit).map_err(|e| {
-        RuntimeError::new(StatusCode::ProofSystemError(e))
-            .with_message("keygen_pk should not fail".to_string())
-    })?;
+    let pk = keygen_pk(params, vk.clone(), circuit)?;
     Ok((vk, pk))
 }
-
-pub fn prove_and_verify_circuit_ipa<C: CurveAffine, ConcreteCircuit: Circuit<C::ScalarExt>>(
-    circuit: ConcreteCircuit,
-    instance: &[&[C::ScalarExt]],
-    params: &ParamsIPA<C>,
-    pk: ProvingKey<C>,
-) -> Vec<u8>
-where
-    C::ScalarExt: FromUniformBytes<64>,
-{
-    prove_and_verify_circuit::<
-        IPACommitmentScheme<C>,
-        ProverIPA<C>,
-        VerifierIPA<C>,
-        ipa::strategy::SingleStrategy<C>,
-        _,
-    >(circuit, instance, params, pk)
-}
-pub fn prove_and_verify_kzg<E, ConcreteCircuit>(
+/// Proves a circuit using the SHPLONK multi-opening scheme with KZG commitments.
+///
+/// # Arguments
+/// - `circuit`: The circuit to prove.
+/// - `instance`: The public inputs for the circuit.
+/// - `params`: The KZG parameters for the curve.
+/// - `pk`: The proving key.
+///
+/// # Returns
+/// The proof as a byte vector if successful.
+pub fn prove_circuit<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
     instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
-    pk: ProvingKey<E::G1Affine>,
-) -> Vec<u8>
-where
-    E: Engine + Debug + MultiMillerLoop,
-    E::G1Affine:
-        SerdeObject + CurveAffine<ScalarExt = <E as Engine>::Fr, CurveExt = <E as Engine>::G1>,
-    E::G1: CurveExt<AffineExt = E::G1Affine>,
-    E::G2Affine: SerdeObject + CurveAffine,
-    ConcreteCircuit: Circuit<E::Fr>,
-    <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    prove_and_verify_circuit::<
-        KZGCommitmentScheme<E>,
-        ProverSHPLONK<E>,
-        VerifierSHPLONK<E>,
-        kzg::strategy::SingleStrategy<E>,
-        _,
-    >(circuit, instance, params, pk)
-}
-
-// prove circuit,return it proof.
-fn prove_and_verify_circuit<
-    'params,
-    Scheme: CommitmentScheme,
-    P: Prover<'params, Scheme>,
-    V: Verifier<'params, Scheme>,
-    Strategy: VerificationStrategy<'params, Scheme, V>,
-    ConcreteCircuit: Circuit<Scheme::Scalar>,
->(
-    circuit: ConcreteCircuit,
-    instance: &[&[Scheme::Scalar]],
-    params: &'params Scheme::ParamsProver,
-    pk: ProvingKey<Scheme::Curve>,
-) -> Vec<u8>
-where
-    <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
-    <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
-{
-    let proof = prove_circuit::<Scheme, P, ConcreteCircuit>(circuit, instance, params, pk.clone())
-        .expect("proof generation should not fail");
-    verify_circuit::<Scheme, V, Strategy>(instance, params, pk, proof.clone())
-        .expect("verify proof should be ok");
-    proof
-}
-// TODO: rework on these functions.
-pub fn prove_circuit_kzg<E, ConcreteCircuit>(
-    circuit: ConcreteCircuit,
-    instance: &[&[E::Fr]],
-    params: &ParamsKZG<E>,
-    pk: ProvingKey<E::G1Affine>,
+    pk: &ProvingKey<E::G1Affine>,
 ) -> Result<Vec<u8>, Error>
 where
     E: Engine + Debug + MultiMillerLoop,
@@ -293,11 +240,11 @@ where
     ConcreteCircuit: Circuit<E::Fr>,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    prove_circuit::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(circuit, instance, params, pk)
+    prove_circuit_inner::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(
+        circuit, instance, params, pk,
+    )
 }
-
-// prove circuit,return it proof.
-fn prove_circuit<
+fn prove_circuit_inner<
     'params,
     Scheme: CommitmentScheme,
     P: Prover<'params, Scheme>,
@@ -306,7 +253,7 @@ fn prove_circuit<
     circuit: ConcreteCircuit,
     instance: &[&[Scheme::Scalar]],
     params: &'params Scheme::ParamsProver,
-    pk: ProvingKey<Scheme::Curve>,
+    pk: &ProvingKey<Scheme::Curve>,
 ) -> Result<Vec<u8>, Error>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
@@ -318,7 +265,7 @@ where
     let rng = StdRng::from_entropy();
     create_proof::<Scheme, P, _, _, _, _>(
         params,
-        &pk,
+        pk,
         &[circuit],
         &[instance],
         rng,
@@ -332,11 +279,21 @@ where
     Ok(proof)
 }
 
-pub fn verify_circuit_kzg<E>(
+/// Verifies a circuit proof using the SHPLONK multi-opening scheme with KZG commitments.
+///
+/// # Arguments
+/// - `instance`: The public inputs for the circuit.
+/// - `params`: The KZG parameters for the curve.
+/// - `vk`: The verification key.
+/// - `proof`: The proof bytes to verify.
+///
+/// # Returns
+/// `Ok(())` if the proof is valid, or an error if verification fails.
+pub fn verify_circuit<E>(
     instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
-    pk: ProvingKey<E::G1Affine>,
-    proof: Vec<u8>,
+    vk: &VerifyingKey<E::G1Affine>,
+    proof: &Vec<u8>,
 ) -> Result<(), Error>
 where
     E: Engine + Debug + MultiMillerLoop,
@@ -346,13 +303,11 @@ where
     E::G2Affine: SerdeObject + CurveAffine,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    verify_circuit::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, kzg::strategy::SingleStrategy<E>>(
-        instance, params, pk, proof,
+    verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, SingleStrategy<E>>(
+        instance, params, vk, proof,
     )
 }
-
-// prove circuit,return it proof.
-fn verify_circuit<
+fn verify_circuit_inner<
     'params,
     Scheme: CommitmentScheme,
     V: Verifier<'params, Scheme>,
@@ -360,8 +315,8 @@ fn verify_circuit<
 >(
     instance: &[&[Scheme::Scalar]],
     params: &'params Scheme::ParamsProver,
-    pk: ProvingKey<Scheme::Curve>,
-    proof: Vec<u8>,
+    vk: &VerifyingKey<Scheme::Curve>,
+    proof: &Vec<u8>,
 ) -> Result<(), Error>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
@@ -371,13 +326,7 @@ where
     let strategy = Strategy::new(verifier_params);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
     let verify_start = instant::Instant::now();
-    let result = verify_proof(
-        verifier_params,
-        pk.get_vk(),
-        strategy,
-        &[instance],
-        &mut transcript,
-    )?;
+    let result = verify_proof(verifier_params, vk, strategy, &[instance], &mut transcript)?;
 
     let verify_time = instant::Instant::now().duration_since(verify_start);
     info!("verify time: {} ms", verify_time.as_millis());
@@ -400,9 +349,20 @@ pub trait SubCircuit<F: Field> {
         256
     }
 
-    /// Create a new SubCircuit from a witness Block
-    fn new_from_witness(witness: &WitnessV2) -> Self;
-
+    /// Create a new SubCircuit
+    fn new(
+        package: &CompiledPackage,
+        traces: &Footprints,
+        pubs_indices: &[usize],
+        config: CircuitConfigV2,
+    ) -> Self;
+    /// Create a new SubCircuit with empty state
+    fn new_with_empty_state(
+        package: &CompiledPackage,
+        entry: EntryCall,
+        pubs_indices: &[usize],
+        config: CircuitConfigV2,
+    ) -> Self;
     /// Returns the instance columns required for this circuit.
     fn instance(&self) -> Vec<Vec<F>> {
         vec![]

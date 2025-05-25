@@ -170,6 +170,7 @@ pub(crate) mod to_field {
     use crate::chips::execution_chip_v2::utils::from_limbs;
     use aptos_move_witnesses::types::sub_index::{SubIndex, N_BITS_ONE_LIMB};
     use aptos_move_witnesses::types::word::Word;
+    use move_vm_runtime::witnessing::traced_value::ValueItem;
     use types::Field;
 
     pub(crate) trait ToFields<F: Field> {
@@ -190,6 +191,28 @@ pub(crate) mod to_field {
     impl<F: Field> ToFields<F> for Word {
         fn to_fields(&self) -> Vec<F> {
             self.inner().iter().map(|&x| F::from_u128(x)).collect()
+        }
+    }
+
+    impl<F: Field> ToField<F> for bool {
+        fn to_field(&self) -> F {
+            if *self {
+                F::ONE
+            } else {
+                F::ZERO
+            }
+        }
+    }
+
+    impl<F: Field> ToFields<F> for ValueItem {
+        fn to_fields(&self) -> Vec<F> {
+            vec![
+                SubIndex::new(self.sub_index.clone()).to_field(),
+                self.header.to_field(),
+            ]
+            .into_iter()
+            .chain(Word::from(&self.value).to_fields())
+            .collect()
         }
     }
 }
