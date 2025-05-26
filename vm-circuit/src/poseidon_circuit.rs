@@ -1,12 +1,15 @@
 //! wrapping of mpt-circuit
+
 use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable;
 use crate::utils::challenges::Challenges;
 use crate::witness::WitnessV2;
 use crate::{SubCircuit, SubCircuitConfig};
+use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
     plonk::{ConstraintSystem, Error},
 };
+use itertools::Itertools;
 pub use poseidon_circuit::hash::Hashable;
 use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashTable};
 use types::Field;
@@ -233,4 +236,64 @@ impl<F: Field + Hashable> halo2_proofs::plonk::Circuit<F> for PoseidonCircuit<F>
         let challenges = challenges.values(&layouter);
         self.synthesize_sub(&config, &challenges, &mut layouter)
     }
+}
+
+/// Get unrolled hash inputs as inputs to hash circuit
+pub fn unroll_to_hash_input<F: Field, const BYTES_IN_FIELD: usize, const INPUT_LEN: usize>(
+    code: impl ExactSizeIterator<Item = u8>,
+) -> Vec<[F; INPUT_LEN]> {
+    let fl_cnt = code.len() / BYTES_IN_FIELD;
+    let fl_cnt = if code.len() % BYTES_IN_FIELD != 0 {
+        fl_cnt + 1
+    } else {
+        fl_cnt
+    };
+
+    let (msgs, _) = code
+        .chain(std::iter::repeat(0))
+        .take(fl_cnt * BYTES_IN_FIELD)
+        .fold((Vec::new(), Vec::new()), |(mut msgs, mut cache), bt| {
+            cache.push(bt);
+            if cache.len() == BYTES_IN_FIELD {
+                let mut buf: [u8; 64] = [0; 64];
+                U256::from_big_endian(&cache).to_little_endian(&mut buf[0..32]);
+                msgs.push(F::from_uniform_bytes(&buf));
+                cache.clear();
+            }
+            (msgs, cache)
+        });
+
+    let input_cnt = msgs.len() / INPUT_LEN;
+    let input_cnt = if msgs.len() % INPUT_LEN != 0 {
+        input_cnt + 1
+    } else {
+        input_cnt
+    };
+    if input_cnt == 0 {
+        return Vec::new();
+    }
+    let inputs = msgs
+        .into_iter()
+        .chain(std::iter::repeat(F::zero()))
+        .chunks(2)
+        .into_iter()
+        .take(input_cnt)
+        .map(|chunk| {
+            let mut arr = [F::zero(); INPUT_LEN];
+            for (i, v) in chunk.enumerate() {
+                if i < INPUT_LEN {
+                    arr[i] = v;
+                }
+            }
+            arr
+        })
+        .collect::<Vec<_>>();
+    inputs
+}
+
+/// Apply default constants in mod
+pub fn unroll_to_hash_input_default<F: Field>(
+    code: impl ExactSizeIterator<Item = u8>,
+) -> Vec<[F; PoseidonTable::INPUT_WIDTH]> {
+    unroll_to_hash_input::<F, HASH_BYTES_IN_FIELD, { PoseidonTable::INPUT_WIDTH }>(code)
 }
