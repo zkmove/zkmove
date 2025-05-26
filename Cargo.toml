@@ -13,7 +13,8 @@ members = [
 resolver = "2"
 [workspace.dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.3.0" }
-halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget.git", rev = "764a682" }
+#halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget.git", rev = "764a682" }
+poseidon-circuit = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
 gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "89696678b", package = "gadgets" }
 field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "89696678b", package = "eth-types" }
 #generic-array = "0.14"

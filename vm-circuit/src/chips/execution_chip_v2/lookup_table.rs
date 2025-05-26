@@ -20,6 +20,7 @@ pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
 pub(crate) mod fix_table;
 pub(crate) mod function_table;
+pub(crate) mod poseidon_table;
 pub(crate) mod pow2;
 pub(crate) mod utils;
 pub(crate) mod ux_table;
