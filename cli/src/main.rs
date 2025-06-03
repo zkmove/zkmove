@@ -23,11 +23,8 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum Command {
-    #[clap(
-        name = "run",
-        about = "Run the full sequence of setup, proving, and verification."
-    )]
-    Run {
+    #[clap(name = "prove", about = "Run the full sequence of setup and proving")]
+    Prove {
         #[clap(
             short = 'w',
             long = "witness",
@@ -52,7 +49,7 @@ pub enum Command {
 impl Arguments {
     pub fn run(&self) -> Result<()> {
         let (witness, debug, pubs_indices) = match &self.cmd {
-            Command::Run {
+            Command::Prove {
                 witness,
                 debug,
                 pubs_indices,
@@ -85,6 +82,7 @@ impl Arguments {
         };
         let circuit =
             VmCircuit::<Fr>::new(&package, &traces, pubs_indices, CircuitConfigV2::default());
+        circuit.register();
 
         let k = best_k(&circuit);
         debug!("k = {}", k);
@@ -120,7 +118,7 @@ impl Arguments {
 fn main() -> Result<()> {
     let args = Arguments::parse();
     match &args.cmd {
-        Command::Run {
+        Command::Prove {
             witness: _,
             debug: _,
             pubs_indices: _,

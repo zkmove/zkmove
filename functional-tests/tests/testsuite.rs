@@ -47,6 +47,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("Mock prove");
         let circuit =
             VmCircuit::<Fr>::new(&package, &traces, &pubs_indices, CircuitConfigV2::default());
+        circuit.register();
         let k = best_k(&circuit);
         mock_prove_circuit(&circuit, instances.0, k)?;
     }
@@ -58,14 +59,17 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS));
         let test_circuit =
             VmCircuit::<Fr>::new_with_empty_state(&package, entry, &pubs_indices, config.clone());
+        test_circuit.register();
         let k = best_k(&test_circuit);
         debug!("k = {}", k);
         let rng = rand::rngs::mock::StepRng::new(0, 1);
         let params = ParamsKZG::<Bn256>::setup(k, rng);
         let (vk, pk) = setup_circuit(&test_circuit, &params)?;
+        test_circuit.unregister();
 
         debug!("Generate zk proof");
         let circuit = VmCircuit::<Fr>::new(&package, &traces, &pubs_indices, config);
+        circuit.register();
         let proof = prove_circuit(circuit, &instances.as_ref(), &params, &pk)
             .expect("proof generation should not fail");
         verify_circuit(&instances.as_ref(), &params, &vk, &proof)

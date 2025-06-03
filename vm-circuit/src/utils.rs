@@ -363,10 +363,6 @@ pub trait SubCircuit<F: Field> {
         pubs_indices: &[usize],
         config: CircuitConfigV2,
     ) -> Self;
-    /// Returns the instance columns required for this circuit.
-    fn instance(&self) -> Vec<Vec<F>> {
-        vec![]
-    }
     /// Assign only the columns used by this sub-circuit.  This includes the
     /// columns that belong to the exposed lookup table contained within, if
     /// any; and excludes external tables that this sub-circuit does lookups
@@ -377,6 +373,9 @@ pub trait SubCircuit<F: Field> {
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error>;
+    /// Register the circuit in thread-local registry.
+    fn register(&self);
+    fn unregister(&self);
 }
 
 /// SubCircuit configuration

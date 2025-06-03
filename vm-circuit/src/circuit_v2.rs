@@ -7,15 +7,38 @@ use crate::utils::{SubCircuit, SubCircuitConfig};
 use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use aptos_move_witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use move_binary_format::file_format_common::Opcodes;
 use move_package::compilation::compiled_package::CompiledPackage;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 use types::Field;
+
+// Thread-local storage to hold a reference to the circuit. It allows circuits to be
+// configured from bytecode, to become application-specific circuits.
+thread_local! {
+    static CIRCUIT_REF: RefCell<Option<&'static VmCircuit<Fr>>> = RefCell::new(None);
+}
+
+/// Registers a circuit instance in thread-local storage
+fn register_circuit<F: Field>(circuit: &VmCircuit<F>) {
+    // Convert to 'static reference (unsafe, assumes circuit outlives configure calls)
+    let circuit_ref: &'static VmCircuit<Fr> = unsafe { std::mem::transmute(circuit) };
+    CIRCUIT_REF.with(|cell| {
+        *cell.borrow_mut() = Some(circuit_ref);
+    });
+}
+fn unregister_circuit() {
+    CIRCUIT_REF.with(|cell| {
+        *cell.borrow_mut() = None;
+    });
+}
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
@@ -26,6 +49,7 @@ pub struct VmCircuitConfig<F: Field> {
 
 pub struct VmCircuitConfigArgs {
     fixed_table_tags: Vec<FixedTableTag>,
+    used_opcodes: Vec<Opcodes>,
 }
 
 impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
@@ -33,7 +57,8 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
         let lookup_table_config = LookupTableConfigV2::new(meta);
-        let exec_chip_config = ExecChipConfig::configure(meta, &lookup_table_config);
+        let exec_chip_config =
+            ExecChipConfig::configure(meta, &lookup_table_config, &args.used_opcodes);
         // TODO: delete me
         #[cfg(test)]
         {
@@ -70,9 +95,7 @@ pub struct CircuitConfigV2 {
 
 impl CircuitConfigV2 {
     pub fn new(max_rows: Option<usize>) -> Self {
-        Self {
-            max_rows,
-        }
+        Self { max_rows }
     }
 }
 
@@ -93,8 +116,21 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let fixed_table_tags = FixedTableTag::iter().collect();
-        VmCircuitConfig::new(meta, VmCircuitConfigArgs { fixed_table_tags })
+        CIRCUIT_REF.with(|cell| {
+            if let Some(circuit) = *cell.borrow() {
+                let used_opcodes = circuit.static_info.used_opcodes();
+                let fixed_table_tags = FixedTableTag::iter().collect();
+                VmCircuitConfig::new(
+                    meta,
+                    VmCircuitConfigArgs {
+                        fixed_table_tags,
+                        used_opcodes,
+                    },
+                )
+            } else {
+                panic!("VmCircuit not registered in thread-local storage");
+            }
+        })
     }
 
     fn synthesize(
@@ -146,6 +182,13 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
             circuit_config,
             _maker: Default::default(),
         }
+    }
+
+    fn register(&self) {
+        register_circuit(self);
+    }
+    fn unregister(&self) {
+        unregister_circuit();
     }
 
     fn synthesize_sub(

@@ -57,70 +57,70 @@ pub(crate) struct ExecChipConfig<F> {
     pub s_step_last: Selector,
     pub columns: CellManagerColumns,
     pub base_constraint: Box<BaseConstraintGadget<F>>,
-    pub start: Box<Start<F>>,
-    pub process_arg: Box<ProcessArg<F>>,
-    pub abort: Box<Abort<F>>,
-    pub error: Box<ErrorState<F>>,
-    pub add_sub: Box<AddSub<F>>,
-    pub and_or: Box<AndOr<F>>,
-    pub bitwise_stage1: Box<BitwiseStage1<F, 8, 8>>,
-    pub bitwise_stage2: Box<BitwiseStage2<F, 8, 8>>,
-    pub borrow_field: Box<BorrowField<F>>,
-    pub borrow_loc: Box<BorrowLoc<F>>,
-    pub br_true: Box<BrBool<F, true>>,
-    pub br_false: Box<BrBool<F, false>>,
-    pub branch: Box<Branch<F>>,
-    pub call_stage_1: Box<CallStage1<F>>,
-    pub call_stage_2: Box<CallStage2<F>>,
-    pub call_stage_3: Box<CallStage3<F>>,
-    pub cast: Box<Cast<F>>,
-    pub copy_loc: Box<MoveOrCopyLoc<F, false>>,
-    pub eq_stage_1: Box<Equality<F, true, true>>,
-    pub eq_stage_2: Box<Equality<F, false, true>>,
-    pub ge: Box<Lt<F, false>>,
-    pub gt: Box<Le<F, false>>,
-    pub ld_simple: Box<LdSimple<F>>,
-    pub ld_true: Box<LdBool<F, true>>,
-    pub ld_false: Box<LdBool<F, false>>,
-    pub ld_const: Box<LdConst<F>>,
-    pub le: Box<Le<F, true>>,
-    pub lt: Box<Lt<F, true>>,
-    pub move_loc: Box<MoveOrCopyLoc<F, true>>,
-    pub mul_div_mod_stage1: Box<MulDivModStage1<F>>,
-    pub mul_div_mod_stage2: Box<MulDivModStage2<F>>,
-    pub neq_stage_1: Box<Equality<F, true, false>>,
-    pub neq_stage_2: Box<Equality<F, false, false>>,
-    pub not: Box<Not<F>>,
-    pub pack: Box<Pack<F, false>>,
-    pub pop: Box<Pop<F>>,
-    pub read_ref: Box<ReadRef<F>>,
-    pub ret: Box<Ret<F>>,
-    pub shift_stage1: Box<ShiftStage1<F>>,
-    pub shift_stage2: Box<ShiftStage2<F>>,
-    pub store_loc_stage1: Box<StoreLocStage1<F>>,
-    pub store_loc_stage2: Box<StoreLocStage2<F>>,
-    pub unpack_stage_1: Box<UnpackStage1<F, false>>,
-    pub unpack_stage_2: Box<UnpackStage2<F, false>>,
-    pub vec_borrow: Box<VecBorrow<F>>,
-    pub vec_len: Box<VecLen<F>>,
-    pub vec_pack: Box<Pack<F, true>>,
-    pub vec_pop_back_stage1: Box<VecPopBackStage1<F>>,
-    pub vec_pop_back_stage2: Box<VecPopBackStage2<F>>,
-    pub vec_push_back_stage1: Box<VecPushBackStage1<F>>,
-    pub vec_push_back_stage2: Box<VecPushBackStage2<F>>,
-    pub vec_swap_stage_1: Box<VecSwapStage_1<F>>,
-    pub vec_swap_stage_2: Box<VecSwapStage_2_Or_3<F, true>>,
-    pub vec_swap_stage_3: Box<VecSwapStage_2_Or_3<F, false>>,
-    pub vec_swap_stage_4: Box<VecSwapStage_4_Or_5<F, true>>,
-    pub vec_swap_stage_5: Box<VecSwapStage_4_Or_5<F, false>>,
-    pub vec_unpack_stage_1: Box<UnpackStage1<F, true>>,
-    pub vec_unpack_stage_2: Box<UnpackStage2<F, true>>,
-    pub write_ref_stage1: Box<WriteRefStage1<F>>,
-    pub write_ref_stage2: Box<WriteRefStage2<F>>,
-    pub write_ref_stage3: Box<WriteRefStage3<F>>,
-    pub nop: Box<Nop<F>>,
-    pub teardown: Box<Teardown<F>>,
-    pub stop: Box<Stop<F>>,
+    pub start: Box<Option<Start<F>>>,
+    pub process_arg: Box<Option<ProcessArg<F>>>,
+    pub abort: Box<Option<Abort<F>>>,
+    pub error: Box<Option<ErrorState<F>>>,
+    pub add_sub: Box<Option<AddSub<F>>>,
+    pub and_or: Box<Option<AndOr<F>>>,
+    pub bitwise_stage1: Box<Option<BitwiseStage1<F, 8, 8>>>,
+    pub bitwise_stage2: Box<Option<BitwiseStage2<F, 8, 8>>>,
+    pub borrow_field: Box<Option<BorrowField<F>>>,
+    pub borrow_loc: Box<Option<BorrowLoc<F>>>,
+    pub br_true: Box<Option<BrBool<F, true>>>,
+    pub br_false: Box<Option<BrBool<F, false>>>,
+    pub branch: Box<Option<Branch<F>>>,
+    pub call_stage_1: Box<Option<CallStage1<F>>>,
+    pub call_stage_2: Box<Option<CallStage2<F>>>,
+    pub call_stage_3: Box<Option<CallStage3<F>>>,
+    pub cast: Box<Option<Cast<F>>>,
+    pub copy_loc: Box<Option<MoveOrCopyLoc<F, false>>>,
+    pub eq_stage_1: Box<Option<Equality<F, true, true>>>,
+    pub eq_stage_2: Box<Option<Equality<F, false, true>>>,
+    pub ge: Box<Option<Lt<F, false>>>,
+    pub gt: Box<Option<Le<F, false>>>,
+    pub ld_simple: Box<Option<LdSimple<F>>>,
+    pub ld_true: Box<Option<LdBool<F, true>>>,
+    pub ld_false: Box<Option<LdBool<F, false>>>,
+    pub ld_const: Box<Option<LdConst<F>>>,
+    pub le: Box<Option<Le<F, true>>>,
+    pub lt: Box<Option<Lt<F, true>>>,
+    pub move_loc: Box<Option<MoveOrCopyLoc<F, true>>>,
+    pub mul_div_mod_stage1: Box<Option<MulDivModStage1<F>>>,
+    pub mul_div_mod_stage2: Box<Option<MulDivModStage2<F>>>,
+    pub neq_stage_1: Box<Option<Equality<F, true, false>>>,
+    pub neq_stage_2: Box<Option<Equality<F, false, false>>>,
+    pub not: Box<Option<Not<F>>>,
+    pub pack: Box<Option<Pack<F, false>>>,
+    pub pop: Box<Option<Pop<F>>>,
+    pub read_ref: Box<Option<ReadRef<F>>>,
+    pub ret: Box<Option<Ret<F>>>,
+    pub shift_stage1: Box<Option<ShiftStage1<F>>>,
+    pub shift_stage2: Box<Option<ShiftStage2<F>>>,
+    pub store_loc_stage1: Box<Option<StoreLocStage1<F>>>,
+    pub store_loc_stage2: Box<Option<StoreLocStage2<F>>>,
+    pub unpack_stage_1: Box<Option<UnpackStage1<F, false>>>,
+    pub unpack_stage_2: Box<Option<UnpackStage2<F, false>>>,
+    pub vec_borrow: Box<Option<VecBorrow<F>>>,
+    pub vec_len: Box<Option<VecLen<F>>>,
+    pub vec_pack: Box<Option<Pack<F, true>>>,
+    pub vec_pop_back_stage1: Box<Option<VecPopBackStage1<F>>>,
+    pub vec_pop_back_stage2: Box<Option<VecPopBackStage2<F>>>,
+    pub vec_push_back_stage1: Box<Option<VecPushBackStage1<F>>>,
+    pub vec_push_back_stage2: Box<Option<VecPushBackStage2<F>>>,
+    pub vec_swap_stage_1: Box<Option<VecSwapStage_1<F>>>,
+    pub vec_swap_stage_2: Box<Option<VecSwapStage_2_Or_3<F, true>>>,
+    pub vec_swap_stage_3: Box<Option<VecSwapStage_2_Or_3<F, false>>>,
+    pub vec_swap_stage_4: Box<Option<VecSwapStage_4_Or_5<F, true>>>,
+    pub vec_swap_stage_5: Box<Option<VecSwapStage_4_Or_5<F, false>>>,
+    pub vec_unpack_stage_1: Box<Option<UnpackStage1<F, true>>>,
+    pub vec_unpack_stage_2: Box<Option<UnpackStage2<F, true>>>,
+    pub write_ref_stage1: Box<Option<WriteRefStage1<F>>>,
+    pub write_ref_stage2: Box<Option<WriteRefStage2<F>>>,
+    pub write_ref_stage3: Box<Option<WriteRefStage3<F>>>,
+    pub nop: Box<Option<Nop<F>>>,
+    pub teardown: Box<Option<Teardown<F>>>,
+    pub stop: Box<Option<Stop<F>>>,
     pub step: Step<F>,
     pub challenges: Challenges,
     pub stored_expressions_map: BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
@@ -132,6 +132,7 @@ impl<F: Field> ExecChipConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         lookup_table_configs: &LookupTableConfigV2<F>,
+        used_opcodes: &[Opcodes],
     ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
@@ -239,6 +240,8 @@ impl<F: Field> ExecChipConfig<F> {
 
             (step_curr, base_constraint)
         };
+        let mut used_execution_states = ExecutionState::mandatory_states();
+        used_execution_states.extend(ExecutionState::from_opcodes(used_opcodes));
         macro_rules! build_opcode_gadget {
             () => {
                 Box::new(Self::build_opcode_gadget(
@@ -250,6 +253,7 @@ impl<F: Field> ExecChipConfig<F> {
                     &mut stored_expressions_map,
                     &mut lookup_map,
                     &mut additional_cell_stat_map,
+                    &used_execution_states,
                 ))
             };
         }
@@ -354,7 +358,14 @@ impl<F: Field> ExecChipConfig<F> {
             &config.step,
             s_usable,
         );
-        Self::configure_shuffle(meta, &config, s_usable);
+
+        Self::configure_shuffle(meta, &config.step, s_usable);
+
+        if used_execution_states.contains(&ExecutionState::CallStage1)
+            && used_execution_states.contains(&ExecutionState::Ret)
+        {
+            Self::configure_callstack(meta, &config, s_usable, &config.step);
+        }
 
         config
     }
@@ -368,28 +379,33 @@ impl<F: Field> ExecChipConfig<F> {
         stored_expressions_map: &mut BTreeMap<Option<ExecutionState>, StoredExpressions<F>>,
         lookup_map: &mut BTreeMap<Option<ExecutionState>, Lookups<F>>,
         cell_stat_map: &mut BTreeMap<ExecutionState, BTreeMap<CellType, usize>>, // TODO: replace with Instrument
-    ) -> G {
-        // Now actually configure the gadget with the correct minimal height
-        let mut cb = ConstraintBuilderV2::new(
-            meta,
-            columns,
-            challenges,
-            step_curr.clone(),
-            Some(G::EXECUTION_STATE),
-        );
-        let gadget = G::configure(&mut cb);
+        used_execution_states: &[ExecutionState],
+    ) -> Option<G> {
+        if used_execution_states.contains(&G::EXECUTION_STATE) {
+            // Now actually configure the gadget with the correct minimal height
+            let mut cb = ConstraintBuilderV2::new(
+                meta,
+                columns,
+                challenges,
+                step_curr.clone(),
+                Some(G::EXECUTION_STATE),
+            );
+            let gadget = G::configure(&mut cb);
 
-        let mut stat = cb.curr.cell_manager.get_stats(cb.columns);
-        debug_assert_eq!(stat.len(), 1);
-        cell_stat_map.insert(G::EXECUTION_STATE, stat.pop().unwrap());
+            let mut stat = cb.curr.cell_manager.get_stats(cb.columns);
+            debug_assert_eq!(stat.len(), 1);
+            cell_stat_map.insert(G::EXECUTION_STATE, stat.pop().unwrap());
 
-        let (_, constraints, lookups, stored_expressions, _meta, _columns) = cb.build();
+            let (_, constraints, lookups, stored_expressions, _meta, _columns) = cb.build();
 
-        constraints_map.insert(Some(G::EXECUTION_STATE), constraints);
-        lookup_map.insert(Some(G::EXECUTION_STATE), lookups);
-        stored_expressions_map.insert(Some(G::EXECUTION_STATE), stored_expressions);
+            constraints_map.insert(Some(G::EXECUTION_STATE), constraints);
+            lookup_map.insert(Some(G::EXECUTION_STATE), lookups);
+            stored_expressions_map.insert(Some(G::EXECUTION_STATE), stored_expressions);
 
-        gadget
+            Some(gadget)
+        } else {
+            None
+        }
     }
     fn configure_opcode_gadget(
         meta: &mut ConstraintSystem<F>,
@@ -575,12 +591,7 @@ impl<F: Field> ExecChipConfig<F> {
         }
     }
 
-    fn configure_shuffle(
-        meta: &mut ConstraintSystem<F>,
-        config: &ExecChipConfig<F>,
-        s_usable: Selector,
-    ) {
-        let step_curr = &config.step;
+    fn configure_shuffle(meta: &mut ConstraintSystem<F>, step_curr: &Step<F>, s_usable: Selector) {
         meta.shuffle("stack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
             let pop_version = step_curr.state.stack_pop_version.expr();
@@ -634,19 +645,30 @@ impl<F: Field> ExecChipConfig<F> {
             .map(|e| s_usable.clone() * write_version.clone() * e);
             read_set.zip(write_set).collect()
         });
+    }
 
+    fn configure_callstack(
+        meta: &mut ConstraintSystem<F>,
+        config: &ExecChipConfig<F>,
+        s_usable: Selector,
+        step_curr: &Step<F>,
+    ) {
+        let s_callstack_push = step_curr.execution_state_selector([ExecutionState::CallStage1]);
+        let s_callstack_pop = step_curr.execution_state_selector([ExecutionState::Ret]);
         meta.shuffle("callstack consistency check", |meta| {
             let s_usable = meta.query_selector(s_usable);
-            let s_callstack_push = step_curr.execution_state_selector([ExecutionState::CallStage1]);
             let input_exprs = config
                 .call_stage_1
+                .clone()
+                .unwrap()
                 .call_context
                 .exprs()
                 .into_iter()
                 .map(|e| s_usable.clone() * s_callstack_push.clone() * e);
-            let s_callstack_pop = step_curr.execution_state_selector([ExecutionState::Ret]);
             let shuffled_exprs = config
                 .ret
+                .clone()
+                .unwrap()
                 .call_context
                 .exprs()
                 .into_iter()
@@ -722,8 +744,8 @@ impl<F: Field> ExecChipConfig<F> {
             ($state:expr,{$($exec_state:pat=>$gadget_field:expr),*$(,)?}) => {
                 match $state {
                     $($exec_state=> {
-                        $gadget_field.assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
-                        $gadget_field.assign(self.step.state.clone(), region, offset_begin, stage_state, static_info, instances)?
+                        $gadget_field.clone().unwrap().assign_common(self.base_constraint.as_ref(), self.step.state.clone(), region, offset_begin, stage_state, static_info)?;
+                        $gadget_field.clone().unwrap().assign(self.step.state.clone(), region, offset_begin, stage_state, static_info, instances)?
                     },)*
                     s=>unimplemented!("{:?}", &s)
                 }
