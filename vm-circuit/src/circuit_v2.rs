@@ -17,27 +17,37 @@ use move_package::compilation::compiled_package::CompiledPackage;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use strum::IntoEnumIterator;
 use types::Field;
 
-// Thread-local storage to hold a reference to the circuit. It allows circuits to be
-// configured from bytecode, to become application-specific circuits.
+// Thread-local storage to hold a reference-counted circuit instance.
+// Allows circuits to be configured according to bytecode in the program.
 thread_local! {
-    static CIRCUIT_REF: RefCell<Option<&'static VmCircuit<Fr>>> = RefCell::new(None);
+    static CIRCUIT_REF: RefCell<Option<Rc<VmCircuit<Fr>>>> = RefCell::new(None);
 }
 
-/// Registers a circuit instance in thread-local storage
-fn register_circuit<F: Field>(circuit: &VmCircuit<F>) {
-    // Convert to 'static reference (unsafe, assumes circuit outlives configure calls)
-    let circuit_ref: &'static VmCircuit<Fr> = unsafe { std::mem::transmute(circuit) };
+/// Registers a circuit instance in thread-local storage.
+pub fn register_circuit(circuit: Rc<VmCircuit<Fr>>) {
     CIRCUIT_REF.with(|cell| {
-        *cell.borrow_mut() = Some(circuit_ref);
+        *cell.borrow_mut() = Some(circuit);
+        #[cfg(debug_assertions)]
+        eprintln!("Circuit registered in thread-local storage");
     });
 }
-fn unregister_circuit() {
+
+/// Unregisters the circuit from thread-local storage, clearing the reference.
+pub fn unregister_circuit() {
     CIRCUIT_REF.with(|cell| {
         *cell.borrow_mut() = None;
+        #[cfg(debug_assertions)]
+        eprintln!("Circuit unregistered from thread-local storage");
     });
+}
+
+/// Retrieves the currently registered circuit, if any.
+pub fn get_circuit() -> Option<Rc<VmCircuit<Fr>>> {
+    CIRCUIT_REF.with(|cell| cell.borrow().clone())
 }
 
 #[derive(Clone)]
@@ -116,21 +126,18 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        CIRCUIT_REF.with(|cell| {
-            if let Some(circuit) = *cell.borrow() {
-                let used_opcodes = circuit.static_info.used_opcodes();
-                let fixed_table_tags = FixedTableTag::iter().collect();
-                VmCircuitConfig::new(
-                    meta,
-                    VmCircuitConfigArgs {
-                        fixed_table_tags,
-                        used_opcodes,
-                    },
-                )
-            } else {
-                panic!("VmCircuit not registered in thread-local storage");
-            }
-        })
+        let circuit = get_circuit().expect(
+            "VmCircuit not registered in thread-local storage; call register_circuit first",
+        );
+        let used_opcodes = circuit.static_info.used_opcodes();
+        let fixed_table_tags = FixedTableTag::iter().collect();
+        VmCircuitConfig::new(
+            meta,
+            VmCircuitConfigArgs {
+                fixed_table_tags,
+                used_opcodes,
+            },
+        )
     }
 
     fn synthesize(
@@ -182,13 +189,6 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
             circuit_config,
             _maker: Default::default(),
         }
-    }
-
-    fn register(&self) {
-        register_circuit(self);
-    }
-    fn unregister(&self) {
-        unregister_circuit();
     }
 
     fn synthesize_sub(

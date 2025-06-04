@@ -373,9 +373,6 @@ pub trait SubCircuit<F: Field> {
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error>;
-    /// Register the circuit in thread-local registry.
-    fn register(&self);
-    fn unregister(&self);
 }
 
 /// SubCircuit configuration

@@ -7,6 +7,8 @@ use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::PathBuf;
+use std::rc::Rc;
+use vm_circuit::circuit_v2::{register_circuit, unregister_circuit};
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
@@ -80,9 +82,14 @@ impl Arguments {
             let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
             package.into_compiled_package()?
         };
-        let circuit =
-            VmCircuit::<Fr>::new(&package, &traces, pubs_indices, CircuitConfigV2::default());
-        circuit.register();
+        let circuit = Rc::new(VmCircuit::<Fr>::new(
+            &package,
+            &traces,
+            pubs_indices,
+            CircuitConfigV2::default(),
+        ));
+
+        register_circuit(circuit.clone());
 
         let k = best_k(&circuit);
         debug!("k = {}", k);
@@ -90,7 +97,7 @@ impl Arguments {
         debug!("Generate parameters");
         let rng = rand::rngs::mock::StepRng::new(0, 1);
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (vk, pk) = setup_circuit(&circuit, &params)?;
+        let (vk, pk) = setup_circuit(&*circuit, &params)?;
         if debug {
             print_cs_info(vk.cs());
         }
@@ -105,11 +112,13 @@ impl Arguments {
 
         #[cfg(not(feature = "test-circuits"))]
         {
-            let proof = prove_circuit(circuit, &instances.as_ref(), &params, &pk)
+            let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
                 .expect("proof generation should not fail");
             verify_circuit(&instances.as_ref(), &params, &vk, &proof)
                 .expect("verify proof should be ok");
         }
+
+        unregister_circuit();
 
         Ok(())
     }
