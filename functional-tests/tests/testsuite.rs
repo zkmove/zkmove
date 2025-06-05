@@ -11,7 +11,7 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use std::rc::Rc;
-use vm_circuit::circuit_v2::{register_circuit, unregister_circuit};
+use vm_circuit::circuit_v2::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
@@ -53,10 +53,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             &pubs_indices,
             CircuitConfigV2::default(),
         ));
-        register_circuit(circuit.clone());
+        let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
-        mock_prove_circuit(&circuit, instances.0, k)?;
-        unregister_circuit();
+        mock_prove_circuit(&*circuit, instances.0, k)?;
     }
 
     #[cfg(not(feature = "test-circuits"))]
@@ -64,19 +63,21 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         debug!("Generate keys with custom number of rows");
         let entry = traces.entry().expect("Entry not found");
         let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS));
-        let test_circuit = Rc::new(VmCircuit::<Fr>::new_with_empty_state(
-            &package,
-            entry,
-            &pubs_indices,
-            config.clone(),
-        ));
-        register_circuit(test_circuit.clone());
-        let k = best_k(&test_circuit);
-        debug!("k = {}", k);
-        let rng = rand::rngs::mock::StepRng::new(0, 1);
-        let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (vk, pk) = setup_circuit(&*test_circuit, &params)?;
-        unregister_circuit();
+        let (params, vk, pk) = {
+            let test_circuit = Rc::new(VmCircuit::<Fr>::new_with_empty_state(
+                &package,
+                entry,
+                &pubs_indices,
+                config.clone(),
+            ));
+            let _circuit_guard = CircuitGuard::new(test_circuit.clone());
+            let k = best_k(&test_circuit);
+            debug!("k = {}", k);
+            let rng = rand::rngs::mock::StepRng::new(0, 1);
+            let params = ParamsKZG::<Bn256>::setup(k, rng);
+            let (vk, pk) = setup_circuit(&*test_circuit, &params)?;
+            (params, vk, pk)
+        };
 
         debug!("Generate zk proof");
         let circuit = Rc::new(VmCircuit::<Fr>::new(
@@ -85,12 +86,11 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             &pubs_indices,
             config,
         ));
-        register_circuit(circuit.clone());
+        let _circuit_guard = CircuitGuard::new(circuit.clone());
         let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
             .expect("proof generation should not fail");
         verify_circuit(&instances.as_ref(), &params, &vk, &proof)
             .expect("verify proof should be ok");
-        unregister_circuit();
     }
 
     Ok(())

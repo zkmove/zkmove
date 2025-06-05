@@ -81,7 +81,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
     fn assign_common(
         &self,
         base_constraint_gadget: &BaseConstraintGadget<F>,
-        step_state: StepState<F>,
+        step_state: &StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,

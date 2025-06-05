@@ -17,4 +17,5 @@ strum_macros = { workspace = true }
 strum = { workspace = true }
 serde_json = { workspace = true }
 anyhow = "1.0.38"
+num-traits = "0.2"
 

@@ -50,6 +50,23 @@ pub fn get_circuit() -> Option<Rc<VmCircuit<Fr>>> {
     CIRCUIT_REF.with(|cell| cell.borrow().clone())
 }
 
+pub struct CircuitGuard {
+    circuit: Rc<VmCircuit<Fr>>,
+}
+
+impl CircuitGuard {
+    pub fn new(circuit: Rc<VmCircuit<Fr>>) -> Self {
+        register_circuit(circuit.clone());
+        Self { circuit }
+    }
+}
+
+impl Drop for CircuitGuard {
+    fn drop(&mut self) {
+        unregister_circuit();
+    }
+}
+
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
     lookup_table_config: LookupTableConfigV2<F>,

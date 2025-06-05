@@ -8,7 +8,7 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::PathBuf;
 use std::rc::Rc;
-use vm_circuit::circuit_v2::{register_circuit, unregister_circuit};
+use vm_circuit::circuit_v2::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
@@ -88,9 +88,7 @@ impl Arguments {
             pubs_indices,
             CircuitConfigV2::default(),
         ));
-
-        register_circuit(circuit.clone());
-
+        let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
         debug!("k = {}", k);
 
@@ -117,9 +115,6 @@ impl Arguments {
             verify_circuit(&instances.as_ref(), &params, &vk, &proof)
                 .expect("verify proof should be ok");
         }
-
-        unregister_circuit();
-
         Ok(())
     }
 }

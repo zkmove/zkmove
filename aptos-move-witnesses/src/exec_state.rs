@@ -169,15 +169,8 @@ impl ExecutionState {
     }
 
     pub fn from_opcode(opcode: Opcodes) -> Vec<Self> {
-        let opcode_value = opcode as u8;
-
         ExecutionState::iter()
-            .filter(|state| {
-                state.responsible_opcodes().iter().any(|&op| {
-                    let op_value = op as u8;
-                    op_value == opcode_value
-                })
-            })
+            .filter(|state| state.responsible_opcodes().contains(&opcode))
             .collect()
     }
 
