@@ -2,11 +2,15 @@ use crate::static_info::bytecode::BytecodeInfo;
 use crate::static_info::constant::ConstantInfo;
 use crate::static_info::function::FunctionInfo;
 use anyhow::Result;
+use move_binary_format::file_format_common::Opcodes;
+use move_binary_format::views::FunctionHandleView;
 use move_binary_format::CompiledModule;
 use move_core_types::language_storage::ModuleId;
 use move_core_types::value::MoveValue;
 use move_package::compilation::compiled_package::CompiledPackage;
-use move_vm_runtime::witnessing::{EntryCall, Footprint, Operation};
+use move_vm_runtime::witnessing::traced_value::ValueItems;
+use move_vm_runtime::witnessing::{Footprint, Operation};
+use num_traits::cast::FromPrimitive;
 use std::collections::{BTreeMap, HashMap};
 use std::iter;
 use std::path::Path;
@@ -22,15 +26,27 @@ impl Footprints {
         let trace = serde_json::from_str::<Vec<Footprint>>(&trace_contents)?.into();
         Ok(trace)
     }
-    pub fn entry(&self) -> Option<EntryCall> {
-        if self.0.is_empty() {
-            return None;
+    pub fn entry(&self) -> Option<EntryInfo> {
+        let first_trace = self.0.first()?;
+        if let Operation::Start { entry_call } = &first_trace.data {
+            let module_id = entry_call.module_id.clone()?;
+            Some(EntryInfo {
+                module_id,
+                function_index: entry_call.function_index as u16,
+                num_args: entry_call.args.len() as u8,
+            })
+        } else {
+            None
         }
-        let first_trace = self.0.first().expect("traces is empty");
-        match &first_trace.data {
-            Operation::Start { entry_call } => Some(entry_call.clone()),
-            _ => None,
-        }
+    }
+    pub fn args(&self) -> Option<Vec<ValueItems>> {
+        self.0.first().and_then(|first_trace| {
+            if let Operation::Start { entry_call } = &first_trace.data {
+                Some(entry_call.args.clone())
+            } else {
+                None
+            }
+        })
     }
 }
 impl From<Vec<Footprint>> for Footprints {
@@ -77,21 +93,21 @@ pub struct StaticInfo {
     pub function_info: Vec<FunctionInfo>,
     pub constant_info: Vec<ConstantInfo>,
     pub module_id_mapping: ModuleIdMapping,
-    pub entry: Entry,
+    pub entry_module_index: u32,
+    pub entry_function_index: u16,
     pub pubs_indices: Vec<usize>,
 }
 
 impl StaticInfo {
     pub fn generate(
-        entry_call: EntryCall,
+        entry_info: EntryInfo,
         package: &CompiledPackage,
         pubs_indices: &[usize],
     ) -> Option<Self> {
-        if !Self::valid_pubs_indices(pubs_indices, &entry_call) {
-            return None;
-        }
-        let module_id = &entry_call.module_id.expect("module_id is None");
-        let entry_func = entry_call.function_index as u16;
+        let module_id = &entry_info.module_id;
+        let module_id_mapping = ModuleIdMapping::construct(module_id, package);
+        let module_index = module_id_mapping.get_module_index(module_id);
+
         let modules = package.all_modules_map();
         let mut deps = modules
             .get_transitive_dependencies(module_id)
@@ -100,25 +116,24 @@ impl StaticInfo {
             .cloned()
             .collect::<Vec<_>>();
         deps.push(modules.get_module(module_id).unwrap().clone());
-        let module_id_mapping = ModuleIdMapping::construct(module_id, package);
 
-        let module_index = module_id_mapping.get_module_index(module_id);
-        Some(StaticInfo {
-            bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
-            function_info: function::parse_function(&module_id_mapping, &deps),
-            constant_info: constant::parse_constant(&module_id_mapping, &deps),
-            module_id_mapping,
-            entry: Entry {
-                module_index,
-                function_index: entry_func,
-            },
-            pubs_indices: pubs_indices.to_vec(),
-        })
+        if Self::valid_pubs_indices(pubs_indices, entry_info.num_args) {
+            Some(StaticInfo {
+                bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
+                function_info: function::parse_function(&module_id_mapping, &deps),
+                constant_info: constant::parse_constant(&module_id_mapping, &deps),
+                module_id_mapping,
+                entry_module_index: module_index,
+                entry_function_index: entry_info.function_index,
+                pubs_indices: pubs_indices.to_vec(),
+            })
+        } else {
+            None
+        }
     }
-    fn valid_pubs_indices(pubs_indices: &[usize], entry_call: &EntryCall) -> bool {
-        let num_args = entry_call.args.len();
+    fn valid_pubs_indices(pubs_indices: &[usize], num_args: u8) -> bool {
         // Check for out-of-bounds indices
-        if pubs_indices.iter().any(|&i| i >= num_args) {
+        if pubs_indices.iter().any(|&i| i >= num_args as usize) {
             return false;
         }
         // Check for duplicate indices
@@ -154,26 +169,64 @@ impl StaticInfo {
             .cloned()
     }
 
-    /// find entry function by `module_index` and `function_index` of entry function.
-    /// `module_index` and `def_module_index` should be same.
-    pub fn get_entry_function(
-        &self,
-        module_index: u32,
-        function_index: u16,
-    ) -> Option<FunctionInfo> {
+    pub fn entry_function(&self) -> Option<FunctionInfo> {
         self.function_info
             .iter()
             .find(|f| {
-                f.module_index == module_index
-                    && f.def_module_index == module_index
-                    && f.function_index == function_index
+                f.module_index == self.entry_module_index
+                    && f.def_module_index == self.entry_module_index
+                    && f.function_index == self.entry_function_index
             })
             .cloned()
     }
+
+    pub fn used_opcodes(&self) -> Vec<Opcodes> {
+        let mut used_opcodes = self
+            .bytecode_info
+            .values()
+            .flat_map(|funcs| funcs.values())
+            .flat_map(|bytecodes| bytecodes.iter().map(|b| b.opcode))
+            .collect::<Vec<_>>();
+        used_opcodes.sort_unstable();
+        used_opcodes.dedup();
+        used_opcodes
+            .into_iter()
+            .filter_map(|val| Opcodes::from_u8(val))
+            .collect()
+    }
 }
 
-#[derive(Clone, Default, Debug)]
-pub struct Entry {
-    pub module_index: u32,
+#[derive(Clone, Debug)]
+pub struct EntryInfo {
+    pub module_id: ModuleId,
     pub function_index: u16,
+    pub num_args: u8,
+}
+impl EntryInfo {
+    pub fn new(
+        package: &CompiledPackage,
+        module_id: &ModuleId,
+        function_name: &str,
+        module_id_mapping: &ModuleIdMapping,
+    ) -> Self {
+        let modules = package.all_modules_map();
+        let module = modules.get_module(module_id).expect("Module not found");
+
+        let fh = module
+            .function_handles
+            .iter()
+            .find(|handle| {
+                let fh_view = FunctionHandleView::new(module, handle);
+                fh_view.name().as_str() == function_name
+            })
+            .expect("Function handle not found");
+
+        let func_info = FunctionInfo::parse_from_handle(module, fh, &module_id_mapping);
+
+        Self {
+            module_id: module.self_id(),
+            function_index: func_info.function_index,
+            num_args: func_info.num_arg,
+        }
+    }
 }

@@ -54,10 +54,7 @@ impl FunctionLookupTable {
         // load entry function. by default, each normal function occupies one row with column
         // 'entry' == 0. Entry function has an additional row with column 'entry' == 1.
         let entry = static_info
-            .get_entry_function(
-                static_info.entry.module_index,
-                static_info.entry.function_index,
-            )
+            .entry_function()
             .unwrap_or_else(|| panic!("cannot find entry"));
         let row_entry = FunctionTableRow {
             module_index: entry.module_index,

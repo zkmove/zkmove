@@ -4,19 +4,68 @@ use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, LookupTableCo
 use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
-use aptos_move_witnesses::static_info::{Footprints, StaticInfo};
+use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use aptos_move_witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use move_binary_format::file_format_common::Opcodes;
 use move_package::compilation::compiled_package::CompiledPackage;
-use move_vm_runtime::witnessing::EntryCall;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use strum::IntoEnumIterator;
 use types::Field;
+
+// Thread-local storage to hold a reference-counted circuit instance.
+// Allows circuits to be configured according to bytecode in the program.
+thread_local! {
+    static CIRCUIT_REF: RefCell<Option<Rc<VmCircuit<Fr>>>> = RefCell::new(None);
+}
+
+/// Registers a circuit instance in thread-local storage.
+pub fn register_circuit(circuit: Rc<VmCircuit<Fr>>) {
+    CIRCUIT_REF.with(|cell| {
+        *cell.borrow_mut() = Some(circuit);
+        #[cfg(debug_assertions)]
+        eprintln!("Circuit registered in thread-local storage");
+    });
+}
+
+/// Unregisters the circuit from thread-local storage, clearing the reference.
+pub fn unregister_circuit() {
+    CIRCUIT_REF.with(|cell| {
+        *cell.borrow_mut() = None;
+        #[cfg(debug_assertions)]
+        eprintln!("Circuit unregistered from thread-local storage");
+    });
+}
+
+/// Retrieves the currently registered circuit, if any.
+pub fn get_circuit() -> Option<Rc<VmCircuit<Fr>>> {
+    CIRCUIT_REF.with(|cell| cell.borrow().clone())
+}
+
+pub struct CircuitGuard {
+    circuit: Rc<VmCircuit<Fr>>,
+}
+
+impl CircuitGuard {
+    pub fn new(circuit: Rc<VmCircuit<Fr>>) -> Self {
+        register_circuit(circuit.clone());
+        Self { circuit }
+    }
+}
+
+impl Drop for CircuitGuard {
+    fn drop(&mut self) {
+        unregister_circuit();
+    }
+}
 
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
@@ -27,6 +76,7 @@ pub struct VmCircuitConfig<F: Field> {
 
 pub struct VmCircuitConfigArgs {
     fixed_table_tags: Vec<FixedTableTag>,
+    used_opcodes: Vec<Opcodes>,
 }
 
 impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
@@ -34,7 +84,8 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
         let lookup_table_config = LookupTableConfigV2::new(meta);
-        let exec_chip_config = ExecChipConfig::configure(meta, &lookup_table_config);
+        let exec_chip_config =
+            ExecChipConfig::configure(meta, &lookup_table_config, &args.used_opcodes);
         // TODO: delete me
         #[cfg(test)]
         {
@@ -70,10 +121,8 @@ pub struct CircuitConfigV2 {
 }
 
 impl CircuitConfigV2 {
-    pub fn new(max_rows: usize) -> Self {
-        Self {
-            max_rows: Some(max_rows),
-        }
+    pub fn new(max_rows: Option<usize>) -> Self {
+        Self { max_rows }
     }
 }
 
@@ -94,8 +143,18 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let circuit = get_circuit().expect(
+            "VmCircuit not registered in thread-local storage; call register_circuit first",
+        );
+        let used_opcodes = circuit.static_info.used_opcodes();
         let fixed_table_tags = FixedTableTag::iter().collect();
-        VmCircuitConfig::new(meta, VmCircuitConfigArgs { fixed_table_tags })
+        VmCircuitConfig::new(
+            meta,
+            VmCircuitConfigArgs {
+                fixed_table_tags,
+                used_opcodes,
+            },
+        )
     }
 
     fn synthesize(
@@ -131,7 +190,7 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
     }
     fn new_with_empty_state(
         package: &CompiledPackage,
-        entry: EntryCall,
+        entry: EntryInfo,
         pubs_indices: &[usize],
         circuit_config: CircuitConfigV2,
     ) -> Self {

@@ -1,5 +1,8 @@
 use move_binary_format::file_format_common::Opcodes;
+use std::collections::HashSet;
+use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq, Ord, PartialOrd, EnumIter)]
 pub enum ExecutionState {
     Start = 0,
@@ -153,5 +156,32 @@ impl ExecutionState {
             Self::ShiftStage1 => &[Opcodes::SHL, Opcodes::SHR],
             Self::ShiftStage2 => &[Opcodes::SHL, Opcodes::SHR],
         }
+    }
+
+    pub fn mandatory_states() -> Vec<ExecutionState> {
+        vec![
+            Self::Start,
+            Self::ProcessArg,
+            Self::Teardown,
+            Self::Stop,
+            Self::ErrorState,
+        ]
+    }
+
+    pub fn from_opcode(opcode: Opcodes) -> Vec<Self> {
+        ExecutionState::iter()
+            .filter(|state| state.responsible_opcodes().contains(&opcode))
+            .collect()
+    }
+
+    pub fn from_opcodes(opcodes: &[Opcodes]) -> Vec<Self> {
+        let mut states_set: HashSet<Self> = HashSet::new();
+
+        for &opcode in opcodes {
+            let states = Self::from_opcode(opcode);
+            states_set.extend(states);
+        }
+
+        states_set.into_iter().collect()
     }
 }

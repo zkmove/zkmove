@@ -7,6 +7,8 @@ use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::PathBuf;
+use std::rc::Rc;
+use vm_circuit::circuit_v2::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
@@ -23,11 +25,8 @@ pub struct Arguments {
 
 #[derive(Parser)]
 pub enum Command {
-    #[clap(
-        name = "run",
-        about = "Run the full sequence of setup, proving, and verification."
-    )]
-    Run {
+    #[clap(name = "prove", about = "Run the full sequence of setup and proving")]
+    Prove {
         #[clap(
             short = 'w',
             long = "witness",
@@ -52,7 +51,7 @@ pub enum Command {
 impl Arguments {
     pub fn run(&self) -> Result<()> {
         let (witness, debug, pubs_indices) = match &self.cmd {
-            Command::Run {
+            Command::Prove {
                 witness,
                 debug,
                 pubs_indices,
@@ -63,7 +62,7 @@ impl Arguments {
         debug!("witness {:?}", witness.display());
 
         let traces = Footprints::load(witness)?;
-        let entry = traces.entry().expect("Entry not found");
+        let args = traces.args().expect("Args not found");
 
         let rooted_path = SourcePackageLayout::try_find_root(&witness.canonicalize()?)?;
         let manifest = {
@@ -83,21 +82,25 @@ impl Arguments {
             let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
             package.into_compiled_package()?
         };
-        let circuit =
-            VmCircuit::<Fr>::new(&package, &traces, pubs_indices, CircuitConfigV2::default());
-
+        let circuit = Rc::new(VmCircuit::<Fr>::new(
+            &package,
+            &traces,
+            pubs_indices,
+            CircuitConfigV2::default(),
+        ));
+        let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
         debug!("k = {}", k);
 
         debug!("Generate parameters");
         let rng = rand::rngs::mock::StepRng::new(0, 1);
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (vk, pk) = setup_circuit(&circuit, &params)?;
+        let (vk, pk) = setup_circuit(&*circuit, &params)?;
         if debug {
             print_cs_info(vk.cs());
         }
         debug!("Generate zk proof");
-        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&entry.args, pubs_indices);
+        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices);
 
         #[cfg(feature = "test-circuits")]
         if debug {
@@ -107,12 +110,11 @@ impl Arguments {
 
         #[cfg(not(feature = "test-circuits"))]
         {
-            let proof = prove_circuit(circuit, &instances.as_ref(), &params, &pk)
+            let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
                 .expect("proof generation should not fail");
             verify_circuit(&instances.as_ref(), &params, &vk, &proof)
                 .expect("verify proof should be ok");
         }
-
         Ok(())
     }
 }
@@ -120,7 +122,7 @@ impl Arguments {
 fn main() -> Result<()> {
     let args = Arguments::parse();
     match &args.cmd {
-        Command::Run {
+        Command::Prove {
             witness: _,
             debug: _,
             pubs_indices: _,
