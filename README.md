@@ -1,5 +1,5 @@
 <p align="center">
-    <img alt="Website" src="https://img.shields.io/website?down_message=offline&label=zkmove.net&up_message=online&url=https%3A%2F%2Fzkmove.net">
+    <a href="https://zkmove.net"><img alt="Website" src="https://img.shields.io/website?down_message=offline&label=zkmove.net&up_message=online&url=https%3A%2F%2Fzkmove.net">
     <a href="https://discord.gg/d6yMS2yycq"><img src="https://img.shields.io/discord/907903191788683304?logo=discord"/></a>
     <a href="https://twitter.com/zkmove"><img src="https://img.shields.io/twitter/follow/zkmove?style=social"/></a>
 </p>
