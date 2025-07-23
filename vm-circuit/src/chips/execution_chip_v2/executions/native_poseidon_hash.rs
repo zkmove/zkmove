@@ -5,8 +5,11 @@ use aptos_move_witnesses::exec_state::ExecutionState;
 use types::Field; // Assuming this is halo2_proofs::arithmetic::FieldExt or compatible
 
 /// NativePoseidonHash execution state gadget.
-/// Implements Poseidon hashing for two input words (each WordLoHi), producing one WordLoHi output.
-/// The hash output is placed in the low limb of the result word, and the high limb is set to zero.
+
+/// module poseidon_hash {
+///     public native fun hash(input1: u256, input2: u256) -> u256;
+/// }
+
 pub struct NativePoseidonHash<F: Field> {
     phantom_: std::marker::PhantomData<F>,
 }

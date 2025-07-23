@@ -2,6 +2,7 @@ use crate::exec_state::ExecutionState;
 use crate::exec_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
+use crate::native_functions;
 use crate::static_info::StaticInfo;
 use crate::step_state::{
     BinaryOpData, CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp,
@@ -12,6 +13,11 @@ use crate::types::sub_index::SubIndex;
 use crate::types::value_header::ValueHeader;
 use crate::types::word::Word;
 use crate::utils::flatten::Flatten;
+use move_binary_format::access::ModuleAccess;
+use move_binary_format::file_format::FunctionHandleIndex;
+use move_binary_format::views::{FunctionHandleView, ModuleHandleView, ModuleView};
+use move_core_types::identifier::Identifier;
+use move_core_types::language_storage::{ModuleId, CORE_CODE_ADDRESS};
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
@@ -132,9 +138,9 @@ impl WitnessPreProcessor {
                 }]
             }
             Operation::LdConst { const_pool_index } => {
-                let module_index = static_info
+                let (module_index, _current_module) = static_info
                     .module_id_mapping
-                    .get_module_index(trace.module_id.as_ref().unwrap());
+                    .get_module(trace.module_id.as_ref().unwrap());
                 let constant = static_info
                     .get_constant(module_index, *const_pool_index)
                     .unwrap_or_else(|| panic!("cannot find constant {:?}", *const_pool_index))
@@ -1792,6 +1798,83 @@ impl WitnessPreProcessor {
                                 })),
                             },
                         ]
+                    }
+                }
+            }
+            Operation::NativeCall { fh_idx, args } => {
+                let (module_index, current_module) = static_info
+                    .module_id_mapping
+                    .get_module(trace.module_id.as_ref().unwrap());
+
+                let fh = current_module.function_handle_at(FunctionHandleIndex::new(*fh_idx));
+                let fh_view = FunctionHandleView::new(current_module, fh);
+                let native_func_module = fh_view.module_id();
+                let native_func_name = fh_view.name().as_str();
+
+                match (
+                    native_func_module.address,
+                    native_func_module.name.as_str(),
+                    native_func_name,
+                ) {
+                    (CORE_CODE_ADDRESS, "zkhash", "fake_hash") => {
+                        assert_eq!(args.len(), 2);
+                        let (lhs, rhs) = (&args[0], &args[1]);
+                        let lhs = lhs.first().unwrap();
+                        let rhs = rhs.first().unwrap();
+                        let out = if let (SimpleValue::U128(arg1), SimpleValue::U128(arg2)) =
+                            (&lhs.value, &rhs.value)
+                        {
+                            let h = native_functions::zkhash::fake_hash(*arg1, *arg2);
+                            SimpleValue::U256(h)
+                        } else {
+                            panic!("Invalid argument type for zkhash::fake_hash");
+                        };
+
+                        let step_state = StepState::new(
+                            self.clk,
+                            ExecutionState::NativePoseidonHash,
+                            trace,
+                            static_info,
+                        );
+                        let stack_pop_rhs = StackPop {
+                            index: sp,
+                            sub_index: SubIndex::default(),
+                            value: (rhs.value.clone()).into(),
+                            value_header: false,
+                            version: self.version_stack.pop().unwrap(),
+                        };
+                        let stack_pop_lhs = StackPop {
+                            index: sp - 1,
+                            sub_index: SubIndex::default(),
+                            value: (lhs.value.clone()).into(),
+                            value_header: false,
+                            version: self.version_stack.pop().unwrap(),
+                        };
+                        self.version_stack.push(self.clk);
+                        let stack_push = StackPush {
+                            index: sp - 1,
+                            sub_index: SubIndex::default(),
+                            value: out.into(),
+                            value_header: false,
+                            version: *self.version_stack.last().unwrap(),
+                        };
+                        let memory_ops = vec![
+                            MemoryOp(Some(stack_pop_rhs), None, None),
+                            MemoryOp(Some(stack_pop_lhs), Some(stack_push), None),
+                        ];
+                        vec![StageState {
+                            step_states: vec![ExecStepState {
+                                step_state,
+                                memory_ops,
+                            }],
+                            extra_data: None,
+                        }]
+                    }
+                    _ => {
+                        panic!(
+                            "Unsupported native function: {}::{}",
+                            native_func_module, native_func_name
+                        );
                     }
                 }
             }

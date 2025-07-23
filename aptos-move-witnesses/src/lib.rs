@@ -12,6 +12,7 @@ pub struct Witnesses {
     pub opcode_witnesses: Vec<Footprint>,
 }
 pub mod exec_state;
+pub mod native_functions;
 pub mod static_info;
 pub mod step_state;
 pub mod types;
