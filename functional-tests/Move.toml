@@ -3,7 +3,7 @@ name = "cases"
 version = "0.0.0"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "main" }
+MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
 
 [addresses]
 std = "0x1"

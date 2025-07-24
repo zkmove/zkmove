@@ -56,6 +56,7 @@ pub(crate) use le_gt::*;
 pub(crate) use lt_ge::*;
 pub(crate) use move_or_copy_loc::*;
 pub(crate) use mul_div_mod::*;
+pub(crate) use native_poseidon_hash::*;
 pub(crate) use not::*;
 pub(crate) use pack::*;
 pub(crate) use pop::*;
