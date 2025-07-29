@@ -17,6 +17,7 @@ move-vm-runtime = { workspace = true }
 move-package = { workspace = true }
 halo2_proofs = { workspace = true, features = ["dev-graph"] }
 poseidon-circuit = { workspace = true }
+poseidon-base = { workspace = true }
 field-exts.workspace = true
 gadgets.workspace = true
 instant = { version = "0.1", features = ["wasm-bindgen"] }

@@ -1,17 +1,23 @@
 //! wrapping of mpt-circuit
 
 use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable;
+use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::utils::challenges::Challenges;
-use crate::witness::WitnessV2;
-use crate::{SubCircuit, SubCircuitConfig};
+use crate::{CircuitConfigV2, SubCircuit, SubCircuitConfig};
+use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
+
+use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
     plonk::{ConstraintSystem, Error},
 };
 use itertools::Itertools;
+use move_package::compilation::compiled_package::CompiledPackage;
 pub use poseidon_circuit::hash::Hashable;
 use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashTable};
+use std::cmp::max;
 use types::Field;
 
 /// re-wrapping for mpt circuit
@@ -58,10 +64,67 @@ impl<F: Field + Hashable> SubCircuitConfig<F> for PoseidonCircuitConfig<F> {
 impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
     type Config = PoseidonCircuitConfig<F>;
 
-    fn new_from_witness(witness: &WitnessV2) -> Self {
-        todo!()
-    }
+    fn new(
+        package: &CompiledPackage,
+        traces: &Footprints,
+        pubs_indices: &[usize],
+        config: CircuitConfigV2,
+    ) -> Self {
+        let entry = traces.entry().expect("entry should be set in traces");
+        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+            .expect("static info should be generated");
+        let preprocessor = WitnessPreProcessor::default();
+        let states = preprocessor.pre_process(&traces.0, &static_info);
 
+        let max_hashes = config.max_poseidon_rows / F::hash_block_size();
+        let mut poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();
+        let poseidon_hash_data = states
+            .iter()
+            .flat_map(|opcode| {
+                opcode
+                    .step_states
+                    .iter()
+                    .filter(|s| s.step_state.exec_state == ExecutionState::NativePoseidonHash)
+                    .map(|v| {
+                        let rhs: F = v
+                            .memory_ops
+                            .first()
+                            .as_ref()
+                            .unwrap()
+                            .0
+                            .as_ref()
+                            .unwrap()
+                            .value
+                            .to_field();
+                        let lhs: F = v
+                            .memory_ops
+                            .get(1)
+                            .and_then(|op| op.0.as_ref())
+                            .unwrap()
+                            .value
+                            .to_field();
+                        let inputs = [lhs, rhs];
+                        let domain_spec = F::from(1u64);
+                        let checks = Hashable::hash_with_domain([lhs, rhs], domain_spec);
+
+                        (inputs, domain_spec, Some(checks))
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        poseidon_table_data.fixed_inputs(poseidon_hash_data.iter());
+        Self(poseidon_table_data, max_hashes)
+    }
+    fn new_with_empty_state(
+        package: &CompiledPackage,
+        entry: EntryInfo,
+        pubs_indices: &[usize],
+        circuit_config: CircuitConfigV2,
+    ) -> Self {
+        let max_hashes = circuit_config.max_poseidon_rows / F::hash_block_size();
+        let poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();
+        Self(poseidon_table_data, max_hashes)
+    }
     //
     // fn new_from_block(block: &witness::Block) -> Self {
     //     let max_hashes = block.circuits_params.max_poseidon_rows / F::hash_block_size();
@@ -189,11 +252,6 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
     //     )
     // }
 
-    /// powers of randomness for instance columns
-    fn instance(&self) -> Vec<Vec<F>> {
-        vec![]
-    }
-
     /// Make the assignments to the MptCircuit, notice it fill mpt table
     /// but not fill hash table
     fn synthesize_sub(
@@ -209,7 +267,7 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
     }
 }
 
-#[cfg(any(feature = "test", test))]
+#[cfg(any(feature = "test-circuits", test))]
 impl<F: Field + Hashable> halo2_proofs::plonk::Circuit<F> for PoseidonCircuit<F> {
     type Config = (PoseidonCircuitConfig<F>, Challenges);
     type FloorPlanner = halo2_proofs::circuit::SimpleFloorPlanner;
@@ -296,4 +354,31 @@ pub fn unroll_to_hash_input_default<F: Field>(
     code: impl ExactSizeIterator<Item = u8>,
 ) -> Vec<[F; PoseidonTable::INPUT_WIDTH]> {
     unroll_to_hash_input::<F, HASH_BYTES_IN_FIELD, { PoseidonTable::INPUT_WIDTH }>(code)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::chips::execution_chip_v2::utils::pow_of_two;
+    use field_exts::U256;
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::ff::PrimeField;
+    use types::Field;
+
+    #[test]
+    fn test_hash_result() {
+        let f1 = Fr::from(123);
+        let f2 = Fr::from(45u64);
+        let hash = poseidon_base::hash::Hashable::hash_with_domain([f1, f2], Fr::one());
+        println!(
+            "hash result: h({:?}, {:?}) = {:?}",
+            f1.get_lower_128(),
+            f2.get_lower_128(),
+            U256::from_little_endian(hash.to_repr().as_ref())
+        );
+        let result = U256::from_little_endian(hash.to_repr().as_ref());
+        let (hi, lo) = result.div_mod(U256::pow(U256::from(2), 128.into()));
+        let expected =
+            Fr::from_u128(hi.as_u128()) * pow_of_two::<Fr>(128) + Fr::from_u128(lo.as_u128());
+        assert_eq!(hash, expected, "Hash result mismatch");
+    }
 }

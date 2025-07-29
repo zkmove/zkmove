@@ -5,7 +5,7 @@ use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue};
 use utility::u256::pair_u128_to_u256;
 
-#[derive(Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, Copy, PartialEq, Debug, Default)]
 pub struct Word([u128; 2]);
 
 impl Word {
@@ -23,6 +23,12 @@ impl Word {
     }
     pub fn to_u8_unchecked(&self) -> u8 {
         (self.lo() & 0xFF) as u8
+    }
+}
+
+impl From<(u128, u128)> for Word {
+    fn from(pair: (u128, u128)) -> Self {
+        Word([pair.0, pair.1])
     }
 }
 

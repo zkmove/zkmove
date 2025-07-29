@@ -15,9 +15,8 @@ use crate::types::word::Word;
 use crate::utils::flatten::Flatten;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::file_format::FunctionHandleIndex;
-use move_binary_format::views::{FunctionHandleView, ModuleHandleView, ModuleView};
-use move_core_types::identifier::Identifier;
-use move_core_types::language_storage::{ModuleId, CORE_CODE_ADDRESS};
+use move_binary_format::views::FunctionHandleView;
+use move_core_types::language_storage::CORE_CODE_ADDRESS;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue, ValueItem};
 use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operation};
 use move_vm_types::values::IntegerValue;
@@ -1802,7 +1801,7 @@ impl WitnessPreProcessor {
                 }
             }
             Operation::NativeCall { fh_idx, args } => {
-                let (module_index, current_module) = static_info
+                let (_module_index, current_module) = static_info
                     .module_id_mapping
                     .get_module(trace.module_id.as_ref().unwrap());
 
@@ -1816,7 +1815,7 @@ impl WitnessPreProcessor {
                     native_func_module.name.as_str(),
                     native_func_name,
                 ) {
-                    (CORE_CODE_ADDRESS, "zkhash", "fake_hash") => {
+                    (CORE_CODE_ADDRESS, "zkhash", "poseidon_hash") => {
                         assert_eq!(args.len(), 2);
                         let (lhs, rhs) = (&args[0], &args[1]);
                         let lhs = lhs.first().unwrap();
@@ -1824,10 +1823,10 @@ impl WitnessPreProcessor {
                         let out = if let (SimpleValue::U128(arg1), SimpleValue::U128(arg2)) =
                             (&lhs.value, &rhs.value)
                         {
-                            let h = native_functions::zkhash::fake_hash(*arg1, *arg2);
+                            let h = native_functions::zkhash::poseidon_hash(*arg1, *arg2);
                             SimpleValue::U256(h)
                         } else {
-                            panic!("Invalid argument type for zkhash::fake_hash");
+                            panic!("Invalid argument type for zkhash::poseidon_hash");
                         };
 
                         let step_state = StepState::new(

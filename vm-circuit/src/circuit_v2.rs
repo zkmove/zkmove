@@ -2,6 +2,7 @@
 
 use crate::chips::execution_chip_v2::lookup_table::{FixedTableTag, LookupTableConfigV2};
 use crate::chips::execution_chip_v2::ExecChipConfig;
+use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
 use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
@@ -14,6 +15,7 @@ use halo2_proofs::{
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_package::compilation::compiled_package::CompiledPackage;
+use poseidon_base::Hashable;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -72,6 +74,7 @@ pub struct VmCircuitConfig<F: Field> {
     lookup_table_config: LookupTableConfigV2<F>,
     exec_chip_config: ExecChipConfig<F>,
     fixed_table_tags: Vec<FixedTableTag>,
+    poseidon_circuit: PoseidonCircuitConfig<F>,
 }
 
 pub struct VmCircuitConfigArgs {
@@ -79,7 +82,7 @@ pub struct VmCircuitConfigArgs {
     used_opcodes: Vec<Opcodes>,
 }
 
-impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
+impl<F: Field + Hashable> SubCircuitConfig<F> for VmCircuitConfig<F> {
     type ConfigArgs = VmCircuitConfigArgs;
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
@@ -106,11 +109,18 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
                 println!("{}", stat.join(","));
             }
         }
+        let poseidon_circuit = PoseidonCircuitConfig::new(
+            meta,
+            PoseidonCircuitConfigArgs {
+                poseidon_table: lookup_table_config.poseidon_table.clone(),
+            },
+        );
 
         Self {
             fixed_table_tags: args.fixed_table_tags,
             exec_chip_config,
             lookup_table_config,
+            poseidon_circuit,
         }
     }
 }
@@ -118,11 +128,15 @@ impl<F: Field> SubCircuitConfig<F> for VmCircuitConfig<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CircuitConfigV2 {
     pub max_rows: Option<usize>,
+    pub max_poseidon_rows: usize,
 }
 
 impl CircuitConfigV2 {
-    pub fn new(max_rows: Option<usize>) -> Self {
-        Self { max_rows }
+    pub fn new(max_rows: Option<usize>, max_poseidon_rows: usize) -> Self {
+        Self {
+            max_rows,
+            max_poseidon_rows,
+        }
     }
 }
 
@@ -131,10 +145,12 @@ pub struct VmCircuit<F: Field> {
     pub states: Vec<StageState>,
     pub static_info: StaticInfo,
     pub circuit_config: CircuitConfigV2,
+    /// Poseidon hash Circuit
+    pub poseidon_circuit: PoseidonCircuit<F>,
     pub _maker: PhantomData<F>,
 }
 
-impl<F: Field> Circuit<F> for VmCircuit<F> {
+impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
     type Config = VmCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -167,7 +183,7 @@ impl<F: Field> Circuit<F> for VmCircuit<F> {
     }
 }
 
-impl<F: Field> SubCircuit<F> for VmCircuit<F> {
+impl<F: Field + Hashable> SubCircuit<F> for VmCircuit<F> {
     type Config = VmCircuitConfig<F>;
 
     fn new(
@@ -184,7 +200,8 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         Self {
             states,
             static_info,
-            circuit_config,
+            circuit_config: circuit_config.clone(),
+            poseidon_circuit: PoseidonCircuit::new(package, traces, pubs_indices, circuit_config),
             _maker: Default::default(),
         }
     }
@@ -197,13 +214,19 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
         let num_rows = circuit_config
             .max_rows
             .expect("max_rows should be set in config");
-        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+        let static_info = StaticInfo::generate(entry.clone(), package, pubs_indices)
             .expect("static info should be generated");
         let empty_states = (0..num_rows).map(|_| StageState::default()).collect();
         Self {
             states: empty_states,
             static_info,
-            circuit_config,
+            circuit_config: circuit_config.clone(),
+            poseidon_circuit: PoseidonCircuit::new_with_empty_state(
+                package,
+                entry,
+                pubs_indices,
+                circuit_config,
+            ),
             _maker: Default::default(),
         }
     }
@@ -214,6 +237,7 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
             exec_chip_config,
             lookup_table_config,
             fixed_table_tags,
+            poseidon_circuit,
         }: &Self::Config,
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
@@ -228,12 +252,18 @@ impl<F: Field> SubCircuit<F> for VmCircuit<F> {
                 self.states.iter().map(|s| s.rows()).sum::<usize>()
             )
         });
+        log::debug!("assigning exec_chip");
         exec_chip_config.assign(layouter, states, &self.static_info, challenges)?;
+        log::debug!("assigning poseidon_circuit");
+        self.poseidon_circuit
+            .synthesize_sub(&poseidon_circuit, challenges, layouter)?;
+
+        log::debug!("VmCircuit synthesis completed");
         Ok(())
     }
 }
 
-impl<F: Field> VmCircuit<F> {
+impl<F: Field + Hashable> VmCircuit<F> {
     /// Pads the states with default `StageState` to match `max_rows` in the circuit config.
     pub fn padding_states(&self) -> Option<Vec<StageState>> {
         if let Some(max_rows) = self.circuit_config.max_rows {

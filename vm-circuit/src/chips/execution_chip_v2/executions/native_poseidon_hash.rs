@@ -1,13 +1,18 @@
+use crate::chips::execution_chip_v2::lookup_table::Lookup;
 use crate::chips::execution_chip_v2::step_v2::{StepState, PC, SP};
 use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::Transition;
 use crate::chips::execution_chip_v2::{ConstraintBuilderV2, InstructionGadgetV2};
 use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::native_functions::zkhash::DOMAIN_SPEC;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
+
+use crate::chips::execution_chip_v2::instance::InstanceTable;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::Error;
+use poseidon_base::Hashable;
 use types::Field;
 
 /// NativePoseidonHash execution state gadget.
@@ -24,7 +29,7 @@ pub struct NativePoseidonHash<F> {
     phantom_: std::marker::PhantomData<F>,
 }
 
-impl<F: Field> InstructionGadgetV2<F> for NativePoseidonHash<F> {
+impl<F: Field + Hashable> InstructionGadgetV2<F> for NativePoseidonHash<F> {
     const NAME: &'static str = "NativePoseidonHash";
     const EXECUTION_STATE: ExecutionState = ExecutionState::NativePoseidonHash;
 
@@ -90,11 +95,16 @@ impl<F: Field> InstructionGadgetV2<F> for NativePoseidonHash<F> {
             );
             let rhs = step_prev.stack_pop_value.as_integer().expr();
             let lhs = step_curr.stack_pop_value.as_integer().expr();
-            let result = step_curr.stack_push_value.exprs();
-
-            cb.require_equal("lhs == result[lo]", lhs, result[0].expr());
-            cb.require_equal("rhs == result[hi]", rhs, result[1].expr());
-
+            let result = step_curr.stack_push_value.as_integer().expr();
+            cb.add_lookup(
+                "poseidon hash lookup",
+                Lookup::PoseidonHash {
+                    hash_id: result,
+                    input0: lhs,
+                    input1: rhs,
+                    domain_spec: DOMAIN_SPEC.expr(),
+                },
+            );
             cb.require_zero(
                 format!("{}, stack_push_value_header(0) == false", Self::NAME),
                 step_curr.stack_push_value_header.expr(),
@@ -116,7 +126,6 @@ impl<F: Field> InstructionGadgetV2<F> for NativePoseidonHash<F> {
             phantom_: std::marker::PhantomData,
         }
     }
-
     fn assign(
         &self,
         _step: StepState<F>,
@@ -124,6 +133,7 @@ impl<F: Field> InstructionGadgetV2<F> for NativePoseidonHash<F> {
         _offset: usize,
         stage_state: &StageState,
         _static_info: &StaticInfo,
+        _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         // The hash computation is handled in the witness preprocessor
         // No additional circuit assignments needed here

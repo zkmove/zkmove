@@ -37,6 +37,7 @@ use halo2_proofs::plonk::{
     ConstraintSystem, Error, Expression, FirstPhase, SecondPhase, Selector, VirtualCells,
 };
 use move_binary_format::file_format_common::Opcodes;
+use poseidon_base::Hashable;
 use std::collections::BTreeMap;
 use std::iter;
 use types::Field;
@@ -130,7 +131,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub instances: InstanceTable,
 }
 
-impl<F: Field> ExecChipConfig<F> {
+impl<F: Field + Hashable> ExecChipConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         lookup_table_configs: &LookupTableConfigV2<F>,
