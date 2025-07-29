@@ -245,6 +245,8 @@ impl<F: Field + Hashable> ExecChipConfig<F> {
         };
         let mut used_execution_states = ExecutionState::mandatory_states();
         used_execution_states.extend(ExecutionState::from_opcodes(used_opcodes));
+        // temp solution to using `NativePoseidonHash` in the gadget
+        used_execution_states.push(ExecutionState::NativePoseidonHash);
         macro_rules! build_opcode_gadget {
             () => {
                 Self::build_opcode_gadget(
