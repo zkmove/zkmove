@@ -1525,6 +1525,252 @@ mod vec_swap {
         }
     }
 }
+mod vec_pop_back {
+    /// pop vector_ref from stack and update parent from up to bottom
+    pub fn constraint_stage1() {
+        declare!(vector_sub_index);
+        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
+        declare!(vector_origin_len);
+
+        super::common::require_no_stack_push();
+
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+        if is_first {
+            stack_pop_index(0) == sp(0);
+            stack_pop_sub_index(0) == 0;
+            // stack_pop_version(0) < clk(0);
+            (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
+            vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
+            // start from top to bottom
+            local_sub_index(0) == 0;
+        } else {
+            super::common::require_no_stack_pop();
+            local_frame_index(0) == local_frame_index(-1);
+            local_index(0) == local_index(-1);
+            vector_sub_index(0) == vector_sub_index(-1);
+            // local_sub_index(0)
+        }
+        if !is_last {
+            local_sub_index(0) == extend_sub_index_of_next_row.parent();
+        } else {
+            local_sub_index(0) == vector_sub_index(0);
+        }
+        local_read_value_header(0) == true;
+        local_read_value_invalid(0) == false;
+        local_write_value_header(0) == true;
+        local_write_value_invalid(0) == false;
+        // local_read_version(0) < clk(0);
+        local_write_version(0) == clk(0);
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_read_value(0).as_header().flen - local_write_value(0).as_header().flen
+                == local_read_value(1).as_header().flen - local_write_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row,  the delta is (old_len-1, old_flen - elem_flen)
+            local_read_value(0).as_header().flen
+                == local_write_value(0).as_header().flen + step_counter(1);
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len() + 1;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
+        }
+
+        // next
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0);
+        opcode(1) == opcode(0);
+        aux0(1) == aux0(0);
+        aux1(1) == aux1(0);
+        sp(1) == sp(0);
+    }
+    /// move value from local to stack
+    pub fn constraint_stage2() {
+        declare!(vector_sub_index);
+        let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
+        declare!(vector_origin_len);
+
+        super::common::require_no_stack_pop();
+
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+
+        vector_origin_len(0) == vector_origin_len(-1);
+
+        vector_sub_index(0) == vector_sub_index(-1);
+        local_frame_index(0) == local_frame_index(-1);
+        local_index(0) == local_index(-1);
+        local_sub_index(0)
+            == extend_vector_sub_index.concat(vector_origin_len(0) + stack_push_sub_index(0) << 16);
+
+        if is_first {
+            if local_read_value_header(0) {
+                step_counter(0) == local_read_value(0).as_header().flen;
+            } else {
+                step_counter(0) == 1;
+            }
+        }
+        local_write_value(0) == INVALID;
+        local_read_value_invalid(0) == false;
+        local_write_value_invalid(0) == true;
+        local_write_value_header(0) == local_read_value_header(0);
+        // local_read_version(0) < clk(0);
+        local_write_version(0) == clk(0);
+
+        stack_push_index(0) == sp(0);
+        if is_first {
+            // make sure sub_index of first is zero.
+            stack_push_sub_index(0) == 0;
+        } else {
+            // NOTICE: not needed
+            // stack_push_sub_index(0) > stack_push_sub_index(-1);
+        }
+        stack_push_value(0) == local_read_value(0);
+        stack_push_value_header(0) == local_read_value_header(0);
+        stack_push_version(0) == clk(0);
+
+        // next
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        sp(1) == sp(0);
+        if is_last {
+            pc(1) == pc(0) + 1;
+        } else {
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+        }
+    }
+}
+
+// vec_push_back have same constraints structures as vec_pop_back with minimal changes
+mod vec_push_back {
+    /// pop vector_ref from stack and update parent from up to bottom
+    pub fn constraint_stage1() {
+        declare!(vector_sub_index);
+        let extend_sub_index_of_next_row = ExtendSubIndex::new(local_sub_index(1));
+        declare!(vector_origin_len);
+
+        super::common::require_no_stack_push();
+
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+        if is_first {
+            stack_pop_index(0) == sp(0);
+            stack_pop_sub_index(0) == 0;
+            // stack_pop_version(0) < clk(0);
+            (local_frame_index(0), local_index(0)) == stack_pop_value(0).as_reference().index;
+            vector_sub_index(0) == stack_pop_value(0).as_reference().sub_index;
+            // start from top to bottom
+            local_sub_index(0) == 0;
+        } else {
+            super::common::require_no_stack_pop();
+            local_frame_index(0) == local_frame_index(-1);
+            local_index(0) == local_index(-1);
+            vector_sub_index(0) == vector_sub_index(-1);
+            // local_sub_index(0)
+        }
+        if !is_last {
+            local_sub_index(0) == extend_sub_index_of_next_row.parent();
+        } else {
+            local_sub_index(0) == vector_sub_index(0);
+        }
+        local_read_value_header(0) == true;
+        local_read_value_invalid(0) == false;
+        local_write_value_header(0) == true;
+        local_write_value_invalid(0) == false;
+        // local_read_version(0) < clk(0);
+        local_write_version(0) == clk(0);
+
+        if !is_last {
+            // the delta should be the same for not-last-row
+            local_write_value(0).as_header().flen - local_read_value(0).as_header().flen
+                == local_write_value(1).as_header().flen - local_read_value(1).as_header().flen;
+            local_read_value(0).as_header().len == local_write_value(0).as_header().len;
+        } else {
+            // for last row the delta is (old_len+1, old_flen + elem_flen)
+            local_read_value(0).as_header().len + 1 == local_write_value(0).as_header().len;
+            local_read_value(0).as_header().flen + step_counter(1)
+                == local_write_value(0).as_header().flen;
+            vector_origin_len(0) == local_read_value(0).as_header().len;
+        }
+
+        // next
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+        pc(1) == pc(0);
+        opcode(1) == opcode(0);
+        aux0(1) == aux0(0);
+        aux1(1) == aux1(0);
+        sp(1) == sp(0);
+    }
+    /// move value from stack to local
+    pub fn constraint_stage2() {
+        declare!(vector_sub_index);
+        let extend_vector_sub_index = ExtendSubIndex::new(vector_sub_index(0));
+        declare!(vector_origin_len);
+
+        super::common::require_no_stack_push();
+
+        let is_first = super::common::on_first_row();
+        let is_last = super::common::on_last_row();
+
+        vector_origin_len(0) == vector_origin_len(-1);
+        vector_sub_index(0) == vector_sub_index(-1);
+        local_frame_index(0) == local_frame_index(-1);
+        local_index(0) == local_index(-1);
+        local_sub_index(0)
+            == extend_vector_sub_index
+                .concat(vector_origin_len(0) + 1 + stack_pop_sub_index(0) << 16);
+
+        if is_first {
+            if local_write_value_header(0) {
+                step_counter(0) == local_write_value(0).as_header().flen;
+            } else {
+                step_counter(0) == 1;
+            }
+        }
+        local_read_value_invalid(0) == true;
+        local_write_value_invalid(0) == false;
+        // local_read_version(0) < clk(0);
+        local_write_version(0) == clk(0);
+
+        stack_pop_index(0) == sp(0) - 1;
+        if is_first {
+            // make sure sub_index of first is zero.
+            stack_pop_sub_index(0) == 0;
+        } else {
+            // NOTICE: not needed
+            // stack_pop_sub_index(0) > stack_pop_sub_index(-1);
+        }
+        stack_pop_value(0) == local_write_value(0);
+        stack_pop_value_header(0) == local_write_value_header(0);
+        // stack_pop_version(0) < clk(0);
+
+        // next
+        frame_index(1) == frame_index(0);
+        module_index(1) == module_index(0);
+        function_index(1) == function_index(0);
+
+        if is_last {
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 2; // decrease 2 as the opcode pop 2 elems
+        } else {
+            pc(1) == pc(0);
+            opcode(1) == opcode(0);
+            aux0(1) == aux0(0);
+            aux1(1) == aux1(0);
+            sp(1) == sp(0);
+        }
+    }
+}
+
+// Native Poseidon hash function
 mod native_poseidon_hash {
     /// Native Poseidon hash function specification
     /// Takes two U128 values from stack and produces one U256 hash result
