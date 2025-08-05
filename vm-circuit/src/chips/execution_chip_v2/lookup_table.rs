@@ -3,6 +3,7 @@ use crate::chips::execution_chip_v2::lookup_table::byecode_table::BytecodeLookup
 use crate::chips::execution_chip_v2::lookup_table::constant_table::ConstantLookupTable;
 use crate::chips::execution_chip_v2::lookup_table::fix_table::FixedTable;
 use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionLookupTable;
+use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable;
 use crate::chips::execution_chip_v2::lookup_table::pow2::Pow2LookupTable;
 use crate::chips::execution_chip_v2::lookup_table::ux_table::UXTable;
 use crate::chips::execution_chip_v2::step_v2::NUM_OF_VALUE_LIMBS;
@@ -20,6 +21,7 @@ pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
 pub(crate) mod fix_table;
 pub(crate) mod function_table;
+pub(crate) mod poseidon_table;
 pub(crate) mod pow2;
 pub(crate) mod utils;
 pub(crate) mod ux_table;
@@ -48,6 +50,8 @@ pub enum Table {
     Pow2,
     /// Bitwise lookup
     Bitwise,
+    // Poseidon hash lookup
+    PoseidonHash,
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +90,16 @@ pub(crate) enum Lookup<F> {
         value_2: Expression<F>,
         result: Expression<F>,
     },
+    PoseidonHash {
+        /// The hash id of the poseidon hash
+        hash_id: Expression<F>,
+        /// The first input to the poseidon hash
+        input0: Expression<F>,
+        /// The second input to the poseidon hash
+        input1: Expression<F>,
+        /// The domain specification for the poseidon hash
+        domain_spec: Expression<F>,
+    },
     /// Conditional lookup enabled by the first element.
     Conditional(Expression<F>, Box<Lookup<F>>),
 }
@@ -103,6 +117,7 @@ impl<F: Field> Lookup<F> {
             Self::Constant { .. } => Table::Constant,
             Self::Pow2 { .. } => Table::Pow2,
             Self::Conditional(_, lookup) => lookup.table(),
+            Self::PoseidonHash { .. } => Table::PoseidonHash,
         }
     }
 
@@ -158,6 +173,21 @@ impl<F: Field> Lookup<F> {
             } => {
                 vec![value.clone(), pow_lo.clone(), pow_hi.clone()]
             }
+            Self::PoseidonHash {
+                hash_id,
+                input0,
+                input1,
+                domain_spec,
+            } => vec![
+                Expression::Constant(F::ONE), // q_enable
+                hash_id.clone(),
+                input0.clone(),
+                input1.clone(),
+                Expression::Constant(F::ZERO), // control
+                domain_spec.clone(),
+                Expression::Constant(F::ONE), // heading mark
+            ],
+
             Self::Conditional(condition, lookup) => lookup
                 .input_exprs()
                 .into_iter()
@@ -227,6 +257,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) function_table: FunctionLookupTable,
     pub(crate) bitwise_table: BitwiseLookupTable,
     pub(crate) pow2_table: Pow2LookupTable,
+    pub(crate) poseidon_table: PoseidonTable,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
@@ -243,6 +274,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let function_table = FunctionLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2LookupTable::construct(meta);
+        let poseidon_table = PoseidonTable::construct(meta);
         Self {
             fixed_table,
             nibble_table,
@@ -255,6 +287,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             function_table,
             bitwise_table,
             pow2_table,
+            poseidon_table,
             phantom_data: PhantomData,
         }
     }
@@ -319,6 +352,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
             Table::Pow2 => self.pow2_table.table_exprs(meta),
+            Table::PoseidonHash => self.poseidon_table.table_exprs(meta),
         }
     }
 }

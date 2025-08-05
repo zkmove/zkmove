@@ -37,6 +37,8 @@ pub(crate) mod vec_push_back;
 pub(crate) mod vec_swap;
 pub(crate) mod write_ref;
 
+pub(crate) mod native_poseidon_hash;
+
 pub(crate) use add_sub::*;
 pub(crate) use and_or::*;
 pub(crate) use base::*;
@@ -54,6 +56,7 @@ pub(crate) use le_gt::*;
 pub(crate) use lt_ge::*;
 pub(crate) use move_or_copy_loc::*;
 pub(crate) use mul_div_mod::*;
+pub(crate) use native_poseidon_hash::*;
 pub(crate) use not::*;
 pub(crate) use pack::*;
 pub(crate) use pop::*;

@@ -167,7 +167,7 @@ pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Valu
 }
 
 pub(crate) mod to_field {
-    use crate::chips::execution_chip_v2::utils::from_limbs;
+    use crate::chips::execution_chip_v2::utils::{from_limbs, pow_of_two};
     use aptos_move_witnesses::types::sub_index::{SubIndex, N_BITS_ONE_LIMB};
     use aptos_move_witnesses::types::word::Word;
     use move_vm_runtime::witnessing::traced_value::ValueItem;
@@ -213,6 +213,11 @@ pub(crate) mod to_field {
             .into_iter()
             .chain(Word::from(&self.value).to_fields())
             .collect()
+        }
+    }
+    impl<F: Field> ToField<F> for Word {
+        fn to_field(&self) -> F {
+            F::from_u128(self.hi()) * pow_of_two::<F>(128) + F::from_u128(self.lo())
         }
     }
 }

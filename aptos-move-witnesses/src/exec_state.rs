@@ -70,6 +70,7 @@ pub enum ExecutionState {
     Ge,
     ShiftStage1,
     ShiftStage2,
+    NativePoseidonHash,
 }
 
 impl ExecutionState {
@@ -155,6 +156,7 @@ impl ExecutionState {
             Self::Ge => &[Opcodes::GE],
             Self::ShiftStage1 => &[Opcodes::SHL, Opcodes::SHR],
             Self::ShiftStage2 => &[Opcodes::SHL, Opcodes::SHR],
+            Self::NativePoseidonHash => &[],
         }
     }
 

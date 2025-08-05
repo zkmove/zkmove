@@ -39,6 +39,7 @@ use itertools::Itertools;
 use logger::{debug, info};
 use move_package::compilation::compiled_package::CompiledPackage;
 use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
+use poseidon_base::Hashable;
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
@@ -60,7 +61,7 @@ pub(crate) fn query_expression<F: Field, T>(
 pub const MAX_DEGREE: u32 = 18;
 pub const MIN_DEGREE: u32 = 11;
 
-pub fn best_k<F: Field>(circuit: &VmCircuit<F>) -> u32 {
+pub fn best_k<F: Field + Hashable>(circuit: &VmCircuit<F>) -> u32 {
     /// Ceiling of log_2(n)
     fn log2_ceil(n: usize) -> u32 {
         u32::BITS - (n as u32).leading_zeros() - n.is_power_of_two() as u32

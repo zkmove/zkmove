@@ -13,6 +13,7 @@ extern crate movelang;
 
 pub mod chips;
 pub mod circuit_v2;
+pub(crate) mod poseidon_circuit;
 pub(crate) mod table;
 mod utils;
 

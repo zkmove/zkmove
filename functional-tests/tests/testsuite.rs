@@ -23,6 +23,7 @@ use vm_circuit::{prove_circuit, setup_circuit, verify_circuit};
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
+pub const TEST_HASH_ROWS: usize = 100usize;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     logger::init_for_test();
@@ -43,7 +44,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let args = traces.args().expect("Args not found");
     let pubs_indices: Vec<usize> = Vec::from_iter(0..args.len());
     let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices.as_slice());
-
+    let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS), TEST_HASH_ROWS);
     #[cfg(feature = "test-circuits")]
     {
         debug!("Mock prove");
@@ -51,7 +52,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             &package,
             &traces,
             &pubs_indices,
-            CircuitConfigV2::default(),
+            config.clone(),
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
@@ -62,7 +63,6 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     {
         debug!("Generate keys with custom number of rows");
         let entry = traces.entry().expect("Entry not found");
-        let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS));
         let (params, vk, pk) = {
             let test_circuit = Rc::new(VmCircuit::<Fr>::new_with_empty_state(
                 &package,

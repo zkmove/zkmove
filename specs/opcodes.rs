@@ -598,7 +598,7 @@ mod call {
         local_frame_index(0) == frame_index(0) + 1; // write to local of the next frame
                                                     // local_index(0) is constrained in the last row
                                                     // actually we don't care about old local is invalid or not.
-        // local_read_version(0) < clk(0);
+                                                    // local_read_version(0) < clk(0);
         local_write_value_invalid(0) == true;
         local_write_value(0) == local_read_value(0);
         local_write_value_header(0) == local_read_value_header(0);
@@ -1044,7 +1044,8 @@ mod write_ref {
             if header_sub_index(0) != 0 {
                 pc(1) == pc(0);
                 execution_state_next == WriteRefStage3;
-            } else {// don't need update parent
+            } else {
+                // don't need update parent
                 pc(1) == pc(0) + 1;
             }
         }
@@ -1765,6 +1766,56 @@ mod vec_push_back {
             aux0(1) == aux0(0);
             aux1(1) == aux1(0);
             sp(1) == sp(0);
+        }
+    }
+}
+
+// Native Poseidon hash function
+mod native_poseidon_hash {
+    /// Native Poseidon hash function specification
+    /// Takes two U128 values from stack and produces one U256 hash result
+    /// Stack effect: pops 2, pushes 1 (net: SP -= 1)
+    pub fn constrain() {
+        if super::common::on_first_row() {
+            // Two-step execution: first pop rhs, then pop lhs and push result
+            step_counter(0) == 2;
+            super::common::require_no_stack_push();
+
+            // First step: pop the right-hand side operand from top of stack
+            stack_pop_index(0) == sp(0);
+            sp(1) == sp(0); // Keep sp unchanged during first step
+        }
+
+        // Common constraints for both steps
+        stack_pop_sub_index(0) == 0;
+        stack_pop_value_header(0) == false;
+        // stack_pop_version(0) < clk(0);
+        super::common::require_no_local_op();
+
+        if super::common::on_last_row() {
+            // Second step: pop lhs and push hash result
+            stack_pop_index(0) == sp(0) - 1;
+            stack_push_index(0) == sp(0) - 1;
+            stack_push_sub_index(0) == 0;
+
+            // Get the two input values
+            let rhs = stack_pop_value(-1); // First popped value (from previous step)
+            let lhs = stack_pop_value(0); // Second popped value (current step)
+
+            // Compute hash using native function
+            let hash_result = native_poseidon_hash(lhs, rhs);
+
+            // Push the hash result
+            stack_push_value(0) == hash_result;
+            stack_push_value_header(0) == false;
+            stack_push_version(0) == clk(0);
+
+            // State transitions
+            module_index(1) == module_index(0);
+            function_index(1) == function_index(0);
+            frame_index(1) == frame_index(0);
+            pc(1) == pc(0) + 1;
+            sp(1) == sp(0) - 1; // Net decrease: 2 pops - 1 push = -1
         }
     }
 }

@@ -9,10 +9,11 @@ use crate::chips::execution_chip_v2::executions::BaseConstraintGadget;
 use crate::chips::execution_chip_v2::executions::{
     AddSub, AndOr, BitwiseStage1, BitwiseStage2, BorrowField, BorrowLoc, BrBool, CallStage1,
     CallStage2, CallStage3, Cast, Equality, ExecutionState, LdBool, LdConst, LdSimple, Le, Lt,
-    MoveOrCopyLoc, MulDivModStage1, MulDivModStage2, Not, Pack, Pop, ReadRef, Ret, ShiftStage1,
-    ShiftStage2, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2, VecBorrow, VecLen,
-    VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2, VecSwapStage_1,
-    VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2, WriteRefStage3,
+    MoveOrCopyLoc, MulDivModStage1, MulDivModStage2, NativePoseidonHash, Not, Pack, Pop, ReadRef,
+    Ret, ShiftStage1, ShiftStage2, StoreLocStage1, StoreLocStage2, UnpackStage1, UnpackStage2,
+    VecBorrow, VecLen, VecPopBackStage1, VecPopBackStage2, VecPushBackStage1, VecPushBackStage2,
+    VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
+    WriteRefStage3,
 };
 use crate::chips::execution_chip_v2::instance::InstanceTable;
 use crate::chips::execution_chip_v2::lookup_table::LookupTableConfigV2;
@@ -36,6 +37,7 @@ use halo2_proofs::plonk::{
     ConstraintSystem, Error, Expression, FirstPhase, SecondPhase, Selector, VirtualCells,
 };
 use move_binary_format::file_format_common::Opcodes;
+use poseidon_base::Hashable;
 use std::collections::BTreeMap;
 use std::iter;
 use types::Field;
@@ -88,6 +90,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub move_loc: Option<Box<MoveOrCopyLoc<F, true>>>,
     pub mul_div_mod_stage1: Option<Box<MulDivModStage1<F>>>,
     pub mul_div_mod_stage2: Option<Box<MulDivModStage2<F>>>,
+    pub native_poseidon_hash: Option<Box<NativePoseidonHash<F>>>,
     pub neq_stage_1: Option<Box<Equality<F, true, false>>>,
     pub neq_stage_2: Option<Box<Equality<F, false, false>>>,
     pub not: Option<Box<Not<F>>>,
@@ -128,7 +131,7 @@ pub(crate) struct ExecChipConfig<F> {
     pub instances: InstanceTable,
 }
 
-impl<F: Field> ExecChipConfig<F> {
+impl<F: Field + Hashable> ExecChipConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         lookup_table_configs: &LookupTableConfigV2<F>,
@@ -242,6 +245,8 @@ impl<F: Field> ExecChipConfig<F> {
         };
         let mut used_execution_states = ExecutionState::mandatory_states();
         used_execution_states.extend(ExecutionState::from_opcodes(used_opcodes));
+        // temp solution to using `NativePoseidonHash` in the gadget
+        used_execution_states.push(ExecutionState::NativePoseidonHash);
         macro_rules! build_opcode_gadget {
             () => {
                 Self::build_opcode_gadget(
@@ -296,6 +301,7 @@ impl<F: Field> ExecChipConfig<F> {
             move_loc: build_opcode_gadget!(),
             mul_div_mod_stage1: build_opcode_gadget!(),
             mul_div_mod_stage2: build_opcode_gadget!(),
+            native_poseidon_hash: build_opcode_gadget!(),
             neq_stage_1: build_opcode_gadget!(),
             neq_stage_2: build_opcode_gadget!(),
             not: build_opcode_gadget!(),
@@ -816,6 +822,7 @@ impl<F: Field> ExecChipConfig<F> {
             ExecutionState::ShiftStage1 => self.shift_stage1,
             ExecutionState::ShiftStage2 => self.shift_stage2,
             ExecutionState::Stop => self.stop,
+            ExecutionState::NativePoseidonHash => self.native_poseidon_hash,
         });
         debug_assert_eq!(assigned_rows, stage_state.rows());
         Ok(assigned_rows)

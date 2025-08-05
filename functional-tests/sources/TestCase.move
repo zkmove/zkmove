@@ -12,6 +12,7 @@ module cases::TestCase {
         test_vector();
         test_wallet();
         test_struct();
+        test_fake_hash();
     }
 
     public entry fun test_abort() {
@@ -210,6 +211,7 @@ module cases::TestCase {
         let amount = Struct_::value_0(&s);
         assert!(amount == 101, 3);
     }
+
     public entry fun test_fibonacci(n: u64) {
         let value1 = 0u256;
         let value2 = 1u256;
@@ -223,5 +225,15 @@ module cases::TestCase {
             i = i + 1;
         };
         fibo;
+    }
+
+    public entry fun test_fake_hash() {
+        // This function uses the zkhash module to compute a hash
+        // of two u128 values and returns a u256 result.
+        let arg1 = 123u128;
+        let arg2 = 45u128;
+        let expected_output = 5396936627018144388256392133700981730161373533767880136248396757995540825894u256;
+        let fake_result = std::zkhash::hash(arg1, arg2);
+        assert!(fake_result == expected_output, 0);
     }
 }
