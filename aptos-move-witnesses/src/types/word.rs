@@ -24,6 +24,12 @@ impl Word {
     pub fn to_u8_unchecked(&self) -> u8 {
         (self.lo() & 0xFF) as u8
     }
+    pub fn cast_bool(&self) -> bool {
+        self.lo() != 0
+    }
+    pub fn cast_u128(&self) -> u128 {
+        self.lo()
+    }
 }
 
 impl From<(u128, u128)> for Word {
@@ -57,6 +63,22 @@ impl From<&Reference> for Word {
 impl From<Reference> for Word {
     fn from(r: Reference) -> Self {
         (&r).into()
+    }
+}
+
+impl From<Word> for Reference {
+    fn from(value: Word) -> Self {
+        let lo = value.lo();
+        let hi = value.hi();
+        Reference {
+            frame_index: ((lo << 16) >> 16) as usize,
+            local_index: (lo >> 16) as usize,
+            sub_index: SubIndex::from(hi)
+                .to_trimmed_vec()
+                .into_iter()
+                .map(|i| i as usize)
+                .collect(),
+        }
     }
 }
 
