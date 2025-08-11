@@ -6,10 +6,11 @@ pub mod rlc;
 pub mod word;
 use crate::utils::challenges::Challenges;
 use crate::{CircuitConfigV2, Footprints, VmCircuit};
-use aptos_move_witnesses::static_info::EntryInfo;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::dev::MockProver;
+use halo2_proofs::poly::kzg;
+use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     halo2curves::{
@@ -44,6 +45,8 @@ use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
 use types::Field;
+
+pub use aptos_move_witnesses::static_info::{EntryInfo, ModuleIdMapping};
 
 pub(crate) fn query_expression<F: Field, T>(
     meta: &mut ConstraintSystem<F>,
@@ -216,6 +219,22 @@ where
     let pk = keygen_pk(params, vk.clone(), circuit)?;
     Ok((vk, pk))
 }
+
+#[derive(Copy, Clone, Debug)]
+pub enum KZG {
+    GWC,
+    SHPLONK,
+}
+
+impl KZG {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            Self::SHPLONK => 0,
+            Self::GWC => 1,
+        }
+    }
+}
+
 /// Proves a circuit using the SHPLONK multi-opening scheme with KZG commitments.
 ///
 /// # Arguments
@@ -231,6 +250,7 @@ pub fn prove_circuit<E, ConcreteCircuit>(
     instance: &[&[E::Fr]],
     params: &ParamsKZG<E>,
     pk: &ProvingKey<E::G1Affine>,
+    kzg: KZG,
 ) -> Result<Vec<u8>, Error>
 where
     E: Engine + Debug + MultiMillerLoop,
@@ -241,9 +261,14 @@ where
     ConcreteCircuit: Circuit<E::Fr>,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    prove_circuit_inner::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(
-        circuit, instance, params, pk,
-    )
+    match kzg {
+        KZG::GWC => prove_circuit_inner::<KZGCommitmentScheme<E>, ProverGWC<E>, _>(
+            circuit, instance, params, pk,
+        ),
+        KZG::SHPLONK => prove_circuit_inner::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(
+            circuit, instance, params, pk,
+        ),
+    }
 }
 fn prove_circuit_inner<
     'params,
@@ -295,6 +320,7 @@ pub fn verify_circuit<E>(
     params: &ParamsKZG<E>,
     vk: &VerifyingKey<E::G1Affine>,
     proof: &Vec<u8>,
+    kzg: KZG,
 ) -> Result<(), Error>
 where
     E: Engine + Debug + MultiMillerLoop,
@@ -304,9 +330,18 @@ where
     E::G2Affine: SerdeObject + CurveAffine,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, SingleStrategy<E>>(
-        instance, params, vk, proof,
-    )
+    match kzg {
+        KZG::GWC => {
+            verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierGWC<E>, SingleStrategy<E>>(
+                instance, params, vk, proof,
+            )
+        }
+        KZG::SHPLONK => {
+            verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, SingleStrategy<E>>(
+                instance, params, vk, proof,
+            )
+        }
+    }
 }
 fn verify_circuit_inner<
     'params,
