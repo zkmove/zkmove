@@ -33,7 +33,7 @@ use halo2_proofs::{
         VerificationStrategy,
     },
     transcript::{
-        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+        Challenge255, Keccak256Read, Keccak256Write, TranscriptReadBuffer, TranscriptWriterBuffer,
     },
 };
 use itertools::Itertools;
@@ -285,7 +285,8 @@ where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    let mut transcript = Keccak256Write::<Vec<u8>, _, Challenge255<_>>::init(vec![]);
+
     // Create a proof
     let prove_start = instant::Instant::now();
     let rng = StdRng::from_entropy();
@@ -360,7 +361,7 @@ where
 {
     let verifier_params = params.verifier_params();
     let strategy = Strategy::new(verifier_params);
-    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let mut transcript = Keccak256Read::<_, _, Challenge255<_>>::init(&proof[..]);
     let verify_start = instant::Instant::now();
     let result = verify_proof(verifier_params, vk, strategy, &[instance], &mut transcript)?;
 

@@ -13,7 +13,7 @@ use vm_circuit::circuit_v2::CircuitGuard;
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
     best_k, print_cs_info, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
-    Footprints, InstanceFields, SubCircuit, VmCircuit, NUM_INSTANCE_COLUMNS,
+    Footprints, InstanceFields, SubCircuit, VmCircuit, KZG, NUM_INSTANCE_COLUMNS,
 };
 
 #[derive(Parser)]
@@ -110,9 +110,15 @@ impl Arguments {
 
         #[cfg(not(feature = "test-circuits"))]
         {
-            let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
-                .expect("proof generation should not fail");
-            verify_circuit(&instances.as_ref(), &params, &vk, &proof)
+            let proof = prove_circuit(
+                (*circuit).clone(),
+                &instances.as_ref(),
+                &params,
+                &pk,
+                KZG::GWC,
+            )
+            .expect("proof generation should not fail");
+            verify_circuit(&instances.as_ref(), &params, &vk, &proof, KZG::GWC)
                 .expect("verify proof should be ok");
         }
         Ok(())
