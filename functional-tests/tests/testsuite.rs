@@ -19,7 +19,7 @@ use vm_circuit::{
     NUM_INSTANCE_COLUMNS,
 };
 #[cfg(not(feature = "test-circuits"))]
-use vm_circuit::{prove_circuit, setup_circuit, verify_circuit};
+use vm_circuit::{prove_circuit, setup_circuit, verify_circuit, KZG};
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
@@ -88,9 +88,15 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             config,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
-        let proof = prove_circuit((*circuit).clone(), instances.inner().clone(), &params, &pk)
-            .expect("proof generation should not fail");
-        verify_circuit(instances.inner().clone(), &params, &vk, &proof)
+        let proof = prove_circuit(
+            (*circuit).clone(),
+            instances.inner().clone(),
+            &params,
+            &pk,
+            KZG::GWC,
+        )
+        .expect("proof generation should not fail");
+        verify_circuit(instances.inner().clone(), &params, &vk, &proof, KZG::GWC)
             .expect("verify proof should be ok");
     }
 

@@ -22,5 +22,5 @@ pub use chips::execution_chip_v2::instance::{InstanceFields, NUM_INSTANCE_COLUMN
 pub use circuit_v2::{CircuitConfigV2, VmCircuit};
 pub use utils::{
     best_k, mock_prove_circuit, print_cs_info, prove_circuit, setup_circuit, verify_circuit,
-    SubCircuit, SubCircuitConfig, MAX_DEGREE, MIN_DEGREE,
+    EntryInfo, ModuleIdMapping, SubCircuit, SubCircuitConfig, KZG, MAX_DEGREE, MIN_DEGREE,
 };
