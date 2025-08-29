@@ -3,7 +3,7 @@ use crate::chips::execution_chip_v2::lookup_table::function_table::FunctionTable
 use crate::chips::execution_chip_v2::utils::to_field::{ToField, ToFields};
 use aptos_move_witnesses::static_info::bytecode::BytecodeInfo;
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::plonk::{Column, Error, Fixed};
+use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
 use types::Field;
 
 pub(crate) fn assign_fixed_table<F: Field>(

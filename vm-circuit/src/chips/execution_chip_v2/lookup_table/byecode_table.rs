@@ -3,7 +3,7 @@ use crate::chips::execution_chip_v2::utils::to_field::ToFields;
 use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use types::Field;
 
 #[derive(Copy, Clone, Debug)]

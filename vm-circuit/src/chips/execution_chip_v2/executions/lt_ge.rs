@@ -13,7 +13,7 @@ use crate::utils::cached_region::CachedRegion;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::ErrorFront as Error;
 use types::Field;
 
 #[derive(Clone, Debug)]

@@ -77,15 +77,15 @@ impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
 
         InstanceFields(columns)
     }
-    pub fn as_ref(&self) -> Vec<&[F]> {
-        self.0.iter().map(|v| v.as_slice()).collect()
+    pub fn inner(&self) -> &Vec<Vec<F>> {
+        &self.0
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         for column in &self.0 {
             for field in column {
-                let field_bytes: [u8; 32] = field.to_repr();
-                bytes.extend_from_slice(field_bytes.as_ref());
+                let field_bytes: [u8; 32] = field.to_repr().as_ref().try_into().unwrap();
+                bytes.extend_from_slice(&field_bytes);
             }
         }
         bytes

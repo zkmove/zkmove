@@ -8,7 +8,7 @@ use crate::utils::rlc;
 use crate::utils::word::WordLoHiCell;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{AssignedCell, Value as Halo2Value};
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
+use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use types::Field;
 
 pub const NUM_OF_BYTES_U8: usize = 1;

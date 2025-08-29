@@ -11,7 +11,7 @@ use aptos_move_witnesses::step_state::StageState;
 
 use crate::chips::execution_chip_v2::instance::InstanceTable;
 use gadgets::util::Expr;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::ErrorFront as Error;
 use poseidon_base::Hashable;
 use types::Field;
 

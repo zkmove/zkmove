@@ -1,6 +1,6 @@
 use crate::utils::challenges::Challenges;
 use halo2_proofs::circuit::{AssignedCell, Region, Value};
-use halo2_proofs::plonk::{Advice, Assigned, Column, Error, Instance};
+use halo2_proofs::plonk::{Advice, Assigned, Column, ErrorFront as Error, Instance};
 use halo2_proofs::poly::Rotation;
 use itertools::Itertools;
 use types::Field;

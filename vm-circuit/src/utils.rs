@@ -20,10 +20,10 @@ use halo2_proofs::{
     },
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
-        ProvingKey, VerifyingKey, VirtualCells,
+        ErrorFront, ProvingKey, VerifyingKey, VirtualCells,
     },
     poly::{
-        commitment::{CommitmentScheme, Params, ParamsProver, Prover, Verifier},
+        commitment::{CommitmentScheme, Params, Prover, Verifier},
         kzg::strategy::SingleStrategy,
         kzg::{
             commitment::{KZGCommitmentScheme, ParamsKZG},
@@ -38,7 +38,6 @@ use halo2_proofs::{
 use itertools::Itertools;
 use logger::{debug, info};
 use move_package::compilation::compiled_package::CompiledPackage;
-use plotters::prelude::{IntoDrawingArea, SVGBackend, WHITE};
 use poseidon_base::Hashable;
 use rand::prelude::StdRng;
 use rand::SeedableRng;
@@ -175,23 +174,6 @@ pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     Ok(())
 }
 
-pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
-    k: u32,
-    circuit: &ConcreteCircuit,
-) {
-    let root = SVGBackend::new("layout.svg", (3840, 2160)).into_drawing_area();
-    root.fill(&WHITE).unwrap();
-    let root = root.titled("Circuit Layout", ("sans-serif", 60)).unwrap();
-
-    // CircuitLayout is not available at wasm.
-    #[cfg(not(target_arch = "wasm32"))]
-    halo2_proofs::dev::CircuitLayout::default()
-        .mark_equality_cells(true)
-        .show_equality_constraints(true)
-        .render(k, circuit, &root)
-        .unwrap();
-}
-
 /// Sets up a circuit by generating verification and proving keys.
 ///
 /// # Arguments
@@ -200,13 +182,13 @@ pub fn print_circuit_layout<F: Field, ConcreteCircuit: Circuit<F>>(
 ///
 /// # Returns
 /// A tuple containing the `VerifyingKey` and `ProvingKey` if successful.
-pub fn setup_circuit<'params, C, P, ConcreteCircuit>(
+pub fn setup_circuit<C, P, ConcreteCircuit>(
     circuit: &ConcreteCircuit,
     params: &P,
 ) -> Result<(VerifyingKey<C>, ProvingKey<C>), Error>
 where
     C: CurveAffine,
-    P: Params<'params, C>,
+    P: Params<C>,
     ConcreteCircuit: Circuit<C::ScalarExt>,
     C::ScalarExt: FromUniformBytes<64>,
 {
@@ -228,7 +210,7 @@ where
 /// The proof as a byte vector if successful.
 pub fn prove_circuit<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
-    instance: &[&[E::Fr]],
+    instance: Vec<Vec<E::Fr>>,
     params: &ParamsKZG<E>,
     pk: &ProvingKey<E::G1Affine>,
 ) -> Result<Vec<u8>, Error>
@@ -252,7 +234,7 @@ fn prove_circuit_inner<
     ConcreteCircuit: Circuit<Scheme::Scalar>,
 >(
     circuit: ConcreteCircuit,
-    instance: &[&[Scheme::Scalar]],
+    instance: Vec<Vec<Scheme::Scalar>>,
     params: &'params Scheme::ParamsProver,
     pk: &ProvingKey<Scheme::Curve>,
 ) -> Result<Vec<u8>, Error>
@@ -291,7 +273,7 @@ where
 /// # Returns
 /// `Ok(())` if the proof is valid, or an error if verification fails.
 pub fn verify_circuit<E>(
-    instance: &[&[E::Fr]],
+    instance: Vec<Vec<E::Fr>>,
     params: &ParamsKZG<E>,
     vk: &VerifyingKey<E::G1Affine>,
     proof: &Vec<u8>,
@@ -305,7 +287,10 @@ where
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierSHPLONK<E>, SingleStrategy<E>>(
-        instance, params, vk, proof,
+        instance,
+        &params.verifier_params(),
+        vk,
+        proof,
     )
 }
 fn verify_circuit_inner<
@@ -314,8 +299,8 @@ fn verify_circuit_inner<
     V: Verifier<'params, Scheme>,
     Strategy: VerificationStrategy<'params, Scheme, V>,
 >(
-    instance: &[&[Scheme::Scalar]],
-    params: &'params Scheme::ParamsProver,
+    instance: Vec<Vec<Scheme::Scalar>>,
+    params: &'params Scheme::ParamsVerifier,
     vk: &VerifyingKey<Scheme::Curve>,
     proof: &Vec<u8>,
 ) -> Result<(), Error>
@@ -323,11 +308,10 @@ where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    let verifier_params = params.verifier_params();
-    let strategy = Strategy::new(verifier_params);
+    let strategy = Strategy::new(params);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
     let verify_start = instant::Instant::now();
-    let result = verify_proof(verifier_params, vk, strategy, &[instance], &mut transcript)?;
+    let result = verify_proof(params, vk, strategy, &[instance], &mut transcript)?;
 
     let verify_time = instant::Instant::now().duration_since(verify_start);
     info!("verify time: {} ms", verify_time.as_millis());
@@ -373,7 +357,7 @@ pub trait SubCircuit<F: Field> {
         config: &Self::Config,
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), ErrorFront>;
 }
 
 /// SubCircuit configuration

@@ -4,7 +4,6 @@ version = "0.4.0"
 edition = "2021"
 
 [dependencies]
-error = { path = "../common/error" }
 serde = { version = "1", features = ["derive"] }
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 logger = { path = "../common/logger" }
@@ -15,7 +14,7 @@ move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }
 move-package = { workspace = true }
-halo2_proofs = { workspace = true, features = ["dev-graph"] }
+halo2_proofs = { workspace = true }
 poseidon-circuit = { workspace = true }
 poseidon-base = { workspace = true }
 field-exts.workspace = true

@@ -21,7 +21,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;

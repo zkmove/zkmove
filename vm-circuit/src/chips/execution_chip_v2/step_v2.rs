@@ -9,7 +9,7 @@ use crate::utils::challenges::Challenges;
 use aptos_move_witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value as Halo2Value;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
+use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
 use types::Field;

@@ -9,7 +9,7 @@ use aptos_move_witnesses::types::sub_index::SubIndex;
 use aptos_move_witnesses::types::word::Word;
 use aptos_move_witnesses::utils::flatten::Flatten;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use types::Field;
 
 #[derive(Clone, Copy, Debug)]

@@ -34,7 +34,8 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::{and, not, or, Expr};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{
-    ConstraintSystem, Error, Expression, FirstPhase, SecondPhase, Selector, VirtualCells,
+    ConstraintSystem, ErrorFront as Error, Expression, FirstPhase, SecondPhase, Selector,
+    VirtualCells,
 };
 use move_binary_format::file_format_common::Opcodes;
 use poseidon_base::Hashable;

@@ -17,7 +17,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::{circuit::Value, plonk::Error};
+use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
 use types::Field;
 
 /// check the number of argument. If there is no arguments, enter entry function, else enter

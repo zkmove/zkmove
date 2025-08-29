@@ -11,7 +11,7 @@ use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
+    plonk::{Circuit, ConstraintSystem, ErrorFront as Error},
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_package::compilation::compiled_package::CompiledPackage;

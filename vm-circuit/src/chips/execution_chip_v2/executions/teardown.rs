@@ -18,7 +18,7 @@ use aptos_move_witnesses::step_state::StageState;
 use crate::chips::execution_chip_v2::instance::InstanceTable;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use move_core_types::u256::U256;
 use types::Field;
@@ -166,7 +166,14 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         sort_rlcs.error_if_known_and(|rlcs| {
             let rlcs = rlcs
                 .iter()
-                .map(|v| U256::from_le_bytes(&v.to_repr()))
+                .map(|v| {
+                    let bytes = v.to_repr();
+                    let array: &[u8; 32] = bytes
+                        .as_ref()
+                        .try_into()
+                        .expect("slice with incorrect length");
+                    U256::from_le_bytes(array)
+                })
                 .collect::<Vec<_>>();
             let mut assign_result = vec![];
             let mut prev_rlc = U256::zero();

@@ -8,7 +8,7 @@ use crate::utils::cell_manager::Cell;
 use gadgets::util::{pow_of_two, Expr};
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
 use types::Field;
@@ -95,7 +95,7 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
 
         // Set the bytes of diff
         let diff = (lhs - rhs) + (if lt { self.range } else { F::ZERO });
-        let diff_bytes = diff.to_repr();
+        let diff_bytes: [u8; 32] = diff.to_repr().as_ref().try_into().unwrap();
         for (idx, diff) in self.diff.iter().enumerate() {
             diff.assign(
                 region,

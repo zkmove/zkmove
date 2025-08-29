@@ -5,7 +5,7 @@ use crate::utils::cell_manager::Cell;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use types::Field;
 

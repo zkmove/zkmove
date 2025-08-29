@@ -19,7 +19,7 @@ use gadgets::util::Expr;
 use gadgets::util::{and, not};
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::poly::Rotation;
-use halo2_proofs::{circuit::Value, plonk::Error};
+use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
 use types::Field;
 
 /// check the number of argument. If the function has no arguments, enter callee, else enter stage2

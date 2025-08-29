@@ -11,7 +11,7 @@ use crate::table::LookupTable;
 use aptos_move_witnesses::static_info::StaticInfo;
 use gadgets::impl_expr;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{ConstraintSystem, Error, Expression, VirtualCells};
+use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression, VirtualCells};
 use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use types::Field;
