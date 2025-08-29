@@ -7,6 +7,7 @@ pub mod word;
 use crate::utils::challenges::Challenges;
 use crate::{CircuitConfigV2, Footprints, VmCircuit};
 use gadgets::util::Expr;
+use halo2_backend::transcript::{Keccak256Read, Keccak256Write};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
@@ -31,9 +32,7 @@ use halo2_proofs::{
         },
         VerificationStrategy,
     },
-    transcript::{
-        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
-    },
+    transcript::{Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer},
 };
 use itertools::Itertools;
 use logger::{debug, info};
@@ -266,7 +265,8 @@ where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
-    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    let mut transcript = Keccak256Write::<Vec<u8>, _, Challenge255<_>>::init(vec![]);
+
     // Create a proof
     let prove_start = instant::Instant::now();
     let rng = StdRng::from_entropy();
@@ -343,7 +343,7 @@ where
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     let strategy = Strategy::new(params);
-    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let mut transcript = Keccak256Read::<_, _, Challenge255<_>>::init(&proof[..]);
     let verify_start = instant::Instant::now();
     let result = verify_proof(params, vk, strategy, &[instance], &mut transcript)?;
 

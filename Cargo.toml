@@ -25,6 +25,7 @@ poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch
 
 halo2curves = { version = "0.7.0" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.4.0", default-features = false, features = ["batch", "bits"] }
+halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.4.0" }
 
 gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "gadgets" }
 field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "field-exts" }
