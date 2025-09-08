@@ -5,7 +5,7 @@ pub mod challenges;
 pub mod rlc;
 pub mod word;
 use crate::utils::challenges::Challenges;
-use crate::{CircuitConfigV2, Footprints, VmCircuit};
+use crate::{CircuitConfigV2, Footprints, PublicInputs, VmCircuit};
 use gadgets::util::Expr;
 use halo2_backend::transcript::{Keccak256Read, Keccak256Write};
 use halo2_proofs::circuit::{Layouter, Value};
@@ -90,10 +90,10 @@ pub fn print_cs_info<F: Field>(cs: &ConstraintSystem<F>) {
 
 pub fn mock_prove_circuit<F: Field, ConcreteCircuit: Circuit<F>>(
     circuit: &ConcreteCircuit,
-    instance: Vec<Vec<F>>,
+    instance: &PublicInputs<F>,
     k: u32,
 ) -> Result<(), Error> {
-    let prover = MockProver::run(k, circuit, instance)?;
+    let prover = MockProver::run(k, circuit, instance.as_vec())?;
     print_cs_info(prover.cs());
 
     // uncomment this to output assignments
@@ -227,7 +227,7 @@ impl KZG {
 /// The proof as a byte vector if successful.
 pub fn prove_circuit<E, ConcreteCircuit>(
     circuit: ConcreteCircuit,
-    instance: Vec<Vec<E::Fr>>,
+    instance: &PublicInputs<E::Fr>,
     params: &ParamsKZG<E>,
     pk: &ProvingKey<E::G1Affine>,
     kzg: KZG,
@@ -240,13 +240,20 @@ where
     E::G2Affine: SerdeObject + CurveAffine,
     ConcreteCircuit: Circuit<E::Fr>,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+    <E as Engine>::Fr: Field,
 {
     match kzg {
         KZG::GWC => prove_circuit_inner::<KZGCommitmentScheme<E>, ProverGWC<E>, _>(
-            circuit, instance, params, pk,
+            circuit,
+            instance.as_vec(),
+            params,
+            pk,
         ),
         KZG::SHPLONK => prove_circuit_inner::<KZGCommitmentScheme<E>, ProverSHPLONK<E>, _>(
-            circuit, instance, params, pk,
+            circuit,
+            instance.as_vec().clone(),
+            params,
+            pk,
         ),
     }
 }
@@ -297,7 +304,7 @@ where
 /// # Returns
 /// `Ok(())` if the proof is valid, or an error if verification fails.
 pub fn verify_circuit<E>(
-    instance: Vec<Vec<E::Fr>>,
+    instance: &PublicInputs<E::Fr>,
     params: &ParamsKZG<E>,
     vk: &VerifyingKey<E::G1Affine>,
     proof: &Vec<u8>,
@@ -310,11 +317,12 @@ where
     E::G1: CurveExt<AffineExt = E::G1Affine>,
     E::G2Affine: SerdeObject + CurveAffine,
     <E as Engine>::Fr: Ord + WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
+    <E as Engine>::Fr: Field,
 {
     match kzg {
         KZG::GWC => {
             verify_circuit_inner::<KZGCommitmentScheme<E>, VerifierGWC<E>, SingleStrategy<E>>(
-                instance,
+                instance.as_vec(),
                 &params.verifier_params(),
                 vk,
                 proof,
@@ -324,7 +332,7 @@ where
             KZGCommitmentScheme<E>,
             VerifierSHPLONK<E>,
             SingleStrategy<E>,
-        >(instance, &params.verifier_params(), vk, proof),
+        >(instance.as_vec(), &params.verifier_params(), vk, proof),
     }
 }
 fn verify_circuit_inner<
