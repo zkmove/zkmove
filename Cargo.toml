@@ -23,9 +23,9 @@ move-package = { git = "https://github.com/zkmove/aptos-core", rev = "581d93fd" 
 poseidon-circuit = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
 poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
 
-halo2curves = { version = "0.7.0" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.4.0", default-features = false, features = ["batch", "bits"] }
-halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.4.0" }
+halo2curves = { git = "https://github.com/zkmove/halo2curves", branch = "zkmove" }
+halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove", default-features = false, features = ["batch", "bits"] }
+halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
 
 gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "gadgets" }
 field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "field-exts" }
@@ -74,7 +74,6 @@ incremental = false
 [profile.bench]
 lto = true
 
-#
-[patch."https://github.com/privacy-scaling-explorations/halo2"]
-halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
-halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
+#[patch."https://github.com/zkmove/halo2"]
+#halo2_proofs = { path = "../halo2/halo2_proofs" }
+#halo2_backend = { path = "../halo2/halo2_backend" }
