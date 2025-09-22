@@ -17,7 +17,7 @@ use aptos_move_witnesses::step_state::{StageExtraAssignData, StageState};
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use itertools::{izip, Itertools};
 use std::marker::PhantomData;

@@ -9,6 +9,10 @@ move-vm-runtime = { workspace = true }
 move-vm-types = { workspace = true }
 move-package = { workspace = true }
 move-binary-format = { workspace = true }
+
+poseidon-base = { workspace = true }
+halo2curves = { workspace = true }
+
 logger = { path = "../common/logger" }
 utility = { path = "../common/utility" }
 movelang = { path = "../movelang" }
@@ -18,7 +22,3 @@ strum = { workspace = true }
 serde_json = { workspace = true }
 anyhow = "1.0.38"
 num-traits = "0.2"
-
-
-poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
-halo2curves = { version = "0.6" }

@@ -14,12 +14,9 @@ use std::rc::Rc;
 use vm_circuit::circuit_v2::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
-use vm_circuit::{
-    best_k, CircuitConfigV2, Footprints, InstanceFields, SubCircuit, VmCircuit,
-    NUM_INSTANCE_COLUMNS,
-};
+use vm_circuit::{best_k, CircuitConfigV2, Footprints, PublicInputs, SubCircuit, VmCircuit};
 #[cfg(not(feature = "test-circuits"))]
-use vm_circuit::{prove_circuit, setup_circuit, verify_circuit};
+use vm_circuit::{prove_circuit, setup_circuit, verify_circuit, KZG};
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
@@ -43,7 +40,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     // For testing purposes, force all arguments to be public inputs.
     let args = traces.args().expect("Args not found");
     let pubs_indices: Vec<usize> = Vec::from_iter(0..args.len());
-    let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices.as_slice());
+    let public_inputs = PublicInputs::new(&args, pubs_indices.as_slice());
     let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS), TEST_HASH_ROWS);
     #[cfg(feature = "test-circuits")]
     {
@@ -56,7 +53,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
-        mock_prove_circuit(&*circuit, instances.0, k)?;
+        mock_prove_circuit(&*circuit, &public_inputs, k).expect("mock prove should not fail");
     }
 
     #[cfg(not(feature = "test-circuits"))]
@@ -75,7 +72,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             debug!("k = {}", k);
             let rng = rand::rngs::mock::StepRng::new(0, 1);
             let params = ParamsKZG::<Bn256>::setup(k, rng);
-            let (vk, pk) = setup_circuit(&*test_circuit, &params)?;
+            let (vk, pk) = setup_circuit(&*test_circuit, &params).expect("setup should not fail");
             (params, vk, pk)
         };
 
@@ -87,9 +84,9 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             config,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
-        let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
+        let proof = prove_circuit((*circuit).clone(), &public_inputs, &params, &pk, KZG::GWC)
             .expect("proof generation should not fail");
-        verify_circuit(&instances.as_ref(), &params, &vk, &proof)
+        verify_circuit(&public_inputs, &params, &vk, &proof, KZG::GWC)
             .expect("verify proof should be ok");
     }
 

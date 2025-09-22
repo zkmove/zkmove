@@ -10,7 +10,7 @@ pub mod zkhash {
             [Fr::from_u128(arg1), Fr::from_u128(arg2)],
             Fr::from(DOMAIN_SPEC),
         );
-        let hash_val = U256::from_le_bytes(&hash_result.to_repr());
+        let hash_val = U256::from_le_bytes(&hash_result.to_repr().as_ref().try_into().unwrap());
         hash_val
     }
 }

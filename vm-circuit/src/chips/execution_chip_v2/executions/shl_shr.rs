@@ -25,7 +25,7 @@ use gadgets::util::select;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;

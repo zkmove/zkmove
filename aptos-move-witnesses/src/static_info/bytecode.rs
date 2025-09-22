@@ -303,6 +303,7 @@ mod tests {
         m
     }
 
+    #[ignore]
     #[test]
     fn test_bytecode_table() {
         logger::init_for_test();

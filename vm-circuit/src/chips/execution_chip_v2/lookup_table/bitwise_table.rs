@@ -3,7 +3,7 @@
 use crate::chips::execution_chip_v2::lookup_table::utils::assign_fixed_table;
 use crate::table::LookupTable;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::{Any, Column, ConstraintSystem, Error, Fixed};
+use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use move_binary_format::file_format_common::Opcodes;
 use types::Field;
 

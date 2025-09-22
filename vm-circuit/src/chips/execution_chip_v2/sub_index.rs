@@ -9,7 +9,7 @@ use aptos_move_witnesses::types::sub_index::N_BITS_ONE_LIMB;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use types::Field;
 

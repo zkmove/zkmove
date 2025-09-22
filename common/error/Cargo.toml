@@ -1,9 +1,0 @@
-[package]
-name = "error"
-version = "0.4.0"
-edition = "2021"
-
-[dependencies]
-logger = { path = "../logger" }
-halo2_proofs.workspace = true
-anyhow = "1.0.38"

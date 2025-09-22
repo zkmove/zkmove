@@ -7,7 +7,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use halo2_proofs::{
     circuit::Value,
-    plonk::{Error, Expression},
+    plonk::{ErrorFront as Error, Expression},
 };
 use types::Field;
 
@@ -39,7 +39,7 @@ impl<F: Field, const N_BYTES: usize> RangeCheckGadget<F, N_BYTES> {
         offset: usize,
         value: F,
     ) -> Result<(), Error> {
-        let bytes = value.to_repr();
+        let bytes: [u8; 32] = value.to_repr().as_ref().try_into().unwrap();
         for (idx, part) in self.parts.iter().enumerate() {
             part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
         }
@@ -82,7 +82,7 @@ impl<F: Field> IntegerRangeCheck<F> {
         value: F,
         n_bytes: usize,
     ) -> Result<bool, Error> {
-        let bytes = value.to_repr();
+        let bytes: [u8; 32] = value.to_repr().as_ref().try_into().unwrap();
         for (idx, part) in self.bytes.iter().enumerate() {
             part.assign(region, offset, Value::known(F::from(bytes[idx] as u64)))?;
         }

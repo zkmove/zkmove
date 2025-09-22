@@ -19,7 +19,7 @@ use aptos_move_witnesses::types::sub_index::SubIndex;
 use aptos_move_witnesses::types::value_header::ValueHeader;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use types::Field;
 

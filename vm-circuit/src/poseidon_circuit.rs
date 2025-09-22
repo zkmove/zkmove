@@ -11,7 +11,7 @@ use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
-    plonk::{ConstraintSystem, Error},
+    plonk::{ConstraintSystem, ErrorFront as Error},
 };
 use itertools::Itertools;
 use move_package::compilation::compiled_package::CompiledPackage;

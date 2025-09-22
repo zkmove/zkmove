@@ -10,7 +10,7 @@ use field_exts::OpsIdentity;
 use gadgets::util::{not, or, Expr};
 use halo2_proofs::{
     circuit::{AssignedCell, Region, Value},
-    plonk::{Advice, Column, Error, Expression, VirtualCells},
+    plonk::{Advice, Column, ErrorFront as Error, Expression, VirtualCells},
     poly::Rotation,
 };
 use itertools::Itertools;
@@ -318,7 +318,9 @@ impl<F: Field> WordLoHi<F> {
     /// Convert address (h160) to single field element.
     /// This method is Address specific
     pub fn compress_f(&self) -> F {
-        self.lo() + self.hi() * F::from_repr(BASE_128_BYTES).unwrap()
+        let mut repr = F::Repr::default();
+        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
+        self.lo() + self.hi() * F::from_repr(repr).unwrap()
     }
 }
 
@@ -366,7 +368,9 @@ impl<F: Field> WordLoHi<Expression<F>> {
     /// Convert address (h160) to single expression.
     /// This method is Address specific
     pub fn compress(&self) -> Expression<F> {
-        self.lo() + self.hi() * Expression::Constant(F::from_repr(BASE_128_BYTES).unwrap())
+        let mut repr = F::Repr::default();
+        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
+        self.lo() + self.hi() * Expression::Constant(F::from_repr(repr).unwrap())
     }
 }
 

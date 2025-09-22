@@ -12,8 +12,8 @@ use vm_circuit::circuit_v2::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{
-    best_k, print_cs_info, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
-    Footprints, InstanceFields, SubCircuit, VmCircuit, NUM_INSTANCE_COLUMNS,
+    best_k, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2, Footprints,
+    PublicInputs, SubCircuit, VmCircuit, KZG,
 };
 
 #[derive(Parser)]
@@ -95,24 +95,24 @@ impl Arguments {
         debug!("Generate parameters");
         let rng = rand::rngs::mock::StepRng::new(0, 1);
         let params = ParamsKZG::<Bn256>::setup(k, rng);
-        let (vk, pk) = setup_circuit(&*circuit, &params)?;
-        if debug {
-            print_cs_info(vk.cs());
-        }
+        let (vk, pk) = setup_circuit(&*circuit, &params).expect("setup should not fail");
+        // if debug {
+        //     print_cs_info(vk.cs());
+        // }
         debug!("Generate zk proof");
-        let instances = InstanceFields::<_, NUM_INSTANCE_COLUMNS>::new(&args, pubs_indices);
+        let public_inputs = PublicInputs::<_>::new(&args, pubs_indices);
 
         #[cfg(feature = "test-circuits")]
         if debug {
             debug!("Mock prove");
-            mock_prove_circuit(&circuit, instances.0, k)?;
+            mock_prove_circuit(&circuit, public_inputs.inner(), k)?;
         }
 
         #[cfg(not(feature = "test-circuits"))]
         {
-            let proof = prove_circuit((*circuit).clone(), &instances.as_ref(), &params, &pk)
+            let proof = prove_circuit((*circuit).clone(), &public_inputs, &params, &pk, KZG::GWC)
                 .expect("proof generation should not fail");
-            verify_circuit(&instances.as_ref(), &params, &vk, &proof)
+            verify_circuit(&public_inputs, &params, &vk, &proof, KZG::GWC)
                 .expect("verify proof should be ok");
         }
         Ok(())

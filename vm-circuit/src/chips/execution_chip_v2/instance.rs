@@ -43,9 +43,9 @@ impl InstanceTable {
 }
 
 #[derive(Clone)]
-pub struct InstanceFields<F: Field, const INSTANCE_COL: usize>(pub Vec<Vec<F>>);
+pub struct PublicInputs<F: Field>(Vec<Vec<F>>);
 
-impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
+impl<F: Field> PublicInputs<F> {
     pub fn new(args: &[ValueItems], pubs_indices: &[usize]) -> Self {
         let mut rows: Vec<Vec<F>> = Vec::new();
         for &index in pubs_indices {
@@ -55,16 +55,16 @@ impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
                     let fields = value_item.to_fields();
                     assert_eq!(
                         fields.len(),
-                        INSTANCE_COL,
+                        NUM_INSTANCE_COLUMNS,
                         "Each ValueItem must produce {} fields",
-                        INSTANCE_COL
+                        NUM_INSTANCE_COLUMNS
                     );
                     rows.push(fields);
                 }
             }
         }
 
-        let mut columns: Vec<Vec<F>> = vec![Vec::new(); INSTANCE_COL];
+        let mut columns: Vec<Vec<F>> = vec![Vec::new(); NUM_INSTANCE_COLUMNS];
         if rows.is_empty() {
             columns.iter_mut().for_each(|col| col.push(F::zero()));
         } else {
@@ -75,24 +75,24 @@ impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
             }
         }
 
-        InstanceFields(columns)
+        PublicInputs(columns)
     }
-    pub fn as_ref(&self) -> Vec<&[F]> {
-        self.0.iter().map(|v| v.as_slice()).collect()
+    pub fn as_vec(&self) -> Vec<Vec<F>> {
+        self.0.clone()
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         for column in &self.0 {
             for field in column {
-                let field_bytes: [u8; 32] = field.to_repr();
-                bytes.extend_from_slice(field_bytes.as_ref());
+                let field_bytes: [u8; 32] = field.to_repr().as_ref().try_into().unwrap();
+                bytes.extend_from_slice(&field_bytes);
             }
         }
         bytes
     }
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let field_byte_len = F::Repr::default().as_ref().len();
-        let num_columns = INSTANCE_COL;
+        let num_columns = NUM_INSTANCE_COLUMNS;
         assert_eq!(bytes.len() % field_byte_len, 0, "Byte length not aligned");
         let num_fields = bytes.len() / field_byte_len;
         assert_eq!(num_fields % num_columns, 0, "Field count not aligned");
@@ -110,7 +110,7 @@ impl<F: Field, const INSTANCE_COL: usize> InstanceFields<F, INSTANCE_COL> {
                 columns[col].push(field);
             }
         }
-        InstanceFields(columns)
+        PublicInputs(columns)
     }
 }
 #[cfg(test)]
@@ -122,8 +122,7 @@ mod tests {
 
     #[test]
     fn test_to_bytes_and_from_bytes() {
-        const TEST_COLS: usize = NUM_INSTANCE_COLUMNS;
-        let num_columns = TEST_COLS;
+        let num_columns = NUM_INSTANCE_COLUMNS;
         let num_rows = 3;
         let mut columns = vec![Vec::with_capacity(num_rows); num_columns];
         for col in &mut columns {
@@ -131,12 +130,12 @@ mod tests {
                 col.push(Fr::random(OsRng));
             }
         }
-        let public_inputs = InstanceFields::<Fr, TEST_COLS>(columns);
+        let public_inputs = PublicInputs::<Fr>(columns);
 
         // Serialize
         let bytes = public_inputs.to_bytes();
         // Deserialize
-        let restored = InstanceFields::<Fr, TEST_COLS>::from_bytes(&bytes);
+        let restored = PublicInputs::<Fr>::from_bytes(&bytes);
 
         // Check that the content is consistent
         assert_eq!(public_inputs.0, restored.0);

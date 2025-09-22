@@ -2,7 +2,6 @@
 members = [
     "movelang",
     "common/logger",
-    "common/error",
     "common/types",
     "common/utility",
     "vm-circuit",
@@ -12,30 +11,33 @@ members = [
 ]
 resolver = "2"
 [workspace.dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.3.0" }
-#halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget.git", rev = "764a682" }
+move-compiler = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-compiler-v2 = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-binary-format = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-core-types = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+move-package = { git = "https://github.com/zkmove/aptos-core", rev = "b4e0c28" }
+
 poseidon-circuit = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
 poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
-gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "89696678b", package = "gadgets" }
-field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", rev = "89696678b", package = "eth-types" }
-#generic-array = "0.14"
-#tempfile = "3.10"
-subtle = "2.5"
-rayon = "1.10"
-bytes = { version = "1.5" }
-serde_json = { version = "1" }
-move-compiler = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-compiler-v2 = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-binary-format = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-core-types = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-vm-runtime = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-vm-types = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-bytecode-verifier = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
-move-package = { git = "https://github.com/zkmove/aptos-core", rev = "55df1cfee2f51aeeafeed54bb79ec09eea5b5e23" }
 
-strum_macros = "0.26"
-strum = "0.26"
+halo2curves = { git = "https://github.com/zkmove/halo2curves", branch = "zkmove" }
+halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove", default-features = false, features = ["batch", "bits"] }
+halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
+
+gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "gadgets" }
+field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "field-exts" }
+
 anyhow = "1.0.38"
+bytes = { version = "1.5" }
+rayon = "1.10"
+serde_json = { version = "1" }
+strum = "0.26"
+strum_macros = "0.26"
+subtle = "2.5"
+
 [profile.dev]
 opt-level = 3
 debug = 2              # change to 0 or 2 for more or less debug info
@@ -72,6 +74,6 @@ incremental = false
 [profile.bench]
 lto = true
 
-#
-#[patch."https://github.com/privacy-scaling-explorations/halo2"]
-#halo2_proofs = { path = "../../privacy-scaling-explorations/halo2/halo2_proofs" }
+#[patch."https://github.com/zkmove/halo2"]
+#halo2_proofs = { path = "../halo2/halo2_proofs" }
+#halo2_backend = { path = "../halo2/halo2_backend" }

@@ -18,7 +18,7 @@ use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use types::Field;
 

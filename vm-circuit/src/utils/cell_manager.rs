@@ -7,7 +7,7 @@ use gadgets::util::Expr;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::{
     circuit::{AssignedCell, Value},
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, ErrorFront as Error, Expression, VirtualCells},
     poly::Rotation,
 };
 use strum::IntoEnumIterator;
@@ -53,14 +53,16 @@ impl CellType {
 
 impl CellType {
     // The phase that given `Expression` becomes evaluateable.
-    pub(crate) fn expr_phase<F: Field>(expr: &Expression<F>) -> u8 {
+    pub(crate) fn expr_phase<F: Field>(meta: &mut ConstraintSystem<F>, expr: &Expression<F>) -> u8 {
         use Expression::*;
         match expr {
             Challenge(challenge) => challenge.phase() + 1,
-            Advice(query) => query.phase(),
+            Advice(query) => meta.advice_column_phase()[query.column_index()],
             Constant(_) | Selector(_) | Fixed(_) | Instance(_) => 0,
-            Negated(a) | Expression::Scaled(a, _) => Self::expr_phase(a),
-            Sum(a, b) | Product(a, b) => std::cmp::max(Self::expr_phase(a), Self::expr_phase(b)),
+            Negated(a) | Expression::Scaled(a, _) => Self::expr_phase(meta, a),
+            Sum(a, b) | Product(a, b) => {
+                std::cmp::max(Self::expr_phase(meta, a), Self::expr_phase(meta, b))
+            }
         }
     }
 
@@ -74,8 +76,11 @@ impl CellType {
     }
 
     /// Return the storage cell of the expression.
-    pub(crate) fn storage_for_expr<F: Field>(expr: &Expression<F>) -> CellType {
-        Self::storage_for_phase(Self::expr_phase::<F>(expr))
+    pub(crate) fn storage_for_expr<F: Field>(
+        meta: &mut ConstraintSystem<F>,
+        expr: &Expression<F>,
+    ) -> CellType {
+        Self::storage_for_phase(Self::expr_phase::<F>(meta, expr))
     }
 }
 

@@ -14,7 +14,7 @@ use crate::utils::cell_manager::Cell;
 use aptos_move_witnesses::static_info::StaticInfo;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
-use halo2_proofs::{circuit::Value, plonk::Error};
+use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
 use types::Field;
 
 #[derive(Clone, Debug)]

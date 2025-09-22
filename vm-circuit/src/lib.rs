@@ -18,9 +18,9 @@ pub(crate) mod table;
 mod utils;
 
 pub use aptos_move_witnesses::static_info::Footprints;
-pub use chips::execution_chip_v2::instance::{InstanceFields, NUM_INSTANCE_COLUMNS};
+pub use chips::execution_chip_v2::instance::{PublicInputs, NUM_INSTANCE_COLUMNS};
 pub use circuit_v2::{CircuitConfigV2, VmCircuit};
 pub use utils::{
-    best_k, mock_prove_circuit, print_circuit_layout, print_cs_info, prove_circuit, setup_circuit,
-    verify_circuit, SubCircuit, SubCircuitConfig, MAX_DEGREE, MIN_DEGREE,
+    best_k, mock_prove_circuit, print_cs_info, prove_circuit, setup_circuit, verify_circuit,
+    EntryInfo, ModuleIdMapping, SubCircuit, SubCircuitConfig, KZG, MAX_DEGREE, MIN_DEGREE,
 };

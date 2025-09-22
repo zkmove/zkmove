@@ -1,6 +1,6 @@
 use crate::table::LookupTable;
 use halo2_proofs::circuit::{Layouter, Region, Value};
-use halo2_proofs::plonk::{Advice, Any, Column, ConstraintSystem, Error, Fixed};
+use halo2_proofs::plonk::{Advice, Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use itertools::Itertools;
 use types::Field;
 
