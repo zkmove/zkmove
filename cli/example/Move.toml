@@ -7,3 +7,8 @@ MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third
 
 [addresses]
 std = "0x1"
+
+[circuit]
+max_rows = 278
+max_poseidon_rows = 100
+entry = { module_id = "0x1::fibonacci", function_name = "test_fibonacci" }

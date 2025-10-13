@@ -4,21 +4,25 @@ version = "0.4.0"
 edition = "2021"
 
 [dependencies]
-aptos-move-witnesses = { path = "../aptos-move-witnesses" }
-halo2_proofs.workspace = true
-logger = { path = "../common/logger" }
-move-package = { workspace = true }
 vm-circuit = { path = "../vm-circuit" }
+halo2_proofs.workspace = true
+move-package = { workspace = true }
+move-core-types = { workspace = true }
+shape-generator = { git = "https://github.com/zkmove/halo2-verifier.move", package = "shape-generator" }
+
+ark-bn254 = { version = "0.4.0" }
+ark-serialize = { version = "0.4" }
+ark-ec = { version = "0.4" }
 anyhow = "1.0.38"
-rand = "0.8"
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+logger = { path = "../common/logger" }
 serde_json = { workspace = true }
-clap = { version = "4.3.9", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = { version = "0.8" }
 
 [dev-dependencies]
 
 [[bin]]
 name = "zkmove"
 path = "src/main.rs"
-
-[features]
-test-circuits = []
