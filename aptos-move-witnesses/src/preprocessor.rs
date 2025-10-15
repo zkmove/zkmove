@@ -1,18 +1,18 @@
-use crate::exec_state::ExecutionState;
-use crate::exec_state::ExecutionState::{
-    VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
-};
 use crate::native_functions;
 use crate::static_info::StaticInfo;
+use crate::step_state::ExecutionState;
+use crate::step_state::ExecutionState::{
+    VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
+};
 use crate::step_state::{
     BinaryOpData, CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp,
     RetExtraAssignData, Slot, StackPop, StackPush, StageExtraAssignData, StageState, StepState,
     Version,
 };
-use crate::types::sub_index::SubIndex;
-use crate::types::value_header::ValueHeader;
-use crate::types::word::Word;
-use crate::utils::flatten::Flatten;
+use crate::value_repr::sub_index::SubIndex;
+use crate::value_repr::utils::Flatten;
+use crate::value_repr::value_header::ValueHeader;
+use crate::value_repr::word::Word;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::file_format::FunctionHandleIndex;
 use move_binary_format::views::FunctionHandleView;
@@ -44,7 +44,7 @@ impl Default for WitnessPreProcessor {
 }
 
 impl WitnessPreProcessor {
-    pub fn pre_process(
+    pub fn process(
         mut self,
         traces: &Vec<crate::Footprint>,
         static_info: &StaticInfo,

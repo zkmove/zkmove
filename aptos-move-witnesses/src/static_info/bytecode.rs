@@ -7,8 +7,11 @@ use move_binary_format::file_format::{
     Bytecode, CompiledModule, FunctionDefinitionIndex, SignatureToken,
 };
 use move_binary_format::file_format_common::instruction_key;
-use movelang::type_transition;
+// use crate::static_info::movelang::type_transition;
 use std::collections::BTreeMap;
+
+use crate::static_info::movelang::type_transition;
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
     pub module_index: u32,

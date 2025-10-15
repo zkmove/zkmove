@@ -7,7 +7,7 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
     ConstraintBuilderV2, Transition,
 };
 use crate::utils::cached_region::CachedRegion;
-use aptos_move_witnesses::exec_state::ExecutionState;
+use aptos_move_witnesses::step_state::ExecutionState;
 use gadgets::util::{not, Expr};
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;

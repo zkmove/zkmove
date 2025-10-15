@@ -74,6 +74,7 @@ pub enum ExecutionState {
 }
 
 impl ExecutionState {
+    /// Returns the list of opcodes responsible for this execution state.
     pub const fn responsible_opcodes(&self) -> &[Opcodes] {
         match self {
             Self::Start => &[],
@@ -88,7 +89,6 @@ impl ExecutionState {
             Self::Bitwise | Self::BitwiseStage1 | Self::BitwiseStage2 => {
                 &[Opcodes::BIT_AND, Opcodes::BIT_OR, Opcodes::XOR]
             }
-
             Self::Branch => &[Opcodes::BRANCH],
             Self::VecSwapStage1 => &[Opcodes::VEC_SWAP],
             Self::VecSwapStage2 => &[Opcodes::VEC_SWAP],
@@ -160,30 +160,32 @@ impl ExecutionState {
         }
     }
 
+    /// Returns the list of mandatory execution states.
     pub fn mandatory_states() -> Vec<ExecutionState> {
-        vec![
-            Self::Start,
-            Self::ProcessArg,
-            Self::Teardown,
-            Self::Stop,
-            Self::ErrorState,
-        ]
+        const MANDATORY: &[ExecutionState] = &[
+            ExecutionState::Start,
+            ExecutionState::ProcessArg,
+            ExecutionState::Teardown,
+            ExecutionState::Stop,
+            ExecutionState::ErrorState,
+        ];
+        MANDATORY.to_vec()
     }
 
+    /// Returns the list of execution states corresponding to the opcode.
     pub fn from_opcode(opcode: Opcodes) -> Vec<Self> {
         ExecutionState::iter()
             .filter(|state| state.responsible_opcodes().contains(&opcode))
             .collect()
     }
 
+    /// Returns the list of execution states corresponding to multiple opcodes (deduplicated).
     pub fn from_opcodes(opcodes: &[Opcodes]) -> Vec<Self> {
         let mut states_set: HashSet<Self> = HashSet::new();
-
         for &opcode in opcodes {
             let states = Self::from_opcode(opcode);
             states_set.extend(states);
         }
-
         states_set.into_iter().collect()
     }
 }

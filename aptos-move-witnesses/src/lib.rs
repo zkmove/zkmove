@@ -11,10 +11,8 @@ use serde::{Deserialize, Serialize};
 pub struct Witnesses {
     pub opcode_witnesses: Vec<Footprint>,
 }
-pub mod exec_state;
 pub mod native_functions;
+pub mod preprocessor;
 pub mod static_info;
 pub mod step_state;
-pub mod types;
-pub mod utils;
-pub mod witness_preprocessor;
+pub mod value_repr;

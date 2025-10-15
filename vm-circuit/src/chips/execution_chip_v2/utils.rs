@@ -168,8 +168,8 @@ pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Valu
 
 pub(crate) mod to_field {
     use crate::chips::execution_chip_v2::utils::{from_limbs, pow_of_two};
-    use aptos_move_witnesses::types::sub_index::{SubIndex, N_BITS_ONE_LIMB};
-    use aptos_move_witnesses::types::word::Word;
+    use aptos_move_witnesses::value_repr::sub_index::{SubIndex, N_BITS_ONE_LIMB};
+    use aptos_move_witnesses::value_repr::word::Word;
     use move_vm_runtime::witnessing::traced_value::ValueItem;
     use types::Field;
 

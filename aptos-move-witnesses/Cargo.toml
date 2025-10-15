@@ -9,13 +9,13 @@ move-vm-runtime = { workspace = true }
 move-vm-types = { workspace = true }
 move-package = { workspace = true }
 move-binary-format = { workspace = true }
+move-bytecode-verifier = { workspace = true }
 
 poseidon-base = { workspace = true }
 halo2curves = { workspace = true }
 
 logger = { path = "../common/logger" }
 utility = { path = "../common/utility" }
-movelang = { path = "../movelang" }
 serde = { version = "1.0.203", features = ["derive"] }
 strum_macros = { workspace = true }
 strum = { workspace = true }

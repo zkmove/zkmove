@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "movelang",
     "common/logger",
     "common/types",
     "common/utility",

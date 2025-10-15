@@ -1,5 +1,5 @@
-use crate::types::sub_index::SubIndex;
-use crate::types::value_header::ValueHeader;
+use crate::value_repr::sub_index::SubIndex;
+use crate::value_repr::value_header::ValueHeader;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue};

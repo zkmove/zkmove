@@ -18,6 +18,7 @@ use std::path::Path;
 pub mod bytecode;
 pub mod constant;
 pub mod function;
+pub(crate) mod movelang;
 
 pub struct Footprints(pub Vec<Footprint>);
 impl Footprints {

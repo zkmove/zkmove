@@ -4,8 +4,8 @@ use crate::chips::execution_chip_v2::utils::from_limbs;
 use crate::chips::execution_chip_v2::value::NUM_OF_BYTES_U128;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
-use aptos_move_witnesses::types::sub_index::SubIndex;
-use aptos_move_witnesses::types::sub_index::N_BITS_ONE_LIMB;
+use aptos_move_witnesses::value_repr::sub_index::SubIndex;
+use aptos_move_witnesses::value_repr::sub_index::N_BITS_ONE_LIMB;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,

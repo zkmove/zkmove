@@ -8,8 +8,8 @@ use crate::chips::execution_chip_v2::utils::constraint_builder_v2::{
 };
 use crate::chips::execution_chip_v2::InstructionGadgetV2;
 use crate::utils::cached_region::CachedRegion;
-use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::StaticInfo;
+use aptos_move_witnesses::step_state::ExecutionState;
 use aptos_move_witnesses::step_state::StageState;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::ErrorFront as Error;

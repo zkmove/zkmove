@@ -7,7 +7,6 @@ edition = "2021"
 serde = { version = "1", features = ["derive"] }
 aptos-move-witnesses = { path = "../aptos-move-witnesses" }
 logger = { path = "../common/logger" }
-movelang = { path = "../movelang" }
 utility = { path = "../common/utility" }
 types = { path = "../common/types" }
 move-binary-format = { workspace = true }

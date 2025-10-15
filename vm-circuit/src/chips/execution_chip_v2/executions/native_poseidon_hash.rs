@@ -4,9 +4,9 @@ use crate::chips::execution_chip_v2::utils::base_constraint_builder::ConstrainBu
 use crate::chips::execution_chip_v2::utils::constraint_builder_v2::Transition;
 use crate::chips::execution_chip_v2::{ConstraintBuilderV2, InstructionGadgetV2};
 use crate::utils::cached_region::CachedRegion;
-use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::native_functions::zkhash::DOMAIN_SPEC;
 use aptos_move_witnesses::static_info::StaticInfo;
+use aptos_move_witnesses::step_state::ExecutionState;
 use aptos_move_witnesses::step_state::StageState;
 
 use crate::chips::execution_chip_v2::instance::InstanceTable;

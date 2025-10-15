@@ -1,8 +1,11 @@
 // Copyright (c) zkMove Authors
 
-pub mod flatten {
-    use crate::types::value_header::ValueHeader;
-    use crate::utils::sub_index;
+pub mod sub_index;
+pub mod value_header;
+pub mod word;
+
+pub mod utils {
+    use crate::value_repr::value_header::ValueHeader;
     use crate::{SimpleValue, ValueItem};
     use move_core_types::value::MoveValue;
 
@@ -33,7 +36,7 @@ pub mod flatten {
                     items.push(header_item(sub_index.clone(), flen, len));
 
                     for (i, value) in values.into_iter().enumerate() {
-                        let value_sub_index = sub_index::concat(sub_index.clone(), vec![i + 1]);
+                        let value_sub_index = concat(sub_index.clone(), vec![i + 1]);
                         let mut flattened_value = value.flatten_with(value_sub_index);
                         items.append(&mut flattened_value);
                     }
@@ -72,10 +75,7 @@ pub mod flatten {
             value: ValueHeader::new(flen, len).into(),
         }
     }
-}
-
-pub mod sub_index {
-    pub fn concat(mut index1: Vec<usize>, mut index2: Vec<usize>) -> Vec<usize> {
+    fn concat(mut index1: Vec<usize>, mut index2: Vec<usize>) -> Vec<usize> {
         while let Some(0) = index1.last() {
             index1.pop();
         }

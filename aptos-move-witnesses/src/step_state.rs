@@ -1,9 +1,11 @@
-use crate::exec_state::ExecutionState;
 use crate::static_info::StaticInfo;
-use crate::types::sub_index::SubIndex;
-use crate::types::word::Word;
 use crate::Footprint;
 use move_core_types::u256::U256;
+
+mod execution_state;
+mod memory_op;
+pub use execution_state::ExecutionState;
+pub use memory_op::{LocalReadWrite, MemoryOp, Slot, StackPop, StackPush};
 
 pub type Version = u64;
 
@@ -86,7 +88,7 @@ impl Default for ExecStepState {
 }
 #[derive(Clone, Copy, Debug)]
 pub struct StepState {
-    pub clk: u64,
+    pub clk: Version,
     pub frame_index: u16,
     pub module_index: u32,
     pub function_index: u16,
@@ -117,7 +119,7 @@ impl Default for StepState {
 
 impl StepState {
     pub fn new(
-        clk: u64,
+        clk: Version,
         state: ExecutionState,
         trace: &Footprint,
         static_info: &StaticInfo,
@@ -168,96 +170,6 @@ impl StepState {
     }
     pub fn set_aux1(mut self, value: u128) -> Self {
         self.aux1 = value;
-        self
-    }
-}
-
-#[derive(Default, Clone, Debug)]
-pub struct MemoryOp(
-    pub Option<StackPop>,
-    pub Option<StackPush>,
-    pub Option<LocalReadWrite>,
-);
-
-#[derive(Clone, Debug)]
-pub struct StackPop {
-    pub index: u16,
-    pub sub_index: SubIndex,
-    pub value: Word,
-    pub value_header: bool,
-    pub version: u64,
-}
-#[derive(Clone, Debug)]
-pub struct StackPush {
-    pub index: u16,
-    pub sub_index: SubIndex,
-    pub value: Word,
-    pub value_header: bool,
-    pub version: u64,
-}
-#[derive(Clone, Debug)]
-pub struct LocalReadWrite {
-    pub frame_index: u16, // TODO: types of frame_index and local_index
-    pub index: u8,
-    pub sub_index: SubIndex,
-    pub read_value: Word,
-    pub read_value_header: bool,
-    pub read_value_invalid: bool,
-    pub read_version: u64,
-    pub write_value: Word,
-    pub write_value_header: bool,
-    pub write_value_invalid: bool,
-    pub write_version: u64,
-}
-
-impl LocalReadWrite {
-    pub fn new(
-        frame_index: u16,
-        local_index: u8,
-        sub_index: SubIndex,
-        old_slot: Slot,
-        new_slot: Slot,
-    ) -> Self {
-        LocalReadWrite {
-            frame_index,
-            index: local_index,
-            sub_index,
-            read_value: old_slot.value,
-            read_value_header: old_slot.value_header,
-            read_value_invalid: old_slot.value_invalid,
-            read_version: old_slot.version,
-            write_value: new_slot.value,
-            write_value_header: new_slot.value_header,
-            write_value_invalid: new_slot.value_invalid,
-            write_version: new_slot.version,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Slot {
-    pub value: Word,
-    pub value_header: bool,
-    pub value_invalid: bool,
-    pub version: u64,
-}
-
-/// every slot's default value
-impl Default for Slot {
-    fn default() -> Self {
-        Self {
-            value: Word::default(),
-            value_header: false,
-            value_invalid: true,
-            version: 1,
-        }
-    }
-}
-
-impl Slot {
-    pub fn with_version(mut self, version: Version) -> Self {
-        debug_assert!(version > self.version);
-        self.version = version;
         self
     }
 }

@@ -1,4 +1,4 @@
-use crate::types::word::Word;
+use crate::value_repr::word::Word;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
 use utility::u256::{pair_u128_to_u256, split_u256_to_u128};
 

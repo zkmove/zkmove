@@ -4,10 +4,10 @@ use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable
 use crate::chips::execution_chip_v2::utils::to_field::ToField;
 use crate::utils::challenges::Challenges;
 use crate::{CircuitConfigV2, SubCircuit, SubCircuitConfig};
-use aptos_move_witnesses::exec_state::ExecutionState;
 use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
+use aptos_move_witnesses::step_state::ExecutionState;
 
-use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
+use aptos_move_witnesses::preprocessor::WitnessPreProcessor;
 use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
@@ -73,7 +73,7 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
         let static_info = StaticInfo::generate(entry, package, pubs_indices)
             .expect("static info should be generated");
         let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.pre_process(&traces.0, &static_info);
+        let states = preprocessor.process(&traces.0, &static_info);
 
         let max_hashes = config.max_poseidon_rows / F::hash_block_size();
         let mut poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();

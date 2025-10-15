@@ -73,4 +73,4 @@ pub(crate) use vec_swap::*;
 pub(crate) use write_ref::*;
 
 pub(crate) use crate::chips::execution_chip_v2::sub_index::*;
-pub(crate) use aptos_move_witnesses::exec_state::ExecutionState;
+pub(crate) use aptos_move_witnesses::step_state::ExecutionState;

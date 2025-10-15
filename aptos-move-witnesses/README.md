@@ -12,7 +12,7 @@ cargo install --git https://github.com/zkmove/aptos-core move-cli --branch witne
 Then run the example:
 
 ```
-cd examples/witness-generation
+cd example/witness-generation
 move build
 move sandbox publish
 move sandbox run --witness storage/0x0000000000000000000000000000000000000000000000000000000000000001/modules/vectoring.mv test_vec_swap

@@ -5,9 +5,9 @@ use crate::chips::execution_chip_v2::ExecChipConfig;
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use crate::utils::challenges::Challenges;
 use crate::utils::{SubCircuit, SubCircuitConfig};
+use aptos_move_witnesses::preprocessor::WitnessPreProcessor;
 use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use aptos_move_witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
-use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
@@ -196,7 +196,7 @@ impl<F: Field + Hashable> SubCircuit<F> for VmCircuit<F> {
         let static_info = StaticInfo::generate(entry, package, pubs_indices)
             .expect("static info should be generated");
         let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.pre_process(&traces.0, &static_info);
+        let states = preprocessor.process(&traces.0, &static_info);
         Self {
             states,
             static_info,
