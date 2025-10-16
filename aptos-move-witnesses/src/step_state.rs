@@ -95,8 +95,8 @@ pub struct StepState {
     pub pc: u16,
     pub sp: u16,
     pub opcode: u8,
-    pub aux0: u128,
-    pub aux1: u128,
+    pub operand0: u128,
+    pub operand1: u128,
     pub exec_state: ExecutionState,
 }
 
@@ -110,8 +110,8 @@ impl Default for StepState {
             pc: 0,
             sp: 0,
             opcode: 0, // have to set opcode == 0 for teardown, or else bytecode lookup cannot pass.
-            aux0: 0,
-            aux1: 0,
+            operand0: 0,
+            operand1: 0,
             exec_state: ExecutionState::Stop,
         }
     }
@@ -143,8 +143,8 @@ impl StepState {
             pc: trace.pc,
             sp: trace.stack_pointer as u16,
             opcode: bytecode.opcode,
-            aux0: bytecode.aux0.unwrap_or_default(),
-            aux1: bytecode.aux1.unwrap_or_default(),
+            operand0: bytecode.operand0.unwrap_or_default(),
+            operand1: bytecode.operand1.unwrap_or_default(),
             exec_state: state,
         }
     }
@@ -164,12 +164,12 @@ impl StepState {
         self.clk = clk;
         self
     }
-    pub fn set_aux0(mut self, value: u128) -> Self {
-        self.aux0 = value;
+    pub fn set_operand0(mut self, value: u128) -> Self {
+        self.operand0 = value;
         self
     }
-    pub fn set_aux1(mut self, value: u128) -> Self {
-        self.aux1 = value;
+    pub fn set_operand1(mut self, value: u128) -> Self {
+        self.operand1 = value;
         self
     }
 }

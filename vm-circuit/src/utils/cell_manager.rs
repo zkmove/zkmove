@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::chips::execution_chip_v2::lookup_table::Table;
+use crate::chips::execution_chip::lookup_table::Table;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::query_expression;
 use gadgets::util::Expr;

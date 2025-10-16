@@ -22,7 +22,7 @@ use std::{
 };
 use toml::Value;
 use vm_circuit::{
-    best_k, circuit_v2::CircuitGuard, CircuitConfigV2, Footprints, PublicInputs, SubCircuit,
+    best_k, circuit::CircuitGuard, CircuitConfigV2, Footprints, PublicInputs, SubCircuit,
     VmCircuit, KZG,
 };
 

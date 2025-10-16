@@ -7,8 +7,8 @@ pub mod common {
             function_index(0),
             pc(0),
             opcode(0),
-            aux0(0),
-            aux1(0),
+            operand0(0),
+            operand1(0),
         );
         if !on_last_row() {
             step_counter(1) == step_counter(0) - 1;
@@ -17,8 +17,8 @@ pub mod common {
             frame_index(1) == frame_index(0);
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux1(1) == aux1(0);
-            aux2(1) == aux2(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
         } else {
             step_counter(0) == 1;
         }
@@ -93,7 +93,7 @@ mod ld {
         step_counter(0) == 1;
         stack_push_index(0) == sp(0) + 1;
         stack_push_sub_index(0) == 0;
-        stack_push_value(0) == [aux0(0), aux1(0)];
+        stack_push_value(0) == [operand0(0), operand1(0)];
         stack_push_value_header(0) == false;
         stack_push_version(0) == clk(0);
 
@@ -120,7 +120,7 @@ mod ld_const {
         }
         table_constant.contain(
             module_index(0),
-            aux0(0),
+            operand0(0),
             stack_push_sub_index(0),
             stack_push_value(0),
             stack_push_value_header(0),
@@ -450,8 +450,8 @@ mod not {
 mod and_or {
     pub fn constrain() {
         if super::common::on_first_row() {
-            aux(0) == 0 | 1;
-            if aux(0) {
+            operand0(0) == 0 | 1;
+            if operand0(0) {
                 opcode(0) == OpCode::And;
             } else {
                 opcode(0) == OpCode::Not;
@@ -472,7 +472,7 @@ mod and_or {
             stack_pop_index(0) == sp(0) - 1;
             stack_push_index(0) == sp(0) - 1;
             stack_push_sub_index(0) == 0;
-            let expected = if aux(0) {
+            let expected = if operand0(0) {
                 stack_pop_value(-1) && stack_pop_value(0)
             } else {
                 stack_pop_value(-1) || stack_pop_value(0)
@@ -555,7 +555,7 @@ mod call {
         if num_arg(0) == 0 {
             table_func.contain(
                 module_index(0),
-                aux0(0), //fh_idx
+                operand0(0), //fh_idx
                 module_index(1),
                 function_index(1),
                 num_arg(0),
@@ -573,8 +573,8 @@ mod call {
             frame_index(1) == frame_index(0);
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
         }
     }
 
@@ -615,8 +615,8 @@ mod call {
             function_index(1) == function_index(0);
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
         }
     }
 
@@ -659,7 +659,7 @@ mod call {
                 //all args have been processed
                 table_func.contain(
                     module_index(0),
-                    aux0(0), //fh_index
+                    operand0(0), //fh_index
                     module_index(1),
                     function_index(1),
                     num_arg(0),
@@ -675,8 +675,8 @@ mod call {
                 frame_index(1) == frame_index(0);
                 pc(1) == pc(0);
                 opcode(1) == opcode(0);
-                aux0(1) == aux0(0);
-                aux1(1) == aux1(0);
+                operand0(1) == operand0(0);
+                operand1(1) == operand1(0);
             }
         }
     }
@@ -702,7 +702,7 @@ mod move_loc {
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
         stack_push_version(0) == clk(0);
         local_frame_index(0) == frame_index(0);
-        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_index(0) == operand0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
         local_read_value(0) == stack_push_value(0);
         local_read_value_header(0) == stack_push_value_header(0);
@@ -743,7 +743,7 @@ mod copy_loc {
         stack_push_index(0) == sp(0) + 1; // push a value onto stack
         stack_push_version(0) == clk(0);
         local_frame_index(0) == frame_index(0);
-        local_index(0) == aux0(0); // ensure local_index equal to operand0
+        local_index(0) == operand0(0); // ensure local_index equal to operand0
         local_sub_index(0) == stack_push_sub_index(0);
         lcoal_read_value(0) != INVALID;
         local_read_value(0) == stack_push_value(0);
@@ -784,7 +784,7 @@ mod store_loc {
         }
         local_frame_index(0) == frame_index(0);
         // ensure local_index equal to operand0
-        local_index(0) == aux0(0);
+        local_index(0) == operand0(0);
         if is_first {
             // first row
             local_sub_index(0) == 0; // simple value or header
@@ -804,8 +804,8 @@ mod store_loc {
             function_index(1) == function_index(0);
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
         }
     }
 
@@ -832,7 +832,7 @@ mod store_loc {
         super::common::require_no_stack_push();
 
         local_frame_index(0) == frame_index(0);
-        local_index(0) == aux0(0);
+        local_index(0) == operand0(0);
         local_sub_index(0) == stack_pop_sub_index(0);
 
         local_read_value_invalid(0) == true;
@@ -856,7 +856,7 @@ mod store_loc {
 mod borrow_loc {
     pub fn constrain() {
         step_counter(0) == 1;
-        let index = frame_index(0) + aux(0) << 16; //both frame_index and local_index are u16
+        let index = frame_index(0) + operand0(0) << 16; //both frame_index and local_index are u16
         let sub_index = 0;
         stack_push_value(0) == [index, sub_index];
         stack_push_value_header(0) == false;
@@ -887,7 +887,7 @@ mod borrow_field {
             == stack_pop_value(0)
                 .as_reference()
                 .sub_index
-                .concat(aux0(0) + 1);
+                .concat(operand0(0) + 1);
         stack_push_value_header(0) == stack_pop_value_header(0);
         stack_push_index(0) == sp(0);
         stack_push_sub_index(0) == 0;
@@ -1096,7 +1096,7 @@ mod br_bool {
         if on_first_row() {
             step_counter(0) == 1;
         }
-        let next_pc = aux0(0);
+        let next_pc = operand0(0);
         stack_pop_index(0) == sp(0);
         stack_pop_sub_index(0) == 0;
         // stack_pop_version(0) < clk(0);
@@ -1119,20 +1119,20 @@ mod br_bool {
 
 mod branch {
     pub fn constrain() {
-        table_bytecode.lookup(pc(0), opcode(0), aux0(0), aux1(0));
+        table_bytecode.lookup(pc(0), opcode(0), operand0(0), operand1(0));
 
         super::common::require_no_stack_pop();
         super::common::require_no_stack_push();
         super::common::require_no_local_op();
 
         sp(1) == sp(0);
-        pc(1) == aux0(0);
+        pc(1) == operand0(0);
     }
 }
 
 mod pack {
     pub fn constrain(is_vec_pack: bool) {
-        let num_field = aux0(0);
+        let num_field = operand0(0);
         if super::common::on_first_row() {
             if is_vec_pack {
                 opcode(0) == OpCode::VecPack;
@@ -1150,7 +1150,7 @@ mod pack {
             super::common::require_no_local_op();
 
             if num_field != 0 {
-                field_index(1) == aux0(0);
+                field_index(1) == operand0(0);
                 stack_pop_index(1) == sp(0);
                 stack_pop_sub_index(1) == 0;
             }
@@ -1224,7 +1224,7 @@ mod unpack {
             step_counter(0) == 1;
             stack_pop_index(0) == sp(0);
             stack_pop_sub_index(0) == 0;
-            stack_pop_value(0).as_header().len() == aux0(0);
+            stack_pop_value(0).as_header().len() == operand0(0);
             // stack_pop_version(0) < clk(0);
 
             super::common::require_no_stack_push();
@@ -1237,15 +1237,15 @@ mod unpack {
                 execution_state_next == UnpackStage2;
                 pc(1) == pc(0);
                 sp(1) == sp(0);
-                field_index(1) == aux0(0);
+                field_index(1) == operand0(0);
             }
             // the difference between vec_unpack and unpack is that vec can be empty
             if is_vec_unpack {
-                if aux0(0) != 0 {
+                if operand0(0) != 0 {
                     execution_state_next == UnpackStage2;
                     pc(1) == pc(0);
                     sp(1) == sp(0);
-                    field_index(1) == aux0(0);
+                    field_index(1) == operand0(0);
                 } else {
                     //num_field == 0
                     pc(1) == pc(0) + 1;
@@ -1295,7 +1295,7 @@ mod unpack {
             }
             if field_index(0) == 1 {
                 pc(1) == pc(0) + 1;
-                sp(1) == sp(0) + aux0(0) - 1; // sp(0)+num_field-1
+                sp(1) == sp(0) + operand0(0) - 1; // sp(0)+num_field-1
             }
             module_index(1) == module_index(0);
             function_index(1) == function_index(0);
@@ -1395,8 +1395,8 @@ mod vec_swap {
         function_index(1) == function_index(0);
         pc(1) == pc(0);
         opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
+        operand0(1) == operand0(0);
+        operand1(1) == operand1(0);
         sp(1) == sp(0) - 1;
 
         if is_last {
@@ -1451,8 +1451,8 @@ mod vec_swap {
         function_index(1) == function_index(0);
         pc(1) == pc(0);
         opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
+        operand0(1) == operand0(0);
+        operand1(1) == operand1(0);
 
         sp(1) == if is_last { sp(0) + 1 } else { sp(0) };
 
@@ -1508,8 +1508,8 @@ mod vec_swap {
             function_index(1) == function_index(0);
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
             local_frame_index(1) == local_frame_index(0);
             local_index(1) == local_index(0);
             ref_local_sub_index(1) = ref_local_sub_index(0);
@@ -1582,8 +1582,8 @@ mod vec_pop_back {
         function_index(1) == function_index(0);
         pc(1) == pc(0);
         opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
+        operand0(1) == operand0(0);
+        operand1(1) == operand1(0);
         sp(1) == sp(0);
     }
     /// move value from local to stack
@@ -1641,8 +1641,8 @@ mod vec_pop_back {
         } else {
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
         }
     }
 }
@@ -1705,8 +1705,8 @@ mod vec_push_back {
         function_index(1) == function_index(0);
         pc(1) == pc(0);
         opcode(1) == opcode(0);
-        aux0(1) == aux0(0);
-        aux1(1) == aux1(0);
+        operand0(1) == operand0(0);
+        operand1(1) == operand1(0);
         sp(1) == sp(0);
     }
     /// move value from stack to local
@@ -1763,8 +1763,8 @@ mod vec_push_back {
         } else {
             pc(1) == pc(0);
             opcode(1) == opcode(0);
-            aux0(1) == aux0(0);
-            aux1(1) == aux1(0);
+            operand0(1) == operand0(0);
+            operand1(1) == operand1(0);
             sp(1) == sp(0);
         }
     }

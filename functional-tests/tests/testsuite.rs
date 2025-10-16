@@ -11,7 +11,7 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use std::rc::Rc;
-use vm_circuit::circuit_v2::CircuitGuard;
+use vm_circuit::circuit::CircuitGuard;
 #[cfg(feature = "test-circuits")]
 use vm_circuit::mock_prove_circuit;
 use vm_circuit::{best_k, CircuitConfigV2, Footprints, PublicInputs, SubCircuit, VmCircuit};

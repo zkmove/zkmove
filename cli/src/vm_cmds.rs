@@ -25,9 +25,8 @@ use std::{
 };
 use toml::Value;
 use vm_circuit::{
-    best_k, circuit_v2::CircuitGuard, prove_circuit, setup_circuit, verify_circuit,
-    CircuitConfigV2, EntryInfo, Footprints, ModuleIdMapping, PublicInputs, SubCircuit, VmCircuit,
-    KZG,
+    best_k, circuit::CircuitGuard, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
+    EntryInfo, Footprints, ModuleIdMapping, PublicInputs, SubCircuit, VmCircuit, KZG,
 };
 
 #[derive(Parser)]

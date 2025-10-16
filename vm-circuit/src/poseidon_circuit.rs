@@ -1,7 +1,7 @@
 //! wrapping of mpt-circuit
 
-use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable;
-use crate::chips::execution_chip_v2::utils::to_field::ToField;
+use crate::chips::execution_chip::lookup_table::poseidon_table::PoseidonTable;
+use crate::chips::execution_chip::utils::to_field::ToField;
 use crate::utils::challenges::Challenges;
 use crate::{CircuitConfigV2, SubCircuit, SubCircuitConfig};
 use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
@@ -231,7 +231,7 @@ pub fn unroll_to_hash_input_default<F: Field>(
 
 #[cfg(test)]
 mod test {
-    use crate::chips::execution_chip_v2::utils::pow_of_two;
+    use crate::chips::execution_chip::utils::pow_of_two;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;

@@ -582,7 +582,7 @@ impl WitnessPreProcessor {
                 vec![StageState {
                     step_states: vec![ExecStepState {
                         step_state: StepState::new(self.clk, exec_state, trace, static_info)
-                            .set_aux0(*field_offset as u128), // TODO: figure out a better way
+                            .set_operand0(*field_offset as u128), // TODO: figure out a better way
                         memory_ops: vec![MemoryOp(Some(stack_pop), Some(stack_push), None)],
                     }],
                     extra_data: None,
@@ -1595,14 +1595,14 @@ impl WitnessPreProcessor {
                         let output = lhs.to_u256().add(rhs.to_u256());
                         let step_state =
                             StepState::new(self.clk, ExecutionState::AddSub, trace, static_info)
-                                .set_aux0(num_bytes as u128);
+                                .set_operand0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Sub => {
                         let output = lhs.to_u256().sub(rhs.to_u256());
                         let step_state =
                             StepState::new(self.clk, ExecutionState::AddSub, trace, static_info)
-                                .set_aux0(num_bytes as u128);
+                                .set_operand0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Mul => {
@@ -1613,7 +1613,7 @@ impl WitnessPreProcessor {
                             trace,
                             static_info,
                         )
-                        .set_aux0(num_bytes as u128);
+                        .set_operand0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Div => {
@@ -1624,7 +1624,7 @@ impl WitnessPreProcessor {
                             trace,
                             static_info,
                         )
-                        .set_aux0(num_bytes as u128);
+                        .set_operand0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Mod => {
@@ -1635,7 +1635,7 @@ impl WitnessPreProcessor {
                             trace,
                             static_info,
                         )
-                        .set_aux0(num_bytes as u128);
+                        .set_operand0(num_bytes as u128);
                         (SimpleValue::U256(output), step_state)
                     }
                     BinaryIntegerOperationType::Lt => {
@@ -2136,7 +2136,7 @@ impl WitnessPreProcessor {
                 };
                 let step_state =
                     StepState::new(self.clk, ExecutionState::ShiftStage1, trace, static_info)
-                        .set_aux0(num_bytes as u128);
+                        .set_operand0(num_bytes as u128);
 
                 let stack_pop_rhs = StackPop {
                     index: sp,

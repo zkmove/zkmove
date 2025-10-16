@@ -18,8 +18,8 @@ pub struct BytecodeInfo {
     pub function_index: u16,
     pub pc: u16,
     pub opcode: u8,
-    pub aux0: Option<u128>,
-    pub aux1: Option<u128>,
+    pub operand0: Option<u128>,
+    pub operand1: Option<u128>,
 }
 
 impl BytecodeInfo {
@@ -37,8 +37,8 @@ impl BytecodeInfo {
             function_index,
             pc,
             opcode: instr.opcode,
-            aux0: instr.aux0,
-            aux1: instr.aux1,
+            operand0: instr.operand0,
+            operand1: instr.operand1,
         }
     }
 }
@@ -98,8 +98,8 @@ fn parse_module(module: &CompiledModule, module_index: u32) -> BTreeMap<u16, Vec
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Instruction {
     pub(crate) opcode: u8,
-    pub(crate) aux0: Option<u128>,
-    pub(crate) aux1: Option<u128>,
+    pub(crate) operand0: Option<u128>,
+    pub(crate) operand1: Option<u128>,
 }
 
 pub const NUM_OF_BYTES_U8: usize = 1;
@@ -128,7 +128,7 @@ fn bytecode_to_instruction(
     ty_out: &[SignatureToken],
 ) -> Instruction {
     let opcode = instruction_key(bytecode);
-    let (aux0, aux1) = match *bytecode {
+    let (operand0, operand1) = match *bytecode {
         Bytecode::CastU8
         | Bytecode::CastU16
         | Bytecode::CastU32
@@ -223,7 +223,11 @@ fn bytecode_to_instruction(
         }
         Bytecode::Nop => (None, None),
     };
-    Instruction { opcode, aux0, aux1 }
+    Instruction {
+        opcode,
+        operand0,
+        operand1,
+    }
 }
 
 #[cfg(test)]
@@ -323,80 +327,80 @@ mod tests {
                 function_index: 0,
                 pc: 0,
                 opcode: Opcodes::LD_U64 as u8,
-                aux0: Some(2),
-                aux1: None,
+                operand0: Some(2),
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 0,
                 pc: 1,
                 opcode: Opcodes::LD_U64 as u8,
-                aux0: Some(2),
-                aux1: None,
+                operand0: Some(2),
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 0,
                 pc: 2,
                 opcode: Opcodes::ADD as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 0,
                 pc: 3,
                 opcode: Opcodes::POP as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 0,
                 pc: 4,
                 opcode: Opcodes::RET as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 1,
                 pc: 0,
                 opcode: Opcodes::LD_U64 as u8,
-                aux0: Some(1),
-                aux1: None,
+                operand0: Some(1),
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 1,
                 pc: 1,
                 opcode: Opcodes::LD_U64 as u8,
-                aux0: Some(2),
-                aux1: None,
+                operand0: Some(2),
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 1,
                 pc: 2,
                 opcode: Opcodes::SUB as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 1,
                 pc: 3,
                 opcode: Opcodes::POP as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
             BytecodeInfo {
                 module_index: 0,
                 function_index: 1,
                 pc: 4,
                 opcode: Opcodes::RET as u8,
-                aux0: None,
-                aux1: None,
+                operand0: None,
+                operand1: None,
             },
         ];
 

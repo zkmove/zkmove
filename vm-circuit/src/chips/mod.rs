@@ -1,1 +1,1 @@
-pub mod execution_chip_v2;
+pub mod execution_chip;
