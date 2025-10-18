@@ -1,5 +1,9 @@
 use crate::aptos_cmds::KZGVariant;
 use anyhow::{Context, Result};
+use circuit::{
+    best_k, circuit::CircuitGuard, prove_circuit, setup_circuit, verify_circuit, CircuitConfigArgs,
+    EntryInfo, Footprints, ModuleIdMapping, PublicInputs, VmCircuit, KZG,
+};
 use clap::{value_parser, Parser, Subcommand};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
@@ -24,10 +28,6 @@ use std::{
     str::FromStr,
 };
 use toml::Value;
-use vm_circuit::{
-    best_k, circuit::CircuitGuard, prove_circuit, setup_circuit, verify_circuit, CircuitConfigV2,
-    EntryInfo, Footprints, ModuleIdMapping, PublicInputs, SubCircuit, VmCircuit, KZG,
-};
 
 #[derive(Parser)]
 #[command(about = "Command for proving and verification.")]
@@ -87,13 +87,13 @@ impl ProveCommand {
         let manifest_path = self.package_path.join("Move.toml");
         let package = load_package(&self.package_path)?;
 
-        let circuit_config = get_circuit_config_from_move_toml(&manifest_path)
+        let circuit_config_args = get_circuit_config_args_from_move_toml(&manifest_path)
             .with_context(|| format!("Failed to get circuit config from {:?}", manifest_path))?;
         let circuit = Rc::new(VmCircuit::<Fr>::new(
             &package,
             &traces,
             &self.pubs_indices,
-            circuit_config,
+            circuit_config_args,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
 
@@ -192,7 +192,7 @@ impl VerifyCommand {
             params.downsize(self.k);
         }
         let manifest_path = self.package_path.join("Move.toml");
-        let circuit_config = get_circuit_config_from_move_toml(&manifest_path)
+        let circuit_config_args = get_circuit_config_args_from_move_toml(&manifest_path)
             .with_context(|| format!("Failed to get circuit config from {:?}", manifest_path))?;
         let entry_info = get_entry_info_from_move_toml(&manifest_path)
             .with_context(|| format!("Failed to get entry info from {:?}", self.package_path))?;
@@ -201,7 +201,7 @@ impl VerifyCommand {
             &package,
             entry_info,
             &self.pubs_indices,
-            circuit_config,
+            circuit_config_args,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         // must be called after CircuitGuard, because vk depends on the circuit config
@@ -230,16 +230,16 @@ fn find_package_root(witness: &Path) -> Result<PathBuf> {
         .context("Failed to find root path for the package")
 }
 
-fn get_circuit_config_from_move_toml(toml_path: &Path) -> Result<CircuitConfigV2> {
+fn get_circuit_config_args_from_move_toml(toml_path: &Path) -> Result<CircuitConfigArgs> {
     let toml_content = std::fs::read_to_string(toml_path).expect("Failed to read Move.toml");
     let parsed_toml: Value = toml_content
         .parse::<Value>()
         .expect("Failed to parse Move.toml");
 
     if let Some(circuit) = parsed_toml.get("circuit") {
-        let max_rows = circuit
-            .get("max_rows")
-            .and_then(|max_rows| max_rows.as_integer())
+        let max_execution_rows = circuit
+            .get("max_execution_rows")
+            .and_then(|max_execution_rows| max_execution_rows.as_integer())
             .map(|v| v as usize);
 
         let max_poseidon_rows = circuit
@@ -248,12 +248,12 @@ fn get_circuit_config_from_move_toml(toml_path: &Path) -> Result<CircuitConfigV2
             .map(|v| v as usize)
             .unwrap_or(0);
 
-        Ok(CircuitConfigV2 {
-            max_rows,
+        Ok(CircuitConfigArgs {
+            max_execution_rows,
             max_poseidon_rows,
         })
     } else {
-        Ok(CircuitConfigV2::default())
+        Ok(CircuitConfigArgs::default())
     }
 }
 

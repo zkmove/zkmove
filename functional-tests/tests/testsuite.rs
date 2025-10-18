@@ -1,5 +1,11 @@
 // Copyright (c) zkMove Authors
 
+use circuit::circuit::CircuitGuard;
+#[cfg(feature = "test-circuits")]
+use circuit::mock_prove_circuit;
+use circuit::{best_k, CircuitConfigArgs, Footprints, PublicInputs, VmCircuit};
+#[cfg(not(feature = "test-circuits"))]
+use circuit::{prove_circuit, setup_circuit, verify_circuit, KZG};
 #[cfg(not(feature = "test-circuits"))]
 use halo2_proofs::halo2curves::bn256::Bn256;
 use halo2_proofs::halo2curves::bn256::Fr;
@@ -11,12 +17,6 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use std::rc::Rc;
-use vm_circuit::circuit::CircuitGuard;
-#[cfg(feature = "test-circuits")]
-use vm_circuit::mock_prove_circuit;
-use vm_circuit::{best_k, CircuitConfigV2, Footprints, PublicInputs, SubCircuit, VmCircuit};
-#[cfg(not(feature = "test-circuits"))]
-use vm_circuit::{prove_circuit, setup_circuit, verify_circuit, KZG};
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
@@ -41,7 +41,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
     let args = traces.args().expect("Args not found");
     let pubs_indices: Vec<usize> = Vec::from_iter(0..args.len());
     let public_inputs = PublicInputs::new(&args, pubs_indices.as_slice());
-    let config = CircuitConfigV2::new(Some(TEST_CIRCUIT_ROWS), TEST_HASH_ROWS);
+    let circuit_config_args = CircuitConfigArgs::new(Some(TEST_CIRCUIT_ROWS), TEST_HASH_ROWS);
     #[cfg(feature = "test-circuits")]
     {
         debug!("Mock prove");
@@ -49,7 +49,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             &package,
             &traces,
             &pubs_indices,
-            config.clone(),
+            circuit_config_args.clone(),
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         let k = best_k(&circuit);
@@ -65,7 +65,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
                 &package,
                 entry,
                 &pubs_indices,
-                config.clone(),
+                circuit_config_args.clone(),
             ));
             let _circuit_guard = CircuitGuard::new(test_circuit.clone());
             let k = best_k(&test_circuit);
@@ -81,7 +81,7 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
             &package,
             &traces,
             &pubs_indices,
-            config,
+            circuit_config_args,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         let proof = prove_circuit((*circuit).clone(), &public_inputs, &params, &pk, KZG::GWC)

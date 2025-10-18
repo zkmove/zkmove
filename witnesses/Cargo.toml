@@ -1,0 +1,24 @@
+[package]
+name = "witnesses"
+version = "0.4.0"
+edition = "2021"
+
+[dependencies]
+move-core-types = { workspace = true }
+move-vm-runtime = { workspace = true }
+move-vm-types = { workspace = true }
+move-package = { workspace = true }
+move-binary-format = { workspace = true }
+move-bytecode-verifier = { workspace = true }
+
+poseidon-base = { workspace = true }
+halo2curves = { workspace = true }
+
+logger = { path = "../third-party/logger" }
+utility = { path = "../third-party/utility" }
+serde = { version = "1.0.203", features = ["derive"] }
+strum_macros = { workspace = true }
+strum = { workspace = true }
+serde_json = { workspace = true }
+anyhow = "1.0.38"
+num-traits = "0.2"

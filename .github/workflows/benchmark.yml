@@ -7,7 +7,7 @@
 #      - main
 #    # Only run benchmarks on changes to following paths:
 #    paths:
-#      - "vm-circuit/**"
+#      - "circuit/**"
 #      - "functional-tests/benches/**"
 #  workflow_dispatch:
 #
