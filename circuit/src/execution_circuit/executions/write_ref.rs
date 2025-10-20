@@ -1,16 +1,16 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::executions::ExtendedSubIndex;
 use crate::execution_circuit::executions::Membership;
-use crate::execution_circuit::instance::InstanceTable;
-use crate::execution_circuit::math_gadgets::is_zero::IsZeroGadget;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::execution_circuit::utils::to_field::ToField;
 use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::is_zero::IsZeroGadget;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::utils::to_field::ToField;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::poly::Rotation;
@@ -142,7 +142,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -307,7 +307,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
@@ -471,7 +471,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
 
     fn assign(
         &self,
-        step: StepState<F>,
+        _step: StepState<F>,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,

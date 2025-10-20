@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 circuit = { path = "../circuit" }
+witnesses = { path = "../witnesses" }
 halo2_proofs.workspace = true
 move-package = { workspace = true }
 move-core-types = { workspace = true }

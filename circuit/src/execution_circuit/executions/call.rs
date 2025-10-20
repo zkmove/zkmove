@@ -1,16 +1,16 @@
 use crate::execution_circuit::call_stack::CallContext;
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::instance::InstanceTable;
 use crate::execution_circuit::lookup_table::Lookup;
-use crate::execution_circuit::math_gadgets::is_zero::IsZeroGadget;
 use crate::execution_circuit::step::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, OPERAND0, OPERAND1, PC, SP,
 };
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::is_zero::IsZeroGadget;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::Expr;
 use gadgets::util::{and, not};
 use halo2_proofs::plonk::Expression;

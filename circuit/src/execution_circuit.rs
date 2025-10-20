@@ -2,10 +2,9 @@
 
 use crate::execution_circuit::executions::{ExecutionConfig, InstructionGadgetV2};
 use crate::execution_circuit::lookup_table::{FixedTableTag, LookupTableConfigV2};
-use crate::execution_circuit::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::utils::challenges::Challenges;
-use crate::utils::{SubCircuit, SubCircuitConfig};
-use crate::CircuitConfigArgs;
+use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::vm_circuit::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use halo2_proofs::{
     circuit::Layouter,
     plonk::{ConstraintSystem, ErrorFront as Error},
@@ -22,13 +21,9 @@ use witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod lookup_table;
-pub(crate) mod math_gadgets;
 pub(crate) mod step;
 pub(crate) mod sub_index;
-pub(crate) mod utils;
 pub(crate) mod value;
-
-pub mod instance;
 
 /// Circuit of the MoveVM interpreter execution
 

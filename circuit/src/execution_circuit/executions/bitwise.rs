@@ -1,15 +1,15 @@
 use crate::execution_circuit::executions::bitwise::to_nibbles::ToNibbles;
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::instance::InstanceTable;
 use crate::execution_circuit::lookup_table::Lookup;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::execution_circuit::utils::from_limbs;
 use crate::execution_circuit::value::{NUM_OF_BYTES_U256, NUM_OF_NIBBLE_U256};
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::utils::from_limbs;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
@@ -168,10 +168,10 @@ impl<F: Field, const R: usize, const C: usize> InstructionGadgetV2<F> for Bitwis
     fn assign(
         &self,
         _step: StepState<F>,
-        region: &mut CachedRegion<'_, '_, F>,
-        offset: usize,
+        _region: &mut CachedRegion<'_, '_, F>,
+        _offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
         _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         // debug_assert!(!stage_state.step_states.is_empty());
@@ -246,7 +246,7 @@ impl<F: Field, const R: usize, const C: usize> InstructionGadgetV2<F> for Bitwis
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
         _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         // debug_assert!(!stage_state.step_states.is_empty());
@@ -416,7 +416,7 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        __static_info: &StaticInfo,
         _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());

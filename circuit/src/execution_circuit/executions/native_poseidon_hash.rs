@@ -1,15 +1,15 @@
 use crate::execution_circuit::lookup_table::Lookup;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::Transition;
 use crate::execution_circuit::{ConstraintBuilderV2, InstructionGadgetV2};
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::constraint_builder_v2::Transition;
 use witnesses::native_functions::zkhash::DOMAIN_SPEC;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::ExecutionState;
 use witnesses::step_state::StageState;
 
-use crate::execution_circuit::instance::InstanceTable;
+use crate::public_inputs::InstanceTable;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::ErrorFront as Error;
 use poseidon_base::Hashable;

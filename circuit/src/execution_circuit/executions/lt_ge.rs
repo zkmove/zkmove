@@ -1,13 +1,13 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::instance::InstanceTable;
-use crate::execution_circuit::math_gadgets::comparison::ComparisonGadget;
-use crate::execution_circuit::math_gadgets::lt::LtGadget;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::execution_circuit::value::NUM_OF_BYTES_U128;
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::comparison::ComparisonGadget;
+use crate::gadgets::lt::LtGadget;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::Expr;
 use halo2_proofs::plonk::ErrorFront as Error;
 use types::Field;
@@ -135,7 +135,7 @@ impl<F: Field, const LT: bool> InstructionGadgetV2<F> for Lt<F, LT> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
         _instances: &InstanceTable,
     ) -> Result<usize, Error> {
         debug_assert!(!stage_state.step_states.is_empty());

@@ -1,14 +1,13 @@
 use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
-use crate::execution_circuit::utils::to_field::ToFields;
-use halo2_proofs::plonk::{Column, ConstraintSystem, Expression, Instance, VirtualCells};
-use halo2_proofs::poly::Rotation;
+use crate::utils::to_field::ToFields;
+use halo2_proofs::plonk::{Column, ConstraintSystem, Instance};
 use move_vm_runtime::witnessing::traced_value::ValueItems;
 use types::Field;
 
 pub const NUM_INSTANCE_COLUMNS: usize = NUM_OF_VALUE_LIMBS + 2;
 
 #[derive(Clone)]
-pub struct InstanceTable {
+pub(crate) struct InstanceTable {
     pub sub_index: Column<Instance>,
     pub header: Column<Instance>,
     pub value: [Column<Instance>; NUM_OF_VALUE_LIMBS],
@@ -27,18 +26,6 @@ impl InstanceTable {
             header,
             value,
         }
-    }
-    pub fn columns(&self) -> Vec<Column<Instance>> {
-        vec![self.sub_index, self.header]
-            .into_iter()
-            .chain(self.value)
-            .collect()
-    }
-    pub fn exprs<F: Field>(&self, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
-        self.columns()
-            .iter()
-            .map(|&column| meta.query_any(column, Rotation::cur()))
-            .collect()
     }
 }
 

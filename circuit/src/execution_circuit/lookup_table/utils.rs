@@ -1,6 +1,6 @@
 use crate::execution_circuit::lookup_table::constant_table::ConstantTableRow;
 use crate::execution_circuit::lookup_table::function_table::FunctionTableRow;
-use crate::execution_circuit::utils::to_field::{ToField, ToFields};
+use crate::utils::to_field::{ToField, ToFields};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
 use types::Field;

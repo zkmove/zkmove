@@ -120,7 +120,7 @@ impl CellPlacementStrategy for CMFixedWidthStrategy {
     fn place_cell<F: Field>(
         &mut self,
         columns: &mut CellManagerColumns,
-        meta: &mut ConstraintSystem<F>,
+        _meta: &mut ConstraintSystem<F>,
         cell_type: CellType,
     ) -> CellPlacement {
         let (mut column_idx, mut row) = self.get_next(&cell_type);

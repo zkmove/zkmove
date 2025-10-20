@@ -5,8 +5,10 @@ use crate::execution_circuit::{
     ExecutionCircuit, ExecutionCircuitConfig, ExecutionCircuitConfigArgs,
 };
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
-use crate::utils::{SubCircuit, SubCircuitConfig};
+use crate::utils::challenges::Challenges;
+use halo2_proofs::circuit::Value;
 use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::plonk::ErrorFront;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, ErrorFront as Error},
@@ -239,4 +241,55 @@ impl<F: Field + Hashable> VmCircuit<F> {
         // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
         rows_needed + (cs.blinding_factors() + 1)
     }
+}
+
+/// SubCircuit is a circuit that performs the verification of a specific part of
+/// the full move verification.  The SubCircuit's interact with each
+/// other via lookup tables and/or shared public inputs.  This type must contain
+/// all the inputs required to synthesize this circuit (and the contained
+/// table(s) if any).
+#[allow(clippy::too_long_first_doc_paragraph)]
+pub trait SubCircuit<F: Field> {
+    /// Configuration of the SubCircuit.
+    type Config: SubCircuitConfig<F>;
+
+    /// Returns number of unusable rows of the SubCircuit, which should be
+    /// `meta.blinding_factors() + 1`.
+    fn unusable_rows() -> usize {
+        256
+    }
+
+    /// Create a new SubCircuit
+    fn new(
+        package: &CompiledPackage,
+        traces: &Footprints,
+        pubs_indices: &[usize],
+        circuit_config_args: CircuitConfigArgs,
+    ) -> Self;
+    /// Create a new SubCircuit with empty state
+    fn new_with_empty_state(
+        package: &CompiledPackage,
+        entry: EntryInfo,
+        pubs_indices: &[usize],
+        circuit_config_args: CircuitConfigArgs,
+    ) -> Self;
+    /// Assign only the columns used by this sub-circuit.  This includes the
+    /// columns that belong to the exposed lookup table contained within, if
+    /// any; and excludes external tables that this sub-circuit does lookups
+    /// to.
+    fn synthesize_sub(
+        &self,
+        config: &Self::Config,
+        challenges: &Challenges<Value<F>>,
+        layouter: &mut impl Layouter<F>,
+    ) -> Result<(), ErrorFront>;
+}
+
+/// SubCircuit configuration
+pub trait SubCircuitConfig<F: Field> {
+    /// Config constructor arguments
+    type ConfigArgs;
+
+    /// Type constructor
+    fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self;
 }

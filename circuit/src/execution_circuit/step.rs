@@ -1,11 +1,11 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::lookup_table::Table;
-use crate::execution_circuit::utils::to_field::{ToField, ToFields};
 use crate::execution_circuit::value::Value;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
+use crate::utils::to_field::{ToField, ToFields};
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};

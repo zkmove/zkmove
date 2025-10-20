@@ -1,9 +1,9 @@
 //! wrapping of mpt-circuit
 
 use crate::execution_circuit::lookup_table::poseidon_table::PoseidonTable;
-use crate::execution_circuit::utils::to_field::ToField;
 use crate::utils::challenges::Challenges;
-use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
+use crate::utils::to_field::ToField;
+use crate::vm_circuit::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use witnesses::step_state::ExecutionState;
 
@@ -115,9 +115,9 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
         Self(poseidon_table_data, max_hashes)
     }
     fn new_with_empty_state(
-        package: &CompiledPackage,
-        entry: EntryInfo,
-        pubs_indices: &[usize],
+        _package: &CompiledPackage,
+        _entry: EntryInfo,
+        _pubs_indices: &[usize],
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
         let max_hashes = circuit_config_args.max_poseidon_rows / F::hash_block_size();
@@ -231,7 +231,7 @@ pub fn unroll_to_hash_input_default<F: Field>(
 
 #[cfg(test)]
 mod test {
-    use crate::execution_circuit::utils::pow_of_two;
+    use crate::utils::pow_of_two;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;

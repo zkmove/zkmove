@@ -1,9 +1,8 @@
 use crate::aptos_cmds::KZGVariant;
 use anyhow::{Context, Result};
-use circuit::{
-    best_k, circuit::CircuitGuard, prove_circuit, setup_circuit, verify_circuit, CircuitConfigArgs,
-    EntryInfo, Footprints, ModuleIdMapping, PublicInputs, VmCircuit, KZG,
-};
+use circuit::proofs::{best_k, prove_circuit, setup_circuit, verify_circuit, KZG};
+use circuit::public_inputs::PublicInputs;
+use circuit::vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 use clap::{value_parser, Parser, Subcommand};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
@@ -28,6 +27,7 @@ use std::{
     str::FromStr,
 };
 use toml::Value;
+use witnesses::static_info::{EntryInfo, Footprints, ModuleIdMapping};
 
 #[derive(Parser)]
 #[command(about = "Command for proving and verification.")]

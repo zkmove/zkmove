@@ -1,11 +1,11 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::lookup_table::{FixedTableTag, Lookup, Table};
 use crate::execution_circuit::step::{Step, StepState};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::StoredExpression;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cell_manager::{Cell, CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
+use crate::utils::stored_expression::StoredExpression;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;
@@ -124,10 +124,10 @@ impl<'a, F: Field> ConstraintBuilderV2<'a, F> {
         &'a mut CellManagerColumns,
     ) {
         debug_assert_eq!(self.conditions.len(), 0);
-        let op_sel = match self.execution_state {
-            Some(s) => self.curr.execution_state_selector([s]),
-            None => 1u64.expr(),
-        };
+        // let op_sel = match self.execution_state {
+        //     Some(s) => self.curr.execution_state_selector([s]),
+        //     None => 1u64.expr(),
+        // };
         // let mul_exec_state_sel = |c: Vec<(String, Expression<F>)>| {
         //     c.into_iter()
         //         .map(|(name, constraint)| (name, op_sel.clone() * constraint))

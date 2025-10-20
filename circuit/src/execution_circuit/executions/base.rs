@@ -1,11 +1,11 @@
-use crate::execution_circuit::math_gadgets::range_check::RangeCheckGadget;
 use crate::execution_circuit::step::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, OPERAND0, OPERAND1, PC,
     STEP_COUNTER,
 };
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::gadgets::range_check::RangeCheckGadget;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::{not, Expr};
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;

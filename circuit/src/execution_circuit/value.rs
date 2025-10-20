@@ -1,9 +1,9 @@
-use crate::execution_circuit::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::execution_circuit::utils::pow_of_two_expr;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
+use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::utils::pow_of_two_expr;
 use crate::utils::rlc;
 use crate::utils::word::WordLoHiCell;
 use gadgets::util::Expr;

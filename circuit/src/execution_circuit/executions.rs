@@ -15,19 +15,17 @@ use crate::execution_circuit::executions::{
     VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
     WriteRefStage3,
 };
-use crate::execution_circuit::instance::InstanceTable;
 use crate::execution_circuit::lookup_table::LookupTableConfigV2;
 use crate::execution_circuit::step::{Step, StepState};
-use crate::execution_circuit::utils::base_constraint_builder::{
-    BaseConstraintBuilder, ConstrainBuilderCommon,
-};
-use crate::execution_circuit::utils::constraint_builder_v2::{
-    ConstraintBuilderV2, ConstraintLocation, Constraints, Lookups, StoredExpressions,
-};
+use crate::public_inputs::InstanceTable;
 use crate::table::LookupTable;
+use crate::utils::base_constraint_builder::{BaseConstraintBuilder, ConstrainBuilderCommon};
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
+use crate::utils::constraint_builder_v2::{
+    ConstraintBuilderV2, ConstraintLocation, Constraints, Lookups, StoredExpressions,
+};
 use crate::utils::rlc;
 use gadgets::util;
 use gadgets::util::Expr;
@@ -779,7 +777,6 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
                             &mut cached_region,
                             offset,
                             opcode_witness,
-                            challenges,
                             static_info,
                             &self.instances,
                         )?;
@@ -810,7 +807,6 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset_begin: usize,
         stage_state: &StageState,
-        challenges: &Challenges<Value<F>>,
         static_info: &StaticInfo,
         instances: &InstanceTable,
     ) -> Result<usize, Error> {
@@ -984,7 +980,7 @@ pub(crate) fn assign_step_and_common<F: Field>(
     region: &mut CachedRegion<'_, '_, F>,
     offset_begin: usize,
     stage_state: &StageState,
-    static_info: &StaticInfo,
+    _static_info: &StaticInfo,
 ) -> Result<usize, Error> {
     debug_assert!(!stage_state.step_states.is_empty());
 

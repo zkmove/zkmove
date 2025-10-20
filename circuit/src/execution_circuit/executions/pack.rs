@@ -1,12 +1,12 @@
 use crate::execution_circuit::executions::{ExecutionState, DEPTH_POW_OF_ONE_LEVEL};
-use crate::execution_circuit::instance::InstanceTable;
-use crate::execution_circuit::math_gadgets::is_zero::IsZeroGadget;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::is_zero::IsZeroGadget;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::Expr;
 use gadgets::util::{and, not};
 use halo2_proofs::circuit::Value;
@@ -273,7 +273,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
             .into_iter()
             .enumerate()
             .skip(1)
-            .chunk_by(|(i, memory_ops)| memory_ops.0.as_ref().unwrap().index)
+            .chunk_by(|(_i, memory_ops)| memory_ops.0.as_ref().unwrap().index)
             .into_iter()
         {
             let old = args.insert(stack_index, d.collect::<Vec<_>>());
@@ -281,9 +281,9 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
         }
         debug_assert_eq!(args.len(), num_field);
         let mut field_index = num_field as u64;
-        for (stack_index, arg) in args.into_iter().rev() {
+        for (_stack_index, arg) in args.into_iter().rev() {
             let mut field_counter = arg.len() as u64;
-            for (i, memory_op) in arg {
+            for (i, _memory_op) in arg {
                 self.field_index.assign(
                     region,
                     start_offset + i,

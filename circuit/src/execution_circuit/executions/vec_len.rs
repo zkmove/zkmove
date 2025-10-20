@@ -1,9 +1,9 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::Expr;
 use std::marker::PhantomData;
 use types::Field;

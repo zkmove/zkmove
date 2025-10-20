@@ -1,10 +1,10 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::instance::InstanceTable;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::ErrorFront as Error;

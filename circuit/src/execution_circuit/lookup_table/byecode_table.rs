@@ -1,6 +1,6 @@
 use crate::execution_circuit::lookup_table::utils::assign_fixed_table;
-use crate::execution_circuit::utils::to_field::ToFields;
 use crate::table::LookupTable;
+use crate::utils::to_field::ToFields;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use types::Field;

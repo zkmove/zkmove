@@ -50,7 +50,7 @@ pub enum Table {
     Pow2,
     /// Bitwise lookup
     Bitwise,
-    // Poseidon hash lookup
+    /// Poseidon hash lookup
     PoseidonHash,
 }
 

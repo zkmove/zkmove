@@ -1,21 +1,21 @@
 // Copyright (c) zkMove Authors
 
 use crate::execution_circuit::executions::BaseConstraintGadget;
-use crate::execution_circuit::math_gadgets::lt::LtInteger;
 use crate::execution_circuit::step::StepState;
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::execution_circuit::utils::pow_of_two_expr;
-use crate::execution_circuit::utils::to_field::ToField;
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::lt::LtInteger;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
+use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::utils::pow_of_two_expr;
 use crate::utils::rlc;
+use crate::utils::to_field::ToField;
 use crate::utils::word::WordLoHiCell;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::ExecutionState;
 use witnesses::step_state::StageState;
 
-use crate::execution_circuit::instance::InstanceTable;
+use crate::public_inputs::InstanceTable;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
@@ -85,7 +85,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         stage_state: &StageState,
-        static_info: &StaticInfo,
+        _static_info: &StaticInfo,
     ) -> Result<usize, Error> {
         assert_eq!(stage_state.step_states.len(), 1);
         let state = stage_state.step_states.first().unwrap();

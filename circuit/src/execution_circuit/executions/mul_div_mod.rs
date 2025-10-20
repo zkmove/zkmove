@@ -1,23 +1,23 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::instance::InstanceTable;
-use crate::execution_circuit::math_gadgets::is_zero::IsZero;
-use crate::execution_circuit::math_gadgets::is_zero::IsZeroGadget;
-use crate::execution_circuit::math_gadgets::lt::LtInteger;
-use crate::execution_circuit::math_gadgets::mul_add::MulAddExprs;
-use crate::execution_circuit::math_gadgets::mul_add::MulAddGadget;
-use crate::execution_circuit::math_gadgets::range_check::IntegerRangeCheck;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
-use crate::execution_circuit::utils::{from_bytes, pow_of_two_expr};
 use crate::execution_circuit::value::Integer as IntegerExpr;
 use crate::execution_circuit::value::{
     NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
     NUM_OF_BYTES_U8,
 };
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::gadgets::is_zero::IsZero;
+use crate::gadgets::is_zero::IsZeroGadget;
+use crate::gadgets::lt::LtInteger;
+use crate::gadgets::mul_add::MulAddExprs;
+use crate::gadgets::mul_add::MulAddGadget;
+use crate::gadgets::range_check::IntegerRangeCheck;
+use crate::public_inputs::InstanceTable;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use crate::utils::{from_bytes, pow_of_two_expr};
 use gadgets::util::Expr;
 use gadgets::util::{or, select};
 use halo2_proofs::{

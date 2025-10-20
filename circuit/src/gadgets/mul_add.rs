@@ -1,9 +1,9 @@
-use crate::execution_circuit::math_gadgets::is_zero::IsZeroGadget;
-use crate::execution_circuit::utils::base_constraint_builder::ConstrainBuilderCommon;
-use crate::execution_circuit::utils::constraint_builder_v2::ConstraintBuilderV2;
-use crate::execution_circuit::utils::{from_bytes, pow_of_two_expr};
+use crate::gadgets::is_zero::IsZeroGadget;
+use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
+use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use crate::utils::{from_bytes, pow_of_two_expr};
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
