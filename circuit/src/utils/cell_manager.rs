@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::execution_circuit::lookup_table::Table;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::query_expression;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::{
@@ -11,7 +12,6 @@ use halo2_proofs::{
     poly::Rotation,
 };
 use strum::IntoEnumIterator;
-use types::Field;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// CellType represent a category of cell (and column).

@@ -3,9 +3,9 @@ use crate::gadgets::lt::LtGadget;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use field_exts::Field;
 use gadgets::util::sum;
 use halo2_proofs::plonk::{ErrorFront as Error, Expression};
-use types::Field;
 
 /// Returns (lt, eq):
 /// - `lt` is `1` when `lhs < rhs`, `0` otherwise.

@@ -3,8 +3,8 @@
 use gadgets::util::Expr;
 use std::ops::{Add, Mul};
 
+use field_exts::Field;
 use halo2_proofs::plonk::Expression;
-use types::Field;
 
 pub(crate) fn expr<F: Field, E: Expr<F>>(expressions: &[E], randomness: E) -> Expression<F> {
     if !expressions.is_empty() {

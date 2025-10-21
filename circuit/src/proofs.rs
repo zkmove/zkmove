@@ -1,5 +1,6 @@
 use crate::public_inputs::PublicInputs;
 use crate::vm_circuit::VmCircuit;
+use field_exts::Field;
 use halo2_backend::transcript::{Keccak256Read, Keccak256Write};
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
@@ -27,12 +28,12 @@ use halo2_proofs::{
     transcript::{Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer},
 };
 use itertools::Itertools;
-use logger::{debug, info};
+use log::debug;
+use log::info;
 use poseidon_base::Hashable;
 use rand::prelude::StdRng;
 use rand::SeedableRng;
 use std::fmt::Debug;
-use types::Field;
 
 pub use witnesses::static_info::{EntryInfo, ModuleIdMapping};
 

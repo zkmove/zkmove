@@ -14,7 +14,6 @@ move-bytecode-verifier = { workspace = true }
 poseidon-base = { workspace = true }
 halo2curves = { workspace = true }
 
-logger = { path = "../third-party/logger" }
 utility = { path = "../third-party/utility" }
 serde = { version = "1.0.203", features = ["derive"] }
 strum_macros = { workspace = true }

@@ -8,12 +8,12 @@ use crate::execution_circuit::lookup_table::pow2::Pow2LookupTable;
 use crate::execution_circuit::lookup_table::ux_table::UXTable;
 use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
 use crate::table::LookupTable;
+use field_exts::Field;
 use gadgets::impl_expr;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression, VirtualCells};
 use std::marker::PhantomData;
 use strum_macros::EnumIter;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 
 pub(crate) mod bitwise_table;

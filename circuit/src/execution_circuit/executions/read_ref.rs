@@ -9,9 +9,9 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::utils::to_field::ToField;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

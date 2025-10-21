@@ -4,6 +4,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::utils::{from_bytes, pow_of_two_expr};
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
@@ -11,7 +12,6 @@ use halo2_proofs::{
 };
 use move_core_types::u256::U256;
 use std::ops::Shl;
-use types::Field;
 use utility::u256::{split_u256, split_u256_limb64};
 
 const MAX_RADIX_BYTES: usize = 9;

@@ -1,9 +1,10 @@
 // Copyright (c) zkMove Authors
 
+use circuit::proofs::best_k;
 #[cfg(feature = "test-circuits")]
 use circuit::proofs::mock_prove_circuit;
 #[cfg(not(feature = "test-circuits"))]
-use circuit::proofs::{best_k, prove_circuit, setup_circuit, verify_circuit, KZG};
+use circuit::proofs::{prove_circuit, setup_circuit, verify_circuit, KZG};
 use circuit::public_inputs::PublicInputs;
 use circuit::vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 #[cfg(not(feature = "test-circuits"))]
@@ -11,7 +12,7 @@ use halo2_proofs::halo2curves::bn256::Bn256;
 use halo2_proofs::halo2curves::bn256::Fr;
 #[cfg(not(feature = "test-circuits"))]
 use halo2_proofs::poly::kzg::commitment::ParamsKZG;
-use logger::debug;
+use log::debug;
 use move_package::compilation::compiled_package::OnDiskCompiledPackage;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
@@ -24,7 +25,6 @@ pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
 pub const TEST_HASH_ROWS: usize = 100usize;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
-    logger::init_for_test();
     debug!("Run test with trace {:?}", path.display());
 
     // load package

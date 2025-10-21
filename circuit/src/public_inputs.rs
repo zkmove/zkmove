@@ -1,8 +1,8 @@
 use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
 use crate::utils::to_field::ToFields;
+use field_exts::Field;
 use halo2_proofs::plonk::{Column, ConstraintSystem, Instance};
 use move_vm_runtime::witnessing::traced_value::ValueItems;
-use types::Field;
 
 pub const NUM_INSTANCE_COLUMNS: usize = NUM_OF_VALUE_LIMBS + 2;
 
@@ -20,7 +20,7 @@ impl InstanceTable {
         let value = [(); NUM_OF_VALUE_LIMBS].map(|_| meta.instance_column());
         meta.enable_equality(sub_index);
         meta.enable_equality(header);
-        value.map(|c| meta.enable_equality(c));
+        let _ = value.map(|c| meta.enable_equality(c));
         Self {
             sub_index,
             header,

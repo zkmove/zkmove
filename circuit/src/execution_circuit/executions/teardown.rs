@@ -16,12 +16,12 @@ use witnesses::step_state::ExecutionState;
 use witnesses::step_state::StageState;
 
 use crate::public_inputs::InstanceTable;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use move_core_types::u256::U256;
-use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct Teardown<F> {

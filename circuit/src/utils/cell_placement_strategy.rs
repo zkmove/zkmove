@@ -2,7 +2,7 @@ use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrate
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, SecondPhase, ThirdPhase};
 use std::collections::BTreeMap;
 
-use types::Field;
+use field_exts::Field;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CMFixedWidthStrategyDistribution(BTreeMap<CellType, Vec<Column<Advice>>>);

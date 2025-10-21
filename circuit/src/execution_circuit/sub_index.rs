@@ -4,12 +4,12 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::utils::from_limbs;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use types::Field;
 use witnesses::value_repr::sub_index::SubIndex;
 use witnesses::value_repr::sub_index::N_BITS_ONE_LIMB;
 

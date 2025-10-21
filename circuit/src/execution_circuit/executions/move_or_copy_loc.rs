@@ -3,9 +3,9 @@ use crate::execution_circuit::step::{PC, SP};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::Expr;
 use std::marker::PhantomData;
-use types::Field;
 
 #[derive(Clone, Debug, Default)]
 pub struct MoveOrCopyLoc<F, const MOVE: bool>(PhantomData<F>);

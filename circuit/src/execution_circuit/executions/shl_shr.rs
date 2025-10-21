@@ -17,6 +17,7 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::utils::{from_bytes, pow_of_two_expr};
+use field_exts::Field;
 use gadgets::util::select;
 use gadgets::util::Expr;
 use halo2_proofs::{
@@ -27,7 +28,6 @@ use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use std::marker::PhantomData;
-use types::Field;
 use utility::u256::{pair_u128_to_u256, split_u256_to_u128};
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::{StageExtraAssignData, StageState};

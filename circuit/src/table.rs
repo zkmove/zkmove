@@ -1,7 +1,7 @@
+use field_exts::Field;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::{Advice, Any, Column, ConstraintSystem, Expression, VirtualCells};
 use halo2_proofs::poly::Rotation;
-use types::Field;
 
 /// Trait used to define lookup tables
 pub trait LookupTable<F: Field> {

@@ -1,4 +1,3 @@
-#![feature(slice_as_chunks)]
 extern crate move_core_types;
 
 pub use move_vm_runtime::witnessing::{

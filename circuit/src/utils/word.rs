@@ -6,6 +6,7 @@
 //   limb is 256/4 = 64 bits
 
 use crate::utils::from_bytes;
+use field_exts::Field;
 use field_exts::OpsIdentity;
 use gadgets::util::{not, or, Expr};
 use halo2_proofs::{
@@ -15,7 +16,6 @@ use halo2_proofs::{
 };
 use itertools::Itertools;
 use move_core_types::u256::U256;
-use types::Field;
 
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;

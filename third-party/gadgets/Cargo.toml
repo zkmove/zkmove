@@ -1,0 +1,13 @@
+[package]
+name = "gadgets"
+version = "0.1.0"
+edition = "2021"
+authors = ["The appliedzkp team"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+halo2_proofs.workspace = true
+field-exts = { path = "../field-exts" }
+primitive-types = "0.12"
+
+[dev-dependencies]

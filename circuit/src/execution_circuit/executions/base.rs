@@ -6,10 +6,10 @@ use crate::gadgets::range_check::RangeCheckGadget;
 use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::{not, Expr};
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use types::Field;
 use witnesses::step_state::ExecutionState;
 
 #[derive(Clone, Debug)]

@@ -27,6 +27,7 @@ use crate::utils::constraint_builder_v2::{
     ConstraintBuilderV2, ConstraintLocation, Constraints, Lookups, StoredExpressions,
 };
 use crate::utils::rlc;
+use field_exts::Field;
 use gadgets::util;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::{Layouter, Value};
@@ -38,7 +39,6 @@ use move_binary_format::file_format_common::Opcodes;
 use poseidon_base::Hashable;
 use std::collections::BTreeMap;
 use std::iter;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

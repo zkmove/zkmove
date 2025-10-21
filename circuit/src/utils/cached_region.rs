@@ -1,9 +1,9 @@
 use crate::utils::challenges::Challenges;
+use field_exts::Field;
 use halo2_proofs::circuit::{AssignedCell, Region, Value};
 use halo2_proofs::plonk::{Advice, Assigned, Column, ErrorFront as Error, Instance};
 use halo2_proofs::poly::Rotation;
 use itertools::Itertools;
-use types::Field;
 
 pub struct CachedRegion<'r, 'b, F: Field> {
     region: &'r mut Region<'b, F>,

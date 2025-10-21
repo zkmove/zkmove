@@ -1,8 +1,8 @@
 use crate::table::LookupTable;
+use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Region, Value};
 use halo2_proofs::plonk::{Advice, Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use itertools::Itertools;
-use types::Field;
 
 /// The Poseidon hash table shared between Hash Circuit, Mpt Circuit and
 /// Bytecode Circuit

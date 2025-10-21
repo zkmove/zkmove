@@ -1,9 +1,9 @@
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ConstraintSystem, Expression, VirtualCells},
 };
-use types::Field;
 
 pub(crate) mod base_constraint_builder;
 pub(crate) mod cached_region;
@@ -17,9 +17,9 @@ pub(crate) mod word;
 
 /// Decodes a field element from its byte representation in little endian order
 pub(crate) mod from_bytes {
+    use field_exts::Field;
     use gadgets::util::Expr;
     use halo2_proofs::plonk::Expression;
-    use types::Field;
     /// Maximum number of bytes that an integer can fit in field without wrapping
     /// around.
     pub(crate) const MAX_N_BYTES_INTEGER: usize = 31;
@@ -55,9 +55,9 @@ pub(crate) mod from_bytes {
 
 /// Decodes a field element from its 4, 8 or 16 bits limbs representation in little endian order
 pub(crate) mod from_limbs {
+    use field_exts::Field;
     use gadgets::util::Expr;
     use halo2_proofs::plonk::Expression;
-    use types::Field;
 
     pub(crate) fn expr<F: Field, E: Expr<F>, const LIMB_BITS: usize>(limbs: &[E]) -> Expression<F> {
         debug_assert!(
@@ -107,8 +107,8 @@ pub(crate) fn transpose_val_ret<F, E>(value: Value<Result<F, E>>) -> Result<Valu
 
 pub(crate) mod to_field {
     use crate::utils::pow_of_two;
+    use field_exts::Field;
     use move_vm_runtime::witnessing::traced_value::ValueItem;
-    use types::Field;
     use witnesses::value_repr::sub_index::{SubIndex, N_BITS_ONE_LIMB};
     use witnesses::value_repr::word::Word;
 

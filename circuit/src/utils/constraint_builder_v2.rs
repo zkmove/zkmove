@@ -6,10 +6,10 @@ use crate::utils::cell_manager::{Cell, CellManagerColumns, CellType};
 use crate::utils::challenges::Challenges;
 use crate::utils::rlc;
 use crate::utils::stored_expression::StoredExpression;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;
-use types::Field;
 
 // Max degree allowed in all expressions passing through the ConstraintBuilder.
 // It aims to cap `extended_k` to 2, which allows constraint degree to 2^2+1,

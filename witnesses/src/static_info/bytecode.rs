@@ -313,8 +313,6 @@ mod tests {
     #[ignore]
     #[test]
     fn test_bytecode_table() {
-        logger::init_for_test();
-
         let module = dummy_module();
         let bytecodes = parse_module(&module, 0)
             .into_iter()

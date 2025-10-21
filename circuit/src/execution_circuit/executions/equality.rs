@@ -11,12 +11,12 @@ use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
 use crate::utils::rlc;
 use crate::utils::to_field::{ToField, ToFields};
+use field_exts::Field;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

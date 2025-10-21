@@ -7,12 +7,12 @@ use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::not;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

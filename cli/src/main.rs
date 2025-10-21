@@ -22,7 +22,6 @@ pub enum Commands {
 }
 
 fn main() -> anyhow::Result<()> {
-    logger::init_for_main(true);
     let args = Cli::parse();
     let mut param_file = std::fs::File::open(args.param_path.as_path())?;
     let params = ParamsKZG::<Bn256>::read(&mut param_file)?;

@@ -14,6 +14,7 @@ use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
@@ -21,7 +22,6 @@ use halo2_proofs::{
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

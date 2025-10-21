@@ -6,12 +6,12 @@ use crate::utils::cell_manager::{Cell, CellManager, CellManagerColumns, CellType
 use crate::utils::cell_placement_strategy::CMFixedHeightStrategy;
 use crate::utils::challenges::Challenges;
 use crate::utils::to_field::{ToField, ToFields};
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
-use types::Field;
 use witnesses::step_state::{MemoryOp, StepState as StepStateWitness};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;

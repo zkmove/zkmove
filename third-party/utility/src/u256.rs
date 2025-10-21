@@ -1,7 +1,6 @@
 // Copyright (c) zkMove Authors
 
-pub use move_core_types::u256;
-pub use move_core_types::u256::U256;
+use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::Integer;
 
 pub fn pair_u128_to_u256(lo: u128, hi: u128) -> U256 {

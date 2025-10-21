@@ -6,6 +6,7 @@ use crate::execution_circuit::{
 };
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use crate::utils::challenges::Challenges;
+use field_exts::Field;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::ErrorFront;
@@ -20,7 +21,6 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use strum::IntoEnumIterator;
-use types::Field;
 use witnesses::static_info::{EntryInfo, Footprints};
 
 // Thread-local storage to hold a reference-counted circuit instance.

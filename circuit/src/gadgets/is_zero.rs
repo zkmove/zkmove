@@ -2,12 +2,12 @@ use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use types::Field;
 
 /// Returns `1` when `value == 0`, and returns `0` otherwise.
 #[derive(Clone, Debug)]

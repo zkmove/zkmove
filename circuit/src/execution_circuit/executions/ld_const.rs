@@ -6,10 +6,10 @@ use crate::public_inputs::InstanceTable;
 use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::ErrorFront as Error;
 use std::marker::PhantomData;
-use types::Field;
 use witnesses::static_info::StaticInfo;
 use witnesses::step_state::StageState;
 

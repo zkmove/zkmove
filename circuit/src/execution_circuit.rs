@@ -5,6 +5,7 @@ use crate::execution_circuit::lookup_table::{FixedTableTag, LookupTableConfigV2}
 use crate::utils::challenges::Challenges;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::vm_circuit::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
+use field_exts::Field;
 use halo2_proofs::{
     circuit::Layouter,
     plonk::{ConstraintSystem, ErrorFront as Error},
@@ -13,7 +14,6 @@ use move_binary_format::file_format_common::Opcodes;
 use move_package::compilation::compiled_package::CompiledPackage;
 use poseidon_base::Hashable;
 use std::marker::PhantomData;
-use types::Field;
 use witnesses::preprocessor::WitnessPreProcessor;
 use witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use witnesses::step_state::{ExecStepState, MemoryOp, StageState, StepState};

@@ -8,7 +8,7 @@ use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
-use logger::debug;
+use log::debug;
 use move_package::{
     compilation::{
         compiled_package::{CompiledPackage, OnDiskCompiledPackage},

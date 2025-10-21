@@ -1,6 +1,6 @@
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::plonk::Expression;
-use types::Field;
 pub(crate) trait ConstrainBuilderCommon<F: Field> {
     fn add_constraint(&mut self, name: String, constraint: Expression<F>);
 

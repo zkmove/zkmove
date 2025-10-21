@@ -7,6 +7,7 @@ use crate::vm_circuit::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
 use witnesses::step_state::ExecutionState;
 
+use field_exts::Field;
 use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
@@ -16,7 +17,6 @@ use itertools::Itertools;
 use move_package::compilation::compiled_package::CompiledPackage;
 pub use poseidon_circuit::hash::Hashable;
 use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashTable};
-use types::Field;
 use witnesses::preprocessor::WitnessPreProcessor;
 
 /// re-wrapping for mpt circuit
@@ -232,10 +232,10 @@ pub fn unroll_to_hash_input_default<F: Field>(
 #[cfg(test)]
 mod test {
     use crate::utils::pow_of_two;
+    use field_exts::Field;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;
-    use types::Field;
 
     #[test]
     fn test_hash_result() {

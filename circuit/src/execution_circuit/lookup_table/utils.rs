@@ -1,9 +1,9 @@
 use crate::execution_circuit::lookup_table::constant_table::ConstantTableRow;
 use crate::execution_circuit::lookup_table::function_table::FunctionTableRow;
 use crate::utils::to_field::{ToField, ToFields};
+use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
-use types::Field;
 use witnesses::static_info::bytecode::BytecodeInfo;
 
 pub(crate) fn assign_fixed_table<F: Field>(

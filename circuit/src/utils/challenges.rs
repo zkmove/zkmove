@@ -1,7 +1,7 @@
 use crate::utils::query_expression;
+use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Challenge, ConstraintSystem, Expression, FirstPhase, SecondPhase};
-use types::Field;
 
 /// All challenges used in circuits.
 #[derive(Default, Clone, Copy, Debug)]

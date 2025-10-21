@@ -10,7 +10,7 @@ use halo2_proofs::{
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
     SerdeFormat,
 };
-use logger::*;
+use log::debug;
 use move_core_types::{
     account_address::AccountAddress, identifier::Identifier, language_storage::ModuleId,
 };

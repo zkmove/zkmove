@@ -5,11 +5,11 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::utils::{from_bytes, from_limbs};
+use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use types::Field;
 
 /// Requires that the passed in value is within the specified range.
 /// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.

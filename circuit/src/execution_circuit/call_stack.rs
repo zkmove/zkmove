@@ -1,6 +1,6 @@
 use halo2_proofs::plonk::Expression;
 
-use types::Field;
+use field_exts::Field;
 
 #[derive(Clone, Debug)]
 pub(crate) struct CallContext<T> {

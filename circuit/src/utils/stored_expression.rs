@@ -1,9 +1,9 @@
 use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::{Cell, CellType};
+use field_exts::Field;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ErrorFront as Error, Expression};
 use std::hash::{Hash, Hasher};
-use types::Field;
 
 #[derive(Debug, Clone)]
 pub struct StoredExpression<F> {

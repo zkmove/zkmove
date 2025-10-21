@@ -3,9 +3,9 @@ use crate::execution_circuit::step::{OPCODE, OPERAND0, OPERAND1, PC, SP};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::base_constraint_builder::ConstrainBuilderCommon;
 use crate::utils::constraint_builder_v2::{ConstraintBuilderV2, Transition};
+use field_exts::Field;
 use gadgets::util::Expr;
 use std::marker::PhantomData;
-use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct StoreLocStage1<F> {

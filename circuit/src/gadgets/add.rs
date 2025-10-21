@@ -4,13 +4,13 @@ use crate::utils::cached_region::CachedRegion;
 use crate::utils::cell_manager::Cell;
 use crate::utils::constraint_builder_v2::ConstraintBuilderV2;
 use crate::utils::pow_of_two_expr;
+use field_exts::Field;
 use gadgets::util::Expr;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use types::Field;
 
 #[derive(Clone, Debug)]
 pub struct AddGadget<F> {

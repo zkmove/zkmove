@@ -1,9 +1,9 @@
 use crate::execution_circuit::lookup_table::FixedTableTag;
 use crate::table::LookupTable;
+use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use itertools::Itertools;
-use types::Field;
 
 #[derive(Clone, Copy, Debug)]
 pub struct FixedTable {
