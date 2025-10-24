@@ -1,12 +1,10 @@
 // Copyright (c) zkMove Authors
 
-use circuit::proofs::best_k;
+use halo2::proofs::best_k;
 #[cfg(feature = "test-circuits")]
-use circuit::proofs::mock_prove_circuit;
+use halo2::proofs::mock_prove_circuit;
 #[cfg(not(feature = "test-circuits"))]
-use circuit::proofs::{prove_circuit, setup_circuit, verify_circuit, KZG};
-use circuit::public_inputs::PublicInputs;
-use circuit::vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
+use halo2::proofs::{prove_circuit, setup_circuit, verify_circuit, KZG};
 #[cfg(not(feature = "test-circuits"))]
 use halo2_proofs::halo2curves::bn256::Bn256;
 use halo2_proofs::halo2curves::bn256::Fr;
@@ -18,7 +16,9 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use std::path::Path;
 use std::rc::Rc;
-use witnesses::static_info::Footprints;
+use vm_circuit::public_inputs::PublicInputs;
+use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
+use witness::static_info::Footprints;
 
 pub const TEST_PACKAGE_NAME: &str = "cases";
 pub const TEST_CIRCUIT_ROWS: usize = 2000usize;

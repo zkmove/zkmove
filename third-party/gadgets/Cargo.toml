@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 halo2_proofs.workspace = true
 field-exts = { path = "../field-exts" }
-primitive-types = "0.12"
+circuit-tool = { path = "../circuit-tool" }
+types = { path = "../../types" }
+util = { path = "../util" }
+move-core-types = { workspace = true }
 
 [dev-dependencies]

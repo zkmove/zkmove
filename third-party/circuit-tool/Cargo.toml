@@ -1,0 +1,20 @@
+[package]
+name = "circuit-tool"
+version = "0.4.0"
+edition = "2021"
+
+[dependencies]
+types = { path = "../../types" }
+util = { path = "../../third-party/util" }
+field-exts = { path = "../../third-party/field-exts" }
+move-core-types = { workspace = true }
+move-vm-runtime = { workspace = true }
+halo2_proofs = { workspace = true }
+itertools = { version = "0.13.0" }
+strum_macros.workspace = true
+strum.workspace = true
+primitive-types = "0.12"
+
+[features]
+test-circuits = []
+table-u16 = []

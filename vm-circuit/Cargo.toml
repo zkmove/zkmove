@@ -1,0 +1,36 @@
+[package]
+name = "vm-circuit"
+version = "0.4.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+types = { path = "../types" }
+witness = { path = "../witness" }
+field-exts = { path = "../third-party/field-exts" }
+gadgets = { path = "../third-party/gadgets" }
+circuit-tool = { path = "../third-party/circuit-tool" }
+util = { path = "../third-party/util" }
+move-binary-format = { workspace = true }
+move-core-types = { workspace = true }
+move-vm-runtime = { workspace = true }
+move-package = { workspace = true }
+halo2_proofs = { workspace = true }
+poseidon-circuit = { workspace = true }
+poseidon-base = { workspace = true }
+log.workspace = true
+itertools = { version = "0.13.0" }
+plotters = { version = "0.3.0", default-features = false, features = ["svg_backend"] }
+rand = { version = "0.8" }
+strum_macros.workspace = true
+strum.workspace = true
+
+[dev-dependencies]
+
+# https://github.com/Amanieu/parking_lot/issues/269
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+parking_lot_core = "=0.8.0"
+
+[features]
+test-circuits = []
+table-u16 = []

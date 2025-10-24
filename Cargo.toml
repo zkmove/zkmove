@@ -1,12 +1,16 @@
 [workspace]
 members = [
+    "cli",
+    "functional-tests",
+    "third-party/circuit-tool",
     "third-party/field-exts",
     "third-party/gadgets",
-    "third-party/utility",
-    "circuit",
-    "functional-tests",
-    "cli",
-    "witnesses"
+    "third-party/halo2",
+    "third-party/movelang",
+    "third-party/util",
+    "vm-circuit",
+    "types",
+    "witness"
 ]
 resolver = "2"
 [workspace.dependencies]

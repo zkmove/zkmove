@@ -1,9 +1,7 @@
 use crate::aptos_utils::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
 use anyhow::{Context, Result};
-use circuit::proofs::{best_k, KZG};
-use circuit::public_inputs::PublicInputs;
-use circuit::vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 use clap::{value_parser, Parser, Subcommand, ValueEnum};
+use halo2::proofs::{best_k, KZG};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
@@ -24,7 +22,9 @@ use std::{
     rc::Rc,
 };
 use toml::Value;
-use witnesses::static_info::Footprints;
+use vm_circuit::public_inputs::PublicInputs;
+use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
+use witness::static_info::Footprints;
 
 /// the consts correspond to the definition of vk_registry.move
 pub const VK_REGISTRY_MODULE: &str = "vk_registry";
