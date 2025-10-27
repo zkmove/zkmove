@@ -45,7 +45,7 @@ pub trait ConstraintBuilder<F: Field> {
         unreachable!("query_bool should be implemented in the concrete ConstraintBuilder");
     }
     fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
-        unreachable!("query_bool should be implemented in the concrete ConstraintBuilder");
+        unreachable!("query_bytes should be implemented in the concrete ConstraintBuilder");
     }
 }
 

@@ -85,6 +85,20 @@ impl<F: Field> ConstraintBuilder<F> for VmConstraintBuilder<'_, F> {
 
         self.push_constraint(name, constraint);
     }
+
+    fn query_cell(&mut self) -> Cell<F> {
+        self.query_cell_with_type(CellType::StoragePhase1)
+    }
+
+    fn query_bool(&mut self) -> Cell<F> {
+        let cell = self.query_cell();
+        self.require_boolean("Constrain cell to be a bool".to_string(), cell.expr());
+        cell
+    }
+
+    fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
+        self.query_u8_vec(N).try_into().unwrap()
+    }
 }
 
 impl<'a, F: Field> VmConstraintBuilder<'a, F> {
@@ -148,11 +162,6 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
         Step::new(self.meta, self.columns, offset, self.challenges).state
     }
 
-    pub(crate) fn query_bool(&mut self) -> Cell<F> {
-        let cell = self.query_cell();
-        self.require_boolean("Constrain cell to be a bool".to_string(), cell.expr());
-        cell
-    }
     pub(crate) fn query_bools<const N: usize>(&mut self) -> [Cell<F>; N] {
         (0..N)
             .map(|_| self.query_bool())
@@ -170,15 +179,8 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     // pub(crate) fn query_nibble(&mut self) -> Cell<F> {
     //     self.query_cell_with_type(CellType::Lookup(Table::Nibble))
     // }
-    pub(crate) fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
-        self.query_u8_vec(N).try_into().unwrap()
-    }
-
     pub(crate) fn query_u8_vec(&mut self, count: usize) -> Vec<Cell<F>> {
         self.query_cells_inner(CellType::Lookup(Table::U8), count)
-    }
-    pub(crate) fn query_cell(&mut self) -> Cell<F> {
-        self.query_cell_with_type(CellType::StoragePhase1)
     }
 
     pub(crate) fn query_cell_phase0(&mut self) -> Cell<F> {
