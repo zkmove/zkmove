@@ -5,6 +5,8 @@
 // - Limbs: An EVEN word is 256 bits. Limbs N means split 256 into N limb. For example, N = 4, each
 //   limb is 256/4 = 64 bits
 
+use field_exts::util::from_bytes;
+use field_exts::util::{not, or, Expr};
 use field_exts::Field;
 use field_exts::OpsIdentity;
 use halo2_proofs::{
@@ -14,8 +16,6 @@ use halo2_proofs::{
 };
 use itertools::Itertools;
 use move_core_types::u256::U256;
-use util::from_bytes;
-use util::{not, or, Expr};
 
 use crate::cached_region::CachedRegion;
 use crate::cell_manager::Cell;

@@ -5,11 +5,11 @@ use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
+use field_exts::util::{and, or, Expr};
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::plonk::ErrorFront as Error;
 use move_binary_format::file_format_common::Opcodes;
-use util::{and, or, Expr};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

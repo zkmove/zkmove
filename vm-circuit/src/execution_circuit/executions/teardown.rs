@@ -8,20 +8,20 @@ use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::rlc;
 use circuit_tool::word::WordLoHiCell;
+use field_exts::util::pow_of_two_expr;
 use gadgets::lt::LtInteger;
-use util::pow_of_two_expr;
 use witness::static_info::StaticInfo;
 use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
 use witness::value::utils::ToField;
 
 use crate::public_inputs::InstanceTable;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use move_core_types::u256::U256;
-use util::Expr;
 
 #[derive(Clone, Debug)]
 pub struct Teardown<F> {

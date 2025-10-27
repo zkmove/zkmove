@@ -3,12 +3,12 @@ use crate::NUM_OF_BYTES_U128;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::{from_bytes, from_limbs};
 use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use util::{from_bytes, from_limbs};
 
 /// Requires that the passed in value is within the specified range.
 /// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.

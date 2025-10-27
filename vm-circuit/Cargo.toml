@@ -10,7 +10,6 @@ witness = { path = "../witness" }
 field-exts = { path = "../third-party/field-exts" }
 gadgets = { path = "../third-party/gadgets" }
 circuit-tool = { path = "../third-party/circuit-tool" }
-util = { path = "../third-party/util" }
 move-binary-format = { workspace = true }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }

@@ -3,6 +3,8 @@ use crate::NUM_OF_BYTES_U128;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::from_limbs;
+use field_exts::util::{pow_of_two, Expr};
 use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
@@ -10,8 +12,6 @@ use halo2_proofs::{
 };
 use move_core_types::u256::U256;
 use types::u256::split_u256_to_u128;
-use util::from_limbs;
-use util::{pow_of_two, Expr};
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`

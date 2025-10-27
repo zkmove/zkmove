@@ -9,9 +9,9 @@ pub mod rlc;
 pub mod stored_expression;
 pub mod word;
 
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::{ConstraintSystem, VirtualCells};
-use util::Expr;
 
 /// Steal the expression from gate
 pub fn query_expression<F: Field, T>(

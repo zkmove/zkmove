@@ -1,6 +1,6 @@
 use crate::value::utils::ToField;
+use field_exts::util::from_limbs;
 use field_exts::Field;
-use util::from_limbs;
 
 pub const N_LIMBS: usize = 8;
 pub const N_BITS_ONE_LIMB: usize = 16;

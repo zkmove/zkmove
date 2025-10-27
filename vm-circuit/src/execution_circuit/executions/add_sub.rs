@@ -10,6 +10,7 @@ use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::Expr;
 use field_exts::Field;
 use gadgets::add::AddGadget;
 use gadgets::is_zero::IsZeroGadget;
@@ -21,7 +22,6 @@ use halo2_proofs::{
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use types::integer::Integer as IntegerExpr;
-use util::Expr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

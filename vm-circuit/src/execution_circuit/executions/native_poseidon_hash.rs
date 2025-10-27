@@ -10,10 +10,10 @@ use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
 
 use crate::public_inputs::InstanceTable;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::ErrorFront as Error;
 use poseidon_base::Hashable;
-use util::Expr;
 
 /// NativePoseidonHash execution state gadget.
 /// Handles the native Poseidon hash function that takes two U128 inputs

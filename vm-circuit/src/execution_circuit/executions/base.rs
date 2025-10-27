@@ -5,11 +5,11 @@ use crate::execution_circuit::step::{
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
+use field_exts::util::{not, Expr};
 use field_exts::Field;
 use gadgets::range_check::RangeCheckGadget;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use util::{not, Expr};
 use witness::step_state::ExecutionState;
 
 #[derive(Clone, Debug)]

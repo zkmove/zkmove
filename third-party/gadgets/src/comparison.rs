@@ -3,9 +3,9 @@ use crate::lt::LtGadget;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::sum;
 use field_exts::Field;
 use halo2_proofs::plonk::{ErrorFront as Error, Expression};
-use util::sum;
 
 /// Returns (lt, eq):
 /// - `lt` is `1` when `lhs < rhs`, `0` otherwise.

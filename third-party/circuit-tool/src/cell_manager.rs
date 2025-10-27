@@ -1,5 +1,6 @@
 use crate::cached_region::CachedRegion;
 use crate::query_expression;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::{
@@ -10,7 +11,6 @@ use halo2_proofs::{
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use types::table::Table;
-use util::Expr;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// CellType represent a category of cell (and column).

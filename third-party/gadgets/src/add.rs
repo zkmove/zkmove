@@ -1,6 +1,8 @@
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::pow_of_two_expr;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
@@ -8,8 +10,6 @@ use halo2_proofs::{
 };
 use move_core_types::u256::U256;
 use types::integer::Integer;
-use util::pow_of_two_expr;
-use util::Expr;
 
 #[derive(Clone, Debug)]
 pub struct AddGadget<F> {

@@ -7,7 +7,6 @@ members = [
     "third-party/gadgets",
     "third-party/halo2",
     "third-party/movelang",
-    "third-party/util",
     "vm-circuit",
     "types",
     "witness"

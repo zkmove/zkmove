@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 halo2_proofs = { workspace = true }
 field-exts = { path = "../third-party/field-exts" }
-util = { path = "../third-party/util" }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }
 strum.workspace = true

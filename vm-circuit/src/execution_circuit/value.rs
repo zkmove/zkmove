@@ -5,12 +5,12 @@ use circuit_tool::cell_placement_strategy::CMFixedHeightStrategy;
 use circuit_tool::challenges::Challenges;
 use circuit_tool::rlc;
 use circuit_tool::word::WordLoHiCell;
+use field_exts::util::pow_of_two_expr;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::circuit::{AssignedCell, Value as Halo2Value};
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use types::integer::Integer;
-use util::pow_of_two_expr;
-use util::Expr;
 
 pub const NUM_OF_BYTES_U8: usize = 1;
 pub const NUM_OF_BYTES_U16: usize = 2;

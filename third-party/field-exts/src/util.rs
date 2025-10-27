@@ -1,11 +1,11 @@
 //! Utility traits, functions used in the crate.
-use field_exts::Field;
+use crate::Field;
 use halo2_proofs::plonk::Expression;
 
 /// Returns the sum of the passed in cells
 pub mod sum {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns an expression for the sum of the list of expressions.
@@ -26,8 +26,8 @@ pub mod sum {
 /// Returns `1` when `expr[0] && expr[1] && ... == 1`, and returns `0`
 /// otherwise. Inputs need to be boolean
 pub mod and {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns an expression that evaluates to 1 only if all the expressions in
@@ -48,8 +48,8 @@ pub mod and {
 /// otherwise. Inputs need to be boolean
 pub mod or {
     use super::{and, not};
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns an expression that evaluates to 1 if any expression in the given
@@ -67,8 +67,8 @@ pub mod or {
 /// Returns `1` when `b == 0`, and returns `0` otherwise.
 /// `b` needs to be boolean
 pub mod not {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns an expression that represents the NOT of the given expression.
@@ -85,8 +85,8 @@ pub mod not {
 /// Returns `a ^ b`.
 /// `a` and `b` needs to be boolean
 pub mod xor {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns an expression that represents the XOR of the given expression.
@@ -103,8 +103,8 @@ pub mod xor {
 /// Returns `when_true` when `selector == 1`, and returns `when_false` when
 /// `selector == 0`. `selector` needs to be boolean.
 pub mod select {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     /// Returns the `when_true` expression when the selector is true, else
@@ -140,8 +140,8 @@ pub mod select {
 
 /// Returns the power of a number using straightforward multiplications
 pub mod pow {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     use super::Scalar;
@@ -167,8 +167,8 @@ pub mod pow {
 
 /// Decodes a field element from its byte representation in little endian order
 pub mod from_bytes {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
     /// Maximum number of bytes that an integer can fit in field without wrapping
     /// around.
@@ -205,8 +205,8 @@ pub mod from_bytes {
 
 /// Decodes a field element from its 4, 8 or 16 bits limbs representation in little endian order
 pub mod from_limbs {
-    use crate::Expr;
-    use field_exts::Field;
+    use crate::util::Expr;
+    use crate::Field;
     use halo2_proofs::plonk::Expression;
 
     pub fn expr<F: Field, E: Expr<F>, const LIMB_BITS: usize>(limbs: &[E]) -> Expression<F> {
@@ -257,7 +257,7 @@ pub trait Scalar<F: Field> {
 #[macro_export]
 macro_rules! impl_scalar {
     ($type:ty) => {
-        impl<F: field_exts::Field> $crate::Scalar<F> for $type {
+        impl<F: crate::Field> $crate::util::Scalar<F> for $type {
             #[inline]
             fn scalar(&self) -> F {
                 F::from(*self as u64)
@@ -265,7 +265,7 @@ macro_rules! impl_scalar {
         }
     };
     ($type:ty, $method:path) => {
-        impl<F: field_exts::Field> $crate::Scalar<F> for $type {
+        impl<F: crate::Field> $crate::Scalar<F> for $type {
             #[inline]
             fn scalar(&self) -> F {
                 F::from($method(self) as u64)
@@ -273,43 +273,6 @@ macro_rules! impl_scalar {
         }
     };
 }
-
-/// Trait that implements functionality to get a constant expression from
-/// commonly used types.
-pub trait Expr<F: Field> {
-    /// Returns an expression for the type.
-    fn expr(&self) -> Expression<F>;
-}
-
-/// Implementation trait `Expr` for type able to be casted to u64
-#[macro_export]
-macro_rules! impl_expr {
-    ($type:ty) => {
-        $crate::impl_scalar!($type);
-        impl<F: field_exts::Field> $crate::Expr<F> for $type {
-            #[inline]
-            fn expr(&self) -> Expression<F> {
-                Expression::Constant(F::from(*self as u64))
-            }
-        }
-    };
-    ($type:ty, $method:path) => {
-        $crate::impl_scalar!($type, $method);
-        impl<F: field_exts::Field> $crate::Expr<F> for $type {
-            #[inline]
-            fn expr(&self) -> Expression<F> {
-                Expression::Constant(F::from($method(self) as u64))
-            }
-        }
-    };
-}
-
-impl_expr!(bool);
-impl_expr!(u8);
-impl_expr!(u64);
-impl_expr!(usize);
-impl_expr!(isize);
-//impl_expr!(OpcodeId, OpcodeId::as_u8);
 
 impl<F: Field> Scalar<F> for i32 {
     #[inline]
@@ -324,6 +287,42 @@ impl<F: Field> Scalar<F> for &F {
         *(*self)
     }
 }
+
+/// Trait that implements functionality to get a constant expression from
+/// commonly used types.
+pub trait Expr<F: Field> {
+    /// Returns an expression for the type.
+    fn expr(&self) -> Expression<F>;
+}
+
+/// Implementation trait `Expr` for type able to be casted to u64
+#[macro_export]
+macro_rules! impl_expr {
+    ($type:ty) => {
+        $crate::impl_scalar!($type);
+        impl<F: crate::Field> $crate::util::Expr<F> for $type {
+            #[inline]
+            fn expr(&self) -> Expression<F> {
+                Expression::Constant(F::from(*self as u64))
+            }
+        }
+    };
+    ($type:ty, $method:path) => {
+        $crate::impl_scalar!($type, $method);
+        impl<F: crate::Field> $crate::util::Expr<F> for $type {
+            #[inline]
+            fn expr(&self) -> Expression<F> {
+                Expression::Constant(F::from($method(self) as u64))
+            }
+        }
+    };
+}
+
+impl_expr!(bool);
+impl_expr!(u8);
+impl_expr!(u64);
+impl_expr!(usize);
+impl_expr!(isize);
 
 impl<F: Field> Expr<F> for i32 {
     #[inline]

@@ -9,6 +9,8 @@ use halo2_proofs::{
 
 pub use primitive_types::U256;
 
+pub mod util;
+
 /// trait to retrieve general operation itentity element
 pub trait OpsIdentity {
     /// output type
@@ -124,9 +126,6 @@ pub trait ToLittleEndian {
     /// Convert the value to a 32 byte array in little endian.
     fn to_le_bytes(&self) -> [u8; 32];
 }
-
-/// Ethereum Word (256 bits).
-pub type Word = U256;
 
 impl ToBigEndian for U256 {
     /// Encode the value as byte array in big endian.

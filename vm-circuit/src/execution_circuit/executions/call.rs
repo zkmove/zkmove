@@ -10,13 +10,13 @@ use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::Expr;
+use field_exts::util::{and, not};
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
-use util::Expr;
-use util::{and, not};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

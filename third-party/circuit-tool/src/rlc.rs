@@ -1,7 +1,7 @@
-use std::ops::{Add, Mul};
 /// Returns the random linear combination of the inputs.
 /// Encoding is done as follows: v_0 * R^0 + v_1 * R^1 + ...
-use util::Expr;
+use field_exts::util::Expr;
+use std::ops::{Add, Mul};
 
 use field_exts::Field;
 use halo2_proofs::plonk::Expression;

@@ -27,6 +27,8 @@ use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::{CellManagerColumns, CellType};
 use circuit_tool::challenges::Challenges;
 use circuit_tool::rlc;
+use field_exts::util;
+use field_exts::util::{and, or, Expr};
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{
@@ -37,8 +39,6 @@ use move_binary_format::file_format_common::Opcodes;
 use poseidon_base::Hashable;
 use std::collections::BTreeMap;
 use std::iter;
-use util;
-use util::{and, or, Expr};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

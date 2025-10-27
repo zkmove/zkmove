@@ -7,14 +7,14 @@ use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::not;
+use field_exts::util::Expr;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use gadgets::range_check::RangeCheckGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ErrorFront as Error, Expression};
 use halo2_proofs::poly::Rotation;
-use util::not;
-use util::Expr;
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 

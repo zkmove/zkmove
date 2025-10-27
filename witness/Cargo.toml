@@ -15,7 +15,6 @@ types = { path = "../types" }
 movelang = { path = "../third-party/movelang" }
 circuit-tool = { path = "../third-party/circuit-tool" }
 field-exts = { path = "../third-party/field-exts" }
-util = { path = "../third-party/util" }
 serde = { version = "1.0.203", features = ["derive"] }
 strum_macros = { workspace = true }
 strum = { workspace = true }

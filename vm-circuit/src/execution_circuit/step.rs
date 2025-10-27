@@ -5,12 +5,12 @@ use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use circuit_tool::cell_placement_strategy::CMFixedHeightStrategy;
 use circuit_tool::challenges::Challenges;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
-use util::Expr;
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
 use witness::value::utils::{ToField, ToFields};
 

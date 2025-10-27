@@ -11,12 +11,12 @@ use circuit_tool::cell_manager::Cell;
 use gadgets::is_zero::IsZeroGadget;
 
 use crate::public_inputs::InstanceTable;
+use field_exts::util::pow_of_two_expr;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use util::pow_of_two_expr;
-use util::Expr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 use witness::value::sub_index::SubIndex;

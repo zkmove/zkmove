@@ -6,10 +6,10 @@ use circuit_tool::cell_manager::{Cell, CellManagerColumns, CellType};
 use circuit_tool::challenges::Challenges;
 use circuit_tool::rlc;
 use circuit_tool::stored_expression::StoredExpression;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;
-use util::Expr;
 
 // Max degree allowed in all expressions passing through the ConstraintBuilder.
 // It aims to cap `extended_k` to 2, which allows constraint degree to 2^2+1,

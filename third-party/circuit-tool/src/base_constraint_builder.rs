@@ -1,7 +1,7 @@
 use crate::cell_manager::Cell;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::Expression;
-use util::Expr;
 
 pub trait ConstraintBuilder<F: Field> {
     fn add_constraint(&mut self, name: String, constraint: Expression<F>);

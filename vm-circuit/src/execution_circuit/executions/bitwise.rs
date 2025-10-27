@@ -9,6 +9,8 @@ use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::from_limbs;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
@@ -16,8 +18,6 @@ use halo2_proofs::{
 };
 use itertools::{izip, Itertools};
 use std::marker::PhantomData;
-use util::from_limbs;
-use util::Expr;
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 

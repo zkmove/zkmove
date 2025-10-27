@@ -231,11 +231,11 @@ pub fn unroll_to_hash_input_default<F: Field>(
 
 #[cfg(test)]
 mod test {
+    use field_exts::util::pow_of_two;
     use field_exts::Field;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;
-    use util::pow_of_two;
 
     #[test]
     fn test_hash_result() {

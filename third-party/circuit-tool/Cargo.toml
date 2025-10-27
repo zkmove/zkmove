@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 types = { path = "../../types" }
-util = { path = "../../third-party/util" }
 field-exts = { path = "../../third-party/field-exts" }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }

@@ -2,10 +2,10 @@ use crate::is_zero::IsZeroGadget;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::from_bytes;
+use field_exts::util::pow_of_two_expr;
+use field_exts::util::Expr;
 use types::u256::{split_u256, split_u256_limb64};
-use util::from_bytes;
-use util::pow_of_two_expr;
-use util::Expr;
 
 use field_exts::Field;
 use halo2_proofs::{

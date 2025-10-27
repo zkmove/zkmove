@@ -1,7 +1,7 @@
+use field_exts::util::pow_of_two_expr;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::Expression;
-use util::pow_of_two_expr;
-use util::Expr;
 
 #[derive(Clone, Debug)]
 pub struct Integer<F> {

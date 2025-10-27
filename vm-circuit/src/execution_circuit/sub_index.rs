@@ -3,13 +3,13 @@ use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
+use field_exts::util::from_limbs;
+use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use util::from_limbs;
-use util::Expr;
 use witness::value::sub_index::SubIndex;
 use witness::value::sub_index::N_BITS_ONE_LIMB;
 

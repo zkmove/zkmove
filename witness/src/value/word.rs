@@ -1,12 +1,12 @@
 use crate::value::sub_index::SubIndex;
 use crate::value::utils::{ToField, ToFields};
 use crate::value::value_header::ValueHeader;
+use field_exts::util::pow_of_two;
 use field_exts::Field;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue};
 use types::u256::pair_u128_to_u256;
-use util::pow_of_two;
 #[derive(Clone, Eq, Copy, PartialEq, Debug, Default)]
 pub struct Word([u128; 2]);
 
