@@ -15,10 +15,10 @@ use crate::execution_circuit::executions::{
     VecSwapStage_1, VecSwapStage_2_Or_3, VecSwapStage_4_Or_5, WriteRefStage1, WriteRefStage2,
     WriteRefStage3,
 };
-use crate::execution_circuit::lookup_table::LookupTableConfigV2;
 use crate::execution_circuit::step::{Step, StepState};
+use crate::lookup_table::LookupTable;
+use crate::lookup_table::LookupTableConfigV2;
 use crate::public_inputs::InstanceTable;
-use crate::table::LookupTable;
 use crate::utils::vm_constraint_builder::{
     ConstraintLocation, Constraints, Lookups, StoredExpressions, VmConstraintBuilder,
 };

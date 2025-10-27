@@ -1,10 +1,10 @@
 use crate::execution_circuit::call_stack::CallContext;
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::lookup_table::Lookup;
 use crate::execution_circuit::step::{
     StepState, FRAME_INDEX, FUNCTION_INDEX, MODULE_INDEX, OPCODE, OPERAND0, OPERAND1, PC, SP,
 };
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::lookup_table::Lookup;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;

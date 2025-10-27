@@ -1,4 +1,4 @@
-use crate::table::LookupTable;
+use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Region, Value};
 use halo2_proofs::plonk::{Advice, Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
@@ -26,7 +26,7 @@ pub struct PoseidonTable {
     pub heading_mark: Column<Advice>,
 }
 
-impl<F: Field> crate::table::LookupTable<F> for PoseidonTable {
+impl<F: Field> crate::lookup_table::LookupTable<F> for PoseidonTable {
     fn columns(&self) -> Vec<Column<Any>> {
         vec![
             self.q_enable.into(),

@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
-use crate::execution_circuit::lookup_table::utils::assign_fixed_table;
-use crate::table::LookupTable;
+use crate::lookup_table::utils::assign_fixed_table;
+use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, TableColumn};

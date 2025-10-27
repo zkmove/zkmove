@@ -1,6 +1,6 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::lookup_table::Table;
 use crate::execution_circuit::value::Value;
+use crate::lookup_table::Table;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use circuit_tool::cell_placement_strategy::CMFixedHeightStrategy;

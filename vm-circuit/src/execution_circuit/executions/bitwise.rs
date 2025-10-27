@@ -1,9 +1,9 @@
 use crate::execution_circuit::executions::bitwise::to_nibbles::ToNibbles;
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::lookup_table::Lookup;
 use crate::execution_circuit::step::{StepState, PC, SP};
 use crate::execution_circuit::value::{NUM_OF_BYTES_U256, NUM_OF_NIBBLE_U256};
 use crate::execution_circuit::InstructionGadgetV2;
+use crate::lookup_table::Lookup;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;

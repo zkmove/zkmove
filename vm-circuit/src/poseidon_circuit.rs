@@ -1,6 +1,6 @@
 //! wrapping of mpt-circuit
 
-use crate::execution_circuit::lookup_table::poseidon_table::PoseidonTable;
+use crate::lookup_table::poseidon_table::PoseidonTable;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
 use witness::static_info::{EntryInfo, Footprints, StaticInfo};

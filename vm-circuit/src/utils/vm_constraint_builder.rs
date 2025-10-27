@@ -1,6 +1,6 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::lookup_table::{FixedTableTag, Lookup, Table};
 use crate::execution_circuit::step::{Step, StepState};
+use crate::lookup_table::{FixedTableTag, Lookup, Table};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cell_manager::{Cell, CellManagerColumns, CellType};
 use circuit_tool::challenges::Challenges;

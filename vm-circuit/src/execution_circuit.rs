@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::execution_circuit::executions::{ExecutionConfig, InstructionGadgetV2};
-use crate::execution_circuit::lookup_table::{FixedTableTag, LookupTableConfigV2};
+use crate::lookup_table::{FixedTableTag, LookupTableConfigV2};
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
@@ -20,7 +20,6 @@ use witness::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 
 pub(crate) mod call_stack;
 pub(crate) mod executions;
-pub(crate) mod lookup_table;
 pub(crate) mod step;
 pub(crate) mod sub_index;
 pub(crate) mod value;

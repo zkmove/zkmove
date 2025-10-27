@@ -6,10 +6,10 @@
 #![allow(clippy::wrong_self_convention)]
 #![allow(dead_code)]
 
-use crate::execution_circuit::lookup_table::FixedTableTag;
 use crate::execution_circuit::{
     ExecutionCircuit, ExecutionCircuitConfig, ExecutionCircuitConfigArgs,
 };
+use crate::lookup_table::FixedTableTag;
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use circuit_tool::challenges::Challenges;
 use field_exts::Field;
@@ -30,8 +30,8 @@ use strum::IntoEnumIterator;
 use witness::static_info::{EntryInfo, Footprints};
 
 pub(crate) mod execution_circuit;
+pub(crate) mod lookup_table;
 pub(crate) mod poseidon_circuit;
-pub(crate) mod table;
 pub(crate) mod utils;
 
 pub mod public_inputs;

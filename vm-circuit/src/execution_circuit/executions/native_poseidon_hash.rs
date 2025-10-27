@@ -1,6 +1,6 @@
-use crate::execution_circuit::lookup_table::Lookup;
 use crate::execution_circuit::step::{StepState, PC, SP};
 use crate::execution_circuit::{InstructionGadgetV2, VmConstraintBuilder};
+use crate::lookup_table::Lookup;
 use crate::utils::vm_constraint_builder::Transition;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;

@@ -1,5 +1,5 @@
-use crate::execution_circuit::lookup_table::constant_table::ConstantTableRow;
-use crate::execution_circuit::lookup_table::function_table::FunctionTableRow;
+use crate::lookup_table::constant_table::ConstantTableRow;
+use crate::lookup_table::function_table::FunctionTableRow;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
