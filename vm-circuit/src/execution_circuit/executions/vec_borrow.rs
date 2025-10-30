@@ -7,9 +7,9 @@ use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::plonk::ErrorFront as Error;
-use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -124,7 +124,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {
         (0..rows)
             .map(|i| {
                 self.vec_ref_sub_index
-                    .assign(region, offset + i, vec_ref_sub_index.to_field())
+                    .assign(region, offset + i, vec_ref_sub_index.scalar())
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)

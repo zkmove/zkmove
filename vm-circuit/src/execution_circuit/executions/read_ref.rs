@@ -9,9 +9,9 @@ use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
-use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -202,10 +202,10 @@ impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
                 self.header_sub_index.assign(
                     region,
                     offset + i,
-                    Value::known(header_sub_index.to_field()),
+                    Value::known(header_sub_index.scalar()),
                 )?;
                 self.header_sub_index_ext
-                    .assign(region, offset + i, header_sub_index.to_field())
+                    .assign(region, offset + i, header_sub_index.scalar())
             })
             .try_fold((), |_, res| res)?;
         Ok(rows)

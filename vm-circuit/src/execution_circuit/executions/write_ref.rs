@@ -11,11 +11,11 @@ use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use field_exts::util::not;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
-use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -505,7 +505,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 self.header_sub_index.assign(
                     region,
                     offset + i,
-                    Value::known(local_sub_index.to_field()),
+                    Value::known(local_sub_index.scalar()),
                 )?;
 
                 self.header_flen_delta.assign(
@@ -522,9 +522,9 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                         .as_ref()
                         .unwrap()
                         .sub_index
-                        .to_field()
+                        .scalar()
                 };
-                let header_sub_index: F = local_sub_index.to_field();
+                let header_sub_index: F = local_sub_index.scalar();
                 self.is_zero_gadget.assign(
                     region,
                     offset + i,

@@ -1,11 +1,10 @@
+use crate::scalar::ToScalars;
 use crate::sub_index::SubIndex;
-use crate::utils::{ToField, ToFields};
 use crate::value_header::ValueHeader;
 use crate::word_generic::WordLoHi;
-use field_exts::util::pow_of_two;
+use field_exts::util::{pow_of_two, Scalar};
 use field_exts::Field;
 use move_core_types::account_address::AccountAddress;
-use move_core_types::u256::U256;
 use move_vm_runtime::witnessing::traced_value::{Integer, Reference, SimpleValue};
 
 // #[derive(Clone, Eq, Copy, PartialEq, Debug, Default)]
@@ -134,13 +133,13 @@ impl From<ValueHeader> for Word {
     }
 }
 
-impl<F: Field> ToFields<F> for Word {
-    fn to_fields(&self) -> Vec<F> {
+impl<F: Field> ToScalars<F> for Word {
+    fn to_scalars(&self) -> Vec<F> {
         vec![F::from_u128(self.lo()), F::from_u128(self.hi())]
     }
 }
-impl<F: Field> ToField<F> for Word {
-    fn to_field(&self) -> F {
+impl<F: Field> Scalar<F> for Word {
+    fn scalar(&self) -> F {
         F::from_u128(self.hi()) * pow_of_two::<F>(128) + F::from_u128(self.lo())
     }
 }

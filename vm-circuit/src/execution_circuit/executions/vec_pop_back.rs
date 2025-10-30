@@ -10,13 +10,13 @@ use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use value_type::sub_index::SubIndex;
-use value_type::utils::ToField;
 use value_type::value_header::ValueHeader;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
@@ -236,7 +236,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         let step_state = stage_state.step_states.first().unwrap();
 
         let vec_ref_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
-        let vector_sub_index = vec_ref_pop.sub_index.to_field();
+        let vector_sub_index = vec_ref_pop.sub_index.scalar();
 
         let last_header_local_op = step_state.memory_ops.last().unwrap().2.as_ref().unwrap();
 
@@ -269,7 +269,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 self.extended_local_sub_index_of_next_row.assign(
                     region,
                     offset + i,
-                    next_local_sub_index.to_field(),
+                    next_local_sub_index.scalar(),
                 )?;
                 self.vector_origin_len.assign(region, offset + i, 0)?;
                 self.is_zero_ori_len
@@ -283,8 +283,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 self.is_zero_gadget.assign(
                     region,
                     offset + i,
-                    <SubIndex as ToField<F>>::to_field(&local_sub_index)
-                        - <SubIndex as ToField<F>>::to_field(&next_local_sub_index),
+                    <SubIndex as Scalar<F>>::scalar(&local_sub_index)
+                        - <SubIndex as Scalar<F>>::scalar(&next_local_sub_index),
                 )?;
             }
         }

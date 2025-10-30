@@ -1,18 +1,15 @@
 // Copyright (c) zkMove Authors
 
 pub mod integer;
-pub mod u256;
-pub mod word_generic;
-
+pub mod scalar;
 pub mod sub_index;
+pub mod u256;
 pub mod value_header;
 pub mod word;
+pub mod word_generic;
 
 pub mod utils {
-    use crate::sub_index::SubIndex;
     use crate::value_header::ValueHeader;
-    use crate::word::Word;
-    use field_exts::Field;
     use move_core_types::value::MoveValue;
     use move_vm_runtime::witnessing::traced_value::{SimpleValue, ValueItem};
 
@@ -89,34 +86,5 @@ pub mod utils {
 
         index1.append(&mut index2);
         index1
-    }
-
-    pub trait ToFields<F: Field> {
-        fn to_fields(&self) -> Vec<F>;
-    }
-    pub trait ToField<F: Field> {
-        fn to_field(&self) -> F;
-    }
-
-    impl<F: Field> ToField<F> for bool {
-        fn to_field(&self) -> F {
-            if *self {
-                F::ONE
-            } else {
-                F::ZERO
-            }
-        }
-    }
-
-    impl<F: Field> ToFields<F> for ValueItem {
-        fn to_fields(&self) -> Vec<F> {
-            vec![
-                SubIndex::new(self.sub_index.clone()).to_field(),
-                self.header.to_field(),
-            ]
-            .into_iter()
-            .chain(Word::from(&self.value).to_fields())
-            .collect()
-        }
     }
 }

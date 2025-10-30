@@ -6,7 +6,7 @@ use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use itertools::Itertools;
-use value_type::utils::ToFields;
+use value_type::scalar::ToScalars;
 use witness::static_info::function::FunctionInfo;
 use witness::static_info::StaticInfo;
 
@@ -67,7 +67,7 @@ impl FunctionLookupTable {
 
         rows.into_iter()
             .chain(vec![row_entry])
-            .map(|row| row.to_fields())
+            .map(|row| row.to_scalars())
             .collect()
     }
     pub fn load<F: Field>(

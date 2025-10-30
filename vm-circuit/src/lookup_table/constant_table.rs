@@ -6,9 +6,9 @@ use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
+use value_type::scalar::ToScalars;
 use value_type::sub_index::SubIndex;
 use value_type::utils::Flatten;
-use value_type::utils::ToFields;
 use value_type::word::Word;
 use witness::static_info::StaticInfo;
 
@@ -56,7 +56,7 @@ impl ConstantLookupTable {
                         header: item.header,
                     })
                     .collect::<Vec<_>>();
-                rows.iter().map(|row| row.to_fields()).collect::<Vec<_>>()
+                rows.iter().map(|row| row.to_scalars()).collect::<Vec<_>>()
             })
             .collect()
     }

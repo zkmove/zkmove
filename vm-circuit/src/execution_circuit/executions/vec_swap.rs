@@ -16,7 +16,7 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use std::iter::once;
-use value_type::utils::ToFields;
+use value_type::scalar::ToScalars;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -120,7 +120,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .first()
             .cloned()
             .unwrap(); // TODO: figure a better way to handle Value
@@ -129,7 +129,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .first()
             .cloned()
             .unwrap(); // TODO: figure a better way to handle Value
@@ -139,7 +139,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .last()
             .cloned()
             .unwrap(); // TODO: word to reference

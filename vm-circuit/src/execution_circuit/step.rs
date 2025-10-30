@@ -6,12 +6,13 @@ use circuit_tool::cell_manager::{Cell, CellManager, CellManagerColumns, CellType
 use circuit_tool::cell_placement_strategy::CMFixedHeightStrategy;
 use circuit_tool::challenges::Challenges;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
-use value_type::utils::{ToField, ToFields};
+use value_type::scalar::ToScalars;
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
@@ -167,11 +168,7 @@ impl<F: Field> StepState<F> {
             self.stack_pop_sub_index.assign(
                 region,
                 offset,
-                Halo2Value::known(
-                    stack_pop
-                        .map(|v| v.sub_index.to_field())
-                        .unwrap_or(F::zero()),
-                ),
+                Halo2Value::known(stack_pop.map(|v| v.sub_index.scalar()).unwrap_or(F::zero())),
             )?;
             self.stack_pop_value_header.assign(
                 region,
@@ -191,7 +188,7 @@ impl<F: Field> StepState<F> {
                 region,
                 offset,
                 stack_pop
-                    .map(|v| v.value.to_fields())
+                    .map(|v| v.value.to_scalars())
                     .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
         }
@@ -210,7 +207,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 Halo2Value::known(
                     stack_push
-                        .map(|v| v.sub_index.to_field())
+                        .map(|v| v.sub_index.scalar())
                         .unwrap_or(F::zero()),
                 ),
             )?;
@@ -232,7 +229,7 @@ impl<F: Field> StepState<F> {
                 region,
                 offset,
                 stack_push
-                    .map(|v| v.value.to_fields())
+                    .map(|v| v.value.to_scalars())
                     .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
         }
@@ -259,7 +256,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 Halo2Value::known(
                     local_read_write
-                        .map(|v| v.sub_index.to_field())
+                        .map(|v| v.sub_index.scalar())
                         .unwrap_or(F::zero()),
                 ),
             )?;
@@ -268,7 +265,7 @@ impl<F: Field> StepState<F> {
                 region,
                 offset,
                 local_read_write
-                    .map(|v| v.read_value.to_fields())
+                    .map(|v| v.read_value.to_scalars())
                     .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
 
@@ -314,7 +311,7 @@ impl<F: Field> StepState<F> {
                 region,
                 offset,
                 local_read_write
-                    .map(|v| v.write_value.to_fields())
+                    .map(|v| v.write_value.to_scalars())
                     .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
             self.local_write_value_header.assign(

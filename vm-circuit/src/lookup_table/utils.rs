@@ -1,9 +1,10 @@
 use crate::lookup_table::constant_table::ConstantTableRow;
 use crate::lookup_table::function_table::FunctionTableRow;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
-use value_type::utils::{ToField, ToFields};
+use value_type::scalar::ToScalars;
 
 pub(crate) fn assign_fixed_table<F: Field>(
     layouter: &mut impl Layouter<F>,
@@ -35,8 +36,8 @@ pub(crate) fn assign_fixed_table<F: Field>(
     )
 }
 
-impl<F: Field> ToFields<F> for FunctionTableRow {
-    fn to_fields(&self) -> Vec<F> {
+impl<F: Field> ToScalars<F> for FunctionTableRow {
+    fn to_scalars(&self) -> Vec<F> {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.function_handle_index as u128),
@@ -48,15 +49,15 @@ impl<F: Field> ToFields<F> for FunctionTableRow {
     }
 }
 
-impl<F: Field> ToFields<F> for ConstantTableRow {
-    fn to_fields(&self) -> Vec<F> {
+impl<F: Field> ToScalars<F> for ConstantTableRow {
+    fn to_scalars(&self) -> Vec<F> {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.constant_index as u128),
-            self.sub_index.to_field(),
+            self.sub_index.scalar(),
         ]
         .into_iter()
-        .chain(self.value.to_fields())
+        .chain(self.value.to_scalars())
         .chain(vec![F::from(self.header as u64)])
         .collect()
     }

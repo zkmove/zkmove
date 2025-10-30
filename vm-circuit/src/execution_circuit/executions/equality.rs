@@ -10,13 +10,14 @@ use circuit_tool::cell_manager::Cell;
 use circuit_tool::rlc;
 use field_exts::util::not;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use gadgets::lt::LtGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use value_type::utils::{ToField, ToFields};
+use value_type::scalar::ToScalars;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -277,7 +278,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
             let sub_index = op.0.as_ref().unwrap().sub_index.clone();
             self.sub_index_reverse
                 .assign(region, current_offset, &sub_index)?;
-            let sub_index_value: F = sub_index.to_field();
+            let sub_index_value: F = sub_index.scalar();
             let v_reverse = if sub_index_value.is_zero().into() {
                 F::zero()
             } else {
@@ -309,7 +310,7 @@ impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>
                         },
                     ]
                     .into_iter()
-                    .chain(stack_pop.value.to_fields()),
+                    .chain(stack_pop.value.to_scalars()),
                     randomness,
                 )
             });
