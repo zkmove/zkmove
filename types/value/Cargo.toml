@@ -1,15 +1,17 @@
 [package]
-name = "types"
+name = "value-type"
 version = "0.4.0"
 edition = "2021"
 
 [dependencies]
 halo2_proofs = { workspace = true }
-field-exts = { path = "../third-party/field-exts" }
+field-exts = { path = "../../third-party/field-exts" }
+circuit-tool = { path = "../../third-party/circuit-tool" }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }
 strum.workspace = true
 strum_macros.workspace = true
+itertools = { version = "0.13.0" }
 
 [features]
 table-u16 = []

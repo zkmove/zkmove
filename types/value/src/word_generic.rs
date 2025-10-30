@@ -1,6 +1,6 @@
 #![allow(clippy::wrong_self_convention)]
 #![allow(dead_code)]
-//! Define generic Word type with utility functions
+
 // Naming Conversion
 // - Limbs: An EVEN word is 256 bits. Limbs N means split 256 into N limb. For example, N = 4, each
 //   limb is 256/4 = 64 bits
@@ -17,8 +17,8 @@ use halo2_proofs::{
 use itertools::Itertools;
 use move_core_types::u256::U256;
 
-use crate::cached_region::CachedRegion;
-use crate::cell_manager::Cell;
+use circuit_tool::cached_region::CachedRegion;
+use circuit_tool::cell_manager::Cell;
 
 const N_BYTES_HALF_WORD: usize = 16;
 
@@ -236,6 +236,8 @@ impl<T> std::ops::Deref for WordLoHi<T> {
     }
 }
 
+impl<T: Clone + Eq> Eq for WordLoHi<T> {}
+
 impl<T: Clone + PartialEq> PartialEq for WordLoHi<T> {
     fn eq(&self, other: &Self) -> bool {
         self.lo() == other.lo() && self.hi() == other.hi()
@@ -268,11 +270,11 @@ impl<F: Field> From<u8> for WordLoHi<F> {
     }
 }
 
-impl<F: Field> From<bool> for WordLoHi<F> {
-    fn from(value: bool) -> Self {
-        WordLoHi::new([F::from(value as u64), F::from(0)])
-    }
-}
+// impl<F: Field> From<bool> for WordLoHi<F> {
+//     fn from(value: bool) -> Self {
+//         WordLoHi::new([F::from(value as u64), F::from(0)])
+//     }
+// }
 
 impl<F: Field> WordLoHi<Value<F>> {
     /// Assign advice

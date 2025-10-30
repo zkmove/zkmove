@@ -11,8 +11,8 @@ use halo2_proofs::circuit::Value as Halo2Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
+use value_type::utils::{ToField, ToFields};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
-use witness::value::utils::{ToField, ToFields};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
 
@@ -42,13 +42,13 @@ pub(crate) struct StepState<F> {
     pub stack_pop_index: Cell<F>, // max value be 2^10 - 1
     pub stack_pop_sub_index: Cell<F>,
     pub stack_pop_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub stack_pop_value_header: Cell<F>,
+    pub stack_pop_value_header: Cell<F>, // boolean to indicate if the value is a header
     pub stack_pop_version: Cell<F>,
 
     pub stack_push_index: Cell<F>, // max value be 2^10 - 1
     pub stack_push_sub_index: Cell<F>,
     pub stack_push_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub stack_push_value_header: Cell<F>,
+    pub stack_push_value_header: Cell<F>, // boolean
     pub stack_push_version: Cell<F>,
 
     pub local_frame_index: Cell<F>, // max value be 2^10 - 1
@@ -56,12 +56,12 @@ pub(crate) struct StepState<F> {
     pub local_sub_index: Cell<F>,
 
     pub local_read_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub local_read_value_header: Cell<F>,
+    pub local_read_value_header: Cell<F>, // boolean
     pub local_read_value_invalid: Cell<F>,
     pub local_read_version: Cell<F>,
 
     pub local_write_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub local_write_value_header: Cell<F>,
+    pub local_write_value_header: Cell<F>, // boolean
     pub local_write_value_invalid: Cell<F>,
     pub local_write_version: Cell<F>,
 
@@ -178,8 +178,8 @@ impl<F: Field> StepState<F> {
                 offset,
                 Halo2Value::known(
                     stack_pop
-                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| if v.value_header { F::one() } else { F::zero() })
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.stack_pop_version.assign(
@@ -192,7 +192,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 stack_pop
                     .map(|v| v.value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
         }
 
@@ -219,8 +219,8 @@ impl<F: Field> StepState<F> {
                 offset,
                 Halo2Value::known(
                     stack_push
-                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| if v.value_header { F::one() } else { F::zero() })
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.stack_push_version.assign(
@@ -233,7 +233,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 stack_push
                     .map(|v| v.value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
         }
         // assign local read&write
@@ -269,7 +269,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 local_read_write
                     .map(|v| v.read_value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
 
             self.local_read_value_header.assign(
@@ -277,8 +277,14 @@ impl<F: Field> StepState<F> {
                 offset,
                 Halo2Value::known(
                     local_read_write
-                        .map(|v| if v.read_value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| {
+                            if v.read_value_header {
+                                F::one()
+                            } else {
+                                F::zero()
+                            }
+                        })
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_read_value_invalid.assign(
@@ -288,12 +294,12 @@ impl<F: Field> StepState<F> {
                     local_read_write
                         .map(|v| {
                             if v.read_value_invalid {
-                                F::ONE
+                                F::one()
                             } else {
-                                F::ZERO
+                                F::zero()
                             }
                         })
-                        .unwrap_or(F::ZERO),
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_read_version.assign(
@@ -309,7 +315,7 @@ impl<F: Field> StepState<F> {
                 offset,
                 local_read_write
                     .map(|v| v.write_value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .unwrap_or([F::zero(); NUM_OF_VALUE_LIMBS].to_vec()),
             )?;
             self.local_write_value_header.assign(
                 region,
@@ -318,12 +324,12 @@ impl<F: Field> StepState<F> {
                     local_read_write
                         .map(|v| {
                             if v.write_value_header {
-                                F::ONE
+                                F::one()
                             } else {
-                                F::ZERO
+                                F::zero()
                             }
                         })
-                        .unwrap_or(F::ZERO),
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_write_value_invalid.assign(
@@ -333,12 +339,12 @@ impl<F: Field> StepState<F> {
                     local_read_write
                         .map(|v| {
                             if v.write_value_invalid {
-                                F::ONE
+                                F::one()
                             } else {
-                                F::ZERO
+                                F::zero()
                             }
                         })
-                        .unwrap_or(F::ZERO),
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_write_version.assign(
@@ -724,13 +730,17 @@ impl<F: Field> DynamicSelectorHalf<F> {
         self.target_odd.assign(
             region,
             offset,
-            Halo2Value::known(if odd { F::ONE } else { F::ZERO }),
+            Halo2Value::known(if odd { F::one() } else { F::zero() }),
         )?;
         for (index, cell) in self.target_pairs.iter().enumerate() {
             cell.assign(
                 region,
                 offset,
-                Halo2Value::known(if index == pair_index { F::ONE } else { F::ZERO }),
+                Halo2Value::known(if index == pair_index {
+                    F::one()
+                } else {
+                    F::zero()
+                }),
             )?;
         }
         Ok(())

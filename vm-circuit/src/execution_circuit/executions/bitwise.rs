@@ -18,6 +18,7 @@ use halo2_proofs::{
 };
 use itertools::{izip, Itertools};
 use std::marker::PhantomData;
+use value_type::u256::pair_u128_to_u256;
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 
@@ -424,9 +425,9 @@ impl<F: Field> InstructionGadgetV2<F> for Bitwise<F> {
         let rhs_word = step_state.memory_ops[0].0.clone().unwrap().value;
         let lhs_word = step_state.memory_ops[1].0.clone().unwrap().value;
         let out_word = step_state.memory_ops[2].1.clone().unwrap().value;
-        let rhs = rhs_word.to_u256();
-        let lhs = lhs_word.to_u256();
-        let out = out_word.to_u256();
+        let rhs = pair_u128_to_u256(rhs_word.lo(), rhs_word.hi());
+        let lhs = pair_u128_to_u256(lhs_word.lo(), lhs_word.hi());
+        let out = pair_u128_to_u256(out_word.lo(), out_word.hi());
 
         debug_assert_eq!(step_state.memory_ops.len(), 3);
         for (cell, nibble) in izip!(self.nibbles.clone(), rhs.to_nibbles()) {

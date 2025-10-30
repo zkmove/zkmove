@@ -7,7 +7,6 @@ pub mod cell_placement_strategy;
 pub mod challenges;
 pub mod rlc;
 pub mod stored_expression;
-pub mod word;
 
 use field_exts::util::Expr;
 use field_exts::Field;

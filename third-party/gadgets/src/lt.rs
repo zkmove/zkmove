@@ -11,7 +11,7 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use types::u256::split_u256_to_u128;
+use value_type::u256::split_u256_to_u128;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`

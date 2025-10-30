@@ -7,13 +7,13 @@ use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::rlc;
-use circuit_tool::word::WordLoHiCell;
 use field_exts::util::pow_of_two_expr;
 use gadgets::lt::LtInteger;
+use value_type::utils::ToField;
+use value_type::word_generic::WordLoHiCell;
 use witness::static_info::StaticInfo;
 use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 use crate::public_inputs::InstanceTable;
 use field_exts::util::Expr;

@@ -5,7 +5,7 @@ use circuit_tool::cell_manager::Cell;
 use field_exts::util::from_bytes;
 use field_exts::util::pow_of_two_expr;
 use field_exts::util::Expr;
-use types::u256::{split_u256, split_u256_limb64};
+use value_type::u256::{split_u256, split_u256_limb64};
 
 use field_exts::Field;
 use halo2_proofs::{

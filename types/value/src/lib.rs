@@ -1,16 +1,20 @@
 // Copyright (c) zkMove Authors
 
+pub mod integer;
+pub mod u256;
+pub mod word_generic;
+
 pub mod sub_index;
 pub mod value_header;
 pub mod word;
 
 pub mod utils {
-    use crate::value::sub_index::SubIndex;
-    use crate::value::value_header::ValueHeader;
-    use crate::value::word::Word;
-    use crate::{SimpleValue, ValueItem};
+    use crate::sub_index::SubIndex;
+    use crate::value_header::ValueHeader;
+    use crate::word::Word;
     use field_exts::Field;
     use move_core_types::value::MoveValue;
+    use move_vm_runtime::witnessing::traced_value::{SimpleValue, ValueItem};
 
     pub trait Flatten {
         fn flatten(self) -> Vec<ValueItem>;

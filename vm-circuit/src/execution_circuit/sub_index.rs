@@ -10,8 +10,8 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use witness::value::sub_index::SubIndex;
-use witness::value::sub_index::N_BITS_ONE_LIMB;
+use value_type::sub_index::SubIndex;
+use value_type::sub_index::N_BITS_ONE_LIMB;
 
 pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LIMB as u32);
 

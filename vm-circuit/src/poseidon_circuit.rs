@@ -3,9 +3,9 @@
 use crate::lookup_table::poseidon_table::PoseidonTable;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
+use value_type::utils::ToField;
 use witness::static_info::{EntryInfo, Footprints, StaticInfo};
 use witness::step_state::ExecutionState;
-use witness::value::utils::ToField;
 
 use field_exts::Field;
 use field_exts::U256;

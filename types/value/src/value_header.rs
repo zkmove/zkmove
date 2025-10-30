@@ -1,6 +1,6 @@
-use crate::value::word::Word;
+use crate::u256::{pair_u128_to_u256, split_u256_to_u128};
+use crate::word::Word;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
-use types::u256::{pair_u128_to_u256, split_u256_to_u128};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ValueHeader {

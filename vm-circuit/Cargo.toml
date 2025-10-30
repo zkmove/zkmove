@@ -5,7 +5,8 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-types = { path = "../types" }
+value-type = { path = "../types/value" }
+table-type = { path = "../types/table" }
 witness = { path = "../witness" }
 field-exts = { path = "../third-party/field-exts" }
 gadgets = { path = "../third-party/gadgets" }

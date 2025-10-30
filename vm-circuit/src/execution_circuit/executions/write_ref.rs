@@ -15,9 +15,9 @@ use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
+use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
 #[derive(Clone, Debug)]

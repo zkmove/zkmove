@@ -9,7 +9,7 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use types::integer::Integer;
+use value_type::integer::Integer;
 
 #[derive(Clone, Debug)]
 pub struct AddGadget<F> {

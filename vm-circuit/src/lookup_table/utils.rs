@@ -3,7 +3,7 @@ use crate::lookup_table::function_table::FunctionTableRow;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
-use witness::value::utils::{ToField, ToFields};
+use value_type::utils::{ToField, ToFields};
 
 pub(crate) fn assign_fixed_table<F: Field>(
     layouter: &mut impl Layouter<F>,

@@ -16,9 +16,9 @@ use gadgets::lt::LtGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
+use value_type::utils::{ToField, ToFields};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::{ToField, ToFields};
 
 #[derive(Clone, Debug)]
 pub struct Equality<F, const STAGE1: bool, const EQ: bool> {

@@ -6,9 +6,9 @@ use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
 use itertools::Itertools;
+use value_type::utils::ToFields;
 use witness::static_info::function::FunctionInfo;
 use witness::static_info::StaticInfo;
-use witness::value::utils::ToFields;
 
 /// Function handle table of all dependent modules, which include handles to
 /// external and internal functions of each module.

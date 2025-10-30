@@ -9,9 +9,9 @@ use circuit_tool::cached_region::CachedRegion;
 use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::ErrorFront as Error;
+use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<F> {

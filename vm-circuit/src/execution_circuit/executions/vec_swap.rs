@@ -16,9 +16,9 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use std::iter::once;
+use value_type::utils::ToFields;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToFields;
 
 #[derive(Clone)]
 pub struct VecSwapStage_1<F> {

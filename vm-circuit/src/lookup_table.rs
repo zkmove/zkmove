@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use witness::static_info::StaticInfo;
 
-pub(crate) use types::table::Table;
+pub(crate) use table_type::Table;
 
 pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;

@@ -4,7 +4,7 @@ version = "0.4.0"
 edition = "2021"
 
 [dependencies]
-types = { path = "../../types" }
+table-type = { path = "../../types/table" }
 field-exts = { path = "../../third-party/field-exts" }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }

@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 halo2_proofs.workspace = true
 field-exts = { path = "../field-exts" }
 circuit-tool = { path = "../circuit-tool" }
-types = { path = "../../types" }
+value-type = { path = "../../types/value" }
 move-core-types = { workspace = true }
 
 [dev-dependencies]

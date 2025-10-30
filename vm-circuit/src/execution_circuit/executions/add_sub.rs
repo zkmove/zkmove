@@ -21,7 +21,7 @@ use halo2_proofs::{
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
-use types::integer::Integer as IntegerExpr;
+use value_type::integer::Integer as IntegerExpr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

@@ -10,7 +10,7 @@ use halo2_proofs::{
 };
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
-use types::table::Table;
+use table_type::Table;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// CellType represent a category of cell (and column).

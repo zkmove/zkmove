@@ -29,8 +29,8 @@ use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use std::marker::PhantomData;
-use types::integer::Integer as IntegerExpr;
-use types::u256::{pair_u128_to_u256, split_u256_to_u128};
+use value_type::integer::Integer as IntegerExpr;
+use value_type::u256::{pair_u128_to_u256, split_u256_to_u128};
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 

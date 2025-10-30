@@ -11,9 +11,9 @@ use circuit_tool::cell_manager::Cell;
 use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
+use value_type::utils::ToField;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 #[derive(Clone, Debug)]
 pub struct ReadRef<F> {

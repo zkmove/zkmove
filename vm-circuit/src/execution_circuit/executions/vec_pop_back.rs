@@ -15,11 +15,11 @@ use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
+use value_type::sub_index::SubIndex;
+use value_type::utils::ToField;
+use value_type::value_header::ValueHeader;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::sub_index::SubIndex;
-use witness::value::utils::ToField;
-use witness::value::value_header::ValueHeader;
 
 /// pop vector_ref from stack and update parent from up to bottom
 #[derive(Clone)]
