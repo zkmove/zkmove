@@ -1,13 +1,15 @@
 [workspace]
 members = [
-    "movelang",
-    "common/logger",
-    "common/types",
-    "common/utility",
-    "vm-circuit",
-    "functional-tests",
     "cli",
-    "aptos-move-witnesses"
+    "functional-tests",
+    "third-party/circuit-tool",
+    "third-party/field-exts",
+    "third-party/gadgets",
+    "third-party/halo2",
+    "third-party/movelang",
+    "vm-circuit",
+    "types",
+    "witness"
 ]
 resolver = "2"
 [workspace.dependencies]
@@ -27,11 +29,9 @@ halo2curves = { git = "https://github.com/zkmove/halo2curves", branch = "zkmove"
 halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove", default-features = false, features = ["batch", "bits"] }
 halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
 
-gadgets = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "gadgets" }
-field-exts = { git = "https://github.com/zkmove/zkevm-circuits.git", branch = "main", package = "field-exts" }
-
 anyhow = "1.0.38"
 bytes = { version = "1.5" }
+log = "0.4.28"
 rayon = "1.10"
 serde_json = { version = "1" }
 strum = "0.26"

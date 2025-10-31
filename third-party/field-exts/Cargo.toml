@@ -1,0 +1,10 @@
+[package]
+name = "field-exts"
+version = "0.4.0"
+edition = "2021"
+authors = ["The appliedzkp team"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove", default-features = false, features = ["batch", "bits"] }
+primitive-types = "0.12"

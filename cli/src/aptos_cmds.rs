@@ -1,11 +1,12 @@
 use crate::aptos_utils::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand, ValueEnum};
+use halo2::proofs::{best_k, KZG};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
-use logger::debug;
+use log::debug;
 use move_package::{
     compilation::{
         compiled_package::{CompiledPackage, OnDiskCompiledPackage},
@@ -21,10 +22,9 @@ use std::{
     rc::Rc,
 };
 use toml::Value;
-use vm_circuit::{
-    best_k, circuit_v2::CircuitGuard, CircuitConfigV2, Footprints, PublicInputs, SubCircuit,
-    VmCircuit, KZG,
-};
+use vm_circuit::public_inputs::PublicInputs;
+use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
+use witness::static_info::Footprints;
 
 /// the consts correspond to the definition of vk_registry.move
 pub const VK_REGISTRY_MODULE: &str = "vk_registry";
@@ -54,12 +54,12 @@ pub struct AptosCommands {
 impl AptosCommands {
     pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
         let package = self.load_package(&self.package_dir)?;
-        let circuit_config =
-            Self::get_circuit_config_from_move_toml(&self.package_dir.join("Move.toml"));
+        let circuit_config_args =
+            Self::get_circuit_config_args_from_move_toml(&self.package_dir.join("Move.toml"));
 
         match &self.command {
             AptosSubcommands::BuildPublishCircuitAptosTxn(cmd) => {
-                cmd.run(&package, circuit_config, &self.zkmove_address, params)
+                cmd.run(&package, circuit_config_args, &self.zkmove_address, params)
             }
             AptosSubcommands::BuildVerifyProofAptosTxn(cmd) => cmd.run(&self.zkmove_address),
             AptosSubcommands::BuildRegisterVkAptosTxn(cmd) => {
@@ -91,16 +91,16 @@ impl AptosCommands {
         Ok(package.into_compiled_package()?)
     }
 
-    fn get_circuit_config_from_move_toml(toml_path: &Path) -> CircuitConfigV2 {
+    fn get_circuit_config_args_from_move_toml(toml_path: &Path) -> CircuitConfigArgs {
         let toml_content = std::fs::read_to_string(toml_path).expect("Failed to read Move.toml");
         let parsed_toml: Value = toml_content
             .parse::<Value>()
             .expect("Failed to parse Move.toml");
 
         if let Some(circuit) = parsed_toml.get("circuit") {
-            let max_rows = circuit
-                .get("max_rows")
-                .and_then(|max_rows| max_rows.as_integer())
+            let max_execution_rows = circuit
+                .get("max_execution_rows")
+                .and_then(|max_execution_rows| max_execution_rows.as_integer())
                 .map(|v| v as usize);
 
             let max_poseidon_rows = circuit
@@ -109,12 +109,12 @@ impl AptosCommands {
                 .map(|v| v as usize)
                 .unwrap_or(0);
 
-            CircuitConfigV2 {
-                max_rows,
+            CircuitConfigArgs {
+                max_execution_rows,
                 max_poseidon_rows,
             }
         } else {
-            CircuitConfigV2::default()
+            CircuitConfigArgs::default()
         }
     }
 }
@@ -155,7 +155,7 @@ impl BuildPublishCircuitAptosTxn {
     pub fn run(
         &self,
         package: &CompiledPackage,
-        circuit_config: CircuitConfigV2,
+        circuit_config_args: CircuitConfigArgs,
         zkmove_address: &str,
         params: &ParamsKZG<Bn256>,
     ) -> Result<()> {
@@ -166,7 +166,7 @@ impl BuildPublishCircuitAptosTxn {
             package,
             &traces,
             &self.pubs_indices,
-            circuit_config,
+            circuit_config_args,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
 

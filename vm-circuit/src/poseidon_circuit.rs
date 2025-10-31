@@ -1,13 +1,13 @@
 //! wrapping of mpt-circuit
 
-use crate::chips::execution_chip_v2::lookup_table::poseidon_table::PoseidonTable;
-use crate::chips::execution_chip_v2::utils::to_field::ToField;
-use crate::utils::challenges::Challenges;
-use crate::{CircuitConfigV2, SubCircuit, SubCircuitConfig};
-use aptos_move_witnesses::exec_state::ExecutionState;
-use aptos_move_witnesses::static_info::{EntryInfo, Footprints, StaticInfo};
+use crate::lookup_table::poseidon_table::PoseidonTable;
+use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
+use circuit_tool::challenges::Challenges;
+use witness::static_info::{EntryInfo, Footprints, StaticInfo};
+use witness::step_state::ExecutionState;
+use witness::value::utils::ToField;
 
-use aptos_move_witnesses::witness_preprocessor::WitnessPreProcessor;
+use field_exts::Field;
 use field_exts::U256;
 use halo2_proofs::{
     circuit::{Layouter, Value},
@@ -17,7 +17,7 @@ use itertools::Itertools;
 use move_package::compilation::compiled_package::CompiledPackage;
 pub use poseidon_circuit::hash::Hashable;
 use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashTable};
-use types::Field;
+use witness::preprocessor::WitnessPreProcessor;
 
 /// re-wrapping for mpt circuit
 #[derive(Default, Clone, Debug)]
@@ -67,15 +67,15 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
         package: &CompiledPackage,
         traces: &Footprints,
         pubs_indices: &[usize],
-        config: CircuitConfigV2,
+        circuit_config_args: CircuitConfigArgs,
     ) -> Self {
         let entry = traces.entry().expect("entry should be set in traces");
         let static_info = StaticInfo::generate(entry, package, pubs_indices)
             .expect("static info should be generated");
         let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.pre_process(&traces.0, &static_info);
+        let states = preprocessor.process(&traces.0, &static_info);
 
-        let max_hashes = config.max_poseidon_rows / F::hash_block_size();
+        let max_hashes = circuit_config_args.max_poseidon_rows / F::hash_block_size();
         let mut poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();
         let poseidon_hash_data = states
             .iter()
@@ -115,12 +115,12 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
         Self(poseidon_table_data, max_hashes)
     }
     fn new_with_empty_state(
-        package: &CompiledPackage,
-        entry: EntryInfo,
-        pubs_indices: &[usize],
-        circuit_config: CircuitConfigV2,
+        _package: &CompiledPackage,
+        _entry: EntryInfo,
+        _pubs_indices: &[usize],
+        circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        let max_hashes = circuit_config.max_poseidon_rows / F::hash_block_size();
+        let max_hashes = circuit_config_args.max_poseidon_rows / F::hash_block_size();
         let poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();
         Self(poseidon_table_data, max_hashes)
     }
@@ -231,11 +231,11 @@ pub fn unroll_to_hash_input_default<F: Field>(
 
 #[cfg(test)]
 mod test {
-    use crate::chips::execution_chip_v2::utils::pow_of_two;
+    use field_exts::util::pow_of_two;
+    use field_exts::Field;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;
-    use types::Field;
 
     #[test]
     fn test_hash_result() {
