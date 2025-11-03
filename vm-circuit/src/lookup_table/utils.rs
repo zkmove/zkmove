@@ -4,7 +4,7 @@ use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Column, ErrorFront as Error, Fixed};
-use value_type::scalar::ToScalars;
+use value_type::to_scalars::ToScalars;
 
 pub(crate) fn assign_fixed_table<F: Field>(
     layouter: &mut impl Layouter<F>,

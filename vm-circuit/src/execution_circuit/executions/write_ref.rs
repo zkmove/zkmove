@@ -2,7 +2,6 @@ use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::executions::ExtendedSubIndex;
 use crate::execution_circuit::executions::Membership;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -16,6 +15,7 @@ use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
+use value_type::word::IndexExpr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -51,7 +51,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
             );
-            let index = Index::new(
+            let index = IndexExpr::new(
                 step_curr.local_frame_index.expr(),
                 step_curr.local_index.expr(),
             );

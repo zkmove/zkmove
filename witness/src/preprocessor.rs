@@ -19,7 +19,7 @@ use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
 use value_type::sub_index::SubIndex;
-use value_type::u256::ToU256;
+use value_type::to_u256::ToU256;
 use value_type::utils::Flatten;
 use value_type::value_header::ValueHeader;
 use value_type::word::Word;
@@ -894,7 +894,7 @@ impl WitnessPreProcessor {
                                     .unwrap()
                                     .value
                                     .clone();
-                                let header: ValueHeader = parent_value.into();
+                                let header: ValueHeader<u16> = parent_value.into();
                                 let new_flen =
                                     header.flen as usize - old_value.len() + new_value.len();
                                 let new_parent_value =

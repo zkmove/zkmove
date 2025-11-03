@@ -1,12 +1,18 @@
 // Copyright (c) zkMove Authors
 
-pub mod integer;
-pub mod scalar;
 pub mod sub_index;
-pub mod u256;
+pub mod to_scalars;
+pub mod to_u256;
 pub mod value_header;
 pub mod word;
 pub mod word_generic;
+
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
+pub const NUM_OF_BYTES_U64: usize = 8;
+pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
 
 pub mod utils {
     use crate::value_header::ValueHeader;

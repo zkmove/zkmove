@@ -3,7 +3,7 @@ use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
-use value_type::scalar::ToScalars;
+use value_type::to_scalars::ToScalars;
 use witness::static_info::StaticInfo;
 
 #[derive(Copy, Clone, Debug)]

@@ -1,7 +1,6 @@
 use crate::execution_circuit::executions::bitwise::to_nibbles::ToNibbles;
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::{NUM_OF_BYTES_U256, NUM_OF_NIBBLE_U256};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::lookup_table::Lookup;
 use crate::public_inputs::InstanceTable;
@@ -18,9 +17,12 @@ use halo2_proofs::{
 };
 use itertools::{izip, Itertools};
 use std::marker::PhantomData;
-use value_type::u256::pair_u128_to_u256;
+use value_type::to_u256::pair_u128_to_u256;
+use value_type::NUM_OF_BYTES_U256;
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
+
+pub const NUM_OF_NIBBLE_U256: usize = NUM_OF_BYTES_U256 * 2;
 
 #[derive(Clone, Debug)]
 pub struct BitwiseStage1<F, const R: usize, const C: usize> {
@@ -471,8 +473,8 @@ impl<F: Field> LookupBitwise<F> {
 }
 
 pub mod to_nibbles {
-    use crate::execution_circuit::value::NUM_OF_BYTES_U256;
     use move_core_types::u256::U256;
+    use value_type::NUM_OF_BYTES_U256;
 
     // Convert to half-byte array in little-endian order
     pub trait ToNibbles {

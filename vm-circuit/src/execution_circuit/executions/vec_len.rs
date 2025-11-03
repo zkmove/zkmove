@@ -1,12 +1,12 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{PC, SP};
-use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use field_exts::util::Expr;
 use field_exts::Field;
 use std::marker::PhantomData;
+use value_type::word::IndexExpr;
 
 #[derive(Clone, Debug)]
 pub struct VecLen<F> {
@@ -39,7 +39,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecLen<F> {
             step_curr.stack_pop_sub_index.expr(),
         );
 
-        let index = Index::new(
+        let index = IndexExpr::new(
             step_curr.local_frame_index.expr(),
             step_curr.local_index.expr(),
         );

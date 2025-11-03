@@ -1,9 +1,5 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::lookup_table::Lookup;
 use crate::public_inputs::InstanceTable;
@@ -28,8 +24,12 @@ use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use std::marker::PhantomData;
-use value_type::integer::Integer as IntegerExpr;
-use value_type::u256::{pair_u128_to_u256, split_u256_to_u128};
+use value_type::to_u256::{pair_u128_to_u256, split_u256_to_u128};
+use value_type::word::IntegerExpr;
+use value_type::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 
@@ -229,12 +229,14 @@ impl<F: Field> InstructionGadgetV2<F> for ShiftStage2<F> {
             let is_u256_ =
                 IsZeroGadget::construct(cb, n_bytes.clone() - (NUM_OF_BYTES_U256 as u64).expr());
 
-            let rhs_lt_256_ = LtGadget::construct(cb, rhs.expr(), 256u64.expr());
-            let rhs_lt_128_ = LtGadget::construct(cb, rhs.expr(), 128u64.expr());
-            let rhs_lt_64_ = LtGadget::construct(cb, rhs.expr(), 64u64.expr());
-            let rhs_lt_32_ = LtGadget::construct(cb, rhs.expr(), 32u64.expr());
-            let rhs_lt_16_ = LtGadget::construct(cb, rhs.expr(), 16u64.expr());
-            let rhs_lt_8_ = LtGadget::construct(cb, rhs.expr(), 8u64.expr());
+            let rhs_expr = rhs.compress();
+
+            let rhs_lt_256_ = LtGadget::construct(cb, rhs_expr.clone(), 256u64.expr());
+            let rhs_lt_128_ = LtGadget::construct(cb, rhs_expr.clone(), 128u64.expr());
+            let rhs_lt_64_ = LtGadget::construct(cb, rhs_expr.clone(), 64u64.expr());
+            let rhs_lt_32_ = LtGadget::construct(cb, rhs_expr.clone(), 32u64.expr());
+            let rhs_lt_16_ = LtGadget::construct(cb, rhs_expr.clone(), 16u64.expr());
+            let rhs_lt_8_ = LtGadget::construct(cb, rhs_expr, 8u64.expr());
 
             // Opcode Shl and Shr shifts the "lhs" integer "rhs" bits and pushes the "out" on the stack.
             // lhs and out can be U8, U16, U32, U64, U128 or U256
@@ -454,7 +456,7 @@ impl<F: Field> ShiftGadget<F> {
         let is_shr = 1u64.expr() - is_shl.expr();
         cb.require_equal(
             "lhs == select::expr(is_shl.expr(), a, d)".to_string(),
-            lhs.expr(),
+            lhs.compress(),
             select::expr(is_shl.expr(), a.clone(), d.clone()),
         );
         // (b_lo, b_hi) == (2^rhs, 0), when rhs < 128
@@ -462,14 +464,14 @@ impl<F: Field> ShiftGadget<F> {
         cb.add_lookup(
             "2^rhs == b",
             Lookup::Pow2 {
-                value: rhs.expr(),
+                value: rhs.compress(),
                 pow_lo: b_lo.clone(),
                 pow_hi: b_hi.clone(),
             },
         );
         cb.require_equal(
             "constrain out shl".to_string(),
-            out.expr(),
+            out.compress(),
             is_shr.clone() * a
                 + is_shl.clone() * is_u8 * from_bytes::expr(&cells.d_lo[..NUM_OF_BYTES_U8])
                 + is_shl.clone() * is_u16 * from_bytes::expr(&cells.d_lo[..NUM_OF_BYTES_U16])

@@ -1,9 +1,5 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -16,6 +12,10 @@ use gadgets::is_zero::IsZeroGadget;
 use gadgets::range_check::IntegerRangeCheck;
 use halo2_proofs::plonk::ErrorFront as Error;
 use move_binary_format::file_format_common::Opcodes;
+use value_type::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

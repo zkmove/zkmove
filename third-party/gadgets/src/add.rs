@@ -9,7 +9,7 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use value_type::integer::Integer;
+use value_type::word::IntegerExpr;
 
 #[derive(Clone, Debug)]
 pub struct AddGadget<F> {
@@ -40,9 +40,9 @@ impl<F: Field> AddGadget<F> {
     pub fn expr(
         &self,
         cb: &mut impl ConstraintBuilder<F>,
-        lhs: Integer<F>,
-        rhs: Integer<F>,
-        out: Integer<F>,
+        lhs: IntegerExpr<F>,
+        rhs: IntegerExpr<F>,
+        out: IntegerExpr<F>,
     ) {
         cb.require_equal(
             "lhs_lo + rhs_lo == out_lo + carry_lo * 2^128".to_string(),

@@ -1,4 +1,3 @@
-use crate::execution_circuit::value::NUM_OF_BYTES_U128;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
@@ -12,6 +11,7 @@ use halo2_proofs::{
 };
 use value_type::sub_index::SubIndex;
 use value_type::sub_index::N_BITS_ONE_LIMB;
+use value_type::NUM_OF_BYTES_U128;
 
 pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LIMB as u32);
 

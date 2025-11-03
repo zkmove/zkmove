@@ -17,7 +17,7 @@ use gadgets::lt::LtGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
-use value_type::scalar::ToScalars;
+use value_type::to_scalars::ToScalars;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

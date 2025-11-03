@@ -1,5 +1,4 @@
 use crate::comparison::ComparisonGadget;
-use crate::NUM_OF_BYTES_U128;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
@@ -11,7 +10,8 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use value_type::u256::split_u256_to_u128;
+use value_type::to_u256::split_u256_to_u128;
+use value_type::NUM_OF_BYTES_U128;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`

@@ -1,9 +1,5 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::{
-    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
-    NUM_OF_BYTES_U8,
-};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -29,8 +25,12 @@ use itertools::izip;
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
 use std::marker::PhantomData;
-use value_type::integer::Integer as IntegerExpr;
-use value_type::u256::{pair_u128_to_u256, split_u256_to_u128};
+use value_type::to_u256::{pair_u128_to_u256, split_u256_to_u128};
+use value_type::word::IntegerExpr;
+use value_type::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use witness::static_info::StaticInfo;
 use witness::step_state::{StageExtraAssignData, StageState};
 
@@ -388,13 +388,13 @@ impl<F: Field> MulDivModGadget<F> {
         //Notice: when is_mod or is_div, and divide by zero, 'out' is constrained to be 0.
         cb.require_equal(
             "lhs == select::expr(is_mul.expr(), a, d)".to_string(),
-            lhs.expr(),
+            lhs.compress(),
             select::expr(is_mul.expr(), a.clone(), d.clone()),
         );
-        cb.require_equal("rhs == b".to_string(), rhs.expr(), b.clone());
+        cb.require_equal("rhs == b".to_string(), rhs.compress(), b.clone());
         cb.require_equal(
             "constrain out".to_string(),
-            out.expr(),
+            out.compress(),
             is_mul.expr() * d
                 + is_div.expr() * a * (1u64.expr() - divisor_is_zero.clone())
                 + is_mod.expr() * c.clone() * (1u64.expr() - divisor_is_zero.clone()),

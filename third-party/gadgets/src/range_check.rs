@@ -1,5 +1,4 @@
 use crate::is_zero::IsZero;
-use crate::NUM_OF_BYTES_U128;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
@@ -9,6 +8,7 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
+use value_type::NUM_OF_BYTES_U128;
 
 /// Requires that the passed in value is within the specified range.
 /// `N_BYTES` is required to be `<= MAX_N_BYTES_INTEGER`.

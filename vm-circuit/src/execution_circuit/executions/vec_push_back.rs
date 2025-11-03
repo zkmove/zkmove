@@ -2,13 +2,13 @@ use crate::execution_circuit::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::execution_circuit::step::{StepState, OPCODE, OPERAND0, OPERAND1, PC, SP};
-use crate::execution_circuit::value::{Index, WordU16};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use gadgets::is_zero::IsZeroGadget;
+use value_type::word::{IndexExpr, WordU16};
 
 use crate::public_inputs::InstanceTable;
 use field_exts::util::pow_of_two_expr;
@@ -80,7 +80,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
             );
-            let index = Index::new(
+            let index = IndexExpr::new(
                 step_curr.local_frame_index.expr(),
                 step_curr.local_index.expr(),
             );
@@ -469,7 +469,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage2<F> {
             Rotation::prev(),
         );
         for i in 0..stage_state.rows() {
-            self.vector_origin_len.assign_with_fe(
+            self.vector_origin_len.assign_with_scalar(
                 region,
                 offset + i,
                 vector_origin_len_lo,

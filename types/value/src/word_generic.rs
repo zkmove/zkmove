@@ -79,12 +79,6 @@ impl<T: Default, const N: usize> Default for WordLimbs<T, N> {
     }
 }
 
-/// Get the word expression
-pub trait WordExpr<F> {
-    /// Get the word expression
-    fn to_word(&self) -> WordLoHi<Expression<F>>;
-}
-
 impl<F: Field, const N: usize> WordLimbs<Cell<F>, N> {
     /// assign bytes to wordlimbs first half/second half respectively
     // N_LO, N_HI are number of bytes to assign to first half and second half of size N limbs,
@@ -168,12 +162,6 @@ impl<F: Field, const N: usize> WordLimbs<Cell<F>, N> {
     /// convert from N cells to N2 expressions limbs
     pub fn to_word_n<const N2: usize>(&self) -> WordLimbs<Expression<F>, N2> {
         self.word_expr().to_word_n()
-    }
-}
-
-impl<F: Field, const N: usize> WordExpr<F> for WordLimbs<Cell<F>, N> {
-    fn to_word(&self) -> WordLoHi<Expression<F>> {
-        WordLoHi(self.word_expr().to_word_n())
     }
 }
 
@@ -270,11 +258,20 @@ impl<F: Field> From<u8> for WordLoHi<F> {
     }
 }
 
-// impl<F: Field> From<bool> for WordLoHi<F> {
-//     fn from(value: bool) -> Self {
-//         WordLoHi::new([F::from(value as u64), F::from(0)])
-//     }
-// }
+impl<F: Field> From<bool> for WordLoHi<F> {
+    fn from(value: bool) -> Self {
+        WordLoHi::new([F::from(value as u64), F::from(0)])
+    }
+}
+
+impl<F: Field> WordLoHi<F> {
+    /// Convert lo and hi limbs to single field element.
+    pub fn compress_f(&self) -> F {
+        let mut repr = F::Repr::default();
+        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
+        self.lo() + self.hi() * F::from_repr(repr).unwrap()
+    }
+}
 
 impl<F: Field> WordLoHi<Value<F>> {
     /// Assign advice
@@ -305,22 +302,6 @@ impl WordLoHi<Column<Advice>> {
         at: Rotation,
     ) -> WordLoHi<Expression<F>> {
         self.0.query_advice(meta, at).to_word()
-    }
-}
-
-impl<F: Field, T: Expr<F> + Clone> WordExpr<F> for WordLoHi<T> {
-    fn to_word(&self) -> WordLoHi<Expression<F>> {
-        self.map(|limb| limb.expr())
-    }
-}
-
-impl<F: Field> WordLoHi<F> {
-    /// Convert address (h160) to single field element.
-    /// This method is Address specific
-    pub fn compress_f(&self) -> F {
-        let mut repr = F::Repr::default();
-        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
-        self.lo() + self.hi() * F::from_repr(repr).unwrap()
     }
 }
 
@@ -365,8 +346,7 @@ impl<F: Field> WordLoHi<Expression<F>> {
         WordLoHi::new([self.lo() * rhs.lo(), self.hi() * rhs.hi()])
     }
 
-    /// Convert address (h160) to single expression.
-    /// This method is Address specific
+    /// Convert lo expression and hi expression to single expression.
     pub fn compress(&self) -> Expression<F> {
         let mut repr = F::Repr::default();
         repr.as_mut().copy_from_slice(&BASE_128_BYTES);
@@ -407,10 +387,26 @@ impl<F: Field, const N1: usize> WordLimbs<Expression<F>, N1> {
     }
 }
 
+/// Get the word expression
+pub trait WordExpr<F> {
+    /// Get the word expression
+    fn to_word(&self) -> WordLoHi<Expression<F>>;
+}
+
+impl<F: Field, const N: usize> WordExpr<F> for WordLimbs<Cell<F>, N> {
+    fn to_word(&self) -> WordLoHi<Expression<F>> {
+        WordLoHi(self.word_expr().to_word_n())
+    }
+}
+
+impl<F: Field, T: Expr<F> + Clone> WordExpr<F> for WordLoHi<T> {
+    fn to_word(&self) -> WordLoHi<Expression<F>> {
+        self.map(|limb| limb.expr())
+    }
+}
+
 impl<F: Field, const N1: usize> WordExpr<F> for WordLimbs<Expression<F>, N1> {
     fn to_word(&self) -> WordLoHi<Expression<F>> {
         WordLoHi(self.to_word_n())
     }
 }
-
-// TODO unittest

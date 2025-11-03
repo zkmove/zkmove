@@ -10,7 +10,7 @@ use move_binary_format::file_format::{
 use move_binary_format::file_format_common::instruction_key;
 use movelang::type_transition;
 use std::collections::BTreeMap;
-use value_type::scalar::ToScalars;
+use value_type::to_scalars::ToScalars;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {

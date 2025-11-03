@@ -2,7 +2,7 @@ use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
 use field_exts::Field;
 use halo2_proofs::plonk::{Column, ConstraintSystem, Instance};
 use move_vm_runtime::witnessing::traced_value::ValueItems;
-use value_type::scalar::ToScalars;
+use value_type::to_scalars::ToScalars;
 
 pub const NUM_INSTANCE_COLUMNS: usize = NUM_OF_VALUE_LIMBS + 2;
 

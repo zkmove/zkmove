@@ -1,6 +1,5 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::NUM_OF_BYTES_U128;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -10,6 +9,7 @@ use field_exts::util::Expr;
 use field_exts::Field;
 use gadgets::comparison::ComparisonGadget;
 use halo2_proofs::plonk::ErrorFront as Error;
+use value_type::NUM_OF_BYTES_U128;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 

@@ -30,6 +30,7 @@ use strum::IntoEnumIterator;
 use witness::static_info::{EntryInfo, Footprints};
 
 pub(crate) mod execution_circuit;
+pub(crate) mod gadgets;
 pub(crate) mod lookup_table;
 pub(crate) mod poseidon_circuit;
 pub(crate) mod utils;
