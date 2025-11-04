@@ -249,7 +249,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             // last row
             if i == stage_state.rows() - 1 {
                 self.extended_local_sub_index_of_next_row
-                    .assign(region, offset + i, F::ZERO)?;
+                    .assign(region, offset + i, F::zero())?;
 
                 self.vector_origin_len
                     .assign(region, offset + i, vector_origin_len)?;
@@ -258,7 +258,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     offset + i,
                     F::from(vector_origin_len as u64),
                 )?;
-                self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
+                self.is_zero_gadget.assign(region, offset + i, F::zero())?;
             } else {
                 let next_local_sub_index = step_state.memory_ops[i + 1]
                     .2

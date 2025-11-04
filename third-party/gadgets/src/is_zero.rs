@@ -57,12 +57,12 @@ impl<F: Field> IsZeroGadget<F> {
         offset: usize,
         value: F,
     ) -> Result<F, Error> {
-        let inverse = value.invert().unwrap_or(F::ZERO);
+        let inverse = value.invert().unwrap_or(F::zero());
         self.inverse.assign(region, offset, Value::known(inverse))?;
         Ok(if value.is_zero().into() {
-            F::ONE
+            F::one()
         } else {
-            F::ZERO
+            F::zero()
         })
     }
 }
@@ -99,7 +99,7 @@ impl<F: Field> IsZero<F> {
         offset: usize,
         value: F,
     ) -> Result<bool, Error> {
-        let inverse = value.invert().unwrap_or(F::ZERO);
+        let inverse = value.invert().unwrap_or(F::zero());
         self.inverse.assign(region, offset, Value::known(inverse))?;
         Ok(value.is_zero().into())
     }

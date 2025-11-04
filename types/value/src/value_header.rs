@@ -56,7 +56,7 @@ impl<F: Field> ValueHeader<Expression<F>> {
     pub fn len(&self) -> Expression<F> {
         self.len.clone()
     }
-    pub fn pair(len: Expression<F>, flen: Expression<F>) -> Self {
+    pub fn pair(flen: Expression<F>, len: Expression<F>) -> Self {
         Self { flen, len }
     }
 }

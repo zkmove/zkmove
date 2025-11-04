@@ -216,13 +216,13 @@ impl<F: Field> Lookup<F> {
                 input1,
                 domain_spec,
             } => vec![
-                Expression::Constant(F::ONE), // q_enable
+                Expression::Constant(F::one()), // q_enable
                 hash_id.clone(),
                 input0.clone(),
                 input1.clone(),
-                Expression::Constant(F::ZERO), // control
+                Expression::Constant(F::zero()), // control
                 domain_spec.clone(),
-                Expression::Constant(F::ONE), // heading mark
+                Expression::Constant(F::one()), // heading mark
             ],
 
             Self::Conditional(condition, lookup) => lookup
@@ -258,24 +258,24 @@ impl FixedTableTag {
     pub(crate) fn build<F: Field>(&self) -> Box<dyn Iterator<Item = [F; 4]>> {
         let tag = F::from(*self as u64);
         match self {
-            Self::Zero => Box::new((0..1).map(move |_| [tag, F::ZERO, F::ZERO, F::ZERO])),
+            Self::Zero => Box::new((0..1).map(move |_| [tag, F::zero(), F::zero(), F::zero()])),
             Self::Range16 => {
-                Box::new((0..16).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..16).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
             Self::Range32 => {
-                Box::new((0..32).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..32).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
             Self::Range64 => {
-                Box::new((0..64).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..64).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
             Self::Range128 => {
-                Box::new((0..128).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..128).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
             Self::Range256 => {
-                Box::new((0..256).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..256).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
             Self::Range1024 => {
-                Box::new((0..1024).map(move |value| [tag, F::from(value), F::ZERO, F::ZERO]))
+                Box::new((0..1024).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
             }
         }
     }

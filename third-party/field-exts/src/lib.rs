@@ -24,11 +24,11 @@ pub trait OpsIdentity {
 impl<F: Field> OpsIdentity for Expression<F> {
     type Output = Expression<F>;
     fn zero() -> Self::Output {
-        Expression::Constant(F::ZERO)
+        Expression::Constant(F::zero())
     }
 
     fn one() -> Self::Output {
-        Expression::Constant(F::ONE)
+        Expression::Constant(F::one())
     }
 }
 

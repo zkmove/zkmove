@@ -43,6 +43,8 @@ impl From<&traced_value::Reference> for Word {
     fn from(r: &traced_value::Reference) -> Self {
         let frame_index = r.frame_index as u128;
         let local_index = r.local_index as u128;
+        assert!(frame_index < (1u128 << 10), "frame_index out of 2^10 range");
+        assert!(local_index < (1u128 << 10), "local_index out of 2^10 range");
 
         // Convert the Vec<usize> into a SubIndex and then into a u128
         let sub_index: u128 = SubIndex::from(r.sub_index.clone()).into();

@@ -25,7 +25,7 @@ impl<'r, 'b, F: Field> CachedRegion<'r, 'b, F> {
     ) -> Self {
         Self {
             region,
-            advice: vec![vec![F::ZERO; height]; advice_columns.len()],
+            advice: vec![vec![F::zero(); height]; advice_columns.len()],
             challenges,
             width_start: advice_columns[0].index(),
             height_start,

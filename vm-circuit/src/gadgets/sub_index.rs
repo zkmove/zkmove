@@ -138,13 +138,13 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
             let mask = limb != 0;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
 
-            let reverse_limb = F::from(limb as u64).invert().unwrap_or(F::ZERO);
+            let reverse_limb = F::from(limb as u64).invert().unwrap_or(F::zero());
             self.reverse_header_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
         }
 
         // assign reverse of header_member_diff
         let header_member_diff = F::from_u128(member_sub_index) - F::from_u128(header_sub_index);
-        let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::ZERO);
+        let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::zero());
         self.reverse_header_member_diff.assign(
             region,
             offset,
@@ -272,7 +272,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
                 + ref_sub_index_bytes[depth * 2 - 2] as u64;
             F::from(limb).invert().expect("invert should not fail")
         } else {
-            F::ZERO
+            F::zero()
         };
         self.reverse_limb
             .assign(region, offset, Value::known(reverse_limb))?;

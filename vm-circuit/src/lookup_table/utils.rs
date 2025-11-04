@@ -20,7 +20,7 @@ pub(crate) fn assign_fixed_table<F: Field>(
                     || format!("{:?}[{}][0]", table_name, column_idx),
                     *column,
                     0,
-                    || Value::known(F::ZERO),
+                    || Value::known(F::zero()),
                 )?;
                 for (i, item) in values.iter().enumerate() {
                     region.assign_fixed(
@@ -44,7 +44,7 @@ impl<F: Field> ToScalars<F> for FunctionTableRow {
             F::from_u128(self.def_module_index as u128),
             F::from_u128(self.function_index as u128),
             F::from_u128(self.num_arg as u128),
-            if self.entry { F::ONE } else { F::ZERO },
+            if self.entry { F::one() } else { F::zero() },
         ]
     }
 }

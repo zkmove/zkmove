@@ -19,7 +19,7 @@ pub mod sum {
     pub fn value<F: Field>(values: &[u8]) -> F {
         values
             .iter()
-            .fold(F::ZERO, |acc, value| acc + F::from(*value as u64))
+            .fold(F::zero(), |acc, value| acc + F::from(*value as u64))
     }
 }
 
@@ -40,7 +40,7 @@ pub mod and {
 
     /// Returns the product of all given values.
     pub fn value<F: Field>(inputs: Vec<F>) -> F {
-        inputs.iter().fold(F::ONE, |acc, input| acc * input)
+        inputs.iter().fold(F::one(), |acc, input| acc * input)
     }
 }
 
@@ -78,7 +78,7 @@ pub mod not {
 
     /// Returns a value that represents the NOT of the given value.
     pub fn value<F: Field>(b: F) -> F {
-        F::ONE - b
+        F::one() - b
     }
 }
 
@@ -120,7 +120,7 @@ pub mod select {
     /// Returns the `when_true` value when the selector is true, else returns
     /// the `when_false` value.
     pub fn value<F: Field>(selector: F, when_true: F, when_false: F) -> F {
-        selector * when_true + (F::ONE - selector) * when_false
+        selector * when_true + (F::one() - selector) * when_false
     }
 
     /// Returns the `when_true` word when selector is true, else returns the
@@ -130,7 +130,7 @@ pub mod select {
         when_true: [u8; 32],
         when_false: [u8; 32],
     ) -> [u8; 32] {
-        if selector == F::ONE {
+        if selector == F::one() {
             when_true
         } else {
             when_false
@@ -180,7 +180,7 @@ pub mod from_bytes {
             "Too many bytes to compose an integer in field"
         );
         let mut value = 0.expr();
-        let mut multiplier = F::ONE;
+        let mut multiplier = F::one();
         for byte in bytes.iter() {
             value = value + byte.expr() * multiplier;
             multiplier *= F::from(256);
@@ -193,8 +193,8 @@ pub mod from_bytes {
             bytes.len() <= MAX_N_BYTES_INTEGER,
             "Too many bytes to compose an integer in field"
         );
-        let mut value = F::ZERO;
-        let mut multiplier = F::ONE;
+        let mut value = F::zero();
+        let mut multiplier = F::one();
         for byte in bytes.iter() {
             value += F::from(*byte as u64) * multiplier;
             multiplier *= F::from(256);
@@ -219,7 +219,7 @@ pub mod from_limbs {
             "Only 4-bits, 8-bits or 16-bits limbs supported"
         );
         let mut value = 0.expr();
-        let mut multiplier = F::ONE;
+        let mut multiplier = F::one();
         for limb in limbs.iter() {
             value = value + limb.expr() * multiplier;
             multiplier *= F::from(1u64 << LIMB_BITS);
@@ -236,8 +236,8 @@ pub mod from_limbs {
             LIMB_BITS == 4 || LIMB_BITS == 8 || LIMB_BITS == 16,
             "Only 4-bits, 8-bits or 16-bits limbs supported"
         );
-        let mut value = F::ZERO;
-        let mut multiplier = F::ONE;
+        let mut value = F::zero();
+        let mut multiplier = F::one();
         for limb in limbs.iter() {
             value += F::from(*limb) * multiplier;
             multiplier *= F::from(1u64 << LIMB_BITS);
@@ -277,7 +277,12 @@ macro_rules! impl_scalar {
 impl<F: Field> Scalar<F> for i32 {
     #[inline]
     fn scalar(&self) -> F {
-        F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE }
+        F::from(self.unsigned_abs() as u64)
+            * if self.is_negative() {
+                -F::one()
+            } else {
+                F::one()
+            }
     }
 }
 
@@ -349,7 +354,7 @@ impl<F: Field> Expr<F> for &Expression<F> {
 /// single expression.
 pub fn expr_from_bytes<F: Field, E: Expr<F>>(bytes: &[E]) -> Expression<F> {
     let mut value = 0.expr();
-    let mut multiplier = F::ONE;
+    let mut multiplier = F::one();
     for byte in bytes.iter() {
         value = value + byte.expr() * multiplier;
         multiplier *= F::from(256);

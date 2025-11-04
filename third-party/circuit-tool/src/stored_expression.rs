@@ -37,7 +37,7 @@ impl<F: Field> StoredExpression<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
     ) -> Result<(), Error> {
-        self.cell.assign(region, offset, Value::known(F::ZERO))?;
+        self.cell.assign(region, offset, Value::known(F::zero()))?;
         Ok(())
     }
 }
