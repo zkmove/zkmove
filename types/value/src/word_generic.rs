@@ -1,6 +1,6 @@
 #![allow(clippy::wrong_self_convention)]
 #![allow(dead_code)]
-//! Define generic Word type with utility functions
+
 // Naming Conversion
 // - Limbs: An EVEN word is 256 bits. Limbs N means split 256 into N limb. For example, N = 4, each
 //   limb is 256/4 = 64 bits
@@ -17,8 +17,8 @@ use halo2_proofs::{
 use itertools::Itertools;
 use move_core_types::u256::U256;
 
-use crate::cached_region::CachedRegion;
-use crate::cell_manager::Cell;
+use circuit_tool::cached_region::CachedRegion;
+use circuit_tool::cell_manager::Cell;
 
 const N_BYTES_HALF_WORD: usize = 16;
 
@@ -77,12 +77,6 @@ impl<T: Default, const N: usize> Default for WordLimbs<T, N> {
             limbs: [(); N].map(|_| T::default()),
         }
     }
-}
-
-/// Get the word expression
-pub trait WordExpr<F> {
-    /// Get the word expression
-    fn to_word(&self) -> WordLoHi<Expression<F>>;
 }
 
 impl<F: Field, const N: usize> WordLimbs<Cell<F>, N> {
@@ -171,12 +165,6 @@ impl<F: Field, const N: usize> WordLimbs<Cell<F>, N> {
     }
 }
 
-impl<F: Field, const N: usize> WordExpr<F> for WordLimbs<Cell<F>, N> {
-    fn to_word(&self) -> WordLoHi<Expression<F>> {
-        WordLoHi(self.word_expr().to_word_n())
-    }
-}
-
 impl<F: Field, const N: usize> WordLimbs<F, N> {
     /// Check if zero
     pub fn is_zero_vartime(&self) -> bool {
@@ -236,6 +224,8 @@ impl<T> std::ops::Deref for WordLoHi<T> {
     }
 }
 
+impl<T: Clone + Eq> Eq for WordLoHi<T> {}
+
 impl<T: Clone + PartialEq> PartialEq for WordLoHi<T> {
     fn eq(&self, other: &Self) -> bool {
         self.lo() == other.lo() && self.hi() == other.hi()
@@ -274,6 +264,15 @@ impl<F: Field> From<bool> for WordLoHi<F> {
     }
 }
 
+impl<F: Field> WordLoHi<F> {
+    /// Convert lo and hi limbs to single field element.
+    pub fn compress_f(&self) -> F {
+        let mut repr = F::Repr::default();
+        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
+        self.lo() + self.hi() * F::from_repr(repr).unwrap()
+    }
+}
+
 impl<F: Field> WordLoHi<Value<F>> {
     /// Assign advice
     pub fn assign_advice<A, AR>(
@@ -303,22 +302,6 @@ impl WordLoHi<Column<Advice>> {
         at: Rotation,
     ) -> WordLoHi<Expression<F>> {
         self.0.query_advice(meta, at).to_word()
-    }
-}
-
-impl<F: Field, T: Expr<F> + Clone> WordExpr<F> for WordLoHi<T> {
-    fn to_word(&self) -> WordLoHi<Expression<F>> {
-        self.map(|limb| limb.expr())
-    }
-}
-
-impl<F: Field> WordLoHi<F> {
-    /// Convert address (h160) to single field element.
-    /// This method is Address specific
-    pub fn compress_f(&self) -> F {
-        let mut repr = F::Repr::default();
-        repr.as_mut().copy_from_slice(&BASE_128_BYTES);
-        self.lo() + self.hi() * F::from_repr(repr).unwrap()
     }
 }
 
@@ -363,8 +346,7 @@ impl<F: Field> WordLoHi<Expression<F>> {
         WordLoHi::new([self.lo() * rhs.lo(), self.hi() * rhs.hi()])
     }
 
-    /// Convert address (h160) to single expression.
-    /// This method is Address specific
+    /// Convert lo expression and hi expression to single expression.
     pub fn compress(&self) -> Expression<F> {
         let mut repr = F::Repr::default();
         repr.as_mut().copy_from_slice(&BASE_128_BYTES);
@@ -405,10 +387,26 @@ impl<F: Field, const N1: usize> WordLimbs<Expression<F>, N1> {
     }
 }
 
+/// Get the word expression
+pub trait WordExpr<F> {
+    /// Get the word expression
+    fn to_word(&self) -> WordLoHi<Expression<F>>;
+}
+
+impl<F: Field, const N: usize> WordExpr<F> for WordLimbs<Cell<F>, N> {
+    fn to_word(&self) -> WordLoHi<Expression<F>> {
+        WordLoHi(self.word_expr().to_word_n())
+    }
+}
+
+impl<F: Field, T: Expr<F> + Clone> WordExpr<F> for WordLoHi<T> {
+    fn to_word(&self) -> WordLoHi<Expression<F>> {
+        self.map(|limb| limb.expr())
+    }
+}
+
 impl<F: Field, const N1: usize> WordExpr<F> for WordLimbs<Expression<F>, N1> {
     fn to_word(&self) -> WordLoHi<Expression<F>> {
         WordLoHi(self.to_word_n())
     }
 }
-
-// TODO unittest

@@ -3,8 +3,8 @@ use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::{Any, Column, ConstraintSystem, ErrorFront as Error, Fixed};
+use value_type::to_scalars::ToScalars;
 use witness::static_info::StaticInfo;
-use witness::value::utils::ToFields;
 
 #[derive(Copy, Clone, Debug)]
 pub struct BytecodeLookupTable {
@@ -45,7 +45,7 @@ impl BytecodeLookupTable {
             .values()
             .flat_map(|row| row.values())
             .flatten()
-            .map(|v| v.to_fields())
+            .map(|v| v.to_scalars())
             .collect()
     }
 

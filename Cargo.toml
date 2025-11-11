@@ -8,7 +8,8 @@ members = [
     "third-party/halo2",
     "third-party/movelang",
     "vm-circuit",
-    "types",
+    "types/table",
+    "types/value",
     "witness"
 ]
 resolver = "2"

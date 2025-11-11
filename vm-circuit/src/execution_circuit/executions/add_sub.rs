@@ -1,9 +1,5 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::{
-    INTEGER_NUM_OF_BYTES_SET, NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256,
-    NUM_OF_BYTES_U32, NUM_OF_BYTES_U64, NUM_OF_BYTES_U8,
-};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -21,9 +17,22 @@ use halo2_proofs::{
 };
 use move_binary_format::file_format_common::Opcodes;
 use move_core_types::u256::U256;
-use types::integer::Integer as IntegerExpr;
+use value_type::word::IntegerExpr;
+use value_type::{
+    NUM_OF_BYTES_U128, NUM_OF_BYTES_U16, NUM_OF_BYTES_U256, NUM_OF_BYTES_U32, NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U8,
+};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
+
+pub const INTEGER_NUM_OF_BYTES_SET: [usize; 6] = [
+    NUM_OF_BYTES_U8,
+    NUM_OF_BYTES_U16,
+    NUM_OF_BYTES_U32,
+    NUM_OF_BYTES_U64,
+    NUM_OF_BYTES_U128,
+    NUM_OF_BYTES_U256,
+];
 
 #[derive(Clone, Debug)]
 pub struct AddSub<F> {

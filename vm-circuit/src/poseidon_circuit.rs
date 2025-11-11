@@ -3,9 +3,9 @@
 use crate::lookup_table::poseidon_table::PoseidonTable;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
+use field_exts::util::Scalar;
 use witness::static_info::{EntryInfo, Footprints, StaticInfo};
 use witness::step_state::ExecutionState;
-use witness::value::utils::ToField;
 
 use field_exts::Field;
 use field_exts::U256;
@@ -94,14 +94,14 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
                             .as_ref()
                             .unwrap()
                             .value
-                            .to_field();
+                            .scalar();
                         let lhs: F = v
                             .memory_ops
                             .get(1)
                             .and_then(|op| op.0.as_ref())
                             .unwrap()
                             .value
-                            .to_field();
+                            .scalar();
                         let inputs = [lhs, rhs];
                         let domain_spec = F::from(1u64);
                         let checks = Hashable::hash_with_domain([lhs, rhs], domain_spec);

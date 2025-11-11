@@ -1,7 +1,6 @@
 // Copyright (c) zkMove Authors
 
 use crate::static_info::ModuleIdMapping;
-use crate::value::utils::ToFields;
 use field_exts::Field;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::binary_views::{BinaryIndexedView, FunctionView};
@@ -11,6 +10,7 @@ use move_binary_format::file_format::{
 use move_binary_format::file_format_common::instruction_key;
 use movelang::type_transition;
 use std::collections::BTreeMap;
+use value_type::to_scalars::ToScalars;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub struct BytecodeInfo {
@@ -43,8 +43,8 @@ impl BytecodeInfo {
     }
 }
 
-impl<F: Field> ToFields<F> for BytecodeInfo {
-    fn to_fields(&self) -> Vec<F> {
+impl<F: Field> ToScalars<F> for BytecodeInfo {
+    fn to_scalars(&self) -> Vec<F> {
         vec![
             F::from_u128(self.module_index as u128),
             F::from_u128(self.function_index as u128),

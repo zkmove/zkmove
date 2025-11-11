@@ -1,6 +1,6 @@
 use super::Version;
-use crate::value::sub_index::SubIndex;
-use crate::value::word::Word;
+use value_type::sub_index::SubIndex;
+use value_type::word::Word;
 
 #[derive(Default, Clone, Debug)]
 pub struct MemoryOp(

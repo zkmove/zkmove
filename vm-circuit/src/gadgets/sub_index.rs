@@ -1,4 +1,3 @@
-use crate::execution_circuit::value::NUM_OF_BYTES_U128;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
@@ -10,8 +9,9 @@ use halo2_proofs::{
     circuit::Value,
     plonk::{ErrorFront as Error, Expression},
 };
-use witness::value::sub_index::SubIndex;
-use witness::value::sub_index::N_BITS_ONE_LIMB;
+use value_type::sub_index::SubIndex;
+use value_type::sub_index::N_BITS_ONE_LIMB;
+use value_type::NUM_OF_BYTES_U128;
 
 pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LIMB as u32);
 
@@ -138,13 +138,13 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
             let mask = limb != 0;
             self.mask[i].assign(region, offset, Value::known(F::from(mask as u64)))?;
 
-            let reverse_limb = F::from(limb as u64).invert().unwrap_or(F::ZERO);
+            let reverse_limb = F::from(limb as u64).invert().unwrap_or(F::zero());
             self.reverse_header_limbs[i].assign(region, offset, Value::known(reverse_limb))?;
         }
 
         // assign reverse of header_member_diff
         let header_member_diff = F::from_u128(member_sub_index) - F::from_u128(header_sub_index);
-        let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::ZERO);
+        let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::zero());
         self.reverse_header_member_diff.assign(
             region,
             offset,
@@ -272,7 +272,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
                 + ref_sub_index_bytes[depth * 2 - 2] as u64;
             F::from(limb).invert().expect("invert should not fail")
         } else {
-            F::ZERO
+            F::zero()
         };
         self.reverse_limb
             .assign(region, offset, Value::known(reverse_limb))?;

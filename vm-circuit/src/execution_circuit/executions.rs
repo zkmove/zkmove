@@ -116,7 +116,7 @@ pub(crate) use vec_push_back::*;
 pub(crate) use vec_swap::*;
 pub(crate) use write_ref::*;
 
-pub(crate) use crate::execution_circuit::sub_index::*;
+pub(crate) use crate::gadgets::sub_index::*;
 pub(crate) use witness::step_state::ExecutionState;
 
 #[derive(Clone)]

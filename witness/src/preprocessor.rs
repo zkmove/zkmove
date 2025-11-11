@@ -9,10 +9,6 @@ use crate::step_state::{
     RetExtraAssignData, Slot, StackPop, StackPush, StageExtraAssignData, StageState, StepState,
     Version,
 };
-use crate::value::sub_index::SubIndex;
-use crate::value::utils::Flatten;
-use crate::value::value_header::ValueHeader;
-use crate::value::word::Word;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::file_format::FunctionHandleIndex;
 use move_binary_format::views::FunctionHandleView;
@@ -22,7 +18,11 @@ use move_vm_runtime::witnessing::{BinaryIntegerOperationType, Footprint, Operati
 use move_vm_types::values::IntegerValue;
 use std::collections::BTreeMap;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
-use types::u256::ToU256;
+use value_type::sub_index::SubIndex;
+use value_type::to_u256::ToU256;
+use value_type::utils::Flatten;
+use value_type::value_header::ValueHeader;
+use value_type::word::Word;
 
 pub struct WitnessPreProcessor {
     clk: Version,
@@ -894,7 +894,7 @@ impl WitnessPreProcessor {
                                     .unwrap()
                                     .value
                                     .clone();
-                                let header: ValueHeader = parent_value.into();
+                                let header: ValueHeader<u16> = parent_value.into();
                                 let new_flen =
                                     header.flen as usize - old_value.len() + new_value.len();
                                 let new_parent_value =

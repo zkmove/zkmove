@@ -1,5 +1,4 @@
 use crate::comparison::ComparisonGadget;
-use crate::NUM_OF_BYTES_U128;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
@@ -11,7 +10,8 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use move_core_types::u256::U256;
-use types::u256::split_u256_to_u128;
+use value_type::to_u256::split_u256_to_u128;
+use value_type::NUM_OF_BYTES_U128;
 
 /// Returns `1` when `lhs < rhs`, and returns `0` otherwise.
 /// lhs and rhs `< 256**N_BYTES`
@@ -89,11 +89,11 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
         self.lt.assign(
             region,
             offset,
-            Value::known(if lt { F::ONE } else { F::ZERO }),
+            Value::known(if lt { F::one() } else { F::zero() }),
         )?;
 
         // Set the bytes of diff
-        let diff = (lhs - rhs) + (if lt { self.range } else { F::ZERO });
+        let diff = (lhs - rhs) + (if lt { self.range } else { F::zero() });
         let diff_bytes: [u8; 32] = diff.to_repr().as_ref().try_into().unwrap();
         for (idx, diff) in self.diff.iter().enumerate() {
             diff.assign(
@@ -103,7 +103,7 @@ impl<F: Field, const N_BYTES: usize> LtGadget<F, N_BYTES> {
             )?;
         }
 
-        Ok((if lt { F::ONE } else { F::ZERO }, diff_bytes.to_vec()))
+        Ok((if lt { F::one() } else { F::zero() }, diff_bytes.to_vec()))
     }
 
     pub fn diff_bytes(&self) -> Vec<Cell<F>> {

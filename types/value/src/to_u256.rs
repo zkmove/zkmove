@@ -16,12 +16,13 @@ pub fn split_u256_to_u128(input: U256) -> (u128, u128) {
     (lo, hi)
 }
 
-/// Returns tuple consists of low and high part of U256
+#[inline]
+/// Return `(lo, hi)` as the low/high 128-bit halves of a `U256` (little-endian).
 pub fn split_u256(value: &U256) -> (U256, U256) {
     let mask = U256::from(u128::MAX);
     let lo = *value & mask;
-    let hi = (*value >> 128) & mask;
-    (hi, lo)
+    let hi = *value >> 128;
+    (lo, hi)
 }
 
 /// Split a U256 value into 4 64-bit limbs stored in U256 values.

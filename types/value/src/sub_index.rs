@@ -1,5 +1,5 @@
-use crate::value::utils::ToField;
 use field_exts::util::from_limbs;
+use field_exts::util::Scalar;
 use field_exts::Field;
 
 pub const N_LIMBS: usize = 8;
@@ -159,8 +159,8 @@ impl From<u128> for SubIndex {
     }
 }
 
-impl<F: Field> ToField<F> for SubIndex {
-    fn to_field(&self) -> F {
+impl<F: Field> Scalar<F> for SubIndex {
+    fn scalar(&self) -> F {
         from_limbs::value::<F, N_BITS_ONE_LIMB>(
             &self.to_vec().iter().map(|v| *v as u64).collect::<Vec<_>>(),
         )

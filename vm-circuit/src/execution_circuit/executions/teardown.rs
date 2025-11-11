@@ -7,13 +7,13 @@ use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::rlc;
-use circuit_tool::word::WordLoHiCell;
 use field_exts::util::pow_of_two_expr;
+use field_exts::util::Scalar;
 use gadgets::lt::LtInteger;
+use value_type::word_generic::WordLoHiCell;
 use witness::static_info::StaticInfo;
 use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 use crate::public_inputs::InstanceTable;
 use field_exts::util::Expr;
@@ -114,7 +114,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                 let local_rw = op.2.as_ref().unwrap();
                 let local_frame_index = F::from(local_rw.frame_index as u64);
                 let local_index = F::from(local_rw.index as u64);
-                let local_sub_index = local_rw.sub_index.to_field();
+                let local_sub_index = local_rw.sub_index.scalar();
                 rlc::generic(
                     [local_frame_index, local_index, local_sub_index],
                     randomness,

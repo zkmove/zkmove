@@ -1,12 +1,12 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{PC, SP};
-use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use field_exts::util::Expr;
 use field_exts::Field;
 use std::marker::PhantomData;
+use value_type::word::IndexExpr;
 
 #[derive(Clone, Debug)]
 pub struct BorrowLoc<F> {
@@ -28,7 +28,7 @@ impl<F: Field> InstructionGadgetV2<F> for BorrowLoc<F> {
             step_curr.step_counter.expr(),
             1u64.expr(),
         );
-        let index = Index::new(step_curr.frame_index.expr(), step_curr.operand0.expr());
+        let index = IndexExpr::new(step_curr.frame_index.expr(), step_curr.operand0.expr());
         cb.require_equal(
             format!("{}, stack_push_value(0).index == index", Self::NAME),
             step_curr.stack_push_value.as_reference().index(),

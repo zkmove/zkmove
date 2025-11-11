@@ -21,8 +21,6 @@ use witness::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 pub(crate) mod call_stack;
 pub(crate) mod executions;
 pub(crate) mod step;
-pub(crate) mod sub_index;
-pub(crate) mod value;
 
 /// Circuit of the MoveVM interpreter execution
 

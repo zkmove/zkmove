@@ -1,18 +1,18 @@
 use crate::execution_circuit::executions::ExecutionState;
-use crate::execution_circuit::value::Value;
 use crate::lookup_table::Table;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::{Cell, CellManager, CellManagerColumns, CellType};
 use circuit_tool::cell_placement_strategy::CMFixedHeightStrategy;
 use circuit_tool::challenges::Challenges;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
-use halo2_proofs::circuit::Value as Halo2Value;
+use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
+use value_type::word::{Word, WordCells};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
-use witness::value::utils::{ToField, ToFields};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
 
@@ -41,27 +41,27 @@ pub(crate) struct StepState<F> {
 
     pub stack_pop_index: Cell<F>, // max value be 2^10 - 1
     pub stack_pop_sub_index: Cell<F>,
-    pub stack_pop_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub stack_pop_value_header: Cell<F>,
+    pub stack_pop_value: WordCells<F>,
+    pub stack_pop_value_header: Cell<F>, // boolean to indicate if the value is a header
     pub stack_pop_version: Cell<F>,
 
     pub stack_push_index: Cell<F>, // max value be 2^10 - 1
     pub stack_push_sub_index: Cell<F>,
-    pub stack_push_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub stack_push_value_header: Cell<F>,
+    pub stack_push_value: WordCells<F>,
+    pub stack_push_value_header: Cell<F>, // boolean
     pub stack_push_version: Cell<F>,
 
     pub local_frame_index: Cell<F>, // max value be 2^10 - 1
     pub local_index: Cell<F>,       // // max value be 2^8 - 1
     pub local_sub_index: Cell<F>,
 
-    pub local_read_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub local_read_value_header: Cell<F>,
+    pub local_read_value: WordCells<F>,
+    pub local_read_value_header: Cell<F>, // boolean
     pub local_read_value_invalid: Cell<F>,
     pub local_read_version: Cell<F>,
 
-    pub local_write_value: Value<F, NUM_OF_VALUE_LIMBS>,
-    pub local_write_value_header: Cell<F>,
+    pub local_write_value: WordCells<F>,
+    pub local_write_value_header: Cell<F>, // boolean
     pub local_write_value_invalid: Cell<F>,
     pub local_write_version: Cell<F>,
 
@@ -101,51 +101,51 @@ impl<F: Field> StepState<F> {
         self.step_counter.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_counter as u128)),
+            Value::known(F::from_u128(step_counter as u128)),
         )?;
 
         self.clk
-            .assign(region, offset, Halo2Value::known(step_state.clk.into()))?;
+            .assign(region, offset, Value::known(step_state.clk.into()))?;
         self.frame_index.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.frame_index as u128)),
+            Value::known(F::from_u128(step_state.frame_index as u128)),
         )?;
         self.module_index.assign(
             region,
             offset,
-            Halo2Value::known(F::from(step_state.module_index as u64)),
+            Value::known(F::from(step_state.module_index as u64)),
         )?;
         self.function_index.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.function_index as u128)),
+            Value::known(F::from_u128(step_state.function_index as u128)),
         )?;
         self.pc.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.pc as u128)),
+            Value::known(F::from_u128(step_state.pc as u128)),
         )?;
         self.sp.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.sp as u128)),
+            Value::known(F::from_u128(step_state.sp as u128)),
         )?;
         self.opcode.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.opcode as u128)),
+            Value::known(F::from_u128(step_state.opcode as u128)),
         )?;
 
         self.operand0.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.operand0)),
+            Value::known(F::from_u128(step_state.operand0)),
         )?;
         self.operand1.assign(
             region,
             offset,
-            Halo2Value::known(F::from_u128(step_state.operand1)),
+            Value::known(F::from_u128(step_state.operand1)),
         )?;
         Ok(())
     }
@@ -161,38 +161,32 @@ impl<F: Field> StepState<F> {
             self.stack_pop_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_pop.map(|v| v.index).unwrap_or(0) as u64)),
+                Value::known((stack_pop.map(|v| v.index).unwrap_or(0) as u64).scalar()),
             )?;
 
             self.stack_pop_sub_index.assign(
                 region,
                 offset,
-                Halo2Value::known(
-                    stack_pop
-                        .map(|v| v.sub_index.to_field())
-                        .unwrap_or(F::zero()),
-                ),
+                Value::known(stack_pop.map(|v| v.sub_index.scalar()).unwrap_or(F::zero())),
             )?;
             self.stack_pop_value_header.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     stack_pop
-                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.value_header.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.stack_pop_version.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_pop.map(|v| v.version).unwrap_or(0))),
+                Value::known(stack_pop.map(|v| v.version).unwrap_or(0).scalar()),
             )?;
-            self.stack_pop_value.assign(
+            self.stack_pop_value.assign_word(
                 region,
                 offset,
-                stack_pop
-                    .map(|v| v.value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                stack_pop.map(|v| v.value).unwrap_or(Word::default()),
             )?;
         }
 
@@ -202,38 +196,36 @@ impl<F: Field> StepState<F> {
             self.stack_push_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_push.map(|v| v.index).unwrap_or(0) as u64)),
+                Value::known((stack_push.map(|v| v.index).unwrap_or(0) as u64).scalar()),
             )?;
 
             self.stack_push_sub_index.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     stack_push
-                        .map(|v| v.sub_index.to_field())
+                        .map(|v| v.sub_index.scalar())
                         .unwrap_or(F::zero()),
                 ),
             )?;
             self.stack_push_value_header.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     stack_push
-                        .map(|v| if v.value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.value_header.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.stack_push_version.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(stack_push.map(|v| v.version).unwrap_or(0))),
+                Value::known(stack_push.map(|v| v.version).unwrap_or(0).scalar()),
             )?;
-            self.stack_push_value.assign(
+            self.stack_push_value.assign_word(
                 region,
                 offset,
-                stack_push
-                    .map(|v| v.value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                stack_push.map(|v| v.value).unwrap_or(Word::default()),
             )?;
         }
         // assign local read&write
@@ -242,111 +234,105 @@ impl<F: Field> StepState<F> {
             self.local_frame_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(
-                    local_read_write.map(|v| v.frame_index as u64).unwrap_or(0),
-                )),
+                Value::known(
+                    local_read_write
+                        .map(|v| v.frame_index as u64)
+                        .unwrap_or(0)
+                        .scalar(),
+                ),
             )?;
 
             self.local_index.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(
-                    local_read_write.map(|v| v.index as u64).unwrap_or(0),
-                )),
+                Value::known(
+                    local_read_write
+                        .map(|v| v.index as u64)
+                        .unwrap_or(0)
+                        .scalar(),
+                ),
             )?;
             self.local_sub_index.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     local_read_write
-                        .map(|v| v.sub_index.to_field())
+                        .map(|v| v.sub_index.scalar())
                         .unwrap_or(F::zero()),
                 ),
             )?;
 
-            self.local_read_value.assign(
+            self.local_read_value.assign_word(
                 region,
                 offset,
                 local_read_write
-                    .map(|v| v.read_value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .map(|v| v.read_value)
+                    .unwrap_or(Word::default()),
             )?;
 
             self.local_read_value_header.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     local_read_write
-                        .map(|v| if v.read_value_header { F::ONE } else { F::ZERO })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.read_value_header.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_read_value_invalid.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     local_read_write
-                        .map(|v| {
-                            if v.read_value_invalid {
-                                F::ONE
-                            } else {
-                                F::ZERO
-                            }
-                        })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.read_value_invalid.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_read_version.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(
-                    local_read_write.map(|v| v.read_version).unwrap_or(0),
-                )),
+                Value::known(
+                    local_read_write
+                        .map(|v| v.read_version)
+                        .unwrap_or(0)
+                        .scalar(),
+                ),
             )?;
 
-            self.local_write_value.assign(
+            self.local_write_value.assign_word(
                 region,
                 offset,
                 local_read_write
-                    .map(|v| v.write_value.to_fields())
-                    .unwrap_or([F::ZERO; NUM_OF_VALUE_LIMBS].to_vec()),
+                    .map(|v| v.write_value)
+                    .unwrap_or(Word::default()),
             )?;
             self.local_write_value_header.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     local_read_write
-                        .map(|v| {
-                            if v.write_value_header {
-                                F::ONE
-                            } else {
-                                F::ZERO
-                            }
-                        })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.write_value_header.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_write_value_invalid.assign(
                 region,
                 offset,
-                Halo2Value::known(
+                Value::known(
                     local_read_write
-                        .map(|v| {
-                            if v.write_value_invalid {
-                                F::ONE
-                            } else {
-                                F::ZERO
-                            }
-                        })
-                        .unwrap_or(F::ZERO),
+                        .map(|v| v.write_value_invalid.scalar())
+                        .unwrap_or(F::zero()),
                 ),
             )?;
             self.local_write_version.assign(
                 region,
                 offset,
-                Halo2Value::known(F::from(
-                    local_read_write.map(|v| v.write_version).unwrap_or(0),
-                )),
+                Value::known(
+                    local_read_write
+                        .map(|v| v.write_version)
+                        .unwrap_or(0)
+                        .scalar(),
+                ),
             )?;
         }
         Ok(())
@@ -423,7 +409,12 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            stack_pop_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            stack_pop_value: WordCells::new(
+                meta,
+                cell_manager_columns,
+                &mut cell_manager,
+                challenges,
+            ),
             stack_pop_value_header: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -445,7 +436,12 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            stack_push_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            stack_push_value: WordCells::new(
+                meta,
+                cell_manager_columns,
+                &mut cell_manager,
+                challenges,
+            ),
             stack_push_value_header: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -472,7 +468,12 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            local_read_value: Value::new(meta, cell_manager_columns, &mut cell_manager, challenges),
+            local_read_value: WordCells::new(
+                meta,
+                cell_manager_columns,
+                &mut cell_manager,
+                challenges,
+            ),
             local_read_value_header: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -488,7 +489,7 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::StoragePhase1,
             ),
-            local_write_value: Value::new(
+            local_write_value: WordCells::new(
                 meta,
                 cell_manager_columns,
                 &mut cell_manager,
@@ -724,13 +725,17 @@ impl<F: Field> DynamicSelectorHalf<F> {
         self.target_odd.assign(
             region,
             offset,
-            Halo2Value::known(if odd { F::ONE } else { F::ZERO }),
+            Value::known(if odd { F::one() } else { F::zero() }),
         )?;
         for (index, cell) in self.target_pairs.iter().enumerate() {
             cell.assign(
                 region,
                 offset,
-                Halo2Value::known(if index == pair_index { F::ONE } else { F::ZERO }),
+                Value::known(if index == pair_index {
+                    F::one()
+                } else {
+                    F::zero()
+                }),
             )?;
         }
         Ok(())

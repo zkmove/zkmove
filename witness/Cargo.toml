@@ -11,7 +11,7 @@ move-package = { workspace = true }
 move-binary-format = { workspace = true }
 poseidon-base = { workspace = true }
 halo2curves = { workspace = true }
-types = { path = "../types" }
+value-type = { path = "../types/value" }
 movelang = { path = "../third-party/movelang" }
 circuit-tool = { path = "../third-party/circuit-tool" }
 field-exts = { path = "../third-party/field-exts" }

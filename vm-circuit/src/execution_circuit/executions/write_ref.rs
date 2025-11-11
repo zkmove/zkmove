@@ -2,7 +2,6 @@ use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::executions::ExtendedSubIndex;
 use crate::execution_circuit::executions::Membership;
 use crate::execution_circuit::step::{StepState, PC, SP};
-use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -11,13 +10,14 @@ use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use field_exts::util::not;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
+use value_type::word::IndexExpr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToField;
 
 ///STAGE_POP_REF_AND_INVALIDATE_OLD
 #[derive(Clone, Debug)]
@@ -51,7 +51,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
             );
-            let index = Index::new(
+            let index = IndexExpr::new(
                 step_curr.local_frame_index.expr(),
                 step_curr.local_index.expr(),
             );
@@ -505,7 +505,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 self.header_sub_index.assign(
                     region,
                     offset + i,
-                    Value::known(local_sub_index.to_field()),
+                    Value::known(local_sub_index.scalar()),
                 )?;
 
                 self.header_flen_delta.assign(
@@ -522,9 +522,9 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                         .as_ref()
                         .unwrap()
                         .sub_index
-                        .to_field()
+                        .scalar()
                 };
-                let header_sub_index: F = local_sub_index.to_field();
+                let header_sub_index: F = local_sub_index.scalar();
                 self.is_zero_gadget.assign(
                     region,
                     offset + i,

@@ -2,7 +2,6 @@ use crate::execution_circuit::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::execution_circuit::step::{StepState, OPCODE, OPERAND0, OPERAND1, PC, SP};
-use crate::execution_circuit::value::Index;
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -16,9 +15,10 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use std::iter::once;
+use value_type::to_scalars::ToScalars;
+use value_type::word::IndexExpr;
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::utils::ToFields;
 
 #[derive(Clone)]
 pub struct VecSwapStage_1<F> {
@@ -120,7 +120,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .first()
             .cloned()
             .unwrap(); // TODO: figure a better way to handle Value
@@ -129,7 +129,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .first()
             .cloned()
             .unwrap(); // TODO: figure a better way to handle Value
@@ -139,7 +139,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecSwapStage_1<F> {
             .as_ref()
             .unwrap()
             .value
-            .to_fields()
+            .to_scalars()
             .last()
             .cloned()
             .unwrap(); // TODO: word to reference
@@ -248,7 +248,7 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         cb.first_row(|cb| {
             // only need to look back on stack_pop_value for stage3
             if TWO {
-                let index = Index::new(step_curr.local_frame_index.expr(), step_curr.local_index.expr());
+                let index = IndexExpr::new(step_curr.local_frame_index.expr(), step_curr.local_index.expr());
                 cb.require_equal(
                     format!("{}, (local_frame_index(0), local_index(0)) == stack_pop_value(-1).as_reference().index()", Self::NAME),
                     index.expr(),

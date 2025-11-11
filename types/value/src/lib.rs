@@ -1,16 +1,23 @@
 // Copyright (c) zkMove Authors
 
 pub mod sub_index;
+pub mod to_scalars;
+pub mod to_u256;
 pub mod value_header;
 pub mod word;
+pub mod word_generic;
+
+pub const NUM_OF_BYTES_U8: usize = 1;
+pub const NUM_OF_BYTES_U16: usize = 2;
+pub const NUM_OF_BYTES_U32: usize = 4;
+pub const NUM_OF_BYTES_U64: usize = 8;
+pub const NUM_OF_BYTES_U128: usize = 16;
+pub const NUM_OF_BYTES_U256: usize = 32;
 
 pub mod utils {
-    use crate::value::sub_index::SubIndex;
-    use crate::value::value_header::ValueHeader;
-    use crate::value::word::Word;
-    use crate::{SimpleValue, ValueItem};
-    use field_exts::Field;
+    use crate::value_header::ValueHeader;
     use move_core_types::value::MoveValue;
+    use move_vm_runtime::witnessing::traced_value::{SimpleValue, ValueItem};
 
     pub trait Flatten {
         fn flatten(self) -> Vec<ValueItem>;
@@ -85,34 +92,5 @@ pub mod utils {
 
         index1.append(&mut index2);
         index1
-    }
-
-    pub trait ToFields<F: Field> {
-        fn to_fields(&self) -> Vec<F>;
-    }
-    pub trait ToField<F: Field> {
-        fn to_field(&self) -> F;
-    }
-
-    impl<F: Field> ToField<F> for bool {
-        fn to_field(&self) -> F {
-            if *self {
-                F::ONE
-            } else {
-                F::ZERO
-            }
-        }
-    }
-
-    impl<F: Field> ToFields<F> for ValueItem {
-        fn to_fields(&self) -> Vec<F> {
-            vec![
-                SubIndex::new(self.sub_index.clone()).to_field(),
-                self.header.to_field(),
-            ]
-            .into_iter()
-            .chain(Word::from(&self.value).to_fields())
-            .collect()
-        }
     }
 }

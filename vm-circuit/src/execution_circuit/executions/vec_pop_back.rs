@@ -2,7 +2,6 @@ use crate::execution_circuit::executions::{
     ExecutionState, ExtendedSubIndex, DEPTH_POW_OF_ONE_LEVEL,
 };
 use crate::execution_circuit::step::{StepState, OPCODE, OPERAND0, OPERAND1, PC, SP};
-use crate::execution_circuit::value::{Index, WordU16};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
@@ -10,16 +9,17 @@ use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
 use field_exts::util::Expr;
+use field_exts::util::Scalar;
 use field_exts::Field;
 use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
+use value_type::sub_index::SubIndex;
+use value_type::value_header::ValueHeader;
+use value_type::word::{IndexExpr, WordU16};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
-use witness::value::sub_index::SubIndex;
-use witness::value::utils::ToField;
-use witness::value::value_header::ValueHeader;
 
 /// pop vector_ref from stack and update parent from up to bottom
 #[derive(Clone)]
@@ -77,7 +77,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 format!("{}, stack_pop_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_pop_sub_index.expr(),
             );
-            let index = Index::new(
+            let index = IndexExpr::new(
                 step_curr.local_frame_index.expr(),
                 step_curr.local_index.expr(),
             );
@@ -236,7 +236,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         let step_state = stage_state.step_states.first().unwrap();
 
         let vec_ref_pop = step_state.memory_ops.first().unwrap().0.as_ref().unwrap();
-        let vector_sub_index = vec_ref_pop.sub_index.to_field();
+        let vector_sub_index = vec_ref_pop.sub_index.scalar();
 
         let last_header_local_op = step_state.memory_ops.last().unwrap().2.as_ref().unwrap();
 
@@ -249,7 +249,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
             // last row
             if i == stage_state.rows() - 1 {
                 self.extended_local_sub_index_of_next_row
-                    .assign(region, offset + i, F::ZERO)?;
+                    .assign(region, offset + i, F::zero())?;
 
                 self.vector_origin_len
                     .assign(region, offset + i, vector_origin_len)?;
@@ -258,7 +258,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                     offset + i,
                     F::from(vector_origin_len as u64),
                 )?;
-                self.is_zero_gadget.assign(region, offset + i, F::ZERO)?;
+                self.is_zero_gadget.assign(region, offset + i, F::zero())?;
             } else {
                 let next_local_sub_index = step_state.memory_ops[i + 1]
                     .2
@@ -269,7 +269,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 self.extended_local_sub_index_of_next_row.assign(
                     region,
                     offset + i,
-                    next_local_sub_index.to_field(),
+                    next_local_sub_index.scalar(),
                 )?;
                 self.vector_origin_len.assign(region, offset + i, 0)?;
                 self.is_zero_ori_len
@@ -283,8 +283,8 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
                 self.is_zero_gadget.assign(
                     region,
                     offset + i,
-                    <SubIndex as ToField<F>>::to_field(&local_sub_index)
-                        - <SubIndex as ToField<F>>::to_field(&next_local_sub_index),
+                    <SubIndex as Scalar<F>>::scalar(&local_sub_index)
+                        - <SubIndex as Scalar<F>>::scalar(&next_local_sub_index),
                 )?;
             }
         }
@@ -481,7 +481,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
             Rotation::prev(),
         );
         for i in 0..stage_state.rows() {
-            self.vector_origin_len.assign_with_fe(
+            self.vector_origin_len.assign_with_scalar(
                 region,
                 offset + i,
                 vector_origin_len_lo,

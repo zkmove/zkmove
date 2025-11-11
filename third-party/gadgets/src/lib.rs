@@ -14,8 +14,6 @@ pub mod range_check;
 use field_exts::Field;
 use halo2_proofs::plonk::Expression;
 
-pub const NUM_OF_BYTES_U128: usize = 16;
-
 /// Restrict an expression to be a boolean.
 pub fn bool_check<F: Field>(value: Expression<F>) -> Expression<F> {
     range_check(value, 2)

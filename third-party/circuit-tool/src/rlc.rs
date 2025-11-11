@@ -26,7 +26,7 @@ where
     if !values.is_empty() {
         generic(values, randomness)
     } else {
-        F::ZERO
+        F::zero()
     }
 }
 

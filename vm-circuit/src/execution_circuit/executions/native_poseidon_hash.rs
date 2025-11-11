@@ -93,9 +93,9 @@ impl<F: Field + Hashable> InstructionGadgetV2<F> for NativePoseidonHash<F> {
                 format!("{}, stack_push_sub_index(0) == 0", Self::NAME),
                 step_curr.stack_push_sub_index.expr(),
             );
-            let rhs = step_prev.stack_pop_value.as_integer().expr();
-            let lhs = step_curr.stack_pop_value.as_integer().expr();
-            let result = step_curr.stack_push_value.as_integer().expr();
+            let rhs = step_prev.stack_pop_value.as_integer().compress();
+            let lhs = step_curr.stack_pop_value.as_integer().compress();
+            let result = step_curr.stack_push_value.as_integer().compress();
             cb.add_lookup(
                 "poseidon hash lookup",
                 Lookup::PoseidonHash {
