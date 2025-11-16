@@ -203,6 +203,7 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         meta: &mut ConstraintSystem<F>,
         lookup_table_configs: &LookupTableConfigV2<F>,
         used_opcodes: &[Opcodes],
+        use_poseidon_hash: bool,
     ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
@@ -312,8 +313,9 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         };
         let mut used_execution_states = ExecutionState::mandatory_states();
         used_execution_states.extend(ExecutionState::from_opcodes(used_opcodes));
-        // temp solution to using `NativePoseidonHash` in the gadget
-        used_execution_states.push(ExecutionState::NativePoseidonHash);
+        if use_poseidon_hash {
+            used_execution_states.push(ExecutionState::NativePoseidonHash);
+        }
         macro_rules! build_opcode_gadget {
             () => {
                 Self::build_opcode_gadget(

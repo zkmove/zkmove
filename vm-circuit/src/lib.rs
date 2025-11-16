@@ -27,7 +27,9 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use strum::IntoEnumIterator;
-use witness::static_info::{EntryInfo, Footprints};
+use witness::preprocessor::WitnessPreProcessor;
+use witness::static_info::{EntryInfo, Footprints, StaticInfo};
+use witness::step_state::StageState;
 
 pub(crate) mod execution_circuit;
 pub(crate) mod gadgets;
@@ -101,7 +103,7 @@ impl CircuitConfigArgs {
 #[derive(Clone)]
 pub struct VmCircuitConfig<F: Field> {
     pub(crate) execution_circuit_config: ExecutionCircuitConfig<F>,
-    pub(crate) poseidon_circuit_config: PoseidonCircuitConfig<F>,
+    pub(crate) poseidon_circuit_config: Option<PoseidonCircuitConfig<F>>,
 }
 
 #[derive(Clone, Default)]
@@ -110,7 +112,7 @@ pub struct VmCircuit<F: Field> {
     /// Execution SubCircuit
     pub(crate) execution_circuit: ExecutionCircuit<F>,
     /// Poseidon hash SubCircuit
-    pub(crate) poseidon_circuit: PoseidonCircuit<F>,
+    pub(crate) poseidon_circuit: Option<PoseidonCircuit<F>>,
     _maker: PhantomData<F>,
 }
 
@@ -128,22 +130,32 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
         );
 
         let used_opcodes = circuit.execution_circuit.static_info.used_opcodes();
+        let use_poseidon_hash = circuit.poseidon_circuit.is_some();
         let fixed_table_tags = FixedTableTag::iter().collect();
         let execution_circuit_config_args = ExecutionCircuitConfigArgs {
             used_opcodes,
             fixed_table_tags,
+            use_poseidon_hash,
         };
 
         let execution_circuit_config =
             ExecutionCircuitConfig::new(meta, execution_circuit_config_args);
-        let poseidon_circuit_config_args = PoseidonCircuitConfigArgs {
-            poseidon_table: execution_circuit_config
-                .lookup_table_config
-                .poseidon_table
-                .clone(),
+        let poseidon_circuit_config = if use_poseidon_hash {
+            let poseidon_circuit_config_args = PoseidonCircuitConfigArgs {
+                poseidon_table: execution_circuit_config
+                    .lookup_table_config
+                    .poseidon_table
+                    .clone()
+                    .expect("Poseidon table should be present"),
+            };
+            Some(PoseidonCircuitConfig::new(
+                meta,
+                poseidon_circuit_config_args,
+            ))
+        } else {
+            None
         };
-        let poseidon_circuit_config =
-            PoseidonCircuitConfig::new(meta, poseidon_circuit_config_args);
+
         VmCircuitConfig {
             execution_circuit_config,
             poseidon_circuit_config,
@@ -165,11 +177,13 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
             &challenges,
             &mut layouter,
         )?;
-        self.poseidon_circuit.synthesize_sub(
-            &config.poseidon_circuit_config,
-            &challenges,
-            &mut layouter,
-        )?;
+        if let Some(poseidon_circuit) = &self.poseidon_circuit {
+            let poseidon_circuit_config = config
+                .poseidon_circuit_config
+                .as_ref()
+                .expect("Poseidon circuit config should be present");
+            poseidon_circuit.synthesize_sub(poseidon_circuit_config, &challenges, &mut layouter)?;
+        }
         Ok(())
     }
 }
@@ -182,20 +196,30 @@ impl<F: Field + Hashable> VmCircuit<F> {
         pubs_indices: &[usize],
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        Self {
-            circuit_config_args: circuit_config_args.clone(),
-            execution_circuit: ExecutionCircuit::new(
-                package,
-                traces,
-                pubs_indices,
+        let entry = traces.entry().expect("entry should be set in traces");
+        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+            .expect("static info should be generated");
+        let preprocessor = WitnessPreProcessor::default();
+        let states = preprocessor.process(&traces.0, &static_info);
+        let execution_circuit = ExecutionCircuit::new(
+            states.clone(),
+            static_info.clone(),
+            circuit_config_args.clone(),
+        );
+        let poseidon_circuit = if static_info.contain_zkhash() {
+            Some(PoseidonCircuit::new(
+                states,
+                static_info,
                 circuit_config_args.clone(),
-            ),
-            poseidon_circuit: PoseidonCircuit::new(
-                package,
-                traces,
-                pubs_indices,
-                circuit_config_args,
-            ),
+            ))
+        } else {
+            None
+        };
+
+        Self {
+            circuit_config_args,
+            execution_circuit,
+            poseidon_circuit,
             _maker: Default::default(),
         }
     }
@@ -207,20 +231,25 @@ impl<F: Field + Hashable> VmCircuit<F> {
         pubs_indices: &[usize],
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        Self {
-            circuit_config_args: circuit_config_args.clone(),
-            execution_circuit: ExecutionCircuit::new_with_empty_state(
-                package,
-                entry.clone(),
-                pubs_indices,
+        let static_info = StaticInfo::generate(entry, package, pubs_indices)
+            .expect("static info should be generated");
+
+        let execution_circuit = ExecutionCircuit::new_with_empty_state(
+            static_info.clone(),
+            circuit_config_args.clone(),
+        );
+        let poseidon_circuit = if static_info.contain_zkhash() {
+            Some(PoseidonCircuit::new_with_empty_state(
+                static_info,
                 circuit_config_args.clone(),
-            ),
-            poseidon_circuit: PoseidonCircuit::new_with_empty_state(
-                package,
-                entry,
-                pubs_indices,
-                circuit_config_args,
-            ),
+            ))
+        } else {
+            None
+        };
+        Self {
+            circuit_config_args,
+            execution_circuit,
+            poseidon_circuit,
             _maker: Default::default(),
         }
     }
@@ -275,16 +304,13 @@ pub trait SubCircuit<F: Field> {
 
     /// Create a new SubCircuit
     fn new(
-        package: &CompiledPackage,
-        traces: &Footprints,
-        pubs_indices: &[usize],
+        states: Vec<StageState>,
+        static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self;
     /// Create a new SubCircuit with empty state
     fn new_with_empty_state(
-        package: &CompiledPackage,
-        entry: EntryInfo,
-        pubs_indices: &[usize],
+        static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self;
     /// Assign only the columns used by this sub-circuit.  This includes the

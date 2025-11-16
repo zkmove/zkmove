@@ -19,6 +19,7 @@ use std::marker::PhantomData;
 use strum_macros::EnumIter;
 use witness::static_info::StaticInfo;
 
+use crate::execution_circuit::ExecutionCircuitConfigArgs;
 pub(crate) use table_type::Table;
 
 pub(crate) mod bitwise_table;
@@ -294,12 +295,12 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) function_table: FunctionLookupTable,
     pub(crate) bitwise_table: BitwiseLookupTable,
     pub(crate) pow2_table: Pow2LookupTable,
-    pub(crate) poseidon_table: PoseidonTable,
+    pub(crate) poseidon_table: Option<PoseidonTable>,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
 impl<F: Field> LookupTableConfigV2<F> {
-    pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn new(meta: &mut ConstraintSystem<F>, config_args: &ExecutionCircuitConfigArgs) -> Self {
         let fixed_table = FixedTable::construct(meta);
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
@@ -311,7 +312,11 @@ impl<F: Field> LookupTableConfigV2<F> {
         let function_table = FunctionLookupTable::construct(meta);
         let bitwise_table = BitwiseLookupTable::construct(meta);
         let pow2_table = Pow2LookupTable::construct(meta);
-        let poseidon_table = PoseidonTable::construct(meta);
+        let poseidon_table = if config_args.use_poseidon_hash {
+            Some(PoseidonTable::construct(meta))
+        } else {
+            None
+        };
         Self {
             fixed_table,
             nibble_table,
@@ -389,7 +394,13 @@ impl<F: Field> LookupTableConfigV2<F> {
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
             Table::Pow2 => self.pow2_table.table_exprs(meta),
-            Table::PoseidonHash => self.poseidon_table.table_exprs(meta),
+            Table::PoseidonHash => {
+                if let Some(table) = self.poseidon_table {
+                    table.table_exprs(meta)
+                } else {
+                    panic!("Poseidon table is not enabled in the config");
+                }
+            }
         }
     }
 }

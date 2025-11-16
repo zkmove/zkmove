@@ -4,8 +4,8 @@ use crate::lookup_table::poseidon_table::PoseidonTable;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
 use field_exts::util::Scalar;
-use witness::static_info::{EntryInfo, Footprints, StaticInfo};
-use witness::step_state::ExecutionState;
+use witness::static_info::StaticInfo;
+use witness::step_state::{ExecutionState, StageState};
 
 use field_exts::Field;
 use field_exts::U256;
@@ -14,10 +14,8 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, ErrorFront as Error},
 };
 use itertools::Itertools;
-use move_package::compilation::compiled_package::CompiledPackage;
 pub use poseidon_circuit::hash::Hashable;
 use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashTable};
-use witness::preprocessor::WitnessPreProcessor;
 
 /// re-wrapping for mpt circuit
 #[derive(Default, Clone, Debug)]
@@ -64,17 +62,10 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
     type Config = PoseidonCircuitConfig<F>;
 
     fn new(
-        package: &CompiledPackage,
-        traces: &Footprints,
-        pubs_indices: &[usize],
+        states: Vec<StageState>,
+        _static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        let entry = traces.entry().expect("entry should be set in traces");
-        let static_info = StaticInfo::generate(entry, package, pubs_indices)
-            .expect("static info should be generated");
-        let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.process(&traces.0, &static_info);
-
         let max_hashes = circuit_config_args.max_poseidon_rows / F::hash_block_size();
         let mut poseidon_table_data: PoseidonHashTable<F> = PoseidonHashTable::default();
         let poseidon_hash_data = states
@@ -115,9 +106,7 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
         Self(poseidon_table_data, max_hashes)
     }
     fn new_with_empty_state(
-        _package: &CompiledPackage,
-        _entry: EntryInfo,
-        _pubs_indices: &[usize],
+        _static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
         let max_hashes = circuit_config_args.max_poseidon_rows / F::hash_block_size();
