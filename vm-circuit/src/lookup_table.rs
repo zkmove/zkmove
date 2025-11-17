@@ -394,13 +394,10 @@ impl<F: Field> LookupTableConfigV2<F> {
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
             Table::Pow2 => self.pow2_table.table_exprs(meta),
-            Table::PoseidonHash => {
-                if let Some(table) = self.poseidon_table {
-                    table.table_exprs(meta)
-                } else {
-                    panic!("Poseidon table is not enabled in the config");
-                }
-            }
+            Table::PoseidonHash => self
+                .poseidon_table
+                .expect("Poseidon table is not enabled in the config")
+                .table_exprs(meta),
         }
     }
 }
