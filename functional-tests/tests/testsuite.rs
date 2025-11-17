@@ -1,5 +1,6 @@
 // Copyright (c) zkMove Authors
 
+use env_logger;
 use halo2::proofs::best_k;
 #[cfg(feature = "test-circuits")]
 use halo2::proofs::mock_prove_circuit;
@@ -25,6 +26,10 @@ pub const TEST_CIRCUIT_ROWS: usize = 2000usize;
 pub const TEST_HASH_ROWS: usize = 100usize;
 
 fn vm_test(path: &Path) -> datatest_stable::Result<()> {
+    let _ = env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Debug)
+        .try_init();
     debug!("Run test with trace {:?}", path.display());
 
     // load package

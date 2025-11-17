@@ -32,6 +32,7 @@ halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove"
 
 anyhow = "1.0.38"
 bytes = { version = "1.5" }
+env_logger = "0.10"
 log = "0.4.28"
 rayon = "1.10"
 serde_json = { version = "1" }
