@@ -85,6 +85,17 @@ impl ModuleIdMapping {
             .unwrap_or_else(|| panic!("cannot find module {:?}", module_id));
         (*module_index, module)
     }
+    fn get_module_with_name(&self, module_name: &str) -> Option<(u32, &CompiledModule)> {
+        self.0
+            .iter()
+            .find_map(|(_module_id, (module_index, module))| {
+                if module.self_name().as_str() == module_name {
+                    Some((*module_index, module))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 #[derive(Clone, Default, Debug)]
@@ -193,6 +204,12 @@ impl StaticInfo {
             .into_iter()
             .filter_map(|val| Opcodes::from_u8(val))
             .collect()
+    }
+
+    pub fn contain_zkhash(&self) -> bool {
+        self.module_id_mapping
+            .get_module_with_name("zkhash")
+            .is_some()
     }
 }
 

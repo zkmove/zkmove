@@ -8,6 +8,7 @@ vm-circuit = { path = "../vm-circuit" }
 witness = { path = "../witness" }
 halo2 = { path = "../third-party/halo2" }
 halo2_proofs.workspace = true
+env_logger.workspace = true
 log.workspace = true
 rand = "0.8"
 move-package = { workspace = true }

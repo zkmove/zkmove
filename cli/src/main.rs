@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
+use env_logger::Env;
 use halo2_proofs::{
     halo2curves::bn256::Bn256,
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
+use log::info;
 use std::path::PathBuf;
 use zkmove_cli::{aptos_cmds::AptosCommands, vm_cmds::VmCommands};
 
@@ -22,6 +24,8 @@ pub enum Commands {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    info!("Starting zkMove CLI...");
     let args = Cli::parse();
     let mut param_file = std::fs::File::open(args.param_path.as_path())?;
     let params = ParamsKZG::<Bn256>::read(&mut param_file)?;

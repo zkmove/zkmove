@@ -11,6 +11,7 @@ halo2_proofs.workspace = true
 move-package = { workspace = true }
 move-core-types = { workspace = true }
 log.workspace = true
+env_logger.workspace = true
 shape-generator = { git = "https://github.com/zkmove/halo2-verifier.move", package = "shape-generator" }
 
 anyhow = "1.0.38"

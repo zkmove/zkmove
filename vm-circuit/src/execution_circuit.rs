@@ -11,11 +11,9 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, ErrorFront as Error},
 };
 use move_binary_format::file_format_common::Opcodes;
-use move_package::compilation::compiled_package::CompiledPackage;
 use poseidon_base::Hashable;
 use std::marker::PhantomData;
-use witness::preprocessor::WitnessPreProcessor;
-use witness::static_info::{EntryInfo, Footprints, StaticInfo};
+use witness::static_info::StaticInfo;
 use witness::step_state::{ExecStepState, MemoryOp, StageState, StepState};
 
 pub(crate) mod call_stack;
@@ -28,6 +26,7 @@ pub(crate) mod step;
 pub(crate) struct ExecutionCircuitConfigArgs {
     pub(crate) fixed_table_tags: Vec<FixedTableTag>,
     pub(crate) used_opcodes: Vec<Opcodes>,
+    pub(crate) use_poseidon_hash: bool,
 }
 
 #[derive(Clone)]
@@ -41,9 +40,13 @@ impl<F: Field + Hashable> SubCircuitConfig<F> for ExecutionCircuitConfig<F> {
     type ConfigArgs = ExecutionCircuitConfigArgs;
 
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self {
-        let lookup_table_config = LookupTableConfigV2::new(meta);
-        let execution_config =
-            ExecutionConfig::configure(meta, &lookup_table_config, &args.used_opcodes);
+        let lookup_table_config = LookupTableConfigV2::new(meta, &args);
+        let execution_config = ExecutionConfig::configure(
+            meta,
+            &lookup_table_config,
+            &args.used_opcodes,
+            args.use_poseidon_hash,
+        );
 
         Self {
             fixed_table_tags: args.fixed_table_tags,
@@ -65,18 +68,10 @@ impl<F: Field + Hashable> SubCircuit<F> for ExecutionCircuit<F> {
     type Config = ExecutionCircuitConfig<F>;
 
     fn new(
-        package: &CompiledPackage,
-        traces: &Footprints,
-        pubs_indices: &[usize],
+        states: Vec<StageState>,
+        static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        let entry = traces.entry().expect("entry should be set in traces");
-        let static_info = StaticInfo::generate(entry, package, pubs_indices)
-            .expect("static info should be generated");
-
-        let preprocessor = WitnessPreProcessor::default();
-        let states = preprocessor.process(&traces.0, &static_info);
-
         Self {
             states,
             static_info,
@@ -86,16 +81,12 @@ impl<F: Field + Hashable> SubCircuit<F> for ExecutionCircuit<F> {
     }
 
     fn new_with_empty_state(
-        package: &CompiledPackage,
-        entry: EntryInfo,
-        pubs_indices: &[usize],
+        static_info: StaticInfo,
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
         let num_rows = circuit_config_args
             .max_execution_rows
             .expect("max_execution_rows should be set in config");
-        let static_info = StaticInfo::generate(entry.clone(), package, pubs_indices)
-            .expect("static info should be generated");
         let empty_states = (0..num_rows).map(|_| StageState::default()).collect();
         Self {
             states: empty_states,
