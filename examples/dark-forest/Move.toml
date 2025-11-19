@@ -1,0 +1,11 @@
+[package]
+name = "dark_forest"
+version = "0.0.1"
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
+
+[addresses]
+std = "0x1"
+dark_forest = "0x2"
+
