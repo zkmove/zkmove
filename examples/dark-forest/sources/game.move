@@ -2,6 +2,8 @@ module dark_forest::game {
     use std::signer;
     use std::vector;
     use std::option::{Self, Option};
+    use dark_forest::off_chain;
+    use verifier_api::verifier_api;
 
     // ======================
     // Error codes
@@ -18,8 +20,7 @@ module dark_forest::game {
     // Data structures
     // ======================
     struct Planet has copy, drop, store {
-        x: u64,
-        y: u64,
+        coord_hash: u256, // hash(x, y)
         energy: u64,
         capacity: u64,
         defense: u64,
@@ -59,8 +60,12 @@ module dark_forest::game {
     // ======================
     // Create mother planet (one per player)
     // ======================
-    public entry fun create_planet(account: &signer, x: u64, y: u64) acquires GameManager {
-        assert!(x > 0 && y > 0, E_INVALID_COORDINATES);
+    public entry fun create_planet(
+        account: &signer,
+        proof: vector<u8>,
+        coord_hash: u256,
+        kzg_variant: u8
+    ) acquires GameManager {
         let sender = signer::address_of(account);
         let manager = borrow_global_mut<GameManager>(@dark_forest);
 
@@ -76,8 +81,12 @@ module dark_forest::game {
         let id = manager.next_planet_id;
         manager.next_planet_id = id + 1;
 
+        //TODO: implement PublicInputs::new() in halo2-verifier.move
+        let pi = PublicInputs::new(coord_hash);
+        assert!(verifier_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, E_INVALID_COORDINATES);
+
         vector::push_back(&mut manager.planets, Planet {
-            x, y,
+            coord_hash,
             energy: 1000,
             capacity: 5000,
             defense: 100,
@@ -143,7 +152,12 @@ module dark_forest::game {
     // ======================
     // Process fleet arrival
     // ======================
-    public entry fun process_arrival(fleet_id: u64) acquires GameManager {
+    public entry fun process_arrival(
+        fleet_id: u64,
+        distance_squared: u128,
+        proof: vector<u8>, // proof of euclidean_distance()
+        kzg_variant: u8
+    ) acquires GameManager {
         let manager = borrow_global_mut<GameManager>(@dark_forest);
         let idx = fleet_id - 1;
         assert!(idx < vector::length(&manager.fleets), E_INVALID_TARGET);
@@ -151,15 +165,15 @@ module dark_forest::game {
         let fleet = *vector::borrow(&manager.fleets, idx);
         let from_planet = *vector::borrow(&manager.planets, fleet.from_planet_id - 1);
         let to_planet   = *vector::borrow(&manager.planets, fleet.to_planet_id - 1);
+        let hash_1 = from_planet.coord_hash;
+        let hash_2 = to_planet.coord_hash;
 
-        // Euclidean distance squared (no sqrt needed)
-        let dx = if (from_planet.x > to_planet.x) { from_planet.x - to_planet.x } else { to_planet.x - from_planet.x };
-        let dy = if (from_planet.y > to_planet.y) { from_planet.y - to_planet.y } else { to_planet.y - from_planet.y };
-        let dist_sq = dx * dx + dy * dy;
+        let pi = PublicInputs::new(hash_1, hash_2, distance_squared);
+        assert!(verification_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, E_INVALID_COORDINATES);
 
         // Energy cost = distance_sq / speed (higher speed = less loss per distance)
         // Use integer division - any remainder is lost (harsh universe!)
-        let energy_cost = if (fleet.speed == 0) { fleet.energy } else { dist_sq / fleet.speed };
+        let energy_cost = if (fleet.speed == 0) { fleet.energy } else { (distance_squared as u64) / fleet.speed };
 
         // If not enough energy to complete journey, fleet vanishes into the void
         if (energy_cost >= fleet.energy) {
