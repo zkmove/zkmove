@@ -12,3 +12,7 @@ std = "0x1"
 max_execution_rows = 278
 max_poseidon_rows = 100
 entry = { module_id = "0x1::fibonacci", function_name = "test_fibonacci" }
+
+#[circuit]
+#max_poseidon_rows = 100
+#entry = { module_id = "0x1::zkhash_example", function_name = "hash" }

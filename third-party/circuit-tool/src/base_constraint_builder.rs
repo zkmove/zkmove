@@ -1,4 +1,4 @@
-use crate::cell_manager::Cell;
+use crate::cell_manager::{Cell, CellType};
 use field_exts::util::Expr;
 use field_exts::Field;
 use halo2_proofs::plonk::Expression;
@@ -49,6 +49,11 @@ pub trait ConstraintBuilder<F: Field> {
     }
     fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
         unreachable!("query_bytes should be implemented in the concrete ConstraintBuilder");
+    }
+    fn query_cell_with_type(&mut self, _cell_type: CellType) -> Cell<F> {
+        unreachable!(
+            "query_cell_with_type should be implemented in the concrete ConstraintBuilder"
+        );
     }
 }
 

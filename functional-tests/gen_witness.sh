@@ -3,7 +3,7 @@ set -e
 
 # should compile move from https://github.com/zkmove/aptos-core.git#branch=witnessing
 MOVE="move"
-$MOVE build
+$MOVE build --skip-fetch-latest-git-deps
 $MOVE sandbox clean
 $MOVE sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
 

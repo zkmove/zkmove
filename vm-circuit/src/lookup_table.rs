@@ -287,7 +287,7 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) fixed_table: FixedTable,
     pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
-    pub(crate) u10_table: UXTable<10>,
+    pub(crate) u2_table: UXTable<2>,
     #[cfg(feature = "table-u16")]
     pub(crate) u16_table: UXTable<16>,
     pub(crate) bytecode_table: BytecodeLookupTable,
@@ -304,7 +304,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         let fixed_table = FixedTable::construct(meta);
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
-        let u10_table = UXTable::construct(meta);
+        let u2_table = UXTable::construct(meta);
         #[cfg(feature = "table-u16")]
         let u16_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
@@ -321,7 +321,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             fixed_table,
             nibble_table,
             u8_table,
-            u10_table,
+            u2_table,
             #[cfg(feature = "table-u16")]
             u16_table,
             bytecode_table,
@@ -343,7 +343,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.fixed_table.load(layouter, fixed_table_tags)?;
         self.nibble_table.load(layouter)?;
         self.u8_table.load(layouter)?;
-        self.u10_table.load(layouter)?;
+        self.u2_table.load(layouter)?;
         #[cfg(feature = "table-u16")]
         self.u16_table.load(layouter)?;
         self.bytecode_table.load(layouter, static_info)?;
@@ -367,7 +367,7 @@ impl<F: Field> LookupTableConfigV2<F> {
                 .count(),
             self.nibble_table.build::<F>().count(),
             self.u8_table.build::<F>().count(),
-            self.u10_table.build::<F>().count(),
+            self.u2_table.build::<F>().count(),
             #[cfg(feature = "table-u16")]
             self.u16_table.build::<F>().count(),
             self.bytecode_table.build::<F>(static_info).len(),
@@ -386,7 +386,7 @@ impl<F: Field> LookupTableConfigV2<F> {
             Table::Fixed => self.fixed_table.table_exprs(meta),
             Table::Nibble => self.nibble_table.table_exprs(meta),
             Table::U8 => self.u8_table.table_exprs(meta),
-            Table::U10 => self.u10_table.table_exprs(meta),
+            Table::U2 => self.u2_table.table_exprs(meta),
             #[cfg(feature = "table-u16")]
             Table::U16 => self.u16_table.table_exprs(meta),
             Table::Function => self.function_table.table_exprs(meta),

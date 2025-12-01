@@ -35,6 +35,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
         let header_flen_delta = cb.query_cell();
         let membership_gadget = Membership::construct(cb);
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
             cb.require_in_set(
@@ -116,7 +117,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
             step_curr.clk.expr(),
         );
         cb.require_no_stack_push();
-        cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+        cb.require_equal(
+            format!(
+                "{}, local_frame_index(0) == local_frame_index(1)",
+                Self::NAME
+            ),
+            step_curr.local_frame_index.expr(),
+            step_next.local_frame_index.expr(),
+        );
         cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
         cb.require_cell_transition(header_sub_index.clone(), Transition::Same);
 
@@ -205,6 +213,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
         let header_sub_index_ext = ExtendedSubIndex::construct(cb, header_sub_index.expr());
         let is_zero_header_sub_index = IsZeroGadget::construct(cb, header_sub_index.expr());
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage1);
@@ -279,7 +288,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
         cb.require_no_stack_push();
 
         cb.not_last_row(|cb| {
-            cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+            cb.require_equal(
+                format!(
+                    "{}, local_frame_index(0) == local_frame_index(1)",
+                    Self::NAME
+                ),
+                step_curr.local_frame_index.expr(),
+                step_next.local_frame_index.expr(),
+            );
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(header_sub_index.clone(), Transition::Same);
             cb.require_cell_transition(header_flen_delta.clone(), Transition::Same);
@@ -369,6 +385,8 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
         let is_zero_gadget =
             IsZeroGadget::construct(cb, header_sub_index_prev - header_sub_index.expr());
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
+        let step_prev = cb.step_state_at_offset(-1);
 
         cb.first_row(|cb| {
             cb.require_prev_state(ExecutionState::WriteRefStage2);
@@ -382,7 +400,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
                 header_flen_delta.expr(),
                 header_flen_delta_prev,
             );
-            let local_frame_index_prev = cb.cell_at_offset(&step_curr.local_frame_index, -1).expr();
+            let local_frame_index_prev = step_prev.local_frame_index.expr();
             cb.require_equal(
                 format!(
                     "{}, local_frame_index(0) == local_frame_index(-1)",
@@ -455,7 +473,14 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {
 
         cb.not_last_row(|cb| {
             cb.require_cell_transition(header_flen_delta.clone(), Transition::Same);
-            cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+            cb.require_equal(
+                format!(
+                    "{}, local_frame_index(0) == local_frame_index(1)",
+                    Self::NAME
+                ),
+                step_curr.local_frame_index.expr(),
+                step_next.local_frame_index.expr(),
+            );
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
         });
 

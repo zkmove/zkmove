@@ -15,3 +15,5 @@ Cargo.lock
 # MacOS Stuff
 .DS_Store
 
+.aptos
+

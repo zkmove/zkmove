@@ -15,6 +15,7 @@ use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use move_core_types::account_address::AccountAddress;
 use move_vm_runtime::witnessing::traced_value;
 use move_vm_runtime::witnessing::traced_value::SimpleValue;
+use table_type::Table;
 
 /// A VM word encoded as two 128‑bit limbs: `lo` (lower 128 bits) and `hi` (upper 128 bits), in little‑endian form.
 /// VM circuit path: `SimpleValue` → `Word` → `CircuitWord<F>` or scalars → assigned to `WordCells<F>`.
@@ -299,9 +300,9 @@ impl<F: Field> WordCells<F> {
 
 /// Helper for assigning a `u16`: splits it into low/high bytes and stores them in two cells to avoid a 16‑bit range check.
 #[derive(Clone, Debug)]
-pub struct WordU16<F>(WordLoHiCell<F>);
+pub struct WordU16Cells<F>(WordLoHiCell<F>);
 
-impl<F: Field> WordU16<F> {
+impl<F: Field> WordU16Cells<F> {
     pub fn construct(cb: &mut impl ConstraintBuilder<F>) -> Self {
         Self(WordLoHiCell::new([cb.query_byte(), cb.query_byte()]))
     }
@@ -326,6 +327,61 @@ impl<F: Field> WordU16<F> {
         offset: usize,
         value: u16,
     ) -> Result<(), Error> {
+        let bytes = value.to_le_bytes();
+        self.0
+            .lo()
+            .assign(region, offset, Value::known(F::from(bytes[0] as u64)))?;
+        self.0
+            .hi()
+            .assign(region, offset, Value::known(F::from(bytes[1] as u64)))?;
+        Ok(())
+    }
+    pub fn assign_with_scalar(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lo: F,
+        hi: F,
+    ) -> Result<(), Error> {
+        self.0.lo().assign(region, offset, Value::known(lo))?;
+        self.0.hi().assign(region, offset, Value::known(hi))?;
+        Ok(())
+    }
+}
+
+/// Helper for assigning a `u10`: splits it into low/high bytes and stores them in two cells to avoid a 10‑bit range check.
+#[derive(Clone, Debug)]
+pub struct WordU10Cells<F>(WordLoHiCell<F>);
+
+impl<F: Field> WordU10Cells<F> {
+    pub fn new(
+        meta: &mut ConstraintSystem<F>,
+        cell_manager_columns: &mut CellManagerColumns,
+        cell_manager: &mut CellManager<CMFixedHeightStrategy>,
+    ) -> Self {
+        let lo = cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U8));
+        let hi = cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U2));
+        Self(WordLoHiCell::new([lo, hi]))
+    }
+    pub fn cells(&self) -> [Cell<F>; 2] {
+        [self.0.lo(), self.0.hi()]
+    }
+    pub fn lo(&self) -> Cell<F> {
+        self.0.lo()
+    }
+    pub fn hi(&self) -> Cell<F> {
+        self.0.hi()
+    }
+    pub fn expr(&self) -> Expression<F> {
+        self.lo().expr() + self.hi().expr() * pow_of_two_expr(8)
+    }
+    pub fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: u16,
+    ) -> Result<(), Error> {
+        assert!(value < 1024, "Value out of u10 range");
         let bytes = value.to_le_bytes();
         self.0
             .lo()

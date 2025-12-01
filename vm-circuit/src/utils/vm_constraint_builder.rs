@@ -103,6 +103,13 @@ impl<F: Field> ConstraintBuilder<F> for VmConstraintBuilder<'_, F> {
     fn query_bytes<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_u8_vec(N).try_into().unwrap()
     }
+
+    fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
+        self.query_cells_inner(cell_type, 1)
+            .first()
+            .unwrap()
+            .clone()
+    }
 }
 
 impl<'a, F: Field> VmConstraintBuilder<'a, F> {
@@ -194,13 +201,6 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     // pub(crate) fn query_copy_cell(&mut self) -> Cell<F> {
     //     self.query_cell_with_type(CellType::StoragePermutation)
     // }
-
-    pub(crate) fn query_cell_with_type(&mut self, cell_type: CellType) -> Cell<F> {
-        self.query_cells_inner(cell_type, 1)
-            .first()
-            .unwrap()
-            .clone()
-    }
 
     pub(crate) fn query_cells<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_cells_inner(CellType::StoragePhase1, N)

@@ -32,6 +32,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
 
     fn configure(cb: &mut VmConstraintBuilder<F>) -> Self {
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
         let is_zero_frame_index = IsZeroGadget::construct(cb, step_curr.frame_index.expr());
         let call_context_version = cb.query_cell();
         let mut call_context_version_range_check = None;
@@ -54,7 +55,7 @@ impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
         cb.condition(is_zero_frame_index.expr(), |cb| {
             cb.require_next_states(vec![ExecutionState::Teardown, ExecutionState::Stop]);
         });
-        let frame_index_next = cb.cell_at_offset(&step_curr.frame_index, 1).expr();
+        let frame_index_next = step_next.frame_index.expr();
         let module_index_next = cb.cell_at_offset(&step_curr.module_index, 1).expr();
         let function_index_next = cb.cell_at_offset(&step_curr.function_index, 1).expr();
         let pc_next = cb.cell_at_offset(&step_curr.pc, 1).expr();

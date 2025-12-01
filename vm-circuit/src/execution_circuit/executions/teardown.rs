@@ -7,8 +7,8 @@ use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::rlc;
-use field_exts::util::pow_of_two_expr;
 use field_exts::util::Scalar;
+use field_exts::util::{pow_of_two, pow_of_two_expr};
 use gadgets::lt::LtInteger;
 use value_type::word_generic::WordLoHiCell;
 use witness::static_info::StaticInfo;
@@ -149,11 +149,18 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         let randomness = region.challenges().row_keccak_input();
 
         let unsorted_rlcs: Value<Vec<_>> = Value::from_iter((0..stage_state.rows()).map(|i| {
-            let local_frame_index = region.get_advice(
+            let local_frame_index_lo = region.get_advice(
                 offset + i,
-                step_state.local_frame_index.get_column_idx(),
+                step_state.local_frame_index.lo().get_column_idx(),
                 Rotation::cur(),
             );
+            let local_frame_index_hi = region.get_advice(
+                offset + i,
+                step_state.local_frame_index.hi().get_column_idx(),
+                Rotation::cur(),
+            );
+            let local_frame_index =
+                local_frame_index_hi * pow_of_two::<F>(8) + local_frame_index_lo;
             let local_index = region.get_advice(
                 offset + i,
                 step_state.local_index.get_column_idx(),
