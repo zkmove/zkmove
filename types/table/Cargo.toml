@@ -6,6 +6,3 @@ edition = "2021"
 [dependencies]
 strum.workspace = true
 strum_macros.workspace = true
-
-[features]
-table-u16 = []

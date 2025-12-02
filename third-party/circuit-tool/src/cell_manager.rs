@@ -42,8 +42,6 @@ impl CellType {
             CellType::StoragePhase1 | CellType::StoragePhase1EnableEquality => 1,
             CellType::Lookup(t) => match t {
                 Table::Nibble | Table::U8 | Table::U2 => 2,
-                #[cfg(feature = "table-u16")]
-                Table::U16 => 2,
                 _ => 2,
             },
         }

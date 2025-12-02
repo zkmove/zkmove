@@ -9,11 +9,6 @@ pub enum Table {
     U8,
     /// The range check table for 2-bits
     U2,
-    /// The range check table for u16
-    #[cfg(feature = "table-u16")]
-    U16,
-    /// The rest of the fixed table. See [`FixedTableTag`]
-    Fixed,
     /// Lookup for bytecode table
     Bytecode,
     /// Lookup for constant table

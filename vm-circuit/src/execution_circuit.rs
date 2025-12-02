@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::execution_circuit::executions::{ExecutionConfig, InstructionGadgetV2};
-use crate::lookup_table::{FixedTableTag, LookupTableConfigV2};
+use crate::lookup_table::LookupTableConfigV2;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
@@ -24,14 +24,12 @@ pub(crate) mod step;
 
 #[derive(Clone, Default)]
 pub(crate) struct ExecutionCircuitConfigArgs {
-    pub(crate) fixed_table_tags: Vec<FixedTableTag>,
     pub(crate) used_opcodes: Vec<Opcodes>,
     pub(crate) use_poseidon_hash: bool,
 }
 
 #[derive(Clone)]
 pub(crate) struct ExecutionCircuitConfig<F: Field> {
-    pub(crate) fixed_table_tags: Vec<FixedTableTag>,
     pub(crate) execution_config: ExecutionConfig<F>,
     pub(crate) lookup_table_config: LookupTableConfigV2<F>,
 }
@@ -49,7 +47,6 @@ impl<F: Field + Hashable> SubCircuitConfig<F> for ExecutionCircuitConfig<F> {
         );
 
         Self {
-            fixed_table_tags: args.fixed_table_tags,
             execution_config,
             lookup_table_config,
         }
@@ -99,14 +96,13 @@ impl<F: Field + Hashable> SubCircuit<F> for ExecutionCircuit<F> {
     fn synthesize_sub(
         &self,
         ExecutionCircuitConfig {
-            fixed_table_tags,
             execution_config,
             lookup_table_config,
         }: &Self::Config,
         challenges: &Challenges<halo2_proofs::circuit::Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), Error> {
-        lookup_table_config.load(layouter, fixed_table_tags.clone(), &self.static_info)?;
+        lookup_table_config.load(layouter, &self.static_info)?;
 
         // Pads the states to match `max_execution_rows` in the circuit config.
         let states = self.padding_states().unwrap_or_else(|| {

@@ -1,6 +1,6 @@
 use crate::execution_circuit::executions::ExecutionState;
 use crate::execution_circuit::step::{Step, StepState};
-use crate::lookup_table::{FixedTableTag, Lookup, Table};
+use crate::lookup_table::{Lookup, Table};
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cell_manager::{Cell, CellManagerColumns, CellType};
 use circuit_tool::challenges::Challenges;
@@ -180,14 +180,6 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
             .try_into()
             .expect("Failed to query cells")
     }
-
-    #[cfg(feature = "table-u16")]
-    pub(crate) fn query_u16(&mut self) -> Cell<F> {
-        self.query_cell_with_type(CellType::Lookup(Table::U16))
-    }
-    // pub(crate) fn query_nibble(&mut self) -> Cell<F> {
-    //     self.query_cell_with_type(CellType::Lookup(Table::Nibble))
-    // }
     pub(crate) fn query_u8_vec(&mut self, count: usize) -> Vec<Cell<F>> {
         self.query_cells_inner(CellType::Lookup(Table::U8), count)
     }
@@ -198,10 +190,6 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     pub(crate) fn query_cell_enable_equality(&mut self) -> Cell<F> {
         self.query_cell_with_type(CellType::StoragePhase1EnableEquality)
     }
-    // pub(crate) fn query_copy_cell(&mut self) -> Cell<F> {
-    //     self.query_cell_with_type(CellType::StoragePermutation)
-    // }
-
     pub(crate) fn query_cells<const N: usize>(&mut self) -> [Cell<F>; N] {
         self.query_cells_inner(CellType::StoragePhase1, N)
             .try_into()
@@ -412,25 +400,6 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     }
     pub(crate) fn column_randomness(&self) -> Expression<F> {
         self.challenges.column_keccak_input()
-    }
-    // Lookups
-    pub(crate) fn range_lookup(&mut self, lookup_name: String, value: Expression<F>, range: u64) {
-        let (name, tag) = match range {
-            16 => ("Range16", FixedTableTag::Range16),
-            32 => ("Range32", FixedTableTag::Range32),
-            64 => ("Range64", FixedTableTag::Range64),
-            128 => ("Range128", FixedTableTag::Range128),
-            256 => ("Range256", FixedTableTag::Range256),
-            1024 => ("Range1024", FixedTableTag::Range1024),
-            _ => unimplemented!(),
-        };
-        self.add_lookup_directly(
-            format!("{}-{}", name, lookup_name),
-            Lookup::Fixed {
-                tag: tag.expr(),
-                values: [value, 0.expr(), 0.expr()],
-            },
-        );
     }
     pub(crate) fn add_lookup_directly(&mut self, name: String, lookup: Lookup<F>) {
         let lookup = match self.condition_expr_opt() {

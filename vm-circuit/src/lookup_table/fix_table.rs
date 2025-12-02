@@ -1,4 +1,3 @@
-use crate::lookup_table::FixedTableTag;
 use crate::lookup_table::LookupTable;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
@@ -20,7 +19,6 @@ impl FixedTable {
     pub fn load<F: Field>(
         &self,
         layouter: &mut impl Layouter<F>,
-        fixed_table_tags: Vec<FixedTableTag>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "fixed table",

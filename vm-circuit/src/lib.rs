@@ -9,7 +9,6 @@
 use crate::execution_circuit::{
     ExecutionCircuit, ExecutionCircuitConfig, ExecutionCircuitConfigArgs,
 };
-use crate::lookup_table::FixedTableTag;
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use circuit_tool::challenges::Challenges;
 use field_exts::Field;
@@ -26,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use strum::IntoEnumIterator;
 use witness::preprocessor::WitnessPreProcessor;
 use witness::static_info::{EntryInfo, Footprints, StaticInfo};
 use witness::step_state::StageState;
@@ -131,10 +129,8 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
 
         let used_opcodes = circuit.execution_circuit.static_info.used_opcodes();
         let use_poseidon_hash = circuit.poseidon_circuit.is_some();
-        let fixed_table_tags = FixedTableTag::iter().collect();
         let execution_circuit_config_args = ExecutionCircuitConfigArgs {
             used_opcodes,
-            fixed_table_tags,
             use_poseidon_hash,
         };
 
@@ -263,10 +259,7 @@ impl<F: Field + Hashable> VmCircuit<F> {
         let table_rows = config
             .execution_circuit_config
             .lookup_table_config
-            .tables_height(
-                &self.execution_circuit.static_info,
-                config.execution_circuit_config.fixed_table_tags,
-            );
+            .tables_height(&self.execution_circuit.static_info);
 
         let states_rows =
             if let Some(max_execution_rows) = self.circuit_config_args.max_execution_rows {
