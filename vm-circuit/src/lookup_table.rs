@@ -1,4 +1,5 @@
 use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
+use crate::execution_circuit::ExecutionCircuitConfigArgs;
 use crate::lookup_table::bitwise_table::BitwiseLookupTable;
 use crate::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::lookup_table::constant_table::ConstantLookupTable;
@@ -15,12 +16,11 @@ use halo2_proofs::plonk::{
     Advice, Any, Column, ConstraintSystem, ErrorFront as Error, Expression, VirtualCells,
 };
 use halo2_proofs::poly::Rotation;
+use move_binary_format::file_format_common::Opcodes;
 use std::marker::PhantomData;
 use strum_macros::EnumIter;
-use witness::static_info::StaticInfo;
-
-use crate::execution_circuit::ExecutionCircuitConfigArgs;
 pub(crate) use table_type::Table;
+use witness::static_info::StaticInfo;
 
 pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
@@ -293,14 +293,20 @@ pub struct LookupTableConfigV2<F> {
     pub(crate) bytecode_table: BytecodeLookupTable,
     pub(crate) constant_table: ConstantLookupTable,
     pub(crate) function_table: FunctionLookupTable,
-    pub(crate) bitwise_table: BitwiseLookupTable,
-    pub(crate) pow2_table: Pow2LookupTable,
+    pub(crate) bitwise_table: Option<BitwiseLookupTable>,
+    pub(crate) pow2_table: Option<Pow2LookupTable>,
     pub(crate) poseidon_table: Option<PoseidonTable>,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
 impl<F: Field> LookupTableConfigV2<F> {
     pub fn new(meta: &mut ConstraintSystem<F>, config_args: &ExecutionCircuitConfigArgs) -> Self {
+        fn should_enable_bitwise_table(config_args: &ExecutionCircuitConfigArgs) -> bool {
+            config_args.used_opcodes.contains(&Opcodes::BIT_AND)
+                || config_args.used_opcodes.contains(&Opcodes::BIT_OR)
+                || config_args.used_opcodes.contains(&Opcodes::XOR)
+        }
+
         let fixed_table = FixedTable::construct(meta);
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
@@ -310,8 +316,12 @@ impl<F: Field> LookupTableConfigV2<F> {
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let constant_table = ConstantLookupTable::construct(meta);
         let function_table = FunctionLookupTable::construct(meta);
-        let bitwise_table = BitwiseLookupTable::construct(meta);
-        let pow2_table = Pow2LookupTable::construct(meta);
+        let (bitwise_table, pow2_table) = if should_enable_bitwise_table(config_args) {
+            // Pow2LookupTable is used by BitwiseLookupTable, so we enable it
+            (Some(BitwiseLookupTable::construct(meta)), Some(Pow2LookupTable::construct(meta)))
+        } else {
+            (None, None)
+        };
         let poseidon_table = if config_args.use_poseidon_hash {
             Some(PoseidonTable::construct(meta))
         } else {
@@ -349,8 +359,12 @@ impl<F: Field> LookupTableConfigV2<F> {
         self.bytecode_table.load(layouter, static_info)?;
         self.constant_table.load(layouter, static_info)?;
         self.function_table.load(layouter, static_info)?;
-        self.bitwise_table.load(layouter)?;
-        self.pow2_table.load(layouter)?;
+        if let Some(bitwise) = &self.bitwise_table {
+            bitwise.load(layouter)?;
+        }
+        if let Some(pow2) = &self.pow2_table {
+            pow2.load(layouter)?;
+        }
         Ok(())
     }
 
@@ -373,9 +387,16 @@ impl<F: Field> LookupTableConfigV2<F> {
             self.bytecode_table.build::<F>(static_info).len(),
             self.constant_table.build::<F>(static_info).len(),
             self.function_table.build::<F>(static_info).len(),
-            self.bitwise_table.build::<F>().count(),
-            self.pow2_table.build::<F>().len(),
+            self.bitwise_table
+                .as_ref()
+                .map_or(0, |t| t.build::<F>().count()),
+            self.pow2_table.as_ref().map_or(0, |t| t.build::<F>().len()),
         ];
+
+        // // print height of each table for debugging
+        // for (i, height) in heights.iter().enumerate() {
+        //     println!("Table {} height: {}", i, height);
+        // }
 
         // Return the maximum height
         heights.into_iter().max().unwrap_or(0)
@@ -390,10 +411,14 @@ impl<F: Field> LookupTableConfigV2<F> {
             #[cfg(feature = "table-u16")]
             Table::U16 => self.u16_table.table_exprs(meta),
             Table::Function => self.function_table.table_exprs(meta),
-            Table::Bitwise => self.bitwise_table.table_exprs(meta),
+            Table::Bitwise => self
+                .bitwise_table
+                .as_ref()
+                .expect("Bitwise table is not enabled in the config")
+                .table_exprs(meta),
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
-            Table::Pow2 => self.pow2_table.table_exprs(meta),
+            Table::Pow2 => self.pow2_table.as_ref().expect("Pow2 table is not enabled in the config").table_exprs(meta),
             Table::PoseidonHash => self
                 .poseidon_table
                 .expect("Poseidon table is not enabled in the config")
