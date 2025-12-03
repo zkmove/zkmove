@@ -39,7 +39,7 @@ pub use witness::static_info::{EntryInfo, ModuleIdMapping};
 
 // number of circuit rows cannot exceed 2^MAX_DEGREE
 pub const MAX_DEGREE: u32 = 18;
-pub const MIN_DEGREE: u32 = 8;
+pub const MIN_DEGREE: u32 = 9;
 
 pub fn best_k<F: Field + Hashable>(circuit: &VmCircuit<F>) -> u32 {
     /// Ceiling of log_2(n)

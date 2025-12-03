@@ -3,7 +3,7 @@
 use crate::execution_circuit::executions::{ExecutionConfig, InstructionGadgetV2};
 use crate::lookup_table::LookupTableConfigV2;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
-use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
+use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig, VmCircuit, VmCircuitConfig};
 use circuit_tool::challenges::Challenges;
 use field_exts::Field;
 use halo2_proofs::{
@@ -114,6 +114,19 @@ impl<F: Field + Hashable> SubCircuit<F> for ExecutionCircuit<F> {
         execution_config.assign(layouter, states, &self.static_info, challenges)?;
 
         Ok(())
+    }
+
+    fn circuit_height(&self, config: &Self::Config) -> usize {
+        let table_rows = config.lookup_table_config.tables_height(&self.static_info);
+
+        let states_rows =
+            if let Some(max_execution_rows) = self.circuit_config_args.max_execution_rows {
+                max_execution_rows
+            } else {
+                self.states.iter().map(|s| s.rows()).sum::<usize>()
+            };
+
+        table_rows.max(states_rows)
     }
 }
 

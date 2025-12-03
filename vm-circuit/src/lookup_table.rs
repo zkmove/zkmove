@@ -294,6 +294,7 @@ impl<F: Field> LookupTableConfigV2<F> {
         if let Some(pow2) = &self.pow2_table {
             pow2.load(layouter)?;
         }
+        // poseidon table is loaded in poseidon circuit
         Ok(())
     }
 
@@ -310,12 +311,8 @@ impl<F: Field> LookupTableConfigV2<F> {
                 .as_ref()
                 .map_or(0, |t| t.build::<F>().count()),
             self.pow2_table.as_ref().map_or(0, |t| t.build::<F>().len()),
+            // poseidon table height is calculated in poseidon circuit
         ];
-
-        // // print height of each table for debugging
-        // for (i, height) in heights.iter().enumerate() {
-        //     println!("Table {} height: {}", i, height);
-        // }
 
         // Return the maximum height
         heights.into_iter().max().unwrap_or(0)

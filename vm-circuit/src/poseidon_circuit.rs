@@ -127,6 +127,10 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
 
         chip.load(layouter)
     }
+
+    fn circuit_height(&self, _config: &Self::Config) -> usize {
+        self.0.minimum_row_require()
+    }
 }
 
 #[cfg(any(feature = "test-circuits", test))]
