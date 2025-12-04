@@ -181,13 +181,21 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
 
             cb.condition(and::expr([not::expr(last_row.expr()), last_row_of_field.expr()]), |cb| {
                 cb.require_cell_transition(field_index.clone(), Transition::Delta((-1).expr()));
-                cb.require_cell_transition(step_curr.stack_pop_index.clone(), Transition::Delta((-1).expr()));
+                cb.require_equal(
+                    format!("{}, stack_pop_index(0) - 1 == stack_pop_index(1)", Self::NAME),
+                    step_curr.stack_pop_index.expr() - 1u64.expr(),
+                    step_next.stack_pop_index.expr()
+                );
                 cb.require_cell_transition(step_curr.stack_pop_sub_index, Transition::To(0.expr()));
             });
             cb.condition(and::expr([not::expr(last_row.expr()), not::expr(last_row_of_field.expr())]), |cb| {
                 cb.require_cell_transition(field_index.clone(), Transition::Same);
                 cb.require_cell_transition(field_counter.clone(), Transition::Delta((-1).expr()));
-                cb.require_cell_transition(step_curr.stack_pop_index, Transition::Same);
+                cb.require_equal(
+                    format!("{}, stack_pop_index(0) == stack_pop_index(1)", Self::NAME),
+                    step_curr.stack_pop_index.expr(),
+                    step_next.stack_pop_index.expr()
+                );
             });
         });
 

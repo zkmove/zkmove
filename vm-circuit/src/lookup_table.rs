@@ -1,13 +1,12 @@
 use crate::execution_circuit::step::NUM_OF_VALUE_LIMBS;
+use crate::execution_circuit::ExecutionCircuitConfigArgs;
 use crate::lookup_table::bitwise_table::BitwiseLookupTable;
 use crate::lookup_table::byecode_table::BytecodeLookupTable;
 use crate::lookup_table::constant_table::ConstantLookupTable;
-use crate::lookup_table::fix_table::FixedTable;
 use crate::lookup_table::function_table::FunctionLookupTable;
 use crate::lookup_table::poseidon_table::PoseidonTable;
 use crate::lookup_table::pow2::Pow2LookupTable;
 use crate::lookup_table::ux_table::UXTable;
-use field_exts::impl_expr;
 use field_exts::Field;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Region;
@@ -15,17 +14,14 @@ use halo2_proofs::plonk::{
     Advice, Any, Column, ConstraintSystem, ErrorFront as Error, Expression, VirtualCells,
 };
 use halo2_proofs::poly::Rotation;
+use move_binary_format::file_format_common::Opcodes;
 use std::marker::PhantomData;
-use strum_macros::EnumIter;
-use witness::static_info::StaticInfo;
-
-use crate::execution_circuit::ExecutionCircuitConfigArgs;
 pub(crate) use table_type::Table;
+use witness::static_info::StaticInfo;
 
 pub(crate) mod bitwise_table;
 pub(crate) mod byecode_table;
 pub(crate) mod constant_table;
-pub(crate) mod fix_table;
 pub(crate) mod function_table;
 pub(crate) mod poseidon_table;
 pub(crate) mod pow2;
@@ -94,14 +90,6 @@ impl<F: Field, C: Into<Column<Any>> + Copy, const W: usize> LookupTable<F> for [
 
 #[derive(Clone, Debug)]
 pub(crate) enum Lookup<F> {
-    /// Lookup to fixed table, which contains several pre-built tables such as
-    /// range tables or bitwise tables.
-    Fixed {
-        /// Tag to specify which table to lookup.
-        tag: Expression<F>,
-        /// Values that must satisfy the pre-built relationship.
-        values: [Expression<F>; 3],
-    },
     Function {
         module_index: Expression<F>,
         function_handle_index: Expression<F>,
@@ -149,7 +137,6 @@ impl<F: Field> Lookup<F> {
 
     pub(crate) fn table(&self) -> Table {
         match self {
-            Self::Fixed { .. } => Table::Fixed,
             Self::Function { .. } => Table::Function,
             Self::Bitwise { .. } => Table::Bitwise,
             Self::Constant { .. } => Table::Constant,
@@ -161,7 +148,6 @@ impl<F: Field> Lookup<F> {
 
     pub(crate) fn input_exprs(&self) -> Vec<Expression<F>> {
         match self {
-            Self::Fixed { tag, values } => [vec![tag.clone()], values.to_vec()].concat(),
             Self::Function {
                 module_index,
                 function_handle_index,
@@ -235,95 +221,52 @@ impl<F: Field> Lookup<F> {
     }
 }
 
-#[derive(Clone, Copy, Debug, EnumIter)]
-/// Tags for different fixed tables
-pub enum FixedTableTag {
-    /// x == 0
-    Zero = 0,
-    /// 0 <= x < 16
-    Range16,
-    /// 0 <= x < 32
-    Range32,
-    /// 0 <= x < 64
-    Range64,
-    /// 0 <= x < 128
-    Range128,
-    /// 0 <= x < 256
-    Range256,
-    /// 0 <= x < 1024
-    Range1024,
-}
-impl_expr!(FixedTableTag);
-impl FixedTableTag {
-    /// build up the fixed table row values
-    pub(crate) fn build<F: Field>(&self) -> Box<dyn Iterator<Item = [F; 4]>> {
-        let tag = F::from(*self as u64);
-        match self {
-            Self::Zero => Box::new((0..1).map(move |_| [tag, F::zero(), F::zero(), F::zero()])),
-            Self::Range16 => {
-                Box::new((0..16).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-            Self::Range32 => {
-                Box::new((0..32).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-            Self::Range64 => {
-                Box::new((0..64).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-            Self::Range128 => {
-                Box::new((0..128).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-            Self::Range256 => {
-                Box::new((0..256).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-            Self::Range1024 => {
-                Box::new((0..1024).map(move |value| [tag, F::from(value), F::zero(), F::zero()]))
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct LookupTableConfigV2<F> {
-    pub(crate) fixed_table: FixedTable,
+    pub(crate) u2_table: UXTable<2>,
     pub(crate) nibble_table: UXTable<4>,
     pub(crate) u8_table: UXTable<8>,
-    pub(crate) u10_table: UXTable<10>,
-    #[cfg(feature = "table-u16")]
-    pub(crate) u16_table: UXTable<16>,
     pub(crate) bytecode_table: BytecodeLookupTable,
     pub(crate) constant_table: ConstantLookupTable,
     pub(crate) function_table: FunctionLookupTable,
-    pub(crate) bitwise_table: BitwiseLookupTable,
-    pub(crate) pow2_table: Pow2LookupTable,
+    pub(crate) bitwise_table: Option<BitwiseLookupTable>,
+    pub(crate) pow2_table: Option<Pow2LookupTable>,
     pub(crate) poseidon_table: Option<PoseidonTable>,
     pub(crate) phantom_data: PhantomData<F>,
 }
 
 impl<F: Field> LookupTableConfigV2<F> {
     pub fn new(meta: &mut ConstraintSystem<F>, config_args: &ExecutionCircuitConfigArgs) -> Self {
-        let fixed_table = FixedTable::construct(meta);
+        fn should_enable_bitwise_table(config_args: &ExecutionCircuitConfigArgs) -> bool {
+            config_args.used_opcodes.contains(&Opcodes::BIT_AND)
+                || config_args.used_opcodes.contains(&Opcodes::BIT_OR)
+                || config_args.used_opcodes.contains(&Opcodes::XOR)
+        }
+
         let nibble_table = UXTable::construct(meta);
         let u8_table = UXTable::construct(meta);
-        let u10_table = UXTable::construct(meta);
-        #[cfg(feature = "table-u16")]
-        let u16_table = UXTable::construct(meta);
+        let u2_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
         let constant_table = ConstantLookupTable::construct(meta);
         let function_table = FunctionLookupTable::construct(meta);
-        let bitwise_table = BitwiseLookupTable::construct(meta);
-        let pow2_table = Pow2LookupTable::construct(meta);
+        let (bitwise_table, pow2_table) = if should_enable_bitwise_table(config_args) {
+            // Pow2LookupTable is used by BitwiseLookupTable, so we enable it
+            (
+                Some(BitwiseLookupTable::construct(meta)),
+                Some(Pow2LookupTable::construct(meta)),
+            )
+        } else {
+            (None, None)
+        };
         let poseidon_table = if config_args.use_poseidon_hash {
             Some(PoseidonTable::construct(meta))
         } else {
             None
         };
         Self {
-            fixed_table,
             nibble_table,
             u8_table,
-            u10_table,
-            #[cfg(feature = "table-u16")]
-            u16_table,
+            u2_table,
             bytecode_table,
             constant_table,
             function_table,
@@ -337,44 +280,38 @@ impl<F: Field> LookupTableConfigV2<F> {
     pub fn load(
         &self,
         layouter: &mut impl Layouter<F>,
-        fixed_table_tags: Vec<FixedTableTag>,
         static_info: &StaticInfo,
     ) -> Result<(), Error> {
-        self.fixed_table.load(layouter, fixed_table_tags)?;
         self.nibble_table.load(layouter)?;
         self.u8_table.load(layouter)?;
-        self.u10_table.load(layouter)?;
-        #[cfg(feature = "table-u16")]
-        self.u16_table.load(layouter)?;
+        self.u2_table.load(layouter)?;
         self.bytecode_table.load(layouter, static_info)?;
         self.constant_table.load(layouter, static_info)?;
         self.function_table.load(layouter, static_info)?;
-        self.bitwise_table.load(layouter)?;
-        self.pow2_table.load(layouter)?;
+        if let Some(bitwise) = &self.bitwise_table {
+            bitwise.load(layouter)?;
+        }
+        if let Some(pow2) = &self.pow2_table {
+            pow2.load(layouter)?;
+        }
+        // poseidon table is loaded in poseidon circuit
         Ok(())
     }
 
-    pub fn tables_height(
-        &self,
-        static_info: &StaticInfo,
-        fixed_table_tags: Vec<FixedTableTag>,
-    ) -> usize {
+    pub fn tables_height(&self, static_info: &StaticInfo) -> usize {
         // Collect the heights of all tables
         let heights = vec![
-            fixed_table_tags
-                .iter()
-                .flat_map(|tag| tag.build::<F>())
-                .count(),
             self.nibble_table.build::<F>().count(),
             self.u8_table.build::<F>().count(),
-            self.u10_table.build::<F>().count(),
-            #[cfg(feature = "table-u16")]
-            self.u16_table.build::<F>().count(),
+            self.u2_table.build::<F>().count(),
             self.bytecode_table.build::<F>(static_info).len(),
             self.constant_table.build::<F>(static_info).len(),
             self.function_table.build::<F>(static_info).len(),
-            self.bitwise_table.build::<F>().count(),
-            self.pow2_table.build::<F>().len(),
+            self.bitwise_table
+                .as_ref()
+                .map_or(0, |t| t.build::<F>().count()),
+            self.pow2_table.as_ref().map_or(0, |t| t.build::<F>().len()),
+            // poseidon table height is calculated in poseidon circuit
         ];
 
         // Return the maximum height
@@ -383,17 +320,22 @@ impl<F: Field> LookupTableConfigV2<F> {
 
     pub fn table_exprs(&self, table: Table, meta: &mut VirtualCells<F>) -> Vec<Expression<F>> {
         match table {
-            Table::Fixed => self.fixed_table.table_exprs(meta),
             Table::Nibble => self.nibble_table.table_exprs(meta),
             Table::U8 => self.u8_table.table_exprs(meta),
-            Table::U10 => self.u10_table.table_exprs(meta),
-            #[cfg(feature = "table-u16")]
-            Table::U16 => self.u16_table.table_exprs(meta),
+            Table::U2 => self.u2_table.table_exprs(meta),
             Table::Function => self.function_table.table_exprs(meta),
-            Table::Bitwise => self.bitwise_table.table_exprs(meta),
+            Table::Bitwise => self
+                .bitwise_table
+                .as_ref()
+                .expect("Bitwise table is not enabled in the config")
+                .table_exprs(meta),
             Table::Bytecode => self.bytecode_table.table_exprs(meta),
             Table::Constant => self.constant_table.table_exprs(meta),
-            Table::Pow2 => self.pow2_table.table_exprs(meta),
+            Table::Pow2 => self
+                .pow2_table
+                .as_ref()
+                .expect("Pow2 table is not enabled in the config")
+                .table_exprs(meta),
             Table::PoseidonHash => self
                 .poseidon_table
                 .expect("Poseidon table is not enabled in the config")

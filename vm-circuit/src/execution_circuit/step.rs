@@ -11,7 +11,7 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
-use value_type::word::{Word, WordCells};
+use value_type::word::{Word, WordCells, WordU10Cells};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
@@ -29,30 +29,30 @@ pub const OPERAND1: &str = "operand1";
 #[derive(Clone, Debug)]
 pub(crate) struct StepState<F> {
     pub clk: Cell<F>,
-    pub frame_index: Cell<F>, // MAX FRAME should be 2^10 - 1
+    pub frame_index: WordU10Cells<F>, // MAX FRAME should be 2^10 - 1
     pub module_index: Cell<F>,
     pub function_index: Cell<F>, // max should be 2^16 - 1
     pub pc: Cell<F>,             // max PC should be 2^16 - 1
-    pub sp: Cell<F>,             // max stack pointer should be 2^10 -1
+    pub sp: WordU10Cells<F>,     // max stack pointer should be 2^10 -1
     pub opcode: Cell<F>,         // should be in range < 2^8
     pub operand0: Cell<F>,
     pub operand1: Cell<F>,
     pub step_counter: Cell<F>,
 
-    pub stack_pop_index: Cell<F>, // max value be 2^10 - 1
+    pub stack_pop_index: WordU10Cells<F>, // max value be 2^10 - 1
     pub stack_pop_sub_index: Cell<F>,
     pub stack_pop_value: WordCells<F>,
     pub stack_pop_value_header: Cell<F>, // boolean to indicate if the value is a header
     pub stack_pop_version: Cell<F>,
 
-    pub stack_push_index: Cell<F>, // max value be 2^10 - 1
+    pub stack_push_index: WordU10Cells<F>, // max value be 2^10 - 1
     pub stack_push_sub_index: Cell<F>,
     pub stack_push_value: WordCells<F>,
     pub stack_push_value_header: Cell<F>, // boolean
     pub stack_push_version: Cell<F>,
 
-    pub local_frame_index: Cell<F>, // max value be 2^10 - 1
-    pub local_index: Cell<F>,       // // max value be 2^8 - 1
+    pub local_frame_index: WordU10Cells<F>, // max value be 2^10 - 1
+    pub local_index: Cell<F>,               // max value be 2^8 - 1
     pub local_sub_index: Cell<F>,
 
     pub local_read_value: WordCells<F>,
@@ -106,11 +106,8 @@ impl<F: Field> StepState<F> {
 
         self.clk
             .assign(region, offset, Value::known(step_state.clk.into()))?;
-        self.frame_index.assign(
-            region,
-            offset,
-            Value::known(F::from_u128(step_state.frame_index as u128)),
-        )?;
+        self.frame_index
+            .assign(region, offset, step_state.frame_index)?;
         self.module_index.assign(
             region,
             offset,
@@ -126,11 +123,7 @@ impl<F: Field> StepState<F> {
             offset,
             Value::known(F::from_u128(step_state.pc as u128)),
         )?;
-        self.sp.assign(
-            region,
-            offset,
-            Value::known(F::from_u128(step_state.sp as u128)),
-        )?;
+        self.sp.assign(region, offset, step_state.sp)?;
         self.opcode.assign(
             region,
             offset,
@@ -158,11 +151,8 @@ impl<F: Field> StepState<F> {
         // assign stack_pop
         {
             let stack_pop = memory_op.0.as_ref();
-            self.stack_pop_index.assign(
-                region,
-                offset,
-                Value::known((stack_pop.map(|v| v.index).unwrap_or(0) as u64).scalar()),
-            )?;
+            self.stack_pop_index
+                .assign(region, offset, stack_pop.map(|v| v.index).unwrap_or(0))?;
 
             self.stack_pop_sub_index.assign(
                 region,
@@ -196,7 +186,7 @@ impl<F: Field> StepState<F> {
             self.stack_push_index.assign(
                 region,
                 offset,
-                Value::known((stack_push.map(|v| v.index).unwrap_or(0) as u64).scalar()),
+                stack_push.map(|v| v.index).unwrap_or(0),
             )?;
 
             self.stack_push_sub_index.assign(
@@ -234,12 +224,7 @@ impl<F: Field> StepState<F> {
             self.local_frame_index.assign(
                 region,
                 offset,
-                Value::known(
-                    local_read_write
-                        .map(|v| v.frame_index as u64)
-                        .unwrap_or(0)
-                        .scalar(),
-                ),
+                local_read_write.map(|v| v.frame_index).unwrap_or(0),
             )?;
 
             self.local_index.assign(
@@ -368,11 +353,7 @@ impl<F: Field> Step<F> {
             ),
 
             clk,
-            frame_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::Lookup(Table::U10),
-            ),
+            frame_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
             module_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -385,7 +366,7 @@ impl<F: Field> Step<F> {
             ),
             // We don't need to constrain pc to be U16, it will be ensured by looking up bytecode table
             pc: cell_manager.query_cell(meta, cell_manager_columns, CellType::StoragePhase0),
-            sp: cell_manager.query_cell(meta, cell_manager_columns, CellType::Lookup(Table::U10)),
+            sp: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
             opcode: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -399,11 +380,7 @@ impl<F: Field> Step<F> {
                 CellType::StoragePhase0,
             ),
 
-            stack_pop_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::Lookup(Table::U10),
-            ),
+            stack_pop_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
             stack_pop_sub_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -426,11 +403,7 @@ impl<F: Field> Step<F> {
                 CellType::StoragePhase1,
             ),
 
-            stack_push_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::Lookup(Table::U10),
-            ),
+            stack_push_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
             stack_push_sub_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -453,11 +426,7 @@ impl<F: Field> Step<F> {
                 CellType::StoragePhase1,
             ),
 
-            local_frame_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::Lookup(Table::U10),
-            ),
+            local_frame_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
             local_index: cell_manager.query_cell(
                 meta,
                 cell_manager_columns,
@@ -534,16 +503,25 @@ impl<F: Field> Step<F> {
     ) -> Result<(), Error> {
         let annotations = vec![
             (self.state.clk.get_column(), "clk"),
-            (self.state.frame_index.get_column(), "frame_index"),
+            (self.state.frame_index.lo().get_column(), "frame_index_lo"),
+            (self.state.frame_index.hi().get_column(), "frame_index_hi"),
             (self.state.module_index.get_column(), "module_index"),
             (self.state.function_index.get_column(), "function_index"),
             (self.state.pc.get_column(), "pc"),
-            (self.state.sp.get_column(), "sp"),
+            (self.state.sp.lo().get_column(), "sp_lo"),
+            (self.state.sp.hi().get_column(), "sp_hi"),
             (self.state.opcode.get_column(), "opcode"),
             (self.state.operand0.get_column(), "operand0"),
             (self.state.operand1.get_column(), "operand1"),
             (self.state.step_counter.get_column(), "step_counter"),
-            (self.state.stack_pop_index.get_column(), "stack_pop_index"),
+            (
+                self.state.stack_pop_index.lo().get_column(),
+                "stack_pop_index_lo",
+            ),
+            (
+                self.state.stack_pop_index.hi().get_column(),
+                "stack_pop_index_hi",
+            ),
             (
                 self.state.stack_pop_sub_index.get_column(),
                 "stack_pop_sub_index",
@@ -564,7 +542,14 @@ impl<F: Field> Step<F> {
                 self.state.stack_pop_version.get_column(),
                 "stack_pop_version",
             ),
-            (self.state.stack_push_index.get_column(), "stack_push_index"),
+            (
+                self.state.stack_push_index.lo().get_column(),
+                "stack_push_index_lo",
+            ),
+            (
+                self.state.stack_push_index.hi().get_column(),
+                "stack_push_index_hi",
+            ),
             (
                 self.state.stack_push_sub_index.get_column(),
                 "stack_push_sub_index",
@@ -584,6 +569,14 @@ impl<F: Field> Step<F> {
             (
                 self.state.stack_push_version.get_column(),
                 "stack_push_version",
+            ),
+            (
+                self.state.local_frame_index.lo().get_column(),
+                "local_frame_index_lo",
+            ),
+            (
+                self.state.local_frame_index.hi().get_column(),
+                "local_frame_index_hi",
             ),
             (self.state.local_index.get_column(), "local_index"),
             (self.state.local_sub_index.get_column(), "local_sub_index"),

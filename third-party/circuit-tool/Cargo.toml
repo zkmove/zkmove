@@ -16,4 +16,3 @@ primitive-types = "0.12"
 
 [features]
 test-circuits = []
-table-u16 = []

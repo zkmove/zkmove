@@ -33,4 +33,3 @@ parking_lot_core = "=0.8.0"
 
 [features]
 test-circuits = []
-table-u16 = []

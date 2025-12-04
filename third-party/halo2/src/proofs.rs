@@ -39,14 +39,16 @@ pub use witness::static_info::{EntryInfo, ModuleIdMapping};
 
 // number of circuit rows cannot exceed 2^MAX_DEGREE
 pub const MAX_DEGREE: u32 = 18;
-pub const MIN_DEGREE: u32 = 11;
+pub const MIN_DEGREE: u32 = 9;
 
 pub fn best_k<F: Field + Hashable>(circuit: &VmCircuit<F>) -> u32 {
     /// Ceiling of log_2(n)
     fn log2_ceil(n: usize) -> u32 {
         u32::BITS - (n as u32).leading_zeros() - n.is_power_of_two() as u32
     }
-    std::cmp::max(log2_ceil(circuit.circuit_height()), MIN_DEGREE)
+    let k = std::cmp::max(log2_ceil(circuit.circuit_height()), MIN_DEGREE);
+    info!("k: {}", k);
+    k
 }
 
 pub fn print_cs_info<F: Field>(cs: &ConstraintSystem<F>) {

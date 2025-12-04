@@ -194,6 +194,8 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
         let extended_sub_index = ExtendedSubIndex::construct(cb, ref_local_sub_index.expr());
 
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
+
         cb.first_row(|cb| {
             cb.require_prev_state(Self::PREV_STATE);
         });
@@ -314,7 +316,14 @@ impl<F: Field, const TWO: bool> InstructionGadgetV2<F> for VecSwapStage_2_Or_3<F
             cb.require_state_transition(vec![(SP, Transition::Delta(1u64.expr()))]);
         });
 
-        cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+        cb.require_equal(
+            format!(
+                "{}, local_frame_index(0) == local_frame_index(1)",
+                Self::NAME
+            ),
+            step_curr.local_frame_index.expr(),
+            step_next.local_frame_index.expr(),
+        );
         cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
         cb.require_cell_transition(ref_local_sub_index.clone(), Transition::Same);
         cb.require_cell_transition(index1.clone(), Transition::Same);
@@ -400,6 +409,8 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         let extended_sub_index = ExtendedSubIndex::construct(cb, ref_local_sub_index.expr());
 
         let step_curr = cb.curr.state.clone();
+        let step_next = cb.step_state_at_offset(1);
+
         cb.first_row(|cb| {
             cb.require_prev_state(Self::PREV_STATE);
         });
@@ -498,7 +509,14 @@ impl<F: Field, const FOUR: bool> InstructionGadgetV2<F> for VecSwapStage_4_Or_5<
         });
 
         let constraints = |cb: &mut VmConstraintBuilder<F>| {
-            cb.require_cell_transition(step_curr.local_frame_index.clone(), Transition::Same);
+            cb.require_equal(
+                format!(
+                    "{}, local_frame_index(0) == local_frame_index(1)",
+                    Self::NAME
+                ),
+                step_curr.local_frame_index.expr(),
+                step_next.local_frame_index.expr(),
+            );
             cb.require_cell_transition(step_curr.local_index.clone(), Transition::Same);
             cb.require_cell_transition(ref_local_sub_index.clone(), Transition::Same);
             cb.require_cell_transition(index1.clone(), Transition::Same);

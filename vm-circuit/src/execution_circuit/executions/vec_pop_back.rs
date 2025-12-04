@@ -17,7 +17,7 @@ use halo2_proofs::plonk::ErrorFront as Error;
 use halo2_proofs::poly::Rotation;
 use value_type::sub_index::SubIndex;
 use value_type::value_header::ValueHeader;
-use value_type::word::{IndexExpr, WordU16};
+use value_type::word::{IndexExpr, WordU16Cells};
 use witness::static_info::StaticInfo;
 use witness::step_state::StageState;
 
@@ -26,7 +26,7 @@ use witness::step_state::StageState;
 pub struct VecPopBackStage1<F> {
     vector_sub_index: Cell<F>,
     extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
-    vector_origin_len: WordU16<F>,
+    vector_origin_len: WordU16Cells<F>,
     is_zero_ori_len: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
 }
@@ -51,7 +51,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
         );
 
         // make sure len is in range u16, and len != 0
-        let vector_origin_len = WordU16::construct(cb);
+        let vector_origin_len = WordU16Cells::construct(cb);
         let is_zero_ori_len =
             IsZeroGadget::construct_without_configure(cb, vector_origin_len.expr());
 
@@ -297,7 +297,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
 pub struct VecPopBackStage2<F> {
     vector_sub_index: Cell<F>,
     extended_vector_sub_index: ExtendedSubIndex<F, 8>,
-    vector_origin_len: WordU16<F>,
+    vector_origin_len: WordU16Cells<F>,
 }
 impl<F: Field> VecPopBackStage2<F> {
     const PREV_STATE: ExecutionState = ExecutionState::VecPopBackStage1;
@@ -311,7 +311,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
         let step_prev = cb.step_state_at_offset(-1);
         let vector_sub_index = cb.query_cell();
         let extended_vector_sub_index = ExtendedSubIndex::construct(cb, vector_sub_index.expr());
-        let vector_origin_len = WordU16::construct(cb);
+        let vector_origin_len = WordU16Cells::construct(cb);
 
         cb.require_no_stack_pop();
 
@@ -335,7 +335,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage2<F> {
                 Self::NAME
             ),
             vector_origin_len.expr(),
-            WordU16::new(prev_vector_origin_len).expr(),
+            WordU16Cells::new(prev_vector_origin_len).expr(),
         );
 
         cb.require_equal(

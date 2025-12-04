@@ -20,7 +20,7 @@ move sandbox run --skip-fetch-latest-git-deps --witness storage/0x00000000000000
 # Generate proof in the client-side. Run under cli/, don't forget to replace the witness filename with your own.
 cargo run --release --  --param-path params/kzg_bn254_12.srs vm prove --package-path example -w example/witnesses/test_fibonacci-1747793629098.json
 # As a debug tool, user can verify the proof in the client-side.
-cargo run --release --  --param-path params/kzg_bn254_12.srs vm verify -k 11 --package-path example --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
+cargo run --release --  --param-path params/kzg_bn254_12.srs vm verify -k 9 --package-path example --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
 ```
 
 To publish the circuit to Aptos, you can use the following command to create the transaction(make sure the on-chain verifier is deployed already, and replace the zkmove-address with your own):

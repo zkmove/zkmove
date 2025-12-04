@@ -9,7 +9,6 @@
 use crate::execution_circuit::{
     ExecutionCircuit, ExecutionCircuitConfig, ExecutionCircuitConfigArgs,
 };
-use crate::lookup_table::FixedTableTag;
 use crate::poseidon_circuit::{PoseidonCircuit, PoseidonCircuitConfig, PoseidonCircuitConfigArgs};
 use circuit_tool::challenges::Challenges;
 use field_exts::Field;
@@ -26,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use strum::IntoEnumIterator;
 use witness::preprocessor::WitnessPreProcessor;
 use witness::static_info::{EntryInfo, Footprints, StaticInfo};
 use witness::step_state::StageState;
@@ -131,10 +129,8 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
 
         let used_opcodes = circuit.execution_circuit.static_info.used_opcodes();
         let use_poseidon_hash = circuit.poseidon_circuit.is_some();
-        let fixed_table_tags = FixedTableTag::iter().collect();
         let execution_circuit_config_args = ExecutionCircuitConfigArgs {
             used_opcodes,
-            fixed_table_tags,
             use_poseidon_hash,
         };
 
@@ -259,28 +255,22 @@ impl<F: Field + Hashable> VmCircuit<F> {
         let mut cs = ConstraintSystem::default();
         let config = VmCircuit::<F>::configure(&mut cs);
 
-        // todo: move below code to the execution circuit
-        let table_rows = config
-            .execution_circuit_config
-            .lookup_table_config
-            .tables_height(
-                &self.execution_circuit.static_info,
-                config.execution_circuit_config.fixed_table_tags,
-            );
+        let execution_circuit_rows = self
+            .execution_circuit
+            .circuit_height(&config.execution_circuit_config);
 
-        let states_rows =
-            if let Some(max_execution_rows) = self.circuit_config_args.max_execution_rows {
-                max_execution_rows
-            } else {
-                self.execution_circuit
-                    .states
-                    .iter()
-                    .map(|s| s.rows())
-                    .sum::<usize>()
-            };
+        let poseidon_circuit_rows = if let Some(poseidon_circuit) = self.poseidon_circuit.as_ref() {
+            poseidon_circuit.circuit_height(
+                config
+                    .poseidon_circuit_config
+                    .as_ref()
+                    .expect("Poseidon circuit config should be present"),
+            )
+        } else {
+            0
+        };
 
-        let rows_needed = vec![table_rows, states_rows].into_iter().max().unwrap_or(0);
-
+        let rows_needed = std::cmp::max(execution_circuit_rows, poseidon_circuit_rows);
         // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
         rows_needed + (cs.blinding_factors() + 1)
     }
@@ -323,6 +313,8 @@ pub trait SubCircuit<F: Field> {
         challenges: &Challenges<Value<F>>,
         layouter: &mut impl Layouter<F>,
     ) -> Result<(), ErrorFront>;
+    /// Return the minimum number of rows required to prove the SubCircuit.
+    fn circuit_height(&self, config: &Self::Config) -> usize;
 }
 
 /// SubCircuit configuration

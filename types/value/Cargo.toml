@@ -7,11 +7,9 @@ edition = "2021"
 halo2_proofs = { workspace = true }
 field-exts = { path = "../../third-party/field-exts" }
 circuit-tool = { path = "../../third-party/circuit-tool" }
+table-type = { path = "../table" }
 move-core-types = { workspace = true }
 move-vm-runtime = { workspace = true }
 strum.workspace = true
 strum_macros.workspace = true
 itertools = { version = "0.13.0" }
-
-[features]
-table-u16 = []
