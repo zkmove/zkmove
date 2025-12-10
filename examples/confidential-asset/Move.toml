@@ -1,19 +1,30 @@
 [package]
 name = "confidential_asset"
-version = "0.0.1"
+version = "0.1.0"
 
 [dependencies]
 MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
 
 [addresses]
 std = "0x1"
-confidential_asset = "0x2"
+confidential_asset = "_"
+verifier_api = "_"
+param_address = "_"
+circuit_encrypt_address = "_"
+circuit_check_sum_address = "_"
 
-verifier_api = "0x2bb0f19bf4970dad5e672ebe3f8cd30ff30b23736d567bf255c5eeadba064421"
-param_address = "0xba8f59e3d5f949bc906e7c763e88c42f878af3aa2056fa3e51e61b61176bc986"
-circuit_address = "0xba8f59e3d5f949bc906e7c763e88c42f878af3aa2056fa3e51e61b61176bc986"
+[dev-addresses]
+std = "0x1"
+confidential_asset = "0x2"
+verifier_api = "0x3"
+param_address = "0x4"
+circuit_encrypt_address = "0x5"
+circuit_check_sum_address = "0x6"
 
 [circuit]
 max_poseidon_rows = 100
 entry = { module_id = "0x2::off_chain", function_name = "encrypt" }
 
+#[circuit]
+#max_poseidon_rows = 100
+#entry = { module_id = "0x2::off_chain", function_name = "check_sum" }

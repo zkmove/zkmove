@@ -43,10 +43,15 @@ module confidential_asset::token {
     }
 
     /// Mint token and send it to receiver
-    public entry fun mint(admin: &signer, to: address, encrypted_amount: u256) acquires Store {
+    /// proof: the proof to prove encrypt(amount, encrypted_amount) is valid
+    public entry fun mint(admin: &signer, to: address, amount: u128, encrypted_amount: u256, proof: vector<u8>) acquires Store {
         assert!(amount > 0, EZERO_AMOUNT);
         assert!(exists<MintCap>(signer::address_of(admin)), ENO_MINT_CAPABILITY);
         assert!(exists<Store>(to), ENO_STORE);
+
+        // verify "hash(amount) == encrypted_amount"
+        let pi = PublicInputs::new(amount, encrypted_amount);
+        assert!(verifier_api::verify_proof(@param_address, @circuit_encrypt_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
 
         let token = Token { encrypted_value: encrypted_amount };
         send_token(token, to);
@@ -60,7 +65,7 @@ module confidential_asset::token {
     }
 
     /// Withdraw: extract a new Token resource from own Store
-    /// proof: to prove check_sum(remaining, amount, balance, encrypted_remaining, encrypted_amount, encrypted_balance) is valid
+    /// proof: the proof to prove check_sum(remaining, amount, balance, encrypted_remaining, encrypted_amount, encrypted_balance) is valid
     fun withdraw(account: &signer, encrypted_amount: u256, encrypted_remaining: u256, proof: vector<u8>): Token acquires Store {
         let addr = signer::address_of(account);
         let store = borrow_global_mut<Store>(addr);
@@ -68,7 +73,7 @@ module confidential_asset::token {
 
         // verify "balance - amount == remaining"
         let pi = PublicInputs::new(encrypted_remaining, encrypted_amount, encrypted_balance);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        assert!(verifier_api::verify_proof(@param_address, @circuit_check_sum_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
 
         store.token.encrypted_value = encrypted_remaining;
         Token { encrypted_value: encrypted_amount }
@@ -82,6 +87,7 @@ module confidential_asset::token {
     }
 
     /// Claim inbox item by index
+    /// proof: the proof to prove check_sum(balance, amount, new_balance, encrypted_balance, encrypted_amount, encrypted_new_balance) is valid
     public entry fun claim_inbox_by_index(account: &signer, index: u64, encrypted_amount: u256, encrypted_new_balance: u256, proof: vector<u8>) acquires Store, Inbox {
         let addr = signer::address_of(account);
         assert!(exists<Inbox>(addr), ENO_STORE);
@@ -98,9 +104,24 @@ module confidential_asset::token {
 
         // verify "balance + amount == new_balance"
         let pi = PublicInputs::new(encrypted_balance, encrypted_amount, encrypted_new_balance);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        assert!(verifier_api::verify_proof(@param_address, @circuit_check_sum_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
 
         let Token { value: _ } = token;
+    }
+
+    /// Burn token in own Store
+    /// proof: the proof to prove encrypt(balance, encrypted_balance) is valid
+    public entry fun burn(account: &signer, balance: u128, proof: vector<u8>) acquires Store {
+        let addr = signer::address_of(account);
+        assert!(exists<Store>(addr), ENO_STORE);
+        let store = borrow_global_mut<Store>(addr);
+        let encrypted_balance = store.token.encrypted_value;
+
+        // verify "hash(balance) == encrypted_balance"
+        let pi = PublicInputs::new(balance, encrypted_balance);
+        assert!(verifier_api::verify_proof(@param_address, @circuit_encrypt_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+
+        store.token.encrypted_value = 0;
     }
 
     // View functions
