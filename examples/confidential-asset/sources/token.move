@@ -49,7 +49,7 @@ module confidential_asset::token {
     }
 
     /// Mint token and send it to receiver
-    /// proof: the proof to prove encrypt(amount, encrypted_amount) is valid
+    /// proof: the proof to prove encrypt(amount, encrypted_amount, nonce) is valid
     public entry fun mint(admin: &signer, to: address, amount: u128, encrypted_amount: u256, proof: vector<u8>) {
         assert!(amount > 0, EZERO_AMOUNT);
         assert!(exists<MintCap>(signer::address_of(admin)), ENO_MINT_CAPABILITY);
@@ -72,7 +72,8 @@ module confidential_asset::token {
     }
 
     /// Withdraw: extract a new Token resource from own Store
-    /// proof: the proof to prove check_sum(remaining, amount, balance, encrypted_remaining, encrypted_amount, encrypted_balance) is valid
+    /// proof: the proof to prove check_sum(remaining, amount, balance, encrypted_remaining, encrypted_amount, encrypted_balance, nonce_remaining, nonce_amount, nonce_balance) is valid
+    /// Note: amount and nonce_amount are private inputs of circuit_check_sum, they should be sent to the recipient off-chain
     fun withdraw(account: &signer, encrypted_amount: u256, encrypted_remaining: u256, proof: vector<u8>): Token acquires Store {
         let addr = signer::address_of(account);
         let store = borrow_global_mut<Store>(addr);
@@ -97,7 +98,8 @@ module confidential_asset::token {
     }
 
     /// Claim inbox item by index
-    /// proof: the proof to prove check_sum(balance, amount, new_balance, encrypted_balance, encrypted_amount, encrypted_new_balance) is valid
+    /// proof: the proof to prove check_sum(balance, amount, new_balance, encrypted_balance, encrypted_amount, encrypted_new_balance, nonce_balance, nonce_amount, nonce_new_balance) is valid
+    /// Note: amount and nonce_amount are received off-chain when the token is sent by the sender
     public entry fun claim_inbox_by_index(account: &signer, index: u64, encrypted_amount: u256, encrypted_new_balance: u256, proof: vector<u8>) acquires Store, Inbox {
         let addr = signer::address_of(account);
         assert!(exists<Inbox>(addr), ENO_STORE);
@@ -123,7 +125,7 @@ module confidential_asset::token {
     }
 
     /// Burn token in own Store
-    /// proof: the proof to prove encrypt(balance, encrypted_balance) is valid
+    /// proof: the proof to prove encrypt(balance, encrypted_balance, nonce) is valid
     public entry fun burn(account: &signer, balance: u128, proof: vector<u8>) acquires Store {
         let addr = signer::address_of(account);
         assert!(exists<Store>(addr), ENO_STORE);
