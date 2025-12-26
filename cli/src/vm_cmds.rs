@@ -1,4 +1,5 @@
-use crate::KZGVariant;
+use crate::get_entry_info_from_move_toml;
+use crate::{get_circuit_config_args_from_move_toml, load_package, save_to_file, KZGVariant};
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::{best_k, prove_circuit, setup_circuit, verify_circuit, KZG};
@@ -9,25 +10,13 @@ use halo2_proofs::{
     SerdeFormat,
 };
 use log::debug;
-use move_core_types::{
-    account_address::AccountAddress, identifier::Identifier, language_storage::ModuleId,
-};
-use move_package::{
-    compilation::{
-        compiled_package::{CompiledPackage, OnDiskCompiledPackage},
-        package_layout::CompiledPackageLayout,
-    },
-    source_package::layout::SourcePackageLayout,
-};
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
-    str::FromStr,
 };
-use toml::Value;
 use vm_circuit::public_inputs::PublicInputs;
-use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
-use witness::static_info::{EntryInfo, Footprints, ModuleIdMapping};
+use vm_circuit::{CircuitGuard, VmCircuit};
+use witness::static_info::Footprints;
 
 #[derive(Parser)]
 #[command(about = "Command for proving and verification in the client side.")]
@@ -41,6 +30,13 @@ pub struct VmCommands {
         help = "Path to the Move package root (contains Move.toml)"
     )]
     package_path: PathBuf,
+
+    #[arg(
+        long = "circuit-name",
+        short = 'c',
+        help = "Name of the circuit section in Move.toml (e.g. fibonacci for [circuit.fibonacci]). If omitted, uses the plain [circuit] section in Move.toml."
+    )]
+    circuit_name: Option<String>,
 
     #[arg(
         long = "pubs-indices",
@@ -119,6 +115,7 @@ impl VmCommands {
             Subcommands::Prove(prove) => prove.run(
                 &mut params,
                 &self.package_path,
+                self.circuit_name.as_deref(),
                 &prove.witness,
                 &self.pubs_indices,
                 self.variant,
@@ -129,6 +126,7 @@ impl VmCommands {
             Subcommands::Verify(verify) => verify.run(
                 &mut params,
                 &self.package_path,
+                self.circuit_name.as_deref(),
                 verify.k,
                 &self.pubs_indices,
                 self.variant,
@@ -145,6 +143,7 @@ impl ProveCommand {
         &self,
         params: &mut ParamsKZG<Bn256>,
         package_path: &Path,
+        circuit_name: Option<&str>,
         witness_path: &Path,
         pubs_indices: &[usize],
         variant: KZGVariant,
@@ -158,7 +157,7 @@ impl ProveCommand {
         let manifest_path = package_path.join("Move.toml");
         let package = load_package(package_path)?;
 
-        let config_args = get_circuit_config_args_from_move_toml(&manifest_path)?;
+        let config_args = get_circuit_config_args_from_move_toml(&manifest_path, circuit_name)?;
 
         let circuit = Rc::new(VmCircuit::<Fr>::new(
             &package,
@@ -242,6 +241,7 @@ impl VerifyCommand {
         &self,
         params: &mut ParamsKZG<Bn256>,
         package_path: &Path,
+        circuit_name: Option<&str>,
         k: u32,
         pubs_indices: &[usize],
         variant: KZGVariant,
@@ -254,8 +254,8 @@ impl VerifyCommand {
         }
 
         let manifest_path = package_path.join("Move.toml");
-        let config_args = get_circuit_config_args_from_move_toml(&manifest_path)?;
-        let entry_info = get_entry_info_from_move_toml(&manifest_path)?;
+        let config_args = get_circuit_config_args_from_move_toml(&manifest_path, circuit_name)?;
+        let entry_info = get_entry_info_from_move_toml(&manifest_path, circuit_name)?;
 
         let package = load_package(package_path)?;
 
@@ -285,108 +285,4 @@ impl VerifyCommand {
         debug!("Proof verified successfully");
         Ok(())
     }
-}
-
-fn find_package_root(witness: &Path) -> Result<PathBuf> {
-    SourcePackageLayout::try_find_root(&witness.canonicalize()?)
-        .context("Failed to find root path for the package")
-}
-
-fn get_circuit_config_args_from_move_toml(toml_path: &Path) -> Result<CircuitConfigArgs> {
-    let toml_content = std::fs::read_to_string(toml_path).expect("Failed to read Move.toml");
-    let parsed_toml: Value = toml_content
-        .parse::<Value>()
-        .expect("Failed to parse Move.toml");
-
-    if let Some(circuit) = parsed_toml.get("circuit") {
-        let max_execution_rows = circuit
-            .get("max_execution_rows")
-            .and_then(|max_execution_rows| max_execution_rows.as_integer())
-            .map(|v| v as usize);
-
-        let max_poseidon_rows = circuit
-            .get("max_poseidon_rows")
-            .and_then(|max_poseidon_rows| max_poseidon_rows.as_integer())
-            .map(|v| v as usize)
-            .unwrap_or(0);
-
-        Ok(CircuitConfigArgs {
-            max_execution_rows,
-            max_poseidon_rows,
-        })
-    } else {
-        Ok(CircuitConfigArgs::default())
-    }
-}
-
-fn get_entry_info_from_move_toml(toml_path: &Path) -> Result<EntryInfo> {
-    let toml_content = std::fs::read_to_string(toml_path)?;
-    let parsed_toml: Value = toml_content.parse()?;
-
-    let circuit = parsed_toml
-        .get("circuit")
-        .context("[circuit] section not found in Move.toml")?;
-
-    let entry = circuit
-        .get("entry")
-        .context("entry not found under [circuit] in Move.toml")?;
-
-    let module_id_str = entry
-        .get("module_id")
-        .and_then(|v| v.as_str())
-        .context("module_id is missing or invalid")?;
-    let function_name = entry
-        .get("function_name")
-        .and_then(|v| v.as_str())
-        .context("function_name is missing or invalid")?;
-
-    let module_id = parse_module_id(module_id_str)?;
-
-    let package_root = find_package_root(toml_path)?;
-    let package = load_package(&package_root)?;
-    let module_id_mapping = ModuleIdMapping::construct(&module_id, &package);
-
-    Ok(EntryInfo::new(
-        &package,
-        &module_id,
-        function_name,
-        &module_id_mapping,
-    ))
-}
-
-fn parse_module_id(module_id_str: &str) -> Result<ModuleId> {
-    let parts: Vec<&str> = module_id_str.split("::").collect();
-    if parts.len() != 2 {
-        return Err(anyhow::anyhow!(
-            "Invalid module_id format: {}",
-            module_id_str
-        ));
-    }
-    let address = AccountAddress::from_str(parts[0])?;
-    let name = Identifier::new(parts[1])?;
-    Ok(ModuleId::new(address, name.into()))
-}
-
-fn load_package(rooted_path: &Path) -> Result<CompiledPackage> {
-    let manifest_path = rooted_path.join(SourcePackageLayout::Manifest.path());
-    let manifest_string = std::fs::read_to_string(&manifest_path)?;
-    let toml_manifest =
-        move_package::source_package::manifest_parser::parse_move_manifest_string(manifest_string)?;
-    let manifest =
-        move_package::source_package::manifest_parser::parse_source_manifest(toml_manifest)?;
-
-    let package_name = manifest.package.name.to_string();
-    let build_path = rooted_path
-        .join(CompiledPackageLayout::Root.path())
-        .join(&package_name);
-
-    let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
-    Ok(package.into_compiled_package()?)
-}
-
-fn save_to_file<P: AsRef<Path>, D: AsRef<[u8]>>(dir: P, file_name: &str, data: D) -> Result<()> {
-    let file_path = dir.as_ref().join(file_name);
-    std::fs::write(&file_path, data)?;
-    debug!("File saved to {:?}", file_path.display());
-    Ok(())
 }
