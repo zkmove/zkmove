@@ -25,11 +25,3 @@ param_address = "0xAB"
 circuit_encrypt_address = "0xABCD"
 circuit_check_sum_address = "0xABCDE"
 confidential_asset = "0xCAFE"
-
-[circuit]
-max_poseidon_rows = 100
-entry = { module_id = "0x2::off_chain", function_name = "encrypt" }
-
-#[circuit]
-#max_poseidon_rows = 100
-#entry = { module_id = "0x2::off_chain", function_name = "check_sum" }

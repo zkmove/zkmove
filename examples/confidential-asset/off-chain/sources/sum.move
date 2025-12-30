@@ -1,13 +1,8 @@
-module confidential_asset::off_chain {
+module confidential_asset::sum {
     use std::zkhash;
 
     const E_INVALID_ENCRYPTION: u64 = 0;
     const E_INVALID_INPUT: u64 = 1;
-
-    // public input: value, encrypted
-    public entry fun encrypt(value: u128, encrypted: u256, nonce: u128) {
-        assert!(zkhash::hash(value, nonce) == encrypted, E_INVALID_ENCRYPTION);
-    }
 
     // public input: encrypted_x, encrypted_y, encrypted_sum
     public entry fun check_sum(
