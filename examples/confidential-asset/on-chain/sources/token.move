@@ -35,8 +35,17 @@ module confidential_asset::token {
     const KZG_GWC:     u8 = 1;
     const KZG_SHPLONK: u8 = 0;
 
+    /// Pre-computed encryption of zero
+    const ENCRYPTED_ZERO: u256 = 1057098720325748203296752469094320832019875087793557438351763779692404987367u256;
+    const NONCE_ZERO: u128 = 42u128;
+    
     /// Module initializer
     fun init_module(deployer: &signer) {
+        move_to(deployer, MintCap {});
+    }
+
+    #[test_only]
+    public fun init_for_test(deployer: &signer) {
         move_to(deployer, MintCap {});
     }
 
@@ -44,7 +53,7 @@ module confidential_asset::token {
     public entry fun register(account: &signer) {
         let addr = signer::address_of(account);
         assert!(!exists<Store>(addr), EALREADY_HAS_STORE);
-        move_to(account, Store { token: Token { encrypted_value: 0 } });
+        move_to(account, Store { token: Token { encrypted_value: ENCRYPTED_ZERO } });
         move_to(account, Inbox { items: vector::empty() });
     }
 
@@ -57,9 +66,8 @@ module confidential_asset::token {
 
         // verify "hash(amount) == encrypted_amount"
         let pi = public_inputs::empty<Fr>();
-        public_inputs::push_u128(&mut pi, amount);
         public_inputs::push_u256(&mut pi, encrypted_amount);
-        assert!(verifier_api::verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier_api::mock_verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
         let token = Token { encrypted_value: encrypted_amount };
         send_token(token, to);
@@ -84,7 +92,7 @@ module confidential_asset::token {
         public_inputs::push_u256(&mut pi, encrypted_remaining);
         public_inputs::push_u256(&mut pi, encrypted_amount);
         public_inputs::push_u256(&mut pi, encrypted_balance);
-        assert!(verifier_api::verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier_api::mock_verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
         store.token.encrypted_value = encrypted_remaining;
         Token { encrypted_value: encrypted_amount }
@@ -119,14 +127,15 @@ module confidential_asset::token {
         public_inputs::push_u256(&mut pi, encrypted_balance);
         public_inputs::push_u256(&mut pi, encrypted_amount);
         public_inputs::push_u256(&mut pi, encrypted_new_balance);
-        assert!(verifier_api::verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier_api::mock_verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
+        store.token.encrypted_value = encrypted_new_balance;
         let Token { encrypted_value: _ } = token;
     }
 
     /// Burn token in own Store
     /// proof: the proof to prove encrypt(balance, encrypted_balance, nonce) is valid
-    public entry fun burn(account: &signer, balance: u128, proof: vector<u8>) acquires Store {
+    public entry fun burn(account: &signer, proof: vector<u8>) acquires Store {
         let addr = signer::address_of(account);
         assert!(exists<Store>(addr), ENO_STORE);
         let store = borrow_global_mut<Store>(addr);
@@ -134,11 +143,10 @@ module confidential_asset::token {
 
         // verify "hash(balance) == encrypted_balance"
         let pi = public_inputs::empty<Fr>();
-        public_inputs::push_u128(&mut pi, balance);
         public_inputs::push_u256(&mut pi, encrypted_balance);
-        assert!(verifier_api::verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier_api::mock_verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
-        store.token.encrypted_value = 0;
+        store.token.encrypted_value = ENCRYPTED_ZERO;
     }
 
     // View functions

@@ -11,8 +11,8 @@ confidential_asset = "0xCAFE"
 
 [circuit.encrypt]
 max_poseidon_rows = 100
-entry = { module_id = "0x2::off_chain", function_name = "encrypt" }
+entry = { module_id = "0xCAFE::encryption", function_name = "encrypt" }
 
 [circuit.check_sum]
 max_poseidon_rows = 100
-entry = { module_id = "0x2::off_chain", function_name = "check_sum" }
+entry = { module_id = "0xCAFE::sum", function_name = "check_sum" }

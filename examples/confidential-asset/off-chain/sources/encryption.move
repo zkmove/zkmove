@@ -3,8 +3,8 @@ module confidential_asset::encryption {
 
     const E_INVALID_ENCRYPTION: u64 = 0;
 
-    // public input: value, encrypted
-    public entry fun encrypt(value: u128, encrypted: u256, nonce: u128) {
-        assert!(zkhash::hash(value, nonce) == encrypted, E_INVALID_ENCRYPTION);
+    // public input: encrypted_value
+    public entry fun encrypt(value: u128, encrypted_value: u256, nonce: u128) {
+        assert!(zkhash::hash(value, nonce) == encrypted_value, E_INVALID_ENCRYPTION);
     }
 }

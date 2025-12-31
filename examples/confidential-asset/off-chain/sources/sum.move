@@ -18,7 +18,7 @@ module confidential_asset::sum {
     ) {
         assert!(x + y == sum, E_INVALID_INPUT);
         assert!(zkhash::hash(x, nonce_x) == encrypted_x, E_INVALID_ENCRYPTION);
-        assert!(zkhash::hash(y, nonce_y + 1) == encrypted_y, E_INVALID_ENCRYPTION);
-        assert!(zkhash::hash(sum, nonce_sum + 2) == encrypted_sum, E_INVALID_ENCRYPTION);
+        assert!(zkhash::hash(y, nonce_y) == encrypted_y, E_INVALID_ENCRYPTION);
+        assert!(zkhash::hash(sum, nonce_sum) == encrypted_sum, E_INVALID_ENCRYPTION);
     }
 }
