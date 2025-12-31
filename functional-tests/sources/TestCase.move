@@ -12,7 +12,7 @@ module cases::TestCase {
         test_vector();
         test_wallet();
         test_struct();
-        test_fake_hash();
+        test_hash();
     }
 
     public entry fun test_abort() {
