@@ -9,6 +9,7 @@ use move_core_types::{
 use move_package::compilation::compiled_package::{CompiledPackage, OnDiskCompiledPackage};
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
+use serde::Serialize;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -22,6 +23,35 @@ pub mod poseidon_cmds;
 pub mod vm_cmds;
 
 /// Common code used by multiple command modules.
+
+#[derive(Serialize)]
+pub struct ArgWithNameAndTypeJSON {
+    pub name: String,
+    pub r#type: String,
+    pub value: serde_json::Value,
+}
+
+#[derive(Serialize)]
+pub struct ArgWithTypeJSON {
+    pub r#type: String,
+    pub value: serde_json::Value,
+}
+
+#[derive(Serialize)]
+pub struct EntryFunctionArgumentsJSON {
+    pub function_id: String,
+    pub type_args: Vec<String>,
+    pub args: Vec<ArgWithTypeJSON>,
+}
+
+#[derive(Serialize)]
+pub struct HexEncodedBytes(pub Vec<u8>);
+
+impl ToString for HexEncodedBytes {
+    fn to_string(&self) -> String {
+        format!("0x{}", hex::encode(&self.0))
+    }
+}
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum KZGVariant {

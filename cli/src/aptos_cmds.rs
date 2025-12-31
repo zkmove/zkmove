@@ -1,8 +1,8 @@
-use crate::aptos_cmds::utils::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
 use crate::get_circuit_config_args_from_move_toml;
 use crate::load_package;
 use crate::save_to_file;
 use crate::KZGVariant;
+use crate::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::{best_k, KZG};
@@ -10,7 +10,7 @@ use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
-use log::debug;
+use log::info;
 use serde_json::json;
 use shape_generator::generate_circuit_info;
 use std::path::PathBuf;
@@ -18,8 +18,6 @@ use std::{env::current_dir, rc::Rc};
 use vm_circuit::public_inputs::PublicInputs;
 use vm_circuit::{CircuitGuard, VmCircuit};
 use witness::static_info::Footprints;
-
-mod utils;
 
 /// the consts correspond to the definition of on-chain verifier.
 pub const VERIFIER_API: &str = "verifier_api";
@@ -55,7 +53,7 @@ enum AptosSubcommands {
 struct BuildPublishCircuitAptosTxn {
     #[arg(long, help = "param file used for prove/verify in kzg")]
     param_path: PathBuf,
-    #[arg(long = "package_dir", short = 'p', value_parser = value_parser!(PathBuf))]
+    #[arg(long = "package-dir", short = 'p', value_parser = value_parser!(PathBuf))]
     package_dir: PathBuf,
     #[arg(
         long = "circuit-name",
@@ -96,7 +94,7 @@ impl BuildPublishCircuitAptosTxn {
             circuit_name,
         )?;
 
-        debug!("Loading witness from {:?}", self.witness.display());
+        info!("Loading witness from {:?}", self.witness.display());
         let traces = Footprints::load(&self.witness)
             .with_context(|| format!("Failed to load witness from {:?}", self.witness))?;
         let circuit = Rc::new(VmCircuit::<Fr>::new(
@@ -108,14 +106,14 @@ impl BuildPublishCircuitAptosTxn {
         let _circuit_guard = CircuitGuard::new(circuit.clone());
 
         let k = best_k(&circuit);
-        debug!("k = {}", k);
+        info!("k = {}", k);
         let mut params = params.clone();
         if k < params.k() {
             params.downsize(k);
         }
 
         self.build_txn(zkmove_address, circuit, &params)?;
-        debug!("Build transaction successfully.");
+        info!("Build transaction successfully.");
 
         Ok(())
     }
@@ -260,7 +258,7 @@ impl BuildVerifyProofTxn {
             &format!("{}-verify-proof.txn", file_stem),
             &output,
         )?;
-        debug!("Build transaction successfully.");
+        info!("Build transaction successfully.");
         Ok(())
     }
 }

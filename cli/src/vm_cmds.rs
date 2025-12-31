@@ -1,5 +1,7 @@
-use crate::get_entry_info_from_move_toml;
-use crate::{get_circuit_config_args_from_move_toml, load_package, save_to_file, KZGVariant};
+use crate::{
+    get_circuit_config_args_from_move_toml, get_entry_info_from_move_toml, load_package,
+    save_to_file, ArgWithNameAndTypeJSON, HexEncodedBytes, KZGVariant,
+};
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::{best_k, prove_circuit, setup_circuit, verify_circuit, KZG};
@@ -10,6 +12,7 @@ use halo2_proofs::{
     SerdeFormat,
 };
 use log::debug;
+use serde_json::json;
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
@@ -57,13 +60,6 @@ pub struct VmCommands {
     #[arg(short = 'd', long = "debug", help = "Use mock prover for debugging")]
     debug: bool,
 
-    #[arg(
-        short = 'o',
-        long = "output-dir",
-        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
-    )]
-    output_dir: Option<PathBuf>,
-
     #[command(subcommand)]
     command: Subcommands,
 }
@@ -87,6 +83,20 @@ pub struct ProveCommand {
         required = true
     )]
     witness: PathBuf,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
+    )]
+    output_dir: Option<PathBuf>,
+
+    #[arg(
+        long = "json",
+        help = "Whether the witness file is in JSON format (default: binary format)",
+        default_value_t = false
+    )]
+    json: bool,
 }
 
 #[derive(Parser)]
@@ -120,7 +130,8 @@ impl VmCommands {
                 &self.pubs_indices,
                 self.variant,
                 self.debug,
-                self.output_dir.as_deref(),
+                prove.output_dir.as_deref(),
+                prove.json,
             ),
 
             Subcommands::Verify(verify) => verify.run(
@@ -149,6 +160,7 @@ impl ProveCommand {
         variant: KZGVariant,
         _debug: bool,
         output_dir_override: Option<&Path>,
+        json: bool,
     ) -> Result<()> {
         debug!("Loading witness from: {}", witness_path.display());
         let traces = Footprints::load(witness_path)
@@ -185,6 +197,7 @@ impl ProveCommand {
             package_path,
             output_dir_override,
             variant,
+            json,
         )
     }
 
@@ -196,6 +209,7 @@ impl ProveCommand {
         package_path: &Path,
         output_dir_override: Option<&Path>,
         variant: KZGVariant,
+        json: bool,
     ) -> Result<()> {
         let (vk, pk) = setup_circuit(&*circuit, params).expect("setup should not fail");
 
@@ -230,6 +244,36 @@ impl ProveCommand {
             &format!("{}.vk", file_stem),
             &vk.to_bytes(SerdeFormat::Processed),
         )?;
+
+        if json {
+            let content = vec![
+                ArgWithNameAndTypeJSON {
+                    name: "public_inputs".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(public_inputs
+                        .as_vec()
+                        .into_iter()
+                        .map(|is| is
+                            .iter()
+                            .map(|fr| fr.to_bytes().to_vec())
+                            .map(|d| HexEncodedBytes(d).to_string())
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "proof".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(proof).to_string()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "vk".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(vk.to_bytes(SerdeFormat::Processed)).to_string()),
+                },
+            ];
+            let output = serde_json::to_string_pretty(&content)?;
+            save_to_file(&output_dir, &format!("{}.json", file_stem), &output)?;
+        }
 
         debug!("Proof artifacts saved to: {}", output_dir.display());
         Ok(())

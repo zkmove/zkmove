@@ -31,10 +31,12 @@ impl PoseidonCommand {
             Fr::from(DOMAIN_SPEC),
         );
         let hash_val = U256::from_le_bytes(&hash_result.to_repr().as_ref().try_into()?);
-        info!(
-            "Poseidon hash of value {} with nonce {}: 0x{:x}",
-            self.value, nonce, hash_val
-        );
+
+        info!("Value: {}", self.value);
+        info!("Nonce: {}", nonce);
+        info!("Poseidon hash (U256):{}", hash_val);
+        info!("Poseidon hash (hex): 0x{:x}", hash_val);
+
         Ok(())
     }
 }
