@@ -1,6 +1,7 @@
-use crate::aptos_utils::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
+use crate::aptos_cmds::utils::{ArgWithTypeJSON, EntryFunctionArgumentsJSON, HexEncodedBytes};
+use crate::KZGVariant;
 use anyhow::{Context, Result};
-use clap::{value_parser, Parser, Subcommand, ValueEnum};
+use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::{best_k, KZG};
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr},
@@ -26,6 +27,8 @@ use vm_circuit::public_inputs::PublicInputs;
 use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 use witness::static_info::Footprints;
 
+mod utils;
+
 /// the consts correspond to the definition of vk_registry.move
 pub const VK_REGISTRY_MODULE: &str = "vk_registry";
 pub const VK_REGISTRY_FUNC: &str = "register_module"; //todo: change to register_vk
@@ -42,6 +45,8 @@ pub const VERIFY: &str = "verify_proof";
 #[derive(Parser)]
 #[command(about = "Generate aptos txns for verify proof on aptos")]
 pub struct AptosCommands {
+    #[arg(long, help = "param file used for prove/verify in kzg")]
+    param_path: PathBuf,
     #[arg(long = "zkmove-address")]
     zkmove_address: String,
     #[arg(long = "package_dir", short = 'p', value_parser = value_parser!(PathBuf))]
@@ -52,21 +57,23 @@ pub struct AptosCommands {
     command: AptosSubcommands,
 }
 impl AptosCommands {
-    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
+    pub fn run(&self) -> Result<()> {
+        let mut param_file = std::fs::File::open(self.param_path.as_path())?;
+        let params = ParamsKZG::<Bn256>::read(&mut param_file)?;
         let package = self.load_package(&self.package_dir)?;
         let circuit_config_args =
             Self::get_circuit_config_args_from_move_toml(&self.package_dir.join("Move.toml"));
 
         match &self.command {
             AptosSubcommands::BuildPublishCircuitAptosTxn(cmd) => {
-                cmd.run(&package, circuit_config_args, &self.zkmove_address, params)
+                cmd.run(&package, circuit_config_args, &self.zkmove_address, &params)
             }
             AptosSubcommands::BuildVerifyProofAptosTxn(cmd) => cmd.run(&self.zkmove_address),
             AptosSubcommands::BuildRegisterVkAptosTxn(cmd) => {
-                cmd.run(&package, &self.zkmove_address, params)
+                cmd.run(&package, &self.zkmove_address, &params)
             }
             AptosSubcommands::BuildSubmitAttestationAptosTxn(cmd) => {
-                cmd.run(&package, &self.zkmove_address, params)
+                cmd.run(&package, &self.zkmove_address, &params)
             }
         }
     }
@@ -245,12 +252,6 @@ impl BuildPublishCircuitAptosTxn {
 
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum KZGVariant {
-    GWC,
-    SHPLONK,
 }
 
 #[derive(Parser)]

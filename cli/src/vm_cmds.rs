@@ -1,4 +1,4 @@
-use crate::aptos_cmds::KZGVariant;
+use crate::KZGVariant;
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::{best_k, prove_circuit, setup_circuit, verify_circuit, KZG};
@@ -30,24 +30,53 @@ use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 use witness::static_info::{EntryInfo, Footprints, ModuleIdMapping};
 
 #[derive(Parser)]
-#[command(about = "Command for proving and verification.")]
+#[command(about = "Command for proving and verification in the client side.")]
 pub struct VmCommands {
+    #[arg(long, help = "Param file used for prove/verify in kzg")]
+    param_path: PathBuf,
+
+    #[arg(
+        long = "package-path",
+        value_parser = value_parser!(PathBuf),
+        help = "Path to the Move package root (contains Move.toml)"
+    )]
+    package_path: PathBuf,
+
+    #[arg(
+        long = "pubs-indices",
+        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
+        value_parser = clap::value_parser!(usize),
+        num_args = 0..,
+    )]
+    pubs_indices: Vec<usize>,
+
+    #[arg(
+        long = "kzg",
+        value_enum,
+        default_value_t = KZGVariant::GWC,
+        help = "KZG commitment scheme variant"
+    )]
+    variant: KZGVariant,
+
+    #[arg(short = 'd', long = "debug", help = "Use mock prover for debugging")]
+    debug: bool,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
+    )]
+    output_dir: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Subcommands,
-}
-impl VmCommands {
-    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
-        match &self.command {
-            Subcommands::Prove(prove_command) => prove_command.run(params),
-            Subcommands::Verify(verify_command) => verify_command.run(params),
-        }
-    }
 }
 
 #[derive(Subcommand)]
 enum Subcommands {
     #[command(about = "Generate proof based on witness")]
     Prove(ProveCommand),
+
     #[command(about = "Verify proof")]
     Verify(VerifyCommand),
 }
@@ -55,60 +84,109 @@ enum Subcommands {
 #[derive(Parser)]
 #[command(about = "Generate proof based on witness")]
 pub struct ProveCommand {
-    #[arg(long = "package-path", value_parser = value_parser!(PathBuf))]
-    package_path: PathBuf,
     #[arg(
         short = 'w',
         long = "witness",
-        help = "path to .json file containing witness"
+        help = "Path to .json file containing witness",
+        required = true
     )]
     witness: PathBuf,
+}
+
+#[derive(Parser)]
+#[command(about = "Verify the proof")]
+pub struct VerifyCommand {
     #[arg(
-        long = "pubs-indices",
-        help = "Indices of arguments to be treated as public inputs (e.g., --pubs-indices 0 1)",
-        value_parser = clap::value_parser!(usize),
-        num_args = 0..,
+        short = 'k',
+        help = "Degree of the KZG params (k), reported when proving",
+        required = true
     )]
-    pubs_indices: Vec<usize>,
-    #[arg(long = "kzg", value_enum, default_value_t = KZGVariant::GWC)]
-    variant: KZGVariant,
-    #[arg(short = 'o', long = "output-dir", help = "directory to save the proof")]
-    output_dir: Option<PathBuf>,
-    #[arg(short = 'd', long = "debug", help = "debug with mock prover")]
-    debug: bool,
+    k: u32,
+
+    #[arg(long = "pubs-path", value_parser = value_parser!(PathBuf), required = true)]
+    pubs_path: PathBuf,
+
+    #[arg(long = "proof-path", short = 'p', value_parser = value_parser!(PathBuf), required = true)]
+    proof_path: PathBuf,
+}
+
+impl VmCommands {
+    pub fn run(&self) -> Result<()> {
+        let mut params_file = std::fs::File::open(&self.param_path)?;
+        let mut params = ParamsKZG::<Bn256>::read(&mut params_file)?;
+
+        match &self.command {
+            Subcommands::Prove(prove) => prove.run(
+                &mut params,
+                &self.package_path,
+                &prove.witness,
+                &self.pubs_indices,
+                self.variant,
+                self.debug,
+                self.output_dir.as_deref(),
+            ),
+
+            Subcommands::Verify(verify) => verify.run(
+                &mut params,
+                &self.package_path,
+                verify.k,
+                &self.pubs_indices,
+                self.variant,
+                self.debug,
+                &verify.proof_path,
+                &verify.pubs_path,
+            ),
+        }
+    }
 }
 
 impl ProveCommand {
-    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
-        debug!("Loading witness from {:?}", self.witness.display());
-        let traces = Footprints::load(&self.witness)
-            .with_context(|| format!("Failed to load witness from {:?}", self.witness))?;
+    fn run(
+        &self,
+        params: &mut ParamsKZG<Bn256>,
+        package_path: &Path,
+        witness_path: &Path,
+        pubs_indices: &[usize],
+        variant: KZGVariant,
+        _debug: bool,
+        output_dir_override: Option<&Path>,
+    ) -> Result<()> {
+        debug!("Loading witness from: {}", witness_path.display());
+        let traces = Footprints::load(witness_path)
+            .with_context(|| format!("Failed to load witness from {}", witness_path.display()))?;
 
-        let manifest_path = self.package_path.join("Move.toml");
-        let package = load_package(&self.package_path)?;
+        let manifest_path = package_path.join("Move.toml");
+        let package = load_package(package_path)?;
 
-        let circuit_config_args = get_circuit_config_args_from_move_toml(&manifest_path)
-            .with_context(|| format!("Failed to get circuit config from {:?}", manifest_path))?;
+        let config_args = get_circuit_config_args_from_move_toml(&manifest_path)?;
+
         let circuit = Rc::new(VmCircuit::<Fr>::new(
             &package,
             &traces,
-            &self.pubs_indices,
-            circuit_config_args,
+            pubs_indices,
+            config_args,
         ));
         let _circuit_guard = CircuitGuard::new(circuit.clone());
 
         let k = best_k(&circuit);
         debug!("Optimal k = {}", k);
 
-        let mut params = params.clone();
+        // let mut params = params.clone();
         if k < params.k() {
             params.downsize(k);
         }
 
-        let args = traces.args().expect("Args not found");
-        let public_inputs = PublicInputs::new(&args, &self.pubs_indices);
-        self.generate_and_save_proof(circuit, &public_inputs, &params, &self.package_path)?;
-        Ok(())
+        let args = traces.args().context("Arguments not found in witness")?;
+        let public_inputs = PublicInputs::new(&args, pubs_indices);
+
+        self.generate_and_save_proof(
+            circuit,
+            &public_inputs,
+            params,
+            package_path,
+            output_dir_override,
+            variant,
+        )
     }
 
     fn generate_and_save_proof(
@@ -116,32 +194,31 @@ impl ProveCommand {
         circuit: Rc<VmCircuit<Fr>>,
         public_inputs: &PublicInputs<Fr>,
         params: &ParamsKZG<Bn256>,
-        rooted_path: &Path,
+        package_path: &Path,
+        output_dir_override: Option<&Path>,
+        variant: KZGVariant,
     ) -> Result<()> {
-        debug!("Get proving and verifying keys");
         let (vk, pk) = setup_circuit(&*circuit, params).expect("setup should not fail");
 
-        let kzg = match self.variant {
+        let kzg_scheme = match variant {
             KZGVariant::GWC => KZG::GWC,
             KZGVariant::SHPLONK => KZG::SHPLONK,
         };
 
-        debug!("Generating zk proof");
-        let proof = prove_circuit((*circuit).clone(), public_inputs, params, &pk, kzg)
+        let proof = prove_circuit((*circuit).clone(), public_inputs, params, &pk, kzg_scheme)
             .expect("proof generation should not fail");
 
-        let output_dir = self
-            .output_dir
-            .clone()
-            .unwrap_or_else(|| rooted_path.join("proofs"));
-        std::fs::create_dir_all(&output_dir)
-            .with_context(|| format!("Failed to create output directory at {:?}", output_dir))?;
+        let output_dir = output_dir_override
+            .map(PathBuf::from)
+            .unwrap_or_else(|| package_path.join("proofs"));
+
+        std::fs::create_dir_all(&output_dir)?;
 
         let file_stem = self
             .witness
             .file_stem()
             .and_then(|s| s.to_str())
-            .ok_or_else(|| anyhow::anyhow!("Invalid witness file name"))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))?;
 
         save_to_file(&output_dir, &format!("{}.proof", file_stem), &proof)?;
         save_to_file(
@@ -155,72 +232,57 @@ impl ProveCommand {
             &vk.to_bytes(SerdeFormat::Processed),
         )?;
 
+        debug!("Proof artifacts saved to: {}", output_dir.display());
         Ok(())
     }
 }
 
-#[derive(Parser)]
-#[command(about = "Verify the proof")]
-pub struct VerifyCommand {
-    #[arg(short = 'k', help = "k for kzg params")]
-    k: u32,
-    #[arg(long = "package-path", value_parser = value_parser!(PathBuf))]
-    package_path: PathBuf,
-    #[arg(
-        long = "pubs-indices",
-        help = "Indices of arguments to be treated as public inputs (e.g., --pubs-indices 0 1)",
-        value_parser = clap::value_parser!(usize),
-        num_args = 0..,
-    )]
-    pubs_indices: Vec<usize>,
-    #[arg(long = "pubs-path", value_parser = value_parser!(PathBuf))]
-    pubs_path: PathBuf,
-    #[arg(long = "proof-path", short = 'p', value_parser = value_parser!(PathBuf))]
-    proof_path: PathBuf,
-    #[arg(long = "kzg", value_enum, default_value_t = KZGVariant::GWC)]
-    variant: KZGVariant,
-    #[arg(long = "output-dir", short = 'o', value_parser = value_parser!(PathBuf))]
-    output_dir: Option<PathBuf>,
-    #[arg(short = 'd', long = "debug", help = "debug with mock prover")]
-    debug: bool,
-}
-
 impl VerifyCommand {
-    pub fn run(&self, params: &ParamsKZG<Bn256>) -> Result<()> {
-        let mut params = params.clone();
-        if self.k < params.k() {
-            params.downsize(self.k);
+    fn run(
+        &self,
+        params: &mut ParamsKZG<Bn256>,
+        package_path: &Path,
+        k: u32,
+        pubs_indices: &[usize],
+        variant: KZGVariant,
+        _debug: bool,
+        proof_path: &Path,
+        pubs_path: &Path,
+    ) -> Result<()> {
+        if k < params.k() {
+            params.downsize(k);
         }
-        let manifest_path = self.package_path.join("Move.toml");
-        let circuit_config_args = get_circuit_config_args_from_move_toml(&manifest_path)
-            .with_context(|| format!("Failed to get circuit config from {:?}", manifest_path))?;
-        let entry_info = get_entry_info_from_move_toml(&manifest_path)
-            .with_context(|| format!("Failed to get entry info from {:?}", self.package_path))?;
-        let package = load_package(&self.package_path)?;
+
+        let manifest_path = package_path.join("Move.toml");
+        let config_args = get_circuit_config_args_from_move_toml(&manifest_path)?;
+        let entry_info = get_entry_info_from_move_toml(&manifest_path)?;
+
+        let package = load_package(package_path)?;
+
         let circuit = Rc::new(VmCircuit::<Fr>::new_with_empty_state(
             &package,
             entry_info,
-            &self.pubs_indices,
-            circuit_config_args,
+            pubs_indices,
+            config_args,
         ));
+
         let _circuit_guard = CircuitGuard::new(circuit.clone());
         // must be called after CircuitGuard, because vk depends on the circuit config
         let vk =
-            keygen_vk::<_, _, VmCircuit<Fr>>(&params, &circuit).expect("keygen_vk should not fail");
-        let proof = std::fs::read(&self.proof_path)
-            .with_context(|| format!("Failed to read proof from {:?}", self.proof_path))?;
-        let pubs = std::fs::read(&self.pubs_path)
-            .with_context(|| format!("Failed to read pubs from {:?}", self.pubs_path))?;
-        let public_inputs = PublicInputs::from_bytes(&pubs);
+            keygen_vk::<_, _, VmCircuit<Fr>>(params, &circuit).expect("keygen_vk should not fail");
 
-        let kzg = match self.variant {
+        let proof = std::fs::read(proof_path)?;
+        let pubs_bytes = std::fs::read(pubs_path)?;
+        let public_inputs = PublicInputs::from_bytes(&pubs_bytes);
+
+        let kzg_scheme = match variant {
             KZGVariant::GWC => KZG::GWC,
             KZGVariant::SHPLONK => KZG::SHPLONK,
         };
-        verify_circuit(&public_inputs, &params, &vk, &proof, kzg)
+        verify_circuit(&public_inputs, &params, &vk, &proof, kzg_scheme)
             .expect("verify proof should be ok");
 
-        debug!("Proof verified.");
+        debug!("Proof verified successfully");
         Ok(())
     }
 }
@@ -258,11 +320,8 @@ fn get_circuit_config_args_from_move_toml(toml_path: &Path) -> Result<CircuitCon
 }
 
 fn get_entry_info_from_move_toml(toml_path: &Path) -> Result<EntryInfo> {
-    let toml_content = std::fs::read_to_string(toml_path)
-        .with_context(|| format!("Failed to read Move.toml from {:?}", toml_path))?;
-    let parsed_toml: Value = toml_content
-        .parse::<Value>()
-        .context("Failed to parse Move.toml")?;
+    let toml_content = std::fs::read_to_string(toml_path)?;
+    let parsed_toml: Value = toml_content.parse()?;
 
     let circuit = parsed_toml
         .get("circuit")
@@ -275,17 +334,18 @@ fn get_entry_info_from_move_toml(toml_path: &Path) -> Result<EntryInfo> {
     let module_id_str = entry
         .get("module_id")
         .and_then(|v| v.as_str())
-        .context("module_id is missing or invalid in entry")?;
+        .context("module_id is missing or invalid")?;
     let function_name = entry
         .get("function_name")
         .and_then(|v| v.as_str())
-        .context("function_name is missing or invalid in entry")?;
+        .context("function_name is missing or invalid")?;
 
     let module_id = parse_module_id(module_id_str)?;
 
     let package_root = find_package_root(toml_path)?;
     let package = load_package(&package_root)?;
     let module_id_mapping = ModuleIdMapping::construct(&module_id, &package);
+
     Ok(EntryInfo::new(
         &package,
         &module_id,
@@ -302,17 +362,14 @@ fn parse_module_id(module_id_str: &str) -> Result<ModuleId> {
             module_id_str
         ));
     }
-    let address_str = parts[0];
-    let name_str = parts[1];
-    let address = AccountAddress::from_str(address_str)?;
-    let name = Identifier::new(name_str)?;
+    let address = AccountAddress::from_str(parts[0])?;
+    let name = Identifier::new(parts[1])?;
     Ok(ModuleId::new(address, name.into()))
 }
 
 fn load_package(rooted_path: &Path) -> Result<CompiledPackage> {
     let manifest_path = rooted_path.join(SourcePackageLayout::Manifest.path());
-    let manifest_string = std::fs::read_to_string(&manifest_path)
-        .with_context(|| format!("Failed to read manifest at {:?}", manifest_path))?;
+    let manifest_string = std::fs::read_to_string(&manifest_path)?;
     let toml_manifest =
         move_package::source_package::manifest_parser::parse_move_manifest_string(manifest_string)?;
     let manifest =
@@ -322,15 +379,14 @@ fn load_package(rooted_path: &Path) -> Result<CompiledPackage> {
     let build_path = rooted_path
         .join(CompiledPackageLayout::Root.path())
         .join(&package_name);
-    let package = OnDiskCompiledPackage::from_path(build_path.as_path())
-        .with_context(|| format!("Failed to load package at {:?}", build_path))?;
+
+    let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
     Ok(package.into_compiled_package()?)
 }
 
 fn save_to_file<P: AsRef<Path>, D: AsRef<[u8]>>(dir: P, file_name: &str, data: D) -> Result<()> {
     let file_path = dir.as_ref().join(file_name);
-    std::fs::write(&file_path, data)
-        .with_context(|| format!("Failed to save file to {:?}", file_path))?;
+    std::fs::write(&file_path, data)?;
     debug!("File saved to {:?}", file_path.display());
     Ok(())
 }

@@ -3,10 +3,9 @@ name = "example"
 version = "0.0.1"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
+AptosFramework = { git = "https://github.com/zkmove/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
 
 [addresses]
-std = "0x1"
 
 [circuit]
 max_execution_rows = 278

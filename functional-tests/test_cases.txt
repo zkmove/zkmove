@@ -12,4 +12,4 @@ test_call
 test_struct
 test_wallet
 test_fibonacci --args 10u64
-test_fake_hash
+test_hash
