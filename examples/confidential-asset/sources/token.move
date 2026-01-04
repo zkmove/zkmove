@@ -2,7 +2,9 @@
 module confidential_asset::token {
     use std::signer;
     use std::vector;
-    use std::zkhash;
+    use aptos_std::bn254_algebra::Fr;
+    use verifier_api::verifier_api;
+    use halo2_verifier::public_inputs;
 
     struct Token has store, key, drop {
         encrypted_value: u256
@@ -29,6 +31,10 @@ module confidential_asset::token {
     const EINDEX_OUT_OF_BOUNDS:  u64 = 8;
     const EINVALID_PROOF: u64 = 9;
 
+    /// kzg variant
+    const KZG_GWC:     u8 = 1;
+    const KZG_SHPLONK: u8 = 0;
+
     /// Module initializer
     fun init_module(deployer: &signer) {
         move_to(deployer, MintCap {});
@@ -44,14 +50,16 @@ module confidential_asset::token {
 
     /// Mint token and send it to receiver
     /// proof: the proof to prove encrypt(amount, encrypted_amount) is valid
-    public entry fun mint(admin: &signer, to: address, amount: u128, encrypted_amount: u256, proof: vector<u8>) acquires Store {
+    public entry fun mint(admin: &signer, to: address, amount: u128, encrypted_amount: u256, proof: vector<u8>) {
         assert!(amount > 0, EZERO_AMOUNT);
         assert!(exists<MintCap>(signer::address_of(admin)), ENO_MINT_CAPABILITY);
         assert!(exists<Store>(to), ENO_STORE);
 
         // verify "hash(amount) == encrypted_amount"
-        let pi = PublicInputs::new(amount, encrypted_amount);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_encrypt_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        let pi = public_inputs::empty<Fr>();
+        public_inputs::push_u128(&mut pi, amount);
+        public_inputs::push_u256(&mut pi, encrypted_amount);
+        assert!(verifier_api::verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
         let token = Token { encrypted_value: encrypted_amount };
         send_token(token, to);
@@ -59,8 +67,7 @@ module confidential_asset::token {
 
     /// Transfer: transfer Token from own Store to another's Store
     public entry fun transfer(from: &signer, to: address, encrypted_amount: u256, encrypted_remaining: u256, proof: vector<u8>) acquires Store, Inbox {
-        let encrypted_balance = balance_of(signer::address_of(from));
-        let token = withdraw(from, encrypted_amount, proof);
+        let token = withdraw(from, encrypted_amount, encrypted_remaining, proof);
         send_token(token, to);
     }
 
@@ -72,8 +79,11 @@ module confidential_asset::token {
         let encrypted_balance = store.token.encrypted_value;
 
         // verify "balance - amount == remaining"
-        let pi = PublicInputs::new(encrypted_remaining, encrypted_amount, encrypted_balance);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_check_sum_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        let pi = public_inputs::empty<Fr>();
+        public_inputs::push_u256(&mut pi, encrypted_remaining);
+        public_inputs::push_u256(&mut pi, encrypted_amount);
+        public_inputs::push_u256(&mut pi, encrypted_balance);
+        assert!(verifier_api::verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
         store.token.encrypted_value = encrypted_remaining;
         Token { encrypted_value: encrypted_amount }
@@ -103,10 +113,13 @@ module confidential_asset::token {
         let encrypted_balance = store.token.encrypted_value;
 
         // verify "balance + amount == new_balance"
-        let pi = PublicInputs::new(encrypted_balance, encrypted_amount, encrypted_new_balance);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_check_sum_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        let pi = public_inputs::empty<Fr>();
+        public_inputs::push_u256(&mut pi, encrypted_balance);
+        public_inputs::push_u256(&mut pi, encrypted_amount);
+        public_inputs::push_u256(&mut pi, encrypted_new_balance);
+        assert!(verifier_api::verify(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
-        let Token { value: _ } = token;
+        let Token { encrypted_value: _ } = token;
     }
 
     /// Burn token in own Store
@@ -118,8 +131,10 @@ module confidential_asset::token {
         let encrypted_balance = store.token.encrypted_value;
 
         // verify "hash(balance) == encrypted_balance"
-        let pi = PublicInputs::new(balance, encrypted_balance);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_encrypt_address, pi, proof, kzg_variant) == true, EINVALID_PROOF);
+        let pi = public_inputs::empty<Fr>();
+        public_inputs::push_u128(&mut pi, balance);
+        public_inputs::push_u256(&mut pi, encrypted_balance);
+        assert!(verifier_api::verify(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
 
         store.token.encrypted_value = 0;
     }
@@ -141,7 +156,7 @@ module confidential_asset::token {
         }
     }
 
-    public fun token_value(t: &Token): u64 {
+    public fun token_value(t: &Token): u256 {
         t.encrypted_value
     }
 }
