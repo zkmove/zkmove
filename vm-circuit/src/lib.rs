@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 #![feature(associated_type_defaults)]
-#![feature(slice_as_chunks)]
 #![allow(non_camel_case_types)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::wrong_self_convention)]

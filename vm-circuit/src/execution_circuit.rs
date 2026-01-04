@@ -3,7 +3,7 @@
 use crate::execution_circuit::executions::{ExecutionConfig, InstructionGadgetV2};
 use crate::lookup_table::LookupTableConfigV2;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
-use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig, VmCircuit, VmCircuitConfig};
+use crate::{CircuitConfigArgs, SubCircuit, SubCircuitConfig};
 use circuit_tool::challenges::Challenges;
 use field_exts::Field;
 use halo2_proofs::{
