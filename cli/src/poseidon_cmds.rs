@@ -34,7 +34,7 @@ impl PoseidonCommand {
 
         info!("Value: {}", self.value);
         info!("Nonce: {}", nonce);
-        info!("Poseidon hash (U256):{}", hash_val);
+        info!("Poseidon hash (U256): {}", hash_val);
         info!("Poseidon hash (hex): 0x{:x}", hash_val);
 
         Ok(())

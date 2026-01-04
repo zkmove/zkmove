@@ -4,7 +4,7 @@ module 0x1::zkhash_example {
     public entry fun hash() {
         let arg1 = 123u128;
         let arg2 = 45u128;
-        let expected_output = 0xbee8ed1516c551209fea89c0699dbba6315e0af2eadf48004456c21afe1c726;
+        let expected_output = 5396936627018144388256392133700981730161373533767880136248396757995540825894u256;
         let result = zkhash::hash(arg1, arg2);
         assert!(result == expected_output, 0);
     }

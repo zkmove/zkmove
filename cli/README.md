@@ -29,5 +29,5 @@ cargo run --release -- aptos --zkmove-address 0xa9f85ec000d6b7e78aa006f0fe0fcb3f
 ```
 Verify the proof on Aptos, use the following command to create the transaction:
 ```shell
-cargo run --release -- aptos --zkmove-address 0xa9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1 build-verify-proof-aptos-txn --pubs-path example/proofs/test_fibonacci-1754384516414.instance --proof-path example/proofs/test_fibonacci-1754384516414.proof --param-address a9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1 --circuit-address a9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1
+cargo run --release -- aptos --zkmove-address 0xa9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1 build-verify-proof-aptos-txn --pubs-path example/proofs/test_fibonacci-1754384516414.instance --proof-path example/proofs/test_fibonacci-1754384516414.proof --param-address 0xa9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1 --circuit-address 0xa9f85ec000d6b7e78aa006f0fe0fcb3f8b82b71262283b84f2434441318064e1
 ```
