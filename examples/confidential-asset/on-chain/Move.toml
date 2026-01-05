@@ -19,7 +19,7 @@ confidential_asset = "_"
 
 [dev-addresses]
 halo2_common = "0x123"
-halo2_verifier="0x1234"
+halo2_verifier = "0x1234"
 verifier_api = "0x12345"
 param_address = "0xAB"
 circuit_encrypt_address = "0xABCD"

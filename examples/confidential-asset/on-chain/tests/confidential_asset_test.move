@@ -63,7 +63,7 @@ module confidential_asset::confidential_asset_tests {
             102
         );
 
-        // 5. Alice claims the received 1000 from his inbox
+        // 5. Alice claims the received 1000 from her inbox
 
         // Alice generates `encrypted_new_balance` and nonce_new_balance with zkmove cli:
         // ```zkmove poseidon -v 1000```
@@ -76,7 +76,7 @@ module confidential_asset::confidential_asset_tests {
         // generates proof to the file 'proofs/check_sum-xxx.json'. Here we just use a fake one for testing purpose.
         // ```zkmove vm --param-path ../../../cli/params/kzg_bn254_12.srs --package-path ./  --pubs-indices 3 4 5 --circuit-name check_sum prove --json -w witnesses/check_sum-xxx.json```
         let fake_proof = x"6a7d8c9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f";
-        claim_inbox_by_index(alice, 0, encrypted_amount, encrypted_new_balance, fake_proof);
+        claim_inbox_by_index(alice, 0, encrypted_new_balance, fake_proof);
         assert!(
             balance_of(alice_addr) == 13312467577338805256889354231553357084490260084109580443322478622540196278209u256,
             103
@@ -125,7 +125,7 @@ module confidential_asset::confidential_asset_tests {
         // ```zkmove vm --param-path ../../../cli/params/kzg_bn254_12.srs --package-path ./  --pubs-indices 3 4 5 --circuit-name check_sum prove --json -w witnesses/check_sum-xxx.json```
 
         let fake_proof = x"6a7d8c9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f";
-        claim_inbox_by_index(bob, 0, encrypted_amount, encrypted_new_balance, fake_proof);
+        claim_inbox_by_index(bob, 0, encrypted_new_balance, fake_proof);
 
         assert!(
             balance_of(bob_addr) == 121944004510302977207011161638527050052511373187793169577099029388311470887u256,

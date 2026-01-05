@@ -100,7 +100,7 @@ module confidential_asset::token {
 
     /// Send a standalone Token to anyone
     fun send_token(token: Token, recipient: address) acquires Inbox {
-        assert!(exists<Inbox>(recipient), ENO_STORE);
+        assert!(exists<Inbox>(recipient), ENO_INBOX);
         let inbox = borrow_global_mut<Inbox>(recipient);
         vector::push_back(&mut inbox.items, token);
     }
@@ -108,9 +108,9 @@ module confidential_asset::token {
     /// Claim inbox item by index
     /// proof: the proof to prove check_sum(balance, amount, new_balance, encrypted_balance, encrypted_amount, encrypted_new_balance, nonce_balance, nonce_amount, nonce_new_balance) is valid
     /// Note: amount and nonce_amount are received off-chain when the token is sent by the sender
-    public entry fun claim_inbox_by_index(account: &signer, index: u64, encrypted_amount: u256, encrypted_new_balance: u256, proof: vector<u8>) acquires Store, Inbox {
+    public entry fun claim_inbox_by_index(account: &signer, index: u64, encrypted_new_balance: u256, proof: vector<u8>) acquires Store, Inbox {
         let addr = signer::address_of(account);
-        assert!(exists<Inbox>(addr), ENO_STORE);
+        assert!(exists<Inbox>(addr), ENO_INBOX);
         assert!(exists<Store>(addr), ENO_STORE);
 
         let inbox = borrow_global_mut<Inbox>(addr);
@@ -118,6 +118,7 @@ module confidential_asset::token {
         assert!(index < len, EINDEX_OUT_OF_BOUNDS);
 
         let token = vector::remove(&mut inbox.items, index);
+        let encrypted_amount = token.encrypted_value;
 
         let store = borrow_global_mut<Store>(addr);
         let encrypted_balance = store.token.encrypted_value;
