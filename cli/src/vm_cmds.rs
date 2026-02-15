@@ -11,6 +11,7 @@ use halo2_proofs::{
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
     SerdeFormat,
 };
+use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::debug;
 use serde_json::json;
 use std::{
@@ -24,8 +25,8 @@ use witness::static_info::Footprints;
 #[derive(Parser)]
 #[command(about = "Command for proving and verification in the client side.")]
 pub struct VmCommands {
-    #[arg(long, help = "Param file used for prove/verify in kzg")]
-    param_path: PathBuf,
+    #[arg(long, help = "Params file used for prove/verify in kzg")]
+    params_path: PathBuf,
 
     #[arg(
         long = "package-path",
@@ -71,6 +72,9 @@ enum Subcommands {
 
     #[command(about = "Verify proof")]
     Verify(VerifyCommand),
+
+    #[command(about = "Test the on-chain verifier on provided witness files")]
+    Test(TestCommand),
 }
 
 #[derive(Parser)]
@@ -116,9 +120,35 @@ pub struct VerifyCommand {
     proof_path: PathBuf,
 }
 
+#[derive(Parser)]
+#[command(about = "Test the on-chain verifier on provided witness files")]
+pub struct TestCommand {
+    #[arg(
+        short = 'w',
+        long = "witness",
+        help = "Path to .json file containing witness",
+        required = true
+    )]
+    witness: PathBuf,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
+    )]
+    output_dir: Option<PathBuf>,
+
+    #[arg(
+        long = "json",
+        help = "Whether the witness file is in JSON format (default: binary format)",
+        default_value_t = false
+    )]
+    json: bool,
+}
+
 impl VmCommands {
     pub fn run(&self) -> Result<()> {
-        let mut params_file = std::fs::File::open(&self.param_path)?;
+        let mut params_file = std::fs::File::open(&self.params_path)?;
         let mut params = ParamsKZG::<Bn256>::read(&mut params_file)?;
 
         match &self.command {
@@ -144,6 +174,17 @@ impl VmCommands {
                 self.debug,
                 &verify.proof_path,
                 &verify.pubs_path,
+            ),
+            Subcommands::Test(test) => test.run(
+                &mut params,
+                &self.package_path,
+                self.circuit_name.as_deref(),
+                &test.witness,
+                &self.pubs_indices,
+                self.variant,
+                self.debug,
+                test.output_dir.as_deref(),
+                test.json,
             ),
         }
     }
@@ -327,6 +368,109 @@ impl VerifyCommand {
             .expect("verify proof should be ok");
 
         debug!("Proof verified successfully");
+        Ok(())
+    }
+}
+
+impl TestCommand {
+    fn run(
+        &self,
+        params: &mut ParamsKZG<Bn256>,
+        package_path: &Path,
+        circuit_name: Option<&str>,
+        witness_path: &Path,
+        pubs_indices: &[usize],
+        variant: KZGVariant,
+        _debug: bool,
+        output_dir_override: Option<&Path>,
+        _json: bool,
+    ) -> Result<()> {
+        debug!("Loading witness from: {}", witness_path.display());
+        let traces = Footprints::load(witness_path)
+            .with_context(|| format!("Failed to load witness from {}", witness_path.display()))?;
+
+        let manifest_path = package_path.join("Move.toml");
+        let package = load_package(package_path)?;
+
+        let config_args = get_circuit_config_args_from_move_toml(&manifest_path, circuit_name)?;
+
+        let circuit = Rc::new(VmCircuit::<Fr>::new(
+            &package,
+            &traces,
+            pubs_indices,
+            config_args,
+        ));
+        let _circuit_guard = CircuitGuard::new(circuit.clone());
+
+        let k = best_k(&circuit);
+        debug!("Optimal k = {}", k);
+
+        if k < params.k() {
+            params.downsize(k);
+        }
+
+        let args = traces.args().context("Arguments not found in witness")?;
+        let public_inputs = PublicInputs::new(&args, pubs_indices);
+
+        self.test_native_verifier(
+            circuit,
+            &public_inputs,
+            params,
+            package_path,
+            output_dir_override,
+            variant,
+        )
+    }
+
+    fn test_native_verifier(
+        &self,
+        circuit: Rc<VmCircuit<Fr>>,
+        public_inputs: &PublicInputs<Fr>,
+        params: &ParamsKZG<Bn256>,
+        package_path: &Path,
+        output_dir_override: Option<&Path>,
+        variant: KZGVariant,
+    ) -> Result<()> {
+        let (_vk, _pk) = setup_circuit(&*circuit, params).expect("setup should not fail");
+
+        let verifier_kzg_scheme = match variant {
+            KZGVariant::GWC => VerifierKZG::GWC,
+            KZGVariant::SHPLONK => VerifierKZG::SHPLONK,
+        };
+
+        let test_data = test_verifier(
+            circuit.as_ref().clone(),
+            public_inputs.as_vec(),
+            params,
+            verifier_kzg_scheme,
+        )
+        .expect("on-chain verifier test should not fail");
+
+        let output_dir = output_dir_override
+            .map(PathBuf::from)
+            .unwrap_or_else(|| package_path.join("proofs"));
+        std::fs::create_dir_all(&output_dir)?;
+
+        let file_stem = self
+            .witness
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))?;
+
+        let json_content = serde_json::to_string_pretty(&json!({
+            "serialized_params": HexEncodedBytes(test_data.serialized_params).to_string(),
+            "vk_bytes": HexEncodedBytes(test_data.vk_bytes).to_string(),
+            "circuit_info_bytes": HexEncodedBytes(test_data.circuit_info_bytes).to_string(),
+            "proof": HexEncodedBytes(test_data.proof).to_string(),
+            "public_inputs_bytes": HexEncodedBytes(test_data.public_inputs_bytes).to_string(),
+        }))?;
+
+        save_to_file(
+            &output_dir,
+            &format!("{}.verifier.json", file_stem),
+            &json_content,
+        )?;
+
         Ok(())
     }
 }

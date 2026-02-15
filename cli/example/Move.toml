@@ -9,8 +9,8 @@ MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third
 std = "0x1"
 
 [circuit.fibonacci]
-max_execution_rows = 278
-max_poseidon_rows = 100
+max_execution_rows = 278     # max rows of execution subcircuit
+max_poseidon_rows = 100      # max rows of poseidon subcircuit
 entry = { module_id = "0x1::fibonacci", function_name = "test_fibonacci" }
 
 [circuit.zkhash_example]

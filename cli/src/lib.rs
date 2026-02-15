@@ -32,19 +32,6 @@ pub struct ArgWithNameAndTypeJSON {
 }
 
 #[derive(Serialize)]
-pub struct ArgWithTypeJSON {
-    pub r#type: String,
-    pub value: serde_json::Value,
-}
-
-#[derive(Serialize)]
-pub struct EntryFunctionArgumentsJSON {
-    pub function_id: String,
-    pub type_args: Vec<String>,
-    pub args: Vec<ArgWithTypeJSON>,
-}
-
-#[derive(Serialize)]
 pub struct HexEncodedBytes(pub Vec<u8>);
 
 impl ToString for HexEncodedBytes {
