@@ -191,6 +191,7 @@ impl VmCommands {
 }
 
 impl ProveCommand {
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         params: &mut ParamsKZG<Bn256>,
@@ -242,6 +243,7 @@ impl ProveCommand {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_and_save_proof(
         &self,
         circuit: Rc<VmCircuit<Fr>>,
@@ -283,7 +285,7 @@ impl ProveCommand {
         save_to_file(
             &output_dir,
             &format!("{}.vk", file_stem),
-            &vk.to_bytes(SerdeFormat::Processed),
+            vk.to_bytes(SerdeFormat::Processed),
         )?;
 
         if json {
@@ -322,6 +324,7 @@ impl ProveCommand {
 }
 
 impl VerifyCommand {
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         params: &mut ParamsKZG<Bn256>,
@@ -364,7 +367,7 @@ impl VerifyCommand {
             KZGVariant::GWC => KZG::GWC,
             KZGVariant::SHPLONK => KZG::SHPLONK,
         };
-        verify_circuit(&public_inputs, &params, &vk, &proof, kzg_scheme)
+        verify_circuit(&public_inputs, params, &vk, &proof, kzg_scheme)
             .expect("verify proof should be ok");
 
         debug!("Proof verified successfully");
@@ -373,6 +376,7 @@ impl VerifyCommand {
 }
 
 impl TestCommand {
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         params: &mut ParamsKZG<Bn256>,

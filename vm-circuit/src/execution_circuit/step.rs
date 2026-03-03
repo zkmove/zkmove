@@ -11,7 +11,7 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use strum::IntoEnumIterator;
-use value_type::word::{Word, WordCells, WordU10Cells};
+use value_type::word::{WordCells, WordU10Cells};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
 
 pub const NUM_OF_VALUE_LIMBS: usize = 2;
@@ -176,7 +176,7 @@ impl<F: Field> StepState<F> {
             self.stack_pop_value.assign_word(
                 region,
                 offset,
-                stack_pop.map(|v| v.value).unwrap_or(Word::default()),
+                stack_pop.map(|v| v.value).unwrap_or_default(),
             )?;
         }
 
@@ -215,7 +215,7 @@ impl<F: Field> StepState<F> {
             self.stack_push_value.assign_word(
                 region,
                 offset,
-                stack_push.map(|v| v.value).unwrap_or(Word::default()),
+                stack_push.map(|v| v.value).unwrap_or_default(),
             )?;
         }
         // assign local read&write
@@ -250,9 +250,7 @@ impl<F: Field> StepState<F> {
             self.local_read_value.assign_word(
                 region,
                 offset,
-                local_read_write
-                    .map(|v| v.read_value)
-                    .unwrap_or(Word::default()),
+                local_read_write.map(|v| v.read_value).unwrap_or_default(),
             )?;
 
             self.local_read_value_header.assign(
@@ -287,9 +285,7 @@ impl<F: Field> StepState<F> {
             self.local_write_value.assign_word(
                 region,
                 offset,
-                local_read_write
-                    .map(|v| v.write_value)
-                    .unwrap_or(Word::default()),
+                local_read_write.map(|v| v.write_value).unwrap_or_default(),
             )?;
             self.local_write_value_header.assign(
                 region,
@@ -651,7 +647,7 @@ impl<F: Field> DynamicSelectorHalf<F> {
         count: usize,
     ) -> Self {
         let target_pairs =
-            cell_manager.query_cells(meta, cell_manager_columns, cell_type, (count + 1) / 2);
+            cell_manager.query_cells(meta, cell_manager_columns, cell_type, count.div_ceil(2));
         let target_odd = cell_manager.query_cell(meta, cell_manager_columns, cell_type);
         Self {
             count,

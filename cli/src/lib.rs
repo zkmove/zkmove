@@ -11,6 +11,7 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use serde::Serialize;
 use std::{
+    fmt,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -34,9 +35,9 @@ pub struct ArgWithNameAndTypeJSON {
 #[derive(Serialize)]
 pub struct HexEncodedBytes(pub Vec<u8>);
 
-impl ToString for HexEncodedBytes {
-    fn to_string(&self) -> String {
-        format!("0x{}", hex::encode(&self.0))
+impl fmt::Display for HexEncodedBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{}", hex::encode(&self.0))
     }
 }
 
@@ -60,7 +61,7 @@ pub(crate) fn load_package(rooted_path: &Path) -> Result<CompiledPackage> {
         .join(&package_name);
 
     let package = OnDiskCompiledPackage::from_path(build_path.as_path())?;
-    Ok(package.into_compiled_package()?)
+    package.into_compiled_package()
 }
 
 pub(crate) fn get_circuit_config_args_from_move_toml(
@@ -165,7 +166,7 @@ fn parse_module_id(module_id_str: &str) -> Result<ModuleId> {
     }
     let address = AccountAddress::from_str(parts[0])?;
     let name = Identifier::new(parts[1])?;
-    Ok(ModuleId::new(address, name.into()))
+    Ok(ModuleId::new(address, name))
 }
 
 pub(crate) fn save_to_file<P: AsRef<Path>, D: AsRef<[u8]>>(

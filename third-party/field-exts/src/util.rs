@@ -257,7 +257,7 @@ pub trait Scalar<F: Field> {
 #[macro_export]
 macro_rules! impl_scalar {
     ($type:ty) => {
-        impl<F: crate::Field> $crate::util::Scalar<F> for $type {
+        impl<F: $crate::Field> $crate::util::Scalar<F> for $type {
             #[inline]
             fn scalar(&self) -> F {
                 F::from(*self as u64)
@@ -265,7 +265,7 @@ macro_rules! impl_scalar {
         }
     };
     ($type:ty, $method:path) => {
-        impl<F: crate::Field> $crate::Scalar<F> for $type {
+        impl<F: $crate::Field> $crate::Scalar<F> for $type {
             #[inline]
             fn scalar(&self) -> F {
                 F::from($method(self) as u64)
@@ -305,7 +305,7 @@ pub trait Expr<F: Field> {
 macro_rules! impl_expr {
     ($type:ty) => {
         $crate::impl_scalar!($type);
-        impl<F: crate::Field> $crate::util::Expr<F> for $type {
+        impl<F: $crate::Field> $crate::util::Expr<F> for $type {
             #[inline]
             fn expr(&self) -> Expression<F> {
                 Expression::Constant(F::from(*self as u64))
@@ -314,7 +314,7 @@ macro_rules! impl_expr {
     };
     ($type:ty, $method:path) => {
         $crate::impl_scalar!($type, $method);
-        impl<F: crate::Field> $crate::util::Expr<F> for $type {
+        impl<F: $crate::Field> $crate::util::Expr<F> for $type {
             #[inline]
             fn expr(&self) -> Expression<F> {
                 Expression::Constant(F::from($method(self) as u64))

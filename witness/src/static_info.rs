@@ -202,7 +202,7 @@ impl StaticInfo {
         used_opcodes.dedup();
         used_opcodes
             .into_iter()
-            .filter_map(|val| Opcodes::from_u8(val))
+            .filter_map(Opcodes::from_u8)
             .collect()
     }
 
@@ -238,7 +238,7 @@ impl EntryInfo {
             })
             .expect("Function handle not found");
 
-        let func_info = FunctionInfo::parse_from_handle(module, fh, &module_id_mapping);
+        let func_info = FunctionInfo::parse_from_handle(module, fh, module_id_mapping);
 
         Self {
             module_id: module.self_id(),

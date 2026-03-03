@@ -20,7 +20,7 @@ use halo2_proofs::{
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
 use log::info;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env::current_dir, rc::Rc};
 use vm_circuit::public_inputs::PublicInputs;
 use vm_circuit::{CircuitGuard, VmCircuit};
@@ -48,6 +48,7 @@ impl AptosCommands {
 }
 
 #[derive(Subcommand)]
+#[allow(clippy::enum_variant_names)]
 enum AptosSubcommands {
     BuildPublishParamsAptosTxn(BuildPublishParamsAptosTxn),
     BuildPublishCircuitAptosTxn(BuildPublishCircuitAptosTxn),
@@ -425,7 +426,7 @@ impl BuildVerifyProofNativeAptosTxn {
 
 fn save_txn_output(
     output_dir: Option<PathBuf>,
-    input_path: &PathBuf,
+    input_path: &Path,
     suffix: &str,
     content: &str,
 ) -> Result<()> {

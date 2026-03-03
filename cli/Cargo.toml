@@ -13,10 +13,8 @@ move-package = { workspace = true }
 move-core-types = { workspace = true }
 log.workspace = true
 env_logger.workspace = true
-#halo2-verifier = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
-#aptos-verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
-halo2-verifier = { path = "../../halo2-verifier.move/crates/halo2-verifier" }
-aptos-verifier-api = { path = "../../halo2-verifier.move/crates/aptos-verifier-api" }
+halo2-verifier = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
+aptos-verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
 
 anyhow = "1.0.38"
 clap = { version = "4", features = ["derive"] }

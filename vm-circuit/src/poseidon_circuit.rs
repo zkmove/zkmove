@@ -167,7 +167,7 @@ pub fn unroll_to_hash_input<F: Field, const BYTES_IN_FIELD: usize, const INPUT_L
     code: impl ExactSizeIterator<Item = u8>,
 ) -> Vec<[F; INPUT_LEN]> {
     let fl_cnt = code.len() / BYTES_IN_FIELD;
-    let fl_cnt = if code.len() % BYTES_IN_FIELD != 0 {
+    let fl_cnt = if !code.len().is_multiple_of(BYTES_IN_FIELD) {
         fl_cnt + 1
     } else {
         fl_cnt
@@ -196,8 +196,7 @@ pub fn unroll_to_hash_input<F: Field, const BYTES_IN_FIELD: usize, const INPUT_L
     if input_cnt == 0 {
         return Vec::new();
     }
-    let inputs = msgs
-        .into_iter()
+    msgs.into_iter()
         .chain(std::iter::repeat(F::zero()))
         .chunks(2)
         .into_iter()
@@ -211,8 +210,7 @@ pub fn unroll_to_hash_input<F: Field, const BYTES_IN_FIELD: usize, const INPUT_L
             }
             arr
         })
-        .collect::<Vec<_>>();
-    inputs
+        .collect::<Vec<_>>()
 }
 
 /// Apply default constants in mod

@@ -1,6 +1,5 @@
 // Copyright (c) zkMove Authors
 
-use env_logger;
 use halo2::proofs::best_k;
 #[cfg(feature = "test-circuits")]
 use halo2::proofs::mock_prove_circuit;

@@ -363,7 +363,7 @@ impl WitnessPreProcessor {
                             current_frame_index,
                             *local_index,
                             &stack_pop.sub_index,
-                            stack_pop.value.clone(),
+                            stack_pop.value,
                             stack_pop.value_header,
                             false,
                             self.clk,
@@ -416,7 +416,7 @@ impl WitnessPreProcessor {
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
-                            value: old_.value.clone(),
+                            value: old_.value,
                             value_header: old_.value_header,
                             version: self.clk,
                         };
@@ -459,7 +459,7 @@ impl WitnessPreProcessor {
                         let stack_push = StackPush {
                             index: step_state.sp + 1,
                             sub_index: item.sub_index.clone().into(),
-                            value: old_.value.clone(),
+                            value: old_.value,
                             value_header: old_.value_header,
                             version: self.clk,
                         };
@@ -739,7 +739,7 @@ impl WitnessPreProcessor {
                         let stack_push = StackPush {
                             index: sp,
                             sub_index: item.sub_index.clone().into(),
-                            value: old_.value.clone(),
+                            value: old_.value,
                             value_header: old_.value_header,
                             version: self.clk,
                         };
@@ -841,7 +841,7 @@ impl WitnessPreProcessor {
                                 reference.frame_index as u16,
                                 reference.local_index as u8,
                                 &item_sub_index,
-                                stack_pop.value.clone(),
+                                stack_pop.value,
                                 stack_pop.value_header,
                                 false,
                                 self.clk,
@@ -892,8 +892,7 @@ impl WitnessPreProcessor {
                                         sub_index,
                                     )
                                     .unwrap()
-                                    .value
-                                    .clone();
+                                    .value;
                                 let header: ValueHeader<u16> = parent_value.into();
                                 let new_flen =
                                     header.flen as usize - old_value.len() + new_value.len();
@@ -1270,8 +1269,7 @@ impl WitnessPreProcessor {
                                 &parent_sub_index,
                             )
                             .unwrap()
-                            .value
-                            .clone();
+                            .value;
                         let parent_header = ValueHeader::from(parent_header);
                         let new_header = ValueHeader::new(
                             parent_header.flen as usize - elem.len(),
@@ -1302,7 +1300,7 @@ impl WitnessPreProcessor {
                             debug_assert!(local_op.read_value_header);
                             debug_assert_eq!(
                                 *vec_len,
-                                ValueHeader::from(local_op.read_value.clone()).len as u64
+                                ValueHeader::from(local_op.read_value).len as u64
                             );
                         }
                         memory_ops.push(MemoryOp(None, None, Some(local_op)));
@@ -1407,8 +1405,7 @@ impl WitnessPreProcessor {
                                 &parent_sub_index,
                             )
                             .unwrap()
-                            .value
-                            .clone();
+                            .value;
                         let parent_header = ValueHeader::from(parent_header);
                         let new_header = ValueHeader::new(
                             parent_header.flen as usize + elem.len(),
@@ -1440,7 +1437,7 @@ impl WitnessPreProcessor {
                             debug_assert!(local_op.read_value_header);
                             debug_assert_eq!(
                                 *vec_len,
-                                ValueHeader::from(local_op.read_value.clone()).len as u64
+                                ValueHeader::from(local_op.read_value).len as u64
                             );
                         }
                         memory_ops.push(MemoryOp(None, None, Some(local_op)));
@@ -1939,7 +1936,7 @@ impl WitnessPreProcessor {
                                         callee_frame_index,
                                         local_index,
                                         sub_index,
-                                        slot.value.clone(),
+                                        slot.value,
                                         slot.value_header,
                                         true,
                                         self.clk,
@@ -1987,7 +1984,7 @@ impl WitnessPreProcessor {
                                 callee_frame_index,
                                 local_index,
                                 &stack_pop.sub_index,
-                                stack_pop.value.clone(),
+                                stack_pop.value,
                                 stack_pop.value_header,
                                 false,
                                 self.clk,
