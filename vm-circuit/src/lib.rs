@@ -1,5 +1,4 @@
 // Copyright (c) zkMove Authors
-#![feature(associated_type_defaults)]
 #![allow(non_camel_case_types)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::wrong_self_convention)]
@@ -39,7 +38,7 @@ pub mod public_inputs;
 // Thread-local storage to hold a reference-counted circuit instance.
 // Allows circuits to be configured according to bytecode in the program.
 thread_local! {
-    static CIRCUIT_REF: RefCell<Option<Rc<VmCircuit<Fr>>>> = RefCell::new(None);
+    static CIRCUIT_REF: RefCell<Option<Rc<VmCircuit<Fr>>>> = const { RefCell::new(None) };
 }
 
 /// Registers a circuit instance in thread-local storage.
@@ -140,7 +139,6 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
                 poseidon_table: execution_circuit_config
                     .lookup_table_config
                     .poseidon_table
-                    .clone()
                     .expect("Poseidon table should be present"),
             };
             Some(PoseidonCircuitConfig::new(

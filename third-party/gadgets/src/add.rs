@@ -60,6 +60,7 @@ impl<F: Field> AddGadget<F> {
         self.carry_hi.expr() // overflow if carry_hi == 1
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,

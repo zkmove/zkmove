@@ -85,8 +85,10 @@ impl<F: Field> PublicInputs<F> {
         assert_eq!(num_scalars % num_columns, 0, "Field count not aligned");
         let num_rows = num_scalars / num_columns;
 
-        let mut columns = vec![Vec::with_capacity(num_rows); num_columns];
-        for col in 0..num_columns {
+        let mut columns = (0..num_columns)
+            .map(|_| Vec::with_capacity(num_rows))
+            .collect::<Vec<_>>();
+        for (col, column) in columns.iter_mut().enumerate() {
             for row in 0..num_rows {
                 let i = col * num_rows + row;
                 let start = i * scalar_byte_len;
@@ -94,7 +96,7 @@ impl<F: Field> PublicInputs<F> {
                 let mut repr = F::Repr::default();
                 repr.as_mut().copy_from_slice(&bytes[start..end]);
                 let scalar = F::from_repr(repr).unwrap();
-                columns[col].push(scalar);
+                column.push(scalar);
             }
         }
         PublicInputs(columns)
@@ -111,7 +113,9 @@ mod tests {
     fn test_to_bytes_and_from_bytes() {
         let num_columns = NUM_INSTANCE_COLUMNS;
         let num_rows = 3;
-        let mut columns = vec![Vec::with_capacity(num_rows); num_columns];
+        let mut columns = (0..num_columns)
+            .map(|_| Vec::with_capacity(num_rows))
+            .collect::<Vec<_>>();
         for col in &mut columns {
             for _ in 0..num_rows {
                 col.push(Fr::random(OsRng));

@@ -18,16 +18,12 @@ use std::collections::HashMap;
 const MAX_DEGREE: usize = 5;
 const IMPLICIT_DEGREE: usize = 3;
 
+#[derive(Default)]
 pub(crate) enum Transition<T> {
+    #[default]
     Same,
     Delta(T),
     To(T),
-}
-
-impl<F> Default for Transition<F> {
-    fn default() -> Self {
-        Self::Same
-    }
 }
 
 /// (state_name, transition)

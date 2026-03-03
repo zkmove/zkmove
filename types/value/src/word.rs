@@ -198,18 +198,14 @@ impl<F: Field> WordCells<F> {
             2,
             "WordCells::assign expects exactly 2 scalars"
         );
-        let mut assigned = Vec::with_capacity(2);
-
-        assigned.push(
+        let assigned = vec![
             self.cells
                 .lo()
-                .assign(region, offset, Value::known(value[0].clone()))?,
-        );
-        assigned.push(
+                .assign(region, offset, Value::known(value[0]))?,
             self.cells
                 .hi()
-                .assign(region, offset, Value::known(value[1].clone()))?,
-        );
+                .assign(region, offset, Value::known(value[1]))?,
+        ];
         Ok(assigned)
     }
 

@@ -289,7 +289,7 @@ pub fn verify_circuit<E>(
     instance: &PublicInputs<E::Fr>,
     params: &ParamsKZG<E>,
     vk: &VerifyingKey<E::G1Affine>,
-    proof: &Vec<u8>,
+    proof: &[u8],
     kzg: KZG,
 ) -> Result<(), Error>
 where
@@ -326,14 +326,14 @@ fn verify_circuit_inner<
     instance: Vec<Vec<Scheme::Scalar>>,
     params: &'params Scheme::ParamsVerifier,
     vk: &VerifyingKey<Scheme::Curve>,
-    proof: &Vec<u8>,
+    proof: &[u8],
 ) -> Result<(), Error>
 where
     <Scheme as CommitmentScheme>::ParamsVerifier: 'params,
     <Scheme as CommitmentScheme>::Scalar: WithSmallOrderMulGroup<3> + FromUniformBytes<64>,
 {
     let strategy = Strategy::new(params);
-    let mut transcript = Keccak256Read::<_, _, Challenge255<_>>::init(&proof[..]);
+    let mut transcript = Keccak256Read::<_, _, Challenge255<_>>::init(proof);
     let verify_start = instant::Instant::now();
     let _result = verify_proof(params, vk, strategy, &[instance], &mut transcript)?;
 

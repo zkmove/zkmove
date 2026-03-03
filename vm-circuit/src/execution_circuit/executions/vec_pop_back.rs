@@ -240,7 +240,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
 
         let last_header_local_op = step_state.memory_ops.last().unwrap().2.as_ref().unwrap();
 
-        let vector_origin_len = ValueHeader::from(last_header_local_op.read_value.clone()).len;
+        let vector_origin_len = ValueHeader::from(last_header_local_op.read_value).len;
 
         for i in 0..stage_state.rows() {
             self.vector_sub_index
