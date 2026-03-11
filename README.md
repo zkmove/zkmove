@@ -4,9 +4,9 @@
     <a href="https://twitter.com/zkmove"><img src="https://img.shields.io/twitter/follow/zkmove?style=social"/></a>
 </p>
 
-## zkMove Components
+## zkMove
 
-### zkMove
+### zkMove vm
 A Zero-Knowledge Virtual Machine that proves the execution of any Move functions.
 
 - Fully compatible with Move and inherits Move's security.
