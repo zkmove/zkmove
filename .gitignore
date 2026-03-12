@@ -30,3 +30,6 @@ Temporary Items
 # Github action's files
 packages-microsoft-prod.deb
 
+# Ignore the mkdocs build directory
+site
+

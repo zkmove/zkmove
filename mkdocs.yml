@@ -1,0 +1,36 @@
+site_name: zkMove Docs
+site_description: Documentation for zkMove
+site_url: https://zkmove.github.io/zkmove/
+repo_url: https://github.com/zkmove/zkmove
+repo_name: zkmove
+
+theme:
+  name: material
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Introduction:
+      - A ZKVM for Programmable Privacy: introduction/zkvm-for-programmable-privacy.md
+      - The Architecture: introduction/architecture.md
+      - Why Move: introduction/why-move.md
+  - Developer Document:
+      - Setup dev environment: developer/setup-dev-environment.md
+      - A circuit example: developer/circuit-example.md
+      - Deploy on-chain verifier: developer/deploy-on-chain-verifier.md
+      - Generate a proof: developer/generate-proof.md
+      - Verify proof on-chain: developer/verify-proof-on-chain.md
+  - Inside zkMove:
+      - Circuit layout: inside-zkmove/circuit-layout.md
+      - Memory consistency checking: inside-zkmove/memory-consistency-checking.md
+      - Value representation: inside-zkmove/value-representation.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
