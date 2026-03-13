@@ -4,7 +4,7 @@
 
 zkMove is designed to be developer-friendly and fits naturally into existing Move development workflows. By leveraging the standard Move package structure, zkMove lets you define zk circuits alongside your Move code with minimal configuration changes.
 
-The example below is a Move module that computes the Fibonacci sequence. The full source is located at `cli/example`. We will build a zk circuit for the `test_fibonacci` entry function.
+The example below is a Move module that computes the Fibonacci sequence. The full source can be found in the `example` directory of the [halo2-verifier.move](https://github.com/zkmove/halo2-verifier.move) repository. We will build a zk circuit for the `test_fibonacci` entry function.
 
 ```move
 // fibonacci.move
@@ -49,10 +49,10 @@ entry = { module_id = "0x1::fibonacci", function_name = "test_fibonacci" }
 
 ## Generate a Witness
 
-First, build and publish the example package:
+First, build and publish the example package.
 
 ```shell
-# Run from the package root.
+# Run from the package root (the directory containing `Move.toml`).
 move build
 move sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
 ```

@@ -23,7 +23,7 @@ Three separate accounts are needed:
 
 > Separating `<params-profile>` from `<verifier-profile>` allows multiple circuits to share the same KZG parameters while each having its own verifier.
 
-Create the profiles at the project root:
+From the root of the `halo2-verifier.move` repository, run the following commands to create the profiles:
 
 ```shell
 aptos init --profile <contracts-profile> --network local
@@ -49,7 +49,7 @@ aptos account fund-with-faucet --url http://127.0.0.1:8080 --amount 500000000000
 
 ## 3. Publish Verifier Contracts
 
-Run the following script from the project root to publish the shared verifier contracts:
+Run the following script from the repository root to publish the shared verifier contracts:
 
 ```shell
 PROFILE=<contracts-profile> ./publish_contracts.sh
@@ -68,7 +68,7 @@ Two verifier variants are available:
 
 ### Option A — Native Halo2 Verifier (Recommended)
 
-**Step 1.** Build and publish the KZG parameters:
+**Step 1.** Publish the KZG parameters:
 
 ```shell
 zkmove aptos build-publish-params-native-aptos-txn \

@@ -51,7 +51,7 @@ entry = { module_id = "0x1::zkhash_example", function_name = "hash" }
 First, build and publish the example package.
 
 ```shell
-# Run under package root.
+# Run from the package root (the directory containing `Move.toml`).
 move build
 move sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
 ```
