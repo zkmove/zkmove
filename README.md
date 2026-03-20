@@ -1,10 +1,12 @@
 # Project Structure
 
 The project is structured as follows:
+```
 .
-├── cli/
+├── cli/                            # command-line interface for zkMove
+├── docs/                           # documentation
 ├── functional-tests/               # integration tests
-├── spec/
+├── spec/                           # specification of zkMove circuits
 ├── third-party/
 │   ├── circuit-tool/               # circuit utilities (from zkevm)
 │   ├── gadgets/                    # generic gadgets (from zkevm)
@@ -14,3 +16,4 @@ The project is structured as follows:
 ├── vm-circuit/                     # VM circuit
 ├── witness/                        # witness generation
 └── ...
+```
