@@ -13,18 +13,11 @@ plugins:
 nav:
   - Home: index.md
   - Introduction:
-      - A ZKVM for Programmable Privacy: introduction/zkvm-for-programmable-privacy.md
-      - The Architecture: introduction/architecture.md
-      - Why Move: introduction/why-move.md
-  - Developer Document:
-      - Set Up the Development Environment: developer/setup-dev-environment.md
-      - Circuit and Proof: developer/circuit-and-proof.md
-      - Deploy an On-Chain Verifier: developer/deploy-on-chain-verifier.md
-      - Verify a Proof On-Chain: developer/verify-proof-on-chain.md
-  - Circuit Design:
-      - Circuit layout: inside-zkmove/circuit-layout.md
-      - Memory consistency checking: inside-zkmove/memory-consistency-checking.md
-      - Value representation: inside-zkmove/value-representation.md
+  - User Document:
+      - Set Up the Development Environment: user/setup-dev-environment.md
+      - Circuit and Proof: user/circuit-and-proof.md
+      - Deploy an On-Chain Verifier: user/deploy-on-chain-verifier.md
+      - Verify a Proof On-Chain: user/verify-proof-on-chain.md
 
 markdown_extensions:
   - admonition
