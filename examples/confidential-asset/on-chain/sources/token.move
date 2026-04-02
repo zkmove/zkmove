@@ -30,6 +30,7 @@ module confidential_asset::token {
     const ENO_INBOX:             u64 = 7;
     const EINDEX_OUT_OF_BOUNDS:  u64 = 8;
     const EINVALID_PROOF: u64 = 9;
+    const EINVALID_INPUT: u64 = 10;
 
     /// kzg variant
     const KZG_GWC:     u8 = 1;
@@ -59,7 +60,8 @@ module confidential_asset::token {
 
     /// Mint token and send it to receiver
     /// proof: the proof to prove encrypt(amount, encrypted_amount, nonce) is valid
-    public entry fun mint(admin: &signer, to: address, encrypted_amount: u256, proof: vector<u8>) {
+    public entry fun mint(admin: &signer, to: address, amount: u128, encrypted_amount: u256, proof: vector<u8>) {
+        assert!(amount > 0, EZERO_AMOUNT);
         assert!(exists<MintCap>(signer::address_of(admin)), ENO_MINT_CAPABILITY);
         assert!(exists<Store>(to), ENO_STORE);
 
@@ -127,7 +129,7 @@ module confidential_asset::token {
         public_inputs::push_u256(&mut pi, encrypted_balance);
         public_inputs::push_u256(&mut pi, encrypted_amount);
         public_inputs::push_u256(&mut pi, encrypted_new_balance);
-        assert!(verifier::mock_verify_proof(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier::mock_verify_proof(@param_address, @circuit_check_sum_address, pi, proof, KZG_GWC), EINVALID_PROOF);
 
         store.token.encrypted_value = encrypted_new_balance;
         let Token { encrypted_value: _ } = token;
@@ -144,7 +146,7 @@ module confidential_asset::token {
         // verify "hash(balance) == encrypted_balance"
         let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
         public_inputs::push_u256(&mut pi, encrypted_balance);
-        assert!(verifier::mock_verify_proof(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC) == true, EINVALID_PROOF);
+        assert!(verifier::mock_verify_proof(@param_address, @circuit_encrypt_address, pi, proof, KZG_GWC), EINVALID_PROOF);
 
         store.token.encrypted_value = ENCRYPTED_ZERO;
     }
@@ -171,6 +173,7 @@ module confidential_asset::token {
     }
 
     public fun range_check(encrypted_value: u256, min: u128, max: u128, proof: vector<u8>) {
+        assert!(min <= max, EINVALID_INPUT);
         // verify "encrypted_value is an encryption of a value in range [min, max]"
         let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
         public_inputs::push_u128(&mut pi, min);
