@@ -56,7 +56,7 @@ module confidential_asset::confidential_asset_tests {
         // Admin generates proof for `encrypt(amount, encrypted_amount, nonce_amount)`. The proof is output to the file 'proofs/encrypt-xxx.json'. Here we just use a fake one for testing purpose.
         // ```zkmove vm --param-path ../../../cli/params/kzg_bn254_12.srs --package-path ./  --pubs-indices 1 --circuit-name encrypt prove --json -w witnesses/encrypt-xxx.json```
         let fake_proof = x"7e572d6628a900f395206ec82e5fe47d55db4bd614880a66417464b4e136fc12c6669a49d9dc93";
-        mint(admin, alice_addr, 1000, encrypted_amount, fake_proof);
+        mint(admin, alice_addr, encrypted_amount, fake_proof);
 
         assert!(
             balance_of(alice_addr) == ENCRYPTED_ZERO,

@@ -16,3 +16,7 @@ entry = { module_id = "0xCAFE::encryption", function_name = "encrypt" }
 [circuit.check_sum]
 max_poseidon_rows = 100
 entry = { module_id = "0xCAFE::sum", function_name = "check_sum" }
+
+[circuit.range_check]
+max_poseidon_rows = 100
+entry = { module_id = "0xCAFE::range_check", function_name = "check_range" }
