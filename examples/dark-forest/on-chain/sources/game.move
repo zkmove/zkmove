@@ -2,8 +2,9 @@ module dark_forest::game {
     use std::signer;
     use std::vector;
     use std::option::{Self, Option};
-    use dark_forest::off_chain;
-    use verifier_api::verifier_api;
+    use aptos_std::bn254_algebra::Fr;
+    use verifier_api::verifier;
+    use halo2_common::public_inputs;
 
     // ======================
     // Error codes
@@ -57,6 +58,16 @@ module dark_forest::game {
         });
     }
 
+    #[test_only]
+    public fun init_for_test(deployer: &signer) {
+        move_to(deployer, GameManager {
+            planets: vector::empty(),
+            fleets: vector::empty(),
+            next_planet_id: 1,
+            next_fleet_id: 1,
+        });
+    }
+
     // ======================
     // Create mother planet (one per player)
     // ======================
@@ -81,9 +92,10 @@ module dark_forest::game {
         let id = manager.next_planet_id;
         manager.next_planet_id = id + 1;
 
-        //TODO: implement PublicInputs::new() in halo2-verifier.move
-        let pi = PublicInputs::new(coord_hash);
-        assert!(verifier_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, E_INVALID_COORDINATES);
+        // verify "coord_hash(x, y, coord_hash) returns ()"
+        let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
+        public_inputs::push_u256(&mut pi, coord_hash);
+        assert!(verifier::mock_verify_proof(@param_address, @circuit_coords_hash_address, pi, proof, kzg_variant), E_INVALID_COORDINATES);
 
         vector::push_back(&mut manager.planets, Planet {
             coord_hash,
@@ -168,8 +180,12 @@ module dark_forest::game {
         let hash_1 = from_planet.coord_hash;
         let hash_2 = to_planet.coord_hash;
 
-        let pi = PublicInputs::new(hash_1, hash_2, distance_squared);
-        assert!(verification_api::verify_proof(@param_address, @circuit_address, pi, proof, kzg_variant) == true, E_INVALID_COORDINATES);
+        // verify "check_euclid_distance(x1, y1, x2, y2, hash_1, hash_2, distance_squared) returns ()"
+        let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
+        public_inputs::push_u256(&mut pi, hash_1);
+        public_inputs::push_u256(&mut pi, hash_2);
+        public_inputs::push_u128(&mut pi, distance_squared);
+        assert!(verifier::mock_verify_proof(@param_address, @circuit_euclid_distance_address, pi, proof, kzg_variant), E_INVALID_COORDINATES);
 
         // Energy cost = distance_sq / speed (higher speed = less loss per distance)
         // Use integer division - any remainder is lost (harsh universe!)
@@ -201,6 +217,8 @@ module dark_forest::game {
             // Attack enemy
             let total_def = target.defense + target.energy;
             if (remaining_energy > total_def) {
+                // Transfer ownership: extract old owner, install attacker
+                let _ = option::extract(&mut target.owner);
                 option::fill(&mut target.owner, attacker);
                 target.energy = remaining_energy - total_def;
                 target.defense = 100; // reset base defense
@@ -279,4 +297,19 @@ module dark_forest::game {
         let manager = borrow_global<GameManager>(@dark_forest);
         vector::length(&manager.fleets)
     }
+
+    // Planet field accessors
+    public fun planet_energy(p: &Planet): u64    { p.energy }
+    public fun planet_defense(p: &Planet): u64   { p.defense }
+    public fun planet_level(p: &Planet): u64     { p.level }
+    public fun planet_capacity(p: &Planet): u64  { p.capacity }
+    public fun planet_coord_hash(p: &Planet): u256 { p.coord_hash }
+    public fun planet_owner(p: &Planet): Option<address> { p.owner }
+
+    // Fleet field accessors
+    public fun fleet_from(f: &Fleet): u64    { f.from_planet_id }
+    public fun fleet_to(f: &Fleet): u64      { f.to_planet_id }
+    public fun fleet_energy(f: &Fleet): u64  { f.energy }
+    public fun fleet_speed(f: &Fleet): u64   { f.speed }
+    public fun fleet_owner(f: &Fleet): address { f.owner }
 }

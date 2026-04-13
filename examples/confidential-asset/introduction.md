@@ -13,5 +13,21 @@ This example demonstrates the following functionalities:
 - Burning confidential assets from a user's account.
 
 ## Testing Confidential Assets Locally
-Download the Aptos CLI for zkMove from [here](https://github.com/zkmove/aptos-core/releases) and run the following command:
-```aptos move test --experiments spec-check=off```
+
+Before getting started, install the Aptos CLI by following the zkMove User Guide.
+
+**Run the unit tests:**
+
+```bash
+# From the confidential-asset/on-chain directory
+aptos move test --experiments spec-check=off
+```
+
+**Build the smart contracts:**
+
+The on-chain contracts use `mock_verify_proof` for local testing. To build against the real verifier, replace all occurrences of `mock_verify_proof` with `verify_proof`, then run:
+
+```bash
+# From the confidential-asset/on-chain directory
+aptos move build --dev --experiments spec-check=off
+```

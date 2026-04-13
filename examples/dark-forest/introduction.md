@@ -1,6 +1,9 @@
-# Dark Forest Game Mechanics Overview
+# Dark Forest
+Dark Forest is a strategic game set in a vast universe where players compete for control over planets and resources. The core mechanics revolve around managing planets and fleets, which are essential for expansion, defense, and combat. This document provides an overview of these fundamental elements to help new players understand the game's dynamics.
 
-## i. Planets
+## Fundamental Elements
+
+### i. Planets
 
 - **Definition**: Planets are the basic units of the game, representing individual nodes in the universe. Each planet has unique coordinates (e.g., [x, y]) and specific attributes.
 - **Attributes**:
@@ -11,7 +14,7 @@
     - Ownership: A planet can be unowned (not yet claimed) or controlled by a specific player.
 - **Role**: Planets serve as player bases, similar to "resource points" or "cities" in traditional strategy games. They produce resources and act as starting points or targets for fleet operations.
 
-## ii. Fleets
+### ii. Fleets
 
 - **Definition**:Fleets are units dispatched by players from their planets, representing a movable bundle of energy (or "ships"). They are used for exploration, attacking, or capturing other planets. For example, if a planet has 100 energy, a player can dispatch 50 energy as a fleet.
 - **Attributes**:
@@ -20,7 +23,7 @@
     - Speed: A player-chosen value that determines how efficiently the fleet travels. Higher speed dramatically reduces energy loss over distance. Speed is strictly capped by the source planet's level — you cannot exceed the maximum allowed by your technology.
 - **Role**: Fleets are the primary tool for players to execute strategy, enabling territorial expansion, resource plundering, or defense.
 
-## iii. Fleet–Planet Interactions
+### iii. Fleet–Planet Interactions
 
 - **Capturing an Unowned Planet**:
     - If the target planet is unowned, the arriving fleet (with whatever energy remains) can claim it. Once claimed, the planet belongs to the player and begins generating resources.
@@ -35,3 +38,22 @@
     - A fleet can be sent to a planet the player already owns to increase its energy or defense. For example, sending 50 energy back to a base to bolster its defenses (with whatever remains after travel losses).
 
 
+## Testing Dark Forest Locally
+
+Before getting started, install the Aptos CLI by following the zkMove User Guide.
+
+**Run the unit tests:**
+
+```bash
+# From the dark-forest/on-chain directory
+aptos move test --experiments spec-check=off
+```
+
+**Build the smart contracts:**
+
+The on-chain contracts use `mock_verify_proof` for local testing. To build against the real verifier, replace all occurrences of `mock_verify_proof` with `verify_proof`, then run:
+
+```bash
+# From the dark-forest/on-chain directory
+aptos move build --dev --experiments spec-check=off
+```
