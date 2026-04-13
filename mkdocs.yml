@@ -6,6 +6,7 @@ repo_name: zkmove
 
 theme:
   name: material
+  custom_dir: overrides
 
 plugins:
   - search
@@ -13,6 +14,12 @@ plugins:
 nav:
   - Home: index.md
   - Introduction:
+      - Background: introduction/background.md
+      - ZKVM for Move: introduction/zkvm-for-move.md
+      - Architecture: introduction/architecture.md
+      - Circuit Design: introduction/circuit-design.md
+      - Performance: introduction/performance.md
+      - Use Cases: introduction/use-cases.md
   - User Document:
       - Set Up the Development Environment: user/setup-dev-environment.md
       - Circuit and Proof: user/circuit-and-proof.md
@@ -26,3 +33,9 @@ markdown_extensions:
   - tables
   - pymdownx.highlight
   - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
