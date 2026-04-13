@@ -240,9 +240,9 @@ module dark_forest::game_tests {
         process_arrival(1, 100000, FAKE_PROOF, KZG_GWC);         // alice captures planet 2; p2.energy = 100
 
         // Step 2: reinforce planet 2 from planet 1 (distance_sq=100000, cost=100, remaining=200).
-        // Fleet 1 was already removed from the vector, so the new fleet sits at index 0 → fleet_id = 1.
-        dispatch_fleet(alice, 1, 2, 300, 1000);
-        process_arrival(1, 100000, FAKE_PROOF, KZG_GWC);
+        // This fleet is assigned stable id=2 by next_fleet_id.
+        dispatch_fleet(alice, 1, 2, 300, 1000);               // fleet_id = 2
+        process_arrival(2, 100000, FAKE_PROOF, KZG_GWC);
 
         let p2 = get_planet(2);
         assert!(planet_energy(&p2)  == 300, 50); // 100 + 200
@@ -353,9 +353,9 @@ module dark_forest::game_tests {
         assert!(planet_energy(&get_planet(1)) == 3200, 90);
 
         // 6. Alice reinforces her captured planet 2 (300 energy, distance_sq=100000, cost=100, remaining=200).
-        // Fleet 1 was already consumed and removed, so the new fleet sits at index 0 → fleet_id = 1.
-        dispatch_fleet(alice, 1, 2, 300, 1000);
-        process_arrival(1, 100000, FAKE_PROOF, KZG_GWC);
+        // This fleet is assigned stable id=2 by next_fleet_id.
+        dispatch_fleet(alice, 1, 2, 300, 1000);               // fleet_id = 2
+        process_arrival(2, 100000, FAKE_PROOF, KZG_GWC);
 
         let p2 = get_planet(2);
         assert!(planet_energy(&p2)  == 300, 91); // 100 + 200

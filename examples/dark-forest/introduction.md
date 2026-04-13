@@ -16,7 +16,7 @@ Dark Forest is a strategic game set in a vast universe where players compete for
 
 ### ii. Fleets
 
-- **Definition**:Fleets are units dispatched by players from their planets, representing a movable bundle of energy (or "ships"). They are used for exploration, attacking, or capturing other planets. For example, if a planet has 100 energy, a player can dispatch 50 energy as a fleet.
+- **Definition**: Fleets are units dispatched by players from their planets, representing a movable bundle of energy (or "ships"). They are used for exploration, attacking, or capturing other planets. For example, if a planet has 100 energy, a player can dispatch 50 energy as a fleet.
 - **Attributes**:
     - Energy Amount: The quantity of energy carried by the fleet, which determines its combat power and travel endurance.
     - Origin and Destination: The fleet departs from one planet and moves toward another.

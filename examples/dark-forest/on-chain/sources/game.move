@@ -30,6 +30,7 @@ module dark_forest::game {
     }
 
     struct Fleet has copy, drop, store {
+        id: u64,
         from_planet_id: u64,
         to_planet_id: u64,
         energy: u64,
@@ -40,7 +41,6 @@ module dark_forest::game {
     struct GameManager has key {
         planets: vector<Planet>,
         fleets: vector<Fleet>,
-        next_planet_id: u64,
         next_fleet_id: u64,
     }
 
@@ -53,7 +53,6 @@ module dark_forest::game {
         move_to(deployer, GameManager {
             planets: vector::empty(),
             fleets: vector::empty(),
-            next_planet_id: 1,
             next_fleet_id: 1,
         });
     }
@@ -63,7 +62,6 @@ module dark_forest::game {
         move_to(deployer, GameManager {
             planets: vector::empty(),
             fleets: vector::empty(),
-            next_planet_id: 1,
             next_fleet_id: 1,
         });
     }
@@ -88,9 +86,6 @@ module dark_forest::game {
             };
             i = i + 1;
         };
-
-        let id = manager.next_planet_id;
-        manager.next_planet_id = id + 1;
 
         // verify "coord_hash(x, y, coord_hash) returns ()"
         let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
@@ -135,9 +130,13 @@ module dark_forest::game {
     ) acquires GameManager {
         assert!(energy > 0 && from_id != to_id, E_INVALID_TARGET);
         assert!(speed > 0, E_INVALID_TARGET);
+        assert!(from_id > 0 && to_id > 0, E_INVALID_TARGET);
 
         let sender = signer::address_of(account);
         let manager = borrow_global_mut<GameManager>(@dark_forest);
+
+        assert!(from_id - 1 < vector::length(&manager.planets), E_INVALID_TARGET);
+        assert!(to_id - 1 < vector::length(&manager.planets), E_INVALID_TARGET);
 
         let _to_planet = *vector::borrow(&manager.planets, to_id - 1);
         let from = vector::borrow_mut(&mut manager.planets, from_id - 1);
@@ -153,6 +152,7 @@ module dark_forest::game {
         manager.next_fleet_id = fleet_id + 1;
 
         vector::push_back(&mut manager.fleets, Fleet {
+            id: fleet_id,
             from_planet_id: from_id,
             to_planet_id: to_id,
             energy,
@@ -171,8 +171,22 @@ module dark_forest::game {
         kzg_variant: u8
     ) acquires GameManager {
         let manager = borrow_global_mut<GameManager>(@dark_forest);
-        let idx = fleet_id - 1;
-        assert!(idx < vector::length(&manager.fleets), E_INVALID_TARGET);
+
+        // Look up fleet by its stable id, not by vector index.
+        let idx = {
+            let i = 0;
+            let len = vector::length(&manager.fleets);
+            let found = len; // sentinel: not found
+            while (i < len) {
+                if (vector::borrow(&manager.fleets, i).id == fleet_id) {
+                    found = i;
+                    break
+                };
+                i = i + 1;
+            };
+            assert!(found < len, E_INVALID_TARGET);
+            found
+        };
 
         let fleet = *vector::borrow(&manager.fleets, idx);
         let from_planet = *vector::borrow(&manager.planets, fleet.from_planet_id - 1);
@@ -189,6 +203,7 @@ module dark_forest::game {
 
         // Energy cost = distance_sq / speed (higher speed = less loss per distance)
         // Use integer division - any remainder is lost (harsh universe!)
+        assert!(distance_squared <= 18446744073709551615, E_INVALID_TARGET);
         let energy_cost = if (fleet.speed == 0) { fleet.energy } else { (distance_squared as u64) / fleet.speed };
 
         // If not enough energy to complete journey, fleet vanishes into the void
@@ -208,7 +223,7 @@ module dark_forest::game {
         if (option::is_none(&target.owner)) {
             // Conquer unowned planet
             option::fill(&mut target.owner, attacker);
-            target.energy = target.energy + (remaining_energy / 10); // activation cost
+            target.energy = target.energy + (remaining_energy - (remaining_energy / 10)); // pay 10% activation cost
         } else if (*option::borrow(&target.owner) == attacker) {
             // Support own planet
             target.energy = target.energy + remaining_energy;
@@ -283,8 +298,21 @@ module dark_forest::game {
 
     public fun get_fleet(fleet_id: u64): Fleet acquires GameManager {
         let manager = borrow_global<GameManager>(@dark_forest);
-        let idx = fleet_id - 1;
-        assert!(idx < vector::length(&manager.fleets), E_INVALID_TARGET);
+        // Look up fleet by its stable id, not by vector index.
+        let idx = {
+            let i = 0;
+            let len = vector::length(&manager.fleets);
+            let found = len; // sentinel: not found
+            while (i < len) {
+                if (vector::borrow(&manager.fleets, i).id == fleet_id) {
+                    found = i;
+                    break
+                };
+                i = i + 1;
+            };
+            assert!(found < len, E_INVALID_TARGET);
+            found
+        };
         *vector::borrow(&manager.fleets, idx)
     }
 
