@@ -16,10 +16,10 @@ The following sections compare how mainstream ZKVMs address these requirements a
 The full RISC-V ELF binary is loaded into initial memory. A Merkle tree is constructed over the memory pages using the Poseidon2 hash function, with the circuit enforcing the Merkle tree's correctness. Proving overhead scales with the complexity of the Poseidon2 and Merkle tree circuits.
 
 ### Succinct SP1 Approach
-Program instructions are directly exposed as the initial state of a `MemoryLocalChip`, effectively placed in the public input table. This eliminates proving overhead entirely but compromises program privacy.
+Program instructions are loaded directly as the initial memory state of the MemoryLocalChip. This state is exposed as a public trace/table, allowing the circuit to reference instructions with almost zero additional proving overhead. Compared to RISC Zero’s Merkle-tree-based approach, this design significantly reduces circuit complexity and proving cost, but at the expense of program privacy — the bytecode becomes publicly visible.
 
 ### zkMove Approach
-zkMove stores bytecode in a **fixed lookup table**. Due to the inherent compactness of Move bytecode, this does not affect proof size. Prover overhead is approximately **O(1)**, and the program remains **private**.
+zkMove stores the contract bytecode in a fixed lookup table (a constant/fixed column in the Halo2 circuit). Thanks to the compact nature of Move bytecode, this table has negligible impact on proof size, with instruction fetching overhead approximately O(1).The fixed table is baked into the circuit, and its commitment is included in the Verification Key (VK) for that specific contract, keeping the program bytecode private.
 
 ## 2. Correct Instruction Execution
 
@@ -51,16 +51,16 @@ $$\sum_{i=0}^{m} s_i(\mathbf{x}) \cdot c_i(\mathbf{x}) = 0$$
 
 This design offers two key properties:
 
-- **Best case** ($m = 1$): A trivial function with only a `ret` instruction reduces to $c_0(\mathbf{x}) = 0$, incurring zero dispatch overhead.
+- **Best case** ($m = 1$): A trivial function with only a `ret` instruction reduces to $c_0(\mathbf{x}) = 0$, incurring zero dispatch overhead. (Note: This is an idealized case; in practice, even the simplest functions require a small set of basic instructions for function prologue and return handling.)
 - **Worst case** ($m = n$): A function using all opcodes, the constraint falls back to the standard mainstream form — incurring no additional cost.
 
-In practice, most functions use a small subset of opcodes, making zkMove's circuit significantly more compact than general-purpose ZKVM circuits.
+In practice, in most privacy-sensitive scenarios, most functions use only a small subset of opcodes, making zkMove’s circuit significantly more compact than general-purpose ZKVM circuits.
 
 ## 3. Memory Consistency Checking
 
-Early ZKVMs relied on *sorting-based* methods[^1] for memory consistency verification. Modern ZKVMs, including zkMove, have adopted the **shuffle argument** instead.
+Early ZKVMs relied on *sorting-based* methods[1] for memory consistency verification. Modern ZKVMs, including zkMove, have adopted the **shuffle argument** instead.
 
-zkMove integrates execution and memory into a single unified chip to minimize size. By applying the *address-cycle* method[^2], memory consistency is verified through **a single shuffle operation**, reducing inter-chip communication and circuit complexity.
+zkMove integrates execution and memory into a single unified chip to minimize circuit size. By applying the *address-cycle* method[2], memory consistency is verified through **a single shuffle operation**, reducing inter-chip communication and circuit complexity.
 
 ## The Unique Challenges of Move
 
@@ -73,7 +73,7 @@ This poses two circuit design challenges:
 
 ### zkMove's Solution
 
-Complex types are *flattened* into a list of primitive elements, represented as a tuple:
+Complex types are *flattened* into a list of primitive type, represented as a tuple:
 
 ```
 (index, sub_index, value, value_header)
@@ -88,8 +88,8 @@ In all other cases, the Memory Consistency Check (MCC) ensures a value's type re
 
 ---
 
-This document provides a high-level overview of zkMove's circuit design philosophy. For detailed technical specifications, refer to the zkMove Circuit Design Document.
+This document provides a high-level overview of zkMove's circuit design. For detailed technical specifications, refer to the zkMove Circuit Design Document.
 
-[^1]: David Wong. *Cairo's Public Memory.* [https://www.cryptologie.net/article/603/cairos-public-memory](https://www.cryptologie.net/article/603/cairos-public-memory)
+[1]: David Wong. *Cairo's Public Memory.* [https://www.cryptologie.net/article/603/cairos-public-memory](https://www.cryptologie.net/article/603/cairos-public-memory)
 
-[^2]: Yibin Yang and David Heath. *Two Shuffles Make a RAM: Improved Constant Overhead Zero-Knowledge RAM* (2023). [https://eprint.iacr.org/2023/1115](https://eprint.iacr.org/2023/1115)
+[2]: Yibin Yang and David Heath. *Two Shuffles Make a RAM: Improved Constant Overhead Zero-Knowledge RAM* (2023). [https://eprint.iacr.org/2023/1115](https://eprint.iacr.org/2023/1115)

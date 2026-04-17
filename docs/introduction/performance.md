@@ -11,9 +11,13 @@ zkMove v0.5 delivers significant improvements over v0.4:
 
 **Test environment:** MacBook Pro, Apple M1 Max, 64 GB RAM
 
-![Proving Time Benchmark](performance/perf.png)
+<div>
+  <img src="perf.png" width="90%" alt="Proving Time Benchmark" />
+</div>
 
-![Proof Size Benchmark](performance/proof-size.png)
+<div>
+  <img src="proof-size.png" width="25%" alt="Proof Size Benchmark" />
+</div>
 
 ## Benchmark Description
 

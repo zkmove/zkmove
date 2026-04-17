@@ -2,7 +2,7 @@
 
 ## Privacy-Preserving Smart Contracts
 
-A traditional smart contract operates entirely on public on-chain data and publicly visible contract code. In contrast, a privacy-preserving smart contract can handle both public and private data. If desired, even parts of the contract logic itself can remain hidden.
+A traditional smart contract operates entirely on public on-chain data and publicly visible contract code. In contrast, a privacy-preserving smart contract can handle both public and private data. If desired, even the contract code can remain hidden.
 
 This privacy capability is enabled by zkMove’s on-chain / off-chain hybrid computation model. Developers can extract privacy-sensitive state and logic from the main smart contract and implement them as off-chain functions. These functions execute on the user’s client and generate zero-knowledge proofs, with only the proofs being submitted on-chain. The on-chain contract then verifies the submitted proofs and executes the remaining public logic.
 

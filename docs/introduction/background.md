@@ -4,17 +4,15 @@
 
 Smart contract platforms have gone through three major evolutionary stages:
 
-| Stage | Period | Representative | Key Characteristics |
-|-------|--------|----------------|---------------------|
-| 1 | 2015–2018 | Ethereum | First Turing-complete smart contract platform |
-| 2 | 2018–2022 | Solana | Parallel execution, high throughput (TPS) |
-| 3 | 2022–2026 | Sui / Aptos | Extreme parallelism, high TPS, asset-oriented design, enhanced security |
+| Period | Representative | Key Characteristics |
+|-|----------------|---------------------|
+| 2015–2018 | Ethereum | First Turing-complete smart contract platform |
+| 2018–2022 | Solana | Parallel execution, high throughput (TPS) |
+| 2022–2026 | Sui / Aptos | Extreme parallelism, high TPS, asset-oriented design, enhanced security |
 
 In parallel, Ethereum pioneered a different scaling path through Layer 2 (L2) rollups. Although L2 networks still have relatively limited decentralization, they have largely relieved Ethereum's scalability pressure.
 
 ## Privacy as the Next Priority
-
-Looking ahead, **privacy will become the top priority** for smart contract platforms.
 
 As the Agentic Economy continues to evolve, AI agents will operate with increasing autonomy — independently managing wallets, calling APIs, executing transactions, and collaborating with one another at scale. Without robust privacy protections, these agents risk exposing users’ behavioral patterns, intents, and asset information, thereby creating new attack surfaces and pervasive surveillance vectors.
 
@@ -26,10 +24,10 @@ To become a truly trustworthy coordination layer for the Agentic Economy, existi
 
 ZKPs have broad applications in:
 
-- **Blockchain scaling** — enabling efficient off-chain computation with succinct on-chain verification (e.g., zk-Rollups).
-- **Privacy protection** — proving the validity of transactions or credentials while fully concealing sensitive data, intents, and assets.
-- **Verifiable computation** — moving complex processing off-chain while maintaining cryptographic trust.
-- **Blockchain interoperability** — supporting trustless cross-chain verification and data bridging.
+- Blockchain scaling — enabling efficient off-chain computation with succinct on-chain verification (e.g., zk-Rollups).
+- Privacy protection — proving the validity of transactions or credentials while fully concealing sensitive data, intents, and assets.
+- Verifiable computation — moving complex processing off-chain while maintaining cryptographic trust.
+- Blockchain interoperability — supporting trustless cross-chain verification and data bridging.
 
 Despite their potential, ZKPs have historically suffered from poor programmability. Building a ZKP application typically requires cryptography experts to hand-craft arithmetic circuits — a time-consuming process that has hindered mainstream adoption.
 
