@@ -1,4 +1,4 @@
-# ZKVM for Move
+# zkVM for Move
 
 ## The Move Programming Language
 
@@ -42,17 +42,17 @@ The Move instruction set covers a broad range of operations:
 Each instruction reads values from memory, applies the defined semantics, and writes the result back to memory.
 
 
-## How to Build a ZKVM for Move
+## How to Build a zkVM for Move
 
-There are three main approaches to building a ZKVM for Move, each with distinct trade-offs.
+There are three main approaches to building a zkVM for Move, each with distinct trade-offs.
 
 <div>
-  <img src="zkvms.png" width="70%" alt="ZKVM Approaches Comparison" />
+  <img src="zkvms.png" width="70%" alt="zkVM Approaches Comparison" />
 </div>
 
-### Approach 1: Run MoveVM on a RISC-V ZKVM
+### Approach 1: Run MoveVM on a RISC-V zkVM
 
-Since MoveVM is implemented in Rust, its source code can be compiled to RISC-V. A RISC-V ZKVM (such as RISC Zero or SP1) can then prove the correct execution of the resulting RISC-V binary.
+Since MoveVM is implemented in Rust, its source code can be compiled to RISC-V. A RISC-V zkVM (such as RISC Zero or SP1) can then prove the correct execution of the resulting RISC-V binary.
 
 *Advantage:* No need to build custom circuits for MoveVM; most of the toolchain already exists.
 
@@ -70,7 +70,7 @@ Move bytecode can be compiled to RISC-V instructions using the `move-llvm` backe
 
 zkMove takes the third approach: building a custom circuit that directly verifies the execution of Move bytecode against the MoveVM semantics.
 
-*Advantage:* Achieves the best performance without sacrificing security. Because Move bytecode is executed directly on the ZKVM, we can exploit the program's code structure for further optimizations.
+*Advantage:* Achieves the best performance without sacrificing security. Because Move bytecode is executed directly on the zkVM, we can exploit the program's code structure for further optimizations.
 
 *Disadvantage:* Building a full circuit for MoveVM is a complex and time-intensive engineering effort.
 

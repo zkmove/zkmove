@@ -1,14 +1,14 @@
 # Circuit Design
 
-## Core Requirements of Any ZKVM Circuit
+## Core Requirements of Any zkVM Circuit
 
-Regardless of architecture, every ZKVM circuit must ensure three fundamental correctness properties:
+Regardless of architecture, every zkVM circuit must ensure three fundamental correctness properties:
 
 1. **Correct instruction loading** — the right instructions are fetched for execution.
 2. **Correct instruction execution** — each instruction is executed according to its defined semantics.
 3. **Memory consistency** — every value read from memory equals the value most recently written to that location.
 
-The following sections compare how mainstream ZKVMs address these requirements and outline zkMove's design choices.
+The following sections compare how mainstream zkVMs address these requirements and outline zkMove's design choices.
 
 ## 1. Correct Instruction Loading
 
@@ -23,9 +23,9 @@ zkMove stores the contract bytecode in a fixed lookup table (a constant/fixed co
 
 ## 2. Correct Instruction Execution
 
-### Selector-Based Dispatch in Mainstream ZKVMs
+### Selector-Based Dispatch in Mainstream zkVMs
 
-Mainstream ZKVMs employ *selector columns* to dispatch instruction semantics. For a RISC-V ISA with $n$ instructions, each instruction $i$ defines a set of semantic constraint polynomials:
+Mainstream zkVMs employ *selector columns* to dispatch instruction semantics. For a RISC-V ISA with $n$ instructions, each instruction $i$ defines a set of semantic constraint polynomials:
 
 $$c_i(\mathbf{x}) = 0$$
 
@@ -54,11 +54,11 @@ This design offers two key properties:
 - **Best case** ($m = 1$): A trivial function with only a `ret` instruction reduces to $c_0(\mathbf{x}) = 0$, incurring zero dispatch overhead. (Note: This is an idealized case; in practice, even the simplest functions require a small set of basic instructions for function prologue and return handling.)
 - **Worst case** ($m = n$): A function using all opcodes, the constraint falls back to the standard mainstream form — incurring no additional cost.
 
-In practice, in most privacy-sensitive scenarios, most functions use only a small subset of opcodes, making zkMove’s circuit significantly more compact than general-purpose ZKVM circuits.
+In practice, in most privacy-sensitive scenarios, most functions use only a small subset of opcodes, making zkMove’s circuit significantly more compact than general-purpose zkVM circuits.
 
 ## 3. Memory Consistency Checking
 
-Early ZKVMs relied on *sorting-based* methods[1] for memory consistency verification. Modern ZKVMs, including zkMove, have adopted the **shuffle argument** instead.
+Early zkVMs relied on *sorting-based* methods[1] for memory consistency verification. Modern zkVMs, including zkMove, have adopted the **shuffle argument** instead.
 
 zkMove integrates execution and memory into a single unified chip to minimize circuit size. By applying the *address-cycle* method[2], memory consistency is verified through **a single shuffle operation**, reducing inter-chip communication and circuit complexity.
 

@@ -18,7 +18,7 @@ As the Agentic Economy continues to evolve, AI agents will operate with increasi
 
 To become a truly trustworthy coordination layer for the Agentic Economy, existing smart contract platforms must close this critical privacy gap. Zero-knowledge proofs (ZKPs) stand out as one of the most powerful technologies capable of addressing this challenge.
 
-## Zero-Knowledge Proofs and ZKVMs
+## Zero-Knowledge Proofs and zkVMs
 
 **Zero-knowledge proofs (ZKPs)** are a cryptographic primitive that allow a prover to convince a verifier that a computation was performed correctly, without revealing any information about the underlying inputs.
 
@@ -31,8 +31,8 @@ ZKPs have broad applications in:
 
 Despite their potential, ZKPs have historically suffered from poor programmability. Building a ZKP application typically requires cryptography experts to hand-craft arithmetic circuits — a time-consuming process that has hindered mainstream adoption.
 
-A **zero-knowledge virtual machine (ZKVM)** targeting general-purpose programming languages addresses this problem. With a ZKVM, developers write ordinary code and the system automatically generates efficient proofs, dramatically lowering the barrier to building ZKP applications.
+A **zero-knowledge virtual machine (zkVM)** targeting general-purpose programming languages addresses this problem. With a zkVM, developers write ordinary code and the system automatically generates efficient proofs, dramatically lowering the barrier to building ZKP applications.
 
 ## What is zkMove?
 
-**zkMove** is a secure, high-performance zero-knowledge virtual machine (ZKVM) designed specifically for the Move programming language. It empowers Move smart contracts to access and process private data in a fully programmable and trustless manner.
+**zkMove** is a secure, high-performance zero-knowledge virtual machine (zkVM) designed specifically for the Move programming language. It empowers Move smart contracts to access and process private data in a fully programmable and trustless manner.
