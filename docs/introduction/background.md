@@ -10,7 +10,7 @@ Smart contract platforms have gone through three major evolutionary stages:
 | 2018–2022 | Solana | Parallel execution, high throughput (TPS) |
 | 2022–2026 | Sui / Aptos | Extreme parallelism, high TPS, asset-oriented design, enhanced security |
 
-In parallel, Ethereum pioneered a different scaling path through Layer 2 (L2) rollups. Although L2 networks still have relatively limited decentralization, they have largely relieved Ethereum's scalability pressure.
+At the same time, Ethereum has taken a distinct scaling path by leveraging Layer 2 (L2) rollups. Despite their current limitations in decentralization, L2 solutions have largely eased the scalability burden on Ethereum.
 
 ## Privacy as the Next Priority
 
