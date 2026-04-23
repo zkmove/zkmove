@@ -43,13 +43,15 @@ plugins:
 
 nav:
   - Home: index.md
-  - Introduction:
-      - Background: introduction/background.md
-      - ZKVM for Move: introduction/zkvm-for-move.md
-      - Architecture: introduction/architecture.md
-      - Circuit Design: introduction/circuit-design.md
-      - Performance: introduction/performance.md
-      - Use Cases: introduction/use-cases.md
+  - Litepaper:
+      - Abstract: litepaper/abstract.md
+      - Introduction: litepaper/introduction.md
+      - ZKVM for Move: litepaper/zkvm-for-move.md
+      - Architecture: litepaper/architecture.md
+      - Circuit Design: litepaper/circuit-design.md
+      - Performance: litepaper/performance.md
+      - Use Cases: litepaper/use-cases.md
+      - References: litepaper/references.md
   - User Document:
       - Set Up the Development Environment: user/setup-dev-environment.md
       - Circuit and Proof: user/circuit-and-proof.md

@@ -6,18 +6,20 @@ Welcome to the official documentation for **zkMove** — a zero-knowledge virtua
 
 ## Table of Contents
 
-### Introduction
+### Litepaper
 
 Understand the motivation, design principles, and internals of zkMove.
 
-| # | Page | Description                                              |
-|---|------|----------------------------------------------------------|
-| 1 | [Background](introduction/background.md) | Zero-knowledge proofs, zkVMs, and why they matter        |
-| 2 | [zkVM for Move](introduction/zkvm-for-move.md) | Why Move and how to develop a zkVM for the Move language |
-| 3 | [Architecture](introduction/architecture.md) | High-level architecture of zkMove                        |
-| 4 | [Circuit Design](introduction/circuit-design.md) | Design of the zkMove circuit                             |
-| 5 | [Performance](introduction/performance.md) | Performance analysis and benchmarks                      |
-| 6 | [Use Cases](introduction/use-cases.md) | Real-world applications enabled by zkMove                |
+| # | Page                                          | Description                                         |
+|---|-----------------------------------------------|-----------------------------------------------------|
+| 1 | [Abstract](litepaper/abstract.md)             | Overview and scope of this litepaper                |
+| 2 | [Introduction](litepaper/introduction.md)     | Background and motivation for building zkMove       |
+| 3 | [zkVM for Move](litepaper/zkvm-for-move.md)   | How to develop a zkVM for the Move language         |
+| 4 | [Architecture](litepaper/architecture.md)     | High-level architecture of zkMove                   |
+| 5 | [Circuit Design](litepaper/circuit-design.md) | Design of the zkMove circuit                        |
+| 6 | [Performance](litepaper/performance.md)       | Performance analysis and benchmarks                 |
+| 7 | [Use Cases](litepaper/use-cases.md)           | Real-world applications enabled by zkMove           |
+| 8 | [References](litepaper/references.md)         | All citations and references used in this litepaper |
 
 ### User Guide
 
