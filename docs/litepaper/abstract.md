@@ -1,10 +1,14 @@
 # zkMove: Programmable Privacy for Move Smart Contracts
 
-zkMove Team
+<div style="text-align: center;">
 
-April 2026
+<span style="font-size: 1.1em;">zkMove Team</span>
 
----
+<span style="display: block;">contact@zkmove.net</span>
+
+<span style="display: block; margin-top: 1em;">April 2026</span>
+
+</div>
 
 ## Abstract
 
@@ -24,3 +28,7 @@ This litepaper presents:
 - Core circuit design, including instruction loading, function-scoped execution, memory consistency, and support for Move’s unique runtime type system
 - Performance benchmarks of zkMove v0.5, highlighting improvements in proving time and proof size
 - Representative use cases such as confidential assets and incomplete-information games
+
+## Acknowledgements
+
+We are grateful to *Shisheng Li*, *Ryan Fang*, *Star Li*, *Tim Yang*, and *Xiaofeng Li* for their valuable advice and support throughout the development of this project.

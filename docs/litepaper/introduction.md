@@ -34,7 +34,7 @@ A **zero-knowledge virtual machine (zkVM)** addresses this problem directly. Wit
 
 The **Move programming language** was originally developed by Meta (Facebook) for writing smart contracts on the Libra blockchain, and has since been adopted by Sui and Aptos. Move's most distinctive feature is **asset-oriented programming**: digital assets are modeled as *resources* with strict ownership semantics — they cannot be copied, accidentally discarded, or double-spent, and must be explicitly transferred or destroyed.
 
-Move is the natural choice for a privacy-focused zkVM for two reasons. First, it is the safest smart contract language for asset-oriented programming. Second, Sui and Aptos represent the most important direction in the evolution of smart contract platforms — and building for Move means building where the ecosystem is headed.
+Move is the natural choice for a privacy-focused zkVM for two reasons. First, The essence of blockchain is a value network, and its core purpose is to enable digital assets to move more efficiently. Second, Sui and Aptos represent the most important direction in the evolution of smart contract platforms — and building for Move means building where the ecosystem is headed.
 
 ## What is zkMove?
 
