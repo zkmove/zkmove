@@ -12,7 +12,7 @@ The horizontal scaling approach has progressed through three major stages:
 | 2018–2022 | Solana         | Parallel execution, high throughput (TPS)        |
 | 2022–2026 | Sui / Aptos    | Extreme parallelism, high TPS, enhanced security |
 
-To date, both approaches have largely fulfilled their intended objectives. Setting aside the reduction in decentralization introduced by L2 solutions, the pressure for further scaling has been substantially relieved.
+To date, both approaches have largely delivered on their respective goals, notwithstanding the degree of decentralization sacrificed by L2 solutions.
 
 ## Privacy as the Next Priority
 
