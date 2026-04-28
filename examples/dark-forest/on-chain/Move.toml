@@ -1,0 +1,28 @@
+[package]
+name = "dark_forest"
+version = "0.1.0"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/zkmove/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
+
+verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move.git", subdir = "packages/api", rev = "main" }
+halo2-common =  { git = "https://github.com/zkmove/halo2-verifier.move.git", subdir = "packages/common", rev = "main" }
+
+[addresses]
+halo2_common = "_"
+halo2_verifier = "_"
+verifier_api = "_"
+param_address = "_"
+circuit_coords_hash_address = "_"
+circuit_euclid_distance_address = "_"
+dark_forest = "_"
+
+[dev-addresses]
+halo2_common = "0x123"
+halo2_verifier = "0x1234"
+verifier_api = "0x12345"
+param_address = "0xAB"
+circuit_coords_hash_address = "0xABCD"
+circuit_euclid_distance_address = "0xABCDE"
+dark_forest = "0xABCDEF"
+

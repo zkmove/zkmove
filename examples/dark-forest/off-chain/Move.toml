@@ -1,0 +1,18 @@
+[package]
+name = "dark_forest"
+version = "0.1.0"
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
+
+[addresses]
+std = "0x1"
+dark_forest = "0x2"
+
+[circuit.coords_hash]
+max_poseidon_rows = 100
+entry = { module_id = "0x2::coords_hash", function_name = "check_coords_hash" }
+
+[circuit.euclid_distance]
+max_poseidon_rows = 100
+entry = { module_id = "0x2::euclid_distance", function_name = "check_euclid_distance" }
