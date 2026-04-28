@@ -1,0 +1,22 @@
+[package]
+name = "confidential_asset"
+version = "0.1.0"
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
+
+[addresses]
+std = "0x1"
+confidential_asset = "0xCAFE"
+
+[circuit.encrypt]
+max_poseidon_rows = 100
+entry = { module_id = "0xCAFE::encryption", function_name = "encrypt" }
+
+[circuit.check_sum]
+max_poseidon_rows = 100
+entry = { module_id = "0xCAFE::sum", function_name = "check_sum" }
+
+[circuit.range_check]
+max_poseidon_rows = 100
+entry = { module_id = "0xCAFE::range_check", function_name = "check_range" }
