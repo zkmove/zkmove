@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var logo = document.querySelector("a.md-header__button.md-logo");
+      if (logo) {
+        logo.href = "https://www.zkmove.net/";
+        logo.target = "_blank";
+        logo.rel = "noopener";
+      }
+    });
+  </script>
+{% endblock %}

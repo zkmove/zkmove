@@ -1,13 +1,13 @@
-site_name: zkMove Docs
+site_name: Document
 site_description: Documentation for zkMove
 site_url: https://zkmove.github.io/zkmove/
 repo_url: https://github.com/zkmove/zkmove
-repo_name: zkmove/zkmove
+repo_name: zkmove
 
 theme:
   name: material
   custom_dir: overrides
-  favicon: assets/images/favicon.png
+  logo: assets/logo1.png
   font:
     text: Inter
     code: JetBrains Mono
@@ -52,7 +52,7 @@ nav:
       - Performance: litepaper/performance.md
       - Use Cases: litepaper/use-cases.md
       - References: litepaper/references.md
-  - User Document:
+  - User Guide:
       - Set Up the Development Environment: user/setup-dev-environment.md
       - Circuit and Proof: user/circuit-and-proof.md
       - Deploy an On-Chain Verifier: user/deploy-on-chain-verifier.md
