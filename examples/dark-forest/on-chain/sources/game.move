@@ -2,9 +2,8 @@ module dark_forest::game {
     use std::signer;
     use std::vector;
     use std::option::{Self, Option};
-    use aptos_std::bn254_algebra::Fr;
-    use verifier_api::verifier;
-    use halo2_common::public_inputs;
+    use verifier_api::native_verifier;
+    use halo2_common::serialized_public_inputs;
 
     // ======================
     // Error codes
@@ -88,9 +87,9 @@ module dark_forest::game {
         };
 
         // verify "coord_hash(x, y, coord_hash) returns ()"
-        let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
-        public_inputs::push_u256(&mut pi, coord_hash);
-        assert!(verifier::mock_verify_proof(@param_address, @circuit_coords_hash_address, pi, proof, kzg_variant), E_INVALID_COORDINATES);
+        let pi = serialized_public_inputs::empty(serialized_public_inputs::get_vm_public_inputs_column_count());
+        serialized_public_inputs::push_u256(&mut pi, coord_hash);
+        assert!(native_verifier::mock_verify_proof(@param_address, @circuit_coords_hash_address, pi, proof, kzg_variant, option::none()), E_INVALID_COORDINATES);
 
         vector::push_back(&mut manager.planets, Planet {
             coord_hash,
@@ -195,11 +194,11 @@ module dark_forest::game {
         let hash_2 = to_planet.coord_hash;
 
         // verify "check_euclid_distance(x1, y1, x2, y2, hash_1, hash_2, distance_squared) returns ()"
-        let pi = public_inputs::empty<Fr>(public_inputs::get_vm_public_inputs_column_count());
-        public_inputs::push_u256(&mut pi, hash_1);
-        public_inputs::push_u256(&mut pi, hash_2);
-        public_inputs::push_u128(&mut pi, distance_squared);
-        assert!(verifier::mock_verify_proof(@param_address, @circuit_euclid_distance_address, pi, proof, kzg_variant), E_INVALID_COORDINATES);
+        let pi = serialized_public_inputs::empty(serialized_public_inputs::get_vm_public_inputs_column_count());
+        serialized_public_inputs::push_u256(&mut pi, hash_1);
+        serialized_public_inputs::push_u256(&mut pi, hash_2);
+        serialized_public_inputs::push_u128(&mut pi, distance_squared);
+        assert!(native_verifier::mock_verify_proof(@param_address, @circuit_euclid_distance_address, pi, proof, kzg_variant, option::none()), E_INVALID_COORDINATES);
 
         // Energy cost = distance_sq / speed (higher speed = less loss per distance)
         // Use integer division - any remainder is lost (harsh universe!)

@@ -3,8 +3,6 @@ name = "confidential_asset"
 version = "0.1.0"
 
 [dependencies]
-AptosFramework = { git = "https://github.com/zkmove/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
-
 verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move.git", subdir = "packages/api", rev = "main" }
 halo2-common =  { git = "https://github.com/zkmove/halo2-verifier.move.git", subdir = "packages/common", rev = "main" }
 
