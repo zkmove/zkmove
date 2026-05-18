@@ -30,7 +30,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+          args: --git https://github.com/zkmove/move move-cli --branch main
       - name: Generate witness
         working-directory: ./functional-tests
         run: |

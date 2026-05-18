@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# should compile move from https://github.com/zkmove/aptos-core.git#branch=witnessing
+# should compile move from https://github.com/zkmove/move.git#branch=main
 MOVE="move"
 $MOVE build --skip-fetch-latest-git-deps
 $MOVE sandbox clean

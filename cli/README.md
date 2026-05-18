@@ -7,7 +7,7 @@ This guide explains how to use `zkmove` CLI to create a circuit and generate a p
 A customized Move CLI is required to generate witnesses. Install it with:
 
 ```shell
-cargo install --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+cargo install --git https://github.com/zkmove/move move-cli
 ```
 
 ## A zkMove Circuit example
@@ -20,7 +20,7 @@ name = "example"
 version = "0.0.1"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/zkmove/aptos-core.git", subdir = "third_party/move/move-stdlib", rev = "witnessing" }
+MoveStdlib = { git = "https://github.com/zkmove/move.git", subdir = "third_party/move/move-stdlib", rev = "main" }
 
 [addresses]
 std = "0x1"

@@ -1,12 +1,12 @@
-### aptos move witnesses generation
+### Move witness generation
 
-We make some changes to the standard move cli in aptos to support witness generation of move code.
+We make some changes to the standard Move CLI to support witness generation of Move code.
 So you can just use the following commands to get the witnesses in json.
 
-Install `move` command from https://github.com/zkmove/aptos-core/tree/witnessing
+Install `move` command from https://github.com/zkmove/move/tree/main
 
 ```shell
-cargo install --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+cargo install --git https://github.com/zkmove/move move-cli --branch main
 ```
 
 Then run the example:
