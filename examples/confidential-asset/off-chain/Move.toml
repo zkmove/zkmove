@@ -3,7 +3,7 @@ name = "confidential_asset"
 version = "0.1.0"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/zkmove/main.git", subdir = "third_party/move/move-stdlib", rev = "main" }
+MoveStdlib = { git = "https://github.com/zkmove/move.git", subdir = "third_party/move/move-stdlib", rev = "main" }
 
 [addresses]
 std = "0x1"
