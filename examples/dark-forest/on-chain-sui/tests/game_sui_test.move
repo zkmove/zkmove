@@ -2,8 +2,8 @@
 module dark_forest_sui::game_sui_tests;
 
 use dark_forest_sui::game;
-use halo2_common::serialized_public_inputs;
 use verifier_api::native_verifier;
+use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store;
 
 const ALICE: address = @0xA1;

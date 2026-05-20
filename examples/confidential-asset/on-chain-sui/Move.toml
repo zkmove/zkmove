@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2024.beta"
 
 [dependencies]
-Sui = { local = "../../../../zkmove_sui/crates/sui-framework/packages/sui-framework" }
+Sui = { local = "../../../../zkmove_sui/crates/sui-framework/packages/sui-framework", override = true }
 verifier-api = { local = "../../../../halo2-verifier.move/packages/api-sui" }
 
 [addresses]
 confidential_asset_sui = "0x0"
-verifier_api = "0x0"
-halo2_common = "0x0"

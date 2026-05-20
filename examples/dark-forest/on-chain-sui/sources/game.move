@@ -1,7 +1,7 @@
 module dark_forest_sui::game;
 
-use halo2_common::serialized_public_inputs::PublicInputs;
 use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedVK};
+use verifier_api::serialized_public_inputs::{Self, PublicInputs};
 use verifier_api::serialized_params_store::SerializedParams;
 
 public struct Planet has copy, drop, store {
@@ -38,6 +38,10 @@ public fun new_game(ctx: &mut TxContext): Game {
         fleets: vector[],
         next_fleet_id: 1,
     }
+}
+
+entry fun new_game_to_sender(ctx: &mut TxContext) {
+    transfer::transfer(new_game(ctx), ctx.sender())
 }
 
 public fun create_planet(
@@ -77,6 +81,28 @@ public fun create_planet(
     });
 }
 
+entry fun create_planet_from_bytes(
+    game: &mut Game,
+    owner: address,
+    params: &SerializedParams,
+    vk: &SerializedVK,
+    circuit: &SerializedCircuit,
+    coord_hash: u256,
+    public_inputs: vector<vector<vector<u8>>>,
+    proof: vector<u8>,
+) {
+    create_planet(
+        game,
+        owner,
+        params,
+        vk,
+        circuit,
+        coord_hash,
+        serialized_public_inputs::from_bytes(public_inputs),
+        proof,
+    )
+}
+
 public fun dispatch_fleet(
     game: &mut Game,
     owner: address,
@@ -102,6 +128,16 @@ public fun dispatch_fleet(
         energy,
         owner,
     });
+}
+
+entry fun dispatch_fleet_entry(
+    game: &mut Game,
+    owner: address,
+    from_id: u64,
+    to_id: u64,
+    energy: u64,
+) {
+    dispatch_fleet(game, owner, from_id, to_id, energy)
 }
 
 public fun process_arrival(
@@ -135,6 +171,28 @@ public fun process_arrival(
     let target = &mut game.planets[fleet.to_planet_id - 1];
     target.owner = fleet.owner;
     target.energy = target.energy + remaining;
+}
+
+entry fun process_arrival_from_bytes(
+    game: &mut Game,
+    params: &SerializedParams,
+    vk: &SerializedVK,
+    circuit: &SerializedCircuit,
+    fleet_id: u64,
+    distance_squared: u128,
+    public_inputs: vector<vector<vector<u8>>>,
+    proof: vector<u8>,
+) {
+    process_arrival(
+        game,
+        params,
+        vk,
+        circuit,
+        fleet_id,
+        distance_squared,
+        serialized_public_inputs::from_bytes(public_inputs),
+        proof,
+    )
 }
 
 public fun planet_count(game: &Game): u64 {

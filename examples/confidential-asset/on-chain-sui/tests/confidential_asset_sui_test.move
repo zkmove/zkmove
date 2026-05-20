@@ -2,8 +2,8 @@
 module confidential_asset_sui::confidential_asset_sui_tests;
 
 use confidential_asset_sui::token;
-use halo2_common::serialized_public_inputs;
 use verifier_api::native_verifier;
+use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store;
 
 #[test]

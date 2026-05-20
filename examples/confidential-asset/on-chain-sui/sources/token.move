@@ -1,7 +1,7 @@
 module confidential_asset_sui::token;
 
-use halo2_common::serialized_public_inputs::PublicInputs;
 use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedVK};
+use verifier_api::serialized_public_inputs::{Self, PublicInputs};
 use verifier_api::serialized_params_store::SerializedParams;
 
 public struct MintCap has key, store {
@@ -22,11 +22,19 @@ public fun new_mint_cap(ctx: &mut TxContext): MintCap {
     MintCap { id: object::new(ctx) }
 }
 
+entry fun publish_mint_cap(ctx: &mut TxContext) {
+    transfer::transfer(new_mint_cap(ctx), ctx.sender())
+}
+
 public fun register(ctx: &mut TxContext): Store {
     Store {
         id: object::new(ctx),
         encrypted_value: ENCRYPTED_ZERO,
     }
+}
+
+entry fun register_to_sender(ctx: &mut TxContext) {
+    transfer::transfer(register(ctx), ctx.sender())
 }
 
 public fun mint(
@@ -55,6 +63,28 @@ public fun mint(
     );
 
     store.encrypted_value = encrypted_amount;
+}
+
+entry fun mint_from_bytes(
+    cap: &MintCap,
+    store: &mut Store,
+    params: &SerializedParams,
+    vk: &SerializedVK,
+    circuit: &SerializedCircuit,
+    encrypted_amount: u256,
+    public_inputs: vector<vector<vector<u8>>>,
+    proof: vector<u8>,
+) {
+    mint(
+        cap,
+        store,
+        params,
+        vk,
+        circuit,
+        encrypted_amount,
+        serialized_public_inputs::from_bytes(public_inputs),
+        proof,
+    )
 }
 
 public fun balance_of(store: &Store): u256 {
