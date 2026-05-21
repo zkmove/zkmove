@@ -1,11 +1,9 @@
 [package]
-name = "confidential-asset-sui"
-version = "0.1.0"
+name = "confidential_asset_sui"
 edition = "2024.beta"
+implicit-dependencies = false
 
 [dependencies]
-Sui = { local = "../../../../zkmove_sui/crates/sui-framework/packages/sui-framework", override = true }
-verifier-api = { local = "../../../../halo2-verifier.move/packages/api-sui" }
-
-[addresses]
-confidential_asset_sui = "0x0"
+std = { git = "https://github.com/zkmove/sui.git", rev = "76269b3f6ff1ea56ddfcf258be8c19ffe21ce105", subdir = "crates/sui-framework/packages/move-stdlib" }
+sui = { git = "https://github.com/zkmove/sui.git", rev = "76269b3f6ff1ea56ddfcf258be8c19ffe21ce105", subdir = "crates/sui-framework/packages/sui-framework" }
+verifier_api = { local = "../../../../halo2-verifier.move/packages/api-sui" }

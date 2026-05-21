@@ -54,6 +54,48 @@ fun test_create_planet_rejects_invalid_proof() {
     native_verifier::destroy_serialized_circuit(circuit);
 }
 
+#[test]
+#[expected_failure(abort_code = game::EZeroEnergy)]
+fun test_dispatch_fleet_rejects_zero_energy() {
+    let ctx = &mut tx_context::dummy();
+    let params = serialized_params_store::new_serialized_params(params(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), ctx);
+    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let mut game = game::new_game(ctx);
+
+    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), proof());
+    game::create_planet(&mut game, BOB, &params, &vk, &circuit, HASH_B, public_inputs(), proof());
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 0);
+
+    game::destroy_game(game);
+    serialized_params_store::destroy(params);
+    native_verifier::destroy_serialized_vk(vk);
+    native_verifier::destroy_serialized_circuit(circuit);
+}
+
+#[test]
+fun test_spent_fleet_does_not_capture_planet() {
+    let ctx = &mut tx_context::dummy();
+    let params = serialized_params_store::new_serialized_params(params(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), ctx);
+    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let mut game = game::new_game(ctx);
+
+    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), proof());
+    game::create_planet(&mut game, BOB, &params, &vk, &circuit, HASH_B, public_inputs(), proof());
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400);
+    game::process_arrival(&mut game, &params, &vk, &circuit, 1, 400000, public_inputs(), proof());
+
+    assert!(game::planet_owner(&game, 2) == BOB, 10);
+    assert!(game::planet_energy(&game, 2) == 1000, 11);
+    assert!(game::fleet_count(&game) == 0, 12);
+
+    game::destroy_game(game);
+    serialized_params_store::destroy(params);
+    native_verifier::destroy_serialized_vk(vk);
+    native_verifier::destroy_serialized_circuit(circuit);
+}
+
 fun params(): vector<u8> {
     x"0400000042f8cfea72663b7832e47dc1fdeab56f2f1d07b729ce0a67a9f95480067c840de1800642e35c0a9fdd474e873eb42c6ceae6d8d8f43c0e035c9fbfb89bb32728303f01830dc2182d175d38ddb47e6cc2c2063b0831432043ac7994d29438082d9c8e35afccd69c2b897efd50d7ed0e62122388f41326dba4bc0d128ae0d14119"
 }

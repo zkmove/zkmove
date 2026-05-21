@@ -30,6 +30,7 @@ const EAlreadyHasPlanet: u64 = 2;
 const EInvalidTarget: u64 = 3;
 const ENotOwner: u64 = 4;
 const EInsufficientEnergy: u64 = 5;
+const EZeroEnergy: u64 = 6;
 
 public fun new_game(ctx: &mut TxContext): Game {
     Game {
@@ -83,17 +84,17 @@ public fun create_planet(
 
 entry fun create_planet_from_bytes(
     game: &mut Game,
-    owner: address,
     params: &SerializedParams,
     vk: &SerializedVK,
     circuit: &SerializedCircuit,
     coord_hash: u256,
     public_inputs: vector<vector<vector<u8>>>,
     proof: vector<u8>,
+    _ctx: &mut TxContext,
 ) {
     create_planet(
         game,
-        owner,
+        _ctx.sender(),
         params,
         vk,
         circuit,
@@ -113,6 +114,7 @@ public fun dispatch_fleet(
     assert!(from_id > 0 && to_id > 0 && from_id != to_id, EInvalidTarget);
     assert!(from_id <= game.planets.length(), EInvalidTarget);
     assert!(to_id <= game.planets.length(), EInvalidTarget);
+    assert!(energy > 0, EZeroEnergy);
 
     let from = &mut game.planets[from_id - 1];
     assert!(from.owner == owner, ENotOwner);
@@ -132,12 +134,12 @@ public fun dispatch_fleet(
 
 entry fun dispatch_fleet_entry(
     game: &mut Game,
-    owner: address,
     from_id: u64,
     to_id: u64,
     energy: u64,
+    _ctx: &mut TxContext,
 ) {
-    dispatch_fleet(game, owner, from_id, to_id, energy)
+    dispatch_fleet(game, _ctx.sender(), from_id, to_id, energy)
 }
 
 public fun process_arrival(
@@ -166,11 +168,17 @@ public fun process_arrival(
 
     let idx = fleet_index(game, fleet_id);
     let fleet = game.fleets.remove(idx);
-    let energy_cost = (distance_squared as u64) / 1000;
-    let remaining = if (energy_cost >= fleet.energy) { 0 } else { fleet.energy - energy_cost };
+    let energy_cost = distance_squared / 1000;
+    let remaining = if (energy_cost >= (fleet.energy as u128)) {
+        0
+    } else {
+        fleet.energy - (energy_cost as u64)
+    };
     let target = &mut game.planets[fleet.to_planet_id - 1];
-    target.owner = fleet.owner;
-    target.energy = target.energy + remaining;
+    if (remaining > 0) {
+        target.owner = fleet.owner;
+        target.energy = target.energy + remaining;
+    }
 }
 
 entry fun process_arrival_from_bytes(
