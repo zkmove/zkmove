@@ -1,0 +1,9 @@
+[package]
+name = "dark_forest_sui"
+edition = "2024.beta"
+implicit-dependencies = false
+
+[dependencies]
+std = { git = "https://github.com/zkmove/sui.git", rev = "76269b3f6ff1ea56ddfcf258be8c19ffe21ce105", subdir = "crates/sui-framework/packages/move-stdlib" }
+sui = { git = "https://github.com/zkmove/sui.git", rev = "76269b3f6ff1ea56ddfcf258be8c19ffe21ce105", subdir = "crates/sui-framework/packages/sui-framework" }
+verifier_api = { local = "../../../../halo2-verifier.move/packages/api-sui" }
