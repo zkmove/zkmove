@@ -3,11 +3,79 @@ module confidential_asset_sui::confidential_asset_sui_tests;
 
 use confidential_asset_sui::token;
 use verifier_api::native_verifier;
-use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store;
 
 #[test]
-fun test_mint_calls_api_and_sui_native_verifier() {
+fun test_register_initializes_balance_and_inbox() {
+    let ctx = &mut tx_context::dummy();
+    let store = token::register(ctx);
+
+    assert!(token::balance_of(&store) == encrypted_zero(), 0);
+    assert!(token::inbox_length(&store) == 0, 1);
+
+    token::destroy_store(store);
+}
+
+#[test]
+fun test_public_inputs_are_built_from_call_arguments() {
+    let zero = scalar(0);
+    let one = scalar(1);
+    let two = scalar(2);
+    let three = scalar(3);
+    let six = scalar(6);
+
+    assert!(
+        token::encrypt_public_inputs_for_test(6) == vector[
+            vector[copy zero],
+            vector[copy zero],
+            vector[copy six],
+            vector[copy zero],
+        ],
+        10,
+    );
+
+    assert!(
+        token::sum_public_inputs_for_test(1, 2, 3) == vector[
+            vector[copy zero, copy zero, copy zero],
+            vector[copy zero, copy zero, copy zero],
+            vector[copy one, copy two, copy three],
+            vector[copy zero, copy zero, copy zero],
+        ],
+        11,
+    );
+
+    assert!(
+        token::range_public_inputs_for_test(1, 2, 3) == vector[
+            vector[copy zero, copy zero, copy zero],
+            vector[copy zero, copy zero, copy zero],
+            vector[one, two, three],
+            vector[copy zero, copy zero, zero],
+        ],
+        12,
+    );
+}
+
+#[test]
+fun test_u256_public_inputs_split_into_low_and_high_words() {
+    let zero = scalar(0);
+    let one = scalar(1);
+    let six = scalar(6);
+    let value = (1u256 << 128) + 6;
+
+    assert!(
+        token::encrypt_public_inputs_for_test(value) == vector[
+            vector[copy zero],
+            vector[copy zero],
+            vector[six],
+            vector[one],
+        ],
+        20,
+    );
+}
+
+#[test]
+#[expected_failure]
+fun test_mint_builds_public_inputs_and_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
     let vk = native_verifier::new_serialized_vk(vk(), ctx);
@@ -22,40 +90,86 @@ fun test_mint_calls_api_and_sui_native_verifier() {
         &vk,
         &circuit,
         6,
-        public_inputs(),
-        proof(),
+        x"00",
     );
 
-    assert!(token::balance_of(&store) == 6, 0);
+    cleanup(store, cap, params, vk, circuit);
+}
 
-    token::destroy_store(store);
-    token::destroy_mint_cap(cap);
+#[test]
+#[expected_failure(abort_code = token::EZeroAmount)]
+fun test_mint_rejects_zero_amount_before_verifying() {
+    let ctx = &mut tx_context::dummy();
+    let params = serialized_params_store::new_serialized_params(params(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), ctx);
+    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let cap = token::new_mint_cap(ctx);
+    let mut store = token::register(ctx);
+
+    token::mint(
+        &cap,
+        &mut store,
+        &params,
+        &vk,
+        &circuit,
+        0,
+        x"00",
+    );
+
+    cleanup(store, cap, params, vk, circuit);
+}
+
+#[test]
+#[expected_failure(abort_code = token::EInvalidInput)]
+fun test_range_check_rejects_invalid_bounds_before_verifying() {
+    let ctx = &mut tx_context::dummy();
+    let params = serialized_params_store::new_serialized_params(params(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), ctx);
+    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+
+    token::range_check(&params, &vk, &circuit, 6, 10, 1, x"00");
+
     serialized_params_store::destroy(params);
     native_verifier::destroy_serialized_vk(vk);
     native_verifier::destroy_serialized_circuit(circuit);
 }
 
 #[test]
-#[expected_failure(abort_code = token::EInvalidProof)]
-fun test_mint_rejects_invalid_proof() {
+#[expected_failure(abort_code = token::EIndexOutOfBounds)]
+fun test_inbox_token_value_rejects_out_of_bounds_index() {
     let ctx = &mut tx_context::dummy();
-    let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
-    let cap = token::new_mint_cap(ctx);
-    let mut store = token::register(ctx);
+    let store = token::register(ctx);
 
-    token::mint(
-        &cap,
-        &mut store,
-        &params,
-        &vk,
-        &circuit,
-        6,
-        public_inputs(),
-        x"00",
-    );
+    token::inbox_token_value(&store, 0);
 
+    token::destroy_store(store);
+}
+
+fun encrypted_zero(): u256 {
+    1057098720325748203296752469094320832019875087793557438351763779692404987367u256
+}
+
+fun scalar(value: u8): vector<u8> {
+    if (value == 0) {
+        x"0000000000000000000000000000000000000000000000000000000000000000"
+    } else if (value == 1) {
+        x"0100000000000000000000000000000000000000000000000000000000000000"
+    } else if (value == 2) {
+        x"0200000000000000000000000000000000000000000000000000000000000000"
+    } else if (value == 3) {
+        x"0300000000000000000000000000000000000000000000000000000000000000"
+    } else {
+        x"0600000000000000000000000000000000000000000000000000000000000000"
+    }
+}
+
+fun cleanup(
+    store: token::Store,
+    cap: token::MintCap,
+    params: serialized_params_store::SerializedParams,
+    vk: native_verifier::SerializedVK,
+    circuit: native_verifier::SerializedCircuit,
+) {
     token::destroy_store(store);
     token::destroy_mint_cap(cap);
     serialized_params_store::destroy(params);
@@ -73,13 +187,4 @@ fun vk(): vector<u8> {
 
 fun circuit_info(): vector<u8> {
     x"0b0c20acc86b4c84170be1ea86dfb0bf5d284c7bee72808a85412c71eeec572b2fbb0b208effc754694da2cb6df0dc36fe4a9bc7e3ec844490da918c007213c66bf786a38001b61dd63efa2807041eec04d2e53c1dcdef061216ff9f65a22d88b152b8d6559f994768be185bbb68e44116cb6d1017bab8dfe91dc3ddb28ed720139f34ea6505d4b098bb2b6a4f0d5ec7d96d3184666aaecda03d0d83cfe4fb06c7edccb9c5a22f720095cbbf541bd781e9d75cfd01d23ff3ca5674e05d85d001abce9688539e010404010000000403000000080100000000000000080100000000000000030000000001000100030a010000000001000000000a010100000001000000000a01020000000100000000010a03000000000100000000010a020000000001000000000405030000000005010000000005010100000005010200000000010c08020007080300030106030200000000"
-}
-
-fun public_inputs(): serialized_public_inputs::PublicInputs {
-    let scalar = x"0600000000000000000000000000000000000000000000000000000000000000";
-    serialized_public_inputs::from_bytes(vector[vector[copy scalar, copy scalar, scalar]])
-}
-
-fun proof(): vector<u8> {
-    x"e9445cc7533f61fff8af036209735753b9276900d0b1812e91405ce65da07d20d8994f4c3db10d08f37a602e0f56258c624c6076d800678adfd0ecbad2fc3a2065db9386aa1d60c6c8ccffb869093fada5eb6797ba9488c8fa8b39f39d88ea0d8b987dbc98354df75153951b34d21fef0ec49e419453aa9eabb8397cf70c4e8945f3d19d0b85a80b1c92dd1f67742a65a1407676aae21846619e7683ba3681074fe0f929405e17fdb6b5457fa2796587349001fc43ee6726ef6473a62d772e270c4f6c0720fbd0cc9b142f6b7019cce18ffbb071348b7252d92c15ed49cb34af5fb50e30a6f2ae37b39bbc5e0f08f511623fc2e347f9dbc241b7676af8c2068f4e424a79cdf9e47d3f81213b7ce0754e22a5900bc034d9ec14eb976f2e4fe68f13a964e497d8550450f29c3d207d1319e41d325463add88986caa6226d3f5a071c1a237da662f8bc7044c930ba01e78ebab10c8f3750ce3875ade4c17613f629d469b3c80240d084f8eb7c00d349f1ec2eb923405d065c45e05972117810750c129a65213a381020350769823427aa691c79b77591373c8c9a19ee97717bda1bd2e5fe1e693cea645a56976dac736f1e4729ffc503392660cff16d21c64679144b8ad3b2f7ffd36e26837178cdd403266fe5ef05eee9eccf87032c2be6327007fad06835aceec94fcd5018e0d7001da60be35da0a23d43f702c6a8da7c40433047344f70808328501fce9f1920c3f54187c36e36c4d3d410fe76295a2f0afe07e040ec38b721e1fdb068c0eea9e5ec3b88579674b13a9471f7e8f2d6e82a5e00bf6c1f64443eaac6a3e772d283e6a35839574d39fa183fa8ed0dbb87beb71e2412fe1918f814d4ad50bb2001a6d0afb2c98bbce25b1d516896fa431853965812000be23e6303955802b8c503385837aaf3a84459d99d426d2723d63a20d74c2c91afafcce1aa44c1faaaa5f088da984c557cd591fa0e8bd3ef31ad1c128b1e21e19032fd9c419d73a070165530851f8ddbfab0c6a0ee795428bbbe6ef74cbd2c99ffe15922ee1a3b9ae82e99d5783ad1d3804b5df5ececa5898a58167a426f0ff534a7c85ca4603eb202f5e6ee2993b5bf74ea2fd930687946ff421e0ed8b40f881fb309f422e050f35184f65e4f719c2f0fb8a68ee5de10fc474532d00c2122657efdc65431f313ec8d02ed8f017b9bb14fff3910dfc58f78c5f8f17f32ca1c8fb4abbcb1978e8c5f1d783025eb19fb8580e4f50bb3755136ff1a2c0ac903296bb6136ecf03ba35e23496dfd4d77b728532cb5b41ba46fc489926ddb5951a26b82e74bf0fd684b4f4a1c4728eedece37c52a970f30e5915fb931d804014992ba09392b14eca34c6a8e3915dac6afc2ef43041ec6691f4c7769bf230b9016614391af4f7d9df348ee7a0005c110e0563a65073f5f7383abc98912d8e249e3a13e0242be684a69ebe87cf7da07ede3ba9fd7041db88f3cba0469bd3b582393a9e"
 }
