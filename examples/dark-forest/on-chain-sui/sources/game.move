@@ -1,7 +1,7 @@
 module dark_forest_sui::game;
 
 use sui::bcs;
-use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedProof, SerializedVK};
+use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedVK};
 use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store::SerializedParams;
 
@@ -59,28 +59,13 @@ public fun create_planet(
     coord_hash: u256,
     proof: vector<u8>,
 ) {
-    let mut i = 0;
-    while (i < game.planets.length()) {
-        let planet = &game.planets[i];
-        assert!(
-            !(option::is_some(&planet.owner) && *option::borrow(&planet.owner) == owner),
-            EAlreadyHasPlanet,
-        );
-        i = i + 1;
-    };
+    assert_can_create_planet(game, owner);
 
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, coord_hash);
     verify(params, vk, circuit, public_inputs, proof);
 
-    game.planets.push_back(Planet {
-        coord_hash,
-        energy: 1000,
-        capacity: 5000,
-        defense: 100,
-        level: 1,
-        owner: option::some(owner),
-    });
+    push_home_planet(game, owner, coord_hash);
 }
 
 public fun create_planet_with_proof(
@@ -90,7 +75,7 @@ public fun create_planet_with_proof(
     vk: &SerializedVK,
     circuit: &SerializedCircuit,
     coord_hash: u256,
-    proof: &SerializedProof,
+    proof: vector<u8>,
 ) {
     let mut i = 0;
     while (i < game.planets.length()) {
@@ -104,7 +89,7 @@ public fun create_planet_with_proof(
 
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, coord_hash);
-    verify_serialized_proof(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, circuit, public_inputs, proof);
 
     game.planets.push_back(Planet {
         coord_hash,
@@ -142,7 +127,7 @@ entry fun create_planet_with_proof_entry(
     vk: &SerializedVK,
     circuit: &SerializedCircuit,
     coord_hash: u256,
-    proof: &SerializedProof,
+    proof: vector<u8>,
     _ctx: &mut TxContext,
 ) {
     create_planet_with_proof(
@@ -234,33 +219,7 @@ public fun process_arrival(
     push_u128(&mut public_inputs, distance_squared);
     verify(params, vk, circuit, public_inputs, proof);
 
-    assert!(distance_squared <= 18446744073709551615u128, EInvalidTarget);
-    let energy_cost = (distance_squared as u64) / fleet.speed;
-
-    if (energy_cost >= fleet.energy) {
-        game.fleets.remove(idx);
-        return
-    };
-
-    let remaining = fleet.energy - energy_cost;
-    let target = &mut game.planets[fleet.to_planet_id - 1];
-    if (option::is_none(&target.owner)) {
-        option::fill(&mut target.owner, fleet.owner);
-        target.energy = target.energy + (remaining - (remaining / 10));
-    } else if (*option::borrow(&target.owner) == fleet.owner) {
-        target.energy = target.energy + remaining;
-        target.defense = target.defense + (remaining / 20);
-    } else {
-        let total_defense = target.defense + target.energy;
-        if (remaining > total_defense) {
-            let _old_owner = option::extract(&mut target.owner);
-            option::fill(&mut target.owner, fleet.owner);
-            target.energy = remaining - total_defense;
-            target.defense = 100;
-        }
-    };
-
-    game.fleets.remove(idx);
+    settle_arrival(game, idx, fleet, distance_squared);
 }
 
 entry fun process_arrival_entry(
@@ -398,6 +357,23 @@ public fun planet_owner_option_for_test(game: &Game, planet_id: u64): Option<add
     game.planets[planet_id - 1].owner
 }
 
+#[test_only]
+public fun create_planet_for_test(game: &mut Game, owner: address, coord_hash: u256) {
+    assert_can_create_planet(game, owner);
+    push_home_planet(game, owner, coord_hash);
+}
+
+#[test_only]
+public fun process_arrival_for_test(
+    game: &mut Game,
+    fleet_id: u64,
+    distance_squared: u128,
+) {
+    let idx = fleet_index(game, fleet_id);
+    let fleet = game.fleets[idx];
+    settle_arrival(game, idx, fleet, distance_squared);
+}
+
 public fun destroy_game(game: Game) {
     let Game { id, planets: _, fleets: _, next_fleet_id: _ } = game;
     object::delete(id)
@@ -434,6 +410,64 @@ fun fleet_index(game: &Game, fleet_id: u64): u64 {
     abort EInvalidTarget
 }
 
+fun assert_can_create_planet(game: &Game, owner: address) {
+    let mut i = 0;
+    while (i < game.planets.length()) {
+        let planet = &game.planets[i];
+        assert!(
+            !(option::is_some(&planet.owner) && *option::borrow(&planet.owner) == owner),
+            EAlreadyHasPlanet,
+        );
+        i = i + 1;
+    }
+}
+
+fun push_home_planet(game: &mut Game, owner: address, coord_hash: u256) {
+    game.planets.push_back(Planet {
+        coord_hash,
+        energy: 1000,
+        capacity: 5000,
+        defense: 100,
+        level: 1,
+        owner: option::some(owner),
+    })
+}
+
+fun settle_arrival(
+    game: &mut Game,
+    fleet_idx: u64,
+    fleet: Fleet,
+    distance_squared: u128,
+) {
+    assert!(distance_squared <= 18446744073709551615u128, EInvalidTarget);
+    let energy_cost = (distance_squared as u64) / fleet.speed;
+
+    if (energy_cost >= fleet.energy) {
+        game.fleets.remove(fleet_idx);
+        return
+    };
+
+    let remaining = fleet.energy - energy_cost;
+    let target = &mut game.planets[fleet.to_planet_id - 1];
+    if (option::is_none(&target.owner)) {
+        option::fill(&mut target.owner, fleet.owner);
+        target.energy = target.energy + (remaining - (remaining / 10));
+    } else if (*option::borrow(&target.owner) == fleet.owner) {
+        target.energy = target.energy + remaining;
+        target.defense = target.defense + (remaining / 20);
+    } else {
+        let total_defense = target.defense + target.energy;
+        if (remaining > total_defense) {
+            let _old_owner = option::extract(&mut target.owner);
+            option::fill(&mut target.owner, fleet.owner);
+            target.energy = remaining - total_defense;
+            target.defense = 100;
+        }
+    };
+
+    game.fleets.remove(fleet_idx);
+}
+
 fun verify(
     params: &SerializedParams,
     vk: &SerializedVK,
@@ -443,28 +477,6 @@ fun verify(
 ) {
     assert!(
         native_verifier::verify_proof(
-            params,
-            vk,
-            circuit,
-            serialized_public_inputs::from_bytes(public_inputs_bytes),
-            proof,
-            native_verifier::kzg_gwc(),
-            false,
-            0,
-        ),
-        EInvalidProof,
-    );
-}
-
-fun verify_serialized_proof(
-    params: &SerializedParams,
-    vk: &SerializedVK,
-    circuit: &SerializedCircuit,
-    public_inputs_bytes: vector<vector<vector<u8>>>,
-    proof: &SerializedProof,
-) {
-    assert!(
-        native_verifier::verify_serialized_proof(
             params,
             vk,
             circuit,

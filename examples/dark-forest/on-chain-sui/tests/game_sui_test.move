@@ -7,8 +7,12 @@ use verifier_api::serialized_params_store;
 
 const ALICE: address = @0xA1;
 const BOB: address = @0xB2;
-const HASH_A: u256 = 1;
-const HASH_B: u256 = 2;
+
+const HASH_A: u256 = 111111111111111111111111111111111111111u256;
+const HASH_B: u256 = 222222222222222222222222222222222222222u256;
+
+const PI_HASH_A: u256 = 1;
+const PI_HASH_B: u256 = 2;
 
 #[test]
 fun test_public_inputs_are_built_from_call_arguments() {
@@ -18,7 +22,7 @@ fun test_public_inputs_are_built_from_call_arguments() {
     let three = scalar(3);
 
     assert!(
-        game::coord_public_inputs_for_test(HASH_A) == vector[
+        game::coord_public_inputs_for_test(PI_HASH_A) == vector[
             vector[copy zero],
             vector[copy zero],
             vector[copy one],
@@ -28,7 +32,7 @@ fun test_public_inputs_are_built_from_call_arguments() {
     );
 
     assert!(
-        game::distance_public_inputs_for_test(HASH_A, HASH_B, 3) == vector[
+        game::distance_public_inputs_for_test(PI_HASH_A, PI_HASH_B, 3) == vector[
             vector[copy zero, copy zero, copy zero],
             vector[copy zero, copy zero, copy zero],
             vector[one, two, three],
@@ -39,33 +43,216 @@ fun test_public_inputs_are_built_from_call_arguments() {
 }
 
 #[test]
-fun test_dispatch_upgrade_and_generate_resources() {
-    let ctx = &mut tx_context::dummy();
-    let mut game = game::new_game(ctx);
+fun test_create_planet() {
+    let mut game = new_game();
 
-    game::add_planet_for_test(&mut game, HASH_A, 1000, 5000, 100, 1, ALICE);
-    game::add_planet_for_test(&mut game, HASH_B, 1000, 5000, 100, 1, BOB);
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
+
+    assert!(game::planet_count(&game) == 2, 1);
+    assert!(game::planet_coord_hash(&game, 1) == HASH_A, 2);
+    assert!(game::planet_energy(&game, 1) == 1000, 3);
+    assert!(game::planet_capacity(&game, 1) == 5000, 4);
+    assert!(game::planet_defense(&game, 1) == 100, 5);
+    assert!(game::planet_level(&game, 1) == 1, 6);
+    assert!(game::planet_owner(&game, 1) == ALICE, 7);
+    assert!(game::planet_owner(&game, 2) == BOB, 8);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EAlreadyHasPlanet)]
+fun test_create_planet_duplicate() {
+    let mut game = new_game();
+
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, ALICE, HASH_B);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_dispatch_fleet() {
+    let mut game = two_planet_game();
+
     game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1000);
 
-    assert!(game::planet_count(&game) == 2, 0);
-    assert!(game::fleet_count(&game) == 1, 1);
-    assert!(game::planet_coord_hash(&game, 1) == HASH_A, 2);
-    assert!(game::planet_owner(&game, 2) == BOB, 3);
-    assert!(game::planet_energy(&game, 1) == 600, 4);
-    assert!(game::fleet_from(&game, 1) == 1, 5);
-    assert!(game::fleet_to(&game, 1) == 2, 6);
-    assert!(game::fleet_energy(&game, 1) == 400, 7);
-    assert!(game::fleet_speed(&game, 1) == 1000, 8);
-    assert!(game::fleet_owner(&game, 1) == ALICE, 9);
+    assert!(game::fleet_count(&game) == 1, 10);
+    assert!(game::planet_energy(&game, 1) == 600, 11);
+    assert!(game::fleet_from(&game, 1) == 1, 12);
+    assert!(game::fleet_to(&game, 1) == 2, 13);
+    assert!(game::fleet_energy(&game, 1) == 400, 14);
+    assert!(game::fleet_speed(&game, 1) == 1000, 15);
+    assert!(game::fleet_owner(&game, 1) == ALICE, 16);
 
-    game::upgrade_planet(&mut game, ALICE, 1, 100);
-    assert!(game::planet_energy(&game, 1) == 500, 10);
-    assert!(game::planet_level(&game, 1) == 2, 11);
-    assert!(game::planet_capacity(&game, 1) == 5030, 12);
-    assert!(game::planet_defense(&game, 1) == 110, 13);
+    game::destroy_game(game);
+}
 
-    game::generate_resources(&mut game, ALICE, 1, 100, 0);
-    assert!(game::planet_energy(&game, 1) == 800, 14);
+#[test]
+#[expected_failure(abort_code = game::EInsufficientEnergy)]
+fun test_dispatch_fleet_insufficient_energy() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 9999, 1000);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EInvalidTarget)]
+fun test_dispatch_fleet_speed_cap() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 100, 9999);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EZeroEnergy)]
+fun test_dispatch_fleet_rejects_zero_energy() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 0, 1000);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_attack_fails() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 900, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 20);
+    assert!(game::planet_owner(&game, 2) == BOB, 21);
+    assert!(game::planet_energy(&game, 2) == 1000, 22);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_attack_success() {
+    let mut game = two_planet_game();
+
+    game::generate_resources(&mut game, ALICE, 1, 2000, 0);
+    assert!(game::planet_energy(&game, 1) == 5000, 30);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 31);
+    assert!(game::planet_owner(&game, 2) == ALICE, 32);
+    assert!(game::planet_energy(&game, 2) == 100, 33);
+    assert!(game::planet_defense(&game, 2) == 100, 34);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_fleet_destroyed() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 100, 1000);
+    assert!(game::fleet_count(&game) == 1, 40);
+
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 41);
+    assert!(game::planet_owner(&game, 2) == BOB, 42);
+    assert!(game::planet_energy(&game, 2) == 1000, 43);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_reinforce() {
+    let mut game = two_planet_game();
+
+    game::generate_resources(&mut game, ALICE, 1, 2000, 0);
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 300, 1000);
+    game::process_arrival_for_test(&mut game, 2, 100000);
+
+    assert!(game::planet_energy(&game, 2) == 300, 50);
+    assert!(game::planet_defense(&game, 2) == 110, 51);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_upgrade_planet() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 200);
+
+    assert!(game::planet_energy(&game, 1) == 800, 60);
+    assert!(game::planet_level(&game, 1) == 2, 61);
+    assert!(game::planet_capacity(&game, 1) == 5030, 62);
+    assert!(game::planet_defense(&game, 1) == 110, 63);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EInsufficientEnergy)]
+fun test_upgrade_planet_insufficient_energy() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 9999);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_generate_resources() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::generate_resources(&mut game, ALICE, 1, 500, 0);
+    assert!(game::planet_energy(&game, 1) == 2000, 70);
+
+    game::generate_resources(&mut game, ALICE, 1, 100000, 500);
+    assert!(game::planet_energy(&game, 1) == 5000, 71);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_full_flow() {
+    let mut game = two_planet_game();
+
+    assert!(game::planet_count(&game) == 2, 80);
+
+    game::generate_resources(&mut game, ALICE, 1, 3000, 0);
+    assert!(game::planet_energy(&game, 1) == 5000, 81);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 500);
+    assert!(game::planet_level(&game, 1) == 2, 82);
+    assert!(game::planet_energy(&game, 1) == 4500, 83);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    assert!(game::fleet_count(&game) == 1, 84);
+    assert!(game::fleet_energy(&game, 1) == 1300, 85);
+
+    game::process_arrival_for_test(&mut game, 1, 100000);
+    assert!(game::fleet_count(&game) == 0, 86);
+    assert!(game::planet_owner(&game, 2) == ALICE, 87);
+    assert!(game::planet_energy(&game, 2) == 100, 88);
+    assert!(game::planet_defense(&game, 2) == 100, 89);
+    assert!(game::planet_energy(&game, 1) == 3200, 90);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 300, 1000);
+    game::process_arrival_for_test(&mut game, 2, 100000);
+
+    assert!(game::planet_energy(&game, 2) == 300, 91);
+    assert!(game::planet_defense(&game, 2) == 110, 92);
 
     game::destroy_game(game);
 }
@@ -85,32 +272,6 @@ fun test_create_planet_rejects_invalid_proof() {
 }
 
 #[test]
-#[expected_failure(abort_code = game::EZeroEnergy)]
-fun test_dispatch_fleet_rejects_zero_energy() {
-    let ctx = &mut tx_context::dummy();
-    let mut game = game::new_game(ctx);
-
-    game::add_planet_for_test(&mut game, HASH_A, 1000, 5000, 100, 1, ALICE);
-    game::add_planet_for_test(&mut game, HASH_B, 1000, 5000, 100, 1, BOB);
-    game::dispatch_fleet(&mut game, ALICE, 1, 2, 0, 1000);
-
-    game::destroy_game(game);
-}
-
-#[test]
-#[expected_failure(abort_code = game::EInvalidTarget)]
-fun test_dispatch_fleet_rejects_speed_above_level_cap() {
-    let ctx = &mut tx_context::dummy();
-    let mut game = game::new_game(ctx);
-
-    game::add_planet_for_test(&mut game, HASH_A, 1000, 5000, 100, 1, ALICE);
-    game::add_planet_for_test(&mut game, HASH_B, 1000, 5000, 100, 1, BOB);
-    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1501);
-
-    game::destroy_game(game);
-}
-
-#[test]
 #[expected_failure]
 fun test_process_arrival_builds_public_inputs_and_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
@@ -119,12 +280,24 @@ fun test_process_arrival_builds_public_inputs_and_rejects_invalid_proof() {
     let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
     let mut game = game::new_game(ctx);
 
-    game::add_planet_for_test(&mut game, HASH_A, 1000, 5000, 100, 1, ALICE);
-    game::add_planet_for_test(&mut game, HASH_B, 1000, 5000, 100, 1, BOB);
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
     game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1000);
     game::process_arrival(&mut game, &params, &vk, &circuit, 1, 3, x"00");
 
     cleanup(game, params, vk, circuit);
+}
+
+fun new_game(): game::Game {
+    let ctx = &mut tx_context::dummy();
+    game::new_game(ctx)
+}
+
+fun two_planet_game(): game::Game {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
+    game
 }
 
 fun scalar(value: u8): vector<u8> {
