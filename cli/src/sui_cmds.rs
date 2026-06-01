@@ -30,6 +30,10 @@ impl SuiCommands {
 #[derive(Subcommand)]
 #[allow(clippy::enum_variant_names)]
 enum SuiSubcommands {
+    #[command(
+        name = "build-verify-proof-native-txn",
+        alias = "build-verify-proof-native-sui-txn"
+    )]
     BuildVerifyProofNativeSuiTxn(BuildVerifyProofNativeSuiTxn),
 }
 
@@ -84,7 +88,7 @@ impl BuildVerifyProofNativeSuiTxn {
         save_txn_output(
             self.output_dir.clone(),
             &self.proof_path,
-            "verify-proof-native-sui",
+            "verify-proof-native",
             &output,
         )?;
         info!("Transaction built successfully.");

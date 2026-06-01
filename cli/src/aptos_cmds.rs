@@ -55,6 +55,10 @@ enum AptosSubcommands {
     BuildVerifyProofAptosTxn(BuildVerifyProofAptosTxn),
     BuildPublishParamsNativeAptosTxn(BuildPublishParamsNativeAptosTxn),
     BuildPublishCircuitNativeAptosTxn(BuildPublishCircuitNativeAptosTxn),
+    #[command(
+        name = "build-verify-proof-native-txn",
+        alias = "build-verify-proof-native-aptos-txn"
+    )]
     BuildVerifyProofNativeAptosTxn(BuildVerifyProofNativeAptosTxn),
 }
 
