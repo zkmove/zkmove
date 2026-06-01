@@ -26,14 +26,18 @@ A generic halo2 snark verifier written in Move. It enables any zk proof generate
 - repo: https://github.com/zkmove/halo2-verifier.move
 
 ### Trace generator
-A customized aptos-core with a built-in execution trace generator. It can generate execution traces for Move functions.
+A customized Move VM with a built-in execution trace generator. It can generate execution traces for Move functions.
 
-- git = "https://github.com/zkmove/aptos-core", branch = "witnessing"
+- git = "https://github.com/zkmove/move", branch = "main"
 
 ### Devnet
-A customized aptos-core with uilt-in native functions required by the Halo2 verifier. It allows developers to easily test zkmove applications.
+A customized aptos-core with built-in native functions required by the Halo2 verifier. It allows developers to easily test zkmove applications.
 
 - git = "https://github.com/zkmove/aptos-core", branch = "main"
+
+A customized Sui with built-in native functions required by the Halo2 verifier.
+
+- git = "https://github.com/zkmove/sui", branch = "main"
 
 ## Documents
 
