@@ -55,8 +55,10 @@ nav:
   - User Guide:
       - Set Up the Development Environment: user/setup-dev-environment.md
       - Circuit and Proof: user/circuit-and-proof.md
-      - Deploy an On-Chain Verifier: user/deploy-on-chain-verifier.md
-      - Verify a Proof On-Chain: user/verify-proof-on-chain.md
+      - Deploy a Verifier on Aptos: user/deploy-verifier-on-aptos.md
+      - Verify a Proof on Aptos: user/verify-proof-on-aptos.md
+      - Deploy a Verifier on Sui: user/deploy-verifier-on-sui.md
+      - Verify a Proof on Sui: user/verify-proof-on-sui.md
 
 markdown_extensions:
   - admonition

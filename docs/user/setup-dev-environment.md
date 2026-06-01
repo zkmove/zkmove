@@ -6,10 +6,10 @@ This guide walks you through installing the three CLI tools required to develop 
 
 ## 1. Install the Customized `move` CLI
 
-A customized Move CLI is required to generate witnesses. Install it directly from the zkMove fork:
+A customized Move CLI is required to generate witnesses. Install it with the following command:
 
 ```shell
-cargo install --git https://github.com/zkmove/aptos-core move-cli --branch witnessing
+cargo install --git https://github.com/zkmove/move move-cli --branch main
 ```
 
 ---
@@ -33,11 +33,10 @@ zkmove -h
 
 ---
 
-## 3. Install the Customized `aptos` CLI
+## 3. Install the Customized `aptos`  or `sui` CLI
+A customized build of the Aptos or Sui CLI is required. It includes native functions used by the Halo2 on-chain verifier, and is used to interact with the local DevNet, publish contracts, and submit transactions.
 
-A customized build of the Aptos CLI is required. It includes native functions used by the Halo2 on-chain verifier, and is used to interact with the local DevNet, publish contracts, and submit transactions.
-
-**Steps:**
+### 3.1 Install `aptos` CLI
 
 1. Download the release from:
    <https://github.com/zkmove/aptos-core/releases/download/aptos-cli-v7.11.1-zkmove>
@@ -55,6 +54,14 @@ chmod +x ~/aptos
 
 ```shell
 ~/aptos help
+```
+
+### 3.2 Install `sui` CLI
+
+Install sui CLI with the following command:
+
+```shell
+cargo install --git https://github.com/zkmove/sui.git --branch main sui --locked
 ```
 
 ## 4. Clone the halo2-verifier.move Repository
