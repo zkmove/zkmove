@@ -25,9 +25,11 @@ Understand the motivation, design principles, and internals of zkMove.
 
 Set up your environment, write Move programs, generate proofs, and verify them on-chain.
 
-| # | Page | Description                                      |
-|---|------|--------------------------------------------------|
-| 1 | [Set Up the Dev Environment](user/setup-dev-environment.md) | Configure your development environment           |
-| 2 | [Circuit and Proof](user/circuit-and-proof.md) | Compile a Move program and generate the ZK proof |
-| 3 | [Deploy an On-Chain Verifier](user/deploy-on-chain-verifier.md) | Deploy the on-chain verifier on a local devnet   |
-| 4 | [Verify a Proof On-Chain](user/verify-proof-on-chain.md) | Submit and verify a proof on the local devnet    |
+| # | Page                                                         | Description                                         |
+|---|--------------------------------------------------------------|-----------------------------------------------------|
+| 1 | [Set Up the Dev Environment](user/setup-dev-environment.md)  | Configure your development environment              |
+| 2 | [Circuit and Proof](user/circuit-and-proof.md)               | Compile a Move program and generate the ZK proof    |
+| 3 | [Deploy Verifier on Aptos](user/deploy-verifier-on-aptos.md) | Deploy the verifier on an Aptos local devnet        |
+| 4 | [Verify a Proof on Aptos](user/verify-proof-on-aptos.md)     | Submit and verify a proof on the Aptos local devnet |
+| 5 | [Deploy Verifier on Sui](user/deploy-verifier-on-sui.md)     | Deploy the verifier on a Sui local devnet           |
+| 6 | [Verify a Proof on Sui](user/verify-proof-on-sui.md)         | Submit and verify a proof on the Sui local devnet   |
