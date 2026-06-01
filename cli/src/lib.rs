@@ -21,6 +21,7 @@ use witness::static_info::{EntryInfo, ModuleIdMapping};
 
 pub mod aptos_cmds;
 pub mod poseidon_cmds;
+pub mod sui_cmds;
 pub mod vm_cmds;
 
 /// Common code used by multiple command modules.
