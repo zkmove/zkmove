@@ -58,7 +58,9 @@ chmod +x ~/aptos
 
 ### 3.2 Install `sui` CLI
 
-Install sui CLI with the following command:
+Install the zkMove Sui CLI with the following command. An upstream Sui release
+binary is not sufficient for the Sui verifier flow because it does not include
+the `sui::halo2_kzg` native verifier module used by `verifier_api`.
 
 ```shell
 cargo install --git https://github.com/zkmove/sui.git --branch main sui --locked

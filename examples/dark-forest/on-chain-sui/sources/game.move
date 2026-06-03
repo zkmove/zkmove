@@ -1,7 +1,7 @@
 module dark_forest_sui::game;
 
 use sui::bcs;
-use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedVK};
+use verifier_api::native_verifier::{Self, SerializedVK};
 use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store::SerializedParams;
 
@@ -55,7 +55,6 @@ public fun create_planet(
     owner: address,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     coord_hash: u256,
     proof: vector<u8>,
 ) {
@@ -63,7 +62,7 @@ public fun create_planet(
 
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, coord_hash);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     push_home_planet(game, owner, coord_hash);
 }
@@ -73,7 +72,6 @@ public fun create_planet_with_proof(
     owner: address,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     coord_hash: u256,
     proof: vector<u8>,
 ) {
@@ -89,7 +87,7 @@ public fun create_planet_with_proof(
 
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, coord_hash);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     game.planets.push_back(Planet {
         coord_hash,
@@ -105,7 +103,6 @@ entry fun create_planet_entry(
     game: &mut Game,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     coord_hash: u256,
     proof: vector<u8>,
     _ctx: &mut TxContext,
@@ -115,7 +112,6 @@ entry fun create_planet_entry(
         _ctx.sender(),
         params,
         vk,
-        circuit,
         coord_hash,
         proof,
     )
@@ -125,7 +121,6 @@ entry fun create_planet_with_proof_entry(
     game: &mut Game,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     coord_hash: u256,
     proof: vector<u8>,
     _ctx: &mut TxContext,
@@ -135,7 +130,6 @@ entry fun create_planet_with_proof_entry(
         _ctx.sender(),
         params,
         vk,
-        circuit,
         coord_hash,
         proof,
     )
@@ -201,7 +195,6 @@ public fun process_arrival(
     game: &mut Game,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     fleet_id: u64,
     distance_squared: u128,
     proof: vector<u8>,
@@ -217,7 +210,7 @@ public fun process_arrival(
     push_u256(&mut public_inputs, hash_1);
     push_u256(&mut public_inputs, hash_2);
     push_u128(&mut public_inputs, distance_squared);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     settle_arrival(game, idx, fleet, distance_squared);
 }
@@ -226,7 +219,6 @@ entry fun process_arrival_entry(
     game: &mut Game,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     fleet_id: u64,
     distance_squared: u128,
     proof: vector<u8>,
@@ -235,7 +227,6 @@ entry fun process_arrival_entry(
         game,
         params,
         vk,
-        circuit,
         fleet_id,
         distance_squared,
         proof,
@@ -471,7 +462,6 @@ fun settle_arrival(
 fun verify(
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     public_inputs_bytes: vector<vector<vector<u8>>>,
     proof: vector<u8>,
 ) {
@@ -479,7 +469,6 @@ fun verify(
         native_verifier::verify_proof(
             params,
             vk,
-            circuit,
             serialized_public_inputs::from_bytes(public_inputs_bytes),
             proof,
             native_verifier::kzg_gwc(),

@@ -1,7 +1,7 @@
 module confidential_asset_sui::token;
 
 use sui::bcs;
-use verifier_api::native_verifier::{Self, SerializedCircuit, SerializedProof, SerializedVK};
+use verifier_api::native_verifier::{Self, SerializedVK};
 use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store::SerializedParams;
 
@@ -51,31 +51,13 @@ public fun mint(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_amount: u256,
     proof: vector<u8>,
 ) {
     assert!(encrypted_amount > 0, EZeroAmount);
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, encrypted_amount);
-    verify(params, vk, circuit, public_inputs, proof);
-
-    send_token(Token { encrypted_value: encrypted_amount }, store);
-}
-
-public fun mint_with_proof(
-    _cap: &MintCap,
-    store: &mut Store,
-    params: &SerializedParams,
-    vk: &SerializedVK,
-    circuit: &SerializedCircuit,
-    encrypted_amount: u256,
-    proof: &SerializedProof,
-) {
-    assert!(encrypted_amount > 0, EZeroAmount);
-    let mut public_inputs = empty_vm_public_inputs();
-    push_u256(&mut public_inputs, encrypted_amount);
-    verify_serialized_proof(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     send_token(Token { encrypted_value: encrypted_amount }, store);
 }
@@ -85,7 +67,6 @@ entry fun mint_entry(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_amount: u256,
     proof: vector<u8>,
 ) {
@@ -94,27 +75,6 @@ entry fun mint_entry(
         store,
         params,
         vk,
-        circuit,
-        encrypted_amount,
-        proof,
-    )
-}
-
-entry fun mint_with_proof_entry(
-    cap: &MintCap,
-    store: &mut Store,
-    params: &SerializedParams,
-    vk: &SerializedVK,
-    circuit: &SerializedCircuit,
-    encrypted_amount: u256,
-    proof: &SerializedProof,
-) {
-    mint_with_proof(
-        cap,
-        store,
-        params,
-        vk,
-        circuit,
         encrypted_amount,
         proof,
     )
@@ -125,7 +85,6 @@ public fun transfer(
     to: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_amount: u256,
     encrypted_remaining: u256,
     proof: vector<u8>,
@@ -134,7 +93,6 @@ public fun transfer(
         from,
         params,
         vk,
-        circuit,
         encrypted_amount,
         encrypted_remaining,
         proof,
@@ -147,19 +105,17 @@ entry fun transfer_entry(
     to: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_amount: u256,
     encrypted_remaining: u256,
     proof: vector<u8>,
 ) {
-    transfer(from, to, params, vk, circuit, encrypted_amount, encrypted_remaining, proof)
+    transfer(from, to, params, vk, encrypted_amount, encrypted_remaining, proof)
 }
 
 public fun claim_inbox_by_index(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     index: u64,
     encrypted_new_balance: u256,
     proof: vector<u8>,
@@ -174,7 +130,7 @@ public fun claim_inbox_by_index(
     push_u256(&mut public_inputs, encrypted_balance);
     push_u256(&mut public_inputs, encrypted_amount);
     push_u256(&mut public_inputs, encrypted_new_balance);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     store.token.encrypted_value = encrypted_new_balance;
 }
@@ -183,26 +139,24 @@ entry fun claim_inbox_by_index_entry(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     index: u64,
     encrypted_new_balance: u256,
     proof: vector<u8>,
 ) {
-    claim_inbox_by_index(store, params, vk, circuit, index, encrypted_new_balance, proof)
+    claim_inbox_by_index(store, params, vk, index, encrypted_new_balance, proof)
 }
 
 public fun burn(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     proof: vector<u8>,
 ) {
     let encrypted_balance = store.token.encrypted_value;
 
     let mut public_inputs = empty_vm_public_inputs();
     push_u256(&mut public_inputs, encrypted_balance);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     store.token.encrypted_value = ENCRYPTED_ZERO;
 }
@@ -211,10 +165,9 @@ entry fun burn_entry(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     proof: vector<u8>,
 ) {
-    burn(store, params, vk, circuit, proof)
+    burn(store, params, vk, proof)
 }
 
 public fun balance_of(store: &Store): u256 {
@@ -237,7 +190,6 @@ public fun token_value(token: &Token): u256 {
 public fun range_check(
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_value: u256,
     min: u128,
     max: u128,
@@ -248,19 +200,18 @@ public fun range_check(
     push_u128(&mut public_inputs, min);
     push_u128(&mut public_inputs, max);
     push_u256(&mut public_inputs, encrypted_value);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 }
 
 entry fun range_check_entry(
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_value: u256,
     min: u128,
     max: u128,
     proof: vector<u8>,
 ) {
-    range_check(params, vk, circuit, encrypted_value, min, max, proof)
+    range_check(params, vk, encrypted_value, min, max, proof)
 }
 
 public fun destroy_mint_cap(cap: MintCap) {
@@ -277,7 +228,6 @@ fun withdraw(
     store: &mut Store,
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     encrypted_amount: u256,
     encrypted_remaining: u256,
     proof: vector<u8>,
@@ -288,7 +238,7 @@ fun withdraw(
     push_u256(&mut public_inputs, encrypted_remaining);
     push_u256(&mut public_inputs, encrypted_amount);
     push_u256(&mut public_inputs, encrypted_balance);
-    verify(params, vk, circuit, public_inputs, proof);
+    verify(params, vk, public_inputs, proof);
 
     store.token.encrypted_value = encrypted_remaining;
     Token { encrypted_value: encrypted_amount }
@@ -301,7 +251,6 @@ fun send_token(token: Token, recipient: &mut Store) {
 fun verify(
     params: &SerializedParams,
     vk: &SerializedVK,
-    circuit: &SerializedCircuit,
     public_inputs_bytes: vector<vector<vector<u8>>>,
     proof: vector<u8>,
 ) {
@@ -309,29 +258,6 @@ fun verify(
         native_verifier::verify_proof(
             params,
             vk,
-            circuit,
-            serialized_public_inputs::from_bytes(public_inputs_bytes),
-            proof,
-            native_verifier::kzg_gwc(),
-            false,
-            0,
-        ),
-        EInvalidProof,
-    );
-}
-
-fun verify_serialized_proof(
-    params: &SerializedParams,
-    vk: &SerializedVK,
-    circuit: &SerializedCircuit,
-    public_inputs_bytes: vector<vector<vector<u8>>>,
-    proof: &SerializedProof,
-) {
-    assert!(
-        native_verifier::verify_serialized_proof(
-            params,
-            vk,
-            circuit,
             serialized_public_inputs::from_bytes(public_inputs_bytes),
             proof,
             native_verifier::kzg_gwc(),

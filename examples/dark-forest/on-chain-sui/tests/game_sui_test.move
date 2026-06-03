@@ -262,13 +262,12 @@ fun test_full_flow() {
 fun test_create_planet_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
     let mut game = game::new_game(ctx);
 
-    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, x"00");
+    game::create_planet(&mut game, ALICE, &params, &vk, HASH_A, x"00");
 
-    cleanup(game, params, vk, circuit);
+    cleanup(game, params, vk);
 }
 
 #[test]
@@ -276,16 +275,15 @@ fun test_create_planet_rejects_invalid_proof() {
 fun test_process_arrival_builds_public_inputs_and_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
     let mut game = game::new_game(ctx);
 
     game::create_planet_for_test(&mut game, ALICE, HASH_A);
     game::create_planet_for_test(&mut game, BOB, HASH_B);
     game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1000);
-    game::process_arrival(&mut game, &params, &vk, &circuit, 1, 3, x"00");
+    game::process_arrival(&mut game, &params, &vk, 1, 3, x"00");
 
-    cleanup(game, params, vk, circuit);
+    cleanup(game, params, vk);
 }
 
 fun new_game(): game::Game {
@@ -316,12 +314,10 @@ fun cleanup(
     game: game::Game,
     params: serialized_params_store::SerializedParams,
     vk: native_verifier::SerializedVK,
-    circuit: native_verifier::SerializedCircuit,
 ) {
     game::destroy_game(game);
     serialized_params_store::destroy(params);
     native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
 }
 
 fun params(): vector<u8> {

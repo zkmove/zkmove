@@ -78,8 +78,7 @@ fun test_u256_public_inputs_split_into_low_and_high_words() {
 fun test_mint_builds_public_inputs_and_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
     let cap = token::new_mint_cap(ctx);
     let mut store = token::register(ctx);
 
@@ -88,12 +87,11 @@ fun test_mint_builds_public_inputs_and_rejects_invalid_proof() {
         &mut store,
         &params,
         &vk,
-        &circuit,
         6,
         x"00",
     );
 
-    cleanup(store, cap, params, vk, circuit);
+    cleanup(store, cap, params, vk);
 }
 
 #[test]
@@ -101,8 +99,7 @@ fun test_mint_builds_public_inputs_and_rejects_invalid_proof() {
 fun test_mint_rejects_zero_amount_before_verifying() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
     let cap = token::new_mint_cap(ctx);
     let mut store = token::register(ctx);
 
@@ -111,12 +108,11 @@ fun test_mint_rejects_zero_amount_before_verifying() {
         &mut store,
         &params,
         &vk,
-        &circuit,
         0,
         x"00",
     );
 
-    cleanup(store, cap, params, vk, circuit);
+    cleanup(store, cap, params, vk);
 }
 
 #[test]
@@ -124,14 +120,12 @@ fun test_mint_rejects_zero_amount_before_verifying() {
 fun test_range_check_rejects_invalid_bounds_before_verifying() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
 
-    token::range_check(&params, &vk, &circuit, 6, 10, 1, x"00");
+    token::range_check(&params, &vk, 6, 10, 1, x"00");
 
     serialized_params_store::destroy(params);
     native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
 }
 
 #[test]
@@ -168,13 +162,11 @@ fun cleanup(
     cap: token::MintCap,
     params: serialized_params_store::SerializedParams,
     vk: native_verifier::SerializedVK,
-    circuit: native_verifier::SerializedCircuit,
 ) {
     token::destroy_store(store);
     token::destroy_mint_cap(cap);
     serialized_params_store::destroy(params);
     native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
 }
 
 fun params(): vector<u8> {
