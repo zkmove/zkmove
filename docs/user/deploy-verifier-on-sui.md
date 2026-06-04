@@ -1,8 +1,6 @@
 # Deploy an On-Chain Verifier on Sui
 
-This guide deploys the Sui verifier API package to a local Sui DevNet and publishes the reusable verifier artifacts needed by a zkMove circuit.
-
-Sui uses objects instead of account resources, so the verifier artifacts are published as Sui objects:
+This guide deploys a verifier contract to a local SUI DevNet for the Fibonacci circuit (`example/fibonacci`).
 
 | Object | Purpose |
 |---|---|
@@ -30,8 +28,8 @@ In another terminal, configure the client:
 sui client new-env --alias localnet --rpc http://127.0.0.1:9000
 sui client switch --env localnet
 sui client new-address ed25519 zkmove-local
-sui client switch --address <address>
-sui client faucet --address <address> --url http://127.0.0.1:9123/gas
+sui client switch --address zkmove-local
+sui client faucet --address zkmove-local --url http://127.0.0.1:9123/gas
 sui client balance
 ```
 
@@ -50,27 +48,21 @@ chain, but build with the package's existing `testnet` build environment:
 
 ```shell
 sui client switch --env localnet
-export ZKMOVE_SUI_PUBFILE=/private/tmp/zkmove-sui-localnet.Pub.toml
+# Path to the local verifier API Move package.
+export VERIFIER_API_PACKAGE_DIR=/path/to/halo2-verifier.move/packages/api-sui
 
 sui client --json -q test-publish \
   --build-env testnet \
-  --pubfile-path "$ZKMOVE_SUI_PUBFILE" \
   --skip-dependency-verification \
   --gas-budget 1000000000 \
-  /path/to/halo2-verifier.move/packages/api-sui
+  "$VERIFIER_API_PACKAGE_DIR"
 ```
 
-Save the published package ID from the `published` object change:
+Save the published package ID from the `published` object change of STDOUT:
 
 ```shell
 export VERIFIER_API_PACKAGE=<published-package-id>
 ```
-
-Do not use `--build-env localnet` for this package. `test-publish` publishes to
-the current client network, so `--build-env testnet` still publishes to localnet
-after `sui client switch --env localnet`. Keep the same `ZKMOVE_SUI_PUBFILE`
-for later local app publishes so their `verifier_api` dependency resolves to
-the package ID published above.
 
 ---
 
@@ -120,170 +112,70 @@ bytes:
 - `kzg_bn254_12-publish-params-native.txn`
 - `test_fibonacci-1778483369682-publish-vk-native.txn`
 
-Extract the hex strings from the Sui JSON byte-array arguments:
-
-```shell
-json_byte_arg_hex() {
-  python3 - "$1" "$2" <<'PY'
-import json
-import sys
-with open(sys.argv[1]) as f:
-    payload = json.load(f)
-print(bytes(payload["args"][int(sys.argv[2])]).hex())
-PY
-}
-
-export PARAMS_HEX=$(json_byte_arg_hex txns/sui-artifacts/kzg_bn254_12-publish-params-native.txn 2)
-export VK_HEX=$(json_byte_arg_hex txns/sui-artifacts/test_fibonacci-1778483369682-publish-vk-native.txn 0)
-export CIRCUIT_HEX=$(json_byte_arg_hex txns/sui-artifacts/test_fibonacci-1778483369682-publish-vk-native.txn 1)
-```
-
-Replace the witness filename with the witness generated for your own circuit.
+Step 4 reads these descriptor files directly. Replace the witness filename with
+the witness generated for your own circuit.
 
 ---
 
 ## 4. Upload the Artifacts as Sui Objects
 
-Sui limits the size of pure `vector<u8>` arguments. Use the verifier API's `artifact_builder` module to upload large artifacts in chunks.
-
-The helpers below split hex blobs into 15 KiB JSON byte-array chunks and calculate the Blake2b-256 digest required by `finalize_*` calls:
-
-```shell
-hex_digest_json_array() {
-  python3 - "$1" <<'PY'
-import hashlib
-import sys
-digest = hashlib.blake2b(bytes.fromhex(sys.argv[1]), digest_size=32).digest()
-print("[" + ",".join(str(b) for b in digest) + "]")
-PY
-}
-
-hex_chunk_json_arrays() {
-  python3 - "$1" <<'PY'
-import sys
-data = bytes.fromhex(sys.argv[1])
-chunk_size = 15 * 1024
-for offset in range(0, len(data), chunk_size):
-    chunk = data[offset:offset + chunk_size]
-    print("[" + ",".join(str(b) for b in chunk) + "]")
-PY
-}
-```
-
-Create one builder for params, one for the verifying key, and one temporary builder for circuit metadata:
+Sui limits the size of pure `vector<u8>` arguments. Use the verifier API's
+`artifact_builder` module to upload large artifacts in chunks. The repository
+provides a wrapper script for the full flow. Run from the `halo2-verifier.move`
+repository root:
 
 ```shell
-sui client --json -q call \
-  --package $VERIFIER_API_PACKAGE \
-  --module artifact_builder \
-  --function publish_params_builder \
-  --gas-budget 1000000000
+export SUI_BIN=/path/to/zkmove_sui/target/debug/sui
 
-sui client --json -q call \
-  --package $VERIFIER_API_PACKAGE \
-  --module artifact_builder \
-  --function publish_vk_builder \
-  --gas-budget 1000000000
-
-sui client --json -q call \
-  --package $VERIFIER_API_PACKAGE \
-  --module artifact_builder \
-  --function publish_circuit_info_builder \
-  --gas-budget 1000000000
+scripts/upload_sui_artifacts.sh \
+  --sui-bin "$SUI_BIN" \
+  --verifier-api-package "$VERIFIER_API_PACKAGE" \
+  --artifacts-dir txns/sui-artifacts \
+  --out-dir txns/sui-artifacts-upload
 ```
 
-Save the three created `ArtifactBuilder` object IDs:
+If your customized `sui` binary is already on `PATH`, omit `--sui-bin`.
+
+The script performs the same steps as the manual flow:
+
+- extract params bytes from `.args[2]` of `*-publish-params-native.txn`
+- extract VK bytes from `.args[0]` and circuit-info bytes from `.args[1]` of
+  `*-publish-vk-native.txn`
+- create params, VK, and circuit-info `ArtifactBuilder` objects
+- split each byte blob into 15 KiB chunks and call `append_chunk`
+- compute Blake2b-256 digests and call `finalize_params_to_sender`
+- consume the VK and circuit-info builders together with `finalize_vk_to_sender`
+
+After the script finishes, it prints the finalized object IDs and writes them to
+`txns/sui-artifacts-upload/sui-artifact-objects.env`:
 
 ```shell
-export PARAMS_BUILDER=<params-builder-object-id>
-export VK_BUILDER=<vk-builder-object-id>
-export CIRCUIT_BUILDER=<circuit-builder-object-id>
+PARAMS_OBJECT_ID=<serialized-params-object-id>
+VK_OBJECT_ID=<serialized-vk-object-id>
 ```
 
-Append chunks to each builder:
+Load them into your current shell:
 
 ```shell
-while IFS= read -r CHUNK; do
-  sui client --json -q call \
-    --package $VERIFIER_API_PACKAGE \
-    --module artifact_builder \
-    --function append_chunk \
-    --gas-budget 1000000000 \
-    --args $PARAMS_BUILDER "$CHUNK"
-done < <(hex_chunk_json_arrays "$PARAMS_HEX")
-
-while IFS= read -r CHUNK; do
-  sui client --json -q call \
-    --package $VERIFIER_API_PACKAGE \
-    --module artifact_builder \
-    --function append_chunk \
-    --gas-budget 1000000000 \
-    --args $VK_BUILDER "$CHUNK"
-done < <(hex_chunk_json_arrays "$VK_HEX")
-
-while IFS= read -r CHUNK; do
-  sui client --json -q call \
-    --package $VERIFIER_API_PACKAGE \
-    --module artifact_builder \
-    --function append_chunk \
-    --gas-budget 1000000000 \
-    --args $CIRCUIT_BUILDER "$CHUNK"
-done < <(hex_chunk_json_arrays "$CIRCUIT_HEX")
+source txns/sui-artifacts-upload/sui-artifact-objects.env
 ```
 
-Finalize the artifacts. Params become a `SerializedParams` object. The VK builder and circuit-info builder are consumed together to create one `SerializedVK` object:
+Parameter details:
 
-```shell
-sui client --json -q call \
-  --package $VERIFIER_API_PACKAGE \
-  --module artifact_builder \
-  --function finalize_params_to_sender \
-  --gas-budget 1000000000 \
-  --args $PARAMS_BUILDER "$(hex_digest_json_array "$PARAMS_HEX")"
+| Parameter | Required | Description |
+|---|---:|---|
+| `--verifier-api-package` | Yes | The published `verifier_api` package ID from Step 2. This is the on-chain package ID, not the local package directory. The script calls `artifact_builder` functions from this package. |
+| `--artifacts-dir` | No | Directory containing the JSON descriptors generated in Step 3. Defaults to `txns/sui-artifacts` under the `halo2-verifier.move` repository. The directory must contain exactly one `*-publish-params-native.txn` and one `*-publish-vk-native.txn`, unless you pass the explicit file parameters below. |
+| `--params-txn` | No | Explicit params descriptor file. Use this if `--artifacts-dir` contains multiple `*-publish-params-native.txn` files or your file name is non-standard. The script reads the serialized params bytes from `args[2]`. |
+| `--vk-txn` | No | Explicit VK descriptor file. Use this if `--artifacts-dir` contains multiple `*-publish-vk-native.txn` files or your file name is non-standard. The script reads VK bytes from `args[0]` and circuit-info bytes from `args[1]`. |
+| `--out-dir` | No | Directory where the script stores transaction JSON outputs for builder creation, chunk appends, and finalization. Defaults to `txns/sui-artifacts-upload`. Keep these files for debugging failed uploads. |
+| `--env-file` | No | Path to the generated shell env file. Defaults to `<out-dir>/sui-artifact-objects.env`. It contains `VERIFIER_API_PACKAGE`, `PARAMS_OBJECT_ID`, and `VK_OBJECT_ID`. |
+| `--sui-bin` | No | Path to the customized Sui CLI. Use this when `sui` is not on `PATH`, or when you need to force the zkMove Sui binary. |
+| `--client-config` | No | Optional Sui client config file. If omitted, the script uses the active Sui client environment and active address. |
+| `--gas-budget` | No | Gas budget used for every `sui client call`. Defaults to `1000000000`. |
+| `--chunk-size` | No | Chunk size in bytes for pure byte-array arguments. Defaults to `15360`, which stays below Sui's 16 KiB pure-argument limit. Do not raise it above the chain limit. |
 
-sui client --json -q call \
-  --package $VERIFIER_API_PACKAGE \
-  --module artifact_builder \
-  --function finalize_vk_to_sender \
-  --gas-budget 1000000000 \
-  --args \
-    $VK_BUILDER \
-    $CIRCUIT_BUILDER \
-    "$(hex_digest_json_array "$VK_HEX")" \
-    "$(hex_digest_json_array "$CIRCUIT_HEX")"
-```
-
-Save the finalized object IDs:
-
-```shell
-export PARAMS_OBJECT_ID=<serialized-params-object-id>
-export VK_OBJECT_ID=<serialized-vk-object-id>
-```
-
-These object IDs are the Sui equivalent of the Aptos params/verifier addresses used in the Aptos guide.
-
----
-
-## 5. Optional: Publish an Application Package
-
-If your Sui app calls the verifier from Move, add the verifier API dependency to the app's `Move.toml`:
-
-```toml
-[dependencies]
-std = { git = "https://github.com/zkmove/sui.git", rev = "<sui-rev>", subdir = "crates/sui-framework/packages/move-stdlib" }
-sui = { git = "https://github.com/zkmove/sui.git", rev = "<sui-rev>", subdir = "crates/sui-framework/packages/sui-framework" }
-verifier_api = { git = "https://github.com/zkmove/halo2-verifier.move.git", rev = "<verifier-rev>", subdir = "packages/api-sui" }
-```
-
-Then publish the app package:
-
-```shell
-sui client --json -q test-publish \
-  --build-env testnet \
-  --pubfile-path "$ZKMOVE_SUI_PUBFILE" \
-  --skip-dependency-verification \
-  --gas-budget 1000000000 \
-  /path/to/your/on-chain-sui-package
-```
-
-The app can now accept `&SerializedParams` and `&SerializedVK` objects and call `verifier_api::native_verifier::verify_proof`.
+`PARAMS_OBJECT_ID` is a `SerializedParams` object. `VK_OBJECT_ID` is a
+`SerializedVK` object that bundles both the Halo2 verifying key and the matching
+zkMove circuit metadata. These object IDs are the Sui equivalent of the Aptos
+params/verifier addresses used in the Aptos guide.
