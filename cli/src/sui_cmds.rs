@@ -57,8 +57,6 @@ struct BuildPublishParamsNativeSuiTxn {
     verifier_api_package: String,
     #[arg(long = "params-store-object-id", default_value = "0x1")]
     params_store_object_id: String,
-    #[arg(long = "publisher-address", default_value = "0x1")]
-    publisher_address: String,
     #[arg(short = 'o', long = "output-dir", help = "directory to save the txn")]
     output_dir: Option<PathBuf>,
 }
@@ -72,7 +70,6 @@ impl BuildPublishParamsNativeSuiTxn {
             &params,
             self.verifier_api_package.as_str(),
             self.params_store_object_id.as_str(),
-            self.publisher_address.as_str(),
         )?;
         let output = serde_json::to_string_pretty(&json)?;
         save_txn_output(
