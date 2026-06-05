@@ -66,6 +66,53 @@ the `sui::halo2_kzg` native verifier module used by `verifier_api`.
 cargo install --git https://github.com/zkmove/sui.git --branch main sui --locked
 ```
 
+`cargo install` places the `sui` binary under `~/.cargo/bin`. Add that
+directory to your `PATH` so the Sui deployment and verification guides can call
+`sui` directly:
+
+```shell
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+To make this persistent for new terminal sessions, add the same line to your
+shell profile. For macOS with `zsh`:
+
+```shell
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Verify that the customized `sui` CLI is available:
+
+```shell
+command -v sui
+sui --version
+```
+
+### 3.3 Install `jq`
+
+The Sui deployment and verification guides use `jq` to inspect JSON transaction
+outputs from `sui client --json`. Install it before running those guides:
+
+On macOS:
+
+```shell
+brew install jq
+```
+
+On Ubuntu or Debian:
+
+```shell
+sudo apt-get update
+sudo apt-get install jq
+```
+
+Verify the installation:
+
+```shell
+jq --version
+```
+
 ## 4. Clone the halo2-verifier.move Repository
 
 The `halo2-verifier.move` repository contains the source code for the on-chain Halo2 verifier. You will need it to publish the verifier contracts.

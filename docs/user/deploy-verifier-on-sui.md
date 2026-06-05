@@ -99,13 +99,6 @@ verification. The params-store arguments are omitted here because this guide
 only extracts the serialized byte arrays from the generated JSON files; the
 chunked upload in Step 4 uses the builder objects created on your Sui network.
 
-If you intentionally want to submit the generated params publish call directly,
-override those defaults with real values. In that direct path,
-`--params-store-object-id` is the shared `SerializedParamsStore` object created
-by calling `serialized_params_store::create_serialized_params_store`, and
-`--publisher-address` is the address under which the params record is stored.
-The chunked flow below does not use that direct params-store path.
-
 This produces JSON files whose Sui move-call arguments contain the artifact
 bytes:
 
@@ -125,26 +118,12 @@ provides a wrapper script for the full flow. Run from the `halo2-verifier.move`
 repository root:
 
 ```shell
-export SUI_BIN=/path/to/zkmove_sui/target/debug/sui
 
 scripts/upload_sui_artifacts.sh \
-  --sui-bin "$SUI_BIN" \
   --verifier-api-package "$VERIFIER_API_PACKAGE" \
   --artifacts-dir txns/sui-artifacts \
   --out-dir txns/sui-artifacts-upload
 ```
-
-If your customized `sui` binary is already on `PATH`, omit `--sui-bin`.
-
-The script performs the same steps as the manual flow:
-
-- extract params bytes from `.args[2]` of `*-publish-params-native.txn`
-- extract VK bytes from `.args[0]` and circuit-info bytes from `.args[1]` of
-  `*-publish-vk-native.txn`
-- create params, VK, and circuit-info `ArtifactBuilder` objects
-- split each byte blob into 15 KiB chunks and call `append_chunk`
-- compute Blake2b-256 digests and call `finalize_params_to_sender`
-- consume the VK and circuit-info builders together with `finalize_vk_to_sender`
 
 After the script finishes, it prints the finalized object IDs and writes them to
 `txns/sui-artifacts-upload/sui-artifact-objects.env`:
@@ -159,22 +138,6 @@ Load them into your current shell:
 ```shell
 source txns/sui-artifacts-upload/sui-artifact-objects.env
 ```
-
-Parameter details:
-
-| Parameter | Required | Description |
-|---|---:|---|
-| `--verifier-api-package` | Yes | The published `verifier_api` package ID from Step 2. This is the on-chain package ID, not the local package directory. The script calls `artifact_builder` functions from this package. |
-| `--artifacts-dir` | No | Directory containing the JSON descriptors generated in Step 3. Defaults to `txns/sui-artifacts` under the `halo2-verifier.move` repository. The directory must contain exactly one `*-publish-params-native.txn` and one `*-publish-vk-native.txn`, unless you pass the explicit file parameters below. |
-| `--params-txn` | No | Explicit params descriptor file. Use this if `--artifacts-dir` contains multiple `*-publish-params-native.txn` files or your file name is non-standard. The script reads the serialized params bytes from `args[2]`. |
-| `--vk-txn` | No | Explicit VK descriptor file. Use this if `--artifacts-dir` contains multiple `*-publish-vk-native.txn` files or your file name is non-standard. The script reads VK bytes from `args[0]` and circuit-info bytes from `args[1]`. |
-| `--out-dir` | No | Directory where the script stores transaction JSON outputs for builder creation, chunk appends, and finalization. Defaults to `txns/sui-artifacts-upload`. Keep these files for debugging failed uploads. |
-| `--env-file` | No | Path to the generated shell env file. Defaults to `<out-dir>/sui-artifact-objects.env`. It contains `VERIFIER_API_PACKAGE`, `PARAMS_OBJECT_ID`, and `VK_OBJECT_ID`. |
-| `--sui-bin` | No | Path to the customized Sui CLI. Use this when `sui` is not on `PATH`, or when you need to force the zkMove Sui binary. |
-| `--client-config` | No | Optional Sui client config file. If omitted, the script uses the active Sui client environment and active address. |
-| `--gas-budget` | No | Gas budget used for every `sui client call`. Defaults to `1000000000`. |
-| `--chunk-size` | No | Chunk size in bytes for pure byte-array arguments. Defaults to `15360`, which stays below Sui's 16 KiB pure-argument limit. Do not raise it above the chain limit. |
-
 `PARAMS_OBJECT_ID` is a `SerializedParams` object. `VK_OBJECT_ID` is a
 `SerializedVK` object that bundles both the Halo2 verifying key and the matching
 zkMove circuit metadata. These object IDs are the Sui equivalent of the Aptos
