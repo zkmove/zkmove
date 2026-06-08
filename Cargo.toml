@@ -75,7 +75,3 @@ incremental = false
 
 [profile.bench]
 lto = true
-
-#[patch."https://github.com/zkmove/halo2"]
-#halo2_proofs = { path = "../halo2/halo2_proofs" }
-#halo2_backend = { path = "../halo2/halo2_backend" }
