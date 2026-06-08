@@ -112,7 +112,6 @@ Verify the installation:
 ```shell
 jq --version
 ```
-
 ## 4. Clone the halo2-verifier.move Repository
 
 The `halo2-verifier.move` repository contains the source code for the on-chain Halo2 verifier. You will need it to publish the verifier contracts.
