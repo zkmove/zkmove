@@ -20,6 +20,32 @@ Example proof files:
 
 ---
 
+## Install `jq`
+
+This guide uses `jq` to inspect JSON transaction outputs from `sui client --json`.
+Install it before submitting the verification call.
+
+On macOS:
+
+```shell
+brew install jq
+```
+
+On Ubuntu or Debian:
+
+```shell
+sudo apt-get update
+sudo apt-get install jq
+```
+
+Verify the installation:
+
+```shell
+jq --version
+```
+
+---
+
 ## 1. Build the Verify-Proof Data
 
 Run from the `halo2-verifier.move` repository root. Replace the file names and object IDs with the values from your circuit and deployment:

@@ -89,29 +89,6 @@ command -v sui
 sui --version
 ```
 
-### 3.3 Install `jq`
-
-The Sui deployment and verification guides use `jq` to inspect JSON transaction
-outputs from `sui client --json`. Install it before running those guides:
-
-On macOS:
-
-```shell
-brew install jq
-```
-
-On Ubuntu or Debian:
-
-```shell
-sudo apt-get update
-sudo apt-get install jq
-```
-
-Verify the installation:
-
-```shell
-jq --version
-```
 ## 4. Clone the halo2-verifier.move Repository
 
 The `halo2-verifier.move` repository contains the source code for the on-chain Halo2 verifier. You will need it to publish the verifier contracts.
