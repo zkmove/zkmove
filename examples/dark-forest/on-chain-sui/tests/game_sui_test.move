@@ -3,97 +3,321 @@ module dark_forest_sui::game_sui_tests;
 
 use dark_forest_sui::game;
 use verifier_api::native_verifier;
-use verifier_api::serialized_public_inputs;
 use verifier_api::serialized_params_store;
 
 const ALICE: address = @0xA1;
 const BOB: address = @0xB2;
+
 const HASH_A: u256 = 111111111111111111111111111111111111111u256;
 const HASH_B: u256 = 222222222222222222222222222222222222222u256;
 
+const PI_HASH_A: u256 = 1;
+const PI_HASH_B: u256 = 2;
+
 #[test]
-fun test_create_planet_and_arrival_call_api_and_sui_native_verifier() {
-    let ctx = &mut tx_context::dummy();
-    let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
-    let mut game = game::new_game(ctx);
+fun test_public_inputs_are_built_from_call_arguments() {
+    let zero = scalar(0);
+    let one = scalar(1);
+    let two = scalar(2);
+    let three = scalar(3);
 
-    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), proof());
-    game::create_planet(&mut game, BOB, &params, &vk, &circuit, HASH_B, public_inputs(), proof());
-    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400);
-    game::process_arrival(&mut game, &params, &vk, &circuit, 1, 100000, public_inputs(), proof());
+    assert!(
+        game::coord_public_inputs_for_test(PI_HASH_A) == vector[
+            vector[copy zero],
+            vector[copy zero],
+            vector[copy one],
+            vector[copy zero],
+        ],
+        0,
+    );
 
-    assert!(game::planet_count(&game) == 2, 0);
-    assert!(game::fleet_count(&game) == 0, 1);
-    assert!(game::planet_coord_hash(&game, 1) == HASH_A, 2);
-    assert!(game::planet_owner(&game, 2) == ALICE, 3);
-    assert!(game::planet_energy(&game, 1) == 600, 4);
-    assert!(game::planet_energy(&game, 2) == 1300, 5);
-
-    game::destroy_game(game);
-    serialized_params_store::destroy(params);
-    native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
+    assert!(
+        game::distance_public_inputs_for_test(PI_HASH_A, PI_HASH_B, 3) == vector[
+            vector[copy zero, copy zero, copy zero],
+            vector[copy zero, copy zero, copy zero],
+            vector[one, two, three],
+            vector[copy zero, copy zero, zero],
+        ],
+        1,
+    );
 }
 
 #[test]
-#[expected_failure(abort_code = game::EInvalidProof)]
-fun test_create_planet_rejects_invalid_proof() {
-    let ctx = &mut tx_context::dummy();
-    let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
-    let mut game = game::new_game(ctx);
+fun test_create_planet() {
+    let mut game = new_game();
 
-    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), x"00");
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
+
+    assert!(game::planet_count(&game) == 2, 1);
+    assert!(game::planet_coord_hash(&game, 1) == HASH_A, 2);
+    assert!(game::planet_energy(&game, 1) == 1000, 3);
+    assert!(game::planet_capacity(&game, 1) == 5000, 4);
+    assert!(game::planet_defense(&game, 1) == 100, 5);
+    assert!(game::planet_level(&game, 1) == 1, 6);
+    assert!(game::planet_owner(&game, 1) == ALICE, 7);
+    assert!(game::planet_owner(&game, 2) == BOB, 8);
 
     game::destroy_game(game);
-    serialized_params_store::destroy(params);
-    native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EAlreadyHasPlanet)]
+fun test_create_planet_duplicate() {
+    let mut game = new_game();
+
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, ALICE, HASH_B);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_dispatch_fleet() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1000);
+
+    assert!(game::fleet_count(&game) == 1, 10);
+    assert!(game::planet_energy(&game, 1) == 600, 11);
+    assert!(game::fleet_from(&game, 1) == 1, 12);
+    assert!(game::fleet_to(&game, 1) == 2, 13);
+    assert!(game::fleet_energy(&game, 1) == 400, 14);
+    assert!(game::fleet_speed(&game, 1) == 1000, 15);
+    assert!(game::fleet_owner(&game, 1) == ALICE, 16);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EInsufficientEnergy)]
+fun test_dispatch_fleet_insufficient_energy() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 9999, 1000);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EInvalidTarget)]
+fun test_dispatch_fleet_speed_cap() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 100, 9999);
+
+    game::destroy_game(game);
 }
 
 #[test]
 #[expected_failure(abort_code = game::EZeroEnergy)]
 fun test_dispatch_fleet_rejects_zero_energy() {
-    let ctx = &mut tx_context::dummy();
-    let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
-    let mut game = game::new_game(ctx);
+    let mut game = two_planet_game();
 
-    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), proof());
-    game::create_planet(&mut game, BOB, &params, &vk, &circuit, HASH_B, public_inputs(), proof());
-    game::dispatch_fleet(&mut game, ALICE, 1, 2, 0);
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 0, 1000);
 
     game::destroy_game(game);
-    serialized_params_store::destroy(params);
-    native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
 }
 
 #[test]
-fun test_spent_fleet_does_not_capture_planet() {
+fun test_process_arrival_attack_fails() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 900, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 20);
+    assert!(game::planet_owner(&game, 2) == BOB, 21);
+    assert!(game::planet_energy(&game, 2) == 1000, 22);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_attack_success() {
+    let mut game = two_planet_game();
+
+    game::generate_resources(&mut game, ALICE, 1, 2000, 0);
+    assert!(game::planet_energy(&game, 1) == 5000, 30);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 31);
+    assert!(game::planet_owner(&game, 2) == ALICE, 32);
+    assert!(game::planet_energy(&game, 2) == 100, 33);
+    assert!(game::planet_defense(&game, 2) == 100, 34);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_fleet_destroyed() {
+    let mut game = two_planet_game();
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 100, 1000);
+    assert!(game::fleet_count(&game) == 1, 40);
+
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    assert!(game::fleet_count(&game) == 0, 41);
+    assert!(game::planet_owner(&game, 2) == BOB, 42);
+    assert!(game::planet_energy(&game, 2) == 1000, 43);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_process_arrival_reinforce() {
+    let mut game = two_planet_game();
+
+    game::generate_resources(&mut game, ALICE, 1, 2000, 0);
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    game::process_arrival_for_test(&mut game, 1, 100000);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 300, 1000);
+    game::process_arrival_for_test(&mut game, 2, 100000);
+
+    assert!(game::planet_energy(&game, 2) == 300, 50);
+    assert!(game::planet_defense(&game, 2) == 110, 51);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_upgrade_planet() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 200);
+
+    assert!(game::planet_energy(&game, 1) == 800, 60);
+    assert!(game::planet_level(&game, 1) == 2, 61);
+    assert!(game::planet_capacity(&game, 1) == 5030, 62);
+    assert!(game::planet_defense(&game, 1) == 110, 63);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure(abort_code = game::EInsufficientEnergy)]
+fun test_upgrade_planet_insufficient_energy() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 9999);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_generate_resources() {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+
+    game::generate_resources(&mut game, ALICE, 1, 500, 0);
+    assert!(game::planet_energy(&game, 1) == 2000, 70);
+
+    game::generate_resources(&mut game, ALICE, 1, 100000, 500);
+    assert!(game::planet_energy(&game, 1) == 5000, 71);
+
+    game::destroy_game(game);
+}
+
+#[test]
+fun test_full_flow() {
+    let mut game = two_planet_game();
+
+    assert!(game::planet_count(&game) == 2, 80);
+
+    game::generate_resources(&mut game, ALICE, 1, 3000, 0);
+    assert!(game::planet_energy(&game, 1) == 5000, 81);
+
+    game::upgrade_planet(&mut game, ALICE, 1, 500);
+    assert!(game::planet_level(&game, 1) == 2, 82);
+    assert!(game::planet_energy(&game, 1) == 4500, 83);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 1300, 1000);
+    assert!(game::fleet_count(&game) == 1, 84);
+    assert!(game::fleet_energy(&game, 1) == 1300, 85);
+
+    game::process_arrival_for_test(&mut game, 1, 100000);
+    assert!(game::fleet_count(&game) == 0, 86);
+    assert!(game::planet_owner(&game, 2) == ALICE, 87);
+    assert!(game::planet_energy(&game, 2) == 100, 88);
+    assert!(game::planet_defense(&game, 2) == 100, 89);
+    assert!(game::planet_energy(&game, 1) == 3200, 90);
+
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 300, 1000);
+    game::process_arrival_for_test(&mut game, 2, 100000);
+
+    assert!(game::planet_energy(&game, 2) == 300, 91);
+    assert!(game::planet_defense(&game, 2) == 110, 92);
+
+    game::destroy_game(game);
+}
+
+#[test]
+#[expected_failure]
+fun test_create_planet_rejects_invalid_proof() {
     let ctx = &mut tx_context::dummy();
     let params = serialized_params_store::new_serialized_params(params(), ctx);
-    let vk = native_verifier::new_serialized_vk(vk(), ctx);
-    let circuit = native_verifier::new_serialized_circuit(circuit_info(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
     let mut game = game::new_game(ctx);
 
-    game::create_planet(&mut game, ALICE, &params, &vk, &circuit, HASH_A, public_inputs(), proof());
-    game::create_planet(&mut game, BOB, &params, &vk, &circuit, HASH_B, public_inputs(), proof());
-    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400);
-    game::process_arrival(&mut game, &params, &vk, &circuit, 1, 400000, public_inputs(), proof());
+    game::create_planet(&mut game, ALICE, &params, &vk, HASH_A, x"00");
 
-    assert!(game::planet_owner(&game, 2) == BOB, 10);
-    assert!(game::planet_energy(&game, 2) == 1000, 11);
-    assert!(game::fleet_count(&game) == 0, 12);
+    cleanup(game, params, vk);
+}
 
+#[test]
+#[expected_failure]
+fun test_process_arrival_builds_public_inputs_and_rejects_invalid_proof() {
+    let ctx = &mut tx_context::dummy();
+    let params = serialized_params_store::new_serialized_params(params(), ctx);
+    let vk = native_verifier::new_serialized_vk(vk(), circuit_info(), ctx);
+    let mut game = game::new_game(ctx);
+
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
+    game::dispatch_fleet(&mut game, ALICE, 1, 2, 400, 1000);
+    game::process_arrival(&mut game, &params, &vk, 1, 3, x"00");
+
+    cleanup(game, params, vk);
+}
+
+fun new_game(): game::Game {
+    let ctx = &mut tx_context::dummy();
+    game::new_game(ctx)
+}
+
+fun two_planet_game(): game::Game {
+    let mut game = new_game();
+    game::create_planet_for_test(&mut game, ALICE, HASH_A);
+    game::create_planet_for_test(&mut game, BOB, HASH_B);
+    game
+}
+
+fun scalar(value: u8): vector<u8> {
+    if (value == 0) {
+        x"0000000000000000000000000000000000000000000000000000000000000000"
+    } else if (value == 1) {
+        x"0100000000000000000000000000000000000000000000000000000000000000"
+    } else if (value == 2) {
+        x"0200000000000000000000000000000000000000000000000000000000000000"
+    } else {
+        x"0300000000000000000000000000000000000000000000000000000000000000"
+    }
+}
+
+fun cleanup(
+    game: game::Game,
+    params: serialized_params_store::SerializedParams,
+    vk: native_verifier::SerializedVK,
+) {
     game::destroy_game(game);
     serialized_params_store::destroy(params);
     native_verifier::destroy_serialized_vk(vk);
-    native_verifier::destroy_serialized_circuit(circuit);
 }
 
 fun params(): vector<u8> {
@@ -106,13 +330,4 @@ fun vk(): vector<u8> {
 
 fun circuit_info(): vector<u8> {
     x"0b0c20acc86b4c84170be1ea86dfb0bf5d284c7bee72808a85412c71eeec572b2fbb0b208effc754694da2cb6df0dc36fe4a9bc7e3ec844490da918c007213c66bf786a38001b61dd63efa2807041eec04d2e53c1dcdef061216ff9f65a22d88b152b8d6559f994768be185bbb68e44116cb6d1017bab8dfe91dc3ddb28ed720139f34ea6505d4b098bb2b6a4f0d5ec7d96d3184666aaecda03d0d83cfe4fb06c7edccb9c5a22f720095cbbf541bd781e9d75cfd01d23ff3ca5674e05d85d001abce9688539e010404010000000403000000080100000000000000080100000000000000030000000001000100030a010000000001000000000a010100000001000000000a01020000000100000000010a03000000000100000000010a020000000001000000000405030000000005010000000005010100000005010200000000010c08020007080300030106030200000000"
-}
-
-fun public_inputs(): serialized_public_inputs::PublicInputs {
-    let scalar = x"0600000000000000000000000000000000000000000000000000000000000000";
-    serialized_public_inputs::from_bytes(vector[vector[copy scalar, copy scalar, scalar]])
-}
-
-fun proof(): vector<u8> {
-    x"e9445cc7533f61fff8af036209735753b9276900d0b1812e91405ce65da07d20d8994f4c3db10d08f37a602e0f56258c624c6076d800678adfd0ecbad2fc3a2065db9386aa1d60c6c8ccffb869093fada5eb6797ba9488c8fa8b39f39d88ea0d8b987dbc98354df75153951b34d21fef0ec49e419453aa9eabb8397cf70c4e8945f3d19d0b85a80b1c92dd1f67742a65a1407676aae21846619e7683ba3681074fe0f929405e17fdb6b5457fa2796587349001fc43ee6726ef6473a62d772e270c4f6c0720fbd0cc9b142f6b7019cce18ffbb071348b7252d92c15ed49cb34af5fb50e30a6f2ae37b39bbc5e0f08f511623fc2e347f9dbc241b7676af8c2068f4e424a79cdf9e47d3f81213b7ce0754e22a5900bc034d9ec14eb976f2e4fe68f13a964e497d8550450f29c3d207d1319e41d325463add88986caa6226d3f5a071c1a237da662f8bc7044c930ba01e78ebab10c8f3750ce3875ade4c17613f629d469b3c80240d084f8eb7c00d349f1ec2eb923405d065c45e05972117810750c129a65213a381020350769823427aa691c79b77591373c8c9a19ee97717bda1bd2e5fe1e693cea645a56976dac736f1e4729ffc503392660cff16d21c64679144b8ad3b2f7ffd36e26837178cdd403266fe5ef05eee9eccf87032c2be6327007fad06835aceec94fcd5018e0d7001da60be35da0a23d43f702c6a8da7c40433047344f70808328501fce9f1920c3f54187c36e36c4d3d410fe76295a2f0afe07e040ec38b721e1fdb068c0eea9e5ec3b88579674b13a9471f7e8f2d6e82a5e00bf6c1f64443eaac6a3e772d283e6a35839574d39fa183fa8ed0dbb87beb71e2412fe1918f814d4ad50bb2001a6d0afb2c98bbce25b1d516896fa431853965812000be23e6303955802b8c503385837aaf3a84459d99d426d2723d63a20d74c2c91afafcce1aa44c1faaaa5f088da984c557cd591fa0e8bd3ef31ad1c128b1e21e19032fd9c419d73a070165530851f8ddbfab0c6a0ee795428bbbe6ef74cbd2c99ffe15922ee1a3b9ae82e99d5783ad1d3804b5df5ececa5898a58167a426f0ff534a7c85ca4603eb202f5e6ee2993b5bf74ea2fd930687946ff421e0ed8b40f881fb309f422e050f35184f65e4f719c2f0fb8a68ee5de10fc474532d00c2122657efdc65431f313ec8d02ed8f017b9bb14fff3910dfc58f78c5f8f17f32ca1c8fb4abbcb1978e8c5f1d783025eb19fb8580e4f50bb3755136ff1a2c0ac903296bb6136ecf03ba35e23496dfd4d77b728532cb5b41ba46fc489926ddb5951a26b82e74bf0fd684b4f4a1c4728eedece37c52a970f30e5915fb931d804014992ba09392b14eca34c6a8e3915dac6afc2ef43041ec6691f4c7769bf230b9016614391af4f7d9df348ee7a0005c110e0563a65073f5f7383abc98912d8e249e3a13e0242be684a69ebe87cf7da07ede3ba9fd7041db88f3cba0469bd3b582393a9e"
 }
