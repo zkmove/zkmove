@@ -1,6 +1,6 @@
 # Verify a Proof On-Chain on Sui
 
-This guide builds and submits a proof-verification call to a local Sui DevNet.
+This guide builds and submits a proof-verification call to a local Sui network (localnet).
 
 The Sui path currently uses the native Halo2 KZG verifier included in the customized `sui` CLI. The `zkmove` CLI builds a Sui move-call descriptor, and `sui client call` submits it.
 

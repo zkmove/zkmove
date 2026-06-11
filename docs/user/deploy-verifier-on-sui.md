@@ -1,6 +1,6 @@
 # Deploy an On-Chain Verifier on Sui
 
-This guide deploys a verifier contract to a local SUI DevNet for the Fibonacci circuit (`example/fibonacci`).
+This guide deploys a verifier contract to a local Sui network (localnet) for the Fibonacci circuit (`example/fibonacci`).
 
 | Object | Purpose |
 |---|---|
@@ -11,7 +11,7 @@ The circuit metadata is uploaded through a separate builder, but it is finalized
 
 ---
 
-## 1. Start the Local DevNet
+## 1. Start localnet
 
 Start a local Sui network with the customized `sui` CLI:
 
