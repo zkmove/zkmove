@@ -22,6 +22,9 @@ move-vm-runtime = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
 move-vm-types = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
 move-bytecode-verifier = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
 move-package = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-cli = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-stdlib = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-vm-test-utils = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
 
 poseidon-circuit = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
 poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }

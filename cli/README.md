@@ -2,13 +2,9 @@
 
 This guide explains how to use `zkmove` CLI to create a circuit and generate a proof for it.
 
-## Install customized `move` CLI
-
-A customized Move CLI is required to generate witnesses. Install it with:
-
-```shell
-cargo install --git https://github.com/zkmove/move move-cli
-```
+> The `zkmove` CLI now generates witnesses itself (`zkmove vm ... run`), so a separate
+> Move CLI is no longer required for the basic flow. You still need the Move compiler
+> (`move build`) to compile your package once.
 
 ## A zkMove Circuit example
 
@@ -38,26 +34,35 @@ entry = { module_id = "0x1::zkhash_example", function_name = "hash" }
 
 ## Generate witness
 
-First, build and publish the example package.
+First, compile the example package:
 
 ```shell
-# Run under package root.
-move build
-move sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
+# Run under the package root.
+move build --skip-fetch-latest-git-deps
 ```
-Then generate the witness by executing the entry function. By default, witnesses are written to `witnesses/`.
+
+Then generate the witness by executing the entry function. The entry (module + function)
+is read from the `[circuit.<name>].entry` section of `Move.toml`. By default, witnesses are
+written to `<package-path>/witnesses/`.
 
 ```shell
-move sandbox run --skip-fetch-latest-git-deps --witness storage/0x0000000000000000000000000000000000000000000000000000000000000001/modules/fibonacci.mv test_fibonacci --args 10u64
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci run --args 10u64
 ```
+
+`run` accepts `--args` (e.g. `10u64 true 0x1`), `--type-args`, `--signers`, and `-o/--output-dir`.
+The compiled modules of the package (and its dependencies) are loaded into an on-disk state view
+under `<package-path>/storage` automatically; no separate `move sandbox publish` is needed.
 
 ## Generate the proof
 
+Note: per-operation flags (`--params-path`, `--pubs-indices`, `--kzg`) now live on the
+`prove`/`verify`/`test` subcommands, while `--package-path` and `--circuit-name` are shared.
+
 ```shell
 # Running in the package root. Replace the witness filename as needed.
-cargo run --release -- vm --params-path params/kzg_bn254_12.srs --package-path ./example/ --circuit-name fibonacci prove -w example/witnesses/test_fibonacci-1747793629098.json
-# Optional: verify locally.
-cargo run --release -- vm --params-path params/kzg_bn254_12.srs --package-path ./example/ --circuit-name fibonacci verify -k 9 --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove --params-path params/kzg_bn254_12.srs -w example/witnesses/test_fibonacci-1747793629098.json
+# Optional: verify locally. `k` is reported at the end of `prove`.
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci verify --params-path params/kzg_bn254_12.srs -k 9 --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
 ```
 
 ## Verify proof on-chain

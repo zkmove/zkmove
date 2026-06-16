@@ -11,6 +11,12 @@ halo2_proofs.workspace = true
 poseidon-base = { workspace = true }
 move-package = { workspace = true }
 move-core-types = { workspace = true }
+move-binary-format = { workspace = true }
+move-compiler = { workspace = true }
+move-vm-runtime = { workspace = true, features = ["footprint"] }
+move-cli = { workspace = true }
+move-stdlib = { workspace = true }
+move-vm-test-utils = { workspace = true }
 log.workspace = true
 env_logger.workspace = true
 halo2-verifier = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }

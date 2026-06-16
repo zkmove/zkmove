@@ -1,0 +1,430 @@
+// Copyright (c) zkMove Authors
+
+use crate::common::{
+    get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
+    get_entry_info_from_move_toml, load_package, save_to_file, ArgWithNameAndTypeJSON,
+    HexEncodedBytes, KZGVariant,
+};
+use crate::ops;
+use anyhow::{Context, Result};
+use clap::{value_parser, Parser, Subcommand};
+use halo2_proofs::{
+    halo2curves::bn256::Bn256,
+    poly::{commitment::Params, kzg::commitment::ParamsKZG},
+};
+use log::info;
+use move_core_types::language_storage::TypeTag;
+use move_core_types::parser;
+use move_core_types::transaction_argument::TransactionArgument;
+use serde_json::json;
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
+use witness::static_info::Footprints;
+
+#[derive(Parser)]
+#[command(about = "Commands for witness generation, proving and verification in the client side.")]
+pub struct VmCommands {
+    #[arg(
+        long = "package-path",
+        value_parser = value_parser!(PathBuf),
+        help = "Path to the Move package root (contains Move.toml)"
+    )]
+    package_path: PathBuf,
+
+    #[arg(
+        long = "circuit-name",
+        short = 'c',
+        help = "Name of the circuit section in Move.toml (e.g. fibonacci for [circuit.fibonacci]). If omitted, uses the plain [circuit] section in Move.toml."
+    )]
+    circuit_name: Option<String>,
+
+    #[command(subcommand)]
+    command: Subcommands,
+}
+
+#[derive(Subcommand)]
+enum Subcommands {
+    #[command(about = "Generate the witness by executing the entry function")]
+    Run(RunCommand),
+
+    #[command(about = "Generate proof based on witness")]
+    Prove(ProveCommand),
+
+    #[command(about = "Verify proof")]
+    Verify(VerifyCommand),
+
+    #[command(about = "Test the on-chain verifier on provided witness files")]
+    Test(TestCommand),
+}
+
+#[derive(Parser)]
+#[command(about = "Generate the witness by executing the entry function")]
+pub struct RunCommand {
+    #[arg(
+        long = "args",
+        value_parser = parser::parse_transaction_argument,
+        num_args = 0..,
+        help = "Entry function arguments (e.g. 10u64 true 0x1)"
+    )]
+    args: Vec<TransactionArgument>,
+
+    #[arg(
+        long = "type-args",
+        value_parser = parser::parse_type_tag,
+        num_args = 0..,
+        help = "Type arguments for the entry function"
+    )]
+    type_args: Vec<TypeTag>,
+
+    #[arg(
+        long = "signers",
+        num_args = 0..,
+        help = "Signer addresses passed ahead of --args (e.g. 0x1)"
+    )]
+    signers: Vec<String>,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save the witness (default: <package-path>/witnesses)"
+    )]
+    output_dir: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+#[command(about = "Generate proof based on witness")]
+pub struct ProveCommand {
+    #[arg(long, help = "Params file used for prove in kzg")]
+    params_path: PathBuf,
+
+    #[arg(
+        long = "pubs-indices",
+        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
+        value_parser = clap::value_parser!(usize),
+        num_args = 0..,
+    )]
+    pubs_indices: Vec<usize>,
+
+    #[arg(
+        long = "kzg",
+        value_enum,
+        default_value_t = KZGVariant::GWC,
+        help = "KZG commitment scheme variant"
+    )]
+    variant: KZGVariant,
+
+    #[arg(
+        short = 'w',
+        long = "witness",
+        help = "Path to .json file containing witness",
+        required = true
+    )]
+    witness: PathBuf,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
+    )]
+    output_dir: Option<PathBuf>,
+
+    #[arg(
+        long = "json",
+        help = "Also emit a JSON file with hex-encoded public_inputs/proof/vk",
+        default_value_t = false
+    )]
+    json: bool,
+}
+
+#[derive(Parser)]
+#[command(about = "Verify the proof")]
+pub struct VerifyCommand {
+    #[arg(long, help = "Params file used for verify in kzg")]
+    params_path: PathBuf,
+
+    #[arg(
+        long = "pubs-indices",
+        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
+        value_parser = clap::value_parser!(usize),
+        num_args = 0..,
+    )]
+    pubs_indices: Vec<usize>,
+
+    #[arg(
+        long = "kzg",
+        value_enum,
+        default_value_t = KZGVariant::GWC,
+        help = "KZG commitment scheme variant"
+    )]
+    variant: KZGVariant,
+
+    #[arg(
+        short = 'k',
+        help = "Degree of the KZG params (k), reported when proving",
+        required = true
+    )]
+    k: u32,
+
+    #[arg(long = "pubs-path", value_parser = value_parser!(PathBuf), required = true)]
+    pubs_path: PathBuf,
+
+    #[arg(long = "proof-path", short = 'p', value_parser = value_parser!(PathBuf), required = true)]
+    proof_path: PathBuf,
+}
+
+#[derive(Parser)]
+#[command(about = "Test the on-chain verifier on provided witness files")]
+pub struct TestCommand {
+    #[arg(long, help = "Params file used for prove in kzg")]
+    params_path: PathBuf,
+
+    #[arg(
+        long = "pubs-indices",
+        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
+        value_parser = clap::value_parser!(usize),
+        num_args = 0..,
+    )]
+    pubs_indices: Vec<usize>,
+
+    #[arg(
+        long = "kzg",
+        value_enum,
+        default_value_t = KZGVariant::GWC,
+        help = "KZG commitment scheme variant"
+    )]
+    variant: KZGVariant,
+
+    #[arg(
+        short = 'w',
+        long = "witness",
+        help = "Path to .json file containing witness",
+        required = true
+    )]
+    witness: PathBuf,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save proof/verification artifacts (default: <package-path>/proofs)"
+    )]
+    output_dir: Option<PathBuf>,
+}
+
+impl VmCommands {
+    pub fn run(&self) -> Result<()> {
+        let manifest_path = self.package_path.join("Move.toml");
+        let circuit_name = self.circuit_name.as_deref();
+        match &self.command {
+            Subcommands::Run(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+            Subcommands::Prove(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+            Subcommands::Verify(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+            Subcommands::Test(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+        }
+    }
+}
+
+fn read_params(path: &Path) -> Result<ParamsKZG<Bn256>> {
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("Failed to open params file {}", path.display()))?;
+    Ok(ParamsKZG::<Bn256>::read(&mut file)?)
+}
+
+fn witness_file_stem(witness: &Path) -> Result<&str> {
+    witness
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))
+}
+
+impl RunCommand {
+    fn run(
+        &self,
+        package_path: &Path,
+        manifest_path: &Path,
+        circuit_name: Option<&str>,
+    ) -> Result<()> {
+        let (module_id, function_name) =
+            get_entry_call_from_move_toml(manifest_path, circuit_name)?;
+
+        let footprints = ops::run::generate_witness(
+            package_path,
+            &module_id,
+            &function_name,
+            self.type_args.clone(),
+            &self.args,
+            &self.signers,
+        )?;
+
+        let output_dir = self
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("witnesses"));
+        std::fs::create_dir_all(&output_dir)?;
+
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+        let file_name = format!("{}-{}.json", function_name, timestamp);
+        let content = serde_json::to_string_pretty(&footprints.0)?;
+        save_to_file(&output_dir, &file_name, &content)?;
+
+        info!("Witness saved to {}", output_dir.join(&file_name).display());
+        Ok(())
+    }
+}
+
+impl ProveCommand {
+    fn run(
+        &self,
+        package_path: &Path,
+        manifest_path: &Path,
+        circuit_name: Option<&str>,
+    ) -> Result<()> {
+        let mut params = read_params(&self.params_path)?;
+        let traces = Footprints::load(&self.witness)
+            .with_context(|| format!("Failed to load witness from {}", self.witness.display()))?;
+        let package = load_package(package_path)?;
+        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+
+        let output = ops::prove::prove(
+            &package,
+            &traces,
+            config,
+            &mut params,
+            &self.pubs_indices,
+            self.variant,
+        )?;
+
+        let output_dir = self
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("proofs"));
+        std::fs::create_dir_all(&output_dir)?;
+
+        let file_stem = witness_file_stem(&self.witness)?;
+        save_to_file(&output_dir, &format!("{}.proof", file_stem), &output.proof)?;
+        save_to_file(
+            &output_dir,
+            &format!("{}.instance", file_stem),
+            &output.instance,
+        )?;
+        save_to_file(&output_dir, &format!("{}.vk", file_stem), &output.vk)?;
+
+        if self.json {
+            let content = vec![
+                ArgWithNameAndTypeJSON {
+                    name: "public_inputs".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(output
+                        .public_inputs
+                        .as_vec()
+                        .into_iter()
+                        .map(|is| is
+                            .iter()
+                            .map(|fr| fr.to_bytes().to_vec())
+                            .map(|d| HexEncodedBytes(d).to_string())
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "proof".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(output.proof.clone()).to_string()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "vk".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(output.vk.clone()).to_string()),
+                },
+            ];
+            let json_output = serde_json::to_string_pretty(&content)?;
+            save_to_file(&output_dir, &format!("{}.json", file_stem), &json_output)?;
+        }
+
+        info!(
+            "Proof artifacts saved to {} (k = {})",
+            output_dir.display(),
+            output.k
+        );
+        Ok(())
+    }
+}
+
+impl VerifyCommand {
+    fn run(
+        &self,
+        package_path: &Path,
+        manifest_path: &Path,
+        circuit_name: Option<&str>,
+    ) -> Result<()> {
+        let mut params = read_params(&self.params_path)?;
+        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+        let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
+        let package = load_package(package_path)?;
+
+        let proof = std::fs::read(&self.proof_path)?;
+        let pubs_bytes = std::fs::read(&self.pubs_path)?;
+
+        ops::verify::verify(
+            &package,
+            entry_info,
+            config,
+            &mut params,
+            self.k,
+            &self.pubs_indices,
+            self.variant,
+            &proof,
+            &pubs_bytes,
+        )?;
+
+        info!("Proof verified successfully");
+        Ok(())
+    }
+}
+
+impl TestCommand {
+    fn run(
+        &self,
+        package_path: &Path,
+        manifest_path: &Path,
+        circuit_name: Option<&str>,
+    ) -> Result<()> {
+        let mut params = read_params(&self.params_path)?;
+        let traces = Footprints::load(&self.witness)
+            .with_context(|| format!("Failed to load witness from {}", self.witness.display()))?;
+        let package = load_package(package_path)?;
+        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+
+        let output = ops::test_verifier::test_native_verifier(
+            &package,
+            &traces,
+            config,
+            &mut params,
+            &self.pubs_indices,
+            self.variant,
+        )?;
+
+        let output_dir = self
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("proofs"));
+        std::fs::create_dir_all(&output_dir)?;
+
+        let file_stem = witness_file_stem(&self.witness)?;
+        let json_content = serde_json::to_string_pretty(&json!({
+            "serialized_params": HexEncodedBytes(output.serialized_params).to_string(),
+            "vk_bytes": HexEncodedBytes(output.vk_bytes).to_string(),
+            "circuit_info_bytes": HexEncodedBytes(output.circuit_info_bytes).to_string(),
+            "proof": HexEncodedBytes(output.proof).to_string(),
+            "public_inputs_bytes": HexEncodedBytes(output.public_inputs_bytes).to_string(),
+        }))?;
+
+        save_to_file(
+            &output_dir,
+            &format!("{}.verifier.json", file_stem),
+            &json_content,
+        )?;
+        info!("Verifier test data saved to {}", output_dir.display());
+        Ok(())
+    }
+}
