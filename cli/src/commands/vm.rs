@@ -2,26 +2,27 @@
 
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
-    get_entry_info_from_move_toml, load_package, save_to_file, ArgWithNameAndTypeJSON,
+    get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
     HexEncodedBytes, KZGVariant,
 };
 use crate::ops;
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
-use halo2_proofs::{
-    halo2curves::bn256::Bn256,
-    poly::{commitment::Params, kzg::commitment::ParamsKZG},
-};
 use log::info;
+use move_cli::sandbox::utils::OnDiskStateView;
+use move_compiler::compiled_unit::CompiledUnitEnum;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::parser;
 use move_core_types::transaction_argument::TransactionArgument;
+use move_package::compilation::compiled_package::CompiledPackage;
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 use witness::static_info::Footprints;
+
+const DEFAULT_STORAGE_DIR: &str = "storage";
 
 #[derive(Parser)]
 #[command(about = "Commands for witness generation, proving and verification in the client side.")]
@@ -225,17 +226,30 @@ impl VmCommands {
     }
 }
 
-fn read_params(path: &Path) -> Result<ParamsKZG<Bn256>> {
-    let mut file = std::fs::File::open(path)
-        .with_context(|| format!("Failed to open params file {}", path.display()))?;
-    Ok(ParamsKZG::<Bn256>::read(&mut file)?)
-}
-
 fn witness_file_stem(witness: &Path) -> Result<&str> {
     witness
         .file_stem()
         .and_then(|s| s.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))
+}
+
+fn prepare_witness_state(
+    package_path: &Path,
+    package: &CompiledPackage,
+) -> Result<OnDiskStateView> {
+    let storage_dir = package_path.join(DEFAULT_STORAGE_DIR);
+    let state = OnDiskStateView::create(package_path, storage_dir.as_path())?;
+
+    // The freshly compiled package is the source of truth, so overwrite modules in
+    // storage before execution rather than reusing stale bytecode.
+    for cu in package.all_modules() {
+        if let CompiledUnitEnum::Module(named) = &cu.unit {
+            let id = named.module.self_id();
+            state.save_module(&id, &cu.unit.serialize(None))?;
+        }
+    }
+
+    Ok(state)
 }
 
 impl RunCommand {
@@ -247,9 +261,11 @@ impl RunCommand {
     ) -> Result<()> {
         let (module_id, function_name) =
             get_entry_call_from_move_toml(manifest_path, circuit_name)?;
+        let package = load_package(package_path)?;
+        let state = prepare_witness_state(package_path, &package)?;
 
         let footprints = ops::run::generate_witness(
-            package_path,
+            &state,
             &module_id,
             &function_name,
             self.type_args.clone(),

@@ -4,6 +4,8 @@
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
+use halo2_proofs::halo2curves::bn256::Bn256;
+use halo2_proofs::poly::{commitment::Params, kzg::commitment::ParamsKZG};
 use log::debug;
 use move_core_types::{
     account_address::AccountAddress, identifier::Identifier, language_storage::ModuleId,
@@ -13,6 +15,7 @@ use move_package::compilation::package_layout::CompiledPackageLayout;
 use move_package::source_package::layout::SourcePackageLayout;
 use serde::Serialize;
 use std::{
+    env::current_dir,
     fmt,
     path::{Path, PathBuf},
     str::FromStr,
@@ -184,4 +187,33 @@ pub fn save_to_file<P: AsRef<Path>, D: AsRef<[u8]>>(
     std::fs::write(&file_path, data)?;
     debug!("File saved to {:?}", file_path.display());
     Ok(())
+}
+
+/// Read KZG params (SRS) from `path`.
+pub fn read_params(path: &Path) -> Result<ParamsKZG<Bn256>> {
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("Failed to open params file {}", path.display()))?;
+    Ok(ParamsKZG::<Bn256>::read(&mut file)?)
+}
+
+/// Save a built transaction payload as `<input-stem>-<suffix>.txn` under `output_dir`
+/// (defaulting to the current working directory). Shared by the aptos/sui command modules.
+pub fn save_txn_output(
+    output_dir: Option<PathBuf>,
+    input_path: &Path,
+    suffix: &str,
+    content: &str,
+) -> Result<()> {
+    let output_dir = output_dir.unwrap_or_else(|| current_dir().unwrap());
+    std::fs::create_dir_all(&output_dir)
+        .with_context(|| format!("Failed to create output directory at {:?}", output_dir))?;
+    let file_stem = input_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
+    save_to_file(
+        &output_dir,
+        &format!("{}-{}.txn", file_stem, suffix),
+        content,
+    )
 }

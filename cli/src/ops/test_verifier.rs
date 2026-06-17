@@ -3,18 +3,14 @@
 //! On-chain (native) verifier test-data generation, decoupled from CLI/IO.
 
 use crate::common::KZGVariant;
+use crate::ops::circuit::build_circuit_and_fit_params;
 use anyhow::{Context, Result};
-use halo2::proofs::{best_k, setup_circuit};
-use halo2_proofs::{
-    halo2curves::bn256::{Bn256, Fr},
-    poly::{commitment::Params, kzg::commitment::ParamsKZG},
-};
+use halo2::proofs::setup_circuit;
+use halo2_proofs::{halo2curves::bn256::Bn256, poly::kzg::commitment::ParamsKZG};
 use halo2_verifier::{test_verifier, KZG as VerifierKZG};
-use log::debug;
 use move_package::compilation::compiled_package::CompiledPackage;
-use std::rc::Rc;
 use vm_circuit::public_inputs::PublicInputs;
-use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
+use vm_circuit::CircuitConfigArgs;
 use witness::static_info::Footprints;
 
 /// Serialized inputs the native (on-chain) verifier consumes.
@@ -37,14 +33,8 @@ pub fn test_native_verifier(
     pubs_indices: &[usize],
     variant: KZGVariant,
 ) -> Result<TestVerifierOutput> {
-    let circuit = Rc::new(VmCircuit::<Fr>::new(package, traces, pubs_indices, config));
-    let _circuit_guard = CircuitGuard::new(circuit.clone());
-
-    let k = best_k(&circuit);
-    debug!("Optimal k = {}", k);
-    if k < params.k() {
-        params.downsize(k);
-    }
+    let (circuit, _circuit_guard, _k) =
+        build_circuit_and_fit_params(package, traces, config, pubs_indices, params);
 
     let args = traces.args().context("Arguments not found in witness")?;
     let public_inputs = PublicInputs::new(&args, pubs_indices);

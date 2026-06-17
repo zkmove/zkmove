@@ -1,26 +1,20 @@
-use crate::{get_circuit_config_args_from_move_toml, load_package, save_to_file, KZGVariant};
+// Copyright (c) zkMove Authors
+
+use crate::common::{
+    get_circuit_config_args_from_move_toml, load_package, read_params, save_txn_output, KZGVariant,
+};
+use crate::ops;
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
-use halo2::proofs::{best_k, setup_circuit, KZG};
-use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
-use halo2_proofs::poly::{commitment::Params, kzg::commitment::ParamsKZG};
+use halo2_proofs::halo2curves::bn256::Fr;
 use log::info;
-use std::env::current_dir;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use sui_verifier_api::native_verifier::{
-    build_publish_params_native_transaction_payload, build_publish_vk_native_transaction_payload,
-    build_verify_proof_native_transaction_payload,
-};
+use std::path::PathBuf;
 use vm_circuit::public_inputs::PublicInputs;
-use vm_circuit::{CircuitGuard, VmCircuit};
 use witness::static_info::Footprints;
 
 #[derive(Parser)]
 #[command(about = "Generate Sui txns for verify proof on Sui")]
 pub struct SuiCommands {
-    #[arg(short = 'd', long = "debug", help = "debug mode")]
-    debug: bool,
     #[command(subcommand)]
     command: SuiSubcommands,
 }
@@ -63,13 +57,11 @@ struct BuildPublishParamsNativeSuiTxn {
 
 impl BuildPublishParamsNativeSuiTxn {
     pub fn run(&self) -> Result<()> {
-        let mut params_file = std::fs::File::open(self.params_path.as_path())?;
-        let params = ParamsKZG::<Bn256>::read(&mut params_file)?;
-
-        let json = build_publish_params_native_transaction_payload(
+        let params = read_params(&self.params_path)?;
+        let json = ops::sui::build_publish_params_native(
             &params,
-            self.verifier_api_package.as_str(),
-            self.params_store_object_id.as_str(),
+            &self.verifier_api_package,
+            &self.params_store_object_id,
         )?;
         let output = serde_json::to_string_pretty(&json)?;
         save_txn_output(
@@ -116,41 +108,24 @@ struct BuildPublishCircuitNativeSuiTxn {
 
 impl BuildPublishCircuitNativeSuiTxn {
     pub fn run(&self) -> Result<()> {
-        let mut params_file = std::fs::File::open(self.params_path.as_path())?;
-        let params = ParamsKZG::<Bn256>::read(&mut params_file)?;
+        let mut params = read_params(&self.params_path)?;
         let package = load_package(&self.package_dir)?;
-        let circuit_name = self.circuit_name.as_deref();
-        let circuit_config_args = get_circuit_config_args_from_move_toml(
+        let config = get_circuit_config_args_from_move_toml(
             &self.package_dir.join("Move.toml"),
-            circuit_name,
+            self.circuit_name.as_deref(),
         )?;
 
         info!("Loading witness from {:?}", self.witness.display());
         let traces = Footprints::load(&self.witness)
             .with_context(|| format!("Failed to load witness from {:?}", self.witness))?;
-        let circuit = Rc::new(VmCircuit::<Fr>::new(
+
+        let json = ops::sui::build_publish_circuit_native(
             &package,
             &traces,
+            config,
             &self.pubs_indices,
-            circuit_config_args,
-        ));
-        let _circuit_guard = CircuitGuard::new(circuit.clone());
-
-        let k = best_k(&circuit);
-        info!("k = {}", k);
-        let mut params = params.clone();
-        if k < params.k() {
-            params.downsize(k);
-        }
-
-        let (vk, _pk) = setup_circuit(&*circuit, &params)
-            .map_err(|e| anyhow::anyhow!("Failed to setup circuit: {:?}", e))?;
-
-        let json = build_publish_vk_native_transaction_payload(
-            &vk,
-            &params,
-            circuit.as_ref(),
-            self.verifier_api_package.as_str(),
+            &mut params,
+            &self.verifier_api_package,
         )?;
         let output = serde_json::to_string_pretty(&json)?;
         save_txn_output(
@@ -189,25 +164,21 @@ struct BuildVerifyProofNativeSuiTxn {
 
 impl BuildVerifyProofNativeSuiTxn {
     pub fn run(&self) -> Result<()> {
-        let kzg = match self.variant {
-            KZGVariant::GWC => KZG::GWC,
-            KZGVariant::SHPLONK => KZG::SHPLONK,
-        };
         let proof = std::fs::read(&self.proof_path)
             .with_context(|| format!("Failed to read proof from {:?}", self.proof_path))?;
         let pubs = std::fs::read(&self.pubs_path)
             .with_context(|| format!("Failed to read pubs from {:?}", self.pubs_path))?;
         let public_inputs = PublicInputs::<Fr>::from_bytes(&pubs);
-        let json = build_verify_proof_native_transaction_payload::<G1Affine>(
+
+        let json = ops::sui::build_verify_proof_native(
             proof,
-            kzg as u8,
-            public_inputs.as_vec(),
-            self.verifier_api_package.as_str(),
-            self.params_object_id.as_str(),
-            self.vk_object_id.as_str(),
+            &public_inputs,
+            self.variant,
+            &self.verifier_api_package,
+            &self.params_object_id,
+            &self.vk_object_id,
             self.k,
         )?;
-
         let output = serde_json::to_string_pretty(&json)?;
         save_txn_output(
             self.output_dir.clone(),
@@ -218,24 +189,4 @@ impl BuildVerifyProofNativeSuiTxn {
         info!("Transaction built successfully.");
         Ok(())
     }
-}
-
-fn save_txn_output(
-    output_dir: Option<PathBuf>,
-    input_path: &Path,
-    suffix: &str,
-    content: &str,
-) -> Result<()> {
-    let output_dir = output_dir.unwrap_or_else(|| current_dir().unwrap());
-    std::fs::create_dir_all(&output_dir)
-        .with_context(|| format!("Failed to create output directory at {:?}", output_dir))?;
-    let file_stem = input_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
-    save_to_file(
-        &output_dir,
-        &format!("{}-{}.txn", file_stem, suffix),
-        content,
-    )
 }
