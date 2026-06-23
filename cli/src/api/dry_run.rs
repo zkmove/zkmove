@@ -8,38 +8,79 @@
 //! execution of a single entry function (which is exactly what the circuit proves), so
 //! cross-invocation state would only make witness generation non-deterministic.
 
+use crate::api::context::{EntryArgument, ZkMoveContext};
 use anyhow::{bail, Result};
 use move_binary_format::errors::PartialVMError;
 use move_cli::sandbox::utils::get_gas_status;
+use move_compiler::compiled_unit::CompiledUnitEnum;
 use move_core_types::{
     account_address::AccountAddress,
     identifier::IdentStr,
     language_storage::{ModuleId, TypeTag},
     resolver::MoveResolver,
-    transaction_argument::{convert_txn_args, TransactionArgument},
+    transaction_argument::convert_txn_args,
     value::MoveValue,
 };
+use move_package::compilation::compiled_package::CompiledPackage;
 use move_stdlib::natives::{all_natives, nursery_natives, GasParameters, NurseryGasParameters};
 use move_vm_runtime::{
     module_traversal::{TraversalContext, TraversalStorage},
     move_vm::MoveVM,
 };
+use move_vm_test_utils::InMemoryStorage;
 use witness::static_info::Footprints;
 
 /// The address `MoveStdlib` native functions are registered under.
 const STDLIB_ADDRESS: &str = "0x1";
+
+/// Public SDK dry-run API.
+///
+/// This only checks whether the entry function executes and captures footprints. The
+/// witness itself is intentionally not returned from the public API; proving repeats
+/// the dry-run internally.
+pub fn dry_run(
+    ctx: &ZkMoveContext,
+    module_id: &ModuleId,
+    function_name: &str,
+    args: &[EntryArgument],
+) -> Result<()> {
+    generate_witness(ctx, module_id, function_name, args).map(|_| ())
+}
+
+/// Generate the witness used internally by proving.
+pub(crate) fn generate_witness(
+    ctx: &ZkMoveContext,
+    module_id: &ModuleId,
+    function_name: &str,
+    args: &[EntryArgument],
+) -> Result<Footprints> {
+    let storage = prepare_in_memory_storage(&ctx.package)?;
+    generate_witness_in_storage(&storage, module_id, function_name, Vec::new(), args, &[])
+}
+
+/// Load compiled package modules into an in-memory Move VM resolver.
+pub fn prepare_in_memory_storage(package: &CompiledPackage) -> Result<InMemoryStorage> {
+    let mut storage = InMemoryStorage::new();
+    for cu in package.all_modules() {
+        if let CompiledUnitEnum::Module(named) = &cu.unit {
+            let id = named.module.self_id();
+            storage.publish_or_overwrite_module(id, cu.unit.serialize(None));
+        }
+    }
+    Ok(storage)
+}
 
 /// Execute the entry function `module_id::function_name` and return the captured
 /// footprints (the witness / execution traces) used for proving.
 ///
 /// The caller owns storage preparation. For the CLI this is an `OnDiskStateView`
 /// populated from the compiled package, while SDK callers can provide any resolver.
-pub fn generate_witness<S>(
+pub fn generate_witness_in_storage<S>(
     state: &S,
     module_id: &ModuleId,
     function_name: &str,
     type_args: Vec<TypeTag>,
-    txn_args: &[TransactionArgument],
+    args: &[EntryArgument],
     signers: &[String],
 ) -> Result<Footprints>
 where
@@ -50,8 +91,8 @@ where
         .iter()
         .map(|s| AccountAddress::from_hex_literal(s))
         .collect::<Result<Vec<_>, _>>()?;
-    let vm_args: Vec<Vec<u8>> = convert_txn_args(txn_args);
-    let args: Vec<Vec<u8>> = signer_addresses
+    let vm_args: Vec<Vec<u8>> = convert_txn_args(args);
+    let vm_args: Vec<Vec<u8>> = signer_addresses
         .iter()
         .map(|a| {
             MoveValue::Signer(*a)
@@ -81,7 +122,7 @@ where
             module_id,
             function_ident,
             type_args,
-            args,
+            vm_args,
             &mut gas_status,
             &mut TraversalContext::new(&traversal_storage),
         )

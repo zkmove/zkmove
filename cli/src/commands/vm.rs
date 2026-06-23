@@ -1,13 +1,17 @@
 // Copyright (c) zkMove Authors
 
+use crate::api;
+use crate::commands::setup::build_setup_output;
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
     get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
     HexEncodedBytes, KZGVariant,
 };
-use crate::ops;
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
+use halo2::proofs::setup_circuit;
+use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
+use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::info;
 use move_cli::sandbox::utils::OnDiskStateView;
 use move_compiler::compiled_unit::CompiledUnitEnum;
@@ -20,6 +24,7 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
+use vm_circuit::public_inputs::PublicInputs;
 use witness::static_info::Footprints;
 
 const DEFAULT_STORAGE_DIR: &str = "storage";
@@ -264,7 +269,7 @@ impl RunCommand {
         let package = load_package(package_path)?;
         let state = prepare_witness_state(package_path, &package)?;
 
-        let footprints = ops::run::generate_witness(
+        let footprints = api::dry_run::generate_witness_in_storage(
             &state,
             &module_id,
             &function_name,
@@ -296,20 +301,21 @@ impl ProveCommand {
         manifest_path: &Path,
         circuit_name: Option<&str>,
     ) -> Result<()> {
-        let mut params = read_params(&self.params_path)?;
+        let params = read_params(&self.params_path)?;
         let traces = Footprints::load(&self.witness)
             .with_context(|| format!("Failed to load witness from {}", self.witness.display()))?;
         let package = load_package(package_path)?;
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+        let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
 
-        let output = ops::prove::prove(
-            &package,
-            &traces,
+        let setup_output = build_setup_output(
+            package,
+            entry_info,
             config,
-            &mut params,
-            &self.pubs_indices,
-            self.variant,
+            params,
+            self.pubs_indices.clone(),
         )?;
+        let output = api::prove::prove_with_witness(&setup_output.context, &traces, self.variant)?;
 
         let output_dir = self
             .output_dir
@@ -324,20 +330,24 @@ impl ProveCommand {
             &format!("{}.instance", file_stem),
             &output.instance,
         )?;
-        save_to_file(&output_dir, &format!("{}.vk", file_stem), &output.vk)?;
+        save_to_file(
+            &output_dir,
+            &format!("{}.vk", file_stem),
+            &setup_output.vk_bytes,
+        )?;
 
         if self.json {
+            let public_inputs = PublicInputs::<Fr>::from_bytes(&output.instance);
             let content = vec![
                 ArgWithNameAndTypeJSON {
                     name: "public_inputs".to_string(),
                     r#type: "hex".to_string(),
-                    value: json!(output
-                        .public_inputs
+                    value: json!(public_inputs
                         .as_vec()
                         .into_iter()
                         .map(|is| is
                             .iter()
-                            .map(|fr| fr.to_bytes().to_vec())
+                            .map(|fr| fr.to_repr().as_ref().to_vec())
                             .map(|d| HexEncodedBytes(d).to_string())
                             .collect::<Vec<_>>())
                         .collect::<Vec<_>>()),
@@ -350,7 +360,7 @@ impl ProveCommand {
                 ArgWithNameAndTypeJSON {
                     name: "vk".to_string(),
                     r#type: "hex".to_string(),
-                    value: json!(HexEncodedBytes(output.vk.clone()).to_string()),
+                    value: json!(HexEncodedBytes(setup_output.vk_bytes.clone()).to_string()),
                 },
             ];
             let json_output = serde_json::to_string_pretty(&content)?;
@@ -360,7 +370,7 @@ impl ProveCommand {
         info!(
             "Proof artifacts saved to {} (k = {})",
             output_dir.display(),
-            output.k
+            setup_output.context.k
         );
         Ok(())
     }
@@ -373,25 +383,30 @@ impl VerifyCommand {
         manifest_path: &Path,
         circuit_name: Option<&str>,
     ) -> Result<()> {
-        let mut params = read_params(&self.params_path)?;
+        let params = read_params(&self.params_path)?;
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
         let package = load_package(package_path)?;
+        let setup_output = build_setup_output(
+            package,
+            entry_info,
+            config,
+            params,
+            self.pubs_indices.clone(),
+        )?;
 
         let proof = std::fs::read(&self.proof_path)?;
         let pubs_bytes = std::fs::read(&self.pubs_path)?;
 
-        ops::verify::verify(
-            &package,
-            entry_info,
-            config,
-            &mut params,
-            self.k,
-            &self.pubs_indices,
-            self.variant,
-            &proof,
-            &pubs_bytes,
-        )?;
+        if self.k != setup_output.context.k {
+            log::warn!(
+                "provided k ({}) differs from setup k ({}); using setup context k",
+                self.k,
+                setup_output.context.k
+            );
+        }
+
+        api::verify::verify(&setup_output.context, self.variant, &proof, &pubs_bytes)?;
 
         info!("Proof verified successfully");
         Ok(())
@@ -411,14 +426,31 @@ impl TestCommand {
         let package = load_package(package_path)?;
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
 
-        let output = ops::test_verifier::test_native_verifier(
+        let (circuit, _circuit_guard, _k) = api::circuit::build_circuit_and_fit_params(
             &package,
             &traces,
             config,
-            &mut params,
             &self.pubs_indices,
-            self.variant,
+            &mut params,
         )?;
+
+        let args = traces.args().context("Arguments not found in witness")?;
+        let public_inputs = PublicInputs::new(&args, &self.pubs_indices);
+
+        let (_vk, _pk) = setup_circuit(&*circuit, &params).expect("setup should not fail");
+
+        let verifier_kzg_scheme = match self.variant {
+            KZGVariant::GWC => VerifierKZG::GWC,
+            KZGVariant::SHPLONK => VerifierKZG::SHPLONK,
+        };
+
+        let test_data = test_verifier(
+            circuit.as_ref().clone(),
+            public_inputs.as_vec(),
+            &params,
+            verifier_kzg_scheme,
+        )
+        .expect("on-chain verifier test should not fail");
 
         let output_dir = self
             .output_dir
@@ -428,11 +460,11 @@ impl TestCommand {
 
         let file_stem = witness_file_stem(&self.witness)?;
         let json_content = serde_json::to_string_pretty(&json!({
-            "serialized_params": HexEncodedBytes(output.serialized_params).to_string(),
-            "vk_bytes": HexEncodedBytes(output.vk_bytes).to_string(),
-            "circuit_info_bytes": HexEncodedBytes(output.circuit_info_bytes).to_string(),
-            "proof": HexEncodedBytes(output.proof).to_string(),
-            "public_inputs_bytes": HexEncodedBytes(output.public_inputs_bytes).to_string(),
+            "serialized_params": HexEncodedBytes(test_data.serialized_params).to_string(),
+            "vk_bytes": HexEncodedBytes(test_data.vk_bytes).to_string(),
+            "circuit_info_bytes": HexEncodedBytes(test_data.circuit_info_bytes).to_string(),
+            "proof": HexEncodedBytes(test_data.proof).to_string(),
+            "public_inputs_bytes": HexEncodedBytes(test_data.public_inputs_bytes).to_string(),
         }))?;
 
         save_to_file(

@@ -2,17 +2,16 @@
 
 //! Library surface for the zkMove CLI.
 //!
-//! The crate is split into three layers so that both the `zkmove` binary and future
-//! SDK callers can reuse the same logic:
+//! The crate is split so that the CLI owns command-specific behavior while shared
+//! witness/proving/verification routines remain reusable:
 //!
 //! - [`common`]: shared helpers (package loading, Move.toml parsing, encoding utilities).
-//! - [`ops`]: clap-free operations (witness generation, proving, verification) that take
-//!   typed inputs and return typed outputs.
-//! - [`commands`]: clap command definitions that parse arguments and delegate to `ops`.
+//! - [`api`]: clap-free SDK API for logic that is shared across commands.
+//! - [`commands`]: clap command definitions and command-specific workflows.
 
+pub mod api;
 pub mod commands;
 pub mod common;
-pub mod ops;
 
 // Re-export common helpers at the crate root for backwards compatibility with the
 // command modules that reference `crate::<helper>`.

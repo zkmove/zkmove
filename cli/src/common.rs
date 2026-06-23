@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-//! Common helpers shared by the CLI command modules and the reusable `ops` layer.
+//! Common helpers shared by the CLI command modules and the reusable `api` layer.
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;

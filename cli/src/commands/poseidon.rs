@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::ops;
+use crate::api;
 use anyhow::Result;
 use clap::Parser;
 use log::info;
@@ -26,7 +26,7 @@ impl PoseidonCommand {
             rng.gen()
         });
 
-        let hash_val = ops::poseidon::poseidon_hash(self.value, nonce)?;
+        let hash_val = api::poseidon::poseidon_hash(self.value, nonce)?;
 
         info!("Value: {}", self.value);
         info!("Nonce: {}", nonce);

@@ -1,15 +1,25 @@
 // Copyright (c) zkMove Authors
 
+use crate::api::circuit::build_circuit_and_fit_params;
 use crate::common::{
     get_circuit_config_args_from_move_toml, load_package, read_params, save_txn_output, KZGVariant,
 };
-use crate::ops;
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2::proofs::{setup_circuit, KZG};
+use halo2_proofs::{
+    halo2curves::bn256::{Bn256, Fr, G1Affine},
+    poly::kzg::commitment::ParamsKZG,
+};
 use log::info;
+use move_package::compilation::compiled_package::CompiledPackage;
 use std::path::PathBuf;
-use vm_circuit::public_inputs::PublicInputs;
+use sui_verifier_api::native_verifier::{
+    build_publish_params_native_transaction_payload, build_publish_vk_native_transaction_payload,
+    build_verify_proof_native_transaction_payload,
+};
+use sui_verifier_api::SuiMoveCallJSON;
+use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs};
 use witness::static_info::Footprints;
 
 #[derive(Parser)]
@@ -58,7 +68,7 @@ struct BuildPublishParamsNativeSuiTxn {
 impl BuildPublishParamsNativeSuiTxn {
     pub fn run(&self) -> Result<()> {
         let params = read_params(&self.params_path)?;
-        let json = ops::sui::build_publish_params_native(
+        let json = build_publish_params_native(
             &params,
             &self.verifier_api_package,
             &self.params_store_object_id,
@@ -119,7 +129,7 @@ impl BuildPublishCircuitNativeSuiTxn {
         let traces = Footprints::load(&self.witness)
             .with_context(|| format!("Failed to load witness from {:?}", self.witness))?;
 
-        let json = ops::sui::build_publish_circuit_native(
+        let json = build_publish_circuit_native(
             &package,
             &traces,
             config,
@@ -170,7 +180,7 @@ impl BuildVerifyProofNativeSuiTxn {
             .with_context(|| format!("Failed to read pubs from {:?}", self.pubs_path))?;
         let public_inputs = PublicInputs::<Fr>::from_bytes(&pubs);
 
-        let json = ops::sui::build_verify_proof_native(
+        let json = build_verify_proof_native(
             proof,
             &public_inputs,
             self.variant,
@@ -189,4 +199,58 @@ impl BuildVerifyProofNativeSuiTxn {
         info!("Transaction built successfully.");
         Ok(())
     }
+}
+
+fn build_publish_params_native(
+    params: &ParamsKZG<Bn256>,
+    verifier_api_package: &str,
+    params_store_object_id: &str,
+) -> Result<SuiMoveCallJSON> {
+    build_publish_params_native_transaction_payload(
+        params,
+        verifier_api_package,
+        params_store_object_id,
+    )
+}
+
+fn build_publish_circuit_native(
+    package: &CompiledPackage,
+    traces: &Footprints,
+    config: CircuitConfigArgs,
+    pubs_indices: &[usize],
+    params: &mut ParamsKZG<Bn256>,
+    verifier_api_package: &str,
+) -> Result<SuiMoveCallJSON> {
+    let (circuit, _circuit_guard, _k) =
+        build_circuit_and_fit_params(package, traces, config, pubs_indices, params)?;
+
+    let (vk, _pk) = setup_circuit(&*circuit, params)
+        .map_err(|e| anyhow::anyhow!("Failed to setup circuit: {:?}", e))?;
+
+    build_publish_vk_native_transaction_payload(&vk, params, circuit.as_ref(), verifier_api_package)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_verify_proof_native(
+    proof: Vec<u8>,
+    public_inputs: &PublicInputs<Fr>,
+    variant: KZGVariant,
+    verifier_api_package: &str,
+    params_object_id: &str,
+    vk_object_id: &str,
+    k: Option<u32>,
+) -> Result<SuiMoveCallJSON> {
+    let kzg = match variant {
+        KZGVariant::GWC => KZG::GWC,
+        KZGVariant::SHPLONK => KZG::SHPLONK,
+    };
+    build_verify_proof_native_transaction_payload::<G1Affine>(
+        proof,
+        kzg as u8,
+        public_inputs.as_vec(),
+        verifier_api_package,
+        params_object_id,
+        vk_object_id,
+        k,
+    )
 }

@@ -21,6 +21,37 @@ use poseidon_circuit::hash::{PoseidonHashChip, PoseidonHashConfig, PoseidonHashT
 #[derive(Default, Clone, Debug)]
 pub struct PoseidonCircuit<F: Field>(pub(crate) PoseidonHashTable<F>, usize);
 
+impl<F: Field> PoseidonCircuit<F> {
+    pub(crate) fn used_hashes(&self) -> usize {
+        self.0.inputs.len()
+    }
+
+    pub(crate) fn max_hashes(&self) -> usize {
+        self.1
+    }
+}
+
+impl<F: Field + Hashable> PoseidonCircuit<F> {
+    pub(crate) fn configured_rows(&self) -> usize {
+        self.max_hashes() * F::hash_block_size()
+    }
+
+    pub(crate) fn validate_capacity(&self) -> Result<(), String> {
+        let used_hashes = self.used_hashes();
+        let max_hashes = self.max_hashes();
+        if used_hashes > max_hashes {
+            return Err(format!(
+                "poseidon hash count {} exceeds configured capacity {} (max_poseidon_rows = {}, hash_block_size = {})",
+                used_hashes,
+                max_hashes,
+                self.configured_rows(),
+                F::hash_block_size()
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Circuit configuration argument ts
 pub struct PoseidonCircuitConfigArgs {
     /// PoseidonTable
@@ -129,7 +160,7 @@ impl<F: Field + Hashable> SubCircuit<F> for PoseidonCircuit<F> {
     }
 
     fn circuit_height(&self, _config: &Self::Config) -> usize {
-        self.0.minimum_row_require()
+        self.configured_rows()
     }
 }
 
@@ -222,11 +253,25 @@ pub fn unroll_to_hash_input_default<F: Field>(
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::SubCircuit;
     use field_exts::util::pow_of_two;
     use field_exts::Field;
     use field_exts::U256;
     use halo2_proofs::halo2curves::bn256::Fr;
     use halo2_proofs::halo2curves::ff::PrimeField;
+    use witness::static_info::StaticInfo;
+
+    #[test]
+    fn empty_state_height_uses_configured_capacity() {
+        let hash_block_size = Fr::hash_block_size();
+        let config = CircuitConfigArgs::new(Some(1), hash_block_size * 2);
+        let circuit = PoseidonCircuit::<Fr>::new_with_empty_state(StaticInfo::default(), config);
+
+        assert_eq!(circuit.used_hashes(), 0);
+        assert_eq!(circuit.max_hashes(), 2);
+        assert_eq!(circuit.configured_rows(), hash_block_size * 2);
+    }
 
     #[test]
     fn test_hash_result() {
