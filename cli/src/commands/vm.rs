@@ -1,7 +1,8 @@
 // Copyright (c) zkMove Authors
 
 use crate::api;
-use crate::commands::setup::build_setup_output;
+use crate::api::circuit::build_empty_circuit_and_fit_params;
+use crate::api::context::VmCircuitContext;
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
     get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
@@ -10,7 +11,13 @@ use crate::common::{
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::setup_circuit;
-use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
+use halo2_proofs::{
+    halo2curves::{
+        bn256::{Bn256, Fr},
+        ff::PrimeField,
+    },
+    poly::kzg::commitment::ParamsKZG,
+};
 use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::info;
 use move_cli::sandbox::utils::OnDiskStateView;
@@ -24,10 +31,13 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use vm_circuit::public_inputs::PublicInputs;
-use witness::static_info::Footprints;
+use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs, VmCircuit};
+use witness::static_info::{EntryInfo, Footprints};
 
 const DEFAULT_STORAGE_DIR: &str = "storage";
+const SETUP_PARAMS_FILE: &str = "params.bin";
+const SETUP_PK_FILE: &str = "pk.bin";
+const SETUP_VK_FILE: &str = "vk.bin";
 
 #[derive(Parser)]
 #[command(about = "Commands for witness generation, proving and verification in the client side.")]
@@ -52,8 +62,14 @@ pub struct VmCommands {
 
 #[derive(Subcommand)]
 enum Subcommands {
-    #[command(about = "Generate the witness by executing the entry function")]
-    Run(RunCommand),
+    #[command(
+        name = "dry-run",
+        about = "Generate the witness by executing the entry function"
+    )]
+    DryRun(DryRunCommand),
+
+    #[command(about = "Generate app-developer setup artifacts for SDK initialization")]
+    Setup(SetupCommand),
 
     #[command(about = "Generate proof based on witness")]
     Prove(ProveCommand),
@@ -67,7 +83,7 @@ enum Subcommands {
 
 #[derive(Parser)]
 #[command(about = "Generate the witness by executing the entry function")]
-pub struct RunCommand {
+pub struct DryRunCommand {
     #[arg(
         long = "args",
         value_parser = parser::parse_transaction_argument,
@@ -95,6 +111,28 @@ pub struct RunCommand {
         short = 'o',
         long = "output-dir",
         help = "Directory to save the witness (default: <package-path>/witnesses)"
+    )]
+    output_dir: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+#[command(about = "Generate app-developer setup artifacts for SDK initialization")]
+pub struct SetupCommand {
+    #[arg(long, help = "Params file used for KZG setup")]
+    params_path: PathBuf,
+
+    #[arg(
+        long = "pubs-indices",
+        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
+        value_parser = clap::value_parser!(usize),
+        num_args = 0..,
+    )]
+    pubs_indices: Vec<usize>,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save setup artifacts (default: <package-path>/setup)"
     )]
     output_dir: Option<PathBuf>,
 }
@@ -223,7 +261,8 @@ impl VmCommands {
         let manifest_path = self.package_path.join("Move.toml");
         let circuit_name = self.circuit_name.as_deref();
         match &self.command {
-            Subcommands::Run(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+            Subcommands::DryRun(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
+            Subcommands::Setup(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
             Subcommands::Prove(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
             Subcommands::Verify(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
             Subcommands::Test(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
@@ -257,7 +296,40 @@ fn prepare_witness_state(
     Ok(state)
 }
 
-impl RunCommand {
+pub(crate) fn setup(
+    package: CompiledPackage,
+    entry_info: EntryInfo,
+    config: CircuitConfigArgs,
+    mut params: ParamsKZG<Bn256>,
+    pubs_indices: Vec<usize>,
+) -> Result<VmCircuitContext> {
+    VmCircuit::<Fr>::validate_setup_inputs(&package, &entry_info, &pubs_indices, &config)
+        .map_err(anyhow::Error::msg)?;
+
+    let (circuit, _circuit_guard, k) = build_empty_circuit_and_fit_params(
+        &package,
+        entry_info.clone(),
+        config.clone(),
+        &pubs_indices,
+        &mut params,
+    )?;
+
+    let (vk, pk) = setup_circuit(&*circuit, &params)
+        .map_err(|e| anyhow::anyhow!("setup circuit failed: {:?}", e))?;
+
+    Ok(VmCircuitContext::from_parts(
+        package,
+        entry_info,
+        config,
+        params,
+        pk,
+        vk,
+        k,
+        pubs_indices,
+    ))
+}
+
+impl DryRunCommand {
     fn run(
         &self,
         package_path: &Path,
@@ -294,6 +366,45 @@ impl RunCommand {
     }
 }
 
+impl SetupCommand {
+    fn run(
+        &self,
+        package_path: &Path,
+        manifest_path: &Path,
+        circuit_name: Option<&str>,
+    ) -> Result<()> {
+        let package = load_package(package_path)?;
+        let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
+        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+        let params = read_params(&self.params_path)?;
+
+        let context = setup(
+            package,
+            entry_info,
+            config,
+            params,
+            self.pubs_indices.clone(),
+        )?;
+
+        let output_dir = self
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("setup"));
+        std::fs::create_dir_all(&output_dir)?;
+
+        save_to_file(&output_dir, SETUP_PARAMS_FILE, context.params_bytes()?)?;
+        save_to_file(&output_dir, SETUP_PK_FILE, context.pk_bytes()?)?;
+        save_to_file(&output_dir, SETUP_VK_FILE, context.vk_bytes())?;
+
+        info!(
+            "Setup artifacts saved to {} (k = {})",
+            output_dir.display(),
+            context.k
+        );
+        Ok(())
+    }
+}
+
 impl ProveCommand {
     fn run(
         &self,
@@ -308,14 +419,14 @@ impl ProveCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
 
-        let setup_output = build_setup_output(
+        let setup_context = setup(
             package,
             entry_info,
             config,
             params,
             self.pubs_indices.clone(),
         )?;
-        let output = api::prove::prove_with_witness(&setup_output.context, &traces, self.variant)?;
+        let output = api::prove::prove_with_witness(&setup_context, &traces, self.variant)?;
 
         let output_dir = self
             .output_dir
@@ -330,11 +441,8 @@ impl ProveCommand {
             &format!("{}.instance", file_stem),
             &output.instance,
         )?;
-        save_to_file(
-            &output_dir,
-            &format!("{}.vk", file_stem),
-            &setup_output.vk_bytes,
-        )?;
+        let vk_bytes = setup_context.vk_bytes();
+        save_to_file(&output_dir, &format!("{}.vk", file_stem), &vk_bytes)?;
 
         if self.json {
             let public_inputs = PublicInputs::<Fr>::from_bytes(&output.instance);
@@ -360,7 +468,7 @@ impl ProveCommand {
                 ArgWithNameAndTypeJSON {
                     name: "vk".to_string(),
                     r#type: "hex".to_string(),
-                    value: json!(HexEncodedBytes(setup_output.vk_bytes.clone()).to_string()),
+                    value: json!(HexEncodedBytes(vk_bytes.clone()).to_string()),
                 },
             ];
             let json_output = serde_json::to_string_pretty(&content)?;
@@ -370,7 +478,7 @@ impl ProveCommand {
         info!(
             "Proof artifacts saved to {} (k = {})",
             output_dir.display(),
-            setup_output.context.k
+            setup_context.k
         );
         Ok(())
     }
@@ -387,7 +495,7 @@ impl VerifyCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
         let package = load_package(package_path)?;
-        let setup_output = build_setup_output(
+        let setup_context = setup(
             package,
             entry_info,
             config,
@@ -398,15 +506,15 @@ impl VerifyCommand {
         let proof = std::fs::read(&self.proof_path)?;
         let pubs_bytes = std::fs::read(&self.pubs_path)?;
 
-        if self.k != setup_output.context.k {
+        if self.k != setup_context.k {
             log::warn!(
                 "provided k ({}) differs from setup k ({}); using setup context k",
                 self.k,
-                setup_output.context.k
+                setup_context.k
             );
         }
 
-        api::verify::verify(&setup_output.context, self.variant, &proof, &pubs_bytes)?;
+        api::verify::verify(&setup_context, self.variant, &proof, &pubs_bytes)?;
 
         info!("Proof verified successfully");
         Ok(())

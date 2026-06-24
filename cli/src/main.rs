@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use env_logger::Env;
 use log::info;
-use zkmove_cli::commands::{AptosCommands, PoseidonCommand, SetupCommand, SuiCommands, VmCommands};
+use zkmove_cli::commands::{AptosCommands, PoseidonCommand, SuiCommands, VmCommands};
 
 #[derive(Parser)]
 #[command(name = "zkmove", about = "CLI for zkMove")]
@@ -16,7 +16,6 @@ pub enum Commands {
     Aptos(AptosCommands),
     Sui(SuiCommands),
     Poseidon(PoseidonCommand),
-    Setup(SetupCommand),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -29,6 +28,5 @@ fn main() -> anyhow::Result<()> {
         Commands::Aptos(aptos_command) => aptos_command.run(),
         Commands::Sui(sui_command) => sui_command.run(),
         Commands::Poseidon(poseidon_command) => poseidon_command.run(),
-        Commands::Setup(setup_command) => setup_command.run(),
     }
 }
