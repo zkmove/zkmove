@@ -17,3 +17,7 @@ Cargo.lock
 
 .aptos
 
+docs/api.md
+docs/mvp-confidential-asset-mint.md
+docs/sdk-implementation-plan.md
+docs/sdk-roadmap.md
