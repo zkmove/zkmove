@@ -3,7 +3,7 @@
 //! Proof generation logic, decoupled from CLI argument parsing and file IO.
 
 use crate::api::circuit::build_circuit;
-use crate::api::context::{EntryArgument, ZkMoveContext};
+use crate::api::context::{EntryArgument, VmCircuitContext};
 use crate::api::dry_run;
 use crate::common::KZGVariant;
 use anyhow::{bail, Context, Result};
@@ -22,7 +22,7 @@ pub struct ProveOutput {
 
 /// Generate a proof by dry-running the entry function and proving the resulting witness.
 pub fn prove(
-    ctx: &ZkMoveContext,
+    ctx: &VmCircuitContext,
     module_id: &ModuleId,
     function_name: &str,
     args: &[EntryArgument],
@@ -37,7 +37,7 @@ pub fn prove(
 /// This keeps the old CLI witness-file flow as a thin compatibility layer; SDK callers
 /// should use [`prove`] so the dry-run happens internally.
 pub fn prove_with_witness(
-    ctx: &ZkMoveContext,
+    ctx: &VmCircuitContext,
     traces: &Footprints,
     variant: KZGVariant,
 ) -> Result<ProveOutput> {

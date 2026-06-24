@@ -24,7 +24,7 @@ use witness::static_info::EntryInfo;
 pub type EntryArgument = TransactionArgument;
 
 /// Long-lived SDK context created from app-developer setup artifacts.
-pub struct ZkMoveContext {
+pub struct VmCircuitContext {
     pub package: CompiledPackage,
     pub entry_info: EntryInfo,
     pub config: CircuitConfigArgs,
@@ -35,7 +35,7 @@ pub struct ZkMoveContext {
     pub pubs_indices: Vec<usize>,
 }
 
-impl ZkMoveContext {
+impl VmCircuitContext {
     #[allow(clippy::too_many_arguments)]
     pub fn from_parts(
         package: CompiledPackage,

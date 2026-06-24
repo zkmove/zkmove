@@ -12,7 +12,7 @@ pub mod poseidon;
 pub mod prove;
 pub mod verify;
 
-pub use context::{EntryArgument, ZkMoveContext};
+pub use context::{EntryArgument, VmCircuitContext};
 pub use dry_run::dry_run;
 pub use prove::{prove, ProveOutput};
 pub use verify::verify;

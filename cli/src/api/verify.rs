@@ -2,7 +2,7 @@
 
 //! Local proof verification logic, decoupled from CLI argument parsing and file IO.
 
-use crate::api::context::ZkMoveContext;
+use crate::api::context::VmCircuitContext;
 use crate::common::KZGVariant;
 use anyhow::Result;
 use halo2::proofs::{verify_circuit, KZG};
@@ -11,7 +11,7 @@ use vm_circuit::public_inputs::PublicInputs;
 
 /// Verify a proof locally using the setup verifying key in `ctx`.
 pub fn verify(
-    ctx: &ZkMoveContext,
+    ctx: &VmCircuitContext,
     variant: KZGVariant,
     proof: &[u8],
     pubs_bytes: &[u8],

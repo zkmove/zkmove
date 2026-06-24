@@ -1,7 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::api::circuit::build_empty_circuit_and_fit_params;
-use crate::api::context::ZkMoveContext;
+use crate::api::context::VmCircuitContext;
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_info_from_move_toml, load_package,
     read_params, save_to_file,
@@ -115,7 +115,7 @@ pub(crate) struct SetupMetadata {
 
 /// Command-layer setup output used by setup/prove/verify CLI workflows.
 pub(crate) struct SetupOutput {
-    pub(crate) context: ZkMoveContext,
+    pub(crate) context: VmCircuitContext,
     pub(crate) metadata: SetupMetadata,
     pub(crate) params_bytes: Vec<u8>,
     pub(crate) pk_bytes: Vec<u8>,
@@ -156,7 +156,7 @@ pub(crate) fn build_setup_output(
     };
 
     let context =
-        ZkMoveContext::from_parts(package, entry_info, config, params, pk, vk, k, pubs_indices);
+        VmCircuitContext::from_parts(package, entry_info, config, params, pk, vk, k, pubs_indices);
 
     let params_bytes = context.params_bytes()?;
     let pk_bytes = context.pk_bytes()?;

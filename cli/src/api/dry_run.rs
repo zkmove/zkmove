@@ -8,7 +8,7 @@
 //! execution of a single entry function (which is exactly what the circuit proves), so
 //! cross-invocation state would only make witness generation non-deterministic.
 
-use crate::api::context::{EntryArgument, ZkMoveContext};
+use crate::api::context::{EntryArgument, VmCircuitContext};
 use anyhow::{bail, Result};
 use move_binary_format::errors::PartialVMError;
 use move_cli::sandbox::utils::get_gas_status;
@@ -39,7 +39,7 @@ const STDLIB_ADDRESS: &str = "0x1";
 /// witness itself is intentionally not returned from the public API; proving repeats
 /// the dry-run internally.
 pub fn dry_run(
-    ctx: &ZkMoveContext,
+    ctx: &VmCircuitContext,
     module_id: &ModuleId,
     function_name: &str,
     args: &[EntryArgument],
@@ -49,7 +49,7 @@ pub fn dry_run(
 
 /// Generate the witness used internally by proving.
 pub(crate) fn generate_witness(
-    ctx: &ZkMoveContext,
+    ctx: &VmCircuitContext,
     module_id: &ModuleId,
     function_name: &str,
     args: &[EntryArgument],
@@ -59,7 +59,7 @@ pub(crate) fn generate_witness(
 }
 
 /// Load compiled package modules into an in-memory Move VM resolver.
-pub fn prepare_in_memory_storage(package: &CompiledPackage) -> Result<InMemoryStorage> {
+fn prepare_in_memory_storage(package: &CompiledPackage) -> Result<InMemoryStorage> {
     let mut storage = InMemoryStorage::new();
     for cu in package.all_modules() {
         if let CompiledUnitEnum::Module(named) = &cu.unit {
