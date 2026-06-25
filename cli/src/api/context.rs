@@ -2,10 +2,11 @@
 
 //! SDK-facing context loaded once from app-developer setup artifacts.
 
-use crate::api::circuit::build_empty_circuit;
+use crate::api::circuit::{build_empty_circuit, build_empty_circuit_and_fit_params};
 use anyhow::Result;
+use halo2::proofs::setup_circuit;
 use halo2_proofs::{
-    halo2curves::bn256::{Bn256, G1Affine},
+    halo2curves::bn256::{Bn256, Fr, G1Affine},
     plonk::{pk_read, vk_read, ProvingKey, VerifyingKey},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
     SerdeFormat,
@@ -13,7 +14,7 @@ use halo2_proofs::{
 use move_core_types::transaction_argument::TransactionArgument;
 use move_package::compilation::compiled_package::CompiledPackage;
 use std::io::Cursor;
-use vm_circuit::CircuitConfigArgs;
+use vm_circuit::{CircuitConfigArgs, VmCircuit};
 use witness::static_info::EntryInfo;
 
 /// SDK entry-function argument.
@@ -22,6 +23,40 @@ use witness::static_info::EntryInfo;
 /// uses entry/function terminology because end users are not constructing a chain
 /// transaction at this stage.
 pub type EntryArgument = TransactionArgument;
+
+/// Build a setup context from app-developer inputs.
+pub(crate) fn setup(
+    package: CompiledPackage,
+    entry_info: EntryInfo,
+    config: CircuitConfigArgs,
+    mut params: ParamsKZG<Bn256>,
+    pubs_indices: Vec<usize>,
+) -> Result<VmCircuitContext> {
+    VmCircuit::<Fr>::validate_setup_inputs(&package, &entry_info, &pubs_indices, &config)
+        .map_err(anyhow::Error::msg)?;
+
+    let (circuit, _circuit_guard, k) = build_empty_circuit_and_fit_params(
+        &package,
+        entry_info.clone(),
+        config.clone(),
+        &pubs_indices,
+        &mut params,
+    )?;
+
+    let (vk, pk) = setup_circuit(&*circuit, &params)
+        .map_err(|e| anyhow::anyhow!("setup circuit failed: {:?}", e))?;
+
+    Ok(VmCircuitContext::from_parts(
+        package,
+        entry_info,
+        config,
+        params,
+        pk,
+        vk,
+        k,
+        pubs_indices,
+    ))
+}
 
 /// Long-lived SDK context created from app-developer setup artifacts.
 pub struct VmCircuitContext {

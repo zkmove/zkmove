@@ -1,8 +1,6 @@
 // Copyright (c) zkMove Authors
 
 use crate::api;
-use crate::api::circuit::build_empty_circuit_and_fit_params;
-use crate::api::context::VmCircuitContext;
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
     get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
@@ -11,13 +9,7 @@ use crate::common::{
 use anyhow::{Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::setup_circuit;
-use halo2_proofs::{
-    halo2curves::{
-        bn256::{Bn256, Fr},
-        ff::PrimeField,
-    },
-    poly::kzg::commitment::ParamsKZG,
-};
+use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::info;
 use move_cli::sandbox::utils::OnDiskStateView;
@@ -31,13 +23,14 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs, VmCircuit};
-use witness::static_info::{EntryInfo, Footprints};
+use vm_circuit::public_inputs::PublicInputs;
+use witness::static_info::Footprints;
 
 const DEFAULT_STORAGE_DIR: &str = "storage";
 const SETUP_PARAMS_FILE: &str = "params.bin";
 const SETUP_PK_FILE: &str = "pk.bin";
 const SETUP_VK_FILE: &str = "vk.bin";
+const SETUP_JSON_FILE: &str = "setup.json";
 
 #[derive(Parser)]
 #[command(about = "Commands for witness generation, proving and verification in the client side.")]
@@ -135,6 +128,13 @@ pub struct SetupCommand {
         help = "Directory to save setup artifacts (default: <package-path>/setup)"
     )]
     output_dir: Option<PathBuf>,
+
+    #[arg(
+        long = "json",
+        help = "Also emit a JSON file with hex-encoded pk/vk/params",
+        default_value_t = false
+    )]
+    json: bool,
 }
 
 #[derive(Parser)]
@@ -296,39 +296,6 @@ fn prepare_witness_state(
     Ok(state)
 }
 
-pub(crate) fn setup(
-    package: CompiledPackage,
-    entry_info: EntryInfo,
-    config: CircuitConfigArgs,
-    mut params: ParamsKZG<Bn256>,
-    pubs_indices: Vec<usize>,
-) -> Result<VmCircuitContext> {
-    VmCircuit::<Fr>::validate_setup_inputs(&package, &entry_info, &pubs_indices, &config)
-        .map_err(anyhow::Error::msg)?;
-
-    let (circuit, _circuit_guard, k) = build_empty_circuit_and_fit_params(
-        &package,
-        entry_info.clone(),
-        config.clone(),
-        &pubs_indices,
-        &mut params,
-    )?;
-
-    let (vk, pk) = setup_circuit(&*circuit, &params)
-        .map_err(|e| anyhow::anyhow!("setup circuit failed: {:?}", e))?;
-
-    Ok(VmCircuitContext::from_parts(
-        package,
-        entry_info,
-        config,
-        params,
-        pk,
-        vk,
-        k,
-        pubs_indices,
-    ))
-}
-
 impl DryRunCommand {
     fn run(
         &self,
@@ -378,7 +345,7 @@ impl SetupCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let params = read_params(&self.params_path)?;
 
-        let context = setup(
+        let context = api::context::setup(
             package,
             entry_info,
             config,
@@ -392,9 +359,35 @@ impl SetupCommand {
             .unwrap_or_else(|| package_path.join("setup"));
         std::fs::create_dir_all(&output_dir)?;
 
-        save_to_file(&output_dir, SETUP_PARAMS_FILE, context.params_bytes()?)?;
-        save_to_file(&output_dir, SETUP_PK_FILE, context.pk_bytes()?)?;
-        save_to_file(&output_dir, SETUP_VK_FILE, context.vk_bytes())?;
+        let params_bytes = context.params_bytes()?;
+        let pk_bytes = context.pk_bytes()?;
+        let vk_bytes = context.vk_bytes();
+
+        save_to_file(&output_dir, SETUP_PARAMS_FILE, &params_bytes)?;
+        save_to_file(&output_dir, SETUP_PK_FILE, &pk_bytes)?;
+        save_to_file(&output_dir, SETUP_VK_FILE, &vk_bytes)?;
+
+        if self.json {
+            let content = vec![
+                ArgWithNameAndTypeJSON {
+                    name: "params".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(params_bytes).to_string()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "pk".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(pk_bytes).to_string()),
+                },
+                ArgWithNameAndTypeJSON {
+                    name: "vk".to_string(),
+                    r#type: "hex".to_string(),
+                    value: json!(HexEncodedBytes(vk_bytes).to_string()),
+                },
+            ];
+            let json_output = serde_json::to_string_pretty(&content)?;
+            save_to_file(&output_dir, SETUP_JSON_FILE, &json_output)?;
+        }
 
         info!(
             "Setup artifacts saved to {} (k = {})",
@@ -419,7 +412,7 @@ impl ProveCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
 
-        let setup_context = setup(
+        let setup_context = api::context::setup(
             package,
             entry_info,
             config,
@@ -495,7 +488,7 @@ impl VerifyCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
         let package = load_package(package_path)?;
-        let setup_context = setup(
+        let setup_context = api::context::setup(
             package,
             entry_info,
             config,

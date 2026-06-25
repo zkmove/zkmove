@@ -74,8 +74,8 @@ fn prepare_in_memory_storage(package: &CompiledPackage) -> Result<InMemoryStorag
 /// footprints (the witness / execution traces) used for proving.
 ///
 /// The caller owns storage preparation. For the CLI this is an `OnDiskStateView`
-/// populated from the compiled package, while SDK callers can provide any resolver.
-pub fn generate_witness_in_storage<S>(
+/// populated from the compiled package.
+pub(crate) fn generate_witness_in_storage<S>(
     state: &S,
     module_id: &ModuleId,
     function_name: &str,
