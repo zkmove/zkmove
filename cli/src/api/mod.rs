@@ -6,13 +6,13 @@
 //! and most file IO to the `commands` layer.
 
 pub mod circuit;
-pub mod context;
-pub mod dry_run;
 pub mod poseidon;
 pub mod prove;
+pub mod setup;
 pub mod verify;
+pub mod witness;
 
-pub use context::{EntryArgument, VmCircuitContext};
-pub use dry_run::dry_run;
 pub use prove::{prove, ProveOutput};
+pub use setup::{EntryArgument, VmCircuitContext};
 pub use verify::verify;
+pub use witness::generate_witness;

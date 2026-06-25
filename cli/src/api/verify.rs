@@ -2,7 +2,7 @@
 
 //! Local proof verification logic, decoupled from CLI argument parsing and file IO.
 
-use crate::api::context::VmCircuitContext;
+use crate::api::setup::VmCircuitContext;
 use crate::common::KZGVariant;
 use anyhow::Result;
 use halo2::proofs::{verify_circuit, KZG};

@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::api::circuit::build_circuit_and_fit_params;
+use crate::api::circuit::build_circuit_from_trace_and_fit_params;
 use crate::common::{
     get_circuit_config_args_from_move_toml, load_package, read_params, save_txn_output, KZGVariant,
 };
@@ -364,7 +364,7 @@ fn build_publish_circuit(
     verifier_contract_address: &str,
 ) -> Result<EntryFunctionArgumentsJSON> {
     let (circuit, _circuit_guard, _k) =
-        build_circuit_and_fit_params(package, traces, config, pubs_indices, params)?;
+        build_circuit_from_trace_and_fit_params(package, traces, config, pubs_indices, params)?;
 
     build_publish_circuit_transaction_payload(params, circuit.as_ref(), verifier_contract_address)
 }
@@ -407,7 +407,7 @@ fn build_publish_circuit_native(
     native_verifier_contract_address: &str,
 ) -> Result<NativeCircuitTxns> {
     let (circuit, _circuit_guard, _k) =
-        build_circuit_and_fit_params(package, traces, config, pubs_indices, params)?;
+        build_circuit_from_trace_and_fit_params(package, traces, config, pubs_indices, params)?;
 
     let (vk, _pk) = setup_circuit(&*circuit, params)
         .map_err(|e| anyhow::anyhow!("Failed to setup circuit: {:?}", e))?;

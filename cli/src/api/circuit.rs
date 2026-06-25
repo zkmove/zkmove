@@ -18,7 +18,7 @@ use witness::static_info::{EntryInfo, Footprints};
 ///
 /// Returns the circuit and its [`CircuitGuard`] (the caller MUST keep it alive while
 /// using the circuit, since the circuit config lives in thread-local storage).
-pub fn build_circuit(
+pub fn build_circuit_from_trace(
     package: &CompiledPackage,
     traces: &Footprints,
     config: CircuitConfigArgs,
@@ -36,7 +36,7 @@ pub fn build_circuit(
 ///
 /// Returns the circuit and its [`CircuitGuard`] (the caller MUST keep it alive while
 /// using the circuit, since the circuit config lives in thread-local storage).
-pub fn build_empty_circuit(
+pub fn build_circuit(
     package: &CompiledPackage,
     entry_info: EntryInfo,
     config: CircuitConfigArgs,
@@ -54,14 +54,14 @@ pub fn build_empty_circuit(
 ///
 /// Returns the circuit, its [`CircuitGuard`] (the caller MUST keep it alive while using
 /// the circuit, since the circuit config lives in thread-local storage), and `k`.
-pub fn build_circuit_and_fit_params(
+pub fn build_circuit_from_trace_and_fit_params(
     package: &CompiledPackage,
     traces: &Footprints,
     config: CircuitConfigArgs,
     pubs_indices: &[usize],
     params: &mut ParamsKZG<Bn256>,
 ) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard, u32)> {
-    let (circuit, guard) = build_circuit(package, traces, config, pubs_indices)?;
+    let (circuit, guard) = build_circuit_from_trace(package, traces, config, pubs_indices)?;
 
     let k = best_k(&circuit);
     info!("Optimal k = {}", k);
@@ -73,14 +73,14 @@ pub fn build_circuit_and_fit_params(
 }
 
 /// Build the empty-state circuit, pick the optimal `k`, and downsize `params` to it.
-pub fn build_empty_circuit_and_fit_params(
+pub fn build_circuit_and_fit_params(
     package: &CompiledPackage,
     entry_info: EntryInfo,
     config: CircuitConfigArgs,
     pubs_indices: &[usize],
     params: &mut ParamsKZG<Bn256>,
 ) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard, u32)> {
-    let (circuit, guard) = build_empty_circuit(package, entry_info, config, pubs_indices)?;
+    let (circuit, guard) = build_circuit(package, entry_info, config, pubs_indices)?;
 
     let k = best_k(&circuit);
     info!("Optimal setup k = {}", k);

@@ -1,6 +1,7 @@
 // Copyright (c) zkMove Authors
 
 use crate::api;
+use crate::api::EntryArgument;
 use crate::common::{
     get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
     get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
@@ -12,12 +13,8 @@ use halo2::proofs::setup_circuit;
 use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::info;
-use move_cli::sandbox::utils::OnDiskStateView;
-use move_compiler::compiled_unit::CompiledUnitEnum;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::parser;
-use move_core_types::transaction_argument::TransactionArgument;
-use move_package::compilation::compiled_package::CompiledPackage;
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
@@ -26,7 +23,6 @@ use std::{
 use vm_circuit::public_inputs::PublicInputs;
 use witness::static_info::Footprints;
 
-const DEFAULT_STORAGE_DIR: &str = "storage";
 const SETUP_PARAMS_FILE: &str = "params.bin";
 const SETUP_PK_FILE: &str = "pk.bin";
 const SETUP_VK_FILE: &str = "vk.bin";
@@ -61,10 +57,12 @@ enum Subcommands {
     )]
     DryRun(DryRunCommand),
 
-    #[command(about = "Generate app-developer setup artifacts for SDK initialization")]
+    #[command(about = "Generate app-developer setup artifacts, optionally sizing from a witness")]
     Setup(SetupCommand),
 
-    #[command(about = "Generate proof based on witness")]
+    #[command(
+        about = "Generate proof from an existing witness or by dry-running the entry function"
+    )]
     Prove(ProveCommand),
 
     #[command(about = "Verify proof")]
@@ -83,7 +81,7 @@ pub struct DryRunCommand {
         num_args = 0..,
         help = "Entry function arguments (e.g. 10u64 true 0x1)"
     )]
-    args: Vec<TransactionArgument>,
+    args: Vec<EntryArgument>,
 
     #[arg(
         long = "type-args",
@@ -109,7 +107,7 @@ pub struct DryRunCommand {
 }
 
 #[derive(Parser)]
-#[command(about = "Generate app-developer setup artifacts for SDK initialization")]
+#[command(about = "Generate app-developer setup artifacts, optionally sizing from a witness")]
 pub struct SetupCommand {
     #[arg(long, help = "Params file used for KZG setup")]
     params_path: PathBuf,
@@ -121,6 +119,13 @@ pub struct SetupCommand {
         num_args = 0..,
     )]
     pubs_indices: Vec<usize>,
+
+    #[arg(
+        short = 'w',
+        long = "witness",
+        help = "Path to .json file containing witness. If provided, setup sizes the circuit from this witness."
+    )]
+    witness: Option<PathBuf>,
 
     #[arg(
         short = 'o',
@@ -138,7 +143,7 @@ pub struct SetupCommand {
 }
 
 #[derive(Parser)]
-#[command(about = "Generate proof based on witness")]
+#[command(about = "Generate proof from an existing witness or by dry-running the entry function")]
 pub struct ProveCommand {
     #[arg(long, help = "Params file used for prove in kzg")]
     params_path: PathBuf,
@@ -160,12 +165,19 @@ pub struct ProveCommand {
     variant: KZGVariant,
 
     #[arg(
+        long = "args",
+        value_parser = parser::parse_transaction_argument,
+        num_args = 0..,
+        help = "Entry function arguments used when --witness is omitted (e.g. 10u64 true 0x1)"
+    )]
+    args: Vec<EntryArgument>,
+
+    #[arg(
         short = 'w',
         long = "witness",
-        help = "Path to .json file containing witness",
-        required = true
+        help = "Path to .json file containing witness. If omitted, prove will generate witness from entry args."
     )]
-    witness: PathBuf,
+    witness: Option<PathBuf>,
 
     #[arg(
         short = 'o',
@@ -277,25 +289,6 @@ fn witness_file_stem(witness: &Path) -> Result<&str> {
         .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))
 }
 
-fn prepare_witness_state(
-    package_path: &Path,
-    package: &CompiledPackage,
-) -> Result<OnDiskStateView> {
-    let storage_dir = package_path.join(DEFAULT_STORAGE_DIR);
-    let state = OnDiskStateView::create(package_path, storage_dir.as_path())?;
-
-    // The freshly compiled package is the source of truth, so overwrite modules in
-    // storage before execution rather than reusing stale bytecode.
-    for cu in package.all_modules() {
-        if let CompiledUnitEnum::Module(named) = &cu.unit {
-            let id = named.module.self_id();
-            state.save_module(&id, &cu.unit.serialize(None))?;
-        }
-    }
-
-    Ok(state)
-}
-
 impl DryRunCommand {
     fn run(
         &self,
@@ -306,16 +299,9 @@ impl DryRunCommand {
         let (module_id, function_name) =
             get_entry_call_from_move_toml(manifest_path, circuit_name)?;
         let package = load_package(package_path)?;
-        let state = prepare_witness_state(package_path, &package)?;
 
-        let footprints = api::dry_run::generate_witness_in_storage(
-            &state,
-            &module_id,
-            &function_name,
-            self.type_args.clone(),
-            &self.args,
-            &self.signers,
-        )?;
+        let footprints =
+            api::witness::generate_witness(&package, &module_id, &function_name, &self.args)?;
 
         let output_dir = self
             .output_dir
@@ -345,13 +331,27 @@ impl SetupCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let params = read_params(&self.params_path)?;
 
-        let context = api::context::setup(
-            package,
-            entry_info,
-            config,
-            params,
-            self.pubs_indices.clone(),
-        )?;
+        let context = if let Some(witness_path) = &self.witness {
+            let traces = Footprints::load(witness_path).with_context(|| {
+                format!("Failed to load witness from {}", witness_path.display())
+            })?;
+            api::setup::setup_with_witness(
+                package,
+                entry_info,
+                &traces,
+                config,
+                params,
+                self.pubs_indices.clone(),
+            )?
+        } else {
+            api::setup::setup(
+                package,
+                entry_info,
+                config,
+                params,
+                self.pubs_indices.clone(),
+            )?
+        };
 
         let output_dir = self
             .output_dir
@@ -406,20 +406,36 @@ impl ProveCommand {
         circuit_name: Option<&str>,
     ) -> Result<()> {
         let params = read_params(&self.params_path)?;
-        let traces = Footprints::load(&self.witness)
-            .with_context(|| format!("Failed to load witness from {}", self.witness.display()))?;
         let package = load_package(package_path)?;
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
 
-        let setup_context = api::context::setup(
+        let setup_context = api::setup::setup(
             package,
             entry_info,
             config,
             params,
             self.pubs_indices.clone(),
         )?;
-        let output = api::prove::prove_with_witness(&setup_context, &traces, self.variant)?;
+        let (output, file_stem) = if let Some(witness_path) = &self.witness {
+            let traces = Footprints::load(witness_path).with_context(|| {
+                format!("Failed to load witness from {}", witness_path.display())
+            })?;
+            let output = api::prove::prove_with_witness(&setup_context, &traces, self.variant)?;
+            (output, witness_file_stem(witness_path)?.to_string())
+        } else {
+            let (module_id, function_name) =
+                get_entry_call_from_move_toml(manifest_path, circuit_name)?;
+            let output = api::prove::prove(
+                &setup_context,
+                &module_id,
+                &function_name,
+                &self.args,
+                self.variant,
+            )?;
+            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+            (output, format!("{}-{}", function_name, timestamp))
+        };
 
         let output_dir = self
             .output_dir
@@ -427,7 +443,6 @@ impl ProveCommand {
             .unwrap_or_else(|| package_path.join("proofs"));
         std::fs::create_dir_all(&output_dir)?;
 
-        let file_stem = witness_file_stem(&self.witness)?;
         save_to_file(&output_dir, &format!("{}.proof", file_stem), &output.proof)?;
         save_to_file(
             &output_dir,
@@ -488,7 +503,7 @@ impl VerifyCommand {
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
         let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
         let package = load_package(package_path)?;
-        let setup_context = api::context::setup(
+        let setup_context = api::setup::setup(
             package,
             entry_info,
             config,
@@ -527,7 +542,7 @@ impl TestCommand {
         let package = load_package(package_path)?;
         let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
 
-        let (circuit, _circuit_guard, _k) = api::circuit::build_circuit_and_fit_params(
+        let (circuit, _circuit_guard, _k) = api::circuit::build_circuit_from_trace_and_fit_params(
             &package,
             &traces,
             config,

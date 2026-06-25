@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-use crate::api::circuit::build_circuit_and_fit_params;
+use crate::api::circuit::build_circuit_from_trace_and_fit_params;
 use crate::common::{
     get_circuit_config_args_from_move_toml, load_package, read_params, save_txn_output, KZGVariant,
 };
@@ -222,7 +222,7 @@ fn build_publish_circuit_native(
     verifier_api_package: &str,
 ) -> Result<SuiMoveCallJSON> {
     let (circuit, _circuit_guard, _k) =
-        build_circuit_and_fit_params(package, traces, config, pubs_indices, params)?;
+        build_circuit_from_trace_and_fit_params(package, traces, config, pubs_indices, params)?;
 
     let (vk, _pk) = setup_circuit(&*circuit, params)
         .map_err(|e| anyhow::anyhow!("Failed to setup circuit: {:?}", e))?;

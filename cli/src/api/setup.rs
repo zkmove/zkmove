@@ -2,8 +2,10 @@
 
 //! SDK-facing context loaded once from app-developer setup artifacts.
 
-use crate::api::circuit::{build_empty_circuit, build_empty_circuit_and_fit_params};
-use anyhow::Result;
+use crate::api::circuit::{
+    build_circuit, build_circuit_and_fit_params, build_circuit_from_trace_and_fit_params,
+};
+use anyhow::{bail, Context, Result};
 use halo2::proofs::setup_circuit;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
@@ -15,7 +17,7 @@ use move_core_types::transaction_argument::TransactionArgument;
 use move_package::compilation::compiled_package::CompiledPackage;
 use std::io::Cursor;
 use vm_circuit::{CircuitConfigArgs, VmCircuit};
-use witness::static_info::EntryInfo;
+use witness::static_info::{EntryInfo, Footprints};
 
 /// SDK entry-function argument.
 ///
@@ -35,7 +37,7 @@ pub(crate) fn setup(
     VmCircuit::<Fr>::validate_setup_inputs(&package, &entry_info, &pubs_indices, &config)
         .map_err(anyhow::Error::msg)?;
 
-    let (circuit, _circuit_guard, k) = build_empty_circuit_and_fit_params(
+    let (circuit, _circuit_guard, k) = build_circuit_and_fit_params(
         &package,
         entry_info.clone(),
         config.clone(),
@@ -43,7 +45,64 @@ pub(crate) fn setup(
         &mut params,
     )?;
 
-    let (vk, pk) = setup_circuit(&*circuit, &params)
+    build_context_from_circuit(
+        package,
+        entry_info,
+        config,
+        params,
+        pubs_indices,
+        circuit.as_ref(),
+        k,
+    )
+}
+
+/// Build a setup context sized from an already captured witness.
+pub(crate) fn setup_with_witness(
+    package: CompiledPackage,
+    entry_info: EntryInfo,
+    traces: &Footprints,
+    config: CircuitConfigArgs,
+    mut params: ParamsKZG<Bn256>,
+    pubs_indices: Vec<usize>,
+) -> Result<VmCircuitContext> {
+    let witness_entry = traces.entry().context("Entry not found in witness")?;
+    if witness_entry != entry_info {
+        bail!(
+            "witness entry {:?} does not match setup entry {:?}",
+            witness_entry,
+            entry_info
+        );
+    }
+
+    let (circuit, _circuit_guard, k) = build_circuit_from_trace_and_fit_params(
+        &package,
+        traces,
+        config.clone(),
+        &pubs_indices,
+        &mut params,
+    )?;
+
+    build_context_from_circuit(
+        package,
+        entry_info,
+        config,
+        params,
+        pubs_indices,
+        circuit.as_ref(),
+        k,
+    )
+}
+
+fn build_context_from_circuit(
+    package: CompiledPackage,
+    entry_info: EntryInfo,
+    config: CircuitConfigArgs,
+    params: ParamsKZG<Bn256>,
+    pubs_indices: Vec<usize>,
+    circuit: &VmCircuit<Fr>,
+    k: u32,
+) -> Result<VmCircuitContext> {
+    let (vk, pk) = setup_circuit(circuit, &params)
         .map_err(|e| anyhow::anyhow!("setup circuit failed: {:?}", e))?;
 
     Ok(VmCircuitContext::from_parts(
@@ -114,7 +173,7 @@ impl VmCircuitContext {
         }
 
         let (circuit, _circuit_guard) =
-            build_empty_circuit(&package, entry_info.clone(), config.clone(), &pubs_indices)?;
+            build_circuit(&package, entry_info.clone(), config.clone(), &pubs_indices)?;
 
         let pk = pk_read::<G1Affine, _, _>(
             &mut Cursor::new(pk_bytes),

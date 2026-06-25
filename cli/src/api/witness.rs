@@ -8,7 +8,7 @@
 //! execution of a single entry function (which is exactly what the circuit proves), so
 //! cross-invocation state would only make witness generation non-deterministic.
 
-use crate::api::context::{EntryArgument, VmCircuitContext};
+use crate::api::setup::EntryArgument;
 use anyhow::{bail, Result};
 use move_binary_format::errors::PartialVMError;
 use move_cli::sandbox::utils::get_gas_status;
@@ -33,28 +33,14 @@ use witness::static_info::Footprints;
 /// The address `MoveStdlib` native functions are registered under.
 const STDLIB_ADDRESS: &str = "0x1";
 
-/// Public SDK dry-run API.
-///
-/// This only checks whether the entry function executes and captures footprints. The
-/// witness itself is intentionally not returned from the public API; proving repeats
-/// the dry-run internally.
-pub fn dry_run(
-    ctx: &VmCircuitContext,
-    module_id: &ModuleId,
-    function_name: &str,
-    args: &[EntryArgument],
-) -> Result<()> {
-    generate_witness(ctx, module_id, function_name, args).map(|_| ())
-}
-
 /// Generate the witness used internally by proving.
-pub(crate) fn generate_witness(
-    ctx: &VmCircuitContext,
+pub fn generate_witness(
+    package: &CompiledPackage,
     module_id: &ModuleId,
     function_name: &str,
     args: &[EntryArgument],
 ) -> Result<Footprints> {
-    let storage = prepare_in_memory_storage(&ctx.package)?;
+    let storage = prepare_in_memory_storage(package)?;
     generate_witness_in_storage(&storage, module_id, function_name, Vec::new(), args, &[])
 }
 
@@ -75,7 +61,7 @@ fn prepare_in_memory_storage(package: &CompiledPackage) -> Result<InMemoryStorag
 ///
 /// The caller owns storage preparation. For the CLI this is an `OnDiskStateView`
 /// populated from the compiled package.
-pub(crate) fn generate_witness_in_storage<S>(
+fn generate_witness_in_storage<S>(
     state: &S,
     module_id: &ModuleId,
     function_name: &str,

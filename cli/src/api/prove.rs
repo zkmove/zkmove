@@ -2,9 +2,9 @@
 
 //! Proof generation logic, decoupled from CLI argument parsing and file IO.
 
-use crate::api::circuit::build_circuit;
-use crate::api::context::{EntryArgument, VmCircuitContext};
-use crate::api::dry_run;
+use crate::api::circuit::build_circuit_from_trace;
+use crate::api::setup::{EntryArgument, VmCircuitContext};
+use crate::api::witness as witness_api;
 use crate::common::KZGVariant;
 use anyhow::{bail, Context, Result};
 use halo2::proofs::{prove_circuit, KZG};
@@ -28,7 +28,7 @@ pub fn prove(
     args: &[EntryArgument],
     variant: KZGVariant,
 ) -> Result<ProveOutput> {
-    let traces = dry_run::generate_witness(ctx, module_id, function_name, args)?;
+    let traces = witness_api::generate_witness(&ctx.package, module_id, function_name, args)?;
     prove_with_witness(ctx, &traces, variant)
 }
 
@@ -51,7 +51,7 @@ pub fn prove_with_witness(
     }
 
     let (circuit, _circuit_guard) =
-        build_circuit(&ctx.package, traces, ctx.config.clone(), &ctx.pubs_indices)?;
+        build_circuit_from_trace(&ctx.package, traces, ctx.config.clone(), &ctx.pubs_indices)?;
 
     let args = traces.args().context("Arguments not found in witness")?;
     let public_inputs = PublicInputs::new(&args, &ctx.pubs_indices);
