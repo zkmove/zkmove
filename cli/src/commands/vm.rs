@@ -123,7 +123,7 @@ pub struct SetupCommand {
     #[arg(
         short = 'w',
         long = "witness",
-        help = "Path to .json file containing witness. If provided, setup sizes the circuit from this witness."
+        help = "Path to .json file containing witness. If provided, setup the circuit from this witness."
     )]
     witness: Option<PathBuf>,
 
