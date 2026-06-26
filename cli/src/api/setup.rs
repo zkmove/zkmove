@@ -118,7 +118,9 @@ fn build_context_from_circuit(
     ))
 }
 
-/// Long-lived SDK context created from app-developer setup artifacts.
+/// Long-lived SDK context for a VmCircuit. Used for repeated proving and verification.
+
+
 pub struct VmCircuitContext {
     pub package: CompiledPackage,
     pub entry_info: EntryInfo,
