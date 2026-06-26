@@ -26,7 +26,8 @@ use witness::static_info::{EntryInfo, Footprints};
 /// transaction at this stage.
 pub type EntryArgument = TransactionArgument;
 
-/// Build a setup context from app-developer inputs.
+/// Build a VmCircuit SDK context for a specified entry function.
+
 pub(crate) fn setup(
     package: CompiledPackage,
     entry_info: EntryInfo,
