@@ -7,14 +7,14 @@ use crate::common::{
     get_entry_info_from_move_toml, load_package, read_params, save_to_file, ArgWithNameAndTypeJSON,
     HexEncodedBytes, KZGVariant,
 };
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{value_parser, Parser, Subcommand};
 use halo2::proofs::setup_circuit;
 use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 use halo2_verifier::{test_verifier, KZG as VerifierKZG};
 use log::info;
-use move_core_types::language_storage::TypeTag;
 use move_core_types::parser;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
@@ -27,6 +27,13 @@ const SETUP_PARAMS_FILE: &str = "params.bin";
 const SETUP_PK_FILE: &str = "pk.bin";
 const SETUP_VK_FILE: &str = "vk.bin";
 const SETUP_JSON_FILE: &str = "setup.json";
+const SETUP_METADATA_FILE: &str = "metadata.json";
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SetupMetadata {
+    k: u32,
+    pubs_indices: Vec<usize>,
+}
 
 #[derive(Parser)]
 #[command(about = "Commands for witness generation, proving and verification in the client side.")]
@@ -84,21 +91,6 @@ pub struct DryRunCommand {
     args: Vec<EntryArgument>,
 
     #[arg(
-        long = "type-args",
-        value_parser = parser::parse_type_tag,
-        num_args = 0..,
-        help = "Type arguments for the entry function"
-    )]
-    type_args: Vec<TypeTag>,
-
-    #[arg(
-        long = "signers",
-        num_args = 0..,
-        help = "Signer addresses passed ahead of --args (e.g. 0x1)"
-    )]
-    signers: Vec<String>,
-
-    #[arg(
         short = 'o',
         long = "output-dir",
         help = "Directory to save the witness (default: <package-path>/witnesses)"
@@ -145,16 +137,11 @@ pub struct SetupCommand {
 #[derive(Parser)]
 #[command(about = "Generate proof from an existing witness or by dry-running the entry function")]
 pub struct ProveCommand {
-    #[arg(long, help = "Params file used for prove in kzg")]
-    params_path: PathBuf,
-
     #[arg(
-        long = "pubs-indices",
-        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
-        value_parser = clap::value_parser!(usize),
-        num_args = 0..,
+        long = "setup-dir",
+        help = "Directory containing setup artifacts (default: <package-path>/setup)"
     )]
-    pubs_indices: Vec<usize>,
+    setup_dir: Option<PathBuf>,
 
     #[arg(
         long = "kzg",
@@ -197,16 +184,11 @@ pub struct ProveCommand {
 #[derive(Parser)]
 #[command(about = "Verify the proof")]
 pub struct VerifyCommand {
-    #[arg(long, help = "Params file used for verify in kzg")]
-    params_path: PathBuf,
-
     #[arg(
-        long = "pubs-indices",
-        help = "Indices of arguments to be treated as public inputs (e.g. 0 1 3)",
-        value_parser = clap::value_parser!(usize),
-        num_args = 0..,
+        long = "setup-dir",
+        help = "Directory containing setup artifacts (default: <package-path>/setup)"
     )]
-    pubs_indices: Vec<usize>,
+    setup_dir: Option<PathBuf>,
 
     #[arg(
         long = "kzg",
@@ -215,13 +197,6 @@ pub struct VerifyCommand {
         help = "KZG commitment scheme variant"
     )]
     variant: KZGVariant,
-
-    #[arg(
-        short = 'k',
-        help = "Degree of the KZG params (k), reported when proving",
-        required = true
-    )]
-    k: u32,
 
     #[arg(long = "pubs-path", value_parser = value_parser!(PathBuf), required = true)]
     pubs_path: PathBuf,
@@ -289,6 +264,61 @@ fn witness_file_stem(witness: &Path) -> Result<&str> {
         .ok_or_else(|| anyhow::anyhow!("Invalid witness filename"))
 }
 
+fn load_circuit_context_from_dir(
+    package_path: &Path,
+    manifest_path: &Path,
+    circuit_name: Option<&str>,
+    setup_dir: &Path,
+) -> Result<api::VmCircuitContext> {
+    let metadata_path = setup_dir.join(SETUP_METADATA_FILE);
+    let metadata_bytes = std::fs::read(&metadata_path).with_context(|| {
+        format!(
+            "Failed to read setup metadata from {}",
+            metadata_path.display()
+        )
+    })?;
+    let metadata: SetupMetadata = serde_json::from_slice(&metadata_bytes).with_context(|| {
+        format!(
+            "Failed to parse setup metadata from {}",
+            metadata_path.display()
+        )
+    })?;
+
+    let params_path = setup_dir.join(SETUP_PARAMS_FILE);
+    let pk_path = setup_dir.join(SETUP_PK_FILE);
+    let vk_path = setup_dir.join(SETUP_VK_FILE);
+
+    let params_bytes = std::fs::read(&params_path)
+        .with_context(|| format!("Failed to read setup params from {}", params_path.display()))?;
+    let pk_bytes = std::fs::read(&pk_path).with_context(|| {
+        format!(
+            "Failed to read setup proving key from {}",
+            pk_path.display()
+        )
+    })?;
+    let vk_bytes = std::fs::read(&vk_path).with_context(|| {
+        format!(
+            "Failed to read setup verifying key from {}",
+            vk_path.display()
+        )
+    })?;
+
+    let package = load_package(package_path)?;
+    let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
+    let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
+
+    api::VmCircuitContext::from_artifact_bytes(
+        package,
+        entry_info,
+        config,
+        metadata.k,
+        metadata.pubs_indices,
+        &params_bytes,
+        &pk_bytes,
+        &vk_bytes,
+    )
+}
+
 impl DryRunCommand {
     fn run(
         &self,
@@ -335,9 +365,16 @@ impl SetupCommand {
             let traces = Footprints::load(witness_path).with_context(|| {
                 format!("Failed to load witness from {}", witness_path.display())
             })?;
+            let witness_entry = traces.entry().context("Entry not found in witness")?;
+            if witness_entry != entry_info {
+                bail!(
+                    "witness entry {:?} does not match setup entry {:?}",
+                    witness_entry,
+                    entry_info
+                );
+            }
             api::setup::setup_with_witness(
                 package,
-                entry_info,
                 &traces,
                 config,
                 params,
@@ -366,6 +403,12 @@ impl SetupCommand {
         save_to_file(&output_dir, SETUP_PARAMS_FILE, &params_bytes)?;
         save_to_file(&output_dir, SETUP_PK_FILE, &pk_bytes)?;
         save_to_file(&output_dir, SETUP_VK_FILE, &vk_bytes)?;
+        let metadata = SetupMetadata {
+            k: context.k,
+            pubs_indices: context.pubs_indices.clone(),
+        };
+        let metadata_json = serde_json::to_string_pretty(&metadata)?;
+        save_to_file(&output_dir, SETUP_METADATA_FILE, &metadata_json)?;
 
         if self.json {
             let content = vec![
@@ -405,29 +448,23 @@ impl ProveCommand {
         manifest_path: &Path,
         circuit_name: Option<&str>,
     ) -> Result<()> {
-        let params = read_params(&self.params_path)?;
-        let package = load_package(package_path)?;
-        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
-        let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
-
-        let setup_context = api::setup::setup(
-            package,
-            entry_info,
-            config,
-            params,
-            self.pubs_indices.clone(),
-        )?;
+        let setup_dir = self
+            .setup_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("setup"));
+        let circuit_context =
+            load_circuit_context_from_dir(package_path, manifest_path, circuit_name, &setup_dir)?;
         let (output, file_stem) = if let Some(witness_path) = &self.witness {
             let traces = Footprints::load(witness_path).with_context(|| {
                 format!("Failed to load witness from {}", witness_path.display())
             })?;
-            let output = api::prove::prove_with_witness(&setup_context, &traces, self.variant)?;
+            let output = api::prove::prove_with_witness(&circuit_context, &traces, self.variant)?;
             (output, witness_file_stem(witness_path)?.to_string())
         } else {
             let (module_id, function_name) =
                 get_entry_call_from_move_toml(manifest_path, circuit_name)?;
             let output = api::prove::prove(
-                &setup_context,
+                &circuit_context,
                 &module_id,
                 &function_name,
                 &self.args,
@@ -449,7 +486,7 @@ impl ProveCommand {
             &format!("{}.instance", file_stem),
             &output.instance,
         )?;
-        let vk_bytes = setup_context.vk_bytes();
+        let vk_bytes = circuit_context.vk_bytes();
         save_to_file(&output_dir, &format!("{}.vk", file_stem), &vk_bytes)?;
 
         if self.json {
@@ -486,7 +523,7 @@ impl ProveCommand {
         info!(
             "Proof artifacts saved to {} (k = {})",
             output_dir.display(),
-            setup_context.k
+            circuit_context.k
         );
         Ok(())
     }
@@ -499,30 +536,17 @@ impl VerifyCommand {
         manifest_path: &Path,
         circuit_name: Option<&str>,
     ) -> Result<()> {
-        let params = read_params(&self.params_path)?;
-        let config = get_circuit_config_args_from_move_toml(manifest_path, circuit_name)?;
-        let entry_info = get_entry_info_from_move_toml(manifest_path, circuit_name)?;
-        let package = load_package(package_path)?;
-        let setup_context = api::setup::setup(
-            package,
-            entry_info,
-            config,
-            params,
-            self.pubs_indices.clone(),
-        )?;
+        let setup_dir = self
+            .setup_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("setup"));
+        let circuit_context =
+            load_circuit_context_from_dir(package_path, manifest_path, circuit_name, &setup_dir)?;
 
         let proof = std::fs::read(&self.proof_path)?;
         let pubs_bytes = std::fs::read(&self.pubs_path)?;
 
-        if self.k != setup_context.k {
-            log::warn!(
-                "provided k ({}) differs from setup k ({}); using setup context k",
-                self.k,
-                setup_context.k
-            );
-        }
-
-        api::verify::verify(&setup_context, self.variant, &proof, &pubs_bytes)?;
+        api::verify::verify(&circuit_context, self.variant, &proof, &pubs_bytes)?;
 
         info!("Proof verified successfully");
         Ok(())

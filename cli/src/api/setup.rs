@@ -5,7 +5,7 @@
 use crate::api::circuit::{
     build_circuit, build_circuit_and_fit_params, build_circuit_from_trace_and_fit_params,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use halo2::proofs::setup_circuit;
 use halo2_proofs::{
     halo2curves::bn256::{Bn256, Fr, G1Affine},
@@ -27,7 +27,6 @@ use witness::static_info::{EntryInfo, Footprints};
 pub type EntryArgument = TransactionArgument;
 
 /// Build a VmCircuit SDK context for a specified entry function.
-
 pub(crate) fn setup(
     package: CompiledPackage,
     entry_info: EntryInfo,
@@ -60,20 +59,12 @@ pub(crate) fn setup(
 /// Build a setup context sized from an already captured witness.
 pub(crate) fn setup_with_witness(
     package: CompiledPackage,
-    entry_info: EntryInfo,
     traces: &Footprints,
     config: CircuitConfigArgs,
     mut params: ParamsKZG<Bn256>,
     pubs_indices: Vec<usize>,
 ) -> Result<VmCircuitContext> {
-    let witness_entry = traces.entry().context("Entry not found in witness")?;
-    if witness_entry != entry_info {
-        bail!(
-            "witness entry {:?} does not match setup entry {:?}",
-            witness_entry,
-            entry_info
-        );
-    }
+    let entry_info = traces.entry().context("Entry not found in witness")?;
 
     let (circuit, _circuit_guard, k) = build_circuit_from_trace_and_fit_params(
         &package,
@@ -119,8 +110,6 @@ fn build_context_from_circuit(
 }
 
 /// Long-lived SDK context for a VmCircuit. Used for repeated proving and verification.
-
-
 pub struct VmCircuitContext {
     pub package: CompiledPackage,
     pub entry_info: EntryInfo,

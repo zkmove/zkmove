@@ -49,7 +49,7 @@ written to `<package-path>/witnesses/`.
 cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci run --args 10u64
 ```
 
-`run` accepts `--args` (e.g. `10u64 true 0x1`), `--type-args`, `--signers`, and `-o/--output-dir`.
+`run` accepts `--args` (e.g. `10u64 true 0x1`) and `-o/--output-dir`.
 The compiled modules of the package are loaded into in-memory storage automatically; no separate
 `move sandbox publish` is needed.
 
@@ -67,20 +67,24 @@ If the circuit size is not known yet, generate a witness first and use it to siz
 cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci setup --params-path params/kzg_bn254_12.srs -w example/witnesses/test_fibonacci-1747793629098.json
 ```
 
+The setup command writes `params.bin`, `pk.bin`, `vk.bin`, and `metadata.json` to
+`<package-path>/setup` by default. The `metadata.json` file records the setup `k`
+and public input indices used by later commands.
+
 ## Generate the proof
 
-Note: per-operation flags (`--params-path`, `--pubs-indices`, `--kzg`) now live on the
-`prove`/`verify`/`test` subcommands, while `--package-path` and `--circuit-name` are shared.
+Note: `prove` and `verify` load setup artifacts from `<package-path>/setup` by default.
+Use `--setup-dir` to point them at a different setup output directory.
 
 ```shell
 # Running in the package root. `prove` can generate the witness internally.
-cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove --params-path params/kzg_bn254_12.srs --args 10u64
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove --args 10u64
 
 # Or prove from an existing witness file.
-cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove --params-path params/kzg_bn254_12.srs -w example/witnesses/test_fibonacci-1747793629098.json
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove -w example/witnesses/test_fibonacci-1747793629098.json
 
-# Optional: verify locally. `k` is reported at the end of `prove`.
-cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci verify --params-path params/kzg_bn254_12.srs -k 9 --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
+# Optional: verify locally.
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci verify --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
 ```
 
 ## Verify proof on-chain
