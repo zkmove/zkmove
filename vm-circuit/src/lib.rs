@@ -189,9 +189,21 @@ impl<F: Field + Hashable> VmCircuit<F> {
         pubs_indices: &[usize],
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        let entry = traces.entry().expect("entry should be set in traces");
-        let static_info = StaticInfo::generate(entry, package, pubs_indices)
-            .expect("static info should be generated");
+        Self::try_new(package, traces, pubs_indices, circuit_config_args)
+            .expect("VmCircuit should be constructed from witness")
+    }
+
+    /// Fallible constructor used by SDK/CLI paths so user input errors do not panic.
+    pub fn try_new(
+        package: &CompiledPackage,
+        traces: &Footprints,
+        pubs_indices: &[usize],
+        circuit_config_args: CircuitConfigArgs,
+    ) -> Result<Self, String> {
+        let entry = traces
+            .entry()
+            .ok_or_else(|| "entry should be set in traces".to_string())?;
+        let static_info = Self::static_info(package, &entry, pubs_indices)?;
         let preprocessor = WitnessPreProcessor::default();
         let states = preprocessor.process(&traces.0, &static_info);
         let execution_circuit = ExecutionCircuit::new(
@@ -209,12 +221,14 @@ impl<F: Field + Hashable> VmCircuit<F> {
             None
         };
 
-        Self {
+        let circuit = Self {
             circuit_config_args,
             execution_circuit,
             poseidon_circuit,
             _maker: Default::default(),
-        }
+        };
+        circuit.validate_capacity()?;
+        Ok(circuit)
     }
 
     /// Creates a new `VmCircuit` with empty states, useful for circuit setup or testing.
@@ -224,9 +238,19 @@ impl<F: Field + Hashable> VmCircuit<F> {
         pubs_indices: &[usize],
         circuit_config_args: CircuitConfigArgs,
     ) -> Self {
-        let static_info = StaticInfo::generate(entry, package, pubs_indices)
-            .expect("static info should be generated");
+        Self::try_new_with_empty_state(package, entry, pubs_indices, circuit_config_args)
+            .expect("VmCircuit should be constructed from empty state")
+    }
 
+    /// Fallible empty-state constructor used by setup/context loading paths.
+    pub fn try_new_with_empty_state(
+        package: &CompiledPackage,
+        entry: EntryInfo,
+        pubs_indices: &[usize],
+        circuit_config_args: CircuitConfigArgs,
+    ) -> Result<Self, String> {
+        let static_info = Self::static_info(package, &entry, pubs_indices)?;
+        Self::validate_empty_state_config(&static_info, &circuit_config_args)?;
         let execution_circuit = ExecutionCircuit::new_with_empty_state(
             static_info.clone(),
             circuit_config_args.clone(),
@@ -239,12 +263,14 @@ impl<F: Field + Hashable> VmCircuit<F> {
         } else {
             None
         };
-        Self {
+        let circuit = Self {
             circuit_config_args,
             execution_circuit,
             poseidon_circuit,
             _maker: Default::default(),
-        }
+        };
+        circuit.validate_capacity()?;
+        Ok(circuit)
     }
 
     /// Return the minimum number of rows required to prove the circuit.
@@ -270,6 +296,100 @@ impl<F: Field + Hashable> VmCircuit<F> {
         let rows_needed = std::cmp::max(execution_circuit_rows, poseidon_circuit_rows);
         // halo2 prover requires 'usable_rows = n - (blinding_factors + 1)'
         rows_needed + (cs.blinding_factors() + 1)
+    }
+
+    /// Validate that the witness data fits the configured circuit capacities.
+    pub fn validate_capacity(&self) -> Result<(), String> {
+        if let Some(max_execution_rows) = self.circuit_config_args.max_execution_rows {
+            let execution_rows = self.execution_rows();
+            if execution_rows > max_execution_rows {
+                return Err(format!(
+                    "execution rows {} exceed configured max_execution_rows {}",
+                    execution_rows, max_execution_rows
+                ));
+            }
+        }
+
+        if let Some(poseidon_circuit) = self.poseidon_circuit.as_ref() {
+            poseidon_circuit.validate_capacity()?;
+        }
+
+        Ok(())
+    }
+
+    /// Validate setup inputs before constructing an empty-state circuit.
+    pub fn validate_setup_inputs(
+        package: &CompiledPackage,
+        entry_info: &EntryInfo,
+        pubs_indices: &[usize],
+        circuit_config_args: &CircuitConfigArgs,
+    ) -> Result<(), String> {
+        let static_info = Self::static_info(package, entry_info, pubs_indices)?;
+        Self::validate_empty_state_config(&static_info, circuit_config_args)
+    }
+
+    fn execution_rows(&self) -> usize {
+        self.execution_circuit
+            .states
+            .iter()
+            .map(StageState::rows)
+            .sum()
+    }
+
+    fn static_info(
+        package: &CompiledPackage,
+        entry_info: &EntryInfo,
+        pubs_indices: &[usize],
+    ) -> Result<StaticInfo, String> {
+        Self::validate_public_input_indices(entry_info, pubs_indices)?;
+        StaticInfo::generate(entry_info.clone(), package, pubs_indices)
+            .ok_or_else(|| format!("static info should be generated for entry {:?}", entry_info))
+    }
+
+    fn validate_public_input_indices(
+        entry_info: &EntryInfo,
+        pubs_indices: &[usize],
+    ) -> Result<(), String> {
+        let num_args = entry_info.num_args as usize;
+        let mut seen = Vec::with_capacity(pubs_indices.len());
+        for &index in pubs_indices {
+            if index >= num_args {
+                return Err(format!(
+                    "public input index {} is out of bounds for entry with {} args",
+                    index, num_args
+                ));
+            }
+            if seen.contains(&index) {
+                return Err(format!(
+                    "public input index {} appears more than once",
+                    index
+                ));
+            }
+            seen.push(index);
+        }
+        Ok(())
+    }
+
+    fn validate_empty_state_config(
+        static_info: &StaticInfo,
+        circuit_config_args: &CircuitConfigArgs,
+    ) -> Result<(), String> {
+        if circuit_config_args.max_execution_rows.is_none() {
+            return Err("max_execution_rows is required when building setup artifacts".to_string());
+        }
+
+        if static_info.contain_zkhash() {
+            let hash_block_size = F::hash_block_size();
+            let max_hashes = circuit_config_args.max_poseidon_rows / hash_block_size;
+            if max_hashes == 0 {
+                return Err(format!(
+                    "max_poseidon_rows {} cannot fit one Poseidon hash block of {} rows",
+                    circuit_config_args.max_poseidon_rows, hash_block_size
+                ));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -321,4 +441,29 @@ pub trait SubCircuitConfig<F: Field> {
 
     /// Type constructor
     fn new(meta: &mut ConstraintSystem<F>, args: Self::ConfigArgs) -> Self;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn validate_capacity_rejects_execution_rows_above_limit() {
+        let config = CircuitConfigArgs::new(Some(1), 0);
+        let execution_circuit = <ExecutionCircuit<Fr> as SubCircuit<Fr>>::new(
+            vec![StageState::default(), StageState::default()],
+            StaticInfo::default(),
+            config.clone(),
+        );
+        let circuit = VmCircuit::<Fr> {
+            circuit_config_args: config,
+            execution_circuit,
+            poseidon_circuit: None,
+            _maker: Default::default(),
+        };
+
+        let err = circuit.validate_capacity().unwrap_err();
+        assert!(err.contains("execution rows 2 exceed configured max_execution_rows 1"));
+    }
 }

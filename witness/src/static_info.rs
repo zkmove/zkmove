@@ -213,7 +213,7 @@ impl StaticInfo {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EntryInfo {
     pub module_id: ModuleId,
     pub function_index: u16,

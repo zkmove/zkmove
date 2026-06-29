@@ -1,10 +1,7 @@
 use clap::{Parser, Subcommand};
 use env_logger::Env;
 use log::info;
-use zkmove_cli::{
-    aptos_cmds::AptosCommands, poseidon_cmds::PoseidonCommand, sui_cmds::SuiCommands,
-    vm_cmds::VmCommands,
-};
+use zkmove_cli::commands::{AptosCommands, PoseidonCommand, SuiCommands, VmCommands};
 
 #[derive(Parser)]
 #[command(name = "zkmove", about = "CLI for zkMove")]

@@ -2,13 +2,9 @@
 
 This guide explains how to use `zkmove` CLI to create a circuit and generate a proof for it.
 
-## Install customized `move` CLI
-
-A customized Move CLI is required to generate witnesses. Install it with:
-
-```shell
-cargo install --git https://github.com/zkmove/move move-cli
-```
+> The `zkmove` CLI now generates witnesses itself (`zkmove vm ... run`), so a separate
+> Move CLI is no longer required for the basic flow. You still need the Move compiler
+> (`move build`) to compile your package once.
 
 ## A zkMove Circuit example
 
@@ -38,26 +34,57 @@ entry = { module_id = "0x1::zkhash_example", function_name = "hash" }
 
 ## Generate witness
 
-First, build and publish the example package.
+First, compile the example package:
 
 ```shell
-# Run under package root.
-move build
-move sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
+# Run under the package root.
+move build --skip-fetch-latest-git-deps
 ```
-Then generate the witness by executing the entry function. By default, witnesses are written to `witnesses/`.
+
+Then generate the witness by executing the entry function. The entry (module + function)
+is read from the `[circuit.<name>].entry` section of `Move.toml`. By default, witnesses are
+written to `<package-path>/witnesses/`.
 
 ```shell
-move sandbox run --skip-fetch-latest-git-deps --witness storage/0x0000000000000000000000000000000000000000000000000000000000000001/modules/fibonacci.mv test_fibonacci --args 10u64
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci run --args 10u64
 ```
+
+`run` accepts `--args` (e.g. `10u64 true 0x1`) and `-o/--output-dir`.
+The compiled modules of the package are loaded into in-memory storage automatically; no separate
+`move sandbox publish` is needed.
+
+## Generate setup artifacts
+
+Setup artifacts can be generated from the circuit metadata in `Move.toml`:
+
+```shell
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci setup --params-path params/kzg_bn254_12.srs
+```
+
+If the circuit size is not known yet, generate a witness first and use it to size setup:
+
+```shell
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci setup --params-path params/kzg_bn254_12.srs -w example/witnesses/test_fibonacci-1747793629098.json
+```
+
+The setup command writes `params.bin`, `pk.bin`, `vk.bin`, and `metadata.json` to
+`<package-path>/setup` by default. The `metadata.json` file records the setup `k`
+and public input indices used by later commands.
 
 ## Generate the proof
 
+Note: `prove` and `verify` load setup artifacts from `<package-path>/setup` by default.
+Use `--setup-dir` to point them at a different setup output directory.
+
 ```shell
-# Running in the package root. Replace the witness filename as needed.
-cargo run --release -- vm --params-path params/kzg_bn254_12.srs --package-path ./example/ --circuit-name fibonacci prove -w example/witnesses/test_fibonacci-1747793629098.json
+# Running in the package root. `prove` can generate the witness internally.
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove --args 10u64
+
+# Or prove from an existing witness file.
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci prove -w example/witnesses/test_fibonacci-1747793629098.json
+
 # Optional: verify locally.
-cargo run --release -- vm --params-path params/kzg_bn254_12.srs --package-path ./example/ --circuit-name fibonacci verify -k 9 --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
+cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci verify --pubs-path example/proofs/test_fibonacci-1747793629098.instance --proof-path example/proofs/test_fibonacci-1747793629098.proof
 ```
 
 ## Verify proof on-chain
