@@ -16,7 +16,7 @@ use gadgets::is_zero::IsZeroGadget;
 use halo2_proofs::poly::Rotation;
 use halo2_proofs::{circuit::Value, plonk::ErrorFront as Error};
 use witness::static_info::StaticInfo;
-use witness::step_state::StageState;
+use witness::step_state::{StageExtraAssignData, StageState};
 
 /// check the number of argument. If there is no arguments, enter entry function, else enter
 /// the next stage
@@ -320,6 +320,17 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             .num_arg;
 
         let step_state = stage_state.step_states.first().unwrap();
+        let public_input_rows = match stage_state.extra_data.as_ref() {
+            Some(StageExtraAssignData::ProcessArg(data)) => data.public_input_rows.as_slice(),
+            _ => &[],
+        };
+        if !public_input_rows.is_empty() {
+            debug_assert_eq!(
+                public_input_rows.len(),
+                step_state.memory_ops.len(),
+                "public input row annotations must align with ProcessArg memory ops"
+            );
+        }
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
             self.entry_module_index
                 .assign(region, offset, Value::known(entry_module_index))?;
@@ -331,7 +342,8 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
             self.is_zero_local_index
                 .assign(region, offset + i, F::from(local_index as u64))?;
 
-            // Notice: memory_op[i] hold local[num_arg - 1 - i]
+            // `i` indexes the ValueItem within this argument; preprocessor builds
+            // memory_ops and public_input_rows from the same arg.iter() order.
             let arg_index = local_index;
             let is_public_input = static_info.pubs_indices.contains(&(arg_index as usize));
             let local_sub_index = region.get_advice(
@@ -363,25 +375,24 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
                     arg_val.assign(region, offset + i, Value::known(*local_val))?;
                 }
             } else {
+                let instance_row = public_input_rows
+                    .get(i)
+                    .and_then(|row| *row)
+                    .ok_or(Error::Synthesis)?;
                 self.arg_sub_index.assign_from_instance(
                     region,
                     instances.sub_index,
-                    arg_index.into(),
+                    instance_row,
                     offset + i,
                 )?;
                 self.arg_header.assign_from_instance(
                     region,
                     instances.header,
-                    arg_index.into(),
+                    instance_row,
                     offset + i,
                 )?;
                 for (arg_val, instance) in self.arg_value.iter().zip(instances.value.iter()) {
-                    arg_val.assign_from_instance(
-                        region,
-                        *instance,
-                        arg_index.into(),
-                        offset + i,
-                    )?;
+                    arg_val.assign_from_instance(region, *instance, instance_row, offset + i)?;
                 }
             }
         }

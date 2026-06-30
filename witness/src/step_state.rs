@@ -32,7 +32,19 @@ impl StageState {
 pub enum StageExtraAssignData {
     Ret(RetExtraAssignData),
     Start(EntryFunc),
+    ProcessArg(ProcessArgData),
     BinaryOp(BinaryOpData),
+}
+
+#[derive(Clone, Debug)]
+pub struct ProcessArgData {
+    pub public_input_rows: Vec<Option<usize>>,
+}
+
+impl From<ProcessArgData> for StageExtraAssignData {
+    fn from(value: ProcessArgData) -> Self {
+        Self::ProcessArg(value)
+    }
 }
 
 #[derive(Clone, Debug)]

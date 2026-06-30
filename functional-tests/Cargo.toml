@@ -15,6 +15,8 @@ move-package = { workspace = true }
 serde_json = { workspace = true }
 [dev-dependencies]
 datatest-stable = "0.2.9"
+move-core-types = { workspace = true }
+zkmove-cli = { path = "../cli" }
 #criterion = { git = "https://github.com/young-rocks/criterion.rs", rev = "98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
 
 # https://github.com/Amanieu/parking_lot/issues/269

@@ -3,6 +3,7 @@ use field_exts::Field;
 use halo2_proofs::plonk::{Column, ConstraintSystem, Instance};
 use move_vm_runtime::witnessing::traced_value::ValueItems;
 use value_type::to_scalars::ToScalars;
+use witness::public_inputs::public_input_items;
 
 pub const NUM_INSTANCE_COLUMNS: usize = NUM_OF_VALUE_LIMBS + 2;
 
@@ -35,20 +36,15 @@ pub struct PublicInputs<F: Field>(Vec<Vec<F>>);
 impl<F: Field> PublicInputs<F> {
     pub fn new(args: &[ValueItems], pubs_indices: &[usize]) -> Self {
         let mut rows: Vec<Vec<F>> = Vec::new();
-        for &index in pubs_indices {
-            if index < args.len() {
-                let value_items = &args[index];
-                for value_item in value_items {
-                    let scalars = value_item.to_scalars();
-                    assert_eq!(
-                        scalars.len(),
-                        NUM_INSTANCE_COLUMNS,
-                        "Each ValueItem must produce {} scalars",
-                        NUM_INSTANCE_COLUMNS
-                    );
-                    rows.push(scalars);
-                }
-            }
+        for (_arg_index, value_item) in public_input_items(args, pubs_indices) {
+            let scalars = value_item.to_scalars();
+            assert_eq!(
+                scalars.len(),
+                NUM_INSTANCE_COLUMNS,
+                "Each ValueItem must produce {} scalars",
+                NUM_INSTANCE_COLUMNS
+            );
+            rows.push(scalars);
         }
 
         let mut columns: Vec<Vec<F>> = vec![Vec::new(); NUM_INSTANCE_COLUMNS];
@@ -108,6 +104,16 @@ mod tests {
     use halo2_proofs::arithmetic::Field;
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand::rngs::OsRng;
+    use witness::public_inputs::public_input_items;
+    use witness::{SimpleValue, ValueItem};
+
+    fn value_item(sub_index: &[usize], value: u64) -> ValueItem {
+        ValueItem {
+            sub_index: sub_index.to_vec(),
+            header: false,
+            value: SimpleValue::U64(value),
+        }
+    }
 
     #[test]
     fn test_to_bytes_and_from_bytes() {
@@ -130,5 +136,29 @@ mod tests {
 
         // Check that the content is consistent
         assert_eq!(public_inputs.0, restored.0);
+    }
+
+    #[test]
+    fn public_inputs_new_matches_shared_row_order() {
+        let args = vec![
+            vec![value_item(&[], 10)],
+            vec![value_item(&[], 20)],
+            vec![value_item(&[], 30), value_item(&[1], 31)],
+        ];
+        let pubs_indices = [2, 0];
+        let public_inputs = PublicInputs::<Fr>::new(&args, &pubs_indices);
+        let expected_rows = public_input_items(&args, &pubs_indices)
+            .into_iter()
+            .map(|(_arg_index, item)| item.to_scalars())
+            .collect::<Vec<Vec<Fr>>>();
+
+        for (row_index, expected_row) in expected_rows.iter().enumerate() {
+            for (column_index, expected_scalar) in expected_row.iter().enumerate() {
+                assert_eq!(
+                    public_inputs.0[column_index][row_index], *expected_scalar,
+                    "column {column_index}, row {row_index}"
+                );
+            }
+        }
     }
 }

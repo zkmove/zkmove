@@ -1,11 +1,12 @@
 use crate::native_functions;
+use crate::public_inputs::PublicInputRows;
 use crate::static_info::StaticInfo;
 use crate::step_state::ExecutionState;
 use crate::step_state::ExecutionState::{
     VecSwapStage2, VecSwapStage3, VecSwapStage4, VecSwapStage5,
 };
 use crate::step_state::{
-    BinaryOpData, CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp,
+    BinaryOpData, CallerData, EntryFunc, ExecStepState, LocalReadWrite, MemoryOp, ProcessArgData,
     RetExtraAssignData, Slot, StackPop, StackPush, StageExtraAssignData, StageState, StepState,
     Version,
 };
@@ -2055,6 +2056,8 @@ impl WitnessPreProcessor {
                 let module_index = static_info
                     .module_id_mapping
                     .get_module_index(entry_call.module_id.as_ref().unwrap());
+                let public_input_rows =
+                    PublicInputRows::new(&entry_call.args, &static_info.pubs_indices);
 
                 let step_state = StepState::default()
                     .change_clk(self.clk)
@@ -2104,12 +2107,20 @@ impl WitnessPreProcessor {
                             MemoryOp(None, None, Some(local_op))
                         })
                         .collect();
+                    let process_arg_data = ProcessArgData {
+                        public_input_rows: arg
+                            .iter()
+                            .map(|item| {
+                                public_input_rows.get(local_index as usize, &item.sub_index)
+                            })
+                            .collect(),
+                    };
                     let stage2_state = StageState {
                         step_states: vec![ExecStepState {
                             step_state,
                             memory_ops,
                         }],
-                        extra_data: None,
+                        extra_data: Some(process_arg_data.into()),
                     };
                     stages.push(stage2_state);
                 }

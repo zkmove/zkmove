@@ -12,5 +12,6 @@ pub struct Witnesses {
 }
 pub mod native_functions;
 pub mod preprocessor;
+pub mod public_inputs;
 pub mod static_info;
 pub mod step_state;
