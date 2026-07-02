@@ -44,7 +44,8 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
 
     // For testing purposes, force all arguments to be public inputs.
     let args = traces.args().expect("Args not found");
-    let pubs_indices: Vec<usize> = Vec::from_iter(0..args.len());
+    // The public inputs are the arguments at odd indices.
+    let pubs_indices: Vec<usize> = (0..args.len()).filter(|index| index % 2 == 1).collect();
     let public_inputs = PublicInputs::new(&args, pubs_indices.as_slice());
     let circuit_config_args = CircuitConfigArgs::new(Some(TEST_CIRCUIT_ROWS), TEST_HASH_ROWS);
     #[cfg(feature = "test-circuits")]
