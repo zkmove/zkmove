@@ -333,9 +333,9 @@ impl<F: Field> InstructionGadgetV2<F> for ProcessArg<F> {
         }
         for (i, memory_op) in step_state.memory_ops.iter().enumerate() {
             self.entry_module_index
-                .assign(region, offset, Value::known(entry_module_index))?;
+                .assign(region, offset + i, Value::known(entry_module_index))?;
             self.entry_function_index
-                .assign(region, offset, Value::known(entry_function_index))?;
+                .assign(region, offset + i, Value::known(entry_function_index))?;
             self.num_arg
                 .assign(region, offset + i, Value::known(F::from(num_arg as u64)))?;
             let local_index = memory_op.2.as_ref().unwrap().index;
