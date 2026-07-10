@@ -21,7 +21,7 @@ The `zkmove` CLI is the primary tool for zkMove development. It supports proof g
 **Steps:**
 
 1. Download the latest release from:
-   <https://github.com/zkmove/zkmove/tree/main/release/latest>
+   <https://github.com/zkmove/zkmove/tree/main/cli/release/latest>
 2. Extract the archive.
 3. Move the binary to your preferred location (e.g., `/usr/local/bin`).
 4. Make it executable and verify the installation:
