@@ -13,10 +13,15 @@ The Sui path currently uses the native Halo2 KZG verifier included in the custom
   - `PARAMS_OBJECT_ID`
   - `VK_OBJECT_ID`
 
-Example proof files:
+Select the proof artifacts from the current proof run before continuing:
 
-- `example/proofs/test_fibonacci-1778483369682.instance`
-- `example/proofs/test_fibonacci-1778483369682.proof`
+```shell
+export PROOF_PATH="$(find example/proofs -type f -name 'test_fibonacci-*.proof' -print | sort | tail -n 1)"
+test -f "$PROOF_PATH"
+export RUN_ID="$(basename "$PROOF_PATH" .proof)"
+export PUBS_PATH="example/proofs/${RUN_ID}.instance"
+test -f "$PUBS_PATH"
+```
 
 ---
 
@@ -51,22 +56,24 @@ jq --version
 Run from the `halo2-verifier.move` repository root. Replace the file names and object IDs with the values from your circuit and deployment:
 
 ```shell
-mkdir -p txns/sui-verify
+export K_VALUE=$(jq -r .k example/setup/metadata.json)
+export VERIFY_DIR="txns/sui-verify/${RUN_ID}"
+mkdir -p "$VERIFY_DIR"
 
 zkmove sui build-verify-proof-native-txn \
-  --pubs-path example/proofs/test_fibonacci-1778483369682.instance \
-  --proof-path example/proofs/test_fibonacci-1778483369682.proof \
+  --pubs-path "$PUBS_PATH" \
+  --proof-path "$PROOF_PATH" \
   --verifier-api-package $VERIFIER_API_PACKAGE \
   --params-object-id $PARAMS_OBJECT_ID \
   --vk-object-id $VK_OBJECT_ID \
-  --k 9 \
-  --output txns/sui-verify
+  --k $K_VALUE \
+  --output "$VERIFY_DIR"
 ```
 
 The command writes a file like:
 
 ```text
-txns/sui-verify/test_fibonacci-1778483369682-verify-proof-native.txn
+$VERIFY_DIR/${RUN_ID}-verify-proof-native.txn
 ```
 
 The file contains a JSON move-call descriptor with `package`, `module`,
@@ -87,13 +94,13 @@ from the `halo2-verifier.move` repository root:
 ```shell
 scripts/upload_sui_proof.sh \
   --verifier-api-package "$VERIFIER_API_PACKAGE" \
-  --verify-txn txns/sui-verify/test_fibonacci-1778483369682-verify-proof-native.txn \
-  --out-dir txns/sui-proof-upload
+  --verify-txn "$VERIFY_DIR/${RUN_ID}-verify-proof-native.txn" \
+  --out-dir "txns/sui-proof-upload/${RUN_ID}"
 ```
 
 After the script finishes, it prints `PROOF_BUILDER` and `PROOF_DIGEST`, and
 writes all values needed by Step 3 to
-`txns/sui-proof-upload/sui-proof-builder.env`.
+`txns/sui-proof-upload/${RUN_ID}/sui-proof-builder.env`.
 
 ---
 
@@ -102,7 +109,7 @@ writes all values needed by Step 3 to
 Load the proof-builder values into your current shell:
 
 ```shell
-source txns/sui-proof-upload/sui-proof-builder.env
+source "txns/sui-proof-upload/${RUN_ID}/sui-proof-builder.env"
 ```
 
 Call `artifact_builder::verify_proof_builder`. This consumes the proof builder,
@@ -124,7 +131,7 @@ sui client --json -q call \
     $KZG_VARIANT \
     $K_PRESENT \
     $K_VALUE \
-  > txns/sui-verify/verify-result.json
+  > "$VERIFY_DIR/verify-result.json"
 ```
 
 Any funded localnet account can submit the verification call.
@@ -132,7 +139,7 @@ Any funded localnet account can submit the verification call.
 Check that the transaction succeeded:
 
 ```shell
-jq '.effects.status' txns/sui-verify/verify-result.json
+jq '.effects.status' "$VERIFY_DIR/verify-result.json"
 ```
 
 A valid proof returns a successful transaction status. An invalid proof aborts
@@ -141,7 +148,7 @@ inside `verifier_api::artifact_builder::verify_proof_builder`.
 If `jq` reports a parse error, inspect the file directly:
 
 ```shell
-cat txns/sui-verify/verify-result.json
+cat "$VERIFY_DIR/verify-result.json"
 ```
 
 That usually means `sui client call` wrote a plain-text execution error instead

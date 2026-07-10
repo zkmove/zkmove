@@ -55,6 +55,9 @@ Run the following script from the repository root to publish the shared verifier
 PROFILE=<contracts-profile> ./publish_contracts.sh
 ```
 
+The Aptos CLI asks for confirmation before each package publish. Review the
+transaction details and enter `yes` for all three publishes.
+
 ---
 
 ## 4. Deploy the Circuit Verifier
@@ -67,6 +70,15 @@ Two verifier variants are available:
 | **Pure Move** | Implements verification entirely in Move; better portability. |
 
 ### Option A — Native Halo2 Verifier (Recommended)
+
+Select the witness from the proof run. The commands below use its filename stem
+for the generated transaction files:
+
+```shell
+export WITNESS="$(find example/witnesses -type f -name 'test_fibonacci-*.json' -print | sort | tail -n 1)"
+test -f "$WITNESS"
+export RUN_ID="$(basename "$WITNESS" .json)"
+```
 
 **Step 1.** Publish the KZG parameters:
 
@@ -82,6 +94,9 @@ Submit the generated transaction to publish the KZG SRS under `<params-profile>`
 aptos move run --json-file kzg_bn254_12-publish-params-native.txn --profile <params-profile>
 ```
 
+`aptos move run` also asks for confirmation. Review the transaction and enter
+`yes` before it is submitted; the same applies to every submission below.
+
 **Step 2.** Build and publish the verifying key and circuit data under `<verifier-profile>`:
 
 ```shell
@@ -90,20 +105,23 @@ zkmove aptos build-publish-circuit-native-aptos-txn \
   --params-path example/params/kzg_bn254_12.srs \
   -p example \
   --circuit-name fibonacci \
-  -w example/witnesses/test_fibonacci-1747793629098.json \
+  -w "$WITNESS" \
   --native-verifier-contract-address <address-of-contracts-profile>
 ```
 
+If the proof setup used public inputs, pass the same public-input indices here,
+for example `--pubs-indices 0 1`.
+
 This generates two transaction files:
 
-- `test_fibonacci-1747793629098-publish-vk-native.txn`
-- `test_fibonacci-1747793629098-publish-circuit-native.txn`
+- `${RUN_ID}-publish-vk-native.txn`
+- `${RUN_ID}-publish-circuit-native.txn`
 
 Submit them in order:
 
 ```shell
-aptos move run --json-file test_fibonacci-1747793629098-publish-vk-native.txn      --profile <verifier-profile>
-aptos move run --json-file test_fibonacci-1747793629098-publish-circuit-native.txn --profile <verifier-profile>
+aptos move run --json-file "${RUN_ID}-publish-vk-native.txn"      --profile <verifier-profile>
+aptos move run --json-file "${RUN_ID}-publish-circuit-native.txn" --profile <verifier-profile>
 ```
 
 ---
@@ -131,12 +149,15 @@ zkmove aptos build-publish-circuit-aptos-txn \
   --params-path example/params/kzg_bn254_12.srs \
   -p ./example \
   --circuit-name fibonacci \
-  -w example/witnesses/test_fibonacci-1747793629098.json \
+  -w "$WITNESS" \
   --verifier-contract-address <address-of-contracts-profile>
 ```
+
+If the proof setup used public inputs, pass the same public-input indices here,
+for example `--pubs-indices 0 1`.
 
 Submit the generated transaction:
 
 ```shell
-aptos move run --json-file test_fibonacci-1747793629098-publish-circuit.txn --profile <verifier-profile>
+aptos move run --json-file "${RUN_ID}-publish-circuit.txn" --profile <verifier-profile>
 ```

@@ -77,20 +77,24 @@ same bytes through the chunked `artifact_builder` flow.
 Run from the `halo2-verifier.move` repository root:
 
 ```shell
-mkdir -p txns/sui-artifacts
+export WITNESS="$(find example/witnesses -type f -name 'test_fibonacci-*.json' -print | sort | tail -n 1)"
+test -f "$WITNESS"
+export RUN_ID="$(basename "$WITNESS" .json)"
+export ARTIFACTS_DIR="txns/sui-artifacts/${RUN_ID}"
+mkdir -p "$ARTIFACTS_DIR"
 
 zkmove sui build-publish-params-native-txn \
   --params-path example/params/kzg_bn254_12.srs \
   --verifier-api-package $VERIFIER_API_PACKAGE \
-  --output-dir txns/sui-artifacts
+  --output-dir "$ARTIFACTS_DIR"
 
 zkmove sui build-publish-circuit-native-txn \
   --params-path example/params/kzg_bn254_12.srs \
   -p example \
   --circuit-name fibonacci \
-  -w example/witnesses/test_fibonacci-1778483369682.json \
+  -w "$WITNESS" \
   --verifier-api-package $VERIFIER_API_PACKAGE \
-  --output-dir txns/sui-artifacts
+  --output-dir "$ARTIFACTS_DIR"
 ```
 
 Pass the verifier API package published in Step 2 so the generated Sui
@@ -98,12 +102,14 @@ move-call descriptors point at the same API package used later by proof
 verification. The params-store arguments are omitted here because this guide
 only extracts the serialized byte arrays from the generated JSON files; the
 chunked upload in Step 4 uses the builder objects created on your Sui network.
+If the proof setup used public inputs, pass the same public-input indices to
+`build-publish-circuit-native-txn`, for example `--pubs-indices 0 1`.
 
 This produces JSON files whose Sui move-call arguments contain the artifact
 bytes:
 
-- `kzg_bn254_12-publish-params-native.txn`
-- `test_fibonacci-1778483369682-publish-vk-native.txn`
+- `$ARTIFACTS_DIR/kzg_bn254_12-publish-params-native.txn`
+- `$ARTIFACTS_DIR/${RUN_ID}-publish-vk-native.txn`
 
 Step 4 reads these descriptor files directly. Replace the witness filename with
 the witness generated for your own circuit.
@@ -118,15 +124,14 @@ provides a wrapper script for the full flow. Run from the `halo2-verifier.move`
 repository root:
 
 ```shell
-
 scripts/upload_sui_artifacts.sh \
   --verifier-api-package "$VERIFIER_API_PACKAGE" \
-  --artifacts-dir txns/sui-artifacts \
-  --out-dir txns/sui-artifacts-upload
+  --artifacts-dir "$ARTIFACTS_DIR" \
+  --out-dir "txns/sui-artifacts-upload/${RUN_ID}"
 ```
 
 After the script finishes, it prints the finalized object IDs and writes them to
-`txns/sui-artifacts-upload/sui-artifact-objects.env`:
+`txns/sui-artifacts-upload/${RUN_ID}/sui-artifact-objects.env`:
 
 ```shell
 PARAMS_OBJECT_ID=<serialized-params-object-id>
@@ -136,7 +141,7 @@ VK_OBJECT_ID=<serialized-vk-object-id>
 Load them into your current shell:
 
 ```shell
-source txns/sui-artifacts-upload/sui-artifact-objects.env
+source "txns/sui-artifacts-upload/${RUN_ID}/sui-artifact-objects.env"
 ```
 `PARAMS_OBJECT_ID` is a `SerializedParams` object. `VK_OBJECT_ID` is a
 `SerializedVK` object that bundles both the Halo2 verifying key and the matching

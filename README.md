@@ -39,6 +39,29 @@ A customized Sui with built-in native functions required by the Halo2 verifier.
 
 - git = "https://github.com/zkmove/sui", branch = "main"
 
+## Current CLI and API Surface
+
+The current `zkmove` CLI flow separates witness generation, setup artifact
+generation, proof generation, and local verification:
+
+```shell
+zkmove vm --package-path <package> --circuit-name <name> dry-run --args <entry-args>
+zkmove vm --package-path <package> --circuit-name <name> setup --params-path <srs> --witness <witness.json>
+zkmove vm --package-path <package> --circuit-name <name> prove --witness <witness.json>
+zkmove vm --package-path <package> --circuit-name <name> verify --pubs-path <proof.instance> --proof-path <proof.proof>
+```
+
+`prove` and `verify` read `setup/metadata.json`, `setup/params.bin`,
+`setup/pk.bin`, and `setup/vk.bin` by default. When a circuit exposes public
+inputs, pass the same `--pubs-indices` values to `vm setup` and the matching
+on-chain verifier artifact builder command.
+
+The reusable Rust surface is available under `zkmove_cli::api` and its modules.
+It includes `poseidon::poseidon_hash`, `generate_witness`, `setup`,
+`setup_with_witness`, `prove`, `prove::prove_with_witness`, `verify`, and
+`VmCircuitContext`, so SDK callers do not need to depend on `clap` command
+parsing.
+
 ## Documents
 
 see [User Guide](https://www.zkmove.net/zkmove/user/setup-dev-environment/) for a step-by-step tutorial on how to create a zkMove circuit, generate a proof, and verify it on-chain.
@@ -48,4 +71,3 @@ see [Litepaper](https://www.zkmove.net/zkmove/litepaper/abstract/) for an in-dep
 ## License
 
 zkMove is licensed as [Apache 2.0](./LICENSE).
-
