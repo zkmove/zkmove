@@ -58,6 +58,9 @@ pub struct VmCommands {
 
 #[derive(Subcommand)]
 enum Subcommands {
+    #[command(about = "Compile the Move package (equivalent to `move build`)")]
+    Compile(CompileCommand),
+
     #[command(
         name = "dry-run",
         about = "Generate the witness by executing the entry function"
@@ -77,6 +80,17 @@ enum Subcommands {
 
     #[command(about = "Test the on-chain verifier on provided witness files")]
     Test(TestCommand),
+}
+
+#[derive(Parser)]
+#[command(about = "Compile the Move package (equivalent to `move build`)")]
+pub struct CompileCommand {
+    #[arg(
+        long = "skip-fetch-latest-git-deps",
+        help = "Skip fetching latest git dependencies",
+        default_value_t = false
+    )]
+    skip_fetch_latest_git_deps: bool,
 }
 
 #[derive(Parser)]
@@ -248,6 +262,7 @@ impl VmCommands {
         let manifest_path = self.package_path.join("Move.toml");
         let circuit_name = self.circuit_name.as_deref();
         match &self.command {
+            Subcommands::Compile(cmd) => cmd.run(&self.package_path),
             Subcommands::DryRun(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
             Subcommands::Setup(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
             Subcommands::Prove(cmd) => cmd.run(&self.package_path, &manifest_path, circuit_name),
@@ -317,6 +332,18 @@ fn load_circuit_context_from_dir(
         &pk_bytes,
         &vk_bytes,
     )
+}
+
+impl CompileCommand {
+    fn run(&self, package_path: &Path) -> Result<()> {
+        let build_config = move_package::BuildConfig {
+            skip_fetch_latest_git_deps: self.skip_fetch_latest_git_deps,
+            ..Default::default()
+        };
+        build_config.compile_package(package_path, &mut std::io::stdout())?;
+        info!("Package compiled successfully");
+        Ok(())
+    }
 }
 
 impl DryRunCommand {
