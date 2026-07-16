@@ -10,7 +10,6 @@ std = "0x1"
 confidential_asset = "0xCAFE"
 
 [circuit.encrypt]
-max_execution_rows = 4000
 max_poseidon_rows = 100
 entry = { module_id = "0xCAFE::encryption", function_name = "encrypt" }
 
