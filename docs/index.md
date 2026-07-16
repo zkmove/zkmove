@@ -4,9 +4,7 @@ Welcome to the official documentation for **zkMove** — a zero-knowledge virtua
 
 ---
 
-## Table of Contents
-
-### Litepaper
+## Litepaper
 
 Understand the motivation, design principles, and internals of zkMove.
 
@@ -21,7 +19,7 @@ Understand the motivation, design principles, and internals of zkMove.
 | 7 | [Use Cases](litepaper/use-cases.md)           | Real-world applications enabled by zkMove           |
 | 8 | [References](litepaper/references.md)         | All citations and references used in this litepaper |
 
-### User Guide
+## User Guide
 
 Set up your environment, write Move programs, generate proofs, and verify them on-chain.
 
