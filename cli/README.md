@@ -53,9 +53,9 @@ cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci run
 The compiled modules of the package are loaded into in-memory storage automatically; no separate
 `move sandbox publish` is needed.
 
-## Generate setup artifacts
+## Generate circuit artifacts
 
-Setup artifacts can be generated from the circuit metadata in `Move.toml`:
+Circuit artifacts can be generated from the circuit metadata in `Move.toml`:
 
 ```shell
 cargo run --release -- vm --package-path ./example/ --circuit-name fibonacci setup --params-path params/kzg_bn254_12.srs
@@ -73,7 +73,7 @@ and public input indices used by later commands.
 
 ## Generate the proof
 
-Note: `prove` and `verify` load setup artifacts from `<package-path>/setup` by default.
+Note: `prove` and `verify` load circuit artifacts from `<package-path>/setup` by default.
 Use `--setup-dir` to point them at a different setup output directory.
 
 ```shell

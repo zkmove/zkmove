@@ -1,6 +1,6 @@
 // Copyright (c) zkMove Authors
 
-//! SDK-facing context loaded once from app-developer setup artifacts.
+//! SDK-facing context loaded once from app-developer circuit artifacts.
 
 use crate::api::circuit::{
     build_circuit, build_circuit_and_fit_params, build_circuit_from_trace_and_fit_params,
@@ -145,7 +145,7 @@ impl VmCircuitContext {
         }
     }
 
-    /// Load setup artifacts from bytes. The package and circuit metadata are provided by
+    /// Load circuit artifacts from bytes. The package and circuit metadata are provided by
     /// the embedding app, while params/pk/vk bytes come from app-developer setup output.
     #[allow(clippy::too_many_arguments)]
     pub fn from_artifact_bytes(

@@ -375,7 +375,9 @@ impl<F: Field + Hashable> VmCircuit<F> {
         circuit_config_args: &CircuitConfigArgs,
     ) -> Result<(), String> {
         if circuit_config_args.max_execution_rows.is_none() {
-            return Err("max_execution_rows is required when building setup artifacts".to_string());
+            return Err(
+                "max_execution_rows is required when building circuit artifacts".to_string(),
+            );
         }
 
         if static_info.contain_zkhash() {
