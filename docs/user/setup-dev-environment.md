@@ -1,39 +1,20 @@
 # Set Up the Development Environment
 
-This guide walks you through installing the three CLI tools required to develop with zkMove.
+This guide walks you through installing the CLI tools required to develop with zkMove.
 
 ---
 
-## 1. Install the Customized `move` CLI
-
-A customized Move CLI is required to generate witnesses. Install it with the following command:
-
-```shell
-cargo install --git https://github.com/zkmove/move move-cli --branch main
-```
-
----
-
-## 2. Install the `zkmove` CLI
+## 1. Install the `zkmove` CLI
 
 The `zkmove` CLI is the primary tool for zkMove development. It supports proof generation, proof verification, and circuit debugging.
 
-**Steps:**
-
-1. Download the latest release from:
-   <https://github.com/zkmove/zkmove/tree/main/cli/release/latest>
-2. Extract the archive.
-3. Move the binary to your preferred location (e.g., `/usr/local/bin`).
-4. Make it executable and verify the installation:
-
 ```shell
-chmod +x zkmove
-zkmove -h
+cargo install --git https://github.com/zkmove/zkmove.git --branch main zkmove-cli
 ```
 
 ---
 
-## 3. Install the Customized `aptos`  or `sui` CLI
+## 2. Install the Customized `aptos`  or `sui` CLI
 A customized build of the Aptos or Sui CLI is required. It includes native functions used by the Halo2 on-chain verifier, and is used to interact with the local DevNet, publish contracts, and submit transactions.
 
 ### 3.1 Install `aptos` CLI
@@ -89,7 +70,7 @@ command -v sui
 sui --version
 ```
 
-## 4. Clone the halo2-verifier.move Repository
+## 3. Clone the halo2-verifier.move Repository
 
 The `halo2-verifier.move` repository contains the source code for the on-chain Halo2 verifier. You will need it to publish the verifier contracts.
 
