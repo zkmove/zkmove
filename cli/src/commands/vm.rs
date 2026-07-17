@@ -188,7 +188,9 @@ pub struct SetupCommand {
 }
 
 #[derive(Parser)]
-#[command(about = "Generate proof by running the entry function of the circuit with the given arguments")]
+#[command(
+    about = "Generate proof by running the entry function of the circuit with the given arguments"
+)]
 pub struct ProveCommand {
     #[arg(
         long = "package-path",
@@ -218,7 +220,6 @@ pub struct ProveCommand {
         help = "Entry function arguments"
     )]
     args: Vec<EntryArgument>,
-
 
     #[arg(
         short = 'o',
