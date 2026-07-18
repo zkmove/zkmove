@@ -14,24 +14,6 @@ use std::rc::Rc;
 use vm_circuit::{CircuitConfigArgs, CircuitGuard, VmCircuit};
 use witness::static_info::{EntryInfo, Footprints};
 
-/// Build the circuit from a witness.
-///
-/// Returns the circuit and its [`CircuitGuard`] (the caller MUST keep it alive while
-/// using the circuit, since the circuit config lives in thread-local storage).
-pub fn build_circuit_from_trace(
-    package: &CompiledPackage,
-    traces: &Footprints,
-    config: CircuitConfigArgs,
-    pubs_indices: &[usize],
-) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard)> {
-    let circuit = Rc::new(
-        VmCircuit::<Fr>::try_new(package, traces, pubs_indices, config)
-            .map_err(anyhow::Error::msg)?,
-    );
-    let guard = CircuitGuard::new(circuit.clone());
-    Ok((circuit, guard))
-}
-
 /// Build the empty-state circuit used during app-developer setup and local verify.
 ///
 /// Returns the circuit and its [`CircuitGuard`] (the caller MUST keep it alive while
@@ -44,6 +26,43 @@ pub fn build_circuit(
 ) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard)> {
     let circuit = Rc::new(
         VmCircuit::<Fr>::try_new_with_empty_state(package, entry_info, pubs_indices, config)
+            .map_err(anyhow::Error::msg)?,
+    );
+    let guard = CircuitGuard::new(circuit.clone());
+    Ok((circuit, guard))
+}
+
+/// Build the empty-state circuit, pick the optimal `k`, and downsize `params` to it.
+pub fn build_circuit_and_fit_params(
+    package: &CompiledPackage,
+    entry_info: EntryInfo,
+    config: CircuitConfigArgs,
+    pubs_indices: &[usize],
+    params: &mut ParamsKZG<Bn256>,
+) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard, u32)> {
+    let (circuit, guard) = build_circuit(package, entry_info, config, pubs_indices)?;
+
+    let k = best_k(&circuit);
+    info!("Optimal setup k = {}", k);
+    if k < params.k() {
+        params.downsize(k);
+    }
+
+    Ok((circuit, guard, k))
+}
+
+/// Build the circuit from a witness.
+///
+/// Returns the circuit and its [`CircuitGuard`] (the caller MUST keep it alive while
+/// using the circuit, since the circuit config lives in thread-local storage).
+pub fn build_circuit_from_trace(
+    package: &CompiledPackage,
+    traces: &Footprints,
+    config: CircuitConfigArgs,
+    pubs_indices: &[usize],
+) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard)> {
+    let circuit = Rc::new(
+        VmCircuit::<Fr>::try_new(package, traces, pubs_indices, config)
             .map_err(anyhow::Error::msg)?,
     );
     let guard = CircuitGuard::new(circuit.clone());
@@ -65,25 +84,6 @@ pub fn build_circuit_from_trace_and_fit_params(
 
     let k = best_k(&circuit);
     info!("Optimal k = {}", k);
-    if k < params.k() {
-        params.downsize(k);
-    }
-
-    Ok((circuit, guard, k))
-}
-
-/// Build the empty-state circuit, pick the optimal `k`, and downsize `params` to it.
-pub fn build_circuit_and_fit_params(
-    package: &CompiledPackage,
-    entry_info: EntryInfo,
-    config: CircuitConfigArgs,
-    pubs_indices: &[usize],
-    params: &mut ParamsKZG<Bn256>,
-) -> Result<(Rc<VmCircuit<Fr>>, CircuitGuard, u32)> {
-    let (circuit, guard) = build_circuit(package, entry_info, config, pubs_indices)?;
-
-    let k = best_k(&circuit);
-    info!("Optimal setup k = {}", k);
     if k < params.k() {
         params.downsize(k);
     }
