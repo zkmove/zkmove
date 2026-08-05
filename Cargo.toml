@@ -1,0 +1,80 @@
+[workspace]
+members = [
+    "cli",
+    "functional-tests",
+    "third-party/circuit-tool",
+    "third-party/field-exts",
+    "third-party/gadgets",
+    "third-party/halo2",
+    "third-party/movelang",
+    "vm-circuit",
+    "types/table",
+    "types/value",
+    "witness"
+]
+resolver = "2"
+[workspace.dependencies]
+move-compiler = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-compiler-v2 = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-binary-format = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-core-types = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-vm-runtime = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-vm-types = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-bytecode-verifier = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-package = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-cli = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-stdlib = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+move-vm-test-utils = { git = "https://github.com/zkmove/move", rev = "f98f7d6" }
+
+poseidon-circuit = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
+poseidon-base = { git = "https://github.com/zkmove/poseidon-circuit.git", branch = "main" }
+
+halo2curves = { git = "https://github.com/zkmove/halo2curves", branch = "zkmove" }
+halo2_proofs = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove", default-features = false, features = ["batch", "bits"] }
+halo2_backend = { git = "https://github.com/zkmove/halo2.git", branch = "zkmove" }
+
+anyhow = "1.0.38"
+bytes = { version = "1.5" }
+env_logger = "0.10"
+log = "0.4.28"
+rayon = "1.10"
+serde_json = { version = "1" }
+strum = "0.26"
+strum_macros = "0.26"
+subtle = "2.5"
+
+[profile.dev]
+opt-level = 3
+debug = 2              # change to 0 or 2 for more or less debug info
+overflow-checks = true
+incremental = true
+
+# Local "release" mode, more optimized than dev but faster to compile than release
+[profile.local]
+inherits = "dev"
+opt-level = 3
+# Set this to 1 or 2 to get more useful backtraces
+debug = 1
+debug-assertions = false
+panic = 'unwind'
+# better recompile times
+incremental = true
+lto = "thin"
+codegen-units = 16
+
+#[profile.test]
+#inherits = "release"
+
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+lto = "fat"
+# `codegen-units = 1` can lead to WORSE performance - always bench to find best profile for your machine!
+# codegen-units = 1
+panic = "unwind"
+incremental = false
+
+[profile.bench]
+lto = true

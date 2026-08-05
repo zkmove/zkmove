@@ -1,0 +1,349 @@
+use super::cell_manager::{CellManagerColumns, CellPlacement, CellPlacementStrategy, CellType};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, FirstPhase, SecondPhase, ThirdPhase};
+use std::collections::BTreeMap;
+
+use field_exts::Field;
+
+#[derive(Clone, Debug, Default)]
+pub struct CMFixedWidthStrategyDistribution(BTreeMap<CellType, Vec<Column<Advice>>>);
+
+impl CMFixedWidthStrategyDistribution {
+    pub fn add(&mut self, cell_type: CellType, advice: Column<Advice>) {
+        if let Some(v) = self.0.get_mut(&cell_type) {
+            v.push(advice);
+        } else {
+            self.0.insert(cell_type, vec![advice]);
+        }
+    }
+
+    #[allow(dead_code, reason = "this method will be used outside tests")]
+    pub fn get(&self, cell_type: CellType) -> Option<&Vec<Column<Advice>>> {
+        self.0.get(&cell_type)
+    }
+}
+
+/// CMFixedWidthStrategy is a Cell Placement strategy that places the cells in the column that has
+/// less height for a given CellType.
+/// When a cell is queried for a CellType the strategy will find the column of that Cell Type that
+/// has a lower height and add it there.
+#[derive(Clone, Debug)]
+pub struct CMFixedWidthStrategy {
+    advices: CMFixedWidthStrategyDistribution,
+    height_offset: isize,
+
+    next: BTreeMap<CellType, (usize, usize)>,
+
+    // perm_substitution: bool,
+    max_height: usize,
+}
+
+impl CMFixedWidthStrategy {
+    /// Creates a CMFixedWidthStrategy from a CMFixedWidthStrategyDistribution that contains advice
+    /// columns categorized by Cell Type.
+    /// The argument height_offset will be added to the rotation of the Cells, which is useful for a
+    /// next step.
+    pub fn new(
+        advices: CMFixedWidthStrategyDistribution,
+        height_offset: isize,
+    ) -> CMFixedWidthStrategy {
+        CMFixedWidthStrategy {
+            advices,
+            height_offset,
+            next: BTreeMap::default(),
+            // perm_substitution: false,
+            max_height: usize::MAX,
+        }
+    }
+
+    // /// Enables the StoragePhase1 to StoragePermutation.
+    // /// When enabled if a  StoragePhase1 Cell is requested but the height would be lower if placed
+    // /// on a StoragePermutation column, then the StoragePermutation is used.
+    // pub fn with_perm_substitution(mut self) -> Self {
+    //     self.perm_substitution = true;
+    //
+    //     self
+    // }
+
+    /// Sets a max height, if the strategy chooses a height that is over this, it will panic.
+    pub fn with_max_height(mut self, max_height: usize) -> Self {
+        self.max_height = max_height;
+
+        self
+    }
+
+    pub fn advices(&self) -> &CMFixedWidthStrategyDistribution {
+        &self.advices
+    }
+
+    fn get_next(&self, cell_type: &CellType) -> (usize, usize) {
+        *self.next.get(cell_type).unwrap_or(&(0, 0))
+    }
+
+    fn set_next(&mut self, cell_type: &CellType, column_idx: usize, row: usize) {
+        self.next.insert(*cell_type, (column_idx, row));
+    }
+
+    fn cells_used(&self, cell_type: &CellType, columns: &CellManagerColumns) -> usize {
+        let (next_column_idx, next_row) = self.get_next(cell_type);
+        let current_row = if next_column_idx == 0 {
+            if next_row == 0 {
+                return 0;
+            }
+
+            next_row - 1
+        } else {
+            next_row
+        };
+
+        let filled_rows_cells = if current_row == 0 {
+            0
+        } else {
+            (current_row - 1) * columns.get_cell_type_width(*cell_type)
+        };
+
+        filled_rows_cells + next_column_idx
+    }
+}
+
+impl CellPlacementStrategy for CMFixedWidthStrategy {
+    type Stats = BTreeMap<CellType, (usize, usize, usize)>;
+    type Affinity = ();
+
+    fn on_creation(&mut self, columns: &mut CellManagerColumns) {
+        for (cell_type, advices) in self.advices.0.iter() {
+            for column in advices.iter() {
+                columns.add_column(*cell_type, *column)
+            }
+        }
+    }
+
+    fn place_cell<F: Field>(
+        &mut self,
+        columns: &mut CellManagerColumns,
+        _meta: &mut ConstraintSystem<F>,
+        cell_type: CellType,
+    ) -> CellPlacement {
+        let (mut column_idx, mut row) = self.get_next(&cell_type);
+        // if self.perm_substitution && cell_type == CellType::StoragePhase1 {
+        //     let (_, row_perm) = self.get_next(&CellType::StoragePermutation);
+        //     if row_perm < row {
+        //         return self.place_cell(columns, meta, CellType::StoragePermutation);
+        //     }
+        // }
+
+        if row > self.max_height {
+            panic!(
+                "CMFixedWidthStrategy: max_height reached ({})",
+                self.max_height
+            )
+        }
+
+        let column = columns
+            .get_column(cell_type, column_idx)
+            .expect("column not found");
+        let rotation = self.height_offset + row as isize;
+        let placement = CellPlacement {
+            column: column.clone(),
+            rotation,
+        };
+
+        column_idx += 1;
+        if column_idx >= columns.get_cell_type_width(cell_type) {
+            column_idx = 0;
+            row += 1;
+        }
+
+        self.set_next(&cell_type, column_idx, row);
+
+        placement
+    }
+
+    fn get_height(&self) -> usize {
+        self.next
+            .keys()
+            .map(|cell_type| {
+                let next = self.get_next(cell_type);
+                if next.0 == 0 {
+                    next.1
+                } else {
+                    next.1 + 1
+                }
+            })
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn get_stats(&self, columns: &CellManagerColumns) -> Self::Stats {
+        let mut data = BTreeMap::new();
+        for cell_type in self.next.keys() {
+            let next = self.get_next(cell_type);
+            let height = if next.0 == 0 { next.1 } else { next.1 + 1 };
+            data.insert(
+                *cell_type,
+                (
+                    columns.get_cell_type_width(*cell_type),
+                    height,
+                    self.cells_used(cell_type, columns),
+                ),
+            );
+        }
+        data
+    }
+
+    fn place_cell_with_affinity<F: Field>(
+        &mut self,
+        _columns: &mut CellManagerColumns,
+        _meta: &mut ConstraintSystem<F>,
+        _cell_type: CellType,
+        _affinity: Self::Affinity,
+    ) -> CellPlacement {
+        unimplemented!()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CMFixedHeightStrategy {
+    row_width: Vec<BTreeMap<CellType, usize>>,
+    height_offset: isize,
+    num_unused_cells: usize,
+}
+
+impl CMFixedHeightStrategy {
+    pub fn new(height: usize, height_offset: isize) -> CMFixedHeightStrategy {
+        CMFixedHeightStrategy {
+            row_width: vec![BTreeMap::default(); height],
+            height_offset,
+            num_unused_cells: Default::default(),
+        }
+    }
+}
+
+impl CellPlacementStrategy for CMFixedHeightStrategy {
+    type Affinity = usize;
+
+    fn on_creation(&mut self, _columns: &mut CellManagerColumns) {
+        // We don't need to do anything as the columns are created on demand
+    }
+
+    fn place_cell<F: Field>(
+        &mut self,
+        columns: &mut CellManagerColumns,
+        meta: &mut ConstraintSystem<F>,
+        cell_type: CellType,
+    ) -> CellPlacement {
+        let (row_idx, column_idx) = self.get_next(cell_type);
+
+        let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
+
+        self.inc_row_width(row_idx, cell_type);
+
+        placement
+    }
+
+    fn get_height(&self) -> usize {
+        self.row_width.len()
+    }
+
+    type Stats = Vec<BTreeMap<CellType, usize>>;
+
+    fn get_stats(&self, _columns: &CellManagerColumns) -> Self::Stats {
+        self.row_width.clone()
+    }
+
+    fn place_cell_with_affinity<F: Field>(
+        &mut self,
+        columns: &mut CellManagerColumns,
+        meta: &mut ConstraintSystem<F>,
+        cell_type: CellType,
+        affnity: Self::Affinity,
+    ) -> CellPlacement {
+        let row_idx = affnity;
+        let column_idx = self.row_width[row_idx]
+            .get(&cell_type)
+            .copied()
+            .unwrap_or(0);
+
+        let placement = self.place_cell_at_pos(columns, meta, cell_type, row_idx, column_idx);
+
+        self.inc_row_width(row_idx, cell_type);
+
+        placement
+    }
+}
+
+impl CMFixedHeightStrategy {
+    // pub fn start_region(&mut self) -> usize {
+    //     // Make sure all rows start at the same column
+    //     let width = *self.row_width.iter().max().unwrap_or(&0usize);
+    //     for row in self.row_width.iter_mut() {
+    //         self.num_unused_cells += width - *row;
+    //         *row = width;
+    //     }
+    //     width
+    // }
+
+    // pub fn get_num_unused_cells(&self) -> usize {
+    //     self.num_unused_cells
+    // }
+
+    fn get_next(&mut self, cell_type: CellType) -> (usize, usize) {
+        let mut best_row_idx = 0usize;
+        let mut best_row_width = usize::MAX;
+
+        for (row_idx, row_width) in self.row_width.iter().enumerate() {
+            let width = row_width.get(&cell_type).copied().unwrap_or(0);
+
+            if width < best_row_width {
+                best_row_width = width;
+                best_row_idx = row_idx;
+            }
+        }
+
+        (best_row_idx, best_row_width)
+    }
+
+    fn inc_row_width(&mut self, row_idx: usize, cell_type: CellType) {
+        if let Some(row_width) = self.row_width.get_mut(row_idx) {
+            let width = row_width.entry(cell_type).or_insert(0);
+            *width += 1;
+        } else {
+            panic!("Row index out of bounds: {}", row_idx);
+        }
+    }
+
+    fn place_cell_at_pos<F: Field>(
+        &mut self,
+        columns: &mut CellManagerColumns,
+        meta: &mut ConstraintSystem<F>,
+        cell_type: CellType,
+        row_idx: usize,
+        column_idx: usize,
+    ) -> CellPlacement {
+        let column = if column_idx < columns.get_cell_type_width(cell_type) {
+            columns
+                .get_column(cell_type, column_idx)
+                .expect("column not found")
+        } else {
+            assert_eq!(column_idx, columns.get_cell_type_width(cell_type));
+            let advice = match cell_type.phase() {
+                0 => meta.advice_column_in(FirstPhase),
+                1 => meta.advice_column_in(SecondPhase),
+                2 => meta.advice_column_in(ThirdPhase),
+                _ => unreachable!(),
+            };
+            if cell_type == CellType::StoragePhase1EnableEquality {
+                meta.enable_equality(advice);
+            }
+            columns.add_column(cell_type, advice);
+
+            columns
+                .get_column(cell_type, column_idx)
+                .expect("column not found")
+        };
+
+        CellPlacement {
+            column: column.clone(),
+            rotation: self.height_offset + row_idx as isize,
+        }
+    }
+}

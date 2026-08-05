@@ -1,0 +1,33 @@
+[package]
+name = "functional-tests"
+version = "0.4.0"
+edition = "2021"
+
+[dependencies]
+vm-circuit = { path = "../vm-circuit" }
+witness = { path = "../witness" }
+halo2 = { path = "../third-party/halo2" }
+halo2_proofs.workspace = true
+env_logger.workspace = true
+log.workspace = true
+rand = "0.8"
+move-package = { workspace = true }
+serde_json = { workspace = true }
+[dev-dependencies]
+datatest-stable = "0.2.9"
+#criterion = { git = "https://github.com/young-rocks/criterion.rs", rev = "98922e676bacc55ed2a27f65dcd2b18650ba12e9" }
+
+# https://github.com/Amanieu/parking_lot/issues/269
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+parking_lot_core = "=0.8.0"
+
+[[test]]
+name = "testsuite"
+harness = false
+
+#[[bench]]
+#name = "circuit_benchmark"
+#harness = false
+
+[features]
+test-circuits = []

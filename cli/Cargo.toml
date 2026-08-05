@@ -1,0 +1,39 @@
+[package]
+name = "zkmove-cli"
+version = "0.5.0"
+edition = "2021"
+
+[dependencies]
+vm-circuit = { path = "../vm-circuit" }
+witness = { path = "../witness" }
+halo2 = { path = "../third-party/halo2" }
+halo2_proofs.workspace = true
+poseidon-base = { workspace = true }
+move-package = { workspace = true }
+move-core-types = { workspace = true }
+move-binary-format = { workspace = true }
+move-compiler = { workspace = true }
+move-vm-runtime = { workspace = true, features = ["footprint"] }
+move-cli = { workspace = true }
+move-stdlib = { workspace = true }
+move-vm-test-utils = { workspace = true }
+log.workspace = true
+env_logger.workspace = true
+halo2-verifier = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
+aptos-verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
+sui-verifier-api = { git = "https://github.com/zkmove/halo2-verifier.move", branch = "main" }
+
+anyhow = "1.0.38"
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+serde_json = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+toml = { version = "0.8" }
+rand = { version = "0.8" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "zkmove"
+path = "src/main.rs"
