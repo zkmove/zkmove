@@ -1,0 +1,17 @@
+[book]
+title = "zkMove Documentation"
+authors = ["zkMove"]
+description = "Documentation for zkMove"
+language = "en"
+src = "docs"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/zkmove/zkmove"
+edit-url-template = "https://github.com/zkmove/zkmove/edit/main/book/{path}"
+additional-css = ["theme/mdbook-custom.css"]

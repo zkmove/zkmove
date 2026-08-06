@@ -1,10 +1,13 @@
-.PHONY: docs-install docs-serve docs-build
+.PHONY: docs-install docs-serve docs-build docs-clean
 
 docs-install:
-	python3 -m pip install -r requirements-docs.txt
+	cargo install mdbook
 
-docs-serve: docs-install
-	python3 -m mkdocs serve
+docs-serve:
+	mdbook serve --open
 
-docs-build: docs-install
-	python3 -m mkdocs build --strict
+docs-build:
+	mdbook build
+
+docs-clean:
+	rm -rf book
