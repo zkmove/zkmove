@@ -1,5 +1,30 @@
-## Documents
+# zkMove Documentation
 
-see [User Guide](https://www.zkmove.net/document/user/setup-dev-environment/) for a step-by-step tutorial on how to create a zkMove circuit, generate a proof, and verify it on-chain.
+This directory contains the zkMove documentation site built with [mdBook](https://rust-lang.github.io/mdBook/).
 
-see [Litepaper](https://www.zkmove.net/document/litepaper/abstract/) for an in-depth technical overview of zkMove's design and architecture.
+## Read Online
+
+- [User Guide](https://www.zkmove.net/document/user/setup-dev-environment/) — step-by-step tutorial for creating a zkMove circuit, generating a proof, and verifying it on-chain.
+- [Litepaper](https://www.zkmove.net/document/litepaper/abstract/) — technical overview of zkMove's design and architecture.
+
+## Local Preview
+
+```bash
+make docs-serve
+```
+
+## Build
+
+From this directory:
+
+```bash
+make docs-build
+```
+
+Or from the repository root:
+
+```bash
+mdbook build book
+```
+
+The generated static site is written to `book/book/` and deployed to GitHub Pages by `../.github/workflows/docs-gh-pages.yml`.

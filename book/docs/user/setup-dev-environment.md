@@ -17,7 +17,7 @@ cargo install --git https://github.com/zkmove/zkmove.git --branch main zkmove-cl
 ## 2. Install the Customized `aptos`  or `sui` CLI
 A customized build of the Aptos or Sui CLI is required. It includes native functions used by the Halo2 on-chain verifier, and is used to interact with the local DevNet, publish contracts, and submit transactions.
 
-### 3.1 Install `aptos` CLI
+### 2.1 Install `aptos` CLI
 
 1. Download the release from:
    <https://github.com/zkmove/aptos-core/releases/download/aptos-cli-v7.11.1-zkmove>
@@ -37,7 +37,7 @@ chmod +x ~/aptos
 ~/aptos help
 ```
 
-### 3.2 Install `sui` CLI
+### 2.2 Install `sui` CLI
 
 Install the zkMove Sui CLI with the following command. An upstream Sui release
 binary is not sufficient for the Sui verifier flow because it does not include

@@ -1,12 +1,14 @@
-name: Deploy Docs to GitHub Pages
+name: Deploy mdBook to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "requirements-docs.txt"
+      - "book/book.toml"
+      - "book/docs/**"
+      - "book/theme/**"
+      - "book/scripts/**"
+      - "book/Makefile"
       - ".github/workflows/docs-gh-pages.yml"
   workflow_dispatch:
 
@@ -26,23 +28,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-docs.txt
+      - name: Install mdBook
+        run: cargo install mdbook --locked
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: mdbook build book
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: book/book
 
   deploy:
     environment:

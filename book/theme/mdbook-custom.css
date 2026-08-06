@@ -1,0 +1,43 @@
+:root {
+  --content-max-width: 980px;
+  --sidebar-width: 300px;
+}
+
+.content main {
+  max-width: var(--content-max-width);
+}
+
+.content h1,
+.content h2,
+.content h3 {
+  letter-spacing: -0.02em;
+}
+
+.content h2 {
+  border-bottom: 1px solid #d7d7d7;
+  padding-bottom: 0.3em;
+  margin-top: 2em;
+}
+
+.content code {
+  border-radius: 4px;
+}
+
+.content pre {
+  border-radius: 6px;
+}
+
+table {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+@media (min-width: 1080px) {
+  .sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .page-wrapper {
+    margin-left: var(--sidebar-width);
+  }
+}
