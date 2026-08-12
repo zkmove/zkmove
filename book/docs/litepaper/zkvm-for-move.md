@@ -14,7 +14,7 @@ MoveVM is a **stack-based bytecode virtual machine** composed of four main compo
 For simplicity, we refer to the stack, local variables, and global state collectively as *memory*.
 
 <div>
-  <img src="zkmove_runtime.png" width="70%" alt="MoveVM Runtime" />
+  <img src="zkvm-for-move/zkmove_runtime.png" width="70%" alt="MoveVM Runtime" />
 </div>
 
 The Move instruction set covers a broad range of operations:
@@ -36,7 +36,7 @@ Each instruction reads values from memory, applies the defined semantics, and wr
 There are three main approaches to building a zkVM for Move, each with distinct trade-offs.
 
 <div>
-  <img src="zkvms.png" width="70%" alt="zkVM Approaches Comparison" />
+  <img src="zkvm-for-move/zkvms.png" width="70%" alt="zkVM Approaches Comparison" />
 </div>
 
 ### Approach 1: Run MoveVM on a RISC-V zkVM
