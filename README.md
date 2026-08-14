@@ -2,7 +2,7 @@
 
 Technically, **zkMove** is a secure, high-performance zkVM that proves the execution of Move functions. It empowers Move smart contracts to access and process private data in a fully programmable and trustless manner.
 
-From a product perspective, zkMove is both a middleware and an SDK — one that Move developers can use to build privacy-preserving decentralized applications without deep cryptographic expertise.
+From a product perspective, zkMove is both a middleware and an SDK — one that can be integrated into any Move blockchain (L1 or L2), allowing Move developers to build privacy-preserving decentralized applications without deep cryptographic expertise.
 
 ## Project Structure
 

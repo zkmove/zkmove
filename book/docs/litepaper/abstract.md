@@ -18,7 +18,7 @@ This concern becomes even more acute as blockchains and smart contracts are posi
 
 **zkMove** is a secure, high-performance zero-knowledge virtual machine (zkVM) purpose-built for the Move programming language. It empowers Move smart contracts to access and process private data in a fully programmable and trustless manner.
 
-From a product perspective, zkMove serves as both middleware and an SDK, enabling Move developers to build privacy-preserving decentralized applications without deep cryptographic expertise.
+From a product perspective, zkMove is both a middleware and an SDK — one that can be integrated into any Move blockchain (L1 or L2), allowing Move developers to build privacy-preserving decentralized applications without deep cryptographic expertise.
 
 This litepaper presents:
 
