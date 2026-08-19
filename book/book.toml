@@ -15,3 +15,6 @@ preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/zkmove/zkmove"
 edit-url-template = "https://github.com/zkmove/zkmove/edit/main/book/{path}"
 additional-css = ["theme/mdbook-custom.css"]
+
+[preprocessor.katex]
+after = ["links"]
