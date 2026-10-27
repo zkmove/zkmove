@@ -924,7 +924,12 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
             let is_first_row = i == 0;
             let is_last_row = i == rows - 1;
 
-            if let Some(stored_expressions) = stored_expressions_map.get(&Some(*execution_state)) {
+            // Stored expressions created by the base constraint builder (`None`)
+            // apply to every execution state.
+            for key in [None, Some(*execution_state)] {
+                let Some(stored_expressions) = stored_expressions_map.get(&key) else {
+                    continue;
+                };
                 for (location, expressions) in stored_expressions {
                     let row_match = match location {
                         Some(ConstraintLocation::FirstRow) => is_first_row,
