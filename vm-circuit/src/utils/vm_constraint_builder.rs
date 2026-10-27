@@ -166,7 +166,9 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     }
 
     pub fn step_state_at_offset(&mut self, offset: isize) -> StepState<F> {
-        Step::new(self.meta, self.columns, offset, self.challenges).state
+        self.curr
+            .new_at(self.meta, self.columns, offset, self.challenges)
+            .state
     }
 
     pub(crate) fn query_bools<const N: usize>(&mut self) -> [Cell<F>; N] {
