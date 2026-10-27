@@ -10,7 +10,6 @@ use field_exts::Field;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
-use strum::IntoEnumIterator;
 use value_type::word::{WordCells, WordU10Cells};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
 
@@ -74,8 +73,7 @@ impl<F: Field> StepState<F> {
         &self,
         execution_states: impl IntoIterator<Item = ExecutionState>,
     ) -> Expression<F> {
-        self.execution_state
-            .selector(execution_states.into_iter().map(|s| s as usize))
+        self.execution_state.selector(execution_states)
     }
 
     pub(crate) fn assign_exec_step(
@@ -97,7 +95,7 @@ impl<F: Field> StepState<F> {
         step_state: &StepStateWitness,
     ) -> Result<(), Error> {
         self.execution_state
-            .assign(region, offset, step_state.exec_state as usize)?;
+            .assign(region, offset, step_state.exec_state)?;
         self.step_counter.assign(
             region,
             offset,
@@ -332,6 +330,7 @@ impl<F: Field> Step<F> {
         cell_manager_columns: &mut CellManagerColumns,
         offset: isize,
         challenges: &Challenges<Expression<F>>,
+        execution_states: &[ExecutionState],
     ) -> Self {
         // height should always be 1
         let strategy = CMFixedHeightStrategy::new(1, offset);
@@ -345,7 +344,7 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 &mut cell_manager,
                 CellType::StoragePhase0,
-                ExecutionState::iter().count(),
+                execution_states,
             ),
 
             clk,
@@ -480,6 +479,23 @@ impl<F: Field> Step<F> {
             state,
             cell_manager,
         }
+    }
+
+    /// Creates a step at `offset`, reusing the same set of execution states as `self`.
+    pub fn new_at(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        cell_manager_columns: &mut CellManagerColumns,
+        offset: isize,
+        challenges: &Challenges<Expression<F>>,
+    ) -> Self {
+        Self::new(
+            meta,
+            cell_manager_columns,
+            offset,
+            challenges,
+            self.state.execution_state.execution_states(),
+        )
     }
 
     pub(crate) fn execution_state_selector(
@@ -627,8 +643,15 @@ impl<F: Field> Step<F> {
 
 /// Dynamic selector that generates expressions of degree 2 to select from N
 /// possible targets using N/2 + 1 cells.
+///
+/// Only the execution states that can actually occur in the circuit are
+/// supported (see [`ExecutionState::used_states`]), so `N` is the number of
+/// used states instead of the total number of [`ExecutionState`] variants.
 #[derive(Clone, Debug)]
 pub(crate) struct DynamicSelectorHalf<F> {
+    /// The supported targets, sorted by [`ExecutionState`] discriminant.  The
+    /// selector index of a state is its position in this list.
+    execution_states: Vec<ExecutionState>,
     /// N value: how many possible targets this selector supports.
     count: usize,
     /// Whether the target is odd.  `target % 2 == 1`.
@@ -644,16 +667,35 @@ impl<F: Field> DynamicSelectorHalf<F> {
         cell_manager_columns: &mut CellManagerColumns,
         cell_manager: &mut CellManager<CMFixedHeightStrategy>,
         cell_type: CellType,
-        count: usize,
+        execution_states: &[ExecutionState],
     ) -> Self {
+        let mut execution_states = execution_states.to_vec();
+        execution_states.sort_unstable();
+        execution_states.dedup();
+        let count = execution_states.len();
+        assert!(
+            count > 0,
+            "DynamicSelectorHalf requires at least one execution state"
+        );
         let target_pairs =
             cell_manager.query_cells(meta, cell_manager_columns, cell_type, count.div_ceil(2));
         let target_odd = cell_manager.query_cell(meta, cell_manager_columns, cell_type);
         Self {
+            execution_states,
             count,
             target_pairs,
             target_odd,
         }
+    }
+
+    /// Returns the execution states supported by this selector.
+    pub(crate) fn execution_states(&self) -> &[ExecutionState] {
+        &self.execution_states
+    }
+
+    /// Returns the selector index of `state`, if it is supported.
+    fn index_of(&self, state: ExecutionState) -> Option<usize> {
+        self.execution_states.binary_search(&state).ok()
     }
 
     /// Return the list of constraints that configure this "gadget".
@@ -687,9 +729,16 @@ impl<F: Field> DynamicSelectorHalf<F> {
         constraints
     }
 
-    pub(crate) fn selector(&self, targets: impl IntoIterator<Item = usize>) -> Expression<F> {
+    /// Returns the selector expression for the given execution states.  States
+    /// that are not supported by this selector never occur, so they contribute
+    /// the constant `0`.
+    pub(crate) fn selector(
+        &self,
+        targets: impl IntoIterator<Item = ExecutionState>,
+    ) -> Expression<F> {
         targets
             .into_iter()
+            .filter_map(|state| self.index_of(state))
             .map(|target| {
                 let odd = target % 2 == 1;
                 let pair_index = target / 2;
@@ -700,15 +749,21 @@ impl<F: Field> DynamicSelectorHalf<F> {
                 }) * self.target_pairs[pair_index].expr()
             })
             .reduce(|acc, expr| acc + expr)
-            .expect("Select some Targets")
+            .unwrap_or_else(|| 0u64.expr())
     }
 
     pub(crate) fn assign(
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        target: usize,
+        state: ExecutionState,
     ) -> Result<(), Error> {
+        let target = self.index_of(state).unwrap_or_else(|| {
+            panic!(
+                "execution state {:?} is not supported by the circuit, supported states: {:?}",
+                state, self.execution_states
+            )
+        });
         let odd = target % 2 == 1;
         let pair_index = target / 2;
         self.target_odd.assign(

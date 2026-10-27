@@ -172,6 +172,23 @@ impl ExecutionState {
         MANDATORY.to_vec()
     }
 
+    /// Returns the execution states that can occur when executing the given opcodes.
+    ///
+    /// This is the set of states actually needed by a circuit: the mandatory states,
+    /// the states responsible for the used opcodes and, when `use_poseidon_hash` is
+    /// set, the native poseidon hash state.  The result is sorted by discriminant and
+    /// deduplicated.
+    pub fn used_states(opcodes: &[Opcodes], use_poseidon_hash: bool) -> Vec<Self> {
+        let mut states = Self::mandatory_states();
+        states.extend(Self::from_opcodes(opcodes));
+        if use_poseidon_hash {
+            states.push(Self::NativePoseidonHash);
+        }
+        states.sort_unstable();
+        states.dedup();
+        states
+    }
+
     /// Returns the list of execution states corresponding to the opcode.
     pub fn from_opcode(opcode: Opcodes) -> Vec<Self> {
         ExecutionState::iter()
@@ -187,5 +204,44 @@ impl ExecutionState {
             states_set.extend(states);
         }
         states_set.into_iter().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn used_states_contains_mandatory_states_and_opcode_states() {
+        let states = ExecutionState::used_states(&[Opcodes::ABORT], false);
+
+        for state in ExecutionState::mandatory_states() {
+            assert!(states.contains(&state), "missing mandatory state {state:?}");
+        }
+        assert!(states.contains(&ExecutionState::Abort));
+        assert!(!states.contains(&ExecutionState::NativePoseidonHash));
+    }
+
+    #[test]
+    fn used_states_is_sorted_and_deduplicated() {
+        let states = ExecutionState::used_states(&[Opcodes::ABORT, Opcodes::ABORT], false);
+
+        let mut expected = states.clone();
+        expected.sort_unstable();
+        expected.dedup();
+        assert_eq!(states, expected);
+    }
+
+    #[test]
+    fn used_states_adds_native_poseidon_hash_when_requested() {
+        let without_poseidon = ExecutionState::used_states(&[], false);
+        let with_poseidon = ExecutionState::used_states(&[], true);
+
+        assert!(!without_poseidon.contains(&ExecutionState::NativePoseidonHash));
+        assert!(with_poseidon.contains(&ExecutionState::NativePoseidonHash));
+        assert_eq!(
+            with_poseidon.len(),
+            ExecutionState::mandatory_states().len() + 1
+        );
     }
 }
