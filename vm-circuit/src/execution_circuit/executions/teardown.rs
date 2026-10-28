@@ -6,27 +6,56 @@ use crate::execution_circuit::InstructionGadgetV2;
 use crate::utils::vm_constraint_builder::VmConstraintBuilder;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
-use circuit_tool::rlc;
-use field_exts::util::Scalar;
+use field_exts::util::Expr;
 use field_exts::util::{pow_of_two, pow_of_two_expr};
-use gadgets::lt::LtInteger;
-use value_type::word_generic::WordLoHiCell;
+use field_exts::Field;
+use gadgets::lt::LtGadget;
+use halo2_proofs::plonk::{ErrorFront as Error, Expression};
+use halo2_proofs::poly::Rotation;
 use witness::static_info::StaticInfo;
 use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
 
 use crate::public_inputs::InstanceTable;
-use field_exts::util::Expr;
-use field_exts::Field;
-use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::ErrorFront as Error;
-use halo2_proofs::poly::Rotation;
-use move_core_types::u256::U256;
+
+/// Number of bytes of the packed local address
+/// `frame_index(10 bits) | local_index(8 bits) | sub_index(64 bits)`.
+///
+/// The address is 82 bits wide, so 11 bytes are enough to compare it.
+const NUM_OF_BYTES_ADDRESS_KEY: usize = 11;
 
 #[derive(Clone, Debug)]
 pub struct Teardown<F> {
-    rlc: WordLoHiCell<F>,
-    lt_gadget: LtInteger<F>,
+    lt_gadget: LtGadget<F, NUM_OF_BYTES_ADDRESS_KEY>,
+}
+
+/// Returns the packed address key `frame * 2^72 + index * 2^64 + sub_index`
+/// of the step state at `offset`.
+///
+/// The strict-increase check on this key is what rules out duplicate local
+/// addresses: duplicate addresses have identical cells (their entries are
+/// pinned by the memory consistency shuffle), hence identical keys, so they
+/// can never be strictly increasing.  Injectivity of the packing is therefore
+/// only needed for completeness (honest witnesses, where `local_frame_index`
+/// is 10 bits, `local_index` 8 bits and `local_sub_index` 64 bits), not for
+/// soundness: a collision between two different addresses would be rejected
+/// by the same strict-increase check.  Consequently `local_sub_index` does not
+/// need to be range checked to 64 bits here.
+fn key_expr_at<F: Field>(
+    cb: &mut VmConstraintBuilder<F>,
+    state: &StepState<F>,
+    offset: i32,
+) -> Expression<F> {
+    let frame_lo = cb
+        .cell_at_offset(&state.local_frame_index.lo(), offset)
+        .expr();
+    let frame_hi = cb
+        .cell_at_offset(&state.local_frame_index.hi(), offset)
+        .expr();
+    let frame = frame_lo + frame_hi * pow_of_two_expr(8);
+    let index = cb.cell_at_offset(&state.local_index, offset).expr();
+    let sub_index = cb.cell_at_offset(&state.local_sub_index, offset).expr();
+    frame * pow_of_two_expr(72) + index * pow_of_two_expr(64) + sub_index
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
@@ -42,34 +71,19 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
             format!("{}, local_write_version(0) == 1", Self::NAME),
             1u64.expr() - cb.curr.state.local_write_version.expr(),
         );
-        let cells = cb.query_cells::<2>();
-        let rlc = WordLoHiCell::new(cells);
-        let cur_rlc = cb.rlc_with_randomness(
-            &[
-                cb.curr.state.local_frame_index.expr(),
-                cb.curr.state.local_index.expr(),
-                cb.curr.state.local_sub_index.expr(),
-            ],
-            cb.row_randomness(),
-        );
+
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
-        cb.require_equal(
-            format!(
-                "{}, rlc(local_frame_index, local_index, local_sub_index) == rlc",
-                Self::NAME
-            ),
-            cur_rlc,
-            rlc.hi().expr() * pow_of_two_expr(128) + rlc.lo().expr(),
-        );
+
+        let state = cb.curr.state.clone();
         let mut lt = None;
         cb.not_first_row(|cb| {
-            let prev_lo = cb.cell_at_offset(&rlc.lo(), -1).expr();
-            let prev_hi = cb.cell_at_offset(&rlc.hi(), -1).expr();
+            let prev_key = key_expr_at(cb, &state, -1);
+            let cur_key = key_expr_at(cb, &state, 0);
             let lt_gadget =
-                LtInteger::construct(cb, prev_lo, prev_hi, rlc.lo().expr(), rlc.hi().expr());
+                LtGadget::<F, NUM_OF_BYTES_ADDRESS_KEY>::construct(cb, prev_key, cur_key);
             cb.require_true(
-                format!("{}, prev_rlc < cur_rlc", Self::NAME),
+                format!("{}, prev_address < cur_address", Self::NAME),
                 lt_gadget.expr(),
             );
             lt = Some(lt_gadget);
@@ -83,7 +97,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         });
 
         Self {
-            rlc,
             lt_gadget: lt.unwrap(),
         }
     }
@@ -106,33 +119,20 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
             step_counter -= 1;
         }
 
-        let randomness = region.challenges().row_keccak_input();
-        // sort by rlc
-        let exec_step_state = randomness.map(|randomness| {
-            let mut memory_ops = state.memory_ops.clone();
-            memory_ops.sort_by_key(|op| {
-                let local_rw = op.2.as_ref().unwrap();
-                let local_frame_index = F::from(local_rw.frame_index as u64);
-                let local_index = F::from(local_rw.index as u64);
-                let local_sub_index = local_rw.sub_index.scalar();
-                rlc::generic(
-                    [local_frame_index, local_index, local_sub_index],
-                    randomness,
-                )
-            });
-            memory_ops
+        // Sort by address so that the circuit can enforce strictly increasing
+        // addresses, i.e. exactly one teardown row per local address.
+        let mut memory_ops = state.memory_ops.clone();
+        memory_ops.sort_by_key(|op| {
+            let local_rw = op.2.as_ref().unwrap();
+            let sub_index: u64 = local_rw.sub_index.clone().into();
+            (local_rw.frame_index, local_rw.index, sub_index)
         });
 
         // then assign the memory and base
-        exec_step_state
-            .map(|s| {
-                for (i, op) in s.into_iter().enumerate() {
-                    step_state.assign_memory_op(region, offset + i, &op)?;
-                    base_constraint_gadget.assign(step_state.clone(), region, offset + i)?;
-                }
-                Ok::<_, Error>(())
-            })
-            .error_if_known_and(|r| r.is_err())?;
+        for (i, op) in memory_ops.iter().enumerate() {
+            step_state.assign_memory_op(region, offset + i, op)?;
+            base_constraint_gadget.assign(step_state.clone(), region, offset + i)?;
+        }
         Ok(stage_state.rows())
     }
     fn assign(
@@ -146,61 +146,42 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
     ) -> Result<usize, Error> {
         debug_assert!(stage_state.rows() > 0);
 
-        let randomness = region.challenges().row_keccak_input();
-
-        let unsorted_rlcs: Value<Vec<_>> = Value::from_iter((0..stage_state.rows()).map(|i| {
-            let local_frame_index_lo = region.get_advice(
+        let rows = stage_state.rows();
+        let mut keys = Vec::with_capacity(rows);
+        for i in 0..rows {
+            let frame_lo = region.get_advice(
                 offset + i,
                 step_state.local_frame_index.lo().get_column_idx(),
                 Rotation::cur(),
             );
-            let local_frame_index_hi = region.get_advice(
+            let frame_hi = region.get_advice(
                 offset + i,
                 step_state.local_frame_index.hi().get_column_idx(),
                 Rotation::cur(),
             );
-            let local_frame_index =
-                local_frame_index_hi * pow_of_two::<F>(8) + local_frame_index_lo;
-            let local_index = region.get_advice(
+            let frame = frame_hi * pow_of_two::<F>(8) + frame_lo;
+            let index = region.get_advice(
                 offset + i,
                 step_state.local_index.get_column_idx(),
                 Rotation::cur(),
             );
-            let local_sub_index = region.get_advice(
+            let sub_index = region.get_advice(
                 offset + i,
                 step_state.local_sub_index.get_column_idx(),
                 Rotation::cur(),
             );
-            randomness.map(|r| rlc::generic([local_frame_index, local_index, local_sub_index], r))
-        }));
-        let sort_rlcs = unsorted_rlcs.map(|mut l| {
-            let before = l.clone();
-            l.sort();
-            debug_assert_eq!(before, l);
-            l
-        });
-        sort_rlcs.error_if_known_and(|rlcs| {
-            let rlcs = rlcs
-                .iter()
-                .map(|v| {
-                    let bytes = v.to_repr();
-                    let array: &[u8; 32] = bytes
-                        .as_ref()
-                        .try_into()
-                        .expect("slice with incorrect length");
-                    U256::from_le_bytes(array)
-                })
-                .collect::<Vec<_>>();
-            let mut assign_result = vec![];
-            let mut prev_rlc = U256::zero();
-            for (i, rlc) in rlcs.iter().enumerate().take(stage_state.rows()) {
-                assign_result.push(self.rlc.assign_u256(region, offset + i, *rlc).map(|_| ()));
-                assign_result.push(self.lt_gadget.assign(region, offset + i, prev_rlc, *rlc));
-                prev_rlc = *rlc;
-            }
-            let assign_result = assign_result.into_iter().collect::<Result<Vec<_>, Error>>();
-            assign_result.is_err()
-        })?;
-        Ok(stage_state.rows())
+            keys.push(frame * pow_of_two::<F>(72) + index * pow_of_two::<F>(64) + sub_index);
+        }
+
+        let mut sorted = keys.clone();
+        sorted.sort();
+        debug_assert_eq!(keys, sorted, "teardown rows must be sorted by address");
+
+        let mut prev_key = F::zero();
+        for (i, key) in keys.iter().enumerate() {
+            let _ = self.lt_gadget.assign(region, offset + i, prev_key, *key)?;
+            prev_key = *key;
+        }
+        Ok(rows)
     }
 }

@@ -15,7 +15,7 @@ use witness::step_state::StageState;
 
 #[derive(Clone, Debug)]
 pub struct VecBorrow<F> {
-    vec_ref_sub_index: ExtendedSubIndex<F, 8>,
+    vec_ref_sub_index: ExtendedSubIndex<F, 4>,
 }
 
 impl<F: Field> InstructionGadgetV2<F> for VecBorrow<F> {

@@ -1,4 +1,5 @@
 use crate::cached_region::CachedRegion;
+#[cfg(feature = "test-circuits")]
 use crate::query_expression;
 use field_exts::util::Expr;
 use field_exts::Field;
@@ -18,6 +19,9 @@ pub enum CellType {
     StoragePhase0,
     StoragePhase1,
     StoragePhase1EnableEquality,
+    /// Storage for intermediate values whose expression uses third phase cells
+    /// (e.g. lookup cells).
+    StoragePhase2,
     Lookup(Table),
 }
 
@@ -27,6 +31,7 @@ impl CellType {
             Self::StoragePhase0,
             Self::StoragePhase1,
             Self::StoragePhase1EnableEquality,
+            Self::StoragePhase2,
         ]
         .into_iter()
         .chain(Table::iter().map(CellType::Lookup))
@@ -40,10 +45,8 @@ impl CellType {
         match self {
             CellType::StoragePhase0 => 0,
             CellType::StoragePhase1 | CellType::StoragePhase1EnableEquality => 1,
-            CellType::Lookup(t) => match t {
-                Table::Nibble | Table::U8 | Table::U2 => 2,
-                _ => 2,
-            },
+            CellType::StoragePhase2 => 2,
+            CellType::Lookup(_) => 2,
         }
     }
 }
@@ -68,6 +71,7 @@ impl CellType {
         match phase {
             0 => CellType::StoragePhase0,
             1 => CellType::StoragePhase1,
+            2 => CellType::StoragePhase2,
             _ => unreachable!(),
         }
     }
@@ -205,11 +209,6 @@ impl CellColumn {
             cell_type,
             idx,
         }
-    }
-
-    /// Queries column at rotation 0.
-    pub fn expr<F: Field>(&self, meta: &mut ConstraintSystem<F>) -> Expression<F> {
-        query_expression(meta, |meta| meta.query_advice(self.advice, Rotation::cur()))
     }
 
     pub fn expr_vc<F: Field>(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

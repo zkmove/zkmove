@@ -11,12 +11,18 @@ use field_exts::Field;
 use halo2_proofs::plonk::{ConstraintSystem, Expression};
 use std::collections::HashMap;
 
-// Max degree allowed in all expressions passing through the ConstraintBuilder.
-// It aims to cap `extended_k` to 2, which allows constraint degree to 2^2+1,
-// but each ExecutionGadget has implicit selector degree 3, so here it only
-// allows 2^2+1-3 = 2.
-const MAX_DEGREE: usize = 5;
-const IMPLICIT_DEGREE: usize = 3;
+// Max degree allowed for a full gate expression, i.e. after the implicit
+// multipliers added when the gate is created are taken into account.
+//
+// Every ExecutionGadget gate multiplies its constraints by the execution state
+// selector (degree 2), `s_usable` (degree 1) and a row selector (degree 2,
+// because `first_row`/`last_row` are built with `or`/`and` of a selector and a
+// `clk` difference), so the implicit degree is 5.  `split_expression` splits
+// products until every factor is at most degree 1 and stores the intermediate
+// values in cells, so the smallest constraint it can produce is a product of
+// two cells (degree 2); hence the maximum inner degree is 2 and the total is 7.
+const MAX_DEGREE: usize = 7;
+const IMPLICIT_DEGREE: usize = 5;
 
 #[derive(Default)]
 pub(crate) enum Transition<T> {
@@ -71,13 +77,12 @@ pub(crate) struct VmConstraintBuilder<'a, F: Field> {
 impl<F: Field> ConstraintBuilder<F> for VmConstraintBuilder<'_, F> {
     fn add_constraint(&mut self, name: String, constraint: Expression<F>) {
         let constraint = constraint * self.condition_expr();
-        // let constraint = self.split_expression(
-        //     name.as_str(),
-        //     constraint,
-        //     MAX_DEGREE - IMPLICIT_DEGREE, // FIXME: check on the degree
-        // );
-
-        // self.validate_degree(constraint.degree(), name.as_str());
+        // Keep the gate polynomial within `MAX_DEGREE` by storing sub-expressions
+        // in cells.  The cells are assigned from their expressions after all rows
+        // have been assigned (see `assign_stored_expression`).
+        let constraint =
+            self.split_expression(name.as_str(), constraint, MAX_DEGREE - IMPLICIT_DEGREE);
+        self.validate_degree(constraint.degree(), name.as_str());
 
         self.push_constraint(name, constraint);
     }
@@ -166,7 +171,9 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     }
 
     pub fn step_state_at_offset(&mut self, offset: isize) -> StepState<F> {
-        Step::new(self.meta, self.columns, offset, self.challenges).state
+        self.curr
+            .new_at(self.meta, self.columns, offset, self.challenges)
+            .state
     }
 
     pub(crate) fn query_bools<const N: usize>(&mut self) -> [Cell<F>; N] {
@@ -605,9 +612,9 @@ impl<'a, F: Field> VmConstraintBuilder<'a, F> {
     }
 
     pub(crate) fn validate_degree(&self, degree: usize, name: &str) {
-        // We need to subtract IMPLICIT_DEGREE from MAX_DEGREE because all expressions
-        // will be multiplied by state selector and q_step/q_step_first
-        // selector.
+        // We need to subtract IMPLICIT_DEGREE from MAX_DEGREE because all
+        // expressions will be multiplied by the state selector, `q_usable` and a
+        // row selector when the gate is created.
         debug_assert!(
             degree <= MAX_DEGREE - IMPLICIT_DEGREE,
             "Expression {} degree too high: {} > {}",

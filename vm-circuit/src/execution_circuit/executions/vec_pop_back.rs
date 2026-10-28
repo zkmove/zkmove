@@ -25,7 +25,7 @@ use witness::step_state::StageState;
 #[derive(Clone)]
 pub struct VecPopBackStage1<F> {
     vector_sub_index: Cell<F>,
-    extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
+    extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 4>,
     vector_origin_len: WordU16Cells<F>,
     is_zero_ori_len: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
@@ -296,7 +296,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPopBackStage1<F> {
 #[derive(Clone)]
 pub struct VecPopBackStage2<F> {
     vector_sub_index: Cell<F>,
-    extended_vector_sub_index: ExtendedSubIndex<F, 8>,
+    extended_vector_sub_index: ExtendedSubIndex<F, 4>,
     vector_origin_len: WordU16Cells<F>,
 }
 impl<F: Field> VecPopBackStage2<F> {

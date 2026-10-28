@@ -18,7 +18,7 @@ use witness::step_state::StageState;
 #[derive(Clone, Debug)]
 pub struct ReadRef<F> {
     header_sub_index: Cell<F>,
-    header_sub_index_ext: ExtendedSubIndex<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 4>,
 }
 impl<F: Field> InstructionGadgetV2<F> for ReadRef<F> {
     const NAME: &'static str = "ReadRef";

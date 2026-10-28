@@ -3,6 +3,7 @@ use crate::execution_circuit::step::{
     STEP_COUNTER,
 };
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
+use crate::CLK_RANGE_CHECK_BYTES;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use field_exts::util::{not, Expr};
@@ -14,8 +15,8 @@ use witness::step_state::ExecutionState;
 
 #[derive(Clone, Debug)]
 pub(crate) struct BaseConstraintGadget<F> {
-    stack_pop_version_range_check: RangeCheckGadget<F, 4>,
-    local_read_version_range_check: RangeCheckGadget<F, 4>,
+    stack_pop_version_range_check: RangeCheckGadget<F, CLK_RANGE_CHECK_BYTES>,
+    local_read_version_range_check: RangeCheckGadget<F, CLK_RANGE_CHECK_BYTES>,
 }
 
 impl<F: Field> BaseConstraintGadget<F> {
@@ -94,7 +95,8 @@ impl<F: Field> BaseConstraintGadget<F> {
             );
         });
 
-        // stack_pop_version(0) < clk(0)
+        // stack_pop_version(0) < clk(0); `clk` is bounded by the circuit
+        // rows (at most 2^MAX_DEGREE), so CLK_RANGE_CHECK_BYTES bytes suffice.
         let stack_pop_version_range_check = RangeCheckGadget::construct(
             cb,
             cb.curr.state.clk.expr() - cb.curr.state.stack_pop_version.expr(),

@@ -216,8 +216,23 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
 
         let challenges = Challenges::construct(meta);
         let challenge_exprs = challenges.exprs(meta);
-        let step_curr = Step::new(meta, &mut cell_columns, 0, &challenge_exprs);
-        let step_next = Step::new(meta, &mut cell_columns, 1, &challenge_exprs);
+        // Only the execution states reachable from the used opcodes need to be
+        // supported by the step's execution state selector.
+        let used_execution_states = ExecutionState::used_states(used_opcodes, use_poseidon_hash);
+        let step_curr = Step::new(
+            meta,
+            &mut cell_columns,
+            0,
+            &challenge_exprs,
+            &used_execution_states,
+        );
+        let step_next = Step::new(
+            meta,
+            &mut cell_columns,
+            1,
+            &challenge_exprs,
+            &used_execution_states,
+        );
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);
             let s_step_first = vc.query_selector(s_step_first);
@@ -311,11 +326,6 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
 
             (step_curr, base_constraint)
         };
-        let mut used_execution_states = ExecutionState::mandatory_states();
-        used_execution_states.extend(ExecutionState::from_opcodes(used_opcodes));
-        if use_poseidon_hash {
-            used_execution_states.push(ExecutionState::NativePoseidonHash);
-        }
         macro_rules! build_opcode_gadget {
             () => {
                 Self::build_opcode_gadget(
@@ -494,8 +504,8 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         constraints_map: BTreeMap<Option<ExecutionState>, Constraints<F>>,
         lookup_map: BTreeMap<Option<ExecutionState>, Lookups<F>>,
     ) {
-        let step_prev = Step::new(meta, columns, -1, challenges).state;
-        let step_next = Step::new(meta, columns, 1, challenges).state;
+        let step_prev = step_curr.new_at(meta, columns, -1, challenges).state;
+        let step_next = step_curr.new_at(meta, columns, 1, challenges).state;
 
         // Enforce the logic for this opcode
         let first_row: &dyn Fn(&mut VirtualCells<F>) -> Expression<F> = &|meta| {
@@ -653,9 +663,9 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         for column in cell_manager_columns.columns().iter() {
             if let CellType::Lookup(table) = column.cell_type {
                 let name = format!("{:?}", table);
-                let column_expr = column.expr(meta);
                 meta.lookup_any(name.as_str(), |meta| {
                     let s_usable = meta.query_selector(s_usable);
+                    let column_expr = column.expr_vc(meta);
                     let table_expressions = lookup_table_config.table_exprs(table, meta);
                     vec![(
                         s_usable * column_expr,
@@ -914,7 +924,12 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
             let is_first_row = i == 0;
             let is_last_row = i == rows - 1;
 
-            if let Some(stored_expressions) = stored_expressions_map.get(&Some(*execution_state)) {
+            // Stored expressions created by the base constraint builder (`None`)
+            // apply to every execution state.
+            for key in [None, Some(*execution_state)] {
+                let Some(stored_expressions) = stored_expressions_map.get(&key) else {
+                    continue;
+                };
                 for (location, expressions) in stored_expressions {
                     let row_match = match location {
                         Some(ConstraintLocation::FirstRow) => is_first_row,
