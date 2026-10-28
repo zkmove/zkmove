@@ -1,4 +1,5 @@
 use crate::cached_region::CachedRegion;
+#[cfg(feature = "test-circuits")]
 use crate::query_expression;
 use field_exts::util::Expr;
 use field_exts::Field;
@@ -208,11 +209,6 @@ impl CellColumn {
             cell_type,
             idx,
         }
-    }
-
-    /// Queries column at rotation 0.
-    pub fn expr<F: Field>(&self, meta: &mut ConstraintSystem<F>) -> Expression<F> {
-        query_expression(meta, |meta| meta.query_advice(self.advice, Rotation::cur()))
     }
 
     pub fn expr_vc<F: Field>(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
