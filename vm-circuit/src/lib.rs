@@ -35,6 +35,24 @@ pub(crate) mod utils;
 
 pub mod public_inputs;
 
+/// The maximum circuit size: the number of circuit rows cannot exceed `2^MAX_DEGREE`.
+pub const MAX_DEGREE: u32 = 16;
+
+/// The minimum circuit size used by [`crate::VmCircuit`] key generation.
+pub const MIN_DEGREE: u32 = 8;
+
+/// Number of bytes used by the `clk - version` range checks in the execution
+/// circuit.
+///
+/// `clk` never exceeds the number of execution rows, and
+/// [`VmCircuit::validate_capacity`] rejects circuits with `2^MAX_DEGREE` or more
+/// rows, so for any honest witness `clk - version < 2^MAX_DEGREE`.  The
+/// assertion below makes sure this bound fits in the bytes used here, i.e. that
+/// `MAX_DEGREE <= 8 * CLK_RANGE_CHECK_BYTES`.
+pub const CLK_RANGE_CHECK_BYTES: usize = 2;
+
+const _: () = assert!(MAX_DEGREE <= (CLK_RANGE_CHECK_BYTES as u32) * 8);
+
 // Thread-local storage to hold a reference-counted circuit instance.
 // Allows circuits to be configured according to bytecode in the program.
 thread_local! {
@@ -300,8 +318,21 @@ impl<F: Field + Hashable> VmCircuit<F> {
 
     /// Validate that the witness data fits the configured circuit capacities.
     pub fn validate_capacity(&self) -> Result<(), String> {
+        // `clk` never exceeds the number of execution rows, and the version range
+        // checks in the execution circuit only cover 2^(8 * CLK_RANGE_CHECK_BYTES)
+        // values (== 2^MAX_DEGREE here), so reject circuits that could exceed
+        // that bound.
+        let execution_rows = self.execution_rows();
+        let clk_bound = 1usize << (CLK_RANGE_CHECK_BYTES * 8);
+        if execution_rows >= clk_bound {
+            return Err(format!(
+                "execution rows {} exceed the maximum supported by the clk range check (2^{})",
+                execution_rows,
+                CLK_RANGE_CHECK_BYTES * 8
+            ));
+        }
+
         if let Some(max_execution_rows) = self.circuit_config_args.max_execution_rows {
-            let execution_rows = self.execution_rows();
             if execution_rows > max_execution_rows {
                 return Err(format!(
                     "execution rows {} exceed configured max_execution_rows {}",
@@ -374,10 +405,16 @@ impl<F: Field + Hashable> VmCircuit<F> {
         static_info: &StaticInfo,
         circuit_config_args: &CircuitConfigArgs,
     ) -> Result<(), String> {
-        if circuit_config_args.max_execution_rows.is_none() {
+        let Some(max_execution_rows) = circuit_config_args.max_execution_rows else {
             return Err(
                 "max_execution_rows is required when building circuit artifacts".to_string(),
             );
+        };
+        if max_execution_rows >= (1usize << MAX_DEGREE) {
+            return Err(format!(
+                "max_execution_rows {} exceeds the maximum supported circuit size 2^{}",
+                max_execution_rows, MAX_DEGREE
+            ));
         }
 
         if static_info.contain_zkhash() {
