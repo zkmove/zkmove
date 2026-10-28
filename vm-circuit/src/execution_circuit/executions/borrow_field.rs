@@ -14,7 +14,7 @@ use witness::step_state::StageState;
 
 #[derive(Clone, Debug)]
 pub struct BorrowField<F> {
-    stack_pop_value_sub_index: ExtendedSubIndex<F, 8>,
+    stack_pop_value_sub_index: ExtendedSubIndex<F, 4>,
 }
 impl<F: Field> InstructionGadgetV2<F> for BorrowField<F> {
     const NAME: &'static str = "BorrowField";

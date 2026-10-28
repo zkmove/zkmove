@@ -62,18 +62,18 @@ Flattening this tree produces the following list:
 
 |       | `index` | `sub_index`          | `value` | `value_header` |
 | ----- | ------- | -------------------- | ------- | -------------- |
-| `a`   | 1       | 0,0,0,0,0,0,0,0      | 2,6     | true           |
-| `a0`  | 1       | 1,0,0,0,0,0,0,0      | 0u8     | false          |
-| `b`   | 1       | 2,0,0,0,0,0,0,0      | 3,4     | true           |
-| `b0`  | 1       | 2,1,0,0,0,0,0,0      | 1u8     | false          |
-| `b1`  | 1       | 2,2,0,0,0,0,0,0      | 2u64    | false          |
-| `b2`  | 1       | 2,3,0,0,0,0,0,0      | 3u64    | false          |
+| `a`   | 1       | 0,0,0,0      | 2,6     | true           |
+| `a0`  | 1       | 1,0,0,0      | 0u8     | false          |
+| `b`   | 1       | 2,0,0,0      | 3,4     | true           |
+| `b0`  | 1       | 2,1,0,0      | 1u8     | false          |
+| `b1`  | 1       | 2,2,0,0      | 2u64    | false          |
+| `b2`  | 1       | 2,3,0,0      | 3u64    | false          |
 
 In the circuit, a complex value is represented as a list of 4-tuples `(index, sub_index, value, value_header)`, where:
 
 - **`index`** — the position of the value on the stack.
 - **`value_header`** — a flag indicating whether this entry is a `ValueHeader`. A `ValueHeader` is a pair `(len, flen)`, where `len` is the number of direct members (struct fields or vector length) and `flen` is the total number of entries in the flattened list (always `≥ len` since it includes nested `ValueHeader`s).
-- **`sub_index`** — the relative position of an element within a complex value. It is a fixed-size array `[u16; 8]`, supporting up to 8 dimensions with up to 2¹⁶ elements per dimension. `sub_index` is encoded as a `U128` value using a single BN254 scalar field element. Because sub-index ordering is not required to be monotonically increasing, little-endian byte order is used for better performance.
+- **`sub_index`** — the relative position of an element within a complex value. It is a fixed-size array `[u16; 4]`, supporting up to 4 dimensions with up to 2¹⁶ elements per dimension. `sub_index` is encoded as a `U64` value using a single BN254 scalar field element. Because sub-index ordering is not required to be monotonically increasing, little-endian byte order is used for better performance.
 
 For **locals**, complex values are represented as 5-tuples `(index, sub_index, value, value_header, invalid)`, where `invalid` marks entries that have been moved out or invalidated.
 
@@ -106,7 +106,7 @@ The `Pack` bytecode includes an operand `StructDefinitionIndex`, which specifies
 
 Field types are not re-checked at this point: each field was already type-checked when it was originally created. Unless it was modified in transit, MCC is sufficient to guarantee its type remains correct.
 
-The structural constraint is expressed via the relationship between the new value's `sub_index` and the popped members' `sub_index`. Since each level of `sub_index: [u16; 8]` occupies 16 bits, the constraint is:
+The structural constraint is expressed via the relationship between the new value's `sub_index` and the popped members' `sub_index`. Since each level of `sub_index: [u16; 4]` occupies 16 bits, the constraint is:
 
 ```
 stack_push_sub_index == stack_pop_sub_index << 16 + field_index
@@ -116,12 +116,12 @@ stack_push_sub_index == stack_pop_sub_index << 16 + field_index
 
 | `stack_pop_index` | `stack_pop_sub_index` | `stack_pop_value` | `stack_pop_value_header` | `stack_push_index` | `stack_push_sub_index` | `stack_push_value` | `stack_push_value_header` | `field_idx` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-|   |   |   |   | sp-2 | 0,0,0,0,0,0,0,0 | 3,6  | true  |   |
-| sp   | 0,0,0,0,0,0,0,0 | b1   | false | sp-2 | 3,0,0,0,0,0,0,0 | b1   | false | 3 |
-| sp-1 | 0,0,0,0,0,0,0,0 | b0   | false | sp-2 | 2,0,0,0,0,0,0,0 | b0   | false | 2 |
-| sp-2 | 0,0,0,0,0,0,0,0 | 2,**3** | true  | sp-2 | 1,0,0,0,0,0,0,0 | 2,3  | true  | 1 |
-| sp-2 | 1,0,0,0,0,0,0,0 | a0   | false | sp-2 | 1,1,0,0,0,0,0,0 | a0   | false | 1 |
-| sp-2 | 2,0,0,0,0,0,0,0 | a1   | false | sp-2 | 1,2,0,0,0,0,0,0 | a1   | false | 1 |
+|   |   |   |   | sp-2 | 0,0,0,0 | 3,6  | true  |   |
+| sp   | 0,0,0,0 | b1   | false | sp-2 | 3,0,0,0 | b1   | false | 3 |
+| sp-1 | 0,0,0,0 | b0   | false | sp-2 | 2,0,0,0 | b0   | false | 2 |
+| sp-2 | 0,0,0,0 | 2,**3** | true  | sp-2 | 1,0,0,0 | 2,3  | true  | 1 |
+| sp-2 | 1,0,0,0 | a0   | false | sp-2 | 1,1,0,0 | a0   | false | 1 |
+| sp-2 | 2,0,0,0 | a1   | false | sp-2 | 1,2,0,0 | a1   | false | 1 |
 
 ## Dynamic Vectors
 
@@ -136,22 +136,22 @@ Before `push_back`, `v` is represented in the circuit as:
 
 | `sub_index`         | `value` | `value_header` |
 | ------------------- | ------- | -------------- |
-| 0,0,0,0,0,0,0,0     | 4,5     | true           |
-| 1,0,0,0,0,0,0,0     | 1       | false          |
-| 2,0,0,0,0,0,0,0     | 2       | false          |
-| 3,0,0,0,0,0,0,0     | 3       | false          |
-| 4,0,0,0,0,0,0,0     | 4       | false          |
+| 0,0,0,0     | 4,5     | true           |
+| 1,0,0,0     | 1       | false          |
+| 2,0,0,0     | 2       | false          |
+| 3,0,0,0     | 3       | false          |
+| 4,0,0,0     | 4       | false          |
 
 After `push_back(&mut v, 5)`:
 
 | `sub_index`         | `value` | `value_header` |
 | ------------------- | ------- | -------------- |
-| 0,0,0,0,0,0,0,0     | 5,6     | true           |
-| 1,0,0,0,0,0,0,0     | 1       | false          |
-| 2,0,0,0,0,0,0,0     | 2       | false          |
-| 3,0,0,0,0,0,0,0     | 3       | false          |
-| 4,0,0,0,0,0,0,0     | 4       | false          |
-| 5,0,0,0,0,0,0,0     | 5       | false          |
+| 0,0,0,0     | 5,6     | true           |
+| 1,0,0,0     | 1       | false          |
+| 2,0,0,0     | 2       | false          |
+| 3,0,0,0     | 3       | false          |
+| 4,0,0,0     | 4       | false          |
+| 5,0,0,0     | 5       | false          |
 
 The circuit enforces two constraints for the new element:
 
