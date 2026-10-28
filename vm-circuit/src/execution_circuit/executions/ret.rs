@@ -4,6 +4,7 @@ use crate::execution_circuit::step::{StepState, FRAME_INDEX, SP};
 use crate::execution_circuit::InstructionGadgetV2;
 use crate::public_inputs::InstanceTable;
 use crate::utils::vm_constraint_builder::{Transition, VmConstraintBuilder};
+use crate::CLK_RANGE_CHECK_BYTES;
 use circuit_tool::base_constraint_builder::ConstraintBuilder;
 use circuit_tool::cached_region::CachedRegion;
 use circuit_tool::cell_manager::Cell;
@@ -23,7 +24,7 @@ pub struct Ret<F> {
     pub call_context: CallContext<Expression<F>>,
     is_zero_frame_index: IsZeroGadget<F>,
     call_context_version: Cell<F>,
-    call_context_version_range_check: RangeCheckGadget<F, 4>,
+    call_context_version_range_check: RangeCheckGadget<F, CLK_RANGE_CHECK_BYTES>,
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Ret<F> {
