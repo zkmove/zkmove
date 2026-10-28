@@ -132,7 +132,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage1<F
 pub struct UnpackStage2<F, const VEC_UNPACK: bool> {
     field_index: Cell<F>,
     is_last_field: IsZeroGadget<F>,
-    membership_gadget: Membership<F, 8>,
+    membership_gadget: Membership<F, 4>,
 }
 impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F, VEC_UNPACK> {
     const NAME: &'static str = if VEC_UNPACK {
@@ -278,7 +278,7 @@ impl<F: Field, const VEC_UNPACK: bool> InstructionGadgetV2<F> for UnpackStage2<F
             self.membership_gadget.assign(
                 region,
                 offset + i,
-                field_index as u128,
+                field_index,
                 stack_pop.sub_index.clone().into(),
             )?;
         }

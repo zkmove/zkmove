@@ -10,8 +10,8 @@ use halo2_proofs::{
     plonk::{ErrorFront as Error, Expression},
 };
 use value_type::sub_index::SubIndex;
+use value_type::sub_index::NUM_OF_BYTES_SUB_INDEX;
 use value_type::sub_index::N_BITS_ONE_LIMB;
-use value_type::NUM_OF_BYTES_U128;
 
 pub(crate) const DEPTH_POW_OF_ONE_LEVEL: u64 = 2u64.pow(N_BITS_ONE_LIMB as u32);
 
@@ -31,9 +31,9 @@ fn get_limbs_from_bytes<F: Field, const N_LIMB: usize>(
 
 #[derive(Clone, Debug)]
 pub(crate) struct Membership<F, const N_LIMB: usize> {
-    header_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    header_bytes: [Cell<F>; NUM_OF_BYTES_SUB_INDEX],
     header_limbs: [Expression<F>; N_LIMB],
-    member_bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    member_bytes: [Cell<F>; NUM_OF_BYTES_SUB_INDEX],
     member_limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_header_limbs: [Cell<F>; N_LIMB],
@@ -109,8 +109,8 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
         &self,
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
-        header_sub_index: u128,
-        member_sub_index: u128,
+        header_sub_index: u64,
+        member_sub_index: u64,
     ) -> Result<(), Error> {
         // assign header bytes
         let header_sub_index_bytes = header_sub_index.to_le_bytes();
@@ -143,7 +143,7 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
         }
 
         // assign reverse of header_member_diff
-        let header_member_diff = F::from_u128(member_sub_index) - F::from_u128(header_sub_index);
+        let header_member_diff = F::from(member_sub_index) - F::from(header_sub_index);
         let reverse_header_member_diff = header_member_diff.invert().unwrap_or(F::zero());
         self.reverse_header_member_diff.assign(
             region,
@@ -159,7 +159,7 @@ impl<F: Field, const N_LIMB: usize> Membership<F, N_LIMB> {
 #[derive(Clone, Debug)]
 pub(crate) struct ExtendedSubIndex<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    bytes: [Cell<F>; NUM_OF_BYTES_SUB_INDEX],
     limbs: [Expression<F>; N_LIMB],
     mask: [Cell<F>; N_LIMB],
     reverse_limb: Cell<F>, // reverse of limbs[depth-1]
@@ -292,7 +292,7 @@ impl<F: Field, const N_LIMB: usize> ExtendedSubIndex<F, N_LIMB> {
 #[derive(Clone, Debug)]
 pub(crate) struct SubIndexReverse<F, const N_LIMB: usize> {
     sub_index: Expression<F>,
-    bytes: [Cell<F>; NUM_OF_BYTES_U128],
+    bytes: [Cell<F>; NUM_OF_BYTES_SUB_INDEX],
     limbs: [Expression<F>; N_LIMB],
 }
 impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
@@ -329,7 +329,7 @@ impl<F: Field, const N_LIMB: usize> SubIndexReverse<F, N_LIMB> {
     ) -> Result<(), Error> {
         let value: u128 = sub_index.clone().into();
         let bytes = value.to_le_bytes();
-        debug_assert!(bytes.len() == self.bytes.len());
+        debug_assert!(bytes.len() >= self.bytes.len());
         for (i, cell) in self.bytes.iter().enumerate() {
             cell.assign(region, offset, Value::known(F::from(bytes[i] as u64)))?;
         }

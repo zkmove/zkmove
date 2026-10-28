@@ -161,7 +161,7 @@ pub struct VecSwapStage_2_Or_3<F, const TWO: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
-    ref_local_sub_index_extended: ExtendedSubIndex<F, 8>,
+    ref_local_sub_index_extended: ExtendedSubIndex<F, 4>,
 }
 impl<F: Field, const TWO: bool> VecSwapStage_2_Or_3<F, TWO> {
     const PREV_STATE: ExecutionState = if TWO {
@@ -380,7 +380,7 @@ pub struct VecSwapStage_4_Or_5<F, const FOUR: bool> {
     index1: Cell<F>,
     index2: Cell<F>,
     ref_local_sub_index: Cell<F>,
-    ref_local_sub_index_extended: ExtendedSubIndex<F, 8>,
+    ref_local_sub_index_extended: ExtendedSubIndex<F, 4>,
 }
 /// Stage 5/6 pop from stack and write to local of index1/index2
 impl<F: Field, const FOUR: bool> VecSwapStage_4_Or_5<F, FOUR> {

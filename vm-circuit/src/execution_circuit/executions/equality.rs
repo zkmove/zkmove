@@ -28,8 +28,8 @@ pub struct Equality<F, const STAGE1: bool, const EQ: bool> {
     // define stack_pop_sub_index_reverse to constrain sub_index monotonically increasing,
     // prevents malicious prover from faking eq as neq or vice versa.
     stack_pop_sub_index_reverse: Cell<F>,
-    sub_index_reverse: SubIndexReverse<F, 8>,
-    sub_index_lt: LtGadget<F, 16>,
+    sub_index_reverse: SubIndexReverse<F, 4>,
+    sub_index_lt: LtGadget<F, 8>,
     rlc1_rlc2_eq: IsZeroGadget<F>,
 }
 impl<F: Field, const STAGE1: bool, const EQ: bool> InstructionGadgetV2<F>

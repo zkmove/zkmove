@@ -24,7 +24,7 @@ use witness::step_state::StageState;
 pub struct WriteRefStage1<F> {
     header_sub_index: Cell<F>,
     header_flen_delta: Cell<F>,
-    membership_gadget: Membership<F, 8>,
+    membership_gadget: Membership<F, 4>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
     const NAME: &'static str = "WriteRef_Stage1";
@@ -186,7 +186,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
                 self.membership_gadget.assign(
                     region,
                     offset + i,
-                    header_sub_index,
+                    header_sub_index as u64,
                     local_sub_index.clone().into(),
                 )
             })
@@ -200,7 +200,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage1<F> {
 pub struct WriteRefStage2<F> {
     header_sub_index: Cell<F>,  //NOTICE: must be in the same column as stage 1.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as stage 1.
-    header_sub_index_ext: ExtendedSubIndex<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 4>,
     is_zero_header_sub_index: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
@@ -370,7 +370,7 @@ impl<F: Field> InstructionGadgetV2<F> for WriteRefStage2<F> {
 pub struct WriteRefStage3<F> {
     header_sub_index: Cell<F>, //NOTICE: must be in the same column as prev stage.
     header_flen_delta: Cell<F>, //NOTICE: must be in the same column as prev stage.
-    header_sub_index_ext: ExtendedSubIndex<F, 8>,
+    header_sub_index_ext: ExtendedSubIndex<F, 4>,
     is_zero_gadget: IsZeroGadget<F>,
 }
 impl<F: Field> InstructionGadgetV2<F> for WriteRefStage3<F> {

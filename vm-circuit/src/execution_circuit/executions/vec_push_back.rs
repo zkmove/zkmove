@@ -27,7 +27,7 @@ use witness::step_state::StageState;
 #[derive(Clone)]
 pub struct VecPushBackStage1<F> {
     vector_sub_index: Cell<F>,
-    extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 8>,
+    extended_local_sub_index_of_next_row: ExtendedSubIndex<F, 4>,
     vector_origin_len: WordU16Cells<F>,
     is_ori_len_max_u16: IsZeroGadget<F>,
     is_zero_gadget: IsZeroGadget<F>,
@@ -296,7 +296,7 @@ impl<F: Field> InstructionGadgetV2<F> for VecPushBackStage1<F> {
 #[derive(Clone)]
 pub struct VecPushBackStage2<F> {
     vector_sub_index: Cell<F>,
-    extended_vector_sub_index: ExtendedSubIndex<F, 8>,
+    extended_vector_sub_index: ExtendedSubIndex<F, 4>,
     vector_origin_len: WordU16Cells<F>,
 }
 impl<F: Field> VecPushBackStage2<F> {
