@@ -1,4 +1,3 @@
-use crate::query_expression;
 use field_exts::Field;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::plonk::{Challenge, ConstraintSystem, Expression, FirstPhase, SecondPhase};
@@ -29,19 +28,14 @@ impl Challenges {
     }
 
     /// Returns `Expression` of challenges from `ConstraintSystem`.
-    pub fn exprs<F: Field>(&self, meta: &mut ConstraintSystem<F>) -> Challenges<Expression<F>> {
-        let [keccak_input, column_keccak_input, lookup_input] = query_expression(meta, |meta| {
-            [
-                self.row_keccak_input,
-                self.column_keccak_input,
-                self.lookup_input,
-            ]
-            .map(|challenge| meta.query_challenge(challenge))
-        });
+    ///
+    /// Challenges do not need to be queried through a gate: the expression is
+    /// simply the challenge itself.
+    pub fn exprs<F: Field>(&self, _meta: &mut ConstraintSystem<F>) -> Challenges<Expression<F>> {
         Challenges {
-            row_keccak_input: keccak_input,
-            column_keccak_input,
-            lookup_input,
+            row_keccak_input: Expression::Challenge(self.row_keccak_input),
+            column_keccak_input: Expression::Challenge(self.column_keccak_input),
+            lookup_input: Expression::Challenge(self.lookup_input),
         }
     }
 

@@ -663,9 +663,9 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         for column in cell_manager_columns.columns().iter() {
             if let CellType::Lookup(table) = column.cell_type {
                 let name = format!("{:?}", table);
-                let column_expr = column.expr(meta);
                 meta.lookup_any(name.as_str(), |meta| {
                     let s_usable = meta.query_selector(s_usable);
+                    let column_expr = column.expr_vc(meta);
                     let table_expressions = lookup_table_config.table_exprs(table, meta);
                     vec![(
                         s_usable * column_expr,
