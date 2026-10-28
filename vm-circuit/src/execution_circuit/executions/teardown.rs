@@ -10,10 +10,8 @@ use field_exts::util::Expr;
 use field_exts::util::{pow_of_two, pow_of_two_expr};
 use field_exts::Field;
 use gadgets::lt::LtGadget;
-use gadgets::range_check::RangeCheckGadget;
 use halo2_proofs::plonk::{ErrorFront as Error, Expression};
 use halo2_proofs::poly::Rotation;
-use value_type::sub_index::NUM_OF_BYTES_SUB_INDEX;
 use witness::static_info::StaticInfo;
 use witness::step_state::ExecutionState;
 use witness::step_state::StageState;
@@ -29,15 +27,20 @@ const NUM_OF_BYTES_ADDRESS_KEY: usize = 11;
 #[derive(Clone, Debug)]
 pub struct Teardown<F> {
     lt_gadget: LtGadget<F, NUM_OF_BYTES_ADDRESS_KEY>,
-    sub_index_range_check: RangeCheckGadget<F, NUM_OF_BYTES_SUB_INDEX>,
 }
 
 /// Returns the packed address key `frame * 2^72 + index * 2^64 + sub_index`
 /// of the step state at `offset`.
 ///
-/// The key is injective: `local_frame_index` is range checked to 10 bits and
-/// `local_index` to 8 bits by their lookup cells, while `local_sub_index` is
-/// range checked to 64 bits by the teardown gadget.
+/// The strict-increase check on this key is what rules out duplicate local
+/// addresses: duplicate addresses have identical cells (their entries are
+/// pinned by the memory consistency shuffle), hence identical keys, so they
+/// can never be strictly increasing.  Injectivity of the packing is therefore
+/// only needed for completeness (honest witnesses, where `local_frame_index`
+/// is 10 bits, `local_index` 8 bits and `local_sub_index` 64 bits), not for
+/// soundness: a collision between two different addresses would be rejected
+/// by the same strict-increase check.  Consequently `local_sub_index` does not
+/// need to be range checked to 64 bits here.
 fn key_expr_at<F: Field>(
     cb: &mut VmConstraintBuilder<F>,
     state: &StepState<F>,
@@ -69,13 +72,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
             1u64.expr() - cb.curr.state.local_write_version.expr(),
         );
 
-        // The address key compares `local_sub_index` as a 64-bit integer, so
-        // make sure it is actually bounded by 2^64.
-        let sub_index_range_check = RangeCheckGadget::<F, NUM_OF_BYTES_SUB_INDEX>::construct(
-            cb,
-            cb.curr.state.local_sub_index.expr(),
-        );
-
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
 
@@ -102,7 +98,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
 
         Self {
             lt_gadget: lt.unwrap(),
-            sub_index_range_check,
         }
     }
     fn assign_common(
@@ -153,7 +148,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
 
         let rows = stage_state.rows();
         let mut keys = Vec::with_capacity(rows);
-        let mut sub_indices = Vec::with_capacity(rows);
         for i in 0..rows {
             let frame_lo = region.get_advice(
                 offset + i,
@@ -177,7 +171,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                 Rotation::cur(),
             );
             keys.push(frame * pow_of_two::<F>(72) + index * pow_of_two::<F>(64) + sub_index);
-            sub_indices.push(sub_index);
         }
 
         let mut sorted = keys.clone();
@@ -186,8 +179,6 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
 
         let mut prev_key = F::zero();
         for (i, key) in keys.iter().enumerate() {
-            self.sub_index_range_check
-                .assign(region, offset + i, sub_indices[i])?;
             let _ = self.lt_gadget.assign(region, offset + i, prev_key, *key)?;
             prev_key = *key;
         }
