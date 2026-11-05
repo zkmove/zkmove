@@ -165,3 +165,51 @@ impl<F: Field> ExecutionCircuit<F> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::plonk::ConstraintSystem;
+    use move_binary_format::file_format_common::Opcodes;
+
+    fn configure(needs_sub_index: bool) -> ConstraintSystem<Fr> {
+        let mut cs = ConstraintSystem::<Fr>::default();
+        let args = ExecutionCircuitConfigArgs {
+            used_opcodes: vec![Opcodes::RET],
+            use_poseidon_hash: false,
+            needs_sub_index,
+        };
+        let _ = <ExecutionCircuitConfig<Fr> as SubCircuitConfig<Fr>>::new(&mut cs, args);
+        cs
+    }
+
+    /// The compact layout must be exactly the full layout minus the sub_index
+    /// dimension: three step cells and the eight bytes of the teardown address
+    /// key that carry `sub_index`.  This is a layout regression test; update the
+    /// numbers when the circuit layout intentionally changes.
+    #[test]
+    fn compact_layout_omits_sub_index_cells() {
+        let full = configure(true);
+        let compact = configure(false);
+
+        assert_eq!(full.num_advice_columns(), 76);
+        assert_eq!(compact.num_advice_columns(), 65);
+        assert_eq!(full.lookups().len(), 29);
+        assert_eq!(compact.lookups().len(), 21);
+
+        // Only cells disappear; gates and their polynomials are unchanged.
+        assert_eq!(full.gates().len(), compact.gates().len());
+        assert_eq!(
+            full.gates()
+                .iter()
+                .map(|g| g.polynomials().len())
+                .sum::<usize>(),
+            compact
+                .gates()
+                .iter()
+                .map(|g| g.polynomials().len())
+                .sum::<usize>()
+        );
+    }
+}
