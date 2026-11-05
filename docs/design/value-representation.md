@@ -75,6 +75,8 @@ In the circuit, a complex value is represented as a list of 4-tuples `(index, su
 - **`value_header`** — a flag indicating whether this entry is a `ValueHeader`. A `ValueHeader` is a pair `(len, flen)`, where `len` is the number of direct members (struct fields or vector length) and `flen` is the total number of entries in the flattened list (always `≥ len` since it includes nested `ValueHeader`s).
 - **`sub_index`** — the relative position of an element within a complex value. It is a fixed-size array `[u16; 4]`, supporting up to 4 dimensions with up to 2¹⁶ elements per dimension. `sub_index` is encoded as a `U64` value using a single BN254 scalar field element. Because sub-index ordering is not required to be monotonically increasing, little-endian byte order is used for better performance.
 
+`sub_index` is only needed when the program can actually produce complex values. The circuit decides this statically from the package: complex opcodes (`Pack`, `Unpack`, `BorrowField`, `Vec*`), struct/vector entry arguments, or struct/vector constants. When none of them occur, the circuit omits the `sub_index` cells and the teardown address key shrinks from 11 bytes to 3 bytes. The decision does not depend on the witness, so setup and proving always build the same layout.
+
 For **locals**, complex values are represented as 5-tuples `(index, sub_index, value, value_header, invalid)`, where `invalid` marks entries that have been moved out or invalidated.
 
 ### Representation of References
