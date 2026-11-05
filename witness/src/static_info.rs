@@ -2,6 +2,8 @@ use crate::static_info::bytecode::BytecodeInfo;
 use crate::static_info::constant::ConstantInfo;
 use crate::static_info::function::FunctionInfo;
 use anyhow::Result;
+use move_binary_format::access::ModuleAccess;
+use move_binary_format::file_format::SignatureToken;
 use move_binary_format::file_format_common::Opcodes;
 use move_binary_format::views::FunctionHandleView;
 use move_binary_format::CompiledModule;
@@ -107,6 +109,12 @@ pub struct StaticInfo {
     pub entry_module_index: u32,
     pub entry_function_index: u16,
     pub pubs_indices: Vec<usize>,
+    /// Whether the circuit needs the `sub_index` dimension of memory addresses.
+    ///
+    /// `sub_index` identifies a leaf inside a complex (struct/vector) value.
+    /// It is omitted from the circuit when the package cannot produce complex
+    /// values, which removes three step cells and shrinks the teardown key.
+    pub needs_sub_index: bool,
 }
 
 impl StaticInfo {
@@ -129,14 +137,25 @@ impl StaticInfo {
         deps.push(modules.get_module(module_id).unwrap().clone());
 
         if Self::valid_pubs_indices(pubs_indices, entry_info.num_args) {
+            let bytecode_info = bytecode::parse_bytecode(&module_id_mapping, &deps);
+            let function_info = function::parse_function(&module_id_mapping, &deps);
+            let constant_info = constant::parse_constant(&module_id_mapping, &deps);
+            let used_opcodes = Self::collect_used_opcodes(&bytecode_info);
+            let needs_sub_index = used_opcodes_need_sub_index(&used_opcodes)
+                || entry_params_need_sub_index(package, &entry_info)
+                || (used_opcodes.contains(&Opcodes::LD_CONST)
+                    && constant_info
+                        .iter()
+                        .any(|constant| move_value_has_complex_value(&constant.value)));
             Some(StaticInfo {
-                bytecode_info: bytecode::parse_bytecode(&module_id_mapping, &deps),
-                function_info: function::parse_function(&module_id_mapping, &deps),
-                constant_info: constant::parse_constant(&module_id_mapping, &deps),
+                bytecode_info,
+                function_info,
+                constant_info,
                 module_id_mapping,
                 entry_module_index: module_index,
                 entry_function_index: entry_info.function_index,
                 pubs_indices: pubs_indices.to_vec(),
+                needs_sub_index,
             })
         } else {
             None
@@ -192,8 +211,13 @@ impl StaticInfo {
     }
 
     pub fn used_opcodes(&self) -> Vec<Opcodes> {
-        let mut used_opcodes = self
-            .bytecode_info
+        Self::collect_used_opcodes(&self.bytecode_info)
+    }
+
+    fn collect_used_opcodes(
+        bytecode_info: &BTreeMap<u32, BTreeMap<u16, Vec<BytecodeInfo>>>,
+    ) -> Vec<Opcodes> {
+        let mut used_opcodes = bytecode_info
             .values()
             .flat_map(|funcs| funcs.values())
             .flat_map(|bytecodes| bytecodes.iter().map(|b| b.opcode))
@@ -211,6 +235,67 @@ impl StaticInfo {
             .get_module_with_name("zkhash")
             .is_some()
     }
+}
+
+/// Opcodes that can create or consume a non-zero `sub_index` path.
+///
+/// A value carrying a sub-index path can only originate from packing/unpacking
+/// a complex value, borrowing a field, or a vector element operation.  Opcodes
+/// such as `CopyLoc`, `Call`, `ReadRef`, `WriteRef` or `Pop` only propagate
+/// paths created by one of the opcodes below (or by the entry arguments / a
+/// complex constant), so they do not force the sub-index cells.
+pub const COMPLEX_OPCODES: &[Opcodes] = &[
+    Opcodes::PACK,
+    Opcodes::UNPACK,
+    Opcodes::VEC_PACK,
+    Opcodes::VEC_UNPACK,
+    Opcodes::IMM_BORROW_FIELD,
+    Opcodes::MUT_BORROW_FIELD,
+    Opcodes::VEC_IMM_BORROW,
+    Opcodes::VEC_MUT_BORROW,
+    Opcodes::VEC_POP_BACK,
+    Opcodes::VEC_PUSH_BACK,
+    Opcodes::VEC_SWAP,
+    Opcodes::VEC_LEN,
+];
+
+fn used_opcodes_need_sub_index(opcodes: &[Opcodes]) -> bool {
+    opcodes
+        .iter()
+        .any(|opcode| COMPLEX_OPCODES.contains(opcode))
+}
+
+fn signature_token_has_complex_value(token: &SignatureToken) -> bool {
+    match token {
+        SignatureToken::Struct(_)
+        | SignatureToken::StructInstantiation(_, _)
+        | SignatureToken::Vector(_) => true,
+        // A reference itself does not carry a sub-index path; paths to fields
+        // are created by BorrowField and friends.  Type parameters are treated
+        // conservatively.
+        SignatureToken::TypeParameter(_) => true,
+        _ => false,
+    }
+}
+
+fn entry_params_need_sub_index(package: &CompiledPackage, entry_info: &EntryInfo) -> bool {
+    let modules = package.all_modules_map();
+    let Ok(module) = modules.get_module(&entry_info.module_id) else {
+        return false;
+    };
+    let Some(function_def) = module.function_defs.get(entry_info.function_index as usize) else {
+        return false;
+    };
+    let handle = module.function_handle_at(function_def.function);
+    module
+        .signatures
+        .get(handle.parameters.0 as usize)
+        .map(|signature| signature.0.iter().any(signature_token_has_complex_value))
+        .unwrap_or(false)
+}
+
+fn move_value_has_complex_value(value: &MoveValue) -> bool {
+    matches!(value, MoveValue::Vector(_) | MoveValue::Struct(_))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -245,5 +330,47 @@ impl EntryInfo {
             function_index: func_info.function_index,
             num_args: func_info.num_arg,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use move_binary_format::file_format::StructHandleIndex;
+
+    #[test]
+    fn detects_complex_opcodes() {
+        assert!(used_opcodes_need_sub_index(&[Opcodes::PACK]));
+        assert!(used_opcodes_need_sub_index(&[
+            Opcodes::RET,
+            Opcodes::VEC_POP_BACK
+        ]));
+        assert!(!used_opcodes_need_sub_index(&[
+            Opcodes::RET,
+            Opcodes::COPY_LOC,
+            Opcodes::CALL
+        ]));
+    }
+
+    #[test]
+    fn detects_complex_signature_tokens() {
+        assert!(!signature_token_has_complex_value(&SignatureToken::U64));
+        assert!(!signature_token_has_complex_value(
+            &SignatureToken::Reference(Box::new(SignatureToken::U64))
+        ));
+        assert!(signature_token_has_complex_value(&SignatureToken::Struct(
+            StructHandleIndex(0)
+        )));
+        assert!(signature_token_has_complex_value(&SignatureToken::Vector(
+            Box::new(SignatureToken::U8)
+        )));
+    }
+
+    #[test]
+    fn detects_complex_constants() {
+        assert!(!move_value_has_complex_value(&MoveValue::U64(1)));
+        assert!(move_value_has_complex_value(&MoveValue::Vector(vec![
+            MoveValue::U8(1)
+        ])));
     }
 }
