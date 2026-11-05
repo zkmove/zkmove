@@ -145,9 +145,11 @@ impl<F: Field + Hashable> Circuit<F> for VmCircuit<F> {
 
         let used_opcodes = circuit.execution_circuit.static_info.used_opcodes();
         let use_poseidon_hash = circuit.poseidon_circuit.is_some();
+        let needs_sub_index = circuit.execution_circuit.static_info.needs_sub_index;
         let execution_circuit_config_args = ExecutionCircuitConfigArgs {
             used_opcodes,
             use_poseidon_hash,
+            needs_sub_index,
         };
 
         let execution_circuit_config =

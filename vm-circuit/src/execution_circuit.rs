@@ -26,6 +26,7 @@ pub(crate) mod step;
 pub(crate) struct ExecutionCircuitConfigArgs {
     pub(crate) used_opcodes: Vec<Opcodes>,
     pub(crate) use_poseidon_hash: bool,
+    pub(crate) needs_sub_index: bool,
 }
 
 #[derive(Clone)]
@@ -44,6 +45,7 @@ impl<F: Field + Hashable> SubCircuitConfig<F> for ExecutionCircuitConfig<F> {
             &lookup_table_config,
             &args.used_opcodes,
             args.use_poseidon_hash,
+            args.needs_sub_index,
         );
 
         Self {

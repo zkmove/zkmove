@@ -204,6 +204,7 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
         lookup_table_configs: &LookupTableConfigV2<F>,
         used_opcodes: &[Opcodes],
         use_poseidon_hash: bool,
+        needs_sub_index: bool,
     ) -> Self {
         let s_usable = meta.complex_selector();
         let s_step_first = meta.complex_selector();
@@ -225,6 +226,7 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
             0,
             &challenge_exprs,
             &used_execution_states,
+            needs_sub_index,
         );
         let step_next = Step::new(
             meta,
@@ -232,6 +234,7 @@ impl<F: Field + Hashable> ExecutionConfig<F> {
             1,
             &challenge_exprs,
             &used_execution_states,
+            needs_sub_index,
         );
         meta.create_gate("s_step_first", |vc| {
             let s_usable = vc.query_selector(s_usable);

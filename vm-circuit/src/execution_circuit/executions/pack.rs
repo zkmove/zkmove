@@ -186,7 +186,7 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
                     step_curr.stack_pop_index.expr() - 1u64.expr(),
                     step_next.stack_pop_index.expr()
                 );
-                cb.require_cell_transition(step_curr.stack_pop_sub_index, Transition::To(0.expr()));
+                cb.require_cell_transition(step_curr.stack_pop_sub_index.cell_required().clone(), Transition::To(0.expr()));
             });
             cb.condition(and::expr([not::expr(last_row.expr()), not::expr(last_row_of_field.expr())]), |cb| {
                 cb.require_cell_transition(field_index.clone(), Transition::Same);
@@ -304,7 +304,9 @@ impl<F: Field, const VEC_PACK: bool> InstructionGadgetV2<F> for Pack<F, VEC_PACK
                 )?;
                 let stack_pop_sub_index = region.get_advice(
                     start_offset + i,
-                    step.stack_pop_sub_index.get_column_idx(),
+                    step.stack_pop_sub_index
+                        .column_idx()
+                        .expect("Pack requires the sub_index cell"),
                     Rotation::cur(),
                 );
                 self.is_zero_stack_pop_sub_index.assign(

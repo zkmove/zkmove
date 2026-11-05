@@ -18,19 +18,64 @@ use witness::step_state::StageState;
 
 use crate::public_inputs::InstanceTable;
 
-/// Number of bytes of the packed local address
+/// Number of bytes of the packed local address when `sub_index` is present:
 /// `frame_index(10 bits) | local_index(8 bits) | sub_index(64 bits)`.
 ///
 /// The address is 82 bits wide, so 11 bytes are enough to compare it.
 const NUM_OF_BYTES_ADDRESS_KEY: usize = 11;
 
+/// Number of bytes of the packed local address in the compact circuit:
+/// `frame_index(10 bits) | local_index(8 bits)`.
+///
+/// The address is 18 bits wide, so 3 bytes are enough to compare it.
+const NUM_OF_BYTES_ADDRESS_KEY_WITHOUT_SUB_INDEX: usize = 3;
+
 #[derive(Clone, Debug)]
-pub struct Teardown<F> {
-    lt_gadget: LtGadget<F, NUM_OF_BYTES_ADDRESS_KEY>,
+enum TeardownLt<F> {
+    WithSubIndex(LtGadget<F, NUM_OF_BYTES_ADDRESS_KEY>),
+    WithoutSubIndex(LtGadget<F, NUM_OF_BYTES_ADDRESS_KEY_WITHOUT_SUB_INDEX>),
 }
 
-/// Returns the packed address key `frame * 2^72 + index * 2^64 + sub_index`
-/// of the step state at `offset`.
+impl<F: Field> TeardownLt<F> {
+    fn expr(&self) -> Expression<F> {
+        match self {
+            Self::WithSubIndex(lt) => lt.expr(),
+            Self::WithoutSubIndex(lt) => lt.expr(),
+        }
+    }
+
+    fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        lhs: F,
+        rhs: F,
+    ) -> Result<(), Error> {
+        match self {
+            Self::WithSubIndex(lt) => {
+                let _ = lt.assign(region, offset, lhs, rhs)?;
+            }
+            Self::WithoutSubIndex(lt) => {
+                let _ = lt.assign(region, offset, lhs, rhs)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn includes_sub_index(&self) -> bool {
+        matches!(self, Self::WithSubIndex(_))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Teardown<F> {
+    lt_gadget: TeardownLt<F>,
+}
+
+/// Returns the packed address key of the step state at `offset`.
+///
+/// With `sub_index` the key is `frame * 2^72 + index * 2^64 + sub_index`; in
+/// the compact circuit it is `frame * 2^8 + index`.
 ///
 /// The strict-increase check on this key is what rules out duplicate local
 /// addresses: duplicate addresses have identical cells (their entries are
@@ -45,6 +90,7 @@ fn key_expr_at<F: Field>(
     cb: &mut VmConstraintBuilder<F>,
     state: &StepState<F>,
     offset: i32,
+    include_sub_index: bool,
 ) -> Expression<F> {
     let frame_lo = cb
         .cell_at_offset(&state.local_frame_index.lo(), offset)
@@ -54,8 +100,14 @@ fn key_expr_at<F: Field>(
         .expr();
     let frame = frame_lo + frame_hi * pow_of_two_expr(8);
     let index = cb.cell_at_offset(&state.local_index, offset).expr();
-    let sub_index = cb.cell_at_offset(&state.local_sub_index, offset).expr();
-    frame * pow_of_two_expr(72) + index * pow_of_two_expr(64) + sub_index
+    if include_sub_index {
+        let sub_index = cb
+            .cell_at_offset(state.local_sub_index.cell_required(), offset)
+            .expr();
+        frame * pow_of_two_expr(72) + index * pow_of_two_expr(64) + sub_index
+    } else {
+        frame * pow_of_two_expr(8) + index
+    }
 }
 
 impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
@@ -75,13 +127,23 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
         cb.require_no_stack_pop();
         cb.require_no_stack_push();
 
+        let include_sub_index = cb.curr.needs_sub_index;
         let state = cb.curr.state.clone();
         let mut lt = None;
         cb.not_first_row(|cb| {
-            let prev_key = key_expr_at(cb, &state, -1);
-            let cur_key = key_expr_at(cb, &state, 0);
-            let lt_gadget =
-                LtGadget::<F, NUM_OF_BYTES_ADDRESS_KEY>::construct(cb, prev_key, cur_key);
+            let prev_key = key_expr_at(cb, &state, -1, include_sub_index);
+            let cur_key = key_expr_at(cb, &state, 0, include_sub_index);
+            let lt_gadget = if include_sub_index {
+                TeardownLt::WithSubIndex(LtGadget::<F, NUM_OF_BYTES_ADDRESS_KEY>::construct(
+                    cb, prev_key, cur_key,
+                ))
+            } else {
+                TeardownLt::WithoutSubIndex(
+                    LtGadget::<F, NUM_OF_BYTES_ADDRESS_KEY_WITHOUT_SUB_INDEX>::construct(
+                        cb, prev_key, cur_key,
+                    ),
+                )
+            };
             cb.require_true(
                 format!("{}, prev_address < cur_address", Self::NAME),
                 lt_gadget.expr(),
@@ -121,11 +183,16 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
 
         // Sort by address so that the circuit can enforce strictly increasing
         // addresses, i.e. exactly one teardown row per local address.
+        let include_sub_index = self.lt_gadget.includes_sub_index();
         let mut memory_ops = state.memory_ops.clone();
         memory_ops.sort_by_key(|op| {
             let local_rw = op.2.as_ref().unwrap();
             let sub_index: u64 = local_rw.sub_index.clone().into();
-            (local_rw.frame_index, local_rw.index, sub_index)
+            (
+                local_rw.frame_index,
+                local_rw.index,
+                if include_sub_index { sub_index } else { 0 },
+            )
         });
 
         // then assign the memory and base
@@ -146,6 +213,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
     ) -> Result<usize, Error> {
         debug_assert!(stage_state.rows() > 0);
 
+        let include_sub_index = self.lt_gadget.includes_sub_index();
         let rows = stage_state.rows();
         let mut keys = Vec::with_capacity(rows);
         for i in 0..rows {
@@ -165,12 +233,19 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
                 step_state.local_index.get_column_idx(),
                 Rotation::cur(),
             );
-            let sub_index = region.get_advice(
-                offset + i,
-                step_state.local_sub_index.get_column_idx(),
-                Rotation::cur(),
-            );
-            keys.push(frame * pow_of_two::<F>(72) + index * pow_of_two::<F>(64) + sub_index);
+            if include_sub_index {
+                let sub_index = region.get_advice(
+                    offset + i,
+                    step_state
+                        .local_sub_index
+                        .column_idx()
+                        .expect("teardown requires the sub_index cell"),
+                    Rotation::cur(),
+                );
+                keys.push(frame * pow_of_two::<F>(72) + index * pow_of_two::<F>(64) + sub_index);
+            } else {
+                keys.push(frame * pow_of_two::<F>(8) + index);
+            }
         }
 
         let mut sorted = keys.clone();
@@ -179,7 +254,7 @@ impl<F: Field> InstructionGadgetV2<F> for Teardown<F> {
 
         let mut prev_key = F::zero();
         for (i, key) in keys.iter().enumerate() {
-            let _ = self.lt_gadget.assign(region, offset + i, prev_key, *key)?;
+            self.lt_gadget.assign(region, offset + i, prev_key, *key)?;
             prev_key = *key;
         }
         Ok(rows)
