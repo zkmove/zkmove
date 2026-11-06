@@ -26,11 +26,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           override: false
-      - name: Install Move CLI
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --git https://github.com/zkmove/move move-cli --branch main
       - name: Generate witness
         working-directory: ./functional-tests
         run: |
@@ -41,12 +36,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features test-circuits --test testsuite -- test_all
+          args: --features test-circuits --test testsuite
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --test testsuite -- test_all
+          args: --release --test testsuite
 #      - name: Check Benchmarks
 #        uses: actions-rs/cargo@v1
 #        with:
