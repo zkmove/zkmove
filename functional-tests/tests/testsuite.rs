@@ -44,6 +44,13 @@ fn vm_test(path: &Path) -> datatest_stable::Result<()> {
         .find(|case| case.witness == witness_file)
         .expect("witness is not listed in witnesses/manifest.json");
     debug!("Run case {} ({})", case.name, case.module_id);
+    assert!(
+        case.max_execution_rows >= case.execution_rows,
+        "circuit `{}` allows {} execution rows but its witness needs {}",
+        case.name,
+        case.max_execution_rows,
+        case.execution_rows
+    );
 
     // load package
     let build_path = rooted_path
