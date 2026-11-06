@@ -8,7 +8,7 @@ use field_exts::util::Expr;
 use field_exts::util::Scalar;
 use field_exts::Field;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::{ConstraintSystem, ErrorFront as Error, Expression};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, ErrorFront as Error, Expression};
 use std::iter;
 use value_type::word::{WordCells, WordU10Cells};
 use witness::step_state::{MemoryOp, StepState as StepStateWitness};
@@ -25,6 +25,80 @@ pub const OPCODE: &str = "OPCODE";
 pub const OPERAND0: &str = "operand0";
 pub const OPERAND1: &str = "operand1";
 
+/// A step-state cell that is only allocated when the circuit needs the
+/// `sub_index` dimension of memory addresses.
+///
+/// When the cell is not allocated, [`SubIndexCell::expr`] returns the constant
+/// zero.  All generic constraints that reference the cell (the shuffle tuples,
+/// `local_sub_index == 0`, `local_sub_index == arg_sub_index`, ...) therefore
+/// degrade to "sub_index must be zero", which is exactly the semantics of a
+/// program that cannot produce complex values.
+#[derive(Clone, Debug)]
+pub(crate) struct SubIndexCell<F> {
+    cell: Option<Cell<F>>,
+}
+
+impl<F: Field> SubIndexCell<F> {
+    pub(crate) fn some(cell: Cell<F>) -> Self {
+        Self { cell: Some(cell) }
+    }
+
+    pub(crate) fn none() -> Self {
+        Self { cell: None }
+    }
+
+    pub(crate) fn is_some(&self) -> bool {
+        self.cell.is_some()
+    }
+
+    pub(crate) fn expr(&self) -> Expression<F> {
+        self.cell
+            .as_ref()
+            .map_or_else(|| 0u64.expr(), |cell| cell.expr())
+    }
+
+    pub(crate) fn cell(&self) -> Option<&Cell<F>> {
+        self.cell.as_ref()
+    }
+
+    pub(crate) fn column_idx(&self) -> Option<usize> {
+        self.cell.as_ref().map(Cell::get_column_idx)
+    }
+
+    pub(crate) fn get_column(&self) -> Option<Column<Advice>> {
+        self.cell.as_ref().map(Cell::get_column)
+    }
+
+    /// Returns the underlying cell, panicking if it was not allocated.
+    ///
+    /// Only used by gadgets that require the sub-index dimension and are
+    /// therefore never configured when `needs_sub_index` is false.
+    pub(crate) fn cell_required(&self) -> &Cell<F> {
+        self.cell
+            .as_ref()
+            .expect("sub_index cell is required by this gadget")
+    }
+
+    pub(crate) fn assign(
+        &self,
+        region: &mut CachedRegion<'_, '_, F>,
+        offset: usize,
+        value: F,
+    ) -> Result<(), Error> {
+        match self.cell.as_ref() {
+            Some(cell) => {
+                let _ = cell.assign(region, offset, Value::known(value))?;
+                Ok(())
+            }
+            None if value == F::zero() => Ok(()),
+            // A non-zero sub_index with the compact layout means the static
+            // detection was wrong; fail instead of silently collapsing two
+            // different addresses.
+            None => Err(Error::Synthesis),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct StepState<F> {
     pub clk: Cell<F>,
@@ -39,20 +113,20 @@ pub(crate) struct StepState<F> {
     pub step_counter: Cell<F>,
 
     pub stack_pop_index: WordU10Cells<F>, // max value be 2^10 - 1
-    pub stack_pop_sub_index: Cell<F>,
+    pub stack_pop_sub_index: SubIndexCell<F>,
     pub stack_pop_value: WordCells<F>,
     pub stack_pop_value_header: Cell<F>, // boolean to indicate if the value is a header
     pub stack_pop_version: Cell<F>,
 
     pub stack_push_index: WordU10Cells<F>, // max value be 2^10 - 1
-    pub stack_push_sub_index: Cell<F>,
+    pub stack_push_sub_index: SubIndexCell<F>,
     pub stack_push_value: WordCells<F>,
     pub stack_push_value_header: Cell<F>, // boolean
     pub stack_push_version: Cell<F>,
 
     pub local_frame_index: WordU10Cells<F>, // max value be 2^10 - 1
     pub local_index: Cell<F>,               // max value be 2^8 - 1
-    pub local_sub_index: Cell<F>,
+    pub local_sub_index: SubIndexCell<F>,
 
     pub local_read_value: WordCells<F>,
     pub local_read_value_header: Cell<F>, // boolean
@@ -155,7 +229,7 @@ impl<F: Field> StepState<F> {
             self.stack_pop_sub_index.assign(
                 region,
                 offset,
-                Value::known(stack_pop.map(|v| v.sub_index.scalar()).unwrap_or(F::zero())),
+                stack_pop.map(|v| v.sub_index.scalar()).unwrap_or(F::zero()),
             )?;
             self.stack_pop_value_header.assign(
                 region,
@@ -190,11 +264,9 @@ impl<F: Field> StepState<F> {
             self.stack_push_sub_index.assign(
                 region,
                 offset,
-                Value::known(
-                    stack_push
-                        .map(|v| v.sub_index.scalar())
-                        .unwrap_or(F::zero()),
-                ),
+                stack_push
+                    .map(|v| v.sub_index.scalar())
+                    .unwrap_or(F::zero()),
             )?;
             self.stack_push_value_header.assign(
                 region,
@@ -238,11 +310,9 @@ impl<F: Field> StepState<F> {
             self.local_sub_index.assign(
                 region,
                 offset,
-                Value::known(
-                    local_read_write
-                        .map(|v| v.sub_index.scalar())
-                        .unwrap_or(F::zero()),
-                ),
+                local_read_write
+                    .map(|v| v.sub_index.scalar())
+                    .unwrap_or(F::zero()),
             )?;
 
             self.local_read_value.assign_word(
@@ -322,6 +392,7 @@ impl<F: Field> StepState<F> {
 pub struct Step<F> {
     pub state: StepState<F>,
     pub cell_manager: CellManager<CMFixedHeightStrategy>,
+    pub needs_sub_index: bool,
 }
 
 impl<F: Field> Step<F> {
@@ -331,6 +402,7 @@ impl<F: Field> Step<F> {
         offset: isize,
         challenges: &Challenges<Expression<F>>,
         execution_states: &[ExecutionState],
+        needs_sub_index: bool,
     ) -> Self {
         // height should always be 1
         let strategy = CMFixedHeightStrategy::new(1, offset);
@@ -376,11 +448,15 @@ impl<F: Field> Step<F> {
             ),
 
             stack_pop_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
-            stack_pop_sub_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::StoragePhase1,
-            ),
+            stack_pop_sub_index: if needs_sub_index {
+                SubIndexCell::some(cell_manager.query_cell(
+                    meta,
+                    cell_manager_columns,
+                    CellType::StoragePhase1,
+                ))
+            } else {
+                SubIndexCell::none()
+            },
             stack_pop_value: WordCells::new(
                 meta,
                 cell_manager_columns,
@@ -399,11 +475,15 @@ impl<F: Field> Step<F> {
             ),
 
             stack_push_index: WordU10Cells::new(meta, cell_manager_columns, &mut cell_manager),
-            stack_push_sub_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::StoragePhase1,
-            ),
+            stack_push_sub_index: if needs_sub_index {
+                SubIndexCell::some(cell_manager.query_cell(
+                    meta,
+                    cell_manager_columns,
+                    CellType::StoragePhase1,
+                ))
+            } else {
+                SubIndexCell::none()
+            },
             stack_push_value: WordCells::new(
                 meta,
                 cell_manager_columns,
@@ -427,11 +507,15 @@ impl<F: Field> Step<F> {
                 cell_manager_columns,
                 CellType::Lookup(Table::U8),
             ),
-            local_sub_index: cell_manager.query_cell(
-                meta,
-                cell_manager_columns,
-                CellType::StoragePhase1,
-            ),
+            local_sub_index: if needs_sub_index {
+                SubIndexCell::some(cell_manager.query_cell(
+                    meta,
+                    cell_manager_columns,
+                    CellType::StoragePhase1,
+                ))
+            } else {
+                SubIndexCell::none()
+            },
             local_read_value: WordCells::new(
                 meta,
                 cell_manager_columns,
@@ -478,6 +562,7 @@ impl<F: Field> Step<F> {
         Self {
             state,
             cell_manager,
+            needs_sub_index,
         }
     }
 
@@ -495,6 +580,7 @@ impl<F: Field> Step<F> {
             offset,
             challenges,
             self.state.execution_state.execution_states(),
+            self.needs_sub_index,
         )
     }
 
@@ -535,10 +621,6 @@ impl<F: Field> Step<F> {
                 "stack_pop_index_hi",
             ),
             (
-                self.state.stack_pop_sub_index.get_column(),
-                "stack_pop_sub_index",
-            ),
-            (
                 self.state.stack_pop_value.cells()[0].get_column(),
                 "stack_pop_value_0",
             ),
@@ -561,10 +643,6 @@ impl<F: Field> Step<F> {
             (
                 self.state.stack_push_index.hi().get_column(),
                 "stack_push_index_hi",
-            ),
-            (
-                self.state.stack_push_sub_index.get_column(),
-                "stack_push_sub_index",
             ),
             (
                 self.state.stack_push_value.cells()[0].get_column(),
@@ -591,7 +669,6 @@ impl<F: Field> Step<F> {
                 "local_frame_index_hi",
             ),
             (self.state.local_index.get_column(), "local_index"),
-            (self.state.local_sub_index.get_column(), "local_sub_index"),
             (
                 self.state.local_read_value_header.get_column(),
                 "local_read_value_header",
@@ -633,6 +710,24 @@ impl<F: Field> Step<F> {
                 "local_write_version",
             ),
         ];
+        let annotations: Vec<_> = annotations
+            .into_iter()
+            .chain(
+                [
+                    (
+                        self.state.stack_pop_sub_index.get_column(),
+                        "stack_pop_sub_index",
+                    ),
+                    (
+                        self.state.stack_push_sub_index.get_column(),
+                        "stack_push_sub_index",
+                    ),
+                    (self.state.local_sub_index.get_column(), "local_sub_index"),
+                ]
+                .into_iter()
+                .filter_map(|(column, name)| column.map(|column| (column, name))),
+            )
+            .collect();
         for (column, anno) in annotations {
             region.region().name_column(|| anno, column);
         }
