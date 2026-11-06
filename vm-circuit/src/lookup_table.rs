@@ -243,6 +243,13 @@ impl<F: Field> LookupTableConfigV2<F> {
                 || config_args.used_opcodes.contains(&Opcodes::XOR)
         }
 
+        // `SHL`/`SHR` look up the Pow2 table directly, without the Bitwise table.
+        fn should_enable_pow2_table(config_args: &ExecutionCircuitConfigArgs) -> bool {
+            should_enable_bitwise_table(config_args)
+                || config_args.used_opcodes.contains(&Opcodes::SHL)
+                || config_args.used_opcodes.contains(&Opcodes::SHR)
+        }
+
         let u8_table = UXTable::construct(meta);
         let u2_table = UXTable::construct(meta);
         let bytecode_table = BytecodeLookupTable::construct(meta);
@@ -252,15 +259,11 @@ impl<F: Field> LookupTableConfigV2<F> {
             None
         };
         let function_table = FunctionLookupTable::construct(meta);
-        let (bitwise_table, pow2_table) = if should_enable_bitwise_table(config_args) {
-            // Pow2LookupTable is used by BitwiseLookupTable, so we enable it
-            (
-                Some(BitwiseLookupTable::construct(meta)),
-                Some(Pow2LookupTable::construct(meta)),
-            )
-        } else {
-            (None, None)
-        };
+        let bitwise_table =
+            should_enable_bitwise_table(config_args).then(|| BitwiseLookupTable::construct(meta));
+        // Pow2LookupTable is used by BitwiseLookupTable and by the shift gadget.
+        let pow2_table =
+            should_enable_pow2_table(config_args).then(|| Pow2LookupTable::construct(meta));
         let poseidon_table = if config_args.use_poseidon_hash {
             Some(PoseidonTable::construct(meta))
         } else {
