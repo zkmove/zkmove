@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-# should compile move from https://github.com/zkmove/move.git#branch=main
-MOVE="move"
-$MOVE build --skip-fetch-latest-git-deps
-$MOVE sandbox clean
-$MOVE sandbox publish --skip-fetch-latest-git-deps --ignore-breaking-changes
+# Generate one witness per [circuit.*] entry in Move.toml.
+# The CLI compiles the package, executes each entry (aborts are captured as
+# valid traces) and writes witnesses/<case>.json plus witnesses/manifest.json.
+cd "$(dirname "$0")"
 
-# Read test cases from a file
-test_cases_file="test_cases.txt"
-if [ ! -f "$test_cases_file" ]; then
-    echo "Error: $test_cases_file not found"
-    exit 1
-fi
-
-while IFS= read -r test_case || [[ -n "$test_case" ]]; do
-    $MOVE sandbox run --skip-fetch-latest-git-deps --witness storage/0x0000000000000000000000000000000000000000000000000000000000000002/modules/TestCase.mv $test_case
-done < "$test_cases_file"
+cargo run -q -p zkmove-cli --no-default-features -- vm run-all \
+    --package-path . \
+    --output-dir witnesses \
+    --clean \
+    --skip-fetch-latest-git-deps
