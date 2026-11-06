@@ -361,7 +361,8 @@ impl<F: Field + Hashable> VmCircuit<F> {
         Self::validate_empty_state_config(&static_info, circuit_config_args)
     }
 
-    fn execution_rows(&self) -> usize {
+    /// Number of execution rows required by the witness (padding excluded).
+    pub fn execution_rows(&self) -> usize {
         self.execution_circuit
             .states
             .iter()
