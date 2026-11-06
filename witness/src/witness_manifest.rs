@@ -26,6 +26,10 @@ pub struct WitnessCase {
     pub args: Vec<String>,
     pub max_execution_rows: usize,
     pub max_poseidon_rows: usize,
+    /// Execution rows required by this witness (before padding), measured by
+    /// `zkmove vm run-all`.
+    #[serde(default)]
+    pub execution_rows: usize,
     /// Witness file name, relative to the manifest.
     pub witness: String,
 }

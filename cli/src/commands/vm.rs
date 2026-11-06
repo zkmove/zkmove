@@ -19,7 +19,7 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs};
+use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs, VmCircuit};
 use witness::static_info::{EntryInfo, Footprints};
 use witness::witness_manifest::{WitnessCase, WitnessManifest};
 
@@ -497,6 +497,19 @@ impl RunAllCommand {
             let content = serde_json::to_string_pretty(&footprints.0)?;
             save_to_file(&output_dir, &witness_file, &content)?;
 
+            // Measure the witness's execution rows with padding disabled, so the
+            // manifest can record the tight bound used by Move.toml.
+            let witness_circuit = VmCircuit::<Fr>::new(
+                &package,
+                &footprints,
+                &[],
+                CircuitConfigArgs {
+                    max_execution_rows: None,
+                    max_poseidon_rows: entry.config.max_poseidon_rows,
+                },
+            );
+            let execution_rows = witness_circuit.execution_rows();
+
             let max_execution_rows = entry.config.max_execution_rows.with_context(|| {
                 format!(
                     "circuit `{}` must set max_execution_rows in Move.toml",
@@ -515,6 +528,7 @@ impl RunAllCommand {
                 args: entry.args,
                 max_execution_rows,
                 max_poseidon_rows: entry.config.max_poseidon_rows,
+                execution_rows,
                 witness: witness_file,
             });
         }
