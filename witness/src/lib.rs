@@ -15,3 +15,4 @@ pub mod preprocessor;
 pub mod public_inputs;
 pub mod static_info;
 pub mod step_state;
+pub mod witness_manifest;
