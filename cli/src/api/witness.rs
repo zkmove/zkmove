@@ -11,7 +11,6 @@
 use crate::api::setup::EntryArgument;
 use anyhow::{bail, Result};
 use move_binary_format::errors::PartialVMError;
-use move_cli::sandbox::utils::get_gas_status;
 use move_compiler::compiled_unit::CompiledUnitEnum;
 use move_core_types::{
     account_address::AccountAddress,
@@ -27,6 +26,7 @@ use move_vm_runtime::{
     module_traversal::{TraversalContext, TraversalStorage},
     move_vm::MoveVM,
 };
+use move_vm_test_utils::gas_schedule::GasStatus;
 use move_vm_test_utils::InMemoryStorage;
 use witness::static_info::Footprints;
 
@@ -95,15 +95,15 @@ where
         .chain(nursery_natives(stdlib_addr, NurseryGasParameters::zeros()))
         .collect::<Vec<_>>();
 
-    let cost_table = &move_vm_test_utils::gas_schedule::INITIAL_COST_SCHEDULE;
-    let mut gas_status = get_gas_status(cost_table, None)?;
+    // Witness generation is a dry run; disable gas metering.
+    let mut gas_status = GasStatus::new_unmetered();
 
     let vm = MoveVM::new(natives).expect("MoveVM should initialize");
     let mut session = vm.new_session(state);
 
     let traversal_storage = TraversalStorage::new();
     let function_ident = IdentStr::new(function_name)?;
-    session
+    let execution_result = session
         .execute_entry_function(
             module_id,
             function_ident,
@@ -119,14 +119,28 @@ where
                 function_name,
                 e
             )
-        })?;
+        });
 
     // Take the footprints and drop the session without `finish()`: this is a dry run, so
     // any resource effects are discarded rather than committed back to storage.
+    //
+    // Footprints are captured even when execution aborts: the abort is part of the
+    // execution and the circuit proves the abort path (the functional tests include an
+    // abort case).  Only a completely empty trace means the entry never ran.
     let footprints = session.footprints();
     if footprints.is_empty() {
+        execution_result?;
         bail!(
             "no footprints captured; ensure move-vm-runtime is built with the `footprint` feature"
+        );
+    }
+    if let Err(error) = execution_result {
+        log::warn!(
+            "entry function {}::{} aborted after {} footprints: {:?}",
+            module_id,
+            function_name,
+            footprints.len(),
+            error
         );
     }
     Ok(Footprints(footprints))
