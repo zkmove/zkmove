@@ -3,8 +3,9 @@
 use crate::api;
 use crate::api::EntryArgument;
 use crate::common::{
-    get_circuit_config_args_from_move_toml, get_entry_call_from_move_toml,
-    get_entry_info_from_move_toml, load_package, parse_module_id, read_params, save_to_file,
+    get_circuit_config_args_from_move_toml, get_circuits_from_move_toml,
+    get_entry_call_from_move_toml, get_entry_info_from_move_toml, get_package_name_from_move_toml,
+    load_package, parse_entry_args, parse_module_id, read_params, save_to_file,
     ArgWithNameAndTypeJSON, HexEncodedBytes, KZGVariant,
 };
 use anyhow::{bail, Context, Result};
@@ -18,8 +19,9 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs};
+use vm_circuit::{public_inputs::PublicInputs, CircuitConfigArgs, VmCircuit};
 use witness::static_info::{EntryInfo, Footprints};
+use witness::witness_manifest::{WitnessCase, WitnessManifest};
 
 /// The binary files containing the circuit artifacts (params, pk, vk) and the metadata file.
 const PARAMS_FILE: &str = "params.bin";
@@ -71,6 +73,12 @@ enum Subcommands {
     )]
     Run(RunCommand),
 
+    #[command(
+        name = "run-all",
+        about = "Generate witnesses for every [circuit.*] entry declared in Move.toml"
+    )]
+    RunAll(RunAllCommand),
+
     #[command(about = "Setup the circuit artifacts, optionally setup from a witness")]
     Setup(SetupCommand),
 
@@ -112,19 +120,33 @@ pub struct RunCommand {
     package_path: PathBuf,
 
     #[arg(
+        long = "circuit-name",
+        help = "Name of the [circuit.<name>] section; module, function and args are read from Move.toml"
+    )]
+    circuit_name: Option<String>,
+
+    #[arg(
         long = "module-id",
         value_parser = parse_module_id,
+        required_unless_present = "circuit_name",
+        conflicts_with = "circuit_name",
         help = "Module id of the entry function (e.g. 0x1::fibonacci)"
     )]
-    module_id: ModuleId,
+    module_id: Option<ModuleId>,
 
-    #[arg(long = "function-name", help = "Name of the entry function")]
-    function_name: String,
+    #[arg(
+        long = "function-name",
+        required_unless_present = "circuit_name",
+        conflicts_with = "circuit_name",
+        help = "Name of the entry function"
+    )]
+    function_name: Option<String>,
 
     #[arg(
         long = "args",
         value_parser = parser::parse_transaction_argument,
         num_args = 0..,
+        conflicts_with = "circuit_name",
         help = "Entry function arguments (e.g. 10u64 true 0x1)"
     )]
     args: Vec<EntryArgument>,
@@ -135,6 +157,38 @@ pub struct RunCommand {
         help = "Directory to save the witness (default: <package-path>/witnesses)"
     )]
     output_dir: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+#[command(about = "Generate witnesses for every [circuit.*] entry declared in Move.toml")]
+pub struct RunAllCommand {
+    #[arg(
+        long = "package-path",
+        value_parser = value_parser!(PathBuf),
+        help = "Path to the Move package root (contains Move.toml)"
+    )]
+    package_path: PathBuf,
+
+    #[arg(
+        short = 'o',
+        long = "output-dir",
+        help = "Directory to save the witnesses and manifest (default: <package-path>/witnesses)"
+    )]
+    output_dir: Option<PathBuf>,
+
+    #[arg(
+        long = "skip-fetch-latest-git-deps",
+        help = "Skip fetching latest git dependencies",
+        default_value_t = false
+    )]
+    skip_fetch_latest_git_deps: bool,
+
+    #[arg(
+        long = "clean",
+        help = "Remove existing *.json files and manifest.json before generating",
+        default_value_t = false
+    )]
+    clean: bool,
 }
 
 #[derive(Parser)]
@@ -272,6 +326,7 @@ impl VmCommands {
         match &self.command {
             Subcommands::Compile(cmd) => cmd.run(),
             Subcommands::Run(cmd) => cmd.run(),
+            Subcommands::RunAll(cmd) => cmd.run(),
             Subcommands::Setup(cmd) => cmd.run(),
             Subcommands::Prove(cmd) => cmd.run(),
             Subcommands::Verify(cmd) => cmd.run(),
@@ -347,14 +402,32 @@ impl CompileCommand {
 impl RunCommand {
     fn run(&self) -> Result<()> {
         let package_path = &self.package_path;
-        let package = load_package(package_path)?;
+        let manifest_path = package_path.join("Move.toml");
 
-        let footprints = api::witness::generate_witness(
-            &package,
-            &self.module_id,
-            &self.function_name,
-            &self.args,
-        )?;
+        let (module_id, function_name, args) = if let Some(circuit_name) = &self.circuit_name {
+            let entries = get_circuits_from_move_toml(&manifest_path)?;
+            let entry = entries
+                .into_iter()
+                .find(|entry| &entry.name == circuit_name)
+                .with_context(|| format!("[circuit.{}] not found in Move.toml", circuit_name))?;
+            (
+                entry.module_id,
+                entry.function_name,
+                parse_entry_args(&entry.args)?,
+            )
+        } else {
+            (
+                self.module_id.clone().context("--module-id is required")?,
+                self.function_name
+                    .clone()
+                    .context("--function-name is required")?,
+                self.args.clone(),
+            )
+        };
+
+        let package = load_package(package_path)?;
+        let footprints =
+            api::witness::generate_witness(&package, &module_id, &function_name, &args)?;
 
         let output_dir = self
             .output_dir
@@ -363,11 +436,117 @@ impl RunCommand {
         std::fs::create_dir_all(&output_dir)?;
 
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
-        let file_name = format!("{}-{}.json", self.function_name, timestamp);
+        let file_name = format!("{}-{}.json", function_name, timestamp);
         let content = serde_json::to_string_pretty(&footprints.0)?;
         save_to_file(&output_dir, &file_name, &content)?;
 
         info!("Witness saved to {}", output_dir.join(&file_name).display());
+        Ok(())
+    }
+}
+
+impl RunAllCommand {
+    fn run(&self) -> Result<()> {
+        let package_path = &self.package_path;
+        let manifest_path = package_path.join("Move.toml");
+        let entries = get_circuits_from_move_toml(&manifest_path)?;
+        if entries.is_empty() {
+            bail!(
+                "no [circuit.*] entries found in {}",
+                manifest_path.display()
+            );
+        }
+        let package_name = get_package_name_from_move_toml(&manifest_path)?;
+
+        let build_config = move_package::BuildConfig {
+            skip_fetch_latest_git_deps: self.skip_fetch_latest_git_deps,
+            ..Default::default()
+        };
+        build_config.compile_package(package_path, &mut std::io::stdout())?;
+        let package = load_package(package_path)?;
+
+        let output_dir = self
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| package_path.join("witnesses"));
+        std::fs::create_dir_all(&output_dir)?;
+        if self.clean {
+            for dir_entry in std::fs::read_dir(&output_dir)? {
+                let path = dir_entry?.path();
+                if path.is_file()
+                    && path.extension().and_then(|extension| extension.to_str()) == Some("json")
+                {
+                    std::fs::remove_file(&path)?;
+                }
+            }
+        }
+
+        let mut cases = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let args = parse_entry_args(&entry.args)
+                .with_context(|| format!("failed to parse args of circuit `{}`", entry.name))?;
+            let footprints = api::witness::generate_witness(
+                &package,
+                &entry.module_id,
+                &entry.function_name,
+                &args,
+            )
+            .with_context(|| format!("failed to generate witness for circuit `{}`", entry.name))?;
+
+            let witness_file = format!("{}.json", entry.name);
+            let content = serde_json::to_string_pretty(&footprints.0)?;
+            save_to_file(&output_dir, &witness_file, &content)?;
+
+            // Measure the witness's execution rows with padding disabled, so the
+            // manifest can record the tight bound used by Move.toml.
+            let witness_circuit = VmCircuit::<Fr>::new(
+                &package,
+                &footprints,
+                &[],
+                CircuitConfigArgs {
+                    max_execution_rows: None,
+                    max_poseidon_rows: entry.config.max_poseidon_rows,
+                },
+            );
+            let execution_rows = witness_circuit.execution_rows();
+
+            let max_execution_rows = entry.config.max_execution_rows.with_context(|| {
+                format!(
+                    "circuit `{}` must set max_execution_rows in Move.toml",
+                    entry.name
+                )
+            })?;
+            info!("Witness for circuit `{}` saved", entry.name);
+            cases.push(WitnessCase {
+                name: entry.name,
+                module_id: format!(
+                    "{}::{}",
+                    entry.module_id.address().to_hex_literal(),
+                    entry.module_id.name()
+                ),
+                function_name: entry.function_name,
+                args: entry.args,
+                max_execution_rows,
+                max_poseidon_rows: entry.config.max_poseidon_rows,
+                execution_rows,
+                witness: witness_file,
+            });
+        }
+
+        let manifest = WitnessManifest {
+            package: package_name,
+            cases,
+        };
+        save_to_file(
+            &output_dir,
+            "manifest.json",
+            serde_json::to_string_pretty(&manifest)?,
+        )?;
+        info!(
+            "Generated {} witnesses under {}",
+            manifest.cases.len(),
+            output_dir.display()
+        );
         Ok(())
     }
 }
