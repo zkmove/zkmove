@@ -9,6 +9,7 @@ use halo2_proofs::poly::{commitment::Params, kzg::commitment::ParamsKZG};
 use log::debug;
 use move_core_types::{
     account_address::AccountAddress, identifier::Identifier, language_storage::ModuleId,
+    transaction_argument::TransactionArgument,
 };
 use move_package::compilation::compiled_package::{CompiledPackage, OnDiskCompiledPackage};
 use move_package::compilation::package_layout::CompiledPackageLayout;
@@ -63,25 +64,30 @@ pub fn load_package(rooted_path: &Path) -> Result<CompiledPackage> {
     package.into_compiled_package()
 }
 
-pub fn get_circuit_config_args_from_move_toml(
-    toml_path: &Path,
-    circuit_name: Option<&str>,
-) -> Result<CircuitConfigArgs> {
-    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
+/// One `[circuit]` / `[circuit.<name>]` entry declared in `Move.toml`.
+#[derive(Clone, Debug)]
+pub struct CircuitEntry {
+    pub name: String,
+    pub config: CircuitConfigArgs,
+    pub module_id: ModuleId,
+    pub function_name: String,
+    /// Raw argument strings; parse with [`parse_entry_args`] before execution.
+    pub args: Vec<String>,
+}
 
-    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
+fn find_circuit_table<'a>(parsed: &'a Value, circuit_name: Option<&str>) -> Result<&'a Value> {
+    let circuit = parsed
+        .get("circuit")
+        .context("[circuit] section not found")?;
+    match circuit_name {
+        Some(name) => circuit
+            .get(name)
+            .with_context(|| format!("[circuit.{}] not found", name)),
+        None => Ok(circuit),
+    }
+}
 
-    let circuit_table = match circuit_name {
-        Some(name) => parsed
-            .get("circuit")
-            .and_then(|c| c.get(name))
-            .with_context(|| format!("[circuit.{}] not found", name))?,
-
-        None => parsed
-            .get("circuit")
-            .context("[circuit] section not found")?,
-    };
-
+fn parse_circuit_config_args(circuit_table: &Value) -> Result<CircuitConfigArgs> {
     let table = circuit_table
         .as_table()
         .context("circuit section is not a table")?;
@@ -103,27 +109,7 @@ pub fn get_circuit_config_args_from_move_toml(
     })
 }
 
-/// Parse the entry call (module id + function name) declared in the `[circuit(.name)].entry`
-/// section of `Move.toml`.
-pub fn get_entry_call_from_move_toml(
-    toml_path: &Path,
-    circuit_name: Option<&str>,
-) -> Result<(ModuleId, String)> {
-    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
-
-    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
-
-    let circuit_table = match circuit_name {
-        Some(name) => parsed
-            .get("circuit")
-            .and_then(|c| c.get(name))
-            .with_context(|| format!("[circuit.{}] not found", name))?,
-
-        None => parsed
-            .get("circuit")
-            .context("[circuit] section not found")?,
-    };
-
+fn parse_circuit_entry(circuit_table: &Value) -> Result<(ModuleId, String)> {
     let entry = circuit_table
         .get("entry")
         .context("'entry' field not found in circuit section")?;
@@ -140,6 +126,103 @@ pub fn get_entry_call_from_move_toml(
 
     let module_id = parse_module_id(module_id_str)?;
     Ok((module_id, function_name.to_string()))
+}
+
+fn parse_circuit_args(circuit_table: &Value) -> Result<Vec<String>> {
+    match circuit_table.get("args") {
+        None => Ok(Vec::new()),
+        Some(value) => value
+            .as_array()
+            .context("`args` must be an array of strings")?
+            .iter()
+            .map(|arg| {
+                arg.as_str()
+                    .map(str::to_string)
+                    .context("`args` entries must be strings")
+            })
+            .collect(),
+    }
+}
+
+pub fn get_circuit_config_args_from_move_toml(
+    toml_path: &Path,
+    circuit_name: Option<&str>,
+) -> Result<CircuitConfigArgs> {
+    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
+    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
+    parse_circuit_config_args(find_circuit_table(&parsed, circuit_name)?)
+}
+
+/// Parse the entry call (module id + function name) declared in the `[circuit(.name)].entry`
+/// section of `Move.toml`.
+pub fn get_entry_call_from_move_toml(
+    toml_path: &Path,
+    circuit_name: Option<&str>,
+) -> Result<(ModuleId, String)> {
+    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
+    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
+    parse_circuit_entry(find_circuit_table(&parsed, circuit_name)?)
+}
+
+/// Parse every circuit declared in `Move.toml`.
+///
+/// `[circuit]` with an inline `entry` is returned as a single entry named
+/// "default"; otherwise each `[circuit.<name>]` sub-table becomes one entry.
+/// The result is sorted by name so witness generation is deterministic.
+pub fn get_circuits_from_move_toml(toml_path: &Path) -> Result<Vec<CircuitEntry>> {
+    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
+    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
+    let circuit = parsed
+        .get("circuit")
+        .context("[circuit] section not found")?;
+    let table = circuit
+        .as_table()
+        .context("circuit section is not a table")?;
+
+    let mut entries: Vec<(String, &Value)> = if table.contains_key("entry") {
+        vec![("default".to_string(), circuit)]
+    } else {
+        table
+            .iter()
+            .map(|(name, value)| (name.clone(), value))
+            .collect()
+    };
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    entries
+        .into_iter()
+        .map(|(name, value)| {
+            let (module_id, function_name) = parse_circuit_entry(value)?;
+            Ok(CircuitEntry {
+                name,
+                config: parse_circuit_config_args(value)?,
+                module_id,
+                function_name,
+                args: parse_circuit_args(value)?,
+            })
+        })
+        .collect()
+}
+
+pub fn get_package_name_from_move_toml(toml_path: &Path) -> Result<String> {
+    let content = std::fs::read_to_string(toml_path).context("Failed to read Move.toml")?;
+    let parsed: Value = content.parse().context("Failed to parse Move.toml")?;
+    parsed
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(|name| name.as_str())
+        .map(str::to_string)
+        .context("package.name is missing or invalid in Move.toml")
+}
+
+/// Parse raw argument strings with the same parser as the CLI `--args` flag.
+pub fn parse_entry_args(args: &[String]) -> Result<Vec<TransactionArgument>> {
+    args.iter()
+        .map(|arg| {
+            move_core_types::parser::parse_transaction_argument(arg)
+                .map_err(|e| anyhow::anyhow!("invalid argument `{}`: {}", arg, e))
+        })
+        .collect()
 }
 
 pub fn get_entry_info_from_move_toml(
